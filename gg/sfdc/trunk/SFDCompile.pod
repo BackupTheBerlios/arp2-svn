@@ -321,3 +321,9 @@ Initial release.
 Added workaround for workbench.library (base name is "wb").
 Added AmigaOS 4 support.
 Added the --addvectors switch.
+
+
+=item B<1.2 (2004-06-16)>
+
+Generates files for mathieeedoub*, though probably broken. Well they
+are the same as fd2inline generates at least.

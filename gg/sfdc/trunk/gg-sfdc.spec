@@ -1,5 +1,5 @@
 %define Name sfdc
-%define Version 1.1b
+%define Version 1.2
 
 Name        	: gg-%{Name}
 Version     	: %{Version}

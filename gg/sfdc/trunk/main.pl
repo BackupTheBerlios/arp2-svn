@@ -577,9 +577,10 @@ sub parse_sfd ( $ ) {
 	     ) {
 
 	    if ($proto_line =~ /.*\(.*[0-7]-.*\)\s*$/) {
-		print STDERR "Warning: Multiregister function ignored.\n";
+		print STDERR "Warning: Multiregister function broken.\n";
+		$proto_line =~ s/\((.*[0-9])-.*\)/($1)/;
 	    }
-	    else {
+#	    else {
 		push @{$$result{'prototypes'}}, {
 		    type    => $type,
 		    subtype => '',
@@ -592,7 +593,7 @@ sub parse_sfd ( $ ) {
 		    };
 
 		$comment    = '';
-	    }
+#	    }
 
 	    $last_type  = $type;
 	    $type       = 'function';
