@@ -1,0 +1,12 @@
+
+The original license for libnix was, eh, well, there was none. It was
+put into the public domain by its authors, Gunther Nikl and Matthias
+Fleischer.
+
+That's all fine, but it also meant that I could not get hold of
+libnix/PPC, which forced me to work more than I would have to
+otherwise. I don't like to work, and since I know you feel the same,
+*this* version of libnix is Runtime GPL:ed.
+
+/Martin Blom
+
