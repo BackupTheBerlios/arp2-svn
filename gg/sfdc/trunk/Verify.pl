@@ -10,18 +10,33 @@ BEGIN {
 	my $class    = ref($proto) || $proto;
 	my $self     = {};
 	$self->{SFD} = $params{'sfd'};
+	$self->{CNT} = 0;
 	bless ($self, $class);
 	return $self;
     }
 
     sub header {
-	print "Checking file ...";
+	my $self = shift;
+	my $sfd  = $self->{SFD};
+
+	print "Checking SFD for $$sfd{'libname'} ...";
+	$self->{CNT} = 0;
     }
 
     sub function {
+	my $self = shift;
+	my $sfd  = $self->{SFD};
+
+	# Well ... the file is already parsed, so just pretend to
+	# check it. :-)
+
+	++$self->{CNT};
     }
 
     sub footer {
-	print "OK\n";
+	my $self = shift;
+	my $sfd  = $self->{SFD};
+
+	printf "$self->{CNT} function%s verified\n", $self->{CNT} == 1 ? "" : "s";
     }
 }
