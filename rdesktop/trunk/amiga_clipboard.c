@@ -1,7 +1,7 @@
 /*
   rdesktop: A Remote Desktop Protocol client.
   Clipboard handling - Amiga
-  Copyright (C) Martin Blom 2004
+  Copyright (C) Martin Blom 2004-2005
    
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by

@@ -1,7 +1,7 @@
 /* 
    rdesktop: A Remote Desktop Protocol client.
    Sound Channel Process Functions - Amiga/AHI
-   Copyright (C) Martin Blom 2004
+   Copyright (C) Martin Blom 2004-2005
    Copyright (C) Matthew Chapman 2003
    Copyright (C) GuoJunBo guojunbo@ict.ac.cn 2003
    Copyright (C) Michael Gernoth mike@zerfleddert.de 2003

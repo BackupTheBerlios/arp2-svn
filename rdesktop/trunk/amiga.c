@@ -1,7 +1,7 @@
 /*
   rdesktop: A Remote Desktop Protocol client.
   User interface services - Amiga
-  Copyright (C) Martin Blom 2001-2004
+  Copyright (C) Martin Blom 2001-2005
   Copyright (C) Matthew Chapman 1999-2000
    
   This program is free software; you can redistribute it and/or modify
