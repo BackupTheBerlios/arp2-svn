@@ -83,12 +83,13 @@ enum glgfx_input_code {
   glgfx_input_lshift = 0x60,
   glgfx_input_rshift = 0x61,
   glgfx_input_capslock = 0x62,
-  glgfx_input_ctrl = 0x63,
+  glgfx_input_lctrl = 0x63,
+  glgfx_input_rctrl = 0x7f,
   glgfx_input_lalt = 0x64,
   glgfx_input_ralt = 0x65,
   glgfx_input_lmeta = 0x66,
   glgfx_input_rmeta = 0x67,
-  glgfx_input_help = 0x5f,
+  glgfx_input_menu = 0x5f,
   glgfx_input_lbracket = 0x1a,
   glgfx_input_rbracket = 0x1b,
   glgfx_input_semicolon = 0x29,
@@ -121,10 +122,51 @@ enum glgfx_input_code {
   glgfx_input_next = 0x75,
   glgfx_input_rew = 0x76,
   glgfx_input_ff = 0x77,
+  
+  // Multimedia keyboard keys [see also /usr/X11R6/lib/X11/XKeysymDB]
+/*   glgfx_input_my_computer = 0x80, */
+/*   glgfx_input_my_documents = 0x80, */
+/*   glgfx_input_my_pictures = 0x80, */
+/*   glgfx_input_my_music = 0x80, */
 
+/*   glgfx_input_mute = 0x80, */
+/*   glgfx_input_volume_up = 0x80, */
+/*   glgfx_input_volume_down = 0x80, */
+
+/*   glgfx_input_media = 0x80, */
+/*   glgfx_input_mail = 0x80, */
+/*   glgfx_input_web_home = 0x80, */
+/*   glgfx_input_messenger = 0x80, */
+/*   glgfx_input_calculator = 0x80, */
+
+/*   glgfx_input_log_off = 0x80, */
+/*   glgfx_input_sleep = 0x80, */
+  
+/*   glgfx_input_help = 0x80, */
+/*   glgfx_input_undo = 0x80, */
+/*   glgfx_input_redo = 0x80, */
+/*   glgfx_input_new = 0x80, */
+/*   glgfx_input_open = 0x80, */
+/*   glgfx_input_close = 0x80, */
+/*   glgfx_input_reply = 0x80, */
+/*   glgfx_input_forward = 0x80, */
+/*   glgfx_input_send = 0x80, */
+/*   glgfx_input_spell = 0x80, */
+/*   glgfx_input_save = 0x80, */
+/*   glgfx_input_print = 0x80, */
+
+/*   glgfx_input_webcam = 0x80, */
+/*   glgfx_input_search = 0x80, */
+  
+/*   glgfx_input_vendor = 0x80, */
+
+  // System key codes
   glgfx_input_resetwarning = 0x78,
+  glgfx_input_badkey = 0xfa,
+  glgfx_input_error = 0xfc,
   glgfx_input_init_powerup = 0xfd,
   glgfx_input_term_powerup = 0xfe,
+
   
   glgfx_input_key          = 0x0000 << 24,
   glgfx_input_mouse_xyz    = 0x0001 << 24,

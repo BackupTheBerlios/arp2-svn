@@ -57,7 +57,7 @@ static enum glgfx_input_code xorg_codes[256] = {
  
 
   // Row 3
-  glgfx_input_ctrl,	// 37
+  glgfx_input_lctrl,	// 37
   glgfx_input_a,
   glgfx_input_s,
   glgfx_input_d,
@@ -136,7 +136,7 @@ static enum glgfx_input_code xorg_codes[256] = {
   glgfx_input_insert,
   glgfx_input_del,
   glgfx_input_enter,
-  glgfx_input_ctrl,	// FIXME rctrl
+  glgfx_input_rctrl,
   glgfx_input_pause,
   glgfx_input_prtscr,
   glgfx_input_npdiv,
@@ -144,7 +144,7 @@ static enum glgfx_input_code xorg_codes[256] = {
   glgfx_input_none,	// 114
   glgfx_input_lmeta,
   glgfx_input_rmeta,
-  glgfx_input_help,	// Menu
+  glgfx_input_menu,
 
   glgfx_input_none,	// 118
   glgfx_input_none,	// 119
@@ -310,8 +310,11 @@ enum glgfx_input_code glgfx_input_getcode(void) {
 	XKeyEvent* ev = (XKeyEvent*) event;
 	
 	if (ev->keycode < 256) {
-	  code = (xorg_codes[ev->keycode] |
-		  glgfx_input_key |
+	  enum glgfx_input_code c = xorg_codes[ev->keycode];
+
+//	  if (ev->altmask is true
+	  
+	  code = (glgfx_input_key | c |
 		  (event->type == KeyRelease ? glgfx_input_releasemask : 0));
 	}
 	else {
