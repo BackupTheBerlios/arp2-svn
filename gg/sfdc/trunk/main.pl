@@ -648,13 +648,18 @@ sub parse_sfd ( $ ) {
 	    die;
 	};
 
-	# Fake the libname
+	# Fake the CIA libname
 	if ($$result{'basename'} eq "cia") {
 	    $$result{'libname'} = "ciaX.resource";
 	}
 	else {
 	    $$result{'libname'} = $$result{'basename'} . ".library";
 	}
+    }
+
+    # Fake the Workbench basename
+    if ($$result{'basename'} eq "workbench") {
+	$$result{'basename'} = "wb";
     }
 
     $$result{'basename'} = lc $$result{'basename'};

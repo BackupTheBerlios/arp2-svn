@@ -318,5 +318,6 @@ Initial release.
 
 =item B<1.1 (2003-XX-XX)>
 
+Added workaround for workbench.library (base name is "wb").
 Added AmigaOS 4 support.
 Added the --addvectors switch.
