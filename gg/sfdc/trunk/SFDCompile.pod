@@ -42,14 +42,14 @@ Show the full help message and exit.
 =item B<--libarg>
 
 Specifies where to place the library base argument when generating
-gatestubs or gateproto files. Possible values are B<none>, B<first>
-and B<last>. The default is B<none>.
+gatestubs or gateproto and libproto files. Possible values are
+B<none>, B<first> and B<last>. The default is B<none>.
 
 
 =item B<--libprefix>
 
 Sets a function name prefix for the local library functions when
-generating gatestubs.
+generating gatestubs or libproto files.
 
 
 =item B<--man>
@@ -88,6 +88,12 @@ library and device developers.
 =item B<gatestubs>
 
 Generate library gate stubs. Useful for library and device developers.
+
+
+=item B<libproto>
+
+Generate a prototype header file for library functions. This is almost
+like B<clib>, but for internal use by library and device developers.
 
 
 =item B<lvo>
