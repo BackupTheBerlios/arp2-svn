@@ -2054,7 +2054,7 @@ test -z "$INSTALL_SCRIPT" && INSTALL_SCRIPT='${INSTALL}'
 
 test -z "$INSTALL_DATA" && INSTALL_DATA='${INSTALL} -m 644'
 
-ac_config_files="$ac_config_files Makefile fd2sfd.readme cross/bin/gg-fix-includes"
+ac_config_files="$ac_config_files Makefile fd2sfd.readme gg-fd2sfd.spec cross/bin/gg-fix-includes"
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
 # tests run on this system so they can be shared between configure
@@ -2388,8 +2388,9 @@ do
   # Handling of arguments.
   "Makefile" ) CONFIG_FILES="$CONFIG_FILES Makefile" ;;
   "fd2sfd.readme" ) CONFIG_FILES="$CONFIG_FILES fd2sfd.readme" ;;
+  "gg-fd2sfd.spec" ) CONFIG_FILES="$CONFIG_FILES gg-fd2sfd.spec" ;;
   "cross/bin/gg-fix-includes" ) CONFIG_FILES="$CONFIG_FILES cross/bin/gg-fix-includes" ;;
-  *) { { echo "$as_me:2392: error: invalid argument: $ac_config_target" >&5
+  *) { { echo "$as_me:2393: error: invalid argument: $ac_config_target" >&5
 echo "$as_me: error: invalid argument: $ac_config_target" >&2;}
    { (exit 1); exit 1; }; };;
   esac
@@ -2614,7 +2615,7 @@ done; }
   esac
 
   if test x"$ac_file" != x-; then
-    { echo "$as_me:2617: creating $ac_file" >&5
+    { echo "$as_me:2618: creating $ac_file" >&5
 echo "$as_me: creating $ac_file" >&6;}
     rm -f "$ac_file"
   fi
@@ -2632,7 +2633,7 @@ echo "$as_me: creating $ac_file" >&6;}
       -) echo $tmp/stdin ;;
       [\\/$]*)
          # Absolute (can't be DOS-style, as IFS=:)
-         test -f "$f" || { { echo "$as_me:2635: error: cannot find input file: $f" >&5
+         test -f "$f" || { { echo "$as_me:2636: error: cannot find input file: $f" >&5
 echo "$as_me: error: cannot find input file: $f" >&2;}
    { (exit 1); exit 1; }; }
          echo $f;;
@@ -2645,7 +2646,7 @@ echo "$as_me: error: cannot find input file: $f" >&2;}
            echo $srcdir/$f
          else
            # /dev/null tree
-           { { echo "$as_me:2648: error: cannot find input file: $f" >&5
+           { { echo "$as_me:2649: error: cannot find input file: $f" >&5
 echo "$as_me: error: cannot find input file: $f" >&2;}
    { (exit 1); exit 1; }; }
          fi;;

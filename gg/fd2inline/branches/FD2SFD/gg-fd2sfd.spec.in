@@ -13,7 +13,7 @@ URL         	: http://www.lysator.liu.se/~lcs/files/gg-cross/
 Source0		: http://www.lysator.liu.se/~lcs/files/gg-cross/%{Name}-%{Version}.tar.gz
 BuildRoot   	: /tmp/%{Name}-%{Version}
 
-Replaces	: gg-fd2inline
+Obsoletes	: gg-fd2inline
 
 %description
 fd2sfd is a parser that converts FD files and clib files to SFD files.
