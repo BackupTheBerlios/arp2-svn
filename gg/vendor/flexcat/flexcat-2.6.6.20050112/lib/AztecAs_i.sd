@@ -1,0 +1,20 @@
+##rem $Id: AztecAs_i.sd,v 1.1 2003/02/12 15:05:34 amiandrew Exp $
+##stringtype assembler
+##shortstrings
+*****************************************************************
+*   This file was created automatically by `%fv'
+*   from "%f0".
+*
+*   Do NOT edit by hand!
+*****************************************************************
+
+        ifnd %b_CAT_I
+%b_CAT_I set 1
+
+        xref    _Open%bCatalog
+        xref    _Close%bCatalog
+        xref    _Get%bString
+
+        xref    %i
+
+        endc    !%b_CAT_I

@@ -1,0 +1,26 @@
+##rem $Id: AutoC_h.sd,v 1.1 2003/02/12 15:05:33 amiandrew Exp $
+##stringtype C
+##shortstrings
+/****************************************************************
+   This file was created automatically by `%fv'
+   from "%f0".
+
+   Do NOT edit by hand!
+****************************************************************/
+
+#ifndef %b_CAT_H
+#define %b_CAT_H
+
+
+#ifndef EXEC_TYPES_H
+#include <exec/types.h>
+#endif  /*  !EXEC_TYPES_H           */
+
+
+/*  Prototypes  */
+extern STRPTR GetString(APTR);
+
+/*  Definitions */
+extern const APTR _%i;\n#define %i ((APTR) &_%i)
+
+#endif /*   !%b_CAT_H  */
