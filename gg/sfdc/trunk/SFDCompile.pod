@@ -315,3 +315,8 @@ Martin Blom <martin@blom.org>
 
 Initial release.
 
+
+=item B<1.1 (2003-XX-XX)>
+
+Added AmigaOS 4 support.
+Added the --addvectors switch.

@@ -33,4 +33,5 @@ From this information, sfdc can:
     functions.
 
 Additionally, sfdc does all this for several Amiga-like operating
-systems: traditional AmigaOS, native Amithlon, AROS and MorphOS.
+systems: traditional AmigaOS, AmigaOS 4, native Amithlon, AROS and
+MorphOS.
