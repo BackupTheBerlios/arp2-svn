@@ -76,6 +76,9 @@ static struct glgfx_bitmap*   bitmap = NULL;
 static struct glgfx_rasinfo*  rasinfo = NULL;
 static struct glgfx_viewport* viewport = NULL;
 static struct glgfx_view*     view = NULL;
+static bool                   fullscreen = true;
+static uint32_t               width;
+static uint32_t               height;
 
 void toggle_mousegrab (void);
 void framerate_up (void);
@@ -108,8 +111,6 @@ int graphics_setup (void) {
   printf("graphics_setup()\n");
 
   if (glgfx_create_monitors()) {
-    uint32_t width, height;
-
     if (glgfx_monitor_getattr(glgfx_monitors[0], glgfx_monitor_width, &width) &&
 	glgfx_monitor_getattr(glgfx_monitors[0], glgfx_monitor_height, &height)) {
 
@@ -120,7 +121,9 @@ int graphics_setup (void) {
 
 	if (view != NULL) {
 	  if (glgfx_view_addviewport(view, viewport)) {
-	    return 1;
+	    if (glgfx_input_acquire()) {
+	      return 1;
+	    }
 	  }
 	}
       }
@@ -224,6 +227,9 @@ int graphics_init (void)
 
 void graphics_leave (void) {
   printf("graphics_leave()\n");
+
+  glgfx_input_release();
+
   viewport_shutdown();
 
   if (view != NULL) {
@@ -234,7 +240,7 @@ void graphics_leave (void) {
 
     glgfx_view_destroy(view);
   }
-  
+
   glgfx_destroy_monitors();
   dumpcustom ();
 }
@@ -245,18 +251,60 @@ static int refresh_necessary = 0;
 
 void handle_events (void)
 {
+  enum glgfx_input_code code;
+  
 //  printf("handle_events()\n");
   gui_handle_events ();
 
-/*   for (;;) { */
-/*   } */
+  while ((code = glgfx_input_getcode()) != glgfx_input_none) {
+    switch (code & glgfx_input_typemask) {
+      case glgfx_input_key: {
+	int down = (code & glgfx_input_releasemask) == 0;
+	int key = code & glgfx_input_valuemask;
+	int ievent;
+
+	if ((ievent = match_hotkey_sequence(key, down))) {
+	  handle_hotkey_event(ievent, down);
+	} else {
+	  inputdevice_do_keyboard(code, down);
+	}
+
+	if (code == glgfx_input_q) uae_quit();
+	break;
+      }
+	  
+      case glgfx_input_mouse_xyz: {
+	int rel_x = (int) (char) (((code & glgfx_input_valuemask) >> 0) & 0xff);
+	int rel_y = (int) (char) (((code & glgfx_input_valuemask) >> 8) & 0xff);
+
+	setmousestate(0, 0, rel_x, 0);
+	setmousestate(0, 1, rel_y, 0);
+	break;
+      }
+
+      case glgfx_input_mouse_button: {
+	int down = (code & glgfx_input_releasemask) == 0;
+	int button = code & glgfx_input_valuemask;
+
+	setmousebuttonstate(0, button, down);
+	break;
+      }
+
+      case glgfx_input_mouse_vwheel:
+      case  glgfx_input_mouse_hwheel:
+	break;
+
+      default:
+	write_log("gfx-glgfx: Unknown input event %ld\n", code);
+	break;
+    }
+  }
 }
 
 int check_prefs_changed_gfx (void)
 {
 //  printf("check_prefs_changed_gfx ()\n");
   gui_update_gfx ();
-
 
   notice_screen_contents_lost ();
 
@@ -575,11 +623,21 @@ void framerate_down (void) {
 }
 
 int is_fullscreen (void) {
-  printf("is_fullscreen() -> 1\n");
-  return 1;
+  printf("is_fullscreen() -> %d\n", fullscreen);
+  return fullscreen;
 }
 
 void toggle_fullscreen (void) {
+  fullscreen = !fullscreen;
+
+  if (fullscreen) {
+    glgfx_viewport_move(viewport, width, height, 0, 0);
+  }
+  else {
+    glgfx_viewport_move(viewport, gfxvidinfo.width, gfxvidinfo.height,
+			(width - gfxvidinfo.width) / 2, (height - gfxvidinfo.height) / 2);
+  }
+
   printf("toggle_fullscreen()\n");
 }
 
