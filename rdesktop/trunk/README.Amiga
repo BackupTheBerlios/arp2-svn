@@ -3,7 +3,7 @@ Uploader: Martin Blom <martin@blom.org>
 Author:   Matt Chapman, Martin Blom <martin@blom.org>
 Type:     comm/tcp
 Requires: 68020+, ixemul 48
-Version:  2001-10-28
+Version:  2002-02-20
 
 From <URL:http://www.rdesktop.org/>:
 
@@ -26,9 +26,7 @@ reports and patches to the author.
 
 *******************************************************************************
 
-This is a quick port of rdesktop 1.0.0 with the unified 19-7-4 patch 
-applied. For some reason, rdesktop 1.1.0 didn't work correctly for me.
-The experimental patches are better anyway, so you're not missing much.
+This is a quick port of rdesktop 1.1.0 with the unified 19-8-4 patch 
 
 Even though the Unix version of rdesktop is pretty stable, the Amiga
 version should be considered beta for now. Nevertheless, it works for me.
@@ -314,5 +312,3 @@ THANKS
 
 
 Manual page for rdesktop   Januari 2001                         4
-
-

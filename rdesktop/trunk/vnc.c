@@ -1,7 +1,7 @@
 /*
    rdesktop: A Remote Desktop Protocol client.
    Protocol services - VNC layer
-   Copyright (C) Matthew Chapman 1999-2000
+   Copyright (C) Matthew Chapman 1999-2001
    
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -18,6 +18,7 @@
    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
+#include <stdlib.h>
 #include <unistd.h>		/* select read write close */
 #include <sys/socket.h>		/* socket connect setsockopt */
 #include <sys/time.h>		/* timeval */
@@ -36,141 +37,132 @@ extern int vnc_port_rdp;
 int
 vnc_socket()
 {
-  return (sock);
+	return (sock);
 }
 
 /* Initialise VNC transport data packet */
-STREAM vnc_init (int maxlen)
+STREAM
+vnc_init(int maxlen)
 {
-  if (maxlen > out.size)
-    {
-      out.data = xrealloc (out.data, maxlen);
-      out.size = maxlen;
-    }
+	if (maxlen > out.size) {
+		out.data = xrealloc(out.data, maxlen);
+		out.size = maxlen;
+	}
 
-  out.p = out.data;
-  out.end = out.data + out.size;
-  return &out;
+	out.p = out.data;
+	out.end = out.data + out.size;
+	return &out;
 }
 
 /* Send VNC transport data packet */
 void
-vnc_send (STREAM s)
+vnc_send(STREAM s)
 {
-  int length = s->end - s->data;
-  int sent, total = 0;
+	int length = s->end - s->data;
+	int sent, total = 0;
 
-  while (total < length)
-    {
-      sent = write (sock, s->data + total, length - total);
+	while (total < length) {
+		sent = write(sock, s->data + total, length - total);
 
-#ifdef RDP_DEBUG
-      DEBUG("vnc send\n");
-      hexdump( s->data + total, length - total);
+#ifdef WITH_DEBUG_RDP
+		DEBUG("vnc send\n");
+		hexdump(s->data + total, length - total);
 #endif
 
-      if (sent <= 0)
-	{
-	  STATUS ("write: %s\n", strerror (errno));
-	  return;
-	}
+		if (sent <= 0) {
+			STATUS("write: %s\n", strerror(errno));
+			return;
+		}
 
-      total += sent;
-    }
+		total += sent;
+	}
 }
 
 /* Receive a message on the VNC layer */
-STREAM vnc_recv (int length)
+STREAM
+vnc_recv(int length)
 {
-  int rcvd = 0;
+	int rcvd = 0;
 
-  if (length > in.size)
-    {
-      in.data = xrealloc (in.data, length);
-      in.size = length;
-    }
-
-  in.end = in.p = in.data;
-
-  while (length > 0)
-    {
-
-      DEBUG ("length=%d\n", length);
-      rcvd = read (sock, in.end, length);
-
-      if (rcvd <= 0)
-        {
-	  STATUS ("vnc_recv read: %s\n", strerror (errno));
-	  return NULL;
+	if (length > in.size) {
+		in.data = xrealloc(in.data, length);
+		in.size = length;
 	}
-#ifdef RDP_DEBUG
-      DEBUG("vnc recv\n");
-      hexdump( in.end, rcvd );
+
+	in.end = in.p = in.data;
+
+	while (length > 0) {
+
+		DEBUG("length=%d\n", length);
+		rcvd = read(sock, in.end, length);
+
+		if (rcvd <= 0) {
+			STATUS("vnc_recv read: %s\n", strerror(errno));
+			return NULL;
+		}
+#ifdef WITH_DEBUG_RDP
+		DEBUG("vnc recv\n");
+		hexdump(in.end, rcvd);
 #endif
-      in.end += rcvd;
-      length -= rcvd;
-    }
-  return &in;
+		in.end += rcvd;
+		length -= rcvd;
+	}
+	return &in;
 }
 
 /* Establish a connection on the VNC layer */
-Bool vnc_connect (char *server)
+BOOL
+vnc_connect(char *server)
 {
-  struct hostent *nslookup;
-  struct sockaddr_in servaddr;
-  int true = 1;
-  char *index;
+	struct hostent *nslookup;
+	struct sockaddr_in servaddr;
+	int true = 1;
+	char *index;
 
-  if( index = rindex ( server, ':' ) )
-    {
-      vnc_port_rdp = 5900 + atoi( index + 1 );
-      *index = 0;
-fprintf( stderr, "host: %s, port: %d\n", server, vnc_port_rdp );
-fflush(stderr);
-    }
-  if ((nslookup = gethostbyname (server)) != NULL)
-    {
-      memcpy (&servaddr.sin_addr, nslookup->h_addr,
-	      sizeof (servaddr.sin_addr));
-    }
-  else if (!(servaddr.sin_addr.s_addr = inet_addr (server)))
-    {
-      STATUS ("%s: unable to resolve host\n", server);
-      return False;
-    }
+	if ( (index = rindex(server, ':')) ) {
+		vnc_port_rdp = 5900 + atoi(index + 1);
+		*index = 0;
+		fprintf(stderr, "host: %s, port: %d\n", server, vnc_port_rdp);
+		fflush(stderr);
+	}
+	if ((nslookup = gethostbyname(server)) != NULL) {
+		memcpy(&servaddr.sin_addr, nslookup->h_addr,
+		       sizeof (servaddr.sin_addr));
+	} else if (!(servaddr.sin_addr.s_addr = inet_addr(server))) {
+		STATUS("%s: unable to resolve host\n", server);
+		return False;
+	}
 
-  if ((sock = socket (AF_INET, SOCK_STREAM, 0)) < 0)
-    {
-      STATUS ("socket: %s\n", strerror (errno));
-      return False;
-    }
+	if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+		STATUS("socket: %s\n", strerror(errno));
+		return False;
+	}
 
-  servaddr.sin_family = AF_INET;
-  servaddr.sin_port = htons (vnc_port_rdp);
+	servaddr.sin_family = AF_INET;
+	servaddr.sin_port = htons(vnc_port_rdp);
 
-  if (connect (sock, (struct sockaddr *) &servaddr, sizeof (struct sockaddr))
-      < 0)
-    {
-      STATUS ("connect: %s\n", strerror (errno));
-      close (sock);
-      return False;
-    }
+	if (connect
+	    (sock, (struct sockaddr *) &servaddr, sizeof (struct sockaddr)) < 0) {
+		STATUS("connect: %s\n", strerror(errno));
+		close(sock);
+		return False;
+	}
 
-  setsockopt (sock, IPPROTO_TCP, TCP_NODELAY, (void *) &true, sizeof (true));
+	setsockopt(sock, IPPROTO_TCP, TCP_NODELAY, (void *) &true,
+		   sizeof (true));
 
-  in.size = 8192;
-  in.data = xmalloc (in.size);
+	in.size = 8192;
+	in.data = xmalloc(in.size);
 
-  out.size = 4096;
-  out.data = xmalloc (out.size);
+	out.size = 4096;
+	out.data = xmalloc(out.size);
 
-  return True;
+	return True;
 }
 
 /* Disconnect on the VNC layer */
 void
-vnc_disconnect ()
+vnc_disconnect()
 {
-  close (sock);
+	close(sock);
 }
-

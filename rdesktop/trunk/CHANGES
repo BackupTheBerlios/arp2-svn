@@ -1,6 +1,8 @@
 RELEASES
 
-rdesktop-1.0.0.tar.gz: 
+rdesktop-1.0.0.tar.gz:
+		Author: 	Matthew Chapman <matthewc@cse.unsw.edu.au>.
+rdesktop-1.1.0.tar.gz:
 		Author: 	Matthew Chapman <matthewc@cse.unsw.edu.au>.
 
 
@@ -12,6 +14,8 @@ NOTES:
 
 
 CHANGES:
+
+against rdesktop 1.0.0:
 
 
 U-PATCH3:
@@ -49,7 +53,7 @@ U-PATCH9:
 		Philippe MARTIN <pmartin@eridan-info.fr>
 
 U-PATCH10:
-	* added -4 flag. use -4 if you wish to connect to an NT4 TS, we now defaults o w2k.
+	* added -4 flag. use -4 if you wish to connect to an NT4 TS, we now defaults to w2k.
 		Peter Bystrom <peter.bystrom@ub.oru.se>
 
 U-PATCH11-1:
@@ -370,9 +374,11 @@ U-PATCH19-5-10:
 U-PATCH19-6:
 	* fix: a license problem. rdesktop in itself is GLP:ed, but one of the libs it used was licensed only for noncommercial use. This issue is now resolved.If you don't have the GMP lib installed you will need it, it's currently available at: http://www.swox.com/gmp/
 		Bradley Bell <btb@debian.org>
+
 U-PATCH19-6-1:
 	* instead of having some of the ssl lib in the rdesktop code, we link against the library, you need openssl 0.9.6 or compatible.
 		Bradley Bell <btb@debian.org>
+
 U-PATCH19-6-2:
         * fix: added -c flag to Makefile, install parts. At gnu platforms this doesn't seem to be an issue, but on others the manual file may be removed, and impossible to rebuild if this flag isn't present.
                 Chris Knight <chris@aims.com.au>
@@ -380,14 +386,17 @@ U-PATCH19-6-2:
                 Norbert Federa <nfedera@thinstuff.com>
         * fix: support for PowerPC, need align was missing.
                 Jacco de Leeuw <jacco2@dds.nl>
+
 U-PATCH19-6-3:
         * fix: support for mips/irix.
                 Alexander Antsiferov <smng-alexa@mail.ru>
+
 U-PATCH19-6-4:
         * fix: adding -mips3 flag since it supports more hardware than the default -mips4
                 Roger Brown <rogerb@pisco.engr.sgi.com>
         * fix: the fix in the 19-6-3 patch was incorrect, probably due to me (peter) assuming that the -m flag would return mips. Alexander corrected me. Thanks! :)
                 Alexander Antsiferov <smng-alexa@mail.ru>
+
 U-PATCH19-6-5:
 	* fix: adding -mabi=32 on 32/64 bit irix. 
 		Roger Brown <rogerb@pisco.engr.sgi.com>
@@ -443,6 +452,7 @@ U-PATCH19-7-3:
 	        Andreas Pitt <ap@i-ghg.de>
 	* fix: hostname may not be longer than 15 ( 30 in UNICODE ) so we cut.
 	        Assar Westerlund <assar@sics.se>
+
 U-PATCH19-7-4:
             * fix: blinking border problems in excel, must resent origin.
          	        Vincent DEDIEU <vincent@axel.fr>
@@ -455,5 +465,77 @@ U-PATCH19-7-4:
             * changed: the keyboard layout code, also added long codes. Naming conventions have changed, i.e. "sv" stands for swedish, and not "se". "se" is the code of the country. The author of the patch and I had some disagrements on the naming convention in use, but I believe it is better to follow the iso coding even if it feels funny at first. the LANG= encodings under linux appear to ( and probably other unices ) use a similar encoding, as far as I have noticed anyway. If anyone wishes to know where the iso is, it is available at: http://www.w3.org/WAI/ER/IG/ert/iso639.htm . If too many ppl bulks on the mailing list, I may consider changing it, if you can find a good reason for it.
                      Michal Mihalik <mmihalik@sme.sk>
 
+U-PATCH19-7-5:
+            * fix: 8bit color mode without private colormap, didn't check XAllocColor return value, does now.
+	    		Ingmar Thiemann <ingmar@gefas.com>
+	    * fix: when started by window manager rdesktop could hang on exit while eating cpu.
+			Per Kristian Hove <Per.Hove@math.ntnu.no> && Matt Chapman <matthewc@cse.unsw.edu.au>
+            * fix: using -N switch witout the -k switch caused a core dump, it has been fixed.
+			Valery Sherman <sher@sgi.ru>
+	    * fix: removed /usr/include/sys from CFLAGS for Irix and Irix64, it is no longer needed and is causing troubles.. :)
+			Valery Sherman <sher@sgi.ru>
+            * fix: "true" mouse wheel support, instead of sending scroll up/down events... ( Button4/5 support )
+			Bernd Oelker <benni@hspg.de>
+            * fix: clear window upon startup, so that cached data is not viewed on screen.
+		        Lennert Buytenhek <buytenh@gnu.org>
 
+U-PATCH19-7-6:
+            * fix: orders.c in process_polyline, sometimes need copy, sometime needs xor
+	    		Jay Sorg <j@american-data.com>
+            * fix: an annoying focus problem bug when the mouse moves over an rdesktop window in the background, now we only process drawing events when window is not focused.
+	    		Jay Sorg <j@american-data.com>
+	    * fix: a minor problem with the focus exposed by above focus fix, we must grab the focus when we open the window, may behave differently in some cases, inform me if the new behaviour annoys you. The problem appears as most troublesome when running without any window manager, and in fullscreen.. :)
+	    		Peter Byström <peter.bystrom@ub.oru.se>
 
+U-PATCH19-8-0: ( started the merging with rdesktop 1.1.  19-7-6 is probably more "stable" since I may introduce some bugs in the work. )
+            * changed: picked up the configure script and related for rdesktop 1.1, modified them for support for the unified patches. Added simple autodetection of openssl and gmp.
+	    * added: crypto/ subdir to match 1.1
+	    * added: tests/ subdir for some simple test scripts etc, such as the bigendian/littleendian test.
+	    * fix: some potential bugs in iso.c matthew apparently has fixed in 1.1. False was returned instead of NULL, both are usually 0. Didn't affect the codepath, but it is still an error.
+	    * fix: sec_rsa_encrypt() have been changed to reflect 1.1
+	    * added: capslock/numlock synchronization, fixes an annoying problem when the keys get switched.
+			Paul Bludov <paul@ozero.net>
+
+against rdesktop 1.1.0:
+
+U-PATCH19-8-1: ( this version is diffed against 1.1 instead. )
+            * added: some more switches to the configure script, --with-ssl-libs= --with-ssl-includes= --with-gui=xwin|win32|svga etc.
+	    * added: svgalib gui. ( peter: it is not fully compatible with the patches, so currently it is unusable, but I hope someone will fix it .. *wink* ;) )
+	         Donald Gordon <don@dis.org.nz>
+	    * added: win32 through the ntxlib. still some things to be done. the xnt.h file needs to be fixed a bit, and so does the xlib.c file... ( peter: nice X-mas project for someone. ;) )
+	    * added: --built-in-licence identifies itself as a w2k client.
+	    	Ahmon Dancy <dancy@franz.com>
+
+U-PATCH19-8-2: ( Merry Christmas - 2001 )
+            * fix: some issues with the configure script.
+		Valery Sherman <sher@sgi.ru>
+	    * fix: builtin getopt_long was never used.
+		Valery Sherman <sher@sgi.ru>
+	    * fix: crypto warnings about error() and some more when not using openssl.
+		Valery Sherman <sher@sgi.ru>
+ 	    * fix: some compile warnings
+	         Dominik Mierzejewski <dominik@aaf16.warszawa.sdi.tpnet.pl>
+
+U-PATCH19-8-3:
+		* add: colourmap cache.
+	             Paul Bludov <paul@ozero.net>
+		* add: a native win32 port of rdesktop instead of using the ntxlib, use the --with-gui=win32 switch, currently not compiling since it's not adapted to the patches... yet. ntxlib has been removed from the sources in favour of this code.
+	             Paul Bludov <paul@ozero.net>
+		* fix: I've found, that server sometimes send order "put bitmap X with colourmap X to somewhere", and later "put bitmap X with colourmap Y to somewhere". But rdesktop ignores os->colour_table parameter. Also, rdesktop calls ui_put_colourmap() in process_colcache(). It's absolutelly wrong. It should be called only from process_palette(). process_colcache() should put the colourmap into the cache and nothing else. Later, process_memblt() or process_triblt() command should get it from the cache and pass it to ui_memblt() or ui_triblt().
+	             Paul Bludov <paul@ozero.net>
+		* add: --with-gui-libs=/--with-gui-includes=. possible issues: these _ADD_ paths, they do not replace currently existing paths to the gui...
+		     Peter Byström <peter.bystrom@ub.oru.se>
+		* fix: hacked up svga.c to make it run, still some issues with draw_text, not checked why. limits of this gui: svgalib is bound to linux, am also using a thread through the clone command, with some asm, makes this module bound to intel comp hardware, for now. can't use posix threads or linux threads (true?), since they are using signals that the svgalib already uses... :\
+		     Peter Byström <peter.bystrom@ub.oru.se>
+
+U-PATCH19-8-4:
+		* removed: gmp, not used anymore, since the merge of secure.c with the 1.1.0 release.
+		     Peter Byström <peter.bystrom@ub.oru.se>
+		* fix: ui_draw_text bugs in the svga gui.
+		     Francisco <jfcastro@uol.com.ar>
+		* add: data compression, enabled per default, disable with -Z.
+                     Norma Jawborski <jawborski@hotmail.com>
+		* cleanup/fix: svga.c ui_line.
+			Francisco <jfcastro@uol.com.ar>
+		* add: begun work of 16bit bitmaps. bitmap.c and secure.c, for now set rdp_bitmap_bits = 16 in rdesktop.c. ( code not finished, AND untested, when tested and working I'll add a switch. )
+		        jichen <jichen@wyse.com>

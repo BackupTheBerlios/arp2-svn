@@ -1,7 +1,7 @@
 /*
    rdesktop: A Remote Desktop Protocol client.
    Protocol services - ISO layer
-   Copyright (C) Matthew Chapman 1999-2000
+   Copyright (C) Matthew Chapman 1999-2001
    
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -22,160 +22,165 @@
 
 /* Send a self-contained ISO PDU */
 static void
-iso_send_msg (uint8 code)
+iso_send_msg(uint8 code)
 {
-  STREAM s;
+	STREAM s;
 
-  s = tcp_init (11);
+	s = tcp_init(11);
 
-  out_uint8 (s, 3);		/* version */
-  out_uint8 (s, 0);		/* reserved */
-  out_uint16_be (s, 11);	/* length */
+	out_uint8(s, 3);	/* version */
+	out_uint8(s, 0);	/* reserved */
+	out_uint16_be(s, 11);	/* length */
 
-  out_uint8 (s, 6);		/* hdrlen */
-  out_uint8 (s, code);
-  out_uint16 (s, 0);		/* dst_ref */
-  out_uint16 (s, 0);		/* src_ref */
-  out_uint8 (s, 0);		/* class */
+	out_uint8(s, 6);	/* hdrlen */
+	out_uint8(s, code);
+	out_uint16(s, 0);	/* dst_ref */
+	out_uint16(s, 0);	/* src_ref */
+	out_uint8(s, 0);	/* class */
 
-  s_mark_end (s);
-  tcp_send (s);
+	s_mark_end(s);
+	tcp_send(s);
 }
 
 /* Receive a message on the ISO layer, return code */
 static STREAM
-iso_recv_msg (uint8 * code)
+iso_recv_msg(uint8 * code)
 {
-  STREAM s;
-  uint16 length;
-  uint8 version;
+	STREAM s;
+	uint16 length;
+	uint8 version;
 
-  s = tcp_recv (4);
-  if (s == NULL)
-    return False;
+	s = tcp_recv(4);
+	if (s == NULL)
+		return NULL;
 
-  in_uint8 (s, version);
-  if (version != 3)
-    {
-      ERROR ("TPKT v%d\n", version);
-      return False;
-    }
+	in_uint8(s, version);
+	if (version != 3) {
+		error("TPKT v%d\n", version);
+		return NULL;
+	}
 
-  in_uint8s (s, 1);		/* pad */
-  in_uint16_be (s, length);
+	in_uint8s(s, 1);	/* pad */
+	in_uint16_be(s, length);
 
-  s = tcp_recv (length - 4);
-  if (s == NULL)
-    return False;
+	s = tcp_recv(length - 4);
+	if (s == NULL)
+		return NULL;
 
-  in_uint8s (s, 1);		/* hdrlen */
-  in_uint8 (s, *code);
+	in_uint8s(s, 1);	/* hdrlen */
+	in_uint8(s, *code);
 
-  if (*code == ISO_PDU_DT)
-    {
-      in_uint8s (s, 1);		/* eot */
-      return s;
-    }
+	if (*code == ISO_PDU_DT) {
+		in_uint8s(s, 1);	/* eot */
+		return s;
+	}
 
-  in_uint8s (s, 5);		/* dst_ref, src_ref, class */
-  return s;
+	in_uint8s(s, 5);	/* dst_ref, src_ref, class */
+	return s;
 }
 
 /* Initialise ISO transport data packet */
-STREAM iso_init (int length)
+STREAM
+iso_init(int length)
 {
-  STREAM s;
+	STREAM s;
 
-  s = tcp_init (length + 7);
-  s_push_layer (s, iso_hdr, 7);
+	s = tcp_init(length + 7);
+	s_push_layer(s, iso_hdr, 7);
 
-  return s;
+	return s;
 }
 
 /* Send an ISO data PDU */
 void
-iso_send (STREAM s)
+iso_send(STREAM s)
 {
-  uint16 length;
+	uint16 length;
 
-  s_pop_layer (s, iso_hdr);
-  length = s->end - s->p;
+	s_pop_layer(s, iso_hdr);
+	length = s->end - s->p;
 
-  out_uint8 (s, 3);		/* version */
-  out_uint8 (s, 0);		/* reserved */
-  out_uint16_be (s, length);
+	out_uint8(s, 3);	/* version */
+	out_uint8(s, 0);	/* reserved */
+	out_uint16_be(s, length);
 
-  out_uint8 (s, 2);		/* hdrlen */
-  out_uint8 (s, ISO_PDU_DT);	/* code */
-  out_uint8 (s, 0x80);		/* eot */
+	out_uint8(s, 2);	/* hdrlen */
+	out_uint8(s, ISO_PDU_DT);	/* code */
+	out_uint8(s, 0x80);	/* eot */
 
-  tcp_send (s);
+	tcp_send(s);
 }
 
 /* Receive ISO transport data packet */
-STREAM iso_recv ()
+STREAM
+iso_recv()
 {
-  STREAM s;
-  uint8 code;
+	STREAM s;
+	uint8 code;
 
-  s = iso_recv_msg (&code);
-  if ((s == NULL) || (code != ISO_PDU_DT))
-    {
-      ERROR ("expected DT, got %d\n", code);
-      return False;
-    }
+	s = iso_recv_msg(&code);
+	if (s == NULL)
+		return NULL;
 
-  return s;
+	if (code != ISO_PDU_DT) {
+		error("expected DT, got %d\n", code);
+		return NULL;
+	}
+
+	return s;
 }
 
 /* Establish a connection up to the ISO layer */
-Bool iso_connect (char *server)
+BOOL
+iso_connect(char *server)
 {
-  uint8 code;
+	uint8 code;
 
-  if (!tcp_connect (server))
-    return False;
+	if (!tcp_connect(server))
+		return False;
 
-  iso_send_msg (ISO_PDU_CR);
+	iso_send_msg(ISO_PDU_CR);
 
-  if ((iso_recv_msg (&code) == NULL) || (code != ISO_PDU_CC))
-    {
-      ERROR ("expected CC, got %d\n", code);
-      tcp_disconnect ();
-      return False;
-    }
+	if (iso_recv_msg(&code) == NULL)
+		return False;
 
-  return True;
+	if (code != ISO_PDU_CC) {
+		error("expected CC, got %d\n", code);
+		tcp_disconnect();
+		return False;
+	}
+
+	return True;
 }
 
 /* Disconnect from the ISO layer */
 void
-iso_disconnect ()
+iso_disconnect()
 {
-  iso_send_msg (ISO_PDU_DR);
-  tcp_disconnect ();
+	iso_send_msg(ISO_PDU_DR);
+	tcp_disconnect();
 }
 
 #ifdef SERVER
 
 /* Establish a connection up to the ISO layer */
-Bool iso_listen(char *server)
+BOOL
+iso_listen(char *server)
 {
-  uint8 code;
+	uint8 code;
 
-  if (!tcp_listen(server))
-    return False;
+	if (!tcp_listen(server))
+		return False;
 
-  if ((iso_recv_msg(&code) == NULL) || (code != ISO_PDU_CR))
-  {
-    ERROR("expected CR, got %d\n", code);
-    tcp_disconnect();
-    return False;
-  }
+	if ((iso_recv_msg(&code) == NULL) || (code != ISO_PDU_CR)) {
+		error("expected CR, got %d\n", code);
+		tcp_disconnect();
+		return False;
+	}
 
-  iso_send_msg(ISO_PDU_CC);
+	iso_send_msg(ISO_PDU_CC);
 
-  return True;
+	return True;
 }
 
-#endif /* SERVER */
+#endif				/* SERVER */

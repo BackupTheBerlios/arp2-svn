@@ -1,3 +1,5 @@
+( THIS FILE IS OUTDATED - UPDATEME, short tip: run ./configure --help )
+
 read the manpage... ;)
 
 
