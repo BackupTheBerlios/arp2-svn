@@ -19,7 +19,6 @@ VPATH		= $(srcdir) $(rdesktop_srcdir)
 RDESKTOP	= RDesktop
 
 OBJECTS		= amiga_rdesktop.o amiga.o amiga_clipboard.o rdpsnd_ahi.o \
-		  eprintf.o \
 		  rdesktop.o tcp.o iso.o mcs.o secure.o licence.o rdp.o \
 		  orders.o bitmap.o cache.o rdp5.o channels.o rdpdr.o \
 		  printercache.o cliprdr.o rdpsnd.o \

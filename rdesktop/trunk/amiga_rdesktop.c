@@ -229,7 +229,7 @@ cleanup(void)
   CloseLibrary( LayersBase );
   LayersBase = NULL;
 
-  CloseLibrary( UtilityBase );
+  CloseLibrary( (struct Library*) UtilityBase );
   UtilityBase = NULL;
 
   CloseLibrary( WorkbenchBase );
@@ -299,7 +299,7 @@ main(int argc, char *argv[])
   }
 
 
-  UtilityBase = OpenLibrary( "utility.library", 37 );
+  UtilityBase = (struct UtilityBase*) OpenLibrary( "utility.library", 37 );
   
   if( UtilityBase == NULL )
   {
@@ -773,3 +773,23 @@ unimpl(char *format, ...)
   showmsg( "NOT IMPLEMENTED", format, ap );
   va_end(ap);
 }
+
+
+
+#ifdef __ixemul__
+
+/* This function is missing from ixemul.library */
+
+#include <stdio.h>
+#include <stdarg.h>
+
+void __eprintf(const char *format,...) /* for asserts */
+{
+  va_list args;
+  va_start(args,format);
+  vfprintf(stderr,format,args);
+  va_end(args);
+  abort();
+}
+
+#endif
