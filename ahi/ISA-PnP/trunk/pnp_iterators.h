@@ -48,6 +48,7 @@ FreeResourceIteratorContext( struct ResourceContext* ctx );
 
 struct ResourceIterator*
 AllocResourceIterator( struct ISAPNP_Resource* resource,
+                       struct MinList*         conflicts,
                        struct ResourceContext* ctx );
 
 void
@@ -57,7 +58,8 @@ FreeResourceIterator( struct ResourceIterator* iter,
 
 
 struct ResourceIteratorList*
-AllocResourceIteratorList( struct MinList* resource_list,
+AllocResourceIteratorList( struct MinList*         resource_list,
+                           struct MinList*         conflicts,
                            struct ResourceContext* ctx );
 
 
@@ -78,18 +80,13 @@ IncResourceIteratorList( struct ResourceIteratorList* iter_list,
                          struct ResourceContext* ctx );
 
 
-BOOL
-LockResource( struct ResourceIterator* iter,
-              struct ResourceContext*  ctx );
-
-void
-UnlockResource( struct ResourceIterator* iter,
-                struct ResourceContext*  ctx );
-
-
-
 struct ISAPNP_Resource*
 CreateResource( struct ResourceIterator* iter,
                 struct ISAPNPBase*       res );
+
+BOOL
+CreateResouces( struct ResourceIteratorList* ril,
+                struct List*                 result,
+                struct ISAPNPBase*           res );
 
 #endif /* ISA_PNP_pnp_iterators_h */
