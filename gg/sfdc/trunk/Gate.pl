@@ -46,6 +46,10 @@ BEGIN {
 	}
 
 	print "\n";
+	print "#define _sfdc_strarg(a) _sfdc_strarg2(a)\n";
+	print "#define _sfdc_strarg2(a) #a\n";
+
+	print "\n";
 	print "#ifdef __cplusplus\n";
 	print "extern \"C\" {\n";
 	print "#endif /* __cplusplus */\n";
@@ -77,16 +81,17 @@ BEGIN {
 
 	    if (!$self->{LIBPROTO}) {
 		print_gateproto ($sfd, $prototype);
+		print ";\n\n";
 	    }
 
-	    if ($self->{PROTO}) {
-		print ";\n";
-	    }
-	    elsif (!$self->{LIBPROTO}) {
-		print "__asm(\".globl $gateprefix$prototype->{funcname});\n";
-		print "__asm(\".type  $gateprefix$prototype->{funcname})" .
+	    if (!$self->{PROTO} && !$self->{LIBPROTO}) {
+		print "__asm(\".globl \" _sfdc_strarg(" .
+		    "$gateprefix$prototype->{funcname}) );\n";
+		print "__asm(\".type  \" _sfdc_strarg(" .
+		    "$gateprefix$prototype->{funcname}) \"" .
 		    ", \@function\");\n";
-		print "__asm($gateprefix$prototype->{funcname}):\");\n";
+		print "__asm(_sfdc_strarg(".
+		    "$gateprefix$prototype->{funcname}) \":\");\n";
 		print "#if defined(__mc68000__) || defined(__i386__)\n";
 		print "__asm(\"jmp $libprefix$prototype->{funcname}\");\n";
 		print "#else\n";
