@@ -23,8 +23,11 @@ VPATH		= $(srcdir)
 
 all:		fd2sfd
 
-fd2sfd:		fd2inline.c
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $^ $(OUTPUT_OPTION)
+clean:
+	$(RM) fd2sfd *~ core config.log
+
+distclean:	clean
+	$(RM) Makefile cross/bin/gg-fix-includes config.status
 
 install:	all
 	$(INSTALL) -d $(bindir) $(fd2sfddir)
@@ -55,4 +58,9 @@ install:	all
 	  $(INSTALL) -d $(prefix)/os-include/morphos/$${dir}; \
 	done
 	$(INSTALL_DATA) $(srcdir)/README.os-include $(prefix)/os-include/README
+
+
+fd2sfd:		fd2inline.c
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $^ $(OUTPUT_OPTION)
+
 
