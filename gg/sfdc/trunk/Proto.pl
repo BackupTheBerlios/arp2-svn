@@ -18,10 +18,11 @@ BEGIN {
 	my $self = shift;
 	my $sfd  = $self->{SFD};
 
-	my $base     = $$sfd{'base'};
-	my $basename = $$sfd{'basename'};
-	my $BASENAME = $$sfd{'BASENAME'};
-	my $basetype = $$sfd{'basetype'};
+	my $base      = $$sfd{'base'};
+	my $basename  = $$sfd{'basename'};
+	my $BASENAME  = $$sfd{'BASENAME'};
+	my $BaseName  = $$sfd{'BaseName'};
+	my $basetype  = $$sfd{'basetype'};
 
 	print "/* Automatically generated header! Do not edit! */\n";
 	print "\n";
@@ -43,7 +44,7 @@ BEGIN {
 	    print "#ifdef __amigaos4__\n";
 	    print "# include <interfaces/${basename}.h>\n";
 	    print "# ifndef __NOGLOBALIFACE__\n";
-	    print "   extern struct ${base}IFace *I${base};\n";
+	    print "   extern struct ${BaseName}IFace *I${BaseName};\n";
 	    print "# endif /* __NOGLOBALIFACE__*/\n";  
 	    print "#else /* !__amigaos4__ */\n";
 	    print "# ifndef __NOLIBBASE__\n";

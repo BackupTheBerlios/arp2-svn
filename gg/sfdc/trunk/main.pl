@@ -660,6 +660,7 @@ sub parse_sfd ( $ ) {
     $$result{'basename'} = lc $$result{'basename'};
     $$result{'BASENAME'} = uc $$result{'basename'};
     $$result{'Basename'} = ucfirst $$result{'basename'};
+    ($result->{BaseName} = $result->{base}) =~ s/Base//;
 
     return $result;
 }

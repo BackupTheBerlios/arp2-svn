@@ -78,7 +78,7 @@ BEGIN {
 	    }
 	}
 	else {
-	    print "struct $sfd->{BASENAME}IFace* _iface";
+	    print "struct $sfd->{BaseName}IFace* _iface";
 	}
     }
 
