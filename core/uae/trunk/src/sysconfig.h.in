@@ -22,6 +22,9 @@
    */
 #undef HAVE_DIRENT_H
 
+/* Define to 1 if you have the <dlfcn.h> header file. */
+#undef HAVE_DLFCN_H
+
 /* "Define to 1 if you have 'dlopen' function */
 #undef HAVE_DLOPEN
 
@@ -42,6 +45,9 @@
 
 /* Define to 1 if you have the `gettimeofday' function. */
 #undef HAVE_GETTIMEOFDAY
+
+/* Define to 1 if you have the <glgfx.h> header file. */
+#undef HAVE_GLGFX_H
 
 /* Define to 1 if you have the `gmtime_r' function. */
 #undef HAVE_GMTIME_R

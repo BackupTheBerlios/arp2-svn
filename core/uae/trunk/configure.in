@@ -9,7 +9,6 @@ AC_CONFIG_SRCDIR([config.h])
 AC_CONFIG_HEADERS([src/sysconfig.h])
 AC_CANONICAL_TARGET
 AM_INIT_AUTOMAKE(1.7 dist-bzip2)
-
 dnl
 dnl  Checks for programs.
 dnl
@@ -35,6 +34,9 @@ AC_PATH_PROG(RCLPRG, rcl, not-found)
 
 AC_AIX
 AC_ISC_POSIX
+
+AM_DISABLE_SHARED
+AM_PROG_LIBTOOL
 
 NR_WARNINGS=0
 NR_ERRORS=0
@@ -530,6 +532,14 @@ AC_ARG_WITH(sdl-gfx,
   AS_HELP_STRING([--with-sdl-gfx], [Use SDL library for graphics]),
   [WANT_SDLGFX=$withval], [])
 
+AC_ARG_WITH(glgfx,
+  AS_HELP_STRING([--with-glgfx], [Use glgfx library for graphics]),
+  [WANT_GLGFX=$withval], [])
+AC_ARG_WITH(glgfx-prefix,
+  AS_HELP_STRING([--with-glgfx-prefix], [Absolute path to where glgfx is installed (optional)]),
+  [CPPFLAGS="$CPPFLAGS -I$withval/include"
+   LIBS="$LIBS -L$withval/lib"], [])
+
 AC_ARG_WITH(cocoa-gui,
   AS_HELP_STRING([--with-cocoa-gui], [Use Cocoa for GUI on OS X]),
   [WANT_COCOA_UI=$withval], [])
@@ -754,6 +764,22 @@ dnl  Check which graphics target to build
 dnl
 AC_MSG_CHECKING([for graphics target to build])
 
+dnl  Check whether we want glgfx
+dnl
+if [[ "x$WANT_GLGFX" = "xyes" ]]; then
+  AC_CHECK_HEADERS(glgfx.h, [HAVE_GLGFX=yes], [HAVE_GLGFX=no])
+  if [[ "x$HAVE_GLGFX" = "xyes" ]]; then
+    GFX_LIBS="-lglgfx"
+    GFX_CFLAGS=""
+    GFX_DEP=gfx-glgfx
+    GFX_NAME=GLGFX
+  else
+    AC_MSG_WARN([glgfx support wanted, but libglgfx could not be found])
+    WANT_GLGFX=no
+    NR_ERRORS=`expr $NR_ERRORS + 1`
+  fi
+fi
+
 dnl  Check whether we actually wanted to use SDL or whether
 dnl  we need to use SDL because we couldn't find any other
 dnl  graphics support
@@ -776,6 +802,7 @@ if [[ "x$WANT_SDL" = "xyes" -o "x$GFX_DEP" = "x" ]]; then
     NR_ERRORS=`expr $NR_ERRORS + 1`
   fi
 fi
+
 
 dnl  If we got here and we still haven't found a graphics target
 dnl  then bail out.
@@ -1250,7 +1277,7 @@ if [[ "x$WANT_CAPS" != "xno" ]]; then
   fi
   CPPFLAGS="$SAVE_CPPFLAGS"
 fi
-
+	
 
 dnl
 dnl  Check whether FDI support wanted
@@ -1332,6 +1359,7 @@ AC_CONFIG_FILES([Makefile
 		 src/gfx-sdl/Makefile
 		 src/gfx-curses/Makefile
 		 src/gfx-svga/Makefile
+		 src/gfx-glgfx/Makefile
 		 src/sd-af/Makefile
 		 src/sd-alsa/Makefile
 		 src/sd-amigaos/Makefile

@@ -1,3 +1,7 @@
+2005-03-13  Martin Blom  <martin@blom.org>
+
+	* all: Libtoolized and added new gfx-glgfx backend.
+
 2005-02-28  Martin Blom  <martin@blom.org>
 
 	* src/autoconf.c, src/expansion.c, src/memory.c,
