@@ -198,16 +198,28 @@ int blomcall_init () {
   return 1;
 }
 
-static unsigned long cycles_left = 0;
+static unsigned long remaining_cycles = 0;
+#define limited_cycles(x) ((x) < 1000 ? (x) : 100)
 
-unsigned long blomcall_ops (uae_u32 opcode) {  
-  uae_u64 start_time = read_processor_time ();
+unsigned long blomcall_ops (uae_u32 opcode) {
+  unsigned long cycles;
+  uae_u64 start_time;
   uae_u64 call_time;
 
+  cycles = limited_cycles(remaining_cycles);
+
+  if (cycles != 0) {
+    remaining_cycles -= cycles;
+    return cycles;
+  }
+
+  // Sanity check
   if (!blomcall_enable) {
     return op_illg (opcode);
   }
-  
+
+  start_time = read_processor_time ();
+
   if (opcode != OP_BRESUME) {
     uae_u32 newpc  = get_long (m68k_getpc() + 2);
     uae_u8* addr   = get_real_address(newpc);
@@ -338,5 +350,10 @@ unsigned long blomcall_ops (uae_u32 opcode) {
 
   blomcall_cycles += (unsigned long) ((double) call_time / syncbase * 7.09e6 * 0.5);
 //  printf("%10.3g; ",  (double) call_time * 16 / 2e9 * 7.14e6 * 256);
-  return (unsigned long) ((double) call_time / syncbase * 7.09e6 * 0.5);
+
+  remaining_cycles = (unsigned long) ((double) call_time / syncbase * 7.09e6 * 0.5);
+  remaining_cycles *= 3;
+  cycles = limited_cycles(remaining_cycles);
+  remaining_cycles -= cycles;
+  return cycles;
 }
