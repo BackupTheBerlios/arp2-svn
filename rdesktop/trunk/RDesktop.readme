@@ -69,10 +69,10 @@ argument.  The window title can be set by using the TITLE argument.
 
 By using the FULLSCREEN switch, RDESKTOP will open a screen of its
 own. Unless SCREENMODE is also used to specify the mode number (in
-decimal or hex using the '0x' prefix), a screen mode requester will
-appear before connecting to the server. DEPTH is automatically taken
-from the requester or, if a true-color screen mode is specified, the
-screen mode.
+decimal or, in MorphOS, hex using the '0x' prefix), a screen mode
+requester will appear before connecting to the server. DEPTH is
+automatically taken from the requester or, if a true-color screen mode
+is specified, the screen mode.
 
 Audio will be redirected automatically. Use the AUDIO argument to
 specify the AHI unit to use (default is 0). The REMOTEAUDIO switch can
