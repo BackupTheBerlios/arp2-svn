@@ -90,6 +90,8 @@ gld${EMULATION_NAME}_parse_args (argc, argv)
   static struct option longopts[] = {
     {"flavor", required_argument, NULL, OPTION_FLAVOR},
     /*'\0', NULL, "Select a library flavor", ONE_DASH },*/
+//    {"strip-unneeded", no_argument, NULL, 's'},
+    /*'s', NULL, "Strip unneeded symbols", TWO_DASHES },*/
     {NULL, no_argument, NULL, 0}
   };
 
@@ -98,7 +100,7 @@ gld${EMULATION_NAME}_parse_args (argc, argv)
     indx = 1;
 
   opterr = 0;
-  optc = getopt_long_only (argc, argv, "-", longopts, &longind);
+  optc = getopt_long_only (argc, argv, "-s", longopts, &longind);
   opterr = prevopterr;
   switch (optc)
     {
@@ -116,6 +118,11 @@ gld${EMULATION_NAME}_parse_args (argc, argv)
 	ldfile_add_flavor (optarg);
       }
       break;
+//    case 's':
+//      {
+//	link_info.strip = strip_unneeded;
+//      }
+//      break;
     }
   return 1;
 }

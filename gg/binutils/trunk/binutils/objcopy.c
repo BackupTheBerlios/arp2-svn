@@ -1764,7 +1764,17 @@ strip_main (argc, argv)
   if (strip_symbols == strip_undef
       && discard_locals == locals_undef
       && strip_specific_list == NULL)
-    strip_symbols = strip_all;
+  {
+    if( TARGET[0] == 'i' && strcmp( TARGET+2, "86be-pc-amithlon" ) == 0 )
+    {
+      /* ... unless we are Amithlon, that is */
+      strip_symbols = strip_unneeded;
+    }
+    else
+    {
+      strip_symbols = strip_all;
+    }
+  }
 
   if (output_target == (char *) NULL)
     output_target = input_target;
