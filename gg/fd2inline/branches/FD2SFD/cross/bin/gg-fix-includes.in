@@ -4,9 +4,9 @@ prefix=@prefix@
 exec_prefix=@exec_prefix@
 bindir=@bindir@
 datadir=@datadir@
-fd2inlinedir=${datadir}/fd2inline
-FD2INLINE=${bindir}/fd2inline
-SPLITASM="awk -f ${fd2inlinedir}/splitasm.awk"
+fd2sfd=${datadir}/fd2sfd
+FD2SFD=${bindir}/fd2sfd
+SPLITASM="awk -f ${fd2sfddir}/splitasm.awk"
 
 ERROR="\e[31m"
 INFO="\e[32m"
@@ -15,25 +15,89 @@ NORMAL="\e[0m"
 if [ $# -eq 1 ]; then
   case "$1" in
    --include)
-       STUBS=no
+       INCLUDE=yes
      ;;
+
    --lib)
-       STUBS=yes
+       LIB=yes
+     ;;
+
+   --sfd)
+       SFD=yes
      ;;
   esac
 fi
 
-if [ -z "$STUBS" ]; then
-  echo "Usage: $0 [--include] [--lib]"
+if [ -z "${INCLUDE}${LIB}${SFD}" ]; then
+  echo "Usage: $0 [--include] [--lib] [--sfd]"
   exit
 fi
 
-if [ "${STUBS}" = "yes" ]; then
+# Verify that all SFD files exists, create them if instructed to do so
+
+if [ ${SFD} ]; then
+ echo -e "${INFO}Generating SFD files ...${NORMAL}"
+fi
+  
+if [ ! -d ${prefix}/os-lib/sfd/ ]; then
+ mkdir ${prefix}/os-lib/sfd/ || exit 10
+fi
+
+for fd_dir in ${prefix}/os-lib/fd/*; do
+ package=`echo "${fd_dir}" | sed -e "s,.*/,,"`
+
+ if [ -d ${fd_dir} ]; then
+  if [ ! -d ${prefix}/os-lib/sfd/${package} ]; then
+   mkdir ${prefix}/os-lib/sfd/${package} || exit 10
+  fi
+  
+  for fd in ${fd_dir}/*_*.[Ff][Dd]; do
+   base=`echo "${fd}" | sed -e "s,${fd_dir}/\(.*\)_\(.*\)\...,\1,"`
+   clib="${prefix}/os-include/${package}/clib/${base}_protos.h"
+
+   if [ ! -r ${clib} ]; then
+    if [ ${SFD} ]; then
+     echo -e "${INFO}Warning: ${clib} is missing.${NORMAL}"
+    fi
+   else
+    sfd=`echo "${fd}" | sed -e "s,${fd_dir}/\(.*\)\...,\1.sfd,"`
+    if [ ! -r ${prefix}/os-lib/sfd/${package}/${sfd} ]; then
+     if [ ${SFD} ]; then
+      echo -e -n "${NORMAL}[$sfd]${ERROR} ";
+      ${FD2SFD} ${fd} ${clib} -o ${prefix}/os-lib/sfd/${package}/${sfd}
+     else
+      echo -e "${INFO}${prefix}/os-lib/sfd/${package}/${sfd}${NORMAL}"
+      error=yes
+     fi
+    fi
+   fi
+  done
+ fi
+done
+ 
+if [ ${error} ]; then
+ echo -e "${ERROR}The SFD files listed above are missing.${NORMAL}"
+ echo "Please install and try again, or rerun $0 using the"
+ echo "--sfd switch to generate them from the installed FD and CLIB files."
+ exit
+fi
+
+if [ ${SFD} ]; then
+ echo -e "${NORMAL}"
+ echo
+ echo -e "${INFO}SFD files successfully created.${NORMAL} You may now delete"
+ echo "the FD files from ${prefix}/os-lib/fd if you want."
+ exit
+fi
+
+exit -1
+
+if [ ${LIB} ]; then
   build_dir=`mktemp -qd /tmp/gg-fix-includes.XXXXXX`
 
   if [ -z "${build_dir}" ]; then
     echo "Error: Unable to create temporary directory."
-    exit
+    exit 10
   fi
 fi
 
@@ -46,43 +110,45 @@ for gcc in ${bindir}/*-*-gcc; do
      CC="${target}-gcc -Os -fomit-frame-pointer"
      AS="${target}-as"
      AR="${target}-ar"
-     FD2INLINE_OS="ix86be-amithlon"
-     FIXINCLUDE="perl ${fd2inlinedir}/geninclude.pl"
+     FD2SFD_OS=""${target}"
+     FIXINCLUDE="perl ${fd2sfddir}/geninclude.pl"
      ;;
    m68k-amigaos)
      CC="${target}-gcc -Os -fomit-frame-pointer"
      AS="${target}-as"
      AR="${target}-ar"
-     FD2INLINE_OS="${target}"
+     FD2SFD_OS="${target}"
      FIXINCLUDE="cat"
      ;;
    ppc-morphos)
      CC="${target}-gcc -Os -fomit-frame-pointer"
      AS="${target}-as"
      AR="${target}-ar"
-     FD2INLINE_OS="${target}"
-     FIXINCLUDE="perl ${fd2inlinedir}/geninclude.pl"
+     FD2SFD_OS="${target}"
+     FIXINCLUDE="perl ${fd2sfddir}/geninclude.pl"
      ;;
    *)
-     FD2INLINE_OS="X"
+     FD2SFD_OS="X"
      ;;
   esac
 
   echo -e "${ERROR}"
   
-  if test "$FD2INLINE_OS" == "X"; then
+  if test "$FD2SFD_OS" == "X"; then
    echo -e "${target}: Unsupported target."
   else
   
    echo -e "${INFO}*** Target ${target}${ERROR}"
 
-   if [ "${STUBS}" = "no" ]; then
+   if [ ${INCLUDE} ]; then
      rm -r ${prefix}/${target}/sys-include
      echo "The sys-include directory is automatically generated. Do no edit!" > ${prefix}/${target}/sys-include.readme
      mkdir ${prefix}/${target}/sys-include
      mkdir ${prefix}/${target}/sys-include/inline
      mkdir ${prefix}/${target}/sys-include/proto
-   else
+   fi
+
+   if [ ${LIB} ]; then
      rm ${prefix}/${target}/lib/libamigastubs.a
    fi;
 
@@ -131,15 +197,15 @@ for gcc in ${bindir}/*-*-gcc; do
           echo "Warning: ${clib} is missing."
          else
           echo -ne "${NORMAL}[${base}] ${ERROR}"
-          ${FD2INLINE} --quiet --new --target=${FD2INLINE_OS} ${fd} ${clib} \
+          ${FD2SFD} --quiet --new --target=${FD2SFD_OS} ${fd} ${clib} \
             -o ${prefix}/${target}/sys-include/inline/${base}.h
              
-          ${FD2INLINE} --quiet --proto --target=${FD2INLINE_OS} ${fd} \
+          ${FD2SFD} --quiet --proto --target=${FD2SFD_OS} ${fd} \
             -o ${prefix}/${target}/sys-include/proto/${base}.h
          fi
        done
         
-       cp ${fd2inlinedir}/stubs.h ${fd2inlinedir}/${FD2INLINE_OS}/* \
+       cp ${fd2sfddir}/stubs.h ${fd2sfddir}/${FD2SFD_OS}/* \
           ${prefix}/${target}/sys-include/inline/
 
       else
@@ -157,11 +223,11 @@ for gcc in ${bindir}/*-*-gcc; do
             echo "Warning: ${clib} is missing."
           else
             echo -ne "${NORMAL}[${base}] ${ERROR}"
-            ${FD2INLINE} --quiet --stubs --target=${FD2INLINE_OS} ${fd} ${clib} \
+            ${FD2SFD} --quiet --stubs --target=${FD2SFD_OS} ${fd} ${clib} \
               -o ${build_dir}/-stubs.c
 
             ${CC} -D__CLIB_TYPES__ -S ${build_dir}/-stubs.c \
-		  -o ${build_dir}/-stubs.s || exit
+		  -o ${build_dir}/-stubs.s || exit 10
 
             ${SPLITASM} -v dest=${build_dir} ${build_dir}/-stubs.s
           fi
