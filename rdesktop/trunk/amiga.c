@@ -113,7 +113,8 @@ static BOOL           amiga_is_amithlon        = FALSE;
 static BOOL           amiga_is_os4             = FALSE;
 
 static UWORD          amiga_last_qualifier     = 0;
-static BOOL           amiga_numlock            = FALSE;
+static BOOL           amiga_numlock            = TRUE;  // default state is on
+static BOOL           amiga_capslock           = 0xbad; // -> sync on first key
 
 static HCURSOR        amiga_last_cursor        = NULL;
 static HCURSOR        amiga_null_cursor        = NULL;
@@ -1913,7 +1914,8 @@ ui_select(int rdp_socket)
 	    {
 	      int  scancode;
 	      int  flag;
-	      BOOL numlock = amiga_numlock; 
+	      BOOL numlock = amiga_numlock;
+	      BOOL capslock;
 
 #if defined(HAVE_NEWMOUSE_H) || defined(HAVE_DEVICES_NEWMOUSE_H)
 	      int button = 0;
@@ -1956,7 +1958,7 @@ ui_select(int rdp_socket)
 
 	      q_buffer[0] = 0;
 	      if( MapRawKey(&ie, q_buffer, sizeof (q_buffer), NULL) == 1 &&
-		  q_buffer[0] == 'q' &&
+		  tolower(q_buffer[0]) == 'q' &&
 		  (msg->Qualifier & (IEQUALIFIER_LSHIFT |
 				     IEQUALIFIER_RSHIFT |
 				     IEQUALIFIER_CAPSLOCK |
@@ -1984,31 +1986,32 @@ ui_select(int rdp_socket)
 					      msg->Qualifier,
 					      &numlock );
 
-	      if (numlock != amiga_numlock) {
+              if( scancode == 0 )
+                break;
+
+	      capslock = (msg->Qualifier & IEQUALIFIER_CAPSLOCK) != 0;
+
+	      // Sync NumLock/CapsLock
+	      if (numlock != amiga_numlock ||
+		  capslock != amiga_capslock) {
 		amiga_numlock = numlock;
+		amiga_capslock = capslock;
+
 		rdp_send_input(0, RDP_INPUT_SYNCHRONIZE, 0,
 			       ui_get_numlock_state(read_keyboard_state()), 0);
 	      }
 
-              if( scancode == 0 )
-                break;
-                
-              if( scancode == 0x3a )
-              {
-                // Handle CAPS LOCK
-                
-		rdp_send_input( ev_time, RDP_INPUT_SCANCODE, 0,
-				0x3a, 0);
-
-                flag = KBD_FLAG_UP;
-              }
-
-	      if (scancode == 0x45 &&
-		  (flag & (KBD_FLAG_UP|KBD_FLAG_DOWN)) == KBD_FLAG_UP) {
-		// Handle NUM LOCK
-		amiga_numlock = !amiga_numlock;
+	      // Handle CAPS LOCK
+              if (scancode == 0x3a) {
+                // ... by not sending it
+		break;
 	      }
 
+	      // Handle NUM LOCK
+	      if (scancode == 0x45 && (flag & KBD_FLAG_UP)) {
+		amiga_numlock = !amiga_numlock;
+	      }
+	      	      
               if( scancode & 0x80 )
               {
                 flag     |= KBD_FLAG_EXT;
@@ -2115,9 +2118,24 @@ read_keyboard_state()
 
 
 uint16
-ui_get_numlock_state(unsigned int state)
+ui_get_numlock_state(unsigned int amiga_qualifiers)
 {
-  return amiga_numlock ? KBD_FLAG_NUMLOCK : 0;
+  uint16 state = 0;
+
+  if (amiga_numlock) {
+    state |= KBD_FLAG_NUMLOCK;
+  }
+
+  if (amiga_qualifiers & IEQUALIFIER_CAPSLOCK) {
+    state |= KBD_FLAG_CAPITAL;
+  }
+  
+//  if (scroll lock) {
+//    state |= KBD_FLAG_SCROLL;
+//  }
+
+  printf ("state is now %04x\n", state);
+  return state;
 }
 
 
