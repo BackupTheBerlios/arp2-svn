@@ -1,3 +1,15 @@
+2001-10-06  Martin Blom  <martin@blom.org>
+
+	* config.{sub,guess}: Added MorphOS.
+
+2001-08-26  David Zaroski  <dez@gg.geekgadgets.org>
+
+	* config.{sub,guess}: Updated to current versions
+	* gg-to-merge.diffs: Temp file of changes that need to be merged
+	in, which most are done.
+	* Makefile.in(s): Regenerated 
+	* configure: Regenerated
+
 2001-07-18  Akim Demaille  <akim@epita.fr>
 
 	Version 2.52.
@@ -121,6 +133,10 @@
 	(&scan_makefile): Refine the regexp catching tokens in the code.
 	* doc/autoconf.texi (autoscan Invocation): Document `autoscan.log'
 	and the `configure.ac' checking feature.
+
+2001-07-13  David Zaroski  <dez@gg.geekgadgets.org>
+
+	* Makefile.in (installdirs): Add htmldir
 
 2001-07-12  Akim Demaille  <akim@epita.fr>
 

@@ -211,9 +211,23 @@ if test $ac_cv_working_alloca_h = yes; then
              (not on Ultrix).])
 fi
 
+# Temporary ugly hack for BeOS.  Don't try to run the test for alloca
+# since it will succeed due to finding the version of alloca in the
+# runtime library.  We don't want to use that version, so let's pretend
+# we loaded it from the cache (default to 'no') and thus the package will configure
+# itself to use it's private copy of the C alloca replacement.  When the
+# horribly small default stack size problem is fixed (exists up through
+# at least DR8.2) then we can build gcc to start using it's builtin
+# alloca, we can allow mwcc to use it's builtin alloca, and this hack
+# can go away.
+if test "`uname`" = "BeOS"; then
+  test -z "$ac_cv_func_alloca_works" && ac_cv_func_alloca_works=no
+fi
+
 AC_CACHE_CHECK([for alloca], ac_cv_func_alloca_works,
 [AC_TRY_LINK(
-[#ifdef __GNUC__
+[
+#if 0	/* Never do this, it's unnecessary. -fnf */
 # define alloca __builtin_alloca
 #else
 # ifdef _MSC_VER
@@ -614,7 +628,11 @@ main ()
   if (pg2 == pg4 && pg1 == pg3 && pg2 == pg3)
     exit (0);
 
-  child = fork ();
+#ifdef __amigaos__
+        child = vfork();
+#else
+        child = fork();
+#endif
   if (child < 0)
     exit(1);
   else if (child == 0)
@@ -623,12 +641,17 @@ main ()
       /*  If this is Sys V, this will not work; pgrp will be set to np
 	 because setpgrp just changes a pgrp to be the same as the
 	 pid.  */
+#ifdef __BEOS__
+		/* BeOS has no setpgrp () and getpgrp takes no arg */
+		exit (0);		
+#else
       setpgrp (np, pg1);
       ng = getpgrp (0);        /* Same result for Sys V and BSD */
       if (ng == pg1)
   	exit (1);
       else
   	exit (0);
+#endif
     }
   else
     {
@@ -1331,6 +1354,16 @@ AC_DEFUN([AC_FUNC_SETVBUF_REVERSED],
 int
 main ()
 {
+#if defined (__amigaos__) || defined (__BEOS__)
+  /* AmigaOS is a non-reversed system.  Instead of the test program
+     getting a segfault (no memory protection), it causes enforcer hits
+     or other nastiness, so don't run the test program, just exit with
+     status 1 to indicate that it is non-reversed.
+     BeOS is also a non reversed system but the test fails to work
+     correctly for reasons not yet determined.  Just fake it here.
+     -fnf */
+  exit(1);
+#else
   /* This call has the arguments reversed.
      A reversed system may check and see that the address of main
      is not _IOLBF, _IONBF, or _IOFBF, and return nonzero.  */
@@ -1339,6 +1372,7 @@ main ()
   putc('\r', stdout);
   exit(0);			/* Non-reversed systems segv here.  */
 }], ac_cv_func_setvbuf_reversed=yes, ac_cv_func_setvbuf_reversed=no)
+#endif	/* AmigaOS || BeOS */
 rm -f core core.* *.core])
 if test $ac_cv_func_setvbuf_reversed = yes; then
   AC_DEFINE(SETVBUF_REVERSED, 1,
@@ -1523,6 +1557,12 @@ main ()
 
   sparc_address_test ();
 
+#ifdef __amigaos__
+  /* FIXME: Force this test to succeed for AmigaOS, which has a fairly good
+     vfork() emulation, but doesn't support fork() at all.  -fnf */
+  exit (0);
+#endif
+
   child = vfork ();
 
   if (child == 0) {
@@ -1574,7 +1614,6 @@ main ()
             [ac_cv_func_vfork_works=no],
             [ac_cv_func_vfork_works=cross])])
 ])# _AC_FUNC_VFORK
-
 
 # AU::AC_FUNC_VFORK
 # ------------
@@ -1633,7 +1672,11 @@ main ()
   r.ru_stime.tv_sec = 0;
   r.ru_stime.tv_usec = 0;
   r.ru_majflt = r.ru_minflt = 0;
-  switch (fork ())
+#ifdef __amigaos__
+  switch (vfork())
+#else
+  switch (fork())
+#endif
     {
     case 0: /* Child.  */
       sleep(1); /* Give up the CPU.  */
@@ -1646,8 +1689,16 @@ main ()
       wait3(&i, 0, &r);
       /* Avoid "text file busy" from rm on fast HP-UX machines.  */
       sleep(2);
+#ifdef __amigaos__
+  /* On AmigaOS, using ixemul.library, the ru_stime fields are actually
+     filled in by wait3, however sometimes this test ends up with zero
+     in them, perhaps because it runs "too fast".  For now, just force
+     the result we want.  */
+  exit (0);
+#else
       exit (r.ru_nvcsw == 0 && r.ru_majflt == 0 && r.ru_minflt == 0
 	    && r.ru_stime.tv_sec == 0 && r.ru_stime.tv_usec == 0);
+#endif
     }
 }]])],
                [ac_cv_func_wait3_rusage=yes],

@@ -942,6 +942,17 @@ if test -z "$CC"; then
   AC_CHECK_TOOL(CC, cc)
 fi
 if test -z "$CC"; then
+  AC_CHECK_PROG(CC, bcc, bcc)
+fi
+if test -z "$CC"; then
+  machine=`(uname -m 2>/dev/null)` || machine=unknown
+  case "$machine" in
+    BePC) AC_CHECK_PROG(CC, mwccx86, mwccx86) ;;
+    BeBox | BeMac ) AC_CHECK_PROG(CC, mwcc, mwcc) ;;
+    *) ;;
+  esac
+fi
+if test -z "$CC"; then
   AC_CHECK_PROG(CC, cc, cc, , , /usr/ucb/cc)
 fi
 if test -z "$CC"; then
@@ -964,6 +975,42 @@ m4_expand_once([_AC_COMPILER_OBJEXT])[]dnl
 _AC_LANG_COMPILER_GNU
 GCC=`test $ac_compiler_gnu = yes && echo yes`
 _AC_PROG_CC_G
+
+dnl The following hackery seems to be adequate to get BeOS mwcc to
+dnl behave close enough to gcc to compile and link most things without
+dnl having to hack Makefiles up, as long as you don't try to use separate
+dnl source and build dirs.  It also arranges for AR to have a definition
+dnl that will usually work to generate object libraries that are later
+dnl added to the link command line.
+dnl
+dnl The "bcc" frontend for mwcc hides most of this hackery, plus it
+dnl automatically ensures that mwcc will look in the source directory
+dnl for include files, as well as in the build directory.
+case "$CC" in
+  bcc )
+    AR=${AR-mwld}
+    LD=${LD-mwld}
+    RANLIB=${RANLIB-true};;
+  mwcc )
+    CC="mwcc -I- -I. -I/boot/apps/GeekGadgets/include -L/boot/apps/GeekGadgets/lib -opt global -nodup"
+    AR=${AR-mwld}
+    LD=${LD-mwld}
+    RANLIB=${RANLIB-true};;
+  mwccx86 )
+    CC="mwccx86 -I- -I. -I/boot/apps/GeekGadgets/include -L/boot/apps/GeekGadgets/lib"
+    AR=${AR-mwldx86}
+    LD=${LD-mwldx86}
+    RANLIB=${RANLIB-true};;
+  ${host_alias}-gcc)
+    ;;
+  *)
+    AR=${AR-ar}
+    LD=${LD-ld}
+    RANLIB=${RANLIB-ranlib};;
+esac
+AC_SUBST(AR)
+AC_SUBST(RANLIB) dnl
+
 # Some people use a C++ compiler to compile C.  Since we use `exit',
 # in C++ we need to declare it.  In case someone uses the same compiler
 # for both compiling C and C++ we need to have the C++ compiler decide
@@ -1002,7 +1049,7 @@ else
   else
     CFLAGS=
   fi
-fi[]dnl
+fi dnl
 ])# _AC_PROG_CC_G
 
 
@@ -1123,6 +1170,27 @@ _AC_PROG_PREPROC_WORKS_IFELSE([],
 AC_SUBST(CXXCPP)dnl
 AC_LANG_POP(C++)dnl
 ])# AC_PROG_CXXCPP
+
+# AC_ARFLAGS
+# ----------
+# Set the flags needed by AR to create archives, dependant upon the compiler
+# being used.
+AC_DEFUN(AC_ARFLAGS,
+[ if test -z "$AR"; then
+  AC_CHECK_TOOL(AR, ar)
+fi
+AC_MSG_CHECKING([what flags $AR needs to create archives])
+AC_CACHE_VAL(gg_cv_arflags,
+[case "$CC" in
+  mwcc* | bcc*) ARFLAGS=${ARFLAGS-"-xml -o"} ;;
+  *)		ARFLAGS=${ARFLAGS-"cr"} ;;
+esac
+gg_cv_arflags=$ARFLAGS
+])dnl
+ARFLAGS="$gg_cv_arflags"
+AC_MSG_RESULT($ARFLAGS)
+AC_SUBST(ARFLAGS)dnl
+])
 
 
 # AC_LANG_COMPILER(C++)

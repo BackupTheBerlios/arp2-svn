@@ -526,7 +526,11 @@ void ucatch (dummy) int dummy; { }
 int
 main ()
 {
+#ifdef __amigaos__
+  int i = vfork (), status;
+#else
   int i = fork (), status;
+#endif
 
   if (i == 0)
     {
@@ -601,15 +605,17 @@ EOF
     # bogus both because they are the default anyway, and because
     # using them would break gcc on systems where it needs fixed includes.
     case $ac_im_incroot in
-	/usr/include) ;;
+	/gg/include) ;;
 	*) test -f "$ac_im_incroot/X11/Xos.h" && ac_x_includes=$ac_im_incroot;;
     esac
     case $ac_im_usrlibdir in
-	/usr/lib | /lib) ;;
+	/gg/lib) ;;
 	*) test -d "$ac_im_usrlibdir" && ac_x_libraries=$ac_im_usrlibdir ;;
     esac
   fi
   cd ..
+  # AmigaOS hack - give lock on conftestdir time to expire before rm -fr.
+  sleep 2
   rm -fr conftest.dir
 fi
 ])# _AC_PATH_X_XMKMF
@@ -655,7 +661,11 @@ ac_x_header_dirs='
 /usr/lpp/Xamples/include
 
 /usr/openwin/include
-/usr/openwin/share/include'
+/usr/openwin/share/include
+
+/gg/X11/include
+/gg/include/X11'
+
 
 if test "$ac_x_includes" = no; then
   # Guess where to find include files, by looking for Intrinsic.h.
