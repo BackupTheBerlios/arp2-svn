@@ -128,7 +128,7 @@ static const char *TypeTable[] =
    "SpaceBase",		GADGET,
    "SpeedBarBase",	GADGET,
    "StringBase",	GADGET,
-   "TextEditorBase"	GADGET,
+   "TextEditorBase",	GADGET,
    "TextFieldBase",	GADGET,
    "VirtualBase",	GADGET,
 
@@ -141,7 +141,7 @@ static const char *TypeTable[] =
 
    "BattClockBase",	RESOURCE,
    "BattMemBase",	RESOURCE,
-   "CardBase",		RESOURCE,
+   "CardResource",	RESOURCE,
    "DiskBase",		RESOURCE,
    "KeymapBase",	RESOURCE,
    "MiscBase",		RESOURCE,
@@ -1615,7 +1615,7 @@ fD_write(FILE* outfile, const fdDef* obj,int alias)
 
    if ((rettype=fD_GetType(obj))==fD_nostring)
    {
-      if (!Quiet)
+      if (!Quiet && !fD_GetPrivate(obj))
 	 fprintf(stderr, "Warning: %s has no prototype.\n", fD_GetName(obj));
       rettype = "VOID";
    }
@@ -2184,6 +2184,7 @@ main(int argc, char** argv)
       {
 	 for (count2=0; count2<sizeof TypeTable/sizeof TypeTable[0]; count2+=2)
 	 {
+	   printf("checking if %s == %s => %d\n",BaseName, TypeTable[count2],strcmp(BaseName, TypeTable[count2]));
 	    if (strcmp(BaseName, TypeTable[count2])==0)
 	    {
 	       type=TypeTable[count2+1];
@@ -2217,7 +2218,8 @@ main(int argc, char** argv)
 
    if (BaseName[0])
    {
-      fprintf(outfile, "==libname %s.%s\n", BaseNamL, type);
+      fprintf(outfile, "==libname %s.%s\n",
+	      strcmp(BaseNamL, "cardres") == 0 ? "card" : BaseNamL, type);
    }
 
    // We always need this
