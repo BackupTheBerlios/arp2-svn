@@ -1,0 +1,96 @@
+# -*- ksh -*-
+# Defines for Automake testing environment.
+# Tom Tromey <tromey@cygnus.com>
+
+# Ensure $srcdir set correctly.
+test -f $srcdir/defs || {
+   echo "defs: installation error" 1>&2
+   exit 1
+}
+
+me=`echo "$0" | sed -e 's,.*[\\/],,;s/\.test$//'`
+
+# Always use an absolute srcdir.  Otherwise symlinks made in subdirs
+# of the test dir just won't work.
+case "$srcdir" in
+ [\\/]* | ?:[\\/]*)
+    ;;
+
+ *)
+    srcdir=`CDPATH=: && cd "$srcdir" && pwd`
+    ;;
+esac
+
+chmod -R a+rwx testSubDir > /dev/null 2>&1
+rm -rf testSubDir > /dev/null 2>&1
+mkdir testSubDir
+
+# Copy in some files we need.
+for file in install-sh mkinstalldirs missing depcomp; do
+   cp $srcdir/../lib/$file testSubDir/$file || exit 1
+done
+
+cd ./testSubDir
+
+# Build appropriate environment in test directory.  Eg create
+# configure.in, touch all necessary files, etc.
+cat > configure.in << 'END'
+AC_INIT
+AM_INIT_AUTOMAKE(nonesuch, nonesuch)
+AC_ARG_PROGRAM
+AC_PROG_INSTALL
+AC_PROG_MAKE_SET
+AC_OUTPUT(Makefile)
+END
+
+# See how redirections should work.  User can set VERBOSE to see all
+# output.
+test -z "$VERBOSE" && {
+   exec > /dev/null 2>&1
+}
+
+# User can set PERL to change the perl interpreter used.
+test -z "$PERL" && PERL=perl
+
+# User can set MAKE to choose which make to use.  Must use GNU make.
+test -z "$MAKE" && MAKE=make
+
+# Unset some MAKE... variables that may cause $MAKE to act like a
+# recursively invoked sub-make.  Any $MAKE invocation in a test is
+# conceptually an independent invocation, not part of the main
+# 'automake' build.
+unset MFLAGS
+unset MAKEFLAGS
+unset MAKELEVEL
+
+if ($MAKE --version) > /dev/null 2>&1; then
+   needs_gnu_make=:
+else
+   needs_gnu_make='exit 77'
+fi
+
+# User can set which tools from Autoconf to use.
+test -z "$AUTOCONF" && AUTOCONF=autoconf
+if ($AUTOCONF --version) >/dev/null 2>&1; then
+  has_autoconf=:
+  needs_autoconf=:
+else
+  has_autoconf=false
+  needs_autoconf='exit 77'
+fi
+
+
+echo "=== Running test $0"
+
+# See how Automake should be run.  We put --foreign as the default
+# strictness to avoid having to create lots and lots of files.  A test
+# can override this by specifying a different strictness.
+if test -z "$AUTOMAKE"; then
+   perllibdir=$srcdir/../lib
+   export perllibdir
+   AUTOMAKE="$PERL ../../automake --libdir=$srcdir/../lib --foreign --Werror"
+fi
+
+# See how aclocal should be run.
+test -z "$ACLOCAL" \
+   && ACLOCAL="$PERL ../../aclocal --acdir=$srcdir/../m4"
