@@ -23,6 +23,9 @@ BEGIN {
 	my $nb        = $sfd->{base} eq '';
 
 	if ($prototype->{type} !~ /^(varargs)|(stdarg)$/) {
+	    print "\n";
+	    print "{\n";
+
 	    if (!$nb) {
 		print "  BASE_EXT_DECL\n";
 	    }

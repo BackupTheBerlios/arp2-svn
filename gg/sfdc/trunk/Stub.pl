@@ -106,6 +106,23 @@ BEGIN {
 	my %params   = @_;
 	my $prototype = $params{'prototype'};
 	my $sfd      = $self->{SFD};
+
+	if ($prototype->{type} =~ /^(varargs)|(stdarg)$/) {
+	    my $rproto = $prototype->{real_prototype};
+
+	    print "$$rproto{'return'} $$rproto{'funcname'}(";
+	    if ($$sfd{'base'} ne '') {
+		if ($$rproto{'numargs'} == 0) {
+		    print "BASE_PAR_DECL0";
+		}
+		else {
+		    print "BASE_PAR_DECL ";
+		}
+	    }
+	    print join (', ', @{$$rproto{'___args'}});
+	    print ");\n";
+	    print "\n";
+	}
 	
 	print "$$prototype{'return'}\n";
 	print "$$prototype{'funcname'}(";
@@ -118,8 +135,7 @@ BEGIN {
 	    }
 	}
 	print join (', ', @{$$prototype{'___args'}});
-	print ")\n";
-	print "{\n";
+	print ")";
 	
     }
 
@@ -129,6 +145,9 @@ BEGIN {
 	my $prototype = $params{'prototype'};
 	my $sfd       = $self->{SFD};
 	
+	print "\n";
+	print "{\n";
+
 	if ($$prototype{'type'} =~ /^(varargs)|(stdarg)$/) {
 	    print "  return $$prototype{'real_funcname'}(BASE_PAR_NAME ";
 	}

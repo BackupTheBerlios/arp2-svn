@@ -397,14 +397,16 @@ sub parse_sfd ( $ ) {
     close (SFD);
 
     # Now parse the prototypes
-    my $real_funcname = '';
+    my $real_funcname  = '';
+    my $real_prototype = {};
     my $varargs_type   = '';
 
     for my $i ( 0 .. $#{$$result{'prototypes'}} ) {
 	my $prototype = $$result{'prototypes'}[$i];
 
 	if ($$prototype{'type'} ne 'function') {
-	    $$prototype{'real_funcname'} = $real_funcname;
+	    $$prototype{'real_funcname'}  = $real_funcname;
+	    $$prototype{'real_prototype'} = $real_prototype;
 	}
 	
 	parse_proto ($prototype, $varargs_type);
@@ -415,7 +417,8 @@ sub parse_sfd ( $ ) {
 	}
 
 	if ($$prototype{'type'} eq 'function') {
-	    $real_funcname = $$prototype{'funcname'}
+	    $real_funcname  = $$prototype{'funcname'};
+	    $real_prototype = $prototype;
 	}
     };
 
