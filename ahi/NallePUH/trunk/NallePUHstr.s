@@ -75,7 +75,7 @@ msgActivate_STR: DC.B '_Activate',$00
 	XDEF msgDeactivate_STR
 msgDeactivate_STR: DC.B '_Deactivate',$00
 	XDEF msgNallePUH_STR
-msgNallePUH_STR: DC.B 'Nalle PUH version 0.2 ©2001 Martin Blom <martin@blom.org>',$00
+msgNallePUH_STR: DC.B 'Nalle PUH version 0.3 ©2001 Martin Blom <martin@blom.org>',$00
 	XDEF msgTest_STR
 msgTest_STR: DC.B '_Test',$00
 	XDEF msgToggleLed_STR
@@ -149,7 +149,7 @@ _CatCompBlock:
 	DC.B '_Deactivate',$00
 	DC.L $107
 	DC.W $3A
-	DC.B 'Nalle PUH version 0.2 ©2001 Martin Blom <martin@blom.org>',$00
+	DC.B 'Nalle PUH version 0.3 ©2001 Martin Blom <martin@blom.org>',$00
 	DC.L $108
 	DC.W $6
 	DC.B '_Test',$00

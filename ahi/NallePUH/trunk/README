@@ -3,7 +3,7 @@ Uploader: Martin Blom <martin@blom.org>
 Author:   Martin Blom <martin@blom.org>
 Type:     mus/misc
 Requires: An MMU, 68020+, AHI v4, OS 3.5 for GUI mode
-Version:  0.2
+Version:  0.3
 
 Q: What is "Nalle Puh"?
 A: It's the Swedish name for Winnie the Pooh.
@@ -50,7 +50,6 @@ A: I've tried the following programs, and they seem to work:
    * Musicline Editor 1.5
    * Octamed Soundstudio 1.03c
    * Protracker (version 2.3 and 4.0)
-   * Sid4Amiga
    * THX Sound System 2.3d.
 
    I've also tried the following, and they don't:
@@ -61,6 +60,9 @@ A: I've tried the following programs, and they seem to work:
 
    (Note that Protracker disables multitasking and cannot be used with AHI
    drivers that are not interrupt based.)
+
+   Previously, I wrote that Sid4Amiga also could be redirected, which is just
+   plain stupid, since Sid4Amiga already uses AHI. Duh! Sorry, Paul.
 
 Q: Will you extend Nalle PUH so the all of those program work?
 A: Unlikely.
@@ -85,6 +87,14 @@ A: I know.  The custom chip register mirror must stay if applications were
 
 Version history:
 
-0.1, 2001-04-23:	Initial release.
-0.2, 2001-04-28:	Redirected logging to the listview in GUI mode.
-			Minor GUI updates.
+0.1, 2001-04-23:	* Initial release.
+0.2, 2001-04-28:	* Redirected logging to the listview in GUI mode.
+			* Minor GUI updates.
+0.3, 2001-05-04		* Clears insr. caches when patching applications.
+			* Added a few more instr. patches (base relative).
+			This means that I had to move the register mirror
+			to $e00000. At least that area is unused on my A4000.
+			* The GUI does not touch the Paula registers on exit, 
+			unless the user has pressed "Test" at least once.
+			* Final update! I've returned the sound card I
+                        borrowed to write this hack. Thus, no more updates.

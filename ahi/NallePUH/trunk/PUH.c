@@ -20,6 +20,7 @@
 */
 
 #include <dos/dos.h>
+#include <exec/execbase.h>
 #include <exec/memory.h>
 #include <exec/resident.h>
 #include <devices/ahi.h>
@@ -242,12 +243,19 @@ AllocPUH( void )
 
     // Set address for direct (non-intercepted) custom register area
     
+#if 0
     // Using a page close to the original is good, since it would allow
     // patching of relative offset instructions, like $0a0(a5). However
     // I don't know enough about the memory map to do that yet.
 
-    //location = (void*) ( ( ( 0xdff000 & ~page_size ) - size ) & ~page_size );
     location = (void*) 0x80dff000;
+#else
+    // The area of $e00000 seems only to be used for the CDTV.
+    // Let's hope we can use it.
+
+    location = (void*) 0x00e00000;
+#endif
+
 
     pd = (struct PUHData*) AllocVec( sizeof( struct PUHData ),
                                      MEMF_PUBLIC | MEMF_CLEAR );
@@ -1096,8 +1104,6 @@ PUHHandler( REG( a0, struct ExceptionData* ed ),
                         EXDF_WRITEDATAUNKNOWN | 
                         EXDF_MISALIGNED ) )
   {
-//    KPrintF( "Illegal flag(s): %08lx, address $%08lx\n", 
-//             ed->exd_Flags, (ULONG) ed->exd_FaultAddress );
     rc = 1;
   }
   else
@@ -1108,6 +1114,8 @@ PUHHandler( REG( a0, struct ExceptionData* ed ),
 
     size = (ULONG) ed->exd_NextFaultAddress - (ULONG) ed->exd_FaultAddress;
     reg  = (ULONG) ed->exd_FaultAddress - (ULONG) pd->m_Intercepted;
+
+//    KPrintF( "%08lx: %04lx\n", ed->exd_ReturnPC, reg );
 
     // We must initialize handled, since it is only set to TRUE, never FALSE
     handled = FALSE;
@@ -1138,10 +1146,6 @@ PUHHandler( REG( a0, struct ExceptionData* ed ),
         PUHWrite( reg, ( ed->exd_Data >> 16 ) & 0xffffUL, &handled, pd, SysBase );
         PUHWrite( reg + 2, ed->exd_Data & 0xffffUL, &handled, pd, SysBase );
       }
-      else
-      {
-//        KPrintF( "Illegal size: %ld", size );
-      }
     }
     else
     {
@@ -1169,10 +1173,6 @@ PUHHandler( REG( a0, struct ExceptionData* ed ),
         ed->exd_Data =  PUHRead( reg, &handled, pd, SysBase ) << 16;
         ed->exd_Data |= PUHRead( reg + 2, &handled, pd, SysBase );
       }
-      else
-      {
-//        KPrintF( "Illegal size: %ld", size );
-      }
     }
 
     if( ! handled && ( pd->m_Flags & PUHF_PATCH_APPS ) )
@@ -1193,9 +1193,9 @@ PUHHandler( REG( a0, struct ExceptionData* ed ),
 
           if( ( address & ~0x1ffUL ) == (ULONG) pd->m_Intercepted )
           {
-//            KPrintF( "***Patched 1: 0x%08lx\n", address );
             WriteLong( ed->exd_ReturnPC + 4, 
                        address - 0xdff000 + (ULONG) pd->m_CustomDirect );
+            CacheClearE( ed->exd_ReturnPC + 4, 4, CACRF_ClearI );
           }
         }
         else if( op_code == 0x23fc )
@@ -1206,44 +1206,72 @@ PUHHandler( REG( a0, struct ExceptionData* ed ),
 
           if( ( address & ~0x1ffUL ) == (ULONG) pd->m_Intercepted )
           {
-//            KPrintF( "***Patched 2: 0x%08lx\n", address );
             WriteLong( ed->exd_ReturnPC + 6,
                        address - 0xdff000 + (ULONG) pd->m_CustomDirect );
+            CacheClearE( ed->exd_ReturnPC + 6, 4, CACRF_ClearI );
           }
         }
-#if 0 // It's too likely the register content will change...
-        else if( ( op_code & 0xcff0 ) == 0x03c0 )
+        else if( ( op_code & 0xf1ff ) == 0x317c )
         {
-          // move.x xn,$xxxxxxxx
+          // move.w #$xxxx,$xxxx(ax)
 
-          address = ReadLong( ed->exd_ReturnPC + 2 );
-
-          if( ( address & ~0x1ffUL ) == (ULONG) pd->m_Intercepted )
+          address = ReadWord( ed->exd_ReturnPC + 4 );
+          
+          if( address > 0 && address < 0x200 )
           {
-//            KPrintF( "***Patched 3: 0x%08lx\n", address );
-            WriteLong( ed->exd_ReturnPC + 2,
+            WriteWord( ed->exd_ReturnPC + 4,
                        address - 0xdff000 + (ULONG) pd->m_CustomDirect );
+            CacheClearE( ed->exd_ReturnPC + 4, 2, CACRF_ClearI );
           }
         }
-#endif
-        else if( ( op_code & 0xc1bf ) == 0x0039 ||
+        else if( ( op_code & 0xf1ff ) == 0x217c )
+        {
+          // move.l #$xxxxxxxx,$xxxx(ax)
+
+          address = ReadWord( ed->exd_ReturnPC + 6 );
+          
+          if( address > 0 && address < 0x200 )
+          {
+            WriteWord( ed->exd_ReturnPC + 6,
+                       address - 0xdff000 + (ULONG) pd->m_CustomDirect );
+            CacheClearE( ed->exd_ReturnPC + 6, 2, CACRF_ClearI );
+          }
+        }
+        else if( ( ( op_code & 0xc03f ) == 0x0039 &&
+                   ( op_code & 0x3000 ) != 0x0000 ) ||
                  ( op_code & 0xf1ff ) == 0xb039 )
         {
-          // move.x xn,$xxxxxxxx
-          // cmp.x  dn,$xxxxxxxx
+          // move.x $xxxxxxxx,????
+          // cmp.x  $xxxxxxxx,dx
 
           address = ReadLong( ed->exd_ReturnPC + 2 );
 
           if( ( address & ~0x1ffUL ) == (ULONG) pd->m_Intercepted )
           {
-//            KPrintF( "***Patched 4: 0x%08lx\n", address );
             WriteLong( ed->exd_ReturnPC + 2,
                        address - 0xdff000 + (ULONG) pd->m_CustomDirect );
+            CacheClearE( ed->exd_ReturnPC + 2, 4, CACRF_ClearI );
+          }
+        }
+        else if( ( ( op_code & 0xc038 ) == 0x0028 &&
+                   ( op_code & 0x3000 ) != 0x0000 ) ||
+                 ( op_code & 0xf138 ) == 0xb028 )
+        {
+          // move.x $xxxx(ax),????
+          // cmp.x  $xxxx(ax),dx
+
+          address = ReadWord( ed->exd_ReturnPC + 2 );
+
+          if( address > 0 && address < 0x200 )
+          {
+            WriteWord( ed->exd_ReturnPC + 2,
+                       address - 0xdff000 + (ULONG) pd->m_CustomDirect );
+            CacheClearE( ed->exd_ReturnPC + 2, 2, CACRF_ClearI );
           }
         }
         else
         {
-//          KPrintF( "%08lx: %04lx ", ed->exd_ReturnPC, reg );
+//          KPrintF( "[Failed: %08lx: %04lx ]", ed->exd_ReturnPC, reg );
         }
       }
     }
@@ -1362,8 +1390,6 @@ PUHWrite( UWORD            reg,
       }
 
       xor_dmacon = old_dmacon ^ new_dmacon;
-
-//      KPrintF( "DMACON: %04lx => %04lx->%04lx\n", value, old_dmacon, new_dmacon );
 
       if( xor_dmacon & DMAF_AUD0 )
       {
@@ -1540,7 +1566,6 @@ PUHWrite( UWORD            reg,
       break;
 
     case AUD0LCH:
-//KPrintF( "AUDxLCH: %04lx\n", value );
     case AUD1LCH:
     case AUD2LCH:
     case AUD3LCH:
@@ -1551,7 +1576,6 @@ PUHWrite( UWORD            reg,
       break;
 
     case AUD0LCL:
-//KPrintF( "AUDxLCL: %04lx\n", value );
     case AUD1LCL:
     case AUD2LCL:
     case AUD3LCL:
@@ -1585,7 +1609,6 @@ PUHWrite( UWORD            reg,
     }
 
     case AUD0LEN:
-//KPrintF( "AUDxLEN: %04lx\n", value );
     case AUD1LEN:
     case AUD2LEN:
     case AUD3LEN:
@@ -1618,7 +1641,6 @@ PUHWrite( UWORD            reg,
     }
 
     case AUD0PER:
-//KPrintF( "AUDxPER: %04lx\n", value );
     case AUD1PER:
     case AUD2PER:
     case AUD3PER:
@@ -1647,8 +1669,6 @@ PUHWrite( UWORD            reg,
     }
 
     case AUD0VOL:
-//KPrintF( "AUD0VOL: %04lx\n", value );
-
       AHI_SetVol( 0,
                   value << 10,
                   0x10000,
@@ -1659,7 +1679,6 @@ PUHWrite( UWORD            reg,
       break;
 
     case AUD1VOL:
-//KPrintF( "AUD1VOL: %04lx\n", value );
       AHI_SetVol( 1,
                   value << 10,
                   0x0,
@@ -1670,7 +1689,6 @@ PUHWrite( UWORD            reg,
       break;
 
     case AUD2VOL:
-//KPrintF( "AUD2VOL: %04lx\n", value );
       AHI_SetVol( 2,
                   value << 10,
                   0x0,
@@ -1681,7 +1699,6 @@ PUHWrite( UWORD            reg,
       break;
 
     case AUD3VOL:
-//KPrintF( "AUD3VOL: %04lx\n", value );
       AHI_SetVol( 3,
                   value << 10,
                   0x10000,
@@ -1777,12 +1794,10 @@ PUHSoftInt( REG( d1, UWORD           active_ints ),
 {
   pd->m_CausePending = FALSE;
 
-  // KPrintF( "About to call audio interrupt handlers (%08lx)... ", custom );
-
   // This is almost the same code as exec's. ExecDis rules.
   // We access m_INTENA/m_INTREQ directly in order to avoid
   // the overhead of the exception handler.
-#if 1
+
   asm( "
     movem.l   d0-d1/a0-a1/a5-a6,-(sp) /* Make sure we don't kill the C code */
 
@@ -1842,9 +1857,6 @@ done:
     "a" (&pd->m_INTREQ)
   : "cc", "memory", "d0", "d1", "a0", "a1", "a5", "a6" /* trashed registers */
   ); 
-#endif
-
-  // KPrintF( "Done!\n" );
 }
 
 
@@ -1883,8 +1895,6 @@ PUHSoundFunc( REG( a0, struct Hook*            hook ),
 
   if( pd->m_INTENA & pd->m_INTREQ & INTF_AUDIO )
   {
-    // KPrintF( "AHI generated interrupt for channel %ld\n", msg->ahism_Channel );
-  
     stack = SuperState();
 
     PUHSoftIntWrapper( 0, pd->m_CustomDirect, pd, SysBase );

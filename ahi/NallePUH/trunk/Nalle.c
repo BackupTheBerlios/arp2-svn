@@ -584,19 +584,18 @@ HandleGUI( Object*         window,
            struct Gadget** gadgets,
            struct PUHData* pd )
 {
-  BOOL           rc             = FALSE;
-  BOOL           quit           = FALSE;
+  BOOL           rc                    = FALSE;
+  BOOL           quit                  = FALSE;
+  BOOL           messed_with_registers = FALSE;
 
   struct Window* win_ptr        = NULL;
   ULONG          window_signals = 0;
 
-  ULONG          audio_mode     = 0;
-  ULONG          frequency      = 0;
+  ULONG          audio_mode = 0;
+  ULONG          frequency  = 0;
 
-  void*          chip           = NULL;
-  
-  struct Custom* custom         = (struct Custom*) 0xdff000;
-
+  void*          chip      = NULL;
+  struct Custom* custom    = (struct Custom*) 0xdff000;
   struct LogData log_data;
 
   struct Hook log_hook =
@@ -898,6 +897,8 @@ HandleGUI( Object*         window,
               
               case GAD_TEST:
               {
+                messed_with_registers = TRUE;
+
                 WriteWord( &custom->dmacon, DMAF_AUD0 );
 
                 Delay( 1 );  // The infamous DMA-wait! ;-)
@@ -942,8 +943,11 @@ HandleGUI( Object*         window,
   
   SetPUHLogger( NULL, pd );
 
-  WriteWord( &custom->dmacon, DMAF_AUD0 );
-  WriteWord( &custom->aud[ 0 ].ac_vol, 0 );
+  if( messed_with_registers )
+  {
+    WriteWord( &custom->dmacon, DMAF_AUD0 );
+    WriteWord( &custom->aud[ 0 ].ac_vol, 0 );
+  }
 
   FreeVec( chip );
 
