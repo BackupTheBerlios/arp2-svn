@@ -1,4 +1,5 @@
 
+#include "glgfx-config.h"
 #include <signal.h>
 #include <setjmp.h>
 #include <stdlib.h>

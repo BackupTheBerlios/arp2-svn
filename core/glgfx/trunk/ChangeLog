@@ -1,4 +1,7 @@
 2005-03-08  Martin Blom  <martin@blom.org>
 
-	* Automade.
+	* glgfx: Converted to automake.
 
+2005-03-03  Martin Blom  <martin@blom.org>
+
+	* glgfx: Initial import of glgfx sources into CVS.

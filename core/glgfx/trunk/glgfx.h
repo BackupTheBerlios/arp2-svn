@@ -1,17 +1,7 @@
 #ifndef ARP2_glgfx_glgfx_h
 #define ARP2_glgfx_glgfx_h
 
-#include <glgfx-config.h>
-
-#ifdef HAVE_STDBOOL_H
-# include <stdbool.h>
-#else
-# define bool  int
-# define true  1
-# define false 0
-# define __bool_true_false_are_defined 1
-#endif
-
+#include <stdbool.h>
 #include <stdio.h>
 #define BUG(...) printf(__VA_ARGS__)
 

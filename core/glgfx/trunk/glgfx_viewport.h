@@ -1,7 +1,6 @@
 #ifndef arp2_glgfx_glgfx_viewport_h
 #define arp2_glgfx_glgfx_viewport_h
 
-#include <glgfx-config.h>
 #include <glgfx.h>
 #include <glgfx_bitmap.h>
 #include <glgfx_monitor.h>

@@ -47,18 +47,18 @@ int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) 
       glgfx_view_addviewport(v, vp);
       
       int i;
-      for (i = 0; i < 255; i+=2) {
-	if (glgfx_bitmap_lock(bm, false, true)) {
-	  int* data = (int*) bm->locked_memory;
-	  int x, y;
+      for (i = 0; i < 255; i+=1) {
+/* 	if (glgfx_bitmap_lock(bm, false, true)) { */
+/* 	  int* data = (int*) bm->locked_memory; */
+/* 	  int x, y; */
       
-	  for (y = 0; y < height; y+=10) {
-	    for (x = 0; x < width; x+=10) {
-	      data[x+y*width+i*13] = -1;
-	    }
-	  }
-	  glgfx_bitmap_unlock(bm);
-	}
+/* 	  for (y = 0; y < height; y+=10) { */
+/* 	    for (x = 0; x < width; x+=10) { */
+/* 	      data[x+y*width+i*13] = -1; */
+/* 	    } */
+/* 	  } */
+/* 	  glgfx_bitmap_unlock(bm); */
+/* 	} */
 
 	glgfx_viewport_move(vp, 320 + i, 256, 100, 200+i);
 //	glgfx_viewport_setbitmap(vp, ri, bm, 0, 0, 320, 256);

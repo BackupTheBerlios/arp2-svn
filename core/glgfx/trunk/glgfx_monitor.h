@@ -1,7 +1,6 @@
 #ifndef arp2_glgfx_glgfx_monitor_h
 #define arp2_glgfx_glgfx_monitor_h
 
-#include <glgfx-config.h>
 #include <glgfx.h>
 
 #include <X11/Xlib.h>

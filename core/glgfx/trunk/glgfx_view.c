@@ -1,4 +1,5 @@
 
+#include "glgfx-config.h"
 #include <stdlib.h>
 #include <glib.h>
 #define GL_GLEXT_PROTOTYPES
