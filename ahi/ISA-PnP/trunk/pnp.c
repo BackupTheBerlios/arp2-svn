@@ -696,264 +696,6 @@ AddCards( UBYTE              rd_data_port_value,
 
 
 /******************************************************************************
-** Prints information about all cards on a serial port terminal ***************
-******************************************************************************/
-
-static void
-ShowResource( struct ISAPNP_Resource* resource,
-              struct ISAPNPBase*      res )
-{
-  switch( resource->isapnpr_Type )
-  {
-    case ISAPNP_NT_IRQ_RESOURCE:
-    {
-      struct ISAPNP_IRQResource* r = (struct ISAPNP_IRQResource*) resource;
-      int                        b;
-      
-      KPrintF( "IRQ" );
-      
-      for( b = 0; b < 16; ++b )
-      {
-        if( r->isapnpirqr_IRQMask & ( 1 << b ) )
-        {
-          KPrintF( " %ld", b );
-        }
-      }
-      
-      KPrintF( ", type" );
-      
-      if( r->isapnpirqr_IRQType & ISAPNP_IRQRESOURCE_ITF_HIGH_EDGE )
-      {
-        KPrintF( " +E" );
-      }
-
-      if( r->isapnpirqr_IRQType & ISAPNP_IRQRESOURCE_ITF_LOW_EDGE )
-      {
-        KPrintF( " -E" );
-      }
-
-      if( r->isapnpirqr_IRQType & ISAPNP_IRQRESOURCE_ITF_HIGH_LEVEL )
-      {
-        KPrintF( " +L" );
-      }
-
-      if( r->isapnpirqr_IRQType & ISAPNP_IRQRESOURCE_ITF_LOW_LEVEL )
-      {
-        KPrintF( " -L" );
-      }
-      
-      KPrintF( "\n" );
-      break;
-    }
-
-    case ISAPNP_NT_DMA_RESOURCE:
-    {
-      struct ISAPNP_DMAResource* r = (struct ISAPNP_DMAResource*) resource;
-      int                        b;
-      
-      KPrintF( "DMA" );
-      
-      for( b = 0; b < 8; ++b )
-      {
-        if( r->isapnpdmar_ChannelMask & ( 1 << b ) )
-        {
-          KPrintF( " %ld", b );
-        }
-      }
-
-      KPrintF( ", " );
-      switch( r->isapnpdmar_Flags & ISAPNP_DMARESOURCE_F_TRANSFER_MASK )
-      {
-        case ISAPNP_DMARESOURCE_F_TRANSFER_8BIT:
-          KPrintF( "8" );
-          break;
-
-        case ISAPNP_DMARESOURCE_F_TRANSFER_BOTH:
-          KPrintF( "8 and 16" );
-          break;
-          
-        case ISAPNP_DMARESOURCE_F_TRANSFER_16BIT:
-          KPrintF( "16" );
-          break;
-        
-      }
-      KPrintF( " bit transfer, " );
-      
-      switch( r->isapnpdmar_Flags & ISAPNP_DMARESOURCE_F_SPEED_MASK )
-      {
-        case ISAPNP_DMARESOURCE_F_SPEED_COMPATIBLE:
-          KPrintF( "compatible" );
-          break;
-
-        case ISAPNP_DMARESOURCE_F_SPEED_TYPE_A:
-          KPrintF( "type A" );
-          break;
-
-        case ISAPNP_DMARESOURCE_F_SPEED_TYPE_B:
-          KPrintF( "type B" );
-          break;
-
-        case ISAPNP_DMARESOURCE_F_SPEED_TYPE_F:     
-          KPrintF( "type F" );
-          break;
-      }
-      
-      KPrintF( " speed." );
-
-      if( r->isapnpdmar_Flags & ISAPNP_DMARESOURCE_FF_BUS_MASTER )
-      {
-        KPrintF( " [Bus master]" );
-      }
-
-      if( r->isapnpdmar_Flags & ISAPNP_DMARESOURCE_FF_BYTE_MODE )
-      {
-        KPrintF( " [Byte mode]" );
-      }
-
-      if( r->isapnpdmar_Flags & ISAPNP_DMARESOURCE_FF_WORD_MODE )
-      {
-        KPrintF( " [Word mode]" );
-      }
-
-      KPrintF( "\n" );
-
-      break;
-    }
-
-
-    case ISAPNP_NT_IO_RESOURCE:
-    {
-      struct ISAPNP_IOResource* r = (struct ISAPNP_IOResource*) resource;
-
-      if( r->isapnpior_MinBase == r->isapnpior_MaxBase )
-      {
-        KPrintF( "IO at 0x%04lx, length 0x%02lx.",
-                 r->isapnpior_MinBase, r->isapnpior_Length );
-      }
-      else
-      {
-        KPrintF( "IO between 0x%04lx and 0x%04lx, length 0x%02lx, %ld byte aligned.",
-                 r->isapnpior_MinBase, r->isapnpior_MaxBase, r->isapnpior_Length, r->isapnpior_Alignment );
-      }
-           
-      if( ( r->isapnpior_Flags & ISAPNP_IORESOURCE_FF_FULL_DECODE ) == 0 )
-      {
-        KPrintF( " [10 bit decode only]" );
-      }
-
-      KPrintF( "\n" );
-      break;
-    }
-
-
-    case ISAPNP_NT_MEMORY_RESOURCE:
-      KPrintF( "Memory\n" );
-      break;
-
-    default:
-      KPrintF( "Unknown resource!" );
-      break;
-  }
-}
-
-static void
-ShowResourceGroup( struct ISAPNP_ResourceGroup* resource_group,
-                   struct ISAPNPBase* res )
-{
-  struct ISAPNP_Resource*      r;
-  struct ISAPNP_ResourceGroup* rg;
-
-  for( r = (struct ISAPNP_Resource*) resource_group->isapnprg_Resources.mlh_Head;
-       r->isapnpr_MinNode.mln_Succ != NULL;
-       r = (struct ISAPNP_Resource*) r->isapnpr_MinNode.mln_Succ )
-  {
-    KPrintF( "      " );
-    ShowResource( r, res );
-  }
-
-  if( resource_group->isapnprg_ResourceGroups.mlh_Head->mln_Succ != NULL )  
-  {
-    KPrintF( "    One of\n" );
-
-    for( rg = (struct ISAPNP_ResourceGroup*) resource_group->isapnprg_ResourceGroups.mlh_Head;
-         rg->isapnprg_MinNode.mln_Succ != NULL;
-         rg = (struct ISAPNP_ResourceGroup*) rg->isapnprg_MinNode.mln_Succ )
-    {
-      KPrintF( "    {\n" );
-      ShowResourceGroup( rg, res );
-      KPrintF( "    }\n" );
-    }
-  }
-}
-
-
-static void
-ShowCards( struct ISAPNPBase* res )
-{
-  struct ISAPNP_Card* card;
-
-  for( card = (struct ISAPNP_Card*) res->m_Cards.lh_Head; 
-       card->isapnpc_Node.ln_Succ != NULL; 
-       card = (struct ISAPNP_Card*) card->isapnpc_Node.ln_Succ )
-  {
-    struct ISAPNP_Device* dev;
-    int                   dev_id;
-
-    KPrintF( "Card %ld: %s%03lx%lx/%ld ('%s')\n",
-             card->isapnpc_CSN, 
-             card->isapnpc_ID.isapnpid_Vendor, card->isapnpc_ID.isapnpid_ProductID, card->isapnpc_ID.isapnpid_Revision,
-             card->isapnpc_SerialNumber,
-             card->isapnpc_Node.ln_Name != NULL ? card->isapnpc_Node.ln_Name : "" );
-
-    for( dev = (struct ISAPNP_Device*) card->isapnpc_Devices.lh_Head;
-         dev->isapnpd_Node.ln_Succ != NULL; 
-         dev = (struct ISAPNP_Device*) dev->isapnpd_Node.ln_Succ )
-    {
-      struct ISAPNP_Identifier* id;
-      struct ISAPNP_Resource*   r;
-
-      KPrintF( "  Logical device %ld: ",
-               dev->isapnpd_DeviceNumber );
-
-      for( id = (struct ISAPNP_Identifier*) dev->isapnpd_IDs.mlh_Head;
-           id->isapnpid_MinNode.mln_Succ != NULL;
-           id = (struct ISAPNP_Identifier*) id->isapnpid_MinNode.mln_Succ )
-      {
-        KPrintF( "%s%03lx%lx ", id->isapnpid_Vendor, id->isapnpid_ProductID, id->isapnpid_Revision );
-      }
-
-      if( dev->isapnpd_Node.ln_Name != NULL )
-      {
-        KPrintF( "('%s')", dev->isapnpd_Node.ln_Name );
-      }
-
-      KPrintF( "\n" );
-
-      KPrintF( "    Allocated resources:\n" );
-
-      if( dev->isapnpd_Resources.mlh_Head->mln_Succ != NULL )
-      {
-        for( r = (struct ISAPNP_Resource*) dev->isapnpd_Resources.mlh_Head;
-             r->isapnpr_MinNode.mln_Succ != NULL;
-             r = (struct ISAPNP_Resource*) r->isapnpr_MinNode.mln_Succ )
-        {
-          KPrintF( "      " );
-          ShowResource( r, res );
-        }
-      }
-      else
-      {
-        KPrintF( "      None.\n" );
-      }
-
-//      KPrintF( "    Requested resources:\n" );
-//      ShowResourceGroup( dev->isapnpd_Options, res );
-    }
-  }
-}
-
-
-/******************************************************************************
 ** Scan for all PNP ISA cards *************************************************
 ******************************************************************************/
 
@@ -1022,7 +764,6 @@ FindConfiguration( struct ISAPNP_Device*   dev,
   {
     // Skip to next device
     
-//    KPrintF( "DISABLED!\n" );
     return FindNextCardConfiguration( dev, ctx, res );
   }
 
@@ -1183,13 +924,13 @@ ProgramConfiguration( struct ISAPNPBase* res )
 
       // Wake the new card
 
-KPrintF( "Woke up card %ld\n", dev->isapnpd_Card->isapnpc_CSN );
+//KPrintF( "Woke up card %ld\n", dev->isapnpd_Card->isapnpc_CSN );
       SetPnPReg( PNPISA_REG_WAKE, dev->isapnpd_Card->isapnpc_CSN, res );
     }
 
     // Select logical device
 
-KPrintF( "Selected device %ld\n", dev->isapnpd_DeviceNumber );
+//KPrintF( "Selected device %ld\n", dev->isapnpd_DeviceNumber );
     SetPnPReg( PNPISA_REG_LOGICAL_DEVICE_NUMBER, dev->isapnpd_DeviceNumber, res );
 
     for( resource = (struct ISAPNP_Resource*) dev->isapnpd_Resources.mlh_Head;
@@ -1207,7 +948,7 @@ KPrintF( "Selected device %ld\n", dev->isapnpd_DeviceNumber );
           {
             if( r->isapnpirqr_IRQMask & ( 1 << b ) )
             {
-KPrintF( "Programmed interrupt %ld in %lx\n", b, int_reg );
+//KPrintF( "Programmed interrupt %ld in %lx\n", b, int_reg );
               SetPnPReg( int_reg, b, res);
               break;
             }
@@ -1227,7 +968,7 @@ KPrintF( "Programmed interrupt %ld in %lx\n", b, int_reg );
             b |= 1;
           }
 
-KPrintF( "Programmed interrupt mode %ld in %lx\n", b, int_reg + 1 );
+//KPrintF( "Programmed interrupt mode %ld in %lx\n", b, int_reg + 1 );
           SetPnPReg( int_reg + 1, b, res );
           
           int_reg += 2;
@@ -1244,7 +985,7 @@ KPrintF( "Programmed interrupt mode %ld in %lx\n", b, int_reg + 1 );
           {
             if( r->isapnpdmar_ChannelMask & ( 1 << b ) )
             {
-KPrintF( "Programmed dma channel %ld in %lx\n", b, dma_reg );
+//KPrintF( "Programmed dma channel %ld in %lx\n", b, dma_reg );
               SetPnPReg( dma_reg, b, res );
               break;
             }
@@ -1259,7 +1000,7 @@ KPrintF( "Programmed dma channel %ld in %lx\n", b, dma_reg );
         {
           struct ISAPNP_IOResource* r = (struct ISAPNP_IOResource*) resource;
 
-KPrintF( "Programmed IO base %04lx in %lx\n", r->isapnpior_MinBase, io_reg );
+//KPrintF( "Programmed IO base %04lx in %lx\n", r->isapnpior_MinBase, io_reg );
 
           SetPnPReg( io_reg, r->isapnpior_MinBase >> 8, res );
           SetPnPReg( io_reg + 1, r->isapnpior_MinBase & 0xff, res );
@@ -1276,13 +1017,13 @@ KPrintF( "Programmed IO base %04lx in %lx\n", r->isapnpior_MinBase, io_reg );
     }
 
     // Activate the device
-KPrintF( "Activated the device\n" );
+//KPrintF( "Activated the device\n" );
     SetPnPReg( PNPISA_REG_ACTIVATE, 1, res );
   }
 
   // Move all cards to the wfk state
 
-KPrintF( "Moved cards to wfk\n" );
+//KPrintF( "Moved cards to wfk\n" );
 
   SetPnPReg( PNPISA_REG_CONFIG_CONTROL,
              PNPISA_CCF_WAIT_FOR_KEY,
@@ -1311,13 +1052,13 @@ ISAPNP_ConfigureCards( REG( a6, struct ISAPNPBase* res ) )
     {
       if( ! FindConfiguration( dev, ctx, res ) )
       {
-        KPrintF( "Unable to find a usable configuration.\n" );
+        // KPrintF( "Unable to find a usable configuration.\n" );
       }
       else
       {
         if( ! ProgramConfiguration( res ) )
         {
-          KPrintF( "Failed to program configuration!\n" );
+          // KPrintF( "Failed to program configuration!\n" );
         }
         else
         {
@@ -1328,8 +1069,6 @@ ISAPNP_ConfigureCards( REG( a6, struct ISAPNPBase* res ) )
       FreeResourceIteratorContext( ctx );
     }
   }
-
-  ShowCards( res );
 
   return rc;
 }

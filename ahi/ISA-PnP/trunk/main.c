@@ -20,7 +20,10 @@
      MA 02139, USA.
 */
 
+#include <dos/dos.h>
+
 #include <proto/exec.h>
+#include <proto/dos.h>
 
 #include "include/resources/isapnp.h"
 #include "isapnp_private.h"
@@ -28,7 +31,13 @@
 #include "init.h"
 #include "pnp_structs.h"
 
+#define TEMPLATE "SHOWCONFIG/S,SHOWOPTIONS/S,REMOVE/S"
+
 extern struct Resident RomTag;
+
+static void
+ShowCards( BOOL               show_options, 
+           struct ISAPNPBase* res );
 
 
 /******************************************************************************
@@ -46,31 +55,346 @@ int
 ResourceEntry( void )
 {
   struct ISAPNPBase* ISAPNPBase;
+  struct RDArgs*     rdargs;
+  int                rc = -1;
+
+  struct 
+  {
+    ULONG   m_ShowConfig;
+    ULONG   m_ShowOptions;
+    ULONG   m_Remove;
+  } args = { FALSE, FALSE, FALSE };
 
   if( ! OpenLibs() )
   {
-    return 20;
+    CloseLibs();
+    return RETURN_FAIL;
   }
 
   ISAPNPBase = (struct ISAPNPBase* ) OpenResource( ISAPNPNAME );
 
-  if( ISAPNPBase != NULL )
+  if( ISAPNPBase == NULL )
   {
-    struct ISAPNP_Card* card;
+    Printf( ISAPNPNAME " not found. Did you try C:BindDrivers?\n" );
+    CloseLibs();
+    return RETURN_FAIL;
+  }
 
-    KPrintF( "Located resource at $%08lx\n", ISAPNPBase );
+  rdargs = ReadArgs( TEMPLATE, (LONG *) &args, NULL );
 
-    while( ( card = (struct ISAPNP_Card*) RemHead( &ISAPNPBase->m_Cards ) ) )
+  if( rdargs != NULL )
+  {
+    if( ! args.m_ShowConfig && args.m_ShowOptions )
     {
-      ISAPNP_FreeCard( card, ISAPNPBase );
+      Printf( "SHOWOPTIONS can only be used together with SHOWCONFIG\n" );
+      rc = RETURN_ERROR;
+    }
+    else
+    {
+      if( args.m_ShowConfig )
+      {
+        ShowCards( args.m_ShowOptions, ISAPNPBase );
+        rc = RETURN_OK;
+      }
+      
+      if( args.m_Remove )
+      {
+        // Dangerous! Only for debugging
+
+        struct ISAPNP_Card* card;
+
+        while( ( card = (struct ISAPNP_Card*) RemHead( &ISAPNPBase->m_Cards ) ) )
+        {
+          ISAPNP_FreeCard( card, ISAPNPBase );
+        }
+
+        ISAPNPBase->m_ConfigDev->cd_Flags  |= CDF_CONFIGME;
+        ISAPNPBase->m_ConfigDev->cd_Driver  = NULL;
+        RemResource( ISAPNPBase );
+
+        rc = RETURN_OK;
+      }
     }
 
-    ISAPNPBase->m_ConfigDev->cd_Flags  |= CDF_CONFIGME;
-    ISAPNPBase->m_ConfigDev->cd_Driver  = NULL;
-    RemResource( ISAPNPBase );
+    FreeArgs( rdargs );
   }
+
+  if( rc == -1 )
+  {
+    Printf( "Usage: ISA-PnP [ SHOWCONFIG [ SHOWOPTIONS ] ] [ REMOVE ]\n" );
+    rc = RETURN_ERROR;
+  }
+  
 
   CloseLibs();
 
-  return 0;
-};
+  return rc;
+}
+
+
+/******************************************************************************
+** Prints information about all cards on a serial port terminal ***************
+******************************************************************************/
+
+static void
+ShowResource( struct ISAPNP_Resource* resource,
+              struct ISAPNPBase*      res )
+{
+  switch( resource->isapnpr_Type )
+  {
+    case ISAPNP_NT_IRQ_RESOURCE:
+    {
+      struct ISAPNP_IRQResource* r = (struct ISAPNP_IRQResource*) resource;
+      int                        b;
+      
+      Printf( "IRQ" );
+      
+      for( b = 0; b < 16; ++b )
+      {
+        if( r->isapnpirqr_IRQMask & ( 1 << b ) )
+        {
+          Printf( " %ld", b );
+        }
+      }
+      
+      Printf( ", type" );
+      
+      if( r->isapnpirqr_IRQType & ISAPNP_IRQRESOURCE_ITF_HIGH_EDGE )
+      {
+        Printf( " +E" );
+      }
+
+      if( r->isapnpirqr_IRQType & ISAPNP_IRQRESOURCE_ITF_LOW_EDGE )
+      {
+        Printf( " -E" );
+      }
+
+      if( r->isapnpirqr_IRQType & ISAPNP_IRQRESOURCE_ITF_HIGH_LEVEL )
+      {
+        Printf( " +L" );
+      }
+
+      if( r->isapnpirqr_IRQType & ISAPNP_IRQRESOURCE_ITF_LOW_LEVEL )
+      {
+        Printf( " -L" );
+      }
+      
+      Printf( "\n" );
+      break;
+    }
+
+    case ISAPNP_NT_DMA_RESOURCE:
+    {
+      struct ISAPNP_DMAResource* r = (struct ISAPNP_DMAResource*) resource;
+      int                        b;
+      
+      Printf( "DMA" );
+      
+      for( b = 0; b < 8; ++b )
+      {
+        if( r->isapnpdmar_ChannelMask & ( 1 << b ) )
+        {
+          Printf( " %ld", b );
+        }
+      }
+
+      Printf( ", " );
+      switch( r->isapnpdmar_Flags & ISAPNP_DMARESOURCE_F_TRANSFER_MASK )
+      {
+        case ISAPNP_DMARESOURCE_F_TRANSFER_8BIT:
+          Printf( "8" );
+          break;
+
+        case ISAPNP_DMARESOURCE_F_TRANSFER_BOTH:
+          Printf( "8 and 16" );
+          break;
+          
+        case ISAPNP_DMARESOURCE_F_TRANSFER_16BIT:
+          Printf( "16" );
+          break;
+        
+      }
+      Printf( " bit transfer, " );
+      
+      switch( r->isapnpdmar_Flags & ISAPNP_DMARESOURCE_F_SPEED_MASK )
+      {
+        case ISAPNP_DMARESOURCE_F_SPEED_COMPATIBLE:
+          Printf( "compatible" );
+          break;
+
+        case ISAPNP_DMARESOURCE_F_SPEED_TYPE_A:
+          Printf( "type A" );
+          break;
+
+        case ISAPNP_DMARESOURCE_F_SPEED_TYPE_B:
+          Printf( "type B" );
+          break;
+
+        case ISAPNP_DMARESOURCE_F_SPEED_TYPE_F:     
+          Printf( "type F" );
+          break;
+      }
+      
+      Printf( " speed." );
+
+      if( r->isapnpdmar_Flags & ISAPNP_DMARESOURCE_FF_BUS_MASTER )
+      {
+        Printf( " [Bus master]" );
+      }
+
+      if( r->isapnpdmar_Flags & ISAPNP_DMARESOURCE_FF_BYTE_MODE )
+      {
+        Printf( " [Byte mode]" );
+      }
+
+      if( r->isapnpdmar_Flags & ISAPNP_DMARESOURCE_FF_WORD_MODE )
+      {
+        Printf( " [Word mode]" );
+      }
+
+      Printf( "\n" );
+
+      break;
+    }
+
+
+    case ISAPNP_NT_IO_RESOURCE:
+    {
+      struct ISAPNP_IOResource* r = (struct ISAPNP_IOResource*) resource;
+
+      if( r->isapnpior_MinBase == r->isapnpior_MaxBase )
+      {
+        Printf( "IO at 0x%04lx, length 0x%02lx.",
+                 r->isapnpior_MinBase, r->isapnpior_Length );
+      }
+      else
+      {
+        Printf( "IO between 0x%04lx and 0x%04lx, length 0x%02lx, %ld byte aligned.",
+                 r->isapnpior_MinBase, r->isapnpior_MaxBase, r->isapnpior_Length, r->isapnpior_Alignment );
+      }
+           
+      if( ( r->isapnpior_Flags & ISAPNP_IORESOURCE_FF_FULL_DECODE ) == 0 )
+      {
+        Printf( " [10 bit decode only]" );
+      }
+
+      Printf( "\n" );
+      break;
+    }
+
+
+    case ISAPNP_NT_MEMORY_RESOURCE:
+      Printf( "Memory\n" );
+      break;
+
+    default:
+      Printf( "Unknown resource!" );
+      break;
+  }
+}
+
+static void
+ShowResourceGroup( struct ISAPNP_ResourceGroup* resource_group,
+                   struct ISAPNPBase* res )
+{
+  struct ISAPNP_Resource*      r;
+  struct ISAPNP_ResourceGroup* rg;
+
+  for( r = (struct ISAPNP_Resource*) resource_group->isapnprg_Resources.mlh_Head;
+       r->isapnpr_MinNode.mln_Succ != NULL;
+       r = (struct ISAPNP_Resource*) r->isapnpr_MinNode.mln_Succ )
+  {
+    Printf( "      " );
+    ShowResource( r, res );
+  }
+
+  if( resource_group->isapnprg_ResourceGroups.mlh_Head->mln_Succ != NULL )  
+  {
+    Printf( "    One of\n" );
+
+    for( rg = (struct ISAPNP_ResourceGroup*) resource_group->isapnprg_ResourceGroups.mlh_Head;
+         rg->isapnprg_MinNode.mln_Succ != NULL;
+         rg = (struct ISAPNP_ResourceGroup*) rg->isapnprg_MinNode.mln_Succ )
+    {
+      Printf( "    {\n" );
+      ShowResourceGroup( rg, res );
+      Printf( "    }\n" );
+    }
+  }
+}
+
+
+static void
+ShowCards( BOOL               show_options, 
+           struct ISAPNPBase* res )
+{
+  struct ISAPNP_Card* card;
+
+  for( card = (struct ISAPNP_Card*) res->m_Cards.lh_Head; 
+       card->isapnpc_Node.ln_Succ != NULL; 
+       card = (struct ISAPNP_Card*) card->isapnpc_Node.ln_Succ )
+  {
+    struct ISAPNP_Device* dev;
+    int                   dev_id;
+
+    Printf( "Card %ld: %s%03lx%lx/%ld ('%s')\n",
+             card->isapnpc_CSN, 
+             (ULONG) card->isapnpc_ID.isapnpid_Vendor, 
+             card->isapnpc_ID.isapnpid_ProductID, 
+             card->isapnpc_ID.isapnpid_Revision,
+             card->isapnpc_SerialNumber,
+             card->isapnpc_Node.ln_Name != NULL ? (ULONG) card->isapnpc_Node.ln_Name 
+                                                : (ULONG) "" );
+
+    for( dev = (struct ISAPNP_Device*) card->isapnpc_Devices.lh_Head;
+         dev->isapnpd_Node.ln_Succ != NULL; 
+         dev = (struct ISAPNP_Device*) dev->isapnpd_Node.ln_Succ )
+    {
+      struct ISAPNP_Identifier* id;
+      struct ISAPNP_Resource*   r;
+
+      Printf( "  Logical device %ld: ",
+               dev->isapnpd_DeviceNumber );
+
+      for( id = (struct ISAPNP_Identifier*) dev->isapnpd_IDs.mlh_Head;
+           id->isapnpid_MinNode.mln_Succ != NULL;
+           id = (struct ISAPNP_Identifier*) id->isapnpid_MinNode.mln_Succ )
+      {
+        Printf( "%s%03lx%lx ",
+                (ULONG) id->isapnpid_Vendor, 
+                id->isapnpid_ProductID, 
+                id->isapnpid_Revision );
+      }
+
+      if( dev->isapnpd_Node.ln_Name != NULL )
+      {
+        Printf( "('%s')", (ULONG) dev->isapnpd_Node.ln_Name );
+      }
+
+      Printf( "\n" );
+
+      Printf( "    Allocated resources:\n" );
+
+      if( dev->isapnpd_Resources.mlh_Head->mln_Succ != NULL )
+      {
+        for( r = (struct ISAPNP_Resource*) dev->isapnpd_Resources.mlh_Head;
+             r->isapnpr_MinNode.mln_Succ != NULL;
+             r = (struct ISAPNP_Resource*) r->isapnpr_MinNode.mln_Succ )
+        {
+          Printf( "      " );
+          ShowResource( r, res );
+        }
+      }
+      else
+      {
+        Printf( "      None.\n" );
+      }
+
+      if( show_options )
+      {
+        Printf( "    Requested resources:\n" );
+        ShowResourceGroup( dev->isapnpd_Options, res );
+      }
+    }
+  }
+}

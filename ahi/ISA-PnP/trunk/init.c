@@ -25,6 +25,7 @@
 #include <exec/memory.h>
 #include <exec/resident.h>
 #include <devices/timer.h>
+#include <intuition/intuition.h>
 #include <libraries/configvars.h>
 #include <libraries/expansion.h>
 #include <libraries/expansionbase.h>
@@ -33,6 +34,7 @@
 #include <proto/dos.h>
 #include <proto/exec.h>
 #include <proto/expansion.h>
+#include <proto/intuition.h>
 #include <proto/utility.h>
 
 #include "include/resources/isapnp.h"
@@ -48,6 +50,12 @@
 static BOOL
 HandleToolTypes( UBYTE**            tool_types, 
                  struct ISAPNPBase* res );
+
+void
+ReqA( const char* text, APTR args );
+
+#define Req( text, args...) \
+        ( { ULONG _args[] = { args }; ReqA( (text), (APTR) _args ); } )
 
 
 /******************************************************************************
@@ -81,6 +89,7 @@ struct Device*         TimerBase     = NULL;
 struct DosLibrary*     DOSBase       = NULL;
 struct ExecBase*       SysBase       = NULL;
 struct ExpansionBase*  ExpansionBase = NULL;
+struct IntuitionBase*  IntuitionBase = NULL;
 struct ISAPNPBase*     ISAPNPBase    = NULL;
 struct UtilityBase*    UtilityBase   = NULL;
 
@@ -134,8 +143,7 @@ initRoutine( REG( d0, struct ISAPNPBase* res ),
   {
     // No libraries?
 
-KPrintF( "No libraries?.\n" );
-
+    Req( "Failed to open required libraries." );
   }
   else
   {
@@ -149,7 +157,7 @@ KPrintF( "No libraries?.\n" );
     {
       // No legal CurrentBinding structure
 
-KPrintF( "No legal CurrentBinding structure.\n" );
+      Req( "No legal CurrentBinding structure found." );
 
     }
     else
@@ -160,7 +168,7 @@ KPrintF( "No legal CurrentBinding structure.\n" );
       {
         // No card found
 
-KPrintF( "No card found.\n" );
+        Req( "No bridge card found." );
       }
       else
       {
@@ -169,8 +177,10 @@ KPrintF( "No card found.\n" );
         {
           // Unsupported ISA bridge
 
-KPrintF( "Unsupported ISA bridge: %ld/%ld.\n", 
-         cd->cd_Rom.er_Manufacturer, cd->cd_Rom.er_Product );
+          Req( "Unsupported ISA bridge: %ld/%ld.\n"
+               "Only the GG2 Bus+ card is supported.", 
+               cd->cd_Rom.er_Manufacturer, 
+               cd->cd_Rom.er_Product );
         }
         else
         {
@@ -178,7 +188,7 @@ KPrintF( "Unsupported ISA bridge: %ld/%ld.\n",
           {
             // No board address?
 
-KPrintF( "No board address?\n" );
+            Req( "No board address?" );
           }
           else
           {
@@ -203,7 +213,7 @@ KPrintF( "No board address?\n" );
             {
               // No cards found
 
-KPrintF( "No cards found.\n" );
+              Req( "No PnP ISA cards found." );
             }
             else
             {
@@ -211,7 +221,7 @@ KPrintF( "No cards found.\n" );
 
               if( ! HandleToolTypes( current_binding.cb_ToolTypes, res ) )
               {
-KPrintF( "Unable to handle tool types.\n" );
+                // Error requester already displayed.
               }
               else
               {
@@ -219,7 +229,10 @@ KPrintF( "Unable to handle tool types.\n" );
                 {
                   // Unable to configure cards
 
-KPrintF( "Unable to configure cards.\n" );
+                  Req( "Unable to configure the cards. This is most likely\n"
+                       "becaues of an unresolvable hardware conflict.\n\n"
+                       "Use the DISABLE_DEVICE tool type to disable one of\n"
+                       "the devices in conflict." );
                 }
                 else
                 {
@@ -296,8 +309,17 @@ OpenLibs( void )
 {
   SysBase = *( (struct ExecBase**) 4 );
 
-  /* Utility Library (libnix depends on it, and out startup-code is not
+  /* Utility Library (libnix depends on it, and our startup-code is not
      executed when BindDriver LoadSeg()s us!) */
+
+  /* Intuition Library */
+
+  IntuitionBase  = (struct IntuitionBase*) OpenLibrary( "intuition.library", 37 );
+
+  if( IntuitionBase == NULL )
+  {
+    return FALSE;
+  }
 
   UtilityBase = (struct UtilityBase *) OpenLibrary( "utility.library", 37 );
 
@@ -366,12 +388,37 @@ CloseLibs( void )
   CloseLibrary( (struct Library*) DOSBase );
   CloseLibrary( (struct Library*) ExpansionBase );
   CloseLibrary( (struct Library*) UtilityBase );
+  CloseLibrary( (struct Library*) IntuitionBase );
 
   TimerIO       = NULL;
   TimerBase     = NULL;
   DOSBase       = NULL;
   ExpansionBase = NULL;  
+  IntuitionBase = NULL;
   UtilityBase   = NULL;
+}
+
+
+/******************************************************************************
+** ReqA ***********************************************************************
+******************************************************************************/
+
+void
+ReqA( const char* text, APTR args )
+{
+  struct EasyStruct es = 
+  {
+    sizeof (struct EasyStruct),
+    0,
+    (STRPTR) ISAPNPNAME " " VERS,
+    (STRPTR) text,
+    "OK"
+  };
+
+  if( IntuitionBase != NULL )
+  {
+    EasyRequestArgs( NULL, &es, NULL, args );
+  }
 }
 
 
@@ -490,7 +537,7 @@ HandleToolTypes( UBYTE**            tool_types,
       }
       else
       {
-        KPrintF( "Illegal tool type: %s\n", *tool_types );
+        Req( "Illegal tool type: %s\n", *tool_types );
         return FALSE;
       }
     }
@@ -516,7 +563,7 @@ HandleToolTypes( UBYTE**            tool_types,
       }
       else
       {
-        KPrintF( "Illegal tool type: %s\n", *tool_types );
+        Req( "Illegal tool type value: %s\n", *tool_types );
         return FALSE;
       }
     }
