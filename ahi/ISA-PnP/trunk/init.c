@@ -31,6 +31,7 @@
 
 #include "isapnp.h"
 #include "isapnp_private.h"
+#include "controller.h"
 #include "version.h"
 
 #if 0
@@ -58,11 +59,7 @@ const struct Resident RomTag =
   RTC_MATCHWORD,
   (struct Resident *) &RomTag,
   (struct Resident *) &RomTag + 1,
-#if defined( ENABLE_MORPHOS )
-  RTF_PPC | RTF_AUTOINIT,
-#else
   RTF_AUTOINIT,
-#endif
   VERSION,
   NT_RESOURCE,
   0,                      /* priority */
@@ -117,10 +114,10 @@ KPrintFArgs( UBYTE* fmt,
 ** Resource initialization ****************************************************
 ******************************************************************************/
 
-struct ISAPnPResource*
-initRoutine( struct ISAPnPResource*  res,
-             APTR                    seglist,
-             struct ExecBase*        sysbase )
+struct ISAPnPResource* ASMCALL
+initRoutine( REG( d0, struct ISAPnPResource* res ),
+             REG( a0, APTR                   seglist ),
+             REG( a6, struct ExecBase*       sysbase ) )
 {
   struct ExpansionBase* ExpansionBase;
 
@@ -198,32 +195,25 @@ KPrintF( "Installed.\n" );
 }
 
 
-
-/******************************************************************************
-** m68k wrappers **************************************************************
-******************************************************************************/
-
-/* gw_initRoutine ************************************************************/
-
-struct ISAPnPResource* ASMCALL
-gw_initRoutine( REG( d0, struct ISAPnPResource* res ),
-                REG( a0, APTR                   seglist ),
-                REG( a6, struct ExecBase*       sysbase ) )
-{
-  return initRoutine( res, seglist, sysbase );
-}
-
-
 /******************************************************************************
 ** Initialization tables ******************************************************
 ******************************************************************************/
 
 static const APTR funcTable[] =
 {
-
-#if defined( ENABLE_MORPHOS )
-  (APTR) FUNCARRAY_32BIT_NATIVE,
-#endif
+  ISAC_SetMasterInt,
+  ISAC_GetMasterInt,
+  ISAC_SetWaitState,
+  ISAC_GetWaitState,
+  ISAC_GetInterruptStatus,
+  ISAC_GetRegByte,
+  ISAC_SetRegByte,
+  ISAC_GetRegWord,
+  ISAC_SetRegWord,
+  ISAC_ReadByte,
+  ISAC_WriteByte,
+  ISAC_ReadWord,
+  ISAC_WriteWord,
 
   (APTR) -1
 };
@@ -234,5 +224,5 @@ static const APTR InitTable[4] =
   (APTR) sizeof( struct ISAPnPResource ),
   (APTR) &funcTable,
   0,
-  (APTR) gw_initRoutine
+  (APTR) initRoutine
 };

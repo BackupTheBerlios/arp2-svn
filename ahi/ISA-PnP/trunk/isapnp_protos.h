@@ -17,47 +17,24 @@
 
 // Controller functions
 
-void
-ISAC_SetMasterInt( BOOL on );
+void ISAC_SetMasterInt( BOOL on );
+BOOL ISAC_GetMasterInt( void );
 
-BOOL
-ISAC_GetMasterInt( void );
+void ISAC_SetWaitState( BOOL on );
+BOOL ISAC_GetWaitState( void );
 
-void
-ISAC_SetWaitState( BOOL on );
+BOOL ISAC_GetInterruptStatus( UBYTE interrupt );
 
-BOOL
-ISAC_GetWaitState( void );
+UBYTE ISAC_GetRegByte( UWORD reg );
+void ISAC_SetRegByte( UWORD reg, UBYTE value );
 
-BOOL
-ISAC_GetInterruptStatus( UBYTE interrupt );
+UWORD ISAC_GetRegWord( UWORD reg );
+void ISAC_SetRegWord( UWORD reg, UWORD value );
 
-UBYTE
-ISAC_GetRegByte( UWORD reg );
+UBYTE ISAC_ReadByte( ULONG address );
+void ISAC_WriteByte( ULONG address, UBYTE value );
 
-void
-ISAC_SetRegByte( UWORD reg, 
-                 UBYTE value );
-
-UWORD
-ISAC_GetRegWord( UWORD reg );
-
-void
-ISAC_SetRegWord( UWORD reg, 
-                 UWORD value );
-
-UBYTE
-ISAC_ReadByte( ULONG address );
-
-void
-ISAC_WriteByte( ULONG address, 
-                UBYTE value );
-
-UWORD
-ISAC_ReadWord( ULONG address );
-
-void
-ISAC_WriteWord( ULONG address, 
-                UWORD value );
+UWORD ISAC_ReadWord( ULONG address );
+void ISAC_WriteWord( ULONG address, UWORD value );
 
 #endif /* CLIB_PNPISA_PROTOS_H */

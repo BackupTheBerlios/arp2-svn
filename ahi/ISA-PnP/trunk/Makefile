@@ -1,3 +1,7 @@
+# $Id$
+
+
+### Definitions ###############################################################
 
 INSTALL		= /gg/bin/install -c
 INSTALL_PROGRAM = ${INSTALL}
@@ -11,6 +15,15 @@ LDFLAGS		= -noixemul -lamiga
 
 TARGET		= ISA-PnP
 
+
+### Default rules #############################################################
+
+
+%.o:		%.c
+	$(CC) $(CPPFLAGS) $(CFLAGS) -c $(OUTPUT_OPTION) $<
+
+
+### Fake targets ##############################################################
 
 .PHONY:		all clean distclean revup depend 
 
@@ -41,13 +54,14 @@ version.h:	version.rev version.date
 	 echo "#define REVISION $$rev" >> $@ && \
 	 echo "#define VERS \"$$ver.$$rev ($$date)\"" >> $@
 
-%.o:		%.c
-	$(CC) $(CPPFLAGS) $(CFLAGS) -c $(OUTPUT_OPTION) $<
 
-init.o:		version.h
+### Real targets ##############################################################
 
 $(TARGET):	main.o init.o controller.o
 	$(CC) $(LDFLAGS) $^ -o $@
+
+
+### Dependencies ##############################################################
 
 depend Makefile.dep:	version.h
 	$(CC) $(CPPFLAGS) -MM $(wildcard *.c) > Makefile.dep
