@@ -33,7 +33,7 @@ BEGIN {
 	print "#ifndef _NO_INLINE\n";
 	print "# if defined(__GNUC__)\n";
 	print "#  include <inline/${basename}.h>\n";
-	print "# elif defined(LATTICE) || defined(__SASC) || defined(_DCC)\n";
+	print "# else\n";
 	print "#  include <pragmas/${basename}_pragmas.h>\n";
 	print "# endif\n";
 	print "#endif /* _NO_INLINE */\n";
