@@ -135,14 +135,17 @@ static int viewport_setup(void) {
 
   bitmap = glgfx_bitmap_create(currprefs.gfx_width_win,
 			       currprefs.gfx_height_win,
-			       16, 0, NULL, glgfx_pixel_r5g6b5,
-//			       16, 0, NULL, glgfx_pixel_a4r4g4b4,
+//			       16, 0, NULL, glgfx_pixel_r5g6b5,
+			       16, 0, NULL, glgfx_pixel_a4r4g4b4,
 			       glgfx_monitors[0]);
 
   if (bitmap == NULL) {
     return 0;
   }
-  
+
+//  alloc_colors64k (5, 6, 5, 11, 5, 0, 0, 0, 0); 
+  alloc_colors64k (4, 4, 4, 8, 4, 0, 4, 12, 0xf);
+ 
   if (glgfx_bitmap_getattr(bitmap, glgfx_bitmap_width, &res)) {
     gfxvidinfo.width = res;
   }
@@ -514,18 +517,18 @@ void gfx_unlock_picasso (void) {
 #endif
 
 int lockscr (void) {
-  printf("lockscr()\n");
+//  printf("lockscr()\n");
 
   if (glgfx_bitmap_lock(bitmap, false, true)) {
     gfxvidinfo.bufmem = glgfx_bitmap_map(bitmap);
+    init_row_map();
 
     if (gfxvidinfo.bufmem != NULL) {
-      static void* old_addr = NULL;
+//      static void* old_addr = NULL;
       
-      if (gfxvidinfo.bufmem != old_addr) {
-	init_row_map();
-	old_addr = gfxvidinfo.bufmem;
-      }
+//      if (gfxvidinfo.bufmem != old_addr) {
+//	old_addr = gfxvidinfo.bufmem;
+//      }
 
       return 1;
     }
@@ -535,7 +538,7 @@ int lockscr (void) {
 }
 
 void unlockscr (void) {
-  printf("unlockscr()\n");
+//  printf("unlockscr()\n");
 
   if (gfxvidinfo.bufmem != NULL) {
       int x,y;
@@ -548,6 +551,7 @@ void unlockscr (void) {
       }
     glgfx_bitmap_unmap(bitmap);
     gfxvidinfo.bufmem = NULL;
+    init_row_map();
   }
 
   glgfx_bitmap_unlock(bitmap);
