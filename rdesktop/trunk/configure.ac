@@ -6,9 +6,8 @@ AC_CONFIG_HEADER([config.h])
 AC_MSG_CHECKING(if we should use libnix instead of ixemul.library)
 AC_ARG_WITH(libnix,
 [  --with-libnix           Use libnix instead of ixemul.library],
-if test "x${withval}" = "xyes"; then
-  libnix='-noixemul'
-fi)
+[libnix='-noixemul' ALIBS=''],
+[libnix='' ALIBS=', ixemul V48' withval=no])
 AC_MSG_RESULT(${withval})
 
 AC_CANONICAL_HOST
@@ -16,6 +15,7 @@ AC_CANONICAL_HOST
 case $host in
  m68k-unknown-amigaos)
   OS="AmigaOS"
+  OS_VERSION="AmigaOS 3.x or OS4 (emulated)"
   OS_VERSION_AGA="AmigaOS 3.x"
   OS_VERSION_GFX="AmigaOS 3.x+P96/CGFX"
   DESKTOP="Workbench"
@@ -23,6 +23,7 @@ case $host in
  ;;
  powerpc-unknown-morphos)
   OS="MorphOS"
+  OS_VERSION="MorphOS 0.4/1.4+"
   OS_VERSION_AGA="MorphOS 0.4 (untested)"
   OS_VERSION_GFX="MorphOS 0.4/1.4+"
   DESKTOP="Ambient"
@@ -33,7 +34,9 @@ case $host in
  ;;
 esac
 
+AC_SUBST(ALIBS)
 AC_SUBST(OS)
+AC_SUBST(OS_VERSION)
 AC_SUBST(OS_VERSION_AGA)
 AC_SUBST(OS_VERSION_GFX)
 AC_SUBST(DESKTOP)

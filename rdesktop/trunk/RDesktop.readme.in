@@ -1,7 +1,7 @@
 Short:    A Remote Desktop Protocol Client for accessing Windows NT Terminal Server
 Author:   Matthew Chapman et al, Martin Blom <martin@blom.org>
 Type:     comm/tcp
-Requires: @OS@, @CPU@, ixemul V48
+Requires: @OS_VERSION@@ALIBS@, a TCP/IP stack, access to a Windows computer
 Version:  1.3.1cvs-@OS@ (06.01.2005)
 
 RDESKTOP
@@ -41,9 +41,16 @@ It was ported by Martin Blom, who also did a previous Amiga port
 (version 2001-10-28). This port, however, is using a much more recent
 Unix snapshot, which makes it work correctly with Windows XP and adds
 loads of new features. It is also much more "Amigaized" than the last
-version. Darren Eveland and BBRV/Genesi made it happen. Thanks to
-André 'Jobbo' Siegel for the gorgeous PNG icons and Sigbjørn Skjæret
-for additional beta testing.
+version.
+
+Thanks to:
+
+André 'Jobbo' Siegel for the gorgeous PNG icons.
+Sigbjørn Skjæret for additional beta testing and advice.
+Ralph Schmidt for allowing use of the MorphOS logo.
+Martin Blom for programming.
+Darren Eveland for beta testing, project funding, and website.
+Genesi/BBRV for MorphOS port funding.
 
 
 Specification:
@@ -76,6 +83,10 @@ true-color screen mode is specified, the screen mode.
 Audio will be redirected automatically. Use the AUDIO argument to
 specify the AHI unit to use (default is 0). The REMOTEAUDIO switch can
 be used to leave audio enabled on the remote side instead.
+
+The Clipboard can be used to copy text from the Amiga to the Windows
+host, and from the Windows host to the Amiga, using the normal
+cut/paste keyboard shortcuts.
 
 The user name can be specified by using the USER argument and the
 windows domain by using the DOMAIN argument. The password can be set
