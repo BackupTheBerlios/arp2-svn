@@ -24,16 +24,24 @@
 
 struct Context
 {
+  struct Task*              PSATask;
+  ULONG                     PSASignalMask;
   struct AHIEffMasterVolume MasterVol;
   ULONG                     MasterVolRC;
   struct Hook               SoundHook;
   struct AHIAudioCtrl*      AudioCtrl;
+  BOOL                      Playing;
+  BOOL                      Recording;
+  BOOL                      Sound0Loaded;
+  BOOL                      Sound1Loaded;
   UWORD                     CurrentSound;
   UWORD                     NextSound;
 };
 
 
 /*** Prototypes **************************************************************/
+
+void kprintf( char* fmt, ... );
 
 static BOOL Init( void );
 static void ShutDown( void );
@@ -130,11 +138,11 @@ main( void )
          buffer has been completed).
          In this demo the timer.device signals us every DELAY seconds */
 
-printf( "Waiting for signals: %08lx.\n", ulPortSignal | ulTimerSigMask | SIGBREAKF_CTRL_C );
+kprintf( "Waiting for signals: %08lx.\n", ulPortSignal | SIGBREAKF_CTRL_C );
 
-      ulSignal = Wait(ulPortSignal | ulTimerSigMask | SIGBREAKF_CTRL_C );
+      ulSignal = Wait(ulPortSignal | SIGBREAKF_CTRL_C );
 
-printf( "Got signal: %08lx\n", ulSignal );
+kprintf( "Got signal: %08lx\n", ulSignal );
 
       if( ulSignal & SIGBREAKF_CTRL_C )
       {
@@ -143,11 +151,11 @@ printf( "Got signal: %08lx\n", ulSignal );
       else if(ulSignal & ulPortSignal) /* Command from AL16... */
       {
 
-printf( "PSA signal\n" );
+kprintf( "PSA signal\n" );
 
         while( (pEIOsg = (ExternalIOMessage *) GetMsg(port)) )
         {
-printf( "Got message!\n" );
+kprintf( "Got message!\n" );
           switch(pEIOsg->lCommand)
           {
             case EIO_CMD_INFO:
@@ -159,56 +167,148 @@ printf( "Got message!\n" );
               pEIOsg->lError = EIO_ERR_NOERROR;
               ReplyMsg((struct Message *)pEIOsg);
 
-              printf("EIO_CMD_INFO received\n");
+              kprintf("EIO_CMD_INFO received\n");
  
               break;
 
             case EIO_CMD_PLAY:
-              /* Get parameters from AL16...*/
-              ptaskAL16     = pEIOsg->ptaskSwapper;
-              ulSigMaskAL16   = pEIOsg->ulSignalMask;
-              pbBuff1     = pEIOsg->pbBuffer1;
-              pbBuff2     = pEIOsg->pbBuffer2;
-              lSize       = pEIOsg->lBufferSize;
-              fOnePage    = pEIOsg->fOnePage;
-              wDataType     = pEIOsg->wDataType;
-              ulClock     = pEIOsg->ulClock;
-              wChannels     = pEIOsg->wChannels;
+            {
+              ULONG sample_type = -1;
+              ULONG sample_freq = -1;
 
-
-              lCurBuff = 1;
-
-              bMode = MODE_PLAY;
-
+kprintf( "EIO_CMD_PLAY\n" );
               pEIOsg->lError = EIO_ERR_NOERROR;
-              ReplyMsg((struct Message *)pEIOsg);
 
-              printf("EIO_CMD_PLAY received (%luHz)",ulClock);
-              if(wDataType == EIO_DAT_16LS)
-                printf("(16 bit)\n");
-              else if(wDataType == EIO_DAT_8LU)
-                printf("(8 bit)\n");
+              context.PSATask       = pEIOsg->ptaskSwapper;
+              context.PSASignalMask = pEIOsg->ulSignalMask;
 
+              sample_freq = pEIOsg->ulClock;
 
-              /* Ask AL16 to immediatly fill next buffer */
-              Signal(ptaskAL16,ulSigMaskAL16);
-              printf("Sending signal...\n");
+              if( pEIOsg->wDataType == EIO_DAT_16LS )
+              {
+                if( pEIOsg->wChannels == 1 )
+                {
+                  sample_type = AHIST_M16S;
+                }
+                else if( pEIOsg->wChannels == 2)
+                {
+                  sample_type = AHIST_S16S;
+                }
+                else
+                {
+                  pEIOsg->lError = EIO_ERR_CHANNELS;
+                }
+              }
+              else
+              {
+                pEIOsg->lError = EIO_ERR_DATATYPE;
+              }
 
+              if( context.Sound0Loaded )
+              {
+                AHI_UnloadSound( 0, context.AudioCtrl );
+                context.Sound0Loaded = FALSE;
+              }
 
-              printf("Playing buffer %ld\n",lCurBuff);
-              /* Only for demo: ask the timer.device to
-                 signal us in DELAY seconds. Please remove
-                 this and let your board signal us when it
-                 completed buffer 1 */
-              ptimerequest->tr_time.tv_secs = DELAY;
-              ptimerequest->tr_time.tv_micro= 0;
+              if( context.Sound1Loaded )
+              {
+                AHI_UnloadSound( 1, context.AudioCtrl );
+                context.Sound1Loaded = FALSE;
+              }
 
-              SendIO((struct IORequest *)ptimerequest);
+              if( pEIOsg->fOnePage )
+              {
+                struct AHISampleInfo si;
+                
+                si.ahisi_Type    = sample_type;
+                si.ahisi_Address = pEIOsg->pbBuffer1;
+                si.ahisi_Length  = pEIOsg->lBufferSize 
+                                   / AHI_SampleFrameSize( sample_type );
 
+kprintf( "Loadsound 0: %lx, %ld\n", si.ahisi_Address, si.ahisi_Length );
+                if( AHI_LoadSound( 0,
+                                   AHIST_DYNAMICSAMPLE,
+                                   &si,
+                                   context.AudioCtrl ) != AHIE_OK )
+                {
+                  pEIOsg->lError = EIO_ERR_HARDFAIL;
+                }
+                else
+                {
+                  context.Sound0Loaded = TRUE;
+                }
+                
+                context.CurrentSound = 0;
+                context.NextSound    = 0;
+              }
+              else
+              {
+                struct AHISampleInfo si;
+                
+                si.ahisi_Type    = sample_type;
+                si.ahisi_Address = pEIOsg->pbBuffer1;
+                si.ahisi_Length  = pEIOsg->lBufferSize 
+                                   / AHI_SampleFrameSize( sample_type );
 
-              fPlaying = TRUE;
+kprintf( "Loadsound 0: %lx, %ld\n", si.ahisi_Address, si.ahisi_Length );
+                if( AHI_LoadSound( 0,
+                                   AHIST_DYNAMICSAMPLE,
+                                   &si,
+                                   context.AudioCtrl ) != AHIE_OK )
+                {
+                  pEIOsg->lError = EIO_ERR_HARDFAIL;
+                }
+                else
+                {
+                  context.Sound0Loaded = TRUE;
+                  
+                  si.ahisi_Address = pEIOsg->pbBuffer2;
 
+kprintf( "Loadsound 1: %lx, %ld\n", si.ahisi_Address, si.ahisi_Length );
+                  if( AHI_LoadSound( 1,
+                                     AHIST_DYNAMICSAMPLE,
+                                     &si,
+                                     context.AudioCtrl ) != AHIE_OK )
+                  {
+                    pEIOsg->lError = EIO_ERR_HARDFAIL;
+                  }
+                  else
+                  {
+                    context.Sound1Loaded = TRUE;
+                  }
+
+                }
+
+                context.CurrentSound = 1;
+                context.NextSound    = 0;
+              }
+
+              if( pEIOsg->lError == EIO_ERR_NOERROR )
+              {
+kprintf( "AHI_Play\n" );
+                context.Playing = TRUE;
+                AHI_Play( context.AudioCtrl,
+                          AHIP_BeginChannel, 0,
+                          AHIP_Freq,         sample_freq,
+                          AHIP_Vol,          0x10000,
+                          AHIP_Pan,          0x8000,
+                          AHIP_Sound,        0,
+                          AHIP_EndChannel,   0,
+                          TAG_DONE );
+
+kprintf( "AHI_ControlAudio(play)\n" );
+                if( AHI_ControlAudio( context.AudioCtrl,
+                                      AHIC_Play, TRUE,
+                                      TAG_DONE ) != AHIE_OK )
+                {
+                  context.Playing = FALSE;
+                  pEIOsg->lError  = EIO_ERR_HARDFAIL;
+                }
+              }
+
+              ReplyMsg( (struct Message *) pEIOsg );
               break;
+            }
 
             case EIO_CMD_REC:
               /* Get parameters from AL16...*/
@@ -220,7 +320,7 @@ printf( "Got message!\n" );
               pwRecBuff2    = (WORD *)pEIOsg->pbBuffer4;
 
               lSize       = pEIOsg->lBufferSize;
-              fOnePage    = pEIOsg->fOnePage;
+//              fOnePage    = pEIOsg->fOnePage;
               wDataType     = pEIOsg->wDataType;
               ulClock     = pEIOsg->ulClock;
               wChannels     = pEIOsg->wChannels;
@@ -228,18 +328,18 @@ printf( "Got message!\n" );
 
               lCurBuff = 1;
 
-              bMode = MODE_REC;
+//              bMode = MODE_REC;
 
 
 //              pEIOsg->lError = EIO_ERR_NOERROR;
               pEIOsg->lError = EIO_ERR_UNKNOWNCMD;
               ReplyMsg((struct Message *)pEIOsg);
 
-              printf("EIO_CMD_REC received (%luHz)",ulClock);
+              kprintf("EIO_CMD_REC received (%luHz)",ulClock);
               if(wDataType == EIO_DAT_16LS)
-                printf("(16 bit)\n");
+                kprintf("(16 bit)\n");
 #if 0
-              printf("Recording buffer %ld\n",lCurBuff);
+              kprintf("Recording buffer %ld\n",lCurBuff);
 
               pwRecTmp1 = pwRecBuff1;
               pwRecTmp2 = pwRecBuff2;
@@ -267,22 +367,38 @@ printf( "Got message!\n" );
               break;
 
             case EIO_CMD_STOP:
-
               pEIOsg->lError = EIO_ERR_NOERROR;
               ReplyMsg((struct Message *)pEIOsg);
-              printf("EIO_CMD_STOP  received\n");
+              kprintf("EIO_CMD_STOP  received\n");
 
+kprintf( "AHI_ControlAudio(stop)\n" );
+              if( context.Playing )
+              {
+                context.Playing = FALSE;
+                AHI_ControlAudio( context.AudioCtrl,
+                                  AHIC_Play, FALSE,
+                                  TAG_DONE );
+              }
 
-              /* Only for demo:ask the timer.device to
-                 abort the operation. Please remove this
-                 and stop the board playback. If you can't
-                 stop it immediatly try to turn the volume
-                 to zero... then stop it as soon as possible. */
-              AbortIO((struct IORequest *)ptimerequest);
-              WaitIO((struct IORequest *)ptimerequest);
+              if( context.Recording )
+              {
+                context.Recording = FALSE;
+                AHI_ControlAudio( context.AudioCtrl,
+                                  AHIC_Record, FALSE,
+                                  TAG_DONE );
+              }
 
-              fPlaying = FALSE;
-              fRecording = FALSE;
+              if( context.Sound0Loaded )
+              {
+                AHI_UnloadSound( 0, context.AudioCtrl );
+                context.Sound0Loaded = FALSE;
+              }
+
+              if( context.Sound1Loaded )
+              {
+                AHI_UnloadSound( 1, context.AudioCtrl );
+                context.Sound1Loaded = FALSE;
+              }
 
               break;
 
@@ -290,9 +406,9 @@ printf( "Got message!\n" );
 
               pEIOsg->lError = EIO_ERR_NOERROR;
               ReplyMsg((struct Message *)pEIOsg);
-              printf("EIO_CMD_SETPARAMS  received\n");
+              kprintf("EIO_CMD_SETPARAMS  received\n");
 
-														/* Parameters passing removed. Doesn't
+              /* Parameters passing removed. Doesn't
                  apply to generic boards and AHI as
                  well */
 
@@ -315,112 +431,6 @@ printf( "Got message!\n" );
           }
         }
       }
-      if(ulSignal & ulTimerSigMask) /* Here goes drivers code */
-      {
-printf( "Timer signal.\n" );
-        GetMsg(pportTimer);
-
-        if(bMode == MODE_PLAY)
-        {
-          if(fPlaying == FALSE)
-          {
-          /* this interrupt is late... sometimes happens */
-
-          while(GetMsg(pportTimer))
-          {
-          }
-          }
-          else
-          {
-          Signal(ptaskAL16,ulSigMaskAL16);
-          printf("Sending signal...\n");
-
-          if(fOnePage)
-          {
-            /* restart playback from the same buffer
-               (always buffer 1) if the whole recording
-               fits in one page (buffer) */
-            printf("Handling buffer %ld\n",lCurBuff);
-          }
-          else
-          {
-            if(lCurBuff == 1)
-            {
-              lCurBuff = 2;
-              printf("Handling buffer %ld\n",lCurBuff);
-            }
-            else
-            {
-              lCurBuff = 1;
-              printf("Handling buffer %ld\n",lCurBuff);
-            }
-          }
-          /* Only for demo: ask the timer.device to
-             signal us in DELAY seconds. Please remove
-             this and let your board signal us when it
-             completed buffer 1 */
-
-          ptimerequest->tr_node.io_Command = TR_ADDREQUEST;
-          ptimerequest->tr_node.io_Message.mn_ReplyPort = pportTimer;
-          ptimerequest->tr_time.tv_secs = DELAY;
-          ptimerequest->tr_time.tv_micro= 0;
-
-          SendIO((struct IORequest *)ptimerequest);
-         }
-         }
-         else if (bMode == MODE_REC)
-         {
-         if(fRecording == FALSE)
-         {
-          /* this interrupt is late... sometimes happens */
-
-          while(GetMsg(pportTimer))
-          {
-          }
-         }
-         else
-         {
-          Signal(ptaskAL16,ulSigMaskAL16);
-          printf("Sending signal...\n");
-
-          if(lCurBuff == 1)
-          {
-              lCurBuff = 2;
-              printf("Recording buffer %ld\n",lCurBuff);
-
-              pwRecTmp2 = pwRecBuff2;
-              for(lTmp = 0;lTmp<(lSize/2);lTmp++)
-                 *pwRecTmp2++ = wDummySmp;
-
-              wDummySmp++;
-          }
-          else
-          {
-              lCurBuff = 1;
-              printf("Recording buffer %ld\n",lCurBuff);
-
-
-              pwRecTmp1 = pwRecBuff1;
-              for(lTmp = 0;lTmp<(lSize/2);lTmp++)
-                 *pwRecTmp1++ = wDummySmp;
-
-              wDummySmp++;
-          }
-
-          /* Only for demo: ask the timer.device to
-             signal us in DELAY seconds. Please remove
-             this and let your board signal us when it
-             completed buffer 1 */
-
-          ptimerequest->tr_node.io_Command = TR_ADDREQUEST;
-          ptimerequest->tr_node.io_Message.mn_ReplyPort = pportTimer;
-          ptimerequest->tr_time.tv_secs = DELAY;
-          ptimerequest->tr_time.tv_micro= 0;
-
-          SendIO((struct IORequest *)ptimerequest);
-          }
-        }
-      }
     }
   }
 
@@ -430,9 +440,11 @@ printf( "Exiting... " );
   {
     DeletePort( port );
   }
-
+kprintf( "e1\n" );
   Destruct( &context );
+kprintf( "e2\n" );
   ShutDown();
+kprintf( "e3\n" );
   return 0;
 }
 
@@ -620,6 +632,18 @@ SoundFunc( REG( a0, struct Hook*            hook ),
            REG( a1, struct AHISoundMessage* smsg ) )
 {
   struct Context* this = (struct Context*) hook->h_Data;
+  UWORD           snd;
+
+  if( this->Playing )
+  {
+    snd                = this->NextSound;
+    this->NextSound    = this->CurrentSound;
+    this->CurrentSound = snd;
+
+    AHI_SetSound( 0, this->NextSound, 0, 0, this->AudioCtrl, AHISF_NONE );
+    Signal( this->PSATask, this->PSASignalMask );
+    kprintf( "Queued sound %ld\n", this->NextSound );
+  }
 
   return 0;
 }

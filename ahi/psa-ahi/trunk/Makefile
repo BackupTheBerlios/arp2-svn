@@ -1,13 +1,16 @@
 
 CPPFLAGS	=
-CFLAGS		= -O2 -W -Wall
-LDFLAGS		= -noixemul
+CFLAGS		= -g -O2 -W -Wall
+LDFLAGS		= #-noixemul
 
 all:	AHIInOut
 
 clean:
 	$(RM) *.o AHIInOut
 
-AHIInOut:	AHIInOut.o
+AHIInOut:	AHIInOut.o debug.o
 	$(CC) $(LDFLAGS) $^ $(OUTPUT_OPTION)
 
+
+debug.o:	debug.s
+	basm -uo+ $< -o$@
