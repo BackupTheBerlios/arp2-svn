@@ -9,6 +9,7 @@
 #include "glgfx.h"
 #include "glgfx_bitmap.h"
 #include "glgfx_monitor.h"
+#include "glgfx_view.h"
 #include "glgfx_viewport.h"
 
 #define max_monitors  8               // Four cards, two outputs/card max
@@ -140,6 +141,9 @@ int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) 
 
       struct glgfx_viewport* vp = glgfx_viewport_create(320, 256, 100, 200);
       struct glgfx_rasinfo*  ri = glgfx_viewport_addbitmap(vp, bm, 0, 0);
+      struct glgfx_view*     v  = glgfx_view_create(monitors[0]);
+
+      glgfx_view_addviewport(v, vp);
       
       int i;
       for (i = 0; i < 255; i+=2) {
@@ -158,13 +162,14 @@ int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) 
 	glgfx_viewport_move(vp, 320 + i, 256, 100, 200+i);
 //	glgfx_viewport_setbitmap(vp, ri, bm, i*5, i*4);
 	
-	glDrawBuffer(GL_BACK);
-//	glClearColor( i/255.0, 0, 0, 1.0);
-	glClearColor( 0, 0, 0, 1.0);
-	glClear(GL_COLOR_BUFFER_BIT);
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	glgfx_viewport_render(vp);
+/* 	glDrawBuffer(GL_BACK); */
+/* //	glClearColor( i/255.0, 0, 0, 1.0); */
+/* 	glClearColor( 0, 0, 0, 1.0); */
+/* 	glClear(GL_COLOR_BUFFER_BIT); */
+/* 	glEnable(GL_BLEND); */
+/* 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); */
+/* 	glgfx_viewport_render(vp); */
+	glgfx_view_render(v);
 	glgfx_monitor_waittof(monitors[0]);
       }
 
