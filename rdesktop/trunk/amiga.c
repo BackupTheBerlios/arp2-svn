@@ -60,6 +60,8 @@
 # include <intuition/extensions.h>
 #endif
 
+#include "amiga_clipboard.h"
+
 extern int  g_width;
 extern int  g_height;
 extern Bool g_sendmotion;
@@ -1209,8 +1211,10 @@ ui_init(void)
   amiga_null_cursor = ui_create_cursor( 0, 0, 16, 1,
 					null_pointer_mask, null_pointer_data );
 
-  // Try to enable clipboard handling (ignore failuers)
-//  cliprdr_init();
+  // Try to enable clipboard handling (just ignore failures)
+  if (amiga_clip_init()) {
+    cliprdr_init();
+  }
 
   amiga_wb_port = CreateMsgPort();
 
@@ -1228,6 +1232,8 @@ void
 ui_deinit(void)
 {
   struct Message* msg;
+
+  amiga_clip_deinit();
 
   if( amiga_wb_port != NULL )
   {
@@ -1453,7 +1459,8 @@ ui_select(int rdp_socket)
 
     n++;
 
-    mask = 1UL << amiga_wb_port->mp_SigBit;
+    // CTRL-F is the clipboard hook
+    mask = 1UL << amiga_wb_port->mp_SigBit | SIGBREAKF_CTRL_F;
 
     if( amiga_window != NULL )
     {
@@ -1479,6 +1486,10 @@ ui_select(int rdp_socket)
       return False;
     }
 
+    if (mask & SIGBREAKF_CTRL_F) {
+      cliprdr_send_text_format_announce();
+    }
+    
       if( mask & ( 1UL << amiga_wb_port->mp_SigBit ) )
       {
 	struct AppMessage* msg;
@@ -2613,30 +2624,4 @@ ui_desktop_restore(uint32 offset, int x, int y, int cx, int cy)
                               x, y, cx, cy,
                               bytesperpixel != 1 );
   }
-}
-
-/*** Clipboard handling ***/
-
-void
-ui_clip_format_announce(uint8 * data, uint32 length)
-{
-  printf( "ui_clip_format_announce (%d bytes) '%s'\n", length, data );
-}
-
-void ui_clip_handle_data(uint8 * data, uint32 length)
-{
-  printf( "ui_clip_handle_data (%d bytes) '%s'\n", length, data );
-}
-
-void ui_clip_request_data(uint32 format)
-{
-  printf( "ui_clip_request_data (format %x)\n", format );
-  cliprdr_send_data(NULL, 0);
-}
-
-void ui_clip_sync(void)
-{
-  printf( "ui_clip_sync\n" );
-
-  cliprdr_send_text_format_announce();
 }
