@@ -32,8 +32,11 @@
 
 #include "include/resources/isapnp.h"
 #include "isapnp_private.h"
-#include "controller.h"
 #include "version.h"
+
+#include "controller.h"
+#include "init.h"
+#include "pnp.h"
 
 #if 0
 /******************************************************************************
@@ -102,13 +105,6 @@ KPrintFArgs( UBYTE* fmt,
 {
   RawDoFmt( fmt, args, (void(*)(void)) rawputchar_m68k, SysBase );
 }
-
-
-#define KPrintF( fmt, ... )        \
-({                                 \
-  LONG _args[] = { __VA_ARGS__ };  \
-  KPrintFArgs( (fmt), _args );     \
-})
 
 
 /******************************************************************************
@@ -188,14 +184,19 @@ KPrintF( "No board address?\n" );
           }
           else
           {
-            cd->cd_Flags  &= ~CDF_CONFIGME;
-            cd->cd_Driver  = res;
+            if( ! PNPISA_ConfigureCards( res ) )
+            {
+              // Unable to configure cards
 
-            res->m_RegAddress   = 0x0279;
-            res->m_RegWriteData = 0x0a79;
-            res->m_RegReadData  = 0x0000;
+KPrintF( "Unable to configure cards.\n" );
+            }
+            else
+            {
+              cd->cd_Flags  &= ~CDF_CONFIGME;
+              cd->cd_Driver  = res;
 
-            ISAPnPBase = res;
+              ISAPnPBase = res;
+            }
           }
         }
       }

@@ -20,25 +20,17 @@
      MA 02139, USA.
 */
 
-#ifndef	ISA_PNP_isapnp_private_h
-#define ISA_PNP_isapnp_private_h
+#ifndef	ISA_PNP_init_h
+#define ISA_PNP_init_h
 
-#include <exec/libraries.h>
-#include <libraries/configvars.h>
+#include "CompilerSpecific.h"
 
-struct ISAPnPResource
-{
-  struct Library        m_Library;
+#include <exec/types.h>
 
-  UWORD                 m_RegReadData;
+#define KPrintF( fmt, ... )        \
+({                                 \
+  LONG _args[] = { __VA_ARGS__ };  \
+  KPrintFArgs( (fmt), _args );     \
+})
 
-//  UWORD                 m_Pad;            /* Align to longword */
-
-  APTR                  m_Base;
-
-
-
-  struct CurrentBinding m_CurrentBinding;
-};
-
-#endif /* ISA_PNP_isapnp_private_h */
+#endif /* ISA_PNP_init_h */

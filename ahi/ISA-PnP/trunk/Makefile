@@ -57,7 +57,7 @@ version.h:	version.rev version.date
 
 ### Real targets ##############################################################
 
-$(TARGET):	main.o init.o controller.o
+$(TARGET):	main.o init.o controller.o pnp.o
 	$(CC) $(LDFLAGS) $^ -o $@
 
 

@@ -29,8 +29,8 @@
 
 /* The ISA ports */
 
-#define ISAPNP_ADDRESS   0x0279
-#define ISAPNP_WRITEDATA 0x0a79
+#define ISAPNP_ADDRESS    0x0279
+#define ISAPNP_WRITE_DATA 0x0a79
 
 
 /* ISAPNP_ADDRESS initiation key */
