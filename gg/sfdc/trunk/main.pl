@@ -548,14 +548,13 @@ sub parse_proto ( $$$ ) {
     my $varargs_type = shift;
     
     my $return;
-    my $struct;     # Just a dummy
     my $name;
     my $arguments;
     my $registers;
 
-    if (!(($return,$struct,$name,$arguments,$registers) =
+    if (!(($return,undef,undef,$name,$arguments,$registers) =
 	  ( $$prototype{'value'} =~
-	    /^((struct\s+)?\w+\s*?\**)\s*(\w+)\s*\((.*)\)\s*\((.*)\).*/ ))) {
+	    /^((struct\s+)?(\w+\s*?)+\**)\s*(\w+)\s*\((.*)\)\s*\((.*)\).*/ ))) {
 	print STDERR "Unable to parse prototype on line $$prototype{'line'}.\n";
 	die;
     }
