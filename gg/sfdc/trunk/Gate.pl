@@ -9,8 +9,9 @@ BEGIN {
 	my %params = @_;
 	my $class  = ref($proto) || $proto;
 	my $self   = {};
-	$self->{SFD}     = $params{'sfd'};
-	$self->{PROTO}   = $params{'proto'};
+	$self->{SFD}      = $params{'sfd'};
+	$self->{PROTO}    = $params{'proto'};
+	$self->{LIBPROTO} = $params{'libproto'};
 	bless ($self, $class);
 	return $self;
     }
@@ -24,6 +25,12 @@ BEGIN {
 	    print "\n";
 	    print "#ifndef _GATEPROTO_$$sfd{'BASENAME'}_H\n";
 	    print "#define _GATEPROTO_$$sfd{'BASENAME'}_H\n";
+	}
+	elsif ($self->{LIBPROTO}) {
+	    print "/* Automatically generated header! Do not edit! */\n";
+	    print "\n";
+	    print "#ifndef _LIBPROTO_$$sfd{'BASENAME'}_H\n";
+	    print "#define _LIBPROTO_$$sfd{'BASENAME'}_H\n";
 	}
 	else {
 	    print "/* Automatically generated gatestubs! Do not edit! */\n";
@@ -76,6 +83,10 @@ BEGIN {
 	    print "\n";
 	    print "#endif /* _GATEPROTO_$$sfd{'BASENAME'}_H */\n";
 	}
+	elsif ($self->{LIBPROTO}) {
+	    print "\n";
+	    print "#endif /* _LIBPROTO_$$sfd{'BASENAME'}_H */\n";
+	}
     }
 
 
@@ -104,7 +115,7 @@ BEGIN {
 	if ($self->{PROTO}) {
 	    print ";\n";
 	}
-	else {
+	elsif (!$self->{LIBPROTO}) {
 	    print "\n";
 	    print "{\n";
 	    print "  return $libprefix$prototype->{funcname}(";
@@ -119,7 +130,7 @@ BEGIN {
     sub function_arg {
 	my $self      = shift;
 
-	if (!$self->{PROTO}) {
+	if (!$self->{PROTO} && !$self->{LIBPROTO}) {
 	    my %params    = @_;
 	    my $argname   = $params{'argname'};
 	    my $argnum    = $params{'argnum'};
@@ -132,7 +143,7 @@ BEGIN {
     sub function_end {
 	my $self      = shift;
 	
-	if (!$self->{PROTO}) {
+	if (!$self->{PROTO} && !$self->{LIBPROTO}) {
 	    my %params    = @_;
 	    my $prototype = $params{'prototype'};
 	    my $sfd       = $self->{SFD};
@@ -173,6 +184,7 @@ BEGIN {
 
 	print ")";
     }
+
     sub print_libproto {
 	my $sfd       = shift;
 	my $prototype = shift;

@@ -163,7 +163,7 @@ if ($#ARGV < 0) {
 
 $mode = lc $mode;
 
-if (!($mode =~ /^(clib|dump|fd|lvo|macros|proto|sas-pragmas|stubs|gateproto|gatestubs)$/)) {
+if (!($mode =~ /^(clib|dump|fd|libproto|lvo|macros|proto|sas-pragmas|stubs|gateproto|gatestubs)$/)) {
     pod2usage (-message => "Unknown mode specified. Use --help for a list.",
 	       -verbose => 0,
 	       -exitval => 10);
@@ -214,6 +214,13 @@ for my $i ( 0 .. $#ARGV ) {
 	    last;
 	};
     
+	/^libproto$/ && do {
+	    $obj = Gate->new( sfd => $sfd,
+			      proto => 0,
+			      libproto => 1 );
+	    last;
+	};
+
 	/^lvo$/ && do {
 	    $obj = LVO->new( sfd => $sfd );
 	    last;
@@ -250,12 +257,17 @@ for my $i ( 0 .. $#ARGV ) {
 	};
 
 	/^gateproto$/ && do {
-	    $obj = $$classes{'gatestubs'}->new( sfd => $sfd, proto => 1 );
+	    $obj = $$classes{'gatestubs'}->new( sfd => $sfd,
+						proto => 1,
+						libproto => 0);
 	    last;
 	};
 	
 	/^gatestubs$/ && do {
-	    $obj = $$classes{'gatestubs'}->new( sfd => $sfd, proto => 0 );
+	    $obj = $$classes{'gatestubs'}->new( sfd => $sfd,
+						proto => 0,
+						libproto => 0);
+						
 	    last;
 	};
 
