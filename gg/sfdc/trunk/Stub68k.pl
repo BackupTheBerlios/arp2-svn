@@ -51,6 +51,10 @@ BEGIN {
 	my $sfd       = $self->{SFD};
 
 	if ($$prototype{'type'} ne 'varargs') {
+	    if ($argreg eq 'a4' || $argreg eq 'a5') {
+		$argreg = 'd7';
+	    }
+	    
 	    print "  register $prototype->{args}[$argnum] __asm(\"$argreg\") " .
 		"= $argname;\n";
 	}
@@ -67,7 +71,26 @@ BEGIN {
 
 	
 	if ($$prototype{'type'} ne 'varargs') {
-	    print "  __asm volatile (\"jsr a6@(-$prototype->{bias}:W)\"\n";
+	    my $regs      = join(',', @{$$prototype{'regs'}});
+	    my $a4        = $regs =~ /a4/;
+	    my $a5        = $regs =~ /a5/;
+
+	    if ($a4 && $a5 && !$quiet) {
+		print STDERR "$$prototype{'funcname'} uses both a4 and a5 " .
+		    "for arguments. This is not going to work.\n";
+	    }
+
+	    if ($a4) {
+		print "  __asm volatile (\"exg d7,a4\\n\\tjsr a6@(-" .
+		    "$prototype->{bias}:W)\\n\\texg d7,a4\"\n";
+	    }
+	    elsif ($a5) {
+		print "  __asm volatile (\"exg d7,a5\\n\\tjsr a6@(-" .
+		    "$prototype->{bias}:W)\\n\\texg d7,a5\"\n";
+	    }
+	    else {
+		print "  __asm volatile (\"jsr a6@(-$prototype->{bias}:W)\"\n";
+	    }
 	    print "  : " .
 		($prototype->{nr} ? "/* No output */" : '"=r" (_res)') . "\n";
 	    print "  : ";
