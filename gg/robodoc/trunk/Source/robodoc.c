@@ -1,4 +1,4 @@
-/****h* Autodoc/RoboDoc.c [3.0j]
+/****h* Autodoc/RoboDoc.c [3.0j-lcs]
  * NAME
  *   RoboDoc.c -- AutoDoc formatter
  * COPYRIGHT
@@ -128,6 +128,13 @@
  *    10-July-1996   - v3.0i * Bug Fix.  Both the options INTERNAL
  *                             and INTERNALONLY did not work correctly.
  *
+ *  Modifications by Martin Blom
+ *    12-Feb-1997    - v3.0i-lcs
+ *                           *  Added   "TAGS", "IMPLEMENTATION", "PURPOSE",
+ *                              "OVERVIEW", "PROGRAMMING GUIDELINES",
+ *                              "EFFECTS", "IO REQUEST INPUT" and
+ *                              "IO REQUEST RESULT" + three word support.
+ *                           * Extra checks for valid header.
  *  Modifications by agi
  *    15-Dec-1997    - v3.0j * cleaned the HTML-output, so it now conforms
  *                             to the DTD for HTML-3.2
@@ -165,7 +172,7 @@
 
 #include "robodoc.h"
 
-#define RB_VERSION "3.0j"
+#define RB_VERSION "3.0j-lcs"
 
 static char RB_VER[] = "$VER: robodoc "RB_VERSION" (" __DATE__ ")";
 
@@ -302,6 +309,13 @@ char *item_names[] =
   "PORTABILITY", "SEE ALSO", "SOURCE",
   "BEAST METHODS", "NEW METHODS",
   "BEAST ATTRIBUTES", "NEW ATTRIBUTES",
+
+/* lcs 1997-02-12: Added */
+
+  "TAGS", "IMPLEMENTATION",
+  "PURPOSE", "OVERVIEW", "PROGRAMMING GUIDELINES",
+  "EFFECTS", "IO REQUEST INPUT", "IO REQUEST RESULT",
+
   NULL,
 };
 
@@ -317,7 +331,14 @@ enum
   WARNING_ITEM,  ERROR_ITEM,  BUGS_ITEM,  TODO_ITEM,  IDEAS_ITEM,
   PORTABILITY_ITEM,  SEE_ALSO_ITEM,  SOURCE_ITEM,
   BEAST_METHODS,  NEW_METHODS,
-  BEAST_ATTRIBUTES,  NEW_ATTRIBUTES,  OTHER_ITEM,
+  BEAST_ATTRIBUTES,  NEW_ATTRIBUTES,
+
+/* lcs 1997-02-12: Added */
+
+  TAGS_ITEM, DIY_ITEM, PURPOSE_ITEM, OVERVIEW_ITEM, PG_ITEM, EFFECTS_ITEM,
+  IOREQIN_ITEM, IOREQOUT_ITEM,
+
+  OTHER_ITEM,
   NUMBER_OF_ITEMS
 };
 
@@ -385,14 +406,26 @@ long item_attributes[NUMBER_OF_ITEMS] =
   ITEM_NAME_LARGE_FONT                 , /* BEAST METHODS */
   ITEM_NAME_LARGE_FONT                 , /* NEW METHODS */
   ITEM_NAME_LARGE_FONT                 , /* BEAST ATTRIBUTES */
-  ITEM_NAME_LARGE_FONT                 , /* NEW ATTRIBUTES" */
+  ITEM_NAME_LARGE_FONT                 , /* NEW ATTRIBUTES */
+
+/* lcs 1997-02-12: Added */
+
+  ITEM_NAME_LARGE_FONT                 , /* TAGS_ITEM */
+  ITEM_NAME_LARGE_FONT                 , /* DIY_ITEM */
+  ITEM_NAME_LARGE_FONT                 , /* PURPOSE_ITEM */
+  ITEM_NAME_LARGE_FONT                 , /* OVERVIEW_ITEM */
+  ITEM_NAME_LARGE_FONT                 , /* PG_ITEM */
+  ITEM_NAME_LARGE_FONT                 , /* EFFECTS_ITEM */
+  ITEM_NAME_LARGE_FONT                 , /* IOREQIN_ITEM */
+  ITEM_NAME_LARGE_FONT                 , /* IOREQOUT_ITEM */
+
   0                                      /* OTHER_ITEM */
 };
 
 /****/
 
 
-/****** RoboDoc.c/item_attr_names [3.0j]
+/****** RoboDoc.c/item_attr_names [3.0j-lcs]
  * NAME
  *   item_attr_names
  * SYNOPSIS
@@ -1210,7 +1243,13 @@ int RB_Find_Marker(FILE * document)
         {
           if (*cur_mchar != *cur_char) found = FALSE ;
         }
+
+/* lcs 1997-02-12: Make sure this REALLY is a valid header */
+
+	if( found && !( (cur_char[1] == '*') && (cur_char[2] == ' ') )) 
+	  found = FALSE ;
       }
+
       if (found)
       {
         switch (*cur_char)
@@ -1407,6 +1446,16 @@ int RB_Find_Item (char **next_line,char **item_line)
           item_end = cur_char ;
           skip_while (isspace(*cur_char) && *cur_char != '\n') ;
         }
+
+        /* lcs 1997-02-12: Item consists of three words ? */
+	if (isupper(*cur_char) && *cur_char)
+	{
+	  skip_while (isupper(*cur_char)) ;
+	  item_end = cur_char ;
+	  skip_while (isspace(*cur_char) && *cur_char != '\n') ;
+	}
+
+	  
         if (*cur_char == '\n')
         {
           char old_char = *item_end ;
@@ -1564,7 +1613,7 @@ void RB_Generate_Documentation(FILE * dest_doc, char *src_name, char *dest_name)
 /*** RB_Generate_Documentation ***/
 
 
-/****** RoboDoc.c/RB_Generate_Doc_Start [3.0j]
+/****** RoboDoc.c/RB_Generate_Doc_Start [3.0j-lcs]
  * NAME
  *   RB_Generate_Doc_Start -- Generate document header.
  * SYNOPSIS
@@ -2013,7 +2062,7 @@ void RB_Generate_Item_Name(FILE * dest_doc, int item_type)
 /*** RB_Generate_Item_Name *** Zitatende ***/
 
 
-/****** RoboDoc.c/RB_Generate_Item_Doc [3.0j]
+/****** RoboDoc.c/RB_Generate_Item_Doc [3.0j-lcs]
  * NAME
  *   RB_Generate_Item_Doc
  * SYNOPSIS
