@@ -2,8 +2,8 @@ Short:    Redirects any (hw-banging) sound program to AHI
 Uploader: Martin Blom <martin@blom.org>
 Author:   Martin Blom <martin@blom.org>
 Type:     mus/misc
-Requires: MMULib.lha (dev/c), OS 3.5 for GUI mode
-Version:  0.1
+Requires: An MMU, AHI v4, OS 3.5 for GUI mode
+Version:  0.2
 
 Q: What is "Nalle Puh"?
 A: It's the Swedish name for Winnie the Pooh.
@@ -46,17 +46,18 @@ Q: Alright then. So what programs can be redirected?
 A: I've tried the following programs, and they seem to work:
 
    * audio.device
-   * Protracker (version 2.3 and 4.0)
    * Digibooster 1.7
    * Musicline Editor 1.5
-   * THX Sound System 2.3d.
+   * Octamed Soundstudio 1.03c
+   * Protracker (version 2.3 and 4.0)
    * Sid4Amiga
+   * THX Sound System 2.3d.
 
    I've also tried the following, and they don't:
    
+   * Delitracker 2.32
    * Newtracker
    * PlaySID
-   * Delitracker 2.32
 
    (Note that Protracker disables multitasking and cannot be used with AHI
    drivers that are not interrupt based.)

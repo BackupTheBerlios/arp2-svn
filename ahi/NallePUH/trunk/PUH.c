@@ -36,6 +36,7 @@
 #include <proto/ahi.h>
 #include <proto/exec.h>
 #include <proto/mmu.h>
+#include <proto/utility.h>
 
 #include <stdio.h>
 
@@ -45,11 +46,6 @@
 #define MAGIC_ROMEND 0x14L
 
 #define INTF_AUDIO   ( INTF_AUD3 | INTF_AUD2 | INTF_AUD1 | INTF_AUD0 )
-
-
-
-int cp = 0;
-#define static
 
 
 static BOOL
@@ -154,7 +150,7 @@ static UWORD rawputchar_m68k[] =
 
 void
 KPrintFArgs( UBYTE* fmt, 
-             ULONG* args )
+             LONG*  args )
 {
   RawDoFmt( fmt, args, (void(*)(void)) rawputchar_m68k, SysBase );
 }
@@ -338,6 +334,48 @@ FreePUH( struct PUHData* pd )
 
 
 /******************************************************************************
+** Set/change log hook ********************************************************
+******************************************************************************/
+
+void
+SetPUHLogger( struct Hook*    hook,
+              struct PUHData* pd )
+{
+  pd->m_LogHook = hook;
+}
+
+
+/******************************************************************************
+** Send a message to the log function *****************************************
+******************************************************************************/
+
+void
+LogPUH( struct PUHData* pd,
+        STRPTR          fmt,
+        ... )
+{
+  va_list ap;
+
+  va_start( ap, fmt );
+
+  if( pd->m_LogHook == NULL )
+  {
+    vprintf( fmt, ap );
+    printf( "\n" );
+  }
+  else
+  {
+    char    buffer[ 256 ];
+    vsnprintf( buffer, sizeof( buffer ), fmt, ap );
+    
+    CallHookPkt( pd->m_LogHook, pd, buffer );
+  }
+
+  va_end( ap );
+}
+
+
+/******************************************************************************
 ** Installl PUH ***************************************************************
 ******************************************************************************/
 
@@ -364,7 +402,7 @@ InstallPUH( ULONG           flags,
 
   if( pd->m_AudioCtrl == NULL )
   {
-    printf( "Unable to allocate audio mode $%08lx.\n", audio_mode );
+    LogPUH( pd, "Unable to allocate audio mode $%08lx.", audio_mode );
   }
   else
   {
@@ -377,7 +415,7 @@ InstallPUH( ULONG           flags,
     
     if( AHI_LoadSound( 0, AHIST_DYNAMICSAMPLE, &si, pd->m_AudioCtrl ) != AHIE_OK )
     {
-      printf( "Unable to load dynamic sample.\n" );
+      LogPUH( pd, "Unable to load dynamic sample." );
     }
     else
     {
@@ -385,7 +423,7 @@ InstallPUH( ULONG           flags,
           AHIC_Play, TRUE,
           TAG_DONE ) != AHIE_OK )
       {
-        printf( "Unable to start playback.\n" );
+        LogPUH( pd, "Unable to start playback." );
       }
       else
       {
@@ -415,7 +453,7 @@ InstallPUH( ULONG           flags,
 
   if( pd->m_UserException == NULL )
   {
-    printf( "Unable to install user context hook.\n" );
+    LogPUH( pd, "Unable to install user context hook." );
   }
   else
   {
@@ -429,7 +467,7 @@ InstallPUH( ULONG           flags,
 
     if( pd->m_SuperException == NULL )
     {
-      printf( "Unable to install supervisor context hook.\n" );
+      LogPUH( pd, "Unable to install supervisor context hook." );
     }
     else
     {
@@ -446,7 +484,7 @@ InstallPUH( ULONG           flags,
        
         if( pd->m_ROMShadowBuffer == NULL )
         {
-          printf( "Out of memory!\n" );
+          LogPUH( pd, "Out of memory!" );
         }
         else
         {
@@ -458,18 +496,15 @@ InstallPUH( ULONG           flags,
         }
       }
 
-      if( ! ( flags & PUHF_PATCH_ROM ) || pd->m_ROMShadowBuffer != NULL )
-      {
-        // Re-map 
+      // Re-map 
 
-        if( ! RemapMemory( pd ) )
-        {
-          printf( "Unable to install remap.\n" );
-        }
-        else
-        {
-          pd->m_Active = TRUE;
-        }
+      if( ! RemapMemory( pd ) )
+      {
+        LogPUH( pd, "Unable to install remap." );
+      }
+      else
+      {
+        pd->m_Active = TRUE;
       }
     }
   }
@@ -621,7 +656,7 @@ RemapMemory( struct PUHData* pd )
   {
     // This is odd ...
 
-    printf( "Custom chip register area marked 'repairable'!" );
+    LogPUH( pd, "Custom chip register area marked 'repairable'!" );
   }
   else
   {
@@ -639,7 +674,7 @@ RemapMemory( struct PUHData* pd )
 
     if( user_mapping == NULL || super_mapping == NULL )
     {
-      printf( "Failed to get mappings.\n" );
+      LogPUH( pd, "Failed to get mappings." );
     }
     else
     {
@@ -660,10 +695,13 @@ RemapMemory( struct PUHData* pd )
                            MAPTAG_DESTINATION, 0xdff000,
                            TAG_DONE ) )
       {
-        printf( "Failed to set properties for re-mapped area.\n" );
+        LogPUH( pd, "Failed to set properties for re-mapped area." );
       }
       else
       {
+        LogPUH( pd, "Added unprotected custom mirror at 0x%08lx.",
+                pd->m_CustomDirect );
+
         if( ! SetProperties( pd->m_UserContext,
                              ( pd->m_Properties.m_UserCustom | 
                                MAPP_SINGLEPAGE |
@@ -681,11 +719,14 @@ RemapMemory( struct PUHData* pd )
                              pd->m_CustomSize,
                              TAG_DONE ) )
         {
-          printf( "Failed to set properties for custom chip register area.\n" );
+          LogPUH( pd, "Failed to set properties for custom chip register area." );
         }
         else
         {
           BOOL activate = TRUE;
+
+          LogPUH( pd, "Protected custom area at 0x%08lx.",
+                  0xdff000 );
 
           // Remap Kickstart ROM, if provided
           
@@ -722,6 +763,14 @@ RemapMemory( struct PUHData* pd )
                              pd->m_ROMSize,
                              MAPTAG_DESTINATION, (ULONG) pd->m_ROMShadowBuffer,
                              TAG_DONE );
+            if( activate )
+            {
+              LogPUH( pd, "Installed patched ROM image." );
+            }
+            else
+            {
+              LogPUH( pd, "Failed to install patched ROM image." );
+            }
           }
           
           if( activate )
@@ -739,9 +788,13 @@ RemapMemory( struct PUHData* pd )
             rc = RebuildTreesA( ctxs );
             Enable();
 
-            if( ! rc )
+            if( rc )
             {
-              printf( "Failed to rebuild MMU trees.\n" );
+              LogPUH( pd, "MMU trees successfully modified." );
+            }
+            else
+            {
+              LogPUH( pd, "Failed to rebuild MMU trees." );
             }
           }
         }
@@ -801,7 +854,7 @@ RestoreMemory( struct PUHData* pd )
 
   if( user_mapping == NULL || super_mapping == NULL )
   {
-    printf( "Failed to get mappings.\n" );
+    LogPUH( pd, "Failed to get mappings." );
   }
   else
   {
@@ -814,12 +867,14 @@ RestoreMemory( struct PUHData* pd )
                          0xdff000, pd->m_CustomSize,
                          TAG_DONE ) )
     {
-      printf( "Failed to set properties for custom chip register area.\n" );
+      LogPUH( pd, "Failed to set properties for custom chip register area." );
     }
     else
     {
       BOOL activate = TRUE;
       
+      LogPUH( pd, "Removed protection for custom area." );
+
       if( pd->m_ROMShadowBuffer != NULL )
       {
         if( ! SetProperties( pd->m_UserContext,
@@ -833,7 +888,7 @@ RestoreMemory( struct PUHData* pd )
                              pd->m_ROMSize,
                              TAG_DONE ) )
         {
-          printf( "Failed to set properties for for patched ROM area.\n" );
+          LogPUH( pd, "Failed to set properties for for patched ROM area." );
           activate = FALSE;
         }
         else
@@ -849,8 +904,12 @@ RestoreMemory( struct PUHData* pd )
                                pd->m_ROMSize,
                                TAG_DONE ) )
           {
-            printf( "Failed to set properties for for ROM area.\n" );
+            LogPUH( pd, "Failed to set properties for for ROM area." );
             activate = FALSE;
+          }
+          else
+          {
+            LogPUH( pd, "Restored original ROM image." );
           }
         }
       }
@@ -870,9 +929,13 @@ RestoreMemory( struct PUHData* pd )
         rc = RebuildTreesA( ctxs );
         Enable();
 
-        if( ! rc )
+        if( rc )
         {
-          printf( "Failed to rebuild MMU trees.\n" );
+          LogPUH( pd, "MMU trees successfully modified." );
+        }
+        else
+        {
+          LogPUH( pd, "Failed to rebuild MMU trees." );
         }
       }
     }
@@ -947,9 +1010,8 @@ PatchROMShadowBuffer( struct PUHData* pd )
     {
       if( patches != 0 )
       {
-        printf( "Patched %ld instructions in '%s' ($%08lx-$%08lx).\n",
-                patches, module_name, 
-                (ULONG) module_rom_start, (ULONG) module_rom_end );
+        LogPUH( pd, "Patched %ld instructions in '%s'.",
+                patches, module_name );
       }
 
       patches    = 0;
@@ -970,9 +1032,8 @@ PatchROMShadowBuffer( struct PUHData* pd )
 
         if( strcmp( module_name, "audio.device" ) == 0 )
         {
-          printf( "Skipping %s ($%08lx-$%08lx).\n", 
-                  module_name, 
-                  (ULONG) module_rom_start, (ULONG) module_rom_end );
+          LogPUH( pd, "Skipping '%s'.", 
+                  module_name );
 
           module_end = NULL;
           ptr.m_Void = pd->m_ROMShadowBuffer + ( ptr.m_Resident->rt_EndSkip - pd->m_ROM );
@@ -1118,13 +1179,10 @@ PUHHandler( REG( a0, struct ExceptionData* ed ),
     {
       if( ed->exd_ReturnPC < pd->m_ROM || 
           ed->exd_ReturnPC >= ( pd->m_ROM + pd->m_ROMSize ) )
-      if( cp < 100 )
       {
         UWORD op_code;
         ULONG address;
 
-        ++cp;
-        
         op_code = ReadWord( ed->exd_ReturnPC );
 
         if( op_code == 0x33fc )

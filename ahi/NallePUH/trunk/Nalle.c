@@ -50,16 +50,6 @@
 #include "NallePUH.h"
 #include "PUH.h"
 
-static struct MsgPort*      AHImp     = NULL;
-static struct AHIRequest*   AHIio     = NULL;
-static BYTE                 AHIDevice = IOERR_OPENFAIL;
-
-struct Library*       AHIBase         = NULL;
-struct Library*       MMUBase         = NULL;
-struct IntuitionBase* IntuitionBase   = NULL;
-struct LocaleBase*    LocaleBase      = NULL;
-struct Library*       ResourceBase    = NULL;
-struct Library*       ListBrowserBase = NULL;
 
 extern UBYTE pooh11_sb[];
 extern ULONG pooh11_sblen;
@@ -84,44 +74,106 @@ HandleGUI( Object* window,
            struct Gadget** gadgets,
            struct PUHData* pd );
 
+/******************************************************************************
+** Global variables ***********************************************************
+******************************************************************************/
 
-static void
-Test( void* data, ULONG length );
+static struct MsgPort*      AHImp     = NULL;
+static struct AHIRequest*   AHIio     = NULL;
+static BYTE                 AHIDevice = IOERR_OPENFAIL;
+
+struct Library*       AHIBase         = NULL;
+struct Library*       MMUBase         = NULL;
+struct IntuitionBase* IntuitionBase   = NULL;
+struct LocaleBase*    LocaleBase      = NULL;
+struct Library*       ResourceBase    = NULL;
+struct Library*       ListBrowserBase = NULL;
+
+
+/******************************************************************************
+** Disable ctrl-c *************************************************************
+******************************************************************************/
 
 void __chkabort( void )
 {
   // Disable automatic ctrl-c handling
 }
 
+
+/******************************************************************************
+** GUI utility functions ******************************************************
+******************************************************************************/
+
 ULONG
-RefreshSetGadgetAttrsA(struct Gadget *g, struct Window *w, struct Requester *r, struct TagItem *tags)
+RefreshSetGadgetAttrsA( struct Gadget*    g,
+                        struct Window*    w, 
+                        struct Requester* r, 
+                        struct TagItem*   tags)
 {
 	ULONG retval;
-	BOOL changedisabled = FALSE;
-	BOOL disabled = FALSE;
+	BOOL  changedisabled = FALSE;
+	BOOL  disabled       = FALSE;
 
-	if (w)
+	if( w != NULL )
 	{
-		if (FindTagItem(GA_Disabled,tags))
+		if( FindTagItem( GA_Disabled, tags ) )
 		{
 			changedisabled = TRUE;
  			disabled = g->Flags & GFLG_DISABLED;
  		}
  	}
-	retval = SetGadgetAttrsA(g,w,r,tags);
-	if (w && (retval || (changedisabled && disabled != (g->Flags & GFLG_DISABLED))))
+
+	retval = SetGadgetAttrsA( g, w, r, tags );
+
+	if( w != NULL && 
+      ( retval != 0 || 
+        ( changedisabled && disabled != ( g->Flags & GFLG_DISABLED ) ) ) )
 	{
-		RefreshGList(g,w,r,1);
+		RefreshGList( g, w, r, 1 );
 		retval = 1;
 	}
+
 	return retval;
 }
 
 ULONG
-RefreshSetGadgetAttrs(struct Gadget *g, struct Window *w, struct Requester *r, Tag tag1, ...)
+RefreshSetGadgetAttrs( struct Gadget*    g, 
+                       struct Window*    w,
+                       struct Requester* r,
+                       Tag               tag1, ... )
 {
-	return RefreshSetGadgetAttrsA(g,w,r,(struct TagItem *) &tag1);
+	return RefreshSetGadgetAttrsA( g, w, r, (struct TagItem*) &tag1 );
 }
+
+struct Node*
+LBAddNodeA( struct Gadget*    lb,
+            struct Window*    w,
+            struct Requester* r,
+			      struct Node*      n,
+            struct TagItem*   tags )
+{
+	return (struct Node*) DoGadgetMethod( lb, w, r, 
+                                        LBM_ADDNODE, NULL, (ULONG) n,
+                                        (ULONG) tags );
+}
+
+
+struct Node*
+LBAddNode( struct Gadget*    lb, 
+           struct Window*    w,
+           struct Requester* r,
+			     struct Node*      n,
+           Tag               tag1, ... )
+{
+	return (struct Node*) DoGadgetMethod( lb, w, r, 
+                                        LBM_ADDNODE, NULL, (ULONG) n, 
+                                        (ULONG) &tag1 );
+}
+
+
+/******************************************************************************
+** main ***********************************************************************
+******************************************************************************/
 
 int
 main( int   argc,
@@ -206,24 +258,24 @@ main( int   argc,
       {
         ULONG flags = 0;
         
-        printf( "Using mode ID 0x%08lx, %ld Hz.\n", mode_id, frequency );
+        LogPUH( pd, "Using mode ID 0x%08lx, %ld Hz.", mode_id, frequency );
         
         switch( level )
         {
           case 0:
-            printf( "No patches.\n" );
+            LogPUH( pd, "No patches." );
 
             flags = PUHF_NONE;
             break;
 
           case 1:
-            printf( "ROM patches.\n" );
+            LogPUH( pd, "ROM patches." );
 
             flags = PUHF_PATCH_ROM;
             break;
             
           case 2:
-            printf( "ROM and application patches.\n" );
+            LogPUH( pd, "ROM and application patches." );
 
             flags = PUHF_PATCH_ROM | PUHF_PATCH_APPS;
             break;
@@ -243,11 +295,9 @@ main( int   argc,
           }
           else
           {
-            //Test( (struct Custom*) 0xdff000 );
-
-            printf( "Waiting for CTRL-C...\n" );
+            LogPUH( pd, "Waiting for CTRL-C..." );
             Wait( SIGBREAKF_CTRL_C );
-            printf( "Got it.\n" );
+            LogPUH( pd, "Got it." );
         
             DeactivatePUH( pd );
           }
@@ -267,97 +317,6 @@ main( int   argc,
   return rc;
 }
 
-
-
-#if 0
-
-BYTE samples[] = 
-{
-  0, 90, 127, 90, 0, -90, -127, -90
-};
-
-
-
-
-
-/******************************************************************************
-** Test ***********************************************************************
-******************************************************************************/
-
-ASMCALL SAVEDS static void
-TestInt( REG( d1, UWORD           active_ints ),
-         REG( a0, struct Custom*  custom ),
-         REG( a1, ULONG           data ),
-         REG( a5, void*           me ),
-         REG( a6, struct ExecBase* SysBase ) )
-{
-  KPrintF( "TestInt: active_ints=%04lx, custom=%08lx, "
-           "data=%08lx, me=%08lx, SysBase=%08lx\n",
-           active_ints, custom, data, me, SysBase );
-
-  // Clear interrupts
-  WriteWord( &custom->intreq, INTF_AUD0 | INTF_AUD1 | INTF_AUD2 | INTF_AUD3 ); 
-}
-
-
-static void
-Test( struct Custom* custom )
-{
-  void*             chip = NULL;
-  struct Interrupt* old  = NULL;
-  struct Interrupt  new  =
-  {
-    {
-      NULL, NULL,
-      NT_INTERRUPT,
-      0,
-      "Nalle PUH audio test interrupt"
-    },
-    0xdeadc0de,
-    (void(*)(void)) TestInt
-  };
-
-  printf( "Testing with custom set to 0x%08lx\n", (ULONG) custom );
-
-  chip = AllocVec( sizeof( samples ), MEMF_CHIP );
-
-  CopyMem( samples, chip, sizeof( samples ) );
-
-  old = SetIntVector( INTB_AUD0, &new );
-
-  WriteLong( &custom->aud[ 0 ].ac_ptr, (ULONG) chip );
-  WriteWord( &custom->aud[ 0 ].ac_len, sizeof( samples ) / 2 );
-  WriteWord( &custom->aud[ 0 ].ac_per, 447 );
-  WriteWord( &custom->aud[ 0 ].ac_vol, 64 );
-
-  WriteWord( &custom->dmacon, DMAF_SETCLR | DMAF_AUD0 | DMAF_MASTER );
-
-  Delay( 50 );
-
-  // No-op
-  WriteWord( &custom->aud[0].ac_dat, 0xdead );
-
-  // Delayed
-  WriteWord( &custom->dmacon, DMAF_AUD0 );
-  WriteWord( &custom->aud[0].ac_dat, 0xcafe );
-
-  // Invoke
-  WriteWord( &custom->intena, INTF_SETCLR | INTF_AUD0 );
-
-  Delay( 10 );
-
-  // Invoke directly
-  WriteWord( &custom->aud[0].ac_dat, 0xc0de );
-
-  // Restore
-  WriteWord( &custom->intena, INTF_AUD0 );
-
-  SetIntVector( INTB_AUD0, old );
-
-  FreeVec( chip );
-}
-
-#endif
 
 /******************************************************************************
 ** OpenLibs *******************************************************************
@@ -432,20 +391,20 @@ OpenAHI( void )
 
   if( AHImp != NULL )
   {
-    AHIio = (struct AHIRequest *) CreateIORequest( AHImp, 
-                                                   sizeof( struct AHIRequest ) );
+    AHIio = (struct AHIRequest*) CreateIORequest( AHImp, 
+                                                  sizeof( struct AHIRequest ) );
 
     if( AHIio != NULL ) 
     {
       AHIio->ahir_Version = 4;
       AHIDevice = OpenDevice( AHINAME,
                               AHI_NO_UNIT,
-                              (struct IORequest *) AHIio,
+                              (struct IORequest*) AHIio,
                               NULL );
                               
       if( AHIDevice == 0 )
       {
-        AHIBase = (struct Library *) AHIio->ahir_Std.io_Device;
+        AHIBase = (struct Library*) AHIio->ahir_Std.io_Device;
         rc = TRUE;
       }
     }
@@ -466,10 +425,10 @@ CloseAHI( void )
 {
   if( AHIDevice == 0 )
   {
-    CloseDevice( (struct IORequest *) AHIio );
+    CloseDevice( (struct IORequest*) AHIio );
   }
 
-  DeleteIORequest( (struct IORequest *) AHIio );
+  DeleteIORequest( (struct IORequest*) AHIio );
   DeleteMsgPort( AHImp );
 
   AHIBase   = NULL;
@@ -521,9 +480,9 @@ ShowGUI( struct PUHData* pd )
                                  
           if( window != NULL )
           {
-            gadgets = (struct Gadget **) RL_GetObjectArray( resource, 
-                                                            window, 
-                                                            GROUP_2_ID );
+            gadgets = (struct Gadget**) RL_GetObjectArray( resource, 
+                                                           window, 
+                                                           GROUP_2_ID );
             if( gadgets != NULL )
             {
               DoMethod( window, WM_OPEN );
@@ -573,14 +532,52 @@ FilterFunc( REG( a0, struct Hook*                  hook ),
 }
 
 
-static struct Hook FilterHook =
+struct LogData
 {
-  { NULL, NULL },
-  (HOOKFUNC) FilterFunc,
-  NULL,
-  NULL
+  struct Gadget* m_Gadget;
+  struct Window* m_Window;
 };
 
+
+ASMCALL SAVEDS static void
+LogToList( REG( a0, struct Hook*    hook ),
+           REG( a1, STRPTR          message ),
+           REG( a2, struct PUHData* pd ) )
+{
+  struct LogData* d = (struct LogData*) hook->h_Data;
+
+  LBAddNode( d->m_Gadget, d->m_Window, NULL,
+             (struct Node*) ~0,
+             LBNCA_CopyText, TRUE,
+             LBNA_Column,    0,
+             LBNCA_Text,     (ULONG) message,
+             TAG_DONE );
+}
+
+static void
+ClearList( struct LogData* d )
+{
+  struct List* list;
+  struct Node* node;
+
+  GetAttr( LISTBROWSER_Labels, d->m_Gadget, (ULONG*) &list );
+
+  // Detach
+  RefreshSetGadgetAttrs( d->m_Gadget, d->m_Window, NULL,
+                         LISTBROWSER_Labels, NULL,
+                         TAG_DONE );
+
+  // Free and remove nodes
+  while( ( node = RemTail( list ) ) != NULL )
+  {
+    FreeListBrowserNode( node );
+  }
+
+  // Attach the (now empty) list again
+  RefreshSetGadgetAttrs( d->m_Gadget, d->m_Window, NULL,
+                         LISTBROWSER_Labels, list,
+                         TAG_DONE );
+}
 
 static BOOL
 HandleGUI( Object*         window,
@@ -598,40 +595,35 @@ HandleGUI( Object*         window,
 
   void*          chip           = NULL;
   
-  struct Custom* custom         = 0xdff000;
+  struct Custom* custom         = (struct Custom*) 0xdff000;
+
+  struct LogData log_data;
+
+  struct Hook log_hook =
+  {
+    { NULL, NULL },
+    (HOOKFUNC) LogToList,
+    NULL,
+    &log_data
+  };
 
   chip = AllocVec( pooh11_sblen, MEMF_CHIP );
 
   if( chip == NULL )
   {
-    printf( "Failed to alloc chip memory.\n" );
+    LogPUH( pd, "Failed to alloc chip memory." );
     return FALSE;
   }
 
   CopyMem( pooh11_sb, chip, pooh11_sblen );
 
-
   GetAttr( WINDOW_SigMask, window, &window_signals );
-  GetAttr( WINDOW_Window,  window, (ULONG *) &win_ptr );
+  GetAttr( WINDOW_Window,  window, (ULONG*) &win_ptr );
 
-#if 0
-                struct Node* node;
-                
-                DoGadgetMethod( gadgets[ GAD_MESSAGES ], win_ptr, NULL,
-                                LBM_ADDNODE,
-                                NULL,
-                                LBNA_Column, 0,
-                                LBNCA_Text, "JAG ÄR EN APA!",
-                                LBNCA_CopyText, TRUE,
-                                TAG_DONE );
+  log_data.m_Gadget = gadgets[ GAD_MESSAGES ];
+  log_data.m_Window = win_ptr;
 
-                node = AllocListBrowserNode( 1,
-                                             LBNCA_Text, "JAG ÄR EN APA!",
-                                             LBNCA_CopyText, TRUE,
-                                             TAG_DONE );
-                                             
-#endif
-
+  SetPUHLogger( &log_hook, pd );
 
   while( ! quit )
   {
@@ -663,12 +655,14 @@ HandleGUI( Object*         window,
 
           case WMHI_ICONIFY:
             DoMethod( window, WM_ICONIFY );
-            GetAttr( WINDOW_Window,  window, (ULONG *) &win_ptr );
+            GetAttr( WINDOW_Window,  window, (ULONG*) &win_ptr );
+            log_data.m_Window = win_ptr;
             break;
             
           case WMHI_UNICONIFY:
             DoMethod( window, WM_OPEN );
-            GetAttr( WINDOW_Window,  window, (ULONG *) &win_ptr );
+            GetAttr( WINDOW_Window,  window, (ULONG*) &win_ptr );
+            log_data.m_Window = win_ptr;
             break;
 
           case WMHI_GADGETUP:
@@ -686,6 +680,14 @@ HandleGUI( Object*         window,
                   { TAG_DONE,          0    }
                 };
 
+                struct Hook filter_hook =
+                {
+                  { NULL, NULL },
+                  (HOOKFUNC) FilterFunc,
+                  NULL,
+                  NULL
+                };
+
 
                 req = AHI_AllocAudioRequest( 
                     AHIR_Window,         (ULONG) win_ptr,
@@ -694,7 +696,7 @@ HandleGUI( Object*         window,
                     AHIR_InitialMixFreq, frequency,
                     AHIR_DoMixFreq,      TRUE,
                     AHIR_DoDefaultMode,  TRUE,
-                    AHIR_FilterFunc,     (ULONG) &FilterHook,
+                    AHIR_FilterFunc,     (ULONG) &filter_hook,
                     AHIR_FilterTags,     (ULONG) filter_tags,
                     TAG_DONE );
 
@@ -744,6 +746,8 @@ HandleGUI( Object*         window,
                 GetAttr( GA_Selected, gadgets[ GAD_PATCH_APPS ], &patch_apps );
                 GetAttr( GA_Selected, gadgets[ GAD_TOGGLE_LED ], &toggle_led );
 
+                ClearList( &log_data );
+
                 if( patch_rom )
                 {
                   flags |= PUHF_PATCH_ROM;
@@ -763,7 +767,7 @@ HandleGUI( Object*         window,
                           audio_mode, frequency,
                           pd ) )
                 {
-                  printf( "Unable to install PUH.\n" );
+                  LogPUH( pd, "Unable to install PUH." );
                 }
                 else
                 {
@@ -806,6 +810,8 @@ HandleGUI( Object*         window,
 
               case GAD_UNINSTALL:
               {
+                ClearList( &log_data );
+
                 UninstallPUH( pd );
                 
                 RefreshSetGadgetAttrs( gadgets[ GAD_PATCH_ROM ], win_ptr, NULL,
@@ -847,7 +853,7 @@ HandleGUI( Object*         window,
               {
                 if( ! ActivatePUH( pd ) )
                 {
-                  printf( "Unable to activate PUH\n" );
+                  LogPUH( pd, "Unable to activate PUH." );
                 }
                 else
                 {
@@ -907,6 +913,8 @@ HandleGUI( Object*         window,
     }
   }
   
+  SetPUHLogger( NULL, pd );
+
   WriteWord( &custom->dmacon, DMAF_AUD0 );
   WriteWord( &custom->aud[ 0 ].ac_vol, 0 );
 

@@ -36,12 +36,12 @@ struct MMUContext;
 
 void
 KPrintFArgs( UBYTE* fmt, 
-             ULONG* args );
+             LONG*  args );
 
 
 #define KPrintF( fmt, ... )        \
 ({                                 \
-  ULONG _args[] = { __VA_ARGS__ }; \
+  LONG _args[] = { __VA_ARGS__ };  \
   KPrintFArgs( (fmt), _args );     \
 })
 
@@ -79,13 +79,14 @@ WriteLong( void* address, ULONG value );
 #define PUHB_TOGGLE_LED 2
 
 
-
 struct PUHData
 {
   BOOL                  m_Active;
   UWORD                 m_Pad;
 
   ULONG			m_Flags;
+
+  struct Hook*          m_LogHook;
 
   ULONG                 m_AudioMode;
   struct AHIAudioCtrl*  m_AudioCtrl;
@@ -134,13 +135,23 @@ struct PUHData
 };
 
 
-
 struct PUHData*
 AllocPUH( void );
 
 
 void
 FreePUH( struct PUHData* pd );
+
+
+void
+SetPUHLogger( struct Hook*    hook,
+              struct PUHData* pd );
+
+
+void
+LogPUH( struct PUHData* pd,
+        STRPTR          fmt,
+        ... );
 
 
 BOOL
@@ -160,6 +171,5 @@ ActivatePUH( struct PUHData* pd );
 
 void
 DeactivatePUH( struct PUHData* pd );
-
 
 #endif /* NallePUH_PUH_h */
