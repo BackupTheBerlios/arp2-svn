@@ -17,7 +17,8 @@ struct glgfx_bitmap {
     GLuint                  pbo;
     size_t                  size;
     bool                    locked;
-    bool                    locked_write;
+    GLenum                  locked_usage;
+    GLenum                  locked_access;
     void*                   locked_memory;
 };
 
@@ -27,6 +28,9 @@ struct glgfx_bitmap* glgfx_bitmap_create(int width, int height, int bits,
 					 int format, struct glgfx_monitor* monitor);
 void glgfx_bitmap_destroy(struct glgfx_bitmap* bitmap);
 bool glgfx_bitmap_lock(struct glgfx_bitmap* bitmap, bool read, bool write);
+bool glgfx_bitmap_update(struct glgfx_bitmap* bitmap, void* data, size_t size);
+void* glgfx_bitmap_map(struct glgfx_bitmap* bitmap);
+bool glgfx_bitmap_unmap(struct glgfx_bitmap* bitmap);
 bool glgfx_bitmap_unlock(struct glgfx_bitmap* bitmap);
 
 bool glgfx_bitmap_select(struct glgfx_bitmap* bitmap);

@@ -13,10 +13,13 @@
 
 enum glgfx_pixel_format {
   glgfx_pixel_unknown,
-  glgfx_pixel_r8g8b8,		// RGB,  3 * UBYTE
-  glgfx_pixel_r8g8b8a8,		// RGBA, 4 * UBYTE
-  glgfx_pixel_b8g8r8,		// BGR,  3 * UBYTE
-  glgfx_pixel_b8g8r8a8,		// BGRA, 4 * UBYTE
+  glgfx_pixel_a4r4g4b4,
+  glgfx_pixel_r5g6b5,
+  glgfx_pixel_a1r5g5b5,
+//  glgfx_pixel_r8g8b8,
+  glgfx_pixel_a8b8g8r8,
+//  glgfx_pixel_b8g8r8,
+  glgfx_pixel_a8r8g8b8,
   glgfx_pixel_max
 };
 
