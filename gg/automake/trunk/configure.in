@@ -5,6 +5,19 @@ AC_CONFIG_AUX_DIR(lib)
 
 AM_INIT_AUTOMAKE(automake, 1.5)
 
+# Find an appropriate tar for use in "dist" targets.  A "best guess"
+# is good enough -- if we can't find GNU tar, we don't really care.
+# GG-local:  As the TODO file notes, this loses in some situations.
+# For GG in particular, it loses when automake is configured and
+# built on a system where there is a gnutar or gtar (RedHat Linux 6.2)
+# for example, and then that value for TAR gets hardcoded into the
+# GG automake binary on that platform, and then automake is used to
+# regenerate Makefile.in files, propogating TAR=gtar into all the
+# generated Makefile.in files.  Clearly we would perfer to either
+# have TAR=tar or TAR=@TAR@ for packages that themselves check TAR
+# at configure time.  For now, just look for tar first.  -fnf
+AC_CHECK_PROGS(TAR, tar gnutar gtar)
+
 ACLOCAL="`pwd`/aclocal --acdir=m4"
 # $AUTOMAKE is always run after a `cd $top_srcdir', hence `.' is really
 # what we want for perllibdir and libdir.

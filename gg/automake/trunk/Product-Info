@@ -1,0 +1,33 @@
+.name
+automake
+.fullname
+GNU automake
+.type
+Programmer Tool
+.short
+GNU automatic makefile generator
+.description
+This is Automake, an experimental Makefile generator.  It was inspired by
+the 4.4BSD make and include files, but aims to be portable and to conform to
+the GNU standards for Makefile variables and targets.
+
+Automake is a Perl script.  The input files are called Makefile.am.  The
+output files are called Makefile.in; they are intended for use with
+Autoconf.  Automake requires certain things to be done in your configure.in.
+
+Variable assignment lines in Makefile.am pull in defaults from various
+little *.am files.
+
+To use Automake, replace your Makefile.in files with Makefile.am files.
+Read the documentation to see what to do.
+.version
+1.5
+.author
+Tom Tromey
+.email
+tromey@cygnus.com
+.distribution
+GPL
+.described-by
+Fred Fish (fnf@geekgadgets.org)
+

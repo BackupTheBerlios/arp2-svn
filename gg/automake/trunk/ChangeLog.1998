@@ -816,6 +816,11 @@ Wed May  6 01:18:05 1998  Tom Tromey  <tromey@cygnus.com>
 
 	* header-vars.am (DESTDIR): Changed from DISTDIR.
 
+Sat Apr 25 23:41:00 1998  Fred Fish  <fnf@ninemoons.com>
+
+	* automake.in (output_yacc_build_rule): Remove GG specific change
+	that included yacc input file as part of first arg to ylwrap.
+
 Fri Apr 24 10:16:20 1998  Tom Tromey  <tromey@cygnus.com>
 
 	* libs.am: Don't display loop while it runs.
@@ -854,6 +859,10 @@ Fri Apr  3 13:07:58 1998  Tom Tromey  <tromey@cygnus.com>
 
 	* automake.in (scan_one_configure_file): Exclude INSTALL_DATA from
 	configure_vars.  Test instdata.test.
+
+Wed Apr 01 23:09:37 1998  David Zaroski  <cz253@cleveland.freenet.edu>
+ 
+ 	* geek.am : add .txi.guide rule
 
 Tue Mar 31 21:07:42 1998  Tom Tromey  <tromey@cygnus.com>
 
@@ -971,6 +980,10 @@ Wed Mar 18 14:48:44 1998  Tom Tromey  <tromey@cygnus.com>
 	(am_install_var): Only push primary variable on @all if not doing
 	Java.
 
+Sat Mar 14 13:42:36 1998  David Zaroski  <cz253@cleveland.freenet.edu>
+ 
+ 	* tests/man.test: Removed, no longer needed
+ 
 Sun Mar  8 15:43:09 1998  Tom Tromey  <tromey@cygnus.com>
 
 	* automake.in (handle_configure): When recognizing AC_OUTPUT ":"
@@ -1234,6 +1247,12 @@ Sun Oct 19 22:59:35 1997  Tom Tromey  <tromey@cygnus.com>
 
 	* texinfos.am: Bug fix.  From John W. Coomes.
 
+Thu Oct  2 19:41:07 1997  Fred Fish  <fnf@ninemoons.com>
+
+	* automake.in (output_yacc_build_rule): Move trailing double
+	quote for $(YACC) to include the input file.
+	(handle_libraries): Define configured variable ARFLAGS.
+
 Mon Sep 29 12:57:00 1997  Tom Tromey  <tromey@cygnus.com>
 
 	* Released 1.2c.
@@ -1284,6 +1303,11 @@ Wed Sep 24 16:10:37 1997  Tom Tromey  <tromey@cygnus.com>
 
 	* automake.in (handle_programs): Define _DEPENDENCIES variable if
 	not defined by user.
+
+Sat Sep 20 22:15:09 1997 Joop van de Wege (JoopvandeWege@mococo.nl)
+
+	* geek.am: added {un}install-html target
+	* ChangeLog.amiga: added this file
 
 Thu Sep 18 19:43:38 1997  Tom Tromey  <tromey@cygnus.com>
 
@@ -2127,6 +2151,10 @@ Fri Feb 21 00:39:17 1997  Tom Tromey  <tromey@cygnus.com>
 	(install_man_format): Make rule silent; instead print actual
 	command.
 
+Wed Feb 12 23:17:08 1997  David Zaroski  (cz253@cleveland.freenet.edu)
+
+	* amiga-header-vars.am: Comment out INSTALL_SCRIPT due to duplication
+
 Tue Feb  4 18:29:42 1997  Tom Tromey  <tromey@cygnus.com>
 
 	* dist-vars.am (TAR): Removed.
@@ -2152,10 +2180,18 @@ Sun Jan 26 17:46:08 1997  Tom Tromey  <tromey@cygnus.com>
 	* texinfos.am (.texi.info): If --cygnus, set -I $(srcdir).  From
 	Per Bothner.
 
+
+Mon Jan 13 22:58:13 1997  David Zaroski (cz253@cleveland.freenet.edu)
+
+	* amiga-vars.am: Removed DVIPS define, it's defined in texinfos.am
+
 Sun Jan 12 18:28:16 1997  Fred Fish  (fnf@ninemoons.com)
 
 	* automake.in: Use 'interlock' and 'ylwrap' from source
 	directory or aux config directory, not build directory.
+	* amiga.am: Remove dvi to ps rule, there is also one in
+	texinfos.am.
+	* Makefile.in: Regenerate with automake.
 
 Tue Jan  7 18:35:10 1997  Tom Tromey  <tromey@cygnus.com>
 

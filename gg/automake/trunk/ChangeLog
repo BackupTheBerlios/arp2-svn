@@ -1,3 +1,15 @@
+2001-10-06  Martin Blom  <martin@blom.org>
+
+	* automake.texi: Moved a @ifnottex inside the node, to make
+	GG makeinfo 3.12 happy.
+
+2001-08-26  David Zaroski  <dez@gg.geekgadgets.org>
+
+	* config.{sub,guess}: Updated to current
+	* Makefile.in(s): Regenerated with newly updated automake
+	* aclocal.m4: Regenerated with updated aclocal
+	* All tests passed.
+
 2001-08-22  Tom Tromey  <tromey@redhat.com>
 
 	* configure.in: Released 1.5.
@@ -1211,6 +1223,13 @@
 	* tests/lex.test: here.
 	* tests/pr19.test: Improve and rename as...
 	* tests/lex3.test: this.
+
+2001-05-10  David Zaroski  <dez@gg.geekgadgets.org>
+
+	* config.status, config.sub: Updated to current versions
+	* configure: Regenerated
+	* Makefile.in's: Regenerated with updated automake
+	* aclocal.m4: Regenerated with updated aclocal
 
 2001-05-09  Tom Tromey  <tromey@redhat.com>
 

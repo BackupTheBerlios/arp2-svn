@@ -47,6 +47,18 @@ Sun Dec  8 12:29:52 1996  Tom Tromey  <tromey@cygnus.com>
 	".".  Don't include top_builddir in output if it is ".".
 	(scan_one_configure_file): Skip version of [$2].
 
+Sun Dec  8 10:05:40 1996  Fred Fish  <fnf@ninemoons.com>
+
+	* automake.in (ps_deps_list): File extension is .ps not .dvi.
+	(handle_texinfo): Add PS_DEPS and DVIS to @all.
+	(handle_texinfo): PS_DEPS is made from ps_deps_list not
+	dvis_list.
+	* amiga.am: Add .texinfo.guide rule, that is identical to
+	the .texi.guide rule.
+	* texinfos.am (.texinfo.info): Use --output=$@ to get info file
+	in build dir for CYGNUS mode.
+	* Makefile.in: Regenerate.
+
 Sat Dec  7 11:34:39 1996  Tom Tromey  <tromey@cygnus.com>
 
 	* automake.in (scan_one_configure_file): New sub.

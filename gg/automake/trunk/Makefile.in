@@ -30,6 +30,10 @@ sharedstatedir = @sharedstatedir@
 localstatedir = @localstatedir@
 libdir = @libdir@
 infodir = @infodir@
+guidedir = @guidedir@
+htmldir = @htmldir@
+dvidir = @dvidir@
+psdir = @psdir@
 mandir = @mandir@
 includedir = @includedir@
 oldincludedir = /usr/include
@@ -63,6 +67,7 @@ INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
 OBJEXT = @OBJEXT@
 PACKAGE = @PACKAGE@
 PERL = @PERL@
+TAR = @TAR@
 VERSION = @VERSION@
 am__include = @am__include@
 am__quote = @am__quote@
@@ -99,20 +104,28 @@ TEXINFO_TEX = $(top_srcdir)/lib/texinfo.tex
 INFO_DEPS = automake.info
 DVIS = automake.dvi
 TEXINFOS = automake.texi
+GUIDES = automake.guide
+GUIDE_DEPS = automake.guide
+HTMLS = automake.html
+HTML_DEPS = automake.html
+PS_S = automake.ps
+PS_DEPS = automake.ps
 
 RECURSIVE_TARGETS = info-recursive dvi-recursive install-info-recursive \
 	uninstall-info-recursive all-recursive install-data-recursive \
 	install-exec-recursive installdirs-recursive install-recursive \
-	uninstall-recursive check-recursive installcheck-recursive
+	uninstall-recursive check-recursive installcheck-recursive \
+	guide-recursive ps-recursive html-recursive
 DIST_COMMON = README AUTHORS COPYING ChangeLog INSTALL Makefile.am \
-	Makefile.in NEWS THANKS TODO aclocal.in aclocal.m4 automake.in \
-	configure configure.in install-sh mdate-sh missing \
-	mkinstalldirs stamp-vti version.texi
+	Makefile.in NEWS THANKS TODO aclocal.in aclocal.m4 ansi2knr.1 \
+	ansi2knr.c automake.in config.guess config.sub configure \
+	configure.in install-sh mdate-sh missing mkinstalldirs \
+	py-compile stamp-vti version.texi
 DIST_SUBDIRS = $(SUBDIRS)
 all: all-recursive
 
 .SUFFIXES:
-.SUFFIXES: .dvi .info .ps .texi
+.SUFFIXES: .dvi .guide .html .info .ps .texi .texinfo .txi
 $(srcdir)/Makefile.in:  Makefile.am  $(top_srcdir)/configure.in $(ACLOCAL_M4)
 	cd $(top_srcdir) && \
 	  $(AUTOMAKE) --gnu  Makefile
@@ -176,12 +189,14 @@ maintainer-clean-vti:
 
 automake.info: automake.texi $(srcdir)/version.texi
 automake.dvi: automake.texi $(srcdir)/version.texi
+automake.guide: automake.texi $(srcdir)/version.texi
+automake.html: automake.texi $(srcdir)/version.texi
+automake.ps: automake.texi $(srcdir)/version.texi
 
 .texi.info:
-	@cd $(srcdir) && rm -f $@ $@-[0-9] $@-[0-9][0-9]
-	cd $(srcdir) \
-	  && $(MAKEINFO) $(AM_MAKEINFOFLAGS) $(MAKEINFOFLAGS) \
-	       `echo $< | sed 's,.*/,,'`
+	@rm -f $@ $@-[0-9] $@-[0-9][0-9]
+	$(MAKEINFO) $(AM_MAKEINFOFLAGS) $(MAKEINFOFLAGS) \
+	  -I $(srcdir) $<
 
 .texi.dvi:
 	TEXINPUTS=$(top_srcdir)/lib:$$TEXINPUTS \
@@ -189,13 +204,101 @@ automake.dvi: automake.texi $(srcdir)/version.texi
 	$(TEXI2DVI) $<
 
 .texi:
-	@cd $(srcdir) && rm -f $@ $@-[0-9] $@-[0-9][0-9]
-	cd $(srcdir) \
-	  && $(MAKEINFO) $(AM_MAKEINFOFLAGS) $(MAKEINFOFLAGS) \
-	       `echo $< | sed 's,.*/,,'`
+	@rm -f $@ $@-[0-9] $@-[0-9][0-9]
+	$(MAKEINFO) $(AM_MAKEINFOFLAGS) $(MAKEINFOFLAGS) \
+	  -I $(srcdir) $<
 
-MAKEINFO = @MAKEINFO@
-TEXI2DVI = texi2dvi
+MAKEGUIDE= $(MAKEINFO) --amiga
+
+MAKEHTML = texi2html -number -split_chapter
+
+.texi.guide:
+	$(MAKEGUIDE) -I$(srcdir) $< -o $@
+
+.texinfo.guide:
+	$(MAKEGUIDE) -I$(srcdir) $< -o $@
+
+.txi.guide:
+	$(MAKEGUIDE) -I$(srcdir) $< -o $@
+
+.texi.html:
+	$(MAKEHTML) -I$(srcdir) $< 
+
+.texinfo.html:
+	$(MAKEHTML) -I$(srcdir) $< 
+install-guide: $(GUIDE_DEPS)
+	$(mkinstalldirs) $(DESTDIR)$(guidedir)
+	for file in $(GUIDE_DEPS); do		\
+	  for ifile in `echo $$file*`; do \
+	    $(INSTALL_DATA) $$ifile $(DESTDIR)$(guidedir)/$$ifile; \
+	  done;					\
+	done
+
+uninstall-guide:
+	for file in *.guide*; do	\
+	  rm -f $(DESTDIR)$(guidedir)/$$file; \
+	done
+
+install-ps: $(PS_S)
+	$(mkinstalldirs) $(DESTDIR)$(psdir)
+	for file in $(PS_DEPS); do		\
+	  for ifile in `echo $$file*`; do \
+	    $(INSTALL_DATA) $$ifile $(DESTDIR)$(psdir)/$$ifile; \
+	  done;					\
+	done
+
+uninstall-ps:
+	for file in *.ps*; do	\
+	  rm -f $(DESTDIR)$(psdir)/$$file; \
+	done
+
+install-dvi: $(DVIS)
+	$(mkinstalldirs) $(DESTDIR)$(dvidir)
+	for file in $(DVIS); do		\
+	  for ifile in `echo $$file*`; do \
+	    $(INSTALL_DATA) $$ifile $(DESTDIR)$(dvidir)/$$ifile; \
+	  done;					\
+	done
+
+uninstall-dvi:
+	for file in *.dvi*; do	\
+	  rm -f $(DESTDIR)$(dvidir)/$$file; \
+	done
+install-html: $(HTML_DEPS)
+	$(mkinstalldirs) $(DESTDIR)$(htmldir)
+	@touch $(HTML_DEPS)
+	@for file in $(HTML_DEPS); do \
+	  if test -f $$file; then d=.; else d=$(srcdir); fi; \
+	  bfile=`basename $$file .html`; \
+	  for ifile in `cd $$d && echo $$file $$bfile'_toc.html' $$bfile'_foot.html' $$bfile'_[0-9].html' $$bfile'_[0-9][0-9].html'`; do \
+	    if test -f $$d/$$ifile; then \
+	      echo " $(INSTALL_DATA) $$d/$$ifile $(DESTDIR)$(htmldir)/$$ifile"; \
+	      $(INSTALL_DATA) $$d/$$ifile $(DESTDIR)$(htmldir)/$$ifile; \
+	    else : ; fi; \
+	  done; \
+	done
+	@rm -f $(htmldir)/$(HTML_DEPS)
+
+uninstall-html:
+	@for file in $(HTML_DEPS); do \
+	  bfile=`basename $$file .html`; \
+	  for ifile in `cd $(DESTDIR)$(htmldir) && echo $$file $$bfile'_toc.html' $$bfile'_foot.html' $$bfile'_[0-9].html' $$bfile'_[0-9][0-9].html'`; do \
+	    echo "removing: $(DESTDIR)$(htmldir)/$$ifile"; \
+	    rm -f $(DESTDIR)$(htmldir)/$$ifile; \
+	  done; \
+	done
+
+MAKEINFO = `if test -f $(top_builddir)/../texinfo/makeinfo/makeinfo; then \
+            echo $(top_builddir)/../texinfo/makeinfo/makeinfo; \
+          else \
+            echo makeinfo; \
+          fi`
+
+TEXI2DVI = `if test -f $(top_srcdir)/../texinfo/util/texi2dvi; then \
+             echo $(top_srcdir)/../texinfo/util/texi2dvi; \
+           else \
+             echo texi2dvi; \
+           fi`
 DVIPS = dvips
 .dvi.ps:
 	$(DVIPS) $< -o $@
@@ -222,7 +325,7 @@ uninstall-info-am:
 dist-info: $(INFO_DEPS)
 	list='$(INFO_DEPS)'; \
 	for base in $$list; do \
-	  d=$(srcdir); \
+	  if test -f $$base; then d=.; else d=$(srcdir); fi; \
 	  for file in `CDPATH=: && cd $$d && eval echo $$base*`; do \
 	    test -f $(distdir)/$$file \
 	    || cp -p $$d/$$file $(distdir)/$$file; \
@@ -231,18 +334,20 @@ dist-info: $(INFO_DEPS)
 
 mostlyclean-aminfo:
 	-rm -f automake.aux automake.cm automake.cp automake.cps automake.cv \
-	  automake.dvi automake.fn automake.ky automake.log automake.op \
-	  automake.ov automake.pg automake.ps automake.toc automake.tp \
-	  automake.tr automake.vr automake.vrs
+	  automake.dvi automake.fn automake.guide automake.html \
+	  automake.ky automake.log automake.op automake.ov automake.pg \
+	  automake.ps automake.toc automake.tp automake.tr automake.vr \
+	  automake.vrs
 
 maintainer-clean-aminfo:
-	cd $(srcdir) && \
 	for i in $(INFO_DEPS); do \
 	  rm -f $$i; \
 	  if test "`echo $$i-[0-9]*`" != "$$i-[0-9]*"; then \
 	    rm -f $$i-[0-9]*; \
 	  fi; \
 	done
+
+clean-info: mostlyclean-aminfo
 
 # This directory's subdirectories are mostly independent; you can cd
 # into them and run `make' without going through this Makefile.
@@ -425,7 +530,8 @@ distcheck: dist
 	  sed 'h;s/./=/g;p;x;p;x'
 check-am: all-am
 check: check-recursive
-all-am: Makefile $(INFO_DEPS) $(SCRIPTS)
+all-am: Makefile $(DVIS) $(PS_DEPS) $(HTML_DEPS) $(GUIDE_DEPS) \
+		$(INFO_DEPS) $(SCRIPTS)
 installdirs: installdirs-recursive
 installdirs-am:
 	$(mkinstalldirs) $(DESTDIR)$(bindir) $(DESTDIR)$(infodir)
@@ -484,7 +590,7 @@ install-info-am: $(INFO_DEPS)
 	$(mkinstalldirs) $(DESTDIR)$(infodir)
 	@list='$(INFO_DEPS)'; \
 	for file in $$list; do \
-	  d=$(srcdir); \
+	  if test -f $$file; then d=.; else d=$(srcdir); fi; \
 	  for ifile in `CDPATH=: && cd $$d && echo $$file $$file-[0-9] $$file-[0-9][0-9]`; do \
 	    if test -f $$d/$$ifile; then \
 	      echo " $(INSTALL_DATA) $$d/$$ifile $(DESTDIR)$(infodir)/$$ifile"; \
@@ -519,22 +625,23 @@ uninstall-am: uninstall-binSCRIPTS uninstall-info-am
 uninstall-info: uninstall-info-recursive
 
 .PHONY: $(RECURSIVE_TARGETS) GTAGS all all-am check check-am clean \
-	clean-generic clean-recursive dist dist-all dist-bzip2 \
-	dist-info distcheck distclean distclean-generic \
+	clean-generic clean-info clean-recursive dist dist-all \
+	dist-bzip2 dist-info distcheck distclean distclean-generic \
 	distclean-recursive distclean-tags distdir dvi dvi-am \
 	dvi-recursive info info-am info-recursive install install-am \
 	install-binSCRIPTS install-data install-data-am \
-	install-data-recursive install-exec install-exec-am \
-	install-exec-recursive install-info install-info-am \
-	install-info-recursive install-man install-recursive \
-	install-strip installcheck installcheck-am installdirs \
-	installdirs-am installdirs-recursive maintainer-clean \
-	maintainer-clean-aminfo maintainer-clean-generic \
-	maintainer-clean-recursive maintainer-clean-vti mostlyclean \
-	mostlyclean-aminfo mostlyclean-generic mostlyclean-recursive \
-	mostlyclean-vti tags tags-recursive uninstall uninstall-am \
-	uninstall-binSCRIPTS uninstall-info-am uninstall-info-recursive \
-	uninstall-recursive
+	install-data-recursive install-dvi install-exec install-exec-am \
+	install-exec-recursive install-guide install-html install-info \
+	install-info-am install-info-recursive install-man install-ps \
+	install-recursive install-strip installcheck installcheck-am \
+	installdirs installdirs-am installdirs-recursive \
+	maintainer-clean maintainer-clean-aminfo \
+	maintainer-clean-generic maintainer-clean-recursive \
+	maintainer-clean-vti mostlyclean mostlyclean-aminfo \
+	mostlyclean-generic mostlyclean-recursive mostlyclean-vti tags \
+	tags-recursive uninstall uninstall-am uninstall-binSCRIPTS \
+	uninstall-dvi uninstall-guide uninstall-html uninstall-info-am \
+	uninstall-info-recursive uninstall-ps uninstall-recursive
 
 
 ################################################################

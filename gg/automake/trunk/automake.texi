@@ -98,10 +98,10 @@ approved by the Free Software Foundation.
 @syncodeindex tr cp
 @syncodeindex cm cp
 
-@ifnottex
 @node Top, Introduction, (dir), (dir)
 @comment  node-name,  next,  previous,  up
 @top GNU Automake
+@ifnottex
 
 This file documents the GNU Automake package.  Automake is a program
 which creates GNU standards-compliant Makefiles from template files.

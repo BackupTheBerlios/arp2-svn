@@ -30,6 +30,10 @@ sharedstatedir = @sharedstatedir@
 localstatedir = @localstatedir@
 libdir = @libdir@
 infodir = @infodir@
+guidedir = @guidedir@
+htmldir = @htmldir@
+dvidir = @dvidir@
+psdir = @psdir@
 mandir = @mandir@
 includedir = @includedir@
 oldincludedir = /usr/include
@@ -63,6 +67,7 @@ INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
 OBJEXT = @OBJEXT@
 PACKAGE = @PACKAGE@
 PERL = @PERL@
+TAR = @TAR@
 VERSION = @VERSION@
 am__include = @am__include@
 am__quote = @am__quote@
@@ -86,7 +91,8 @@ DATA = $(dist_pkgdata_DATA) $(dist_script_DATA)
 RECURSIVE_TARGETS = info-recursive dvi-recursive install-info-recursive \
 	uninstall-info-recursive all-recursive install-data-recursive \
 	install-exec-recursive installdirs-recursive install-recursive \
-	uninstall-recursive check-recursive installcheck-recursive
+	uninstall-recursive check-recursive installcheck-recursive \
+	guide-recursive ps-recursive html-recursive
 DIST_COMMON = $(dist_pkgdata_DATA) $(dist_script_DATA) COPYING INSTALL \
 	Makefile.am Makefile.in ansi2knr.1 ansi2knr.c compile \
 	config.guess config.sub depcomp elisp-comp install-sh mdate-sh \

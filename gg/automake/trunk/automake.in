@@ -181,6 +181,7 @@ my $DASH_D_PATTERN = "(^|\\s)-d(\\s|\$)";
 # Constants to define the "strictness" level.
 my $FOREIGN = 0;
 my $GNU = 1;
+my $GEEK = 1;
 my $GNITS = 2;
 
 # Values for AC_CANONICAL_*
@@ -446,6 +447,10 @@ my %vars_scanned = ();
 
 # TRUE if --cygnus seen.
 my $cygnus_mode = 0;
+
+# TRUE if --geek seen. 
+# Defaults to 1 for the GG (Geek Gadgets) so makefiles don't have to change.
+my $geek_mode = 1;
 
 # Hash table of AM_CONDITIONAL variables seen in configure.
 my %configure_cond = ();
@@ -1107,6 +1112,7 @@ sub parse_arguments ()
        'gnu' 		=> sub { &set_strictness ('gnu'); },
        'gnits' 		=> sub { &set_strictness ('gnits'); },
        'cygnus' 	=> \$cygnus_mode,
+       'geek'           => sub { &set_strictness ('geek'); },
        'foreign' 	=> sub { &set_strictness ('foreign'); },
        'include-deps' 	=> sub { $cmdline_use_dependencies = 1; },
        'i|ignore-deps' 	=> sub { $cmdline_use_dependencies = 0; },
@@ -1406,7 +1412,7 @@ sub handle_options
 	foreach (&variable_value_as_list ('AUTOMAKE_OPTIONS', ''))
 	{
 	    $options{$_} = 1;
-	    if ($_ eq 'gnits' || $_ eq 'gnu' || $_ eq 'foreign')
+	    if ($_ eq 'gnits' || $_ eq 'gnu' || $_ eq 'foreign' || $_ eq 'geek')
 	    {
 		&set_strictness ($_);
 	    }
@@ -2795,6 +2801,10 @@ sub scan_texinfo_file
     my @clean_suffixes = ('aux', 'dvi', 'log', 'ps', 'toc',
 			  # grep new.*index texinfo.tex
 			  'cp', 'fn', 'ky', 'vr', 'tp', 'pg');
+    if ($geek_mode)
+    {
+	push (@clean_suffixes,('guide','html'));
+    }
 
     # There are predefined indexes which don't follow the regular rules.
     my %predefined_index =
@@ -2921,6 +2931,10 @@ sub handle_texinfo_helper
     my @texis = &variable_value_as_list ('info_TEXINFOS', 'all');
 
     my (@info_deps_list, @dvis_list, @texi_deps);
+    my (@guides_list, @guide_deps_list); 
+    my (@htmls_list, @html_deps_list); 
+    my (@ps_list, @ps_deps_list);
+
     my %versions;
     my $done = 0;
     my @texi_cleans;
@@ -3008,9 +3022,27 @@ sub handle_texinfo_helper
 			  . "\n" . $infobase . ".dvi: "
 			  . join (' ', @texi_deps)
 			  . "\n");
-
+        if ($geek_mode)
+        {
+	    $output_rules .= ( $infobase . ".guide: "
+			       . join (' ', @texi_deps)
+			       . "\n" . $infobase . ".html: "
+			       . join (' ', @texi_deps)
+			       . "\n" . $infobase . ".ps: "
+			       . join (' ', @texi_deps)
+			       . "\n");
+	}
 	push (@info_deps_list, $out_file);
 	push (@dvis_list, $infobase . '.dvi');
+        if ($geek_mode)
+        {
+           push (@guides_list, $infobase . '.guide');
+           push (@guide_deps_list, $infobase . '.guide');
+           push (@htmls_list, $infobase . '.html');
+           push (@html_deps_list, $infobase . '.html');
+           push (@ps_list, $infobase . '.ps');
+           push (@ps_deps_list, $infobase . '.ps');
+        }
     }
 
     # Handle location of texinfo.tex.
@@ -3050,6 +3082,17 @@ sub handle_texinfo_helper
     # The return value.
     my $texiclean = &pretty_print_internal ("", "\t  ", @texi_cleans);
 
+    if ($geek_mode)
+    {
+	my @phony;
+
+	$output_rules .= &file_contents ('geek');
+	push(@phony, ('install-guide', 'uninstall-guide', 'install-ps'));
+	push(@phony, ('uninstall-ps', 'install-html' , 'uninstall-html'));
+	push(@phony, ('install-dvi', 'uninstall-dvi'));
+	&depend ('.PHONY', @phony);
+    }
+	
     push (@dist_targets, 'dist-info');
 
     if (! defined $options{'no-installinfo'})
@@ -3058,6 +3101,13 @@ sub handle_texinfo_helper
 	# $(INFO_DEPS), not 'info', because otherwise recursive makes
 	# get run twice during "make all".
 	unshift (@all, '$(INFO_DEPS)');
+	if ($geek_mode) 
+	{ 
+	    unshift (@all, '$(GUIDE_DEPS)');
+	    unshift (@all, '$(HTML_DEPS)');
+	    unshift (@all, '$(PS_DEPS)');
+	    unshift (@all, '$(DVIS)');
+	}
     }
 
     &define_variable ("INFO_DEPS", join (' ', @info_deps_list));
@@ -3066,7 +3116,15 @@ sub handle_texinfo_helper
     # could easily be changed to look in info_TEXINFOS.  But this is
     # probably better, in case noinst_TEXINFOS is ever supported.
     &define_variable ("TEXINFOS", &variable_value ('info_TEXINFOS'));
-
+    if ($geek_mode) 
+    {
+	&define_variable("GUIDES", join (' ', @guides_list));
+	&define_variable("GUIDE_DEPS", join (' ', @guide_deps_list));
+	&define_variable("HTMLS", join (' ', @htmls_list));
+	&define_variable("HTML_DEPS", join (' ', @html_deps_list));
+	&define_variable("PS_S", join (' ', @ps_list));
+	&define_variable("PS_DEPS", join (' ', @ps_deps_list));
+    }
     # Do some error checking.  Note that this file is not required
     # when in Cygnus mode; instead we defined TEXINFO_TEX explicitly
     # up above.
@@ -3399,7 +3457,6 @@ sub handle_dist
     # Defining $(DISTDIR).
     $transform{'DISTDIR'} = !&variable_defined('distdir');
     $transform{'TOP_DISTDIR'} = backname ($relative_dir);
-
     $output_rules .= &file_contents ('distdir', %transform);
 }
 
@@ -6769,7 +6826,8 @@ sub make_paragraphs ($%)
       "s/$IGNORE_PATTERN//gm;"
 	. transform (%transform,
 
-		     'CYGNUS'          => $cygnus_mode,
+		     'CYGNUS'          => $cygnus_mode || $geek_mode,
+		     'GEEK'            => $geek_mode,
 		     'MAINTAINER-MODE'
 		     => $seen_maint_mode ? subst ('MAINTAINER_MODE_TRUE') : '',
 
@@ -7725,6 +7783,10 @@ sub set_strictness
     {
 	$strictness = $GNU;
     }
+    elsif ($strictness_name eq 'geek')
+    {
+	$strictness = $GEEK;
+    }
     elsif ($strictness_name eq 'gnits')
     {
 	$strictness = $GNITS;
@@ -7935,10 +7997,11 @@ Dependency tracking:
       --include-deps     enable dependency tracking code
 
 Flavors:
-      --cygnus           assume program is part of Cygnus-style tree
-      --foreign          set strictness to foreign
-      --gnits            set strictness to gnits
-      --gnu              set strictness to gnu
+      --cygnus    assume program is part of Cygnus-style tree
+      --foreign   set strictness to foreign
+      --gnits     set strictness to gnits
+      --gnu       set strictness to gnu
+      --geek      set strictness to geek
 
 Library files:
   -a, --add-missing      add missing standard files to package

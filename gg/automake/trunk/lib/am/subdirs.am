@@ -20,7 +20,9 @@
 RECURSIVE_TARGETS += \
 all-recursive install-data-recursive install-exec-recursive \
 installdirs-recursive install-recursive uninstall-recursive \
-check-recursive installcheck-recursive
+?!GEEK? check-recursive installcheck-recursive
+?GEEK? check-recursive installcheck-recursive guide-recursive \
+?GEEK? ps-recursive html-recursive
 
 .PHONY: $(RECURSIVE_TARGETS)
 

@@ -5,7 +5,11 @@
 . $srcdir/defs || exit 1
 
 cat > Makefile.am << 'EOF'
-html_DATA = zot.html
+# Since we default to defining htmldir this test would fail, 
+# so changed it.  -dez-
+# html_DATA = zot.html
+
+test_DATA = zot.html
 pkgdata_DATA = qbert
 EOF
 

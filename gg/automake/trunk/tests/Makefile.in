@@ -30,6 +30,10 @@ sharedstatedir = @sharedstatedir@
 localstatedir = @localstatedir@
 libdir = @libdir@
 infodir = @infodir@
+guidedir = @guidedir@
+htmldir = @htmldir@
+dvidir = @dvidir@
+psdir = @psdir@
 mandir = @mandir@
 includedir = @includedir@
 oldincludedir = /usr/include
@@ -63,6 +67,7 @@ INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
 OBJEXT = @OBJEXT@
 PACKAGE = @PACKAGE@
 PERL = @PERL@
+TAR = @TAR@
 VERSION = @VERSION@
 am__include = @am__include@
 am__quote = @am__quote@
@@ -399,7 +404,7 @@ subdir = tests
 mkinstalldirs = $(SHELL) $(top_srcdir)/lib/mkinstalldirs
 CONFIG_CLEAN_FILES =
 DIST_SOURCES =
-DIST_COMMON = Makefile.am Makefile.in
+DIST_COMMON = ChangeLog Makefile.am Makefile.in
 all: all-am
 
 .SUFFIXES:
