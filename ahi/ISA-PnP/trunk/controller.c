@@ -222,6 +222,29 @@ ISAC_SetRegWord( REG( d0, UWORD              reg ),
 }
 
 
+ULONG ASMCALL
+ISAC_GetRegLong( REG( d0, UWORD              reg ),
+                 REG( a6, struct ISAPNPBase* res ) )
+{
+  ULONG value;
+
+  value  = ISAC_GetRegWord( reg, res );
+  value |= ISAC_GetRegWord( reg + 2, res ) << 16;
+
+  return value;
+}
+
+
+void ASMCALL
+ISAC_SetRegLong( REG( d0, UWORD              reg ),
+                 REG( d1, ULONG              value ),
+                 REG( a6, struct ISAPNPBase* res ) )
+{
+  ISAC_SetRegWord( reg, value & 0xffff, res );
+  ISAC_SetRegWord( reg + 2, value >> 16, res );
+}
+
+
 UBYTE ASMCALL
 ISAC_ReadByte( REG( d0, ULONG              address ),
                REG( a6, struct ISAPNPBase* res ) )
@@ -254,4 +277,27 @@ ISAC_WriteWord( REG( d0, ULONG              address ),
 {
   WriteWord( (UWORD*)( res->m_Base + ( ( 2 * address ) & 0xfffff ) ),
              value );
+}
+
+
+ULONG ASMCALL
+ISAC_ReadLong( REG( d0, ULONG              address ),
+               REG( a6, struct ISAPNPBase* res ) )
+{
+  ULONG value;
+
+  value  = ISAC_ReadWord( address, res );
+  value |= ISAC_ReadWord( address + 2, res ) << 16;
+
+  return value;
+}
+
+
+void ASMCALL
+ISAC_WriteLong( REG( d0, ULONG              address ),
+                REG( d1, ULONG              value ),
+                REG( a6, struct ISAPNPBase* res ) )
+{
+  ISAC_WriteWord( address, value & 0xffff, res );
+  ISAC_WriteWord( address + 2, value >> 16, res );
 }

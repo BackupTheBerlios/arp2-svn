@@ -37,11 +37,17 @@ void ISAC_SetRegByte( UWORD reg, UBYTE value );
 UWORD ISAC_GetRegWord( UWORD reg );
 void ISAC_SetRegWord( UWORD reg, UWORD value );
 
+ULONG ISAC_GetRegLong( UWORD reg );
+void ISAC_SetRegLong( UWORD reg, ULONG value );
+
 UBYTE ISAC_ReadByte( ULONG address );
 void ISAC_WriteByte( ULONG address, UBYTE value );
 
 UWORD ISAC_ReadWord( ULONG address );
 void ISAC_WriteWord( ULONG address, UWORD value );
+
+ULONG ISAC_ReadLong( ULONG address );
+void ISAC_WriteLong( ULONG address, ULONG value );
 
 
 // Structure allocation and deallocation (private)
@@ -71,9 +77,11 @@ struct ISAPNP_Card* ISAPNP_FindCard( struct ISAPNP_Card* last_card, LONG manufac
 struct ISAPNP_Device* ISAPNP_FindDevice( struct ISAPNP_Device* last_device, LONG manufacturer, WORD product, BYTE revision );
 
 APTR ISAPNP_LockCardsA( ULONG flags, struct ISAPNP_Card** cards );
+APTR ISAPNP_LockCards( ULONG flags, struct ISAPNP_Card* card, .... );
 void ISAPNP_UnlockCards( APTR card_lock_handle );
 
 APTR ISAPNP_LockDevicesA( ULONG flags, struct ISAPNP_Device** devices );
+APTR ISAPNP_LockDevices( ULONG flags, struct ISAPNP_Device* device, ... );
 void ISAPNP_UnlockDevices( APTR device_lock_handle );
 
 #endif /* CLIB_PNPISA_PROTOS_H */

@@ -71,6 +71,16 @@ ISAC_SetRegWord( REG( d0, UWORD              reg ),
                  REG( d1, UWORD              value ),
                  REG( a6, struct ISAPNPBase* res ) );
 
+ULONG ASMCALL
+ISAC_GetRegLong( REG( d0, UWORD              reg ),
+                 REG( a6, struct ISAPNPBase* res ) );
+
+
+void ASMCALL
+ISAC_SetRegLong( REG( d0, UWORD              reg ),
+                 REG( d1, ULONG              value ),
+                 REG( a6, struct ISAPNPBase* res ) );
+
 
 UBYTE ASMCALL
 ISAC_ReadByte( REG( d0, ULONG              address ),
@@ -92,5 +102,17 @@ void ASMCALL
 ISAC_WriteWord( REG( d0, ULONG              address ),
                 REG( d1, UWORD              value ),
                 REG( a6, struct ISAPNPBase* res ) );
+
+
+ULONG ASMCALL
+ISAC_ReadLong( REG( d0, ULONG              address ),
+               REG( a6, struct ISAPNPBase* res ) );
+
+
+void ASMCALL
+ISAC_WriteLong( REG( d0, ULONG              address ),
+                REG( d1, ULONG              value ),
+                REG( a6, struct ISAPNPBase* res ) );
+
 
 #endif /* ISA_PNP_controller_h */
