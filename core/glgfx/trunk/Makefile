@@ -3,7 +3,7 @@ CPPFLAGS	= -DDEBUG -W -Wall
 CFLAGS		= -O2 -pthread $(shell pkg-config glib-2.0 --cflags)
 LDLIBS		= -L/usr/X11R6/lib -lX11 -lXxf86vm -lXext -ldl -lGL -lglut $(shell pkg-config glib-2.0 --libs)
 
-GLGFX_OBJECTS	= glgfx.o glgfx_monitor.o glgfx_viewport.o glgfx_bitmap.o
+GLGFX_OBJECTS	= glgfx.o glgfx_monitor.o glgfx_view.o glgfx_viewport.o glgfx_bitmap.o
 GLGFX_TARGET	= glgfx
 
 OBJECTS		= $(GLGFX_OBJECTS)

@@ -20,7 +20,7 @@ struct glgfx_viewport* glgfx_viewport_create(int width, int height,
   }
 
   if (!glgfx_viewport_move(viewport, width, height, xoffset, yoffset)) {
-    glgfx_view_destroy(viewport);
+    glgfx_viewport_destroy(viewport);
     return NULL;
   }
 
@@ -42,7 +42,7 @@ bool glgfx_viewport_move(struct glgfx_viewport* viewport,
 }
 
 
-void glgfx_view_destroy(struct glgfx_viewport* viewport) {
+void glgfx_viewport_destroy(struct glgfx_viewport* viewport) {
   if (viewport == NULL) {
     return;
   }
@@ -56,9 +56,9 @@ void glgfx_view_destroy(struct glgfx_viewport* viewport) {
   free(viewport);
 }
 
-struct glgfx_rasinfo* glgfx_view_addbitmap(struct glgfx_viewport* viewport,
-					   struct glgfx_bitmap* bitmap,
-					   int xoffset, int yoffset) {
+struct glgfx_rasinfo* glgfx_viewport_addbitmap(struct glgfx_viewport* viewport,
+					       struct glgfx_bitmap* bitmap,
+					       int xoffset, int yoffset) {
   struct glgfx_rasinfo* rasinfo;
   
   if (viewport == NULL || bitmap == NULL) {
@@ -71,7 +71,7 @@ struct glgfx_rasinfo* glgfx_view_addbitmap(struct glgfx_viewport* viewport,
     return NULL;
   }
 
-  if (!glgfx_view_setbitmap(viewports, rasinfo, bitmap, xoffset, yoffset)) {
+  if (!glgfx_viewport_setbitmap(viewport, rasinfo, bitmap, xoffset, yoffset)) {
     free(rasinfo);
     return NULL;
   }
@@ -80,14 +80,15 @@ struct glgfx_rasinfo* glgfx_view_addbitmap(struct glgfx_viewport* viewport,
   return rasinfo;
 }
 
-bool glgfx_view_rembitmap(struct glgfx_viewport* viewport,
-			  struct glgfx_rasinfo* rasinfo) {
+bool glgfx_viewport_rembitmap(struct glgfx_viewport* viewport,
+			      struct glgfx_rasinfo* rasinfo) {
   if (viewport == NULL || rasinfo == NULL) {
     return false;
   }
 
   viewport->rasinfos = g_list_remove(viewport->rasinfos, rasinfo);
   free(rasinfo);
+  return true;
 }
 
 bool glgfx_viewport_setbitmap(struct glgfx_viewport* viewport,
@@ -104,7 +105,7 @@ bool glgfx_viewport_setbitmap(struct glgfx_viewport* viewport,
   return true;
 }
 
-int glgfx_view_numbitmaps(struct glgfx_viewport* viewport) {
+int glgfx_viewport_numbitmaps(struct glgfx_viewport* viewport) {
   if (viewport == NULL) {
     return 0;
   }
@@ -112,7 +113,7 @@ int glgfx_view_numbitmaps(struct glgfx_viewport* viewport) {
   return g_list_length(viewport->rasinfos);
 }
 
-bool glgfx_view_render(struct glgfx_view* view) {
+bool glgfx_viewport_render(struct glgfx_viewport* viewport) {
 
   void render(gpointer* data, gpointer* userdata) {
     struct glgfx_rasinfo* rasinfo = (struct glgfx_rasinfo*) data;

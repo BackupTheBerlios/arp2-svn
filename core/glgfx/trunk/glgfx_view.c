@@ -6,7 +6,7 @@
 #include <GL/glext.h>
 
 #include "glgfx.h"
-#include "glgfx_bitmap.h"
+#include "glgfx_view.h"
 #include "glgfx_viewport.h"
 
 struct glgfx_view* glgfx_view_create(struct glgfx_monitor* monitor) {
@@ -40,11 +40,11 @@ void glgfx_view_destroy(struct glgfx_view* view) {
 bool glgfx_view_addviewport(struct glgfx_view* view,
 			    struct glgfx_viewport* viewport) {
   if (view == NULL || viewport == NULL) {
-    return NULL;
+    return false;
   }
 
   view->viewports = g_list_append(view->viewports, viewport);
-  return rasinfo;
+  return true;
 }
 
 bool glgfx_view_remviewport(struct glgfx_view* view,
@@ -53,7 +53,8 @@ bool glgfx_view_remviewport(struct glgfx_view* view,
     return false;
   }
 
-  viewport->viewports = g_list_remove(view->viewports, viewport);
+  view->viewports = g_list_remove(view->viewports, viewport);
+  return true;
 }
 
 int glgfx_view_numviewports(struct glgfx_view* view) {
@@ -68,7 +69,7 @@ bool glgfx_view_render(struct glgfx_view* view) {
 
   void render(gpointer* data, gpointer* userdata) {
     struct glgfx_viewport* viewport = (struct glgfx_viewport*) data;
-    struct glgfx_view* view = (struct glgfx_view*) userdata;
+    struct glgfx_view* view __attribute__((unused)) = (struct glgfx_view*) userdata;
 
     glDrawBuffer(GL_BACK);
     glClearColor( 0, 0, 0, 1);
