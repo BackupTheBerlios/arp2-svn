@@ -650,6 +650,8 @@ typedef struct
    char* proto[REGS];
    regs	 funcpar; /* number of argument that has type "pointer to function" */
    int   private;
+   int   base;
+   int   cfunction;
 } fdDef;
 
 fdDef*
@@ -668,6 +670,10 @@ static void
 fD_NewType	  (fdDef* obj, const char* newstr);
 static void
 fD_SetOffset	  (fdDef* obj, long off);
+static void
+fD_SetBase	  (fdDef* obj, int base);
+static void
+fD_SetCFunction	  (fdDef* obj, int cfunc);
 static void
 fD_SetPrivate	  (fdDef* obj, int priv);
 Error
@@ -1000,6 +1006,24 @@ fD_SetOffset(fdDef* obj, long off)
 }
 
 static INLINE void
+fD_SetBase(fdDef* obj, int base)
+{
+   if (obj)
+      obj->base=base;
+   else
+      illparams("fD_SetPrivate");
+}
+
+static INLINE void
+fD_SetCFunction(fdDef* obj, int cfunc)
+{
+   if (obj)
+      obj->cfunction=cfunc;
+   else
+      illparams("fD_SetPrivate");
+}
+
+static INLINE void
 fD_SetPrivate(fdDef* obj, int priv)
 {
    if (obj)
@@ -1287,7 +1311,8 @@ fD_parsefd(fdDef* obj, char** comment_ptr, fdFile* infile)
 		  /* terminate string and advance to next item */
 
 		  *bnext='\0';
-		  fD_NewParam(obj, fD_ParamNum(obj), bptmp);
+		  if (*bptmp)
+		     fD_NewParam(obj, fD_ParamNum(obj), bptmp);
 	       }
 	       else
 	       {
@@ -1323,10 +1348,21 @@ fD_parsefd(fdDef* obj, char** comment_ptr, fdFile* infile)
 		  else
 		     if (bnext!=bpoint)
 		     {
-			/* it is when our function is void */
-			fprintf(stderr, "Illegal register %s in line %ld\n",
-			   bpoint, infile->lineno);
-			fF_SetError(infile, nodef);
+		        if (!strcasecmp(bpoint, "base"))
+			{
+			   fD_SetBase(obj,1);
+			}
+			else if (!strcasecmp(bpoint, "sysv"))
+			{
+			   fD_SetCFunction(obj,1);
+			}
+		        else
+			{
+			   /* it is when our function is void */
+			   fprintf(stderr, "Illegal register %s in line %ld\n",
+				   bpoint, infile->lineno);
+			   fF_SetError(infile, nodef);
+			}
 		     }
 		  bpoint = bnext+1;
 	       }
@@ -1393,7 +1429,7 @@ fD_parsepr(fdDef* obj, fdFile* infile)
       lowarg=bpoint;
       obraces=0;
 
-      for (count=0, args=fD_RegNum(obj); count<args; bpoint=bnext+1)
+      for (count=0, args=fD_ParamNum(obj); count<args; bpoint=bnext+1)
       {
 	 while (*bpoint && (*bpoint==' ' || *bpoint=='\t')) /* ignore spaces */
 	    bpoint++;
@@ -1464,7 +1500,7 @@ fD_parsepr(fdDef* obj, fdFile* infile)
 	    fF_SetError(infile, nodef);
 	 }
       }
-      if (fD_ProtoNum(obj)!=fD_RegNum(obj))
+      if (fD_ProtoNum(obj)!=fD_ParamNum(obj))
 	 fF_SetError(infile, nodef);
    }
    else
@@ -1521,7 +1557,7 @@ getvarargsfunction(const fdDef * obj)
 const char*
 taggedfunction(const fdDef* obj)
 {
-   shortcard numregs=fD_RegNum(obj);
+   shortcard numargs=fD_ParamNum(obj);
    unsigned int count;
    int aos_tagitem;
    const char *name=fD_GetName(obj);
@@ -1541,7 +1577,7 @@ taggedfunction(const fdDef* obj)
       "UnpackStructureTags",
    };
 
-   if (!numregs)
+   if (!numargs)
       return NULL;
 
    for (count=0; count<sizeof TagExcTable/sizeof TagExcTable[0]; count+=2)
@@ -1553,7 +1589,7 @@ taggedfunction(const fdDef* obj)
       if (strcmp(name, TagExcTable2[count])==0)
 	 return NULL;
 
-   lastarg=fD_GetProto(obj, numregs-1);
+   lastarg=fD_GetProto(obj, numargs-1);
    if (strncmp(lastarg, "const", 5)==0 || strncmp(lastarg, "CONST", 5)==0)
       lastarg+=5;
    while (*lastarg==' ' || *lastarg=='\t')
@@ -1600,28 +1636,51 @@ aliasfunction(const char* name)
    return NULL;
 }
 
+static INLINE void
+fD_PrintRegs(FILE* outfile, const fdDef* obj)
+{
+   int count;
+   int numregs=fD_RegNum(obj);
+
+   if (obj->cfunction)
+   {
+      fprintf(outfile, "c");
+      
+      if (obj->base)
+      {
+	 fprintf(outfile, ",base");
+      }
+   }
+   if (numregs>0)
+   {
+      for (count=d0; count<numregs-1; count++)
+	 fprintf(outfile, "%s,", fD_GetRegStr(obj, count));
+      fprintf(outfile, "%s", fD_GetRegStr(obj, count));
+   }
+}
+
 void
 fD_write(FILE* outfile, const fdDef* obj,int alias)
 {
    static int bias = -1;
    static int priv = -1;
-   shortcard count, numregs;
+   shortcard count, numargs;
    const char *tagname, *varname, *name, *rettype;
    int vd=0, a45=0, d7=0;
 
    DBP(fprintf(stderr, "func %s\n", fD_GetName(obj)));
 
-   numregs=fD_RegNum(obj);
+   numargs=fD_ParamNum(obj);
 
    if ((rettype=fD_GetType(obj))==fD_nostring)
    {
       if (!Quiet && !fD_GetPrivate(obj))
 	 fprintf(stderr, "Warning: %s has no prototype.\n", fD_GetName(obj));
-      rettype = "VOID";
+      rettype = "ULONG";
    }
    if (!strcasecmp(rettype, "void"))
       vd = 1; /* set flag */
-   for (count=d0; count<numregs; count++)
+   for (count=d0; count<numargs; count++)
    {
       const char *reg=fD_GetRegStr(obj, count);
       if (strcmp(reg, "a4")==0 || strcmp(reg, "a5")==0)
@@ -1644,12 +1703,12 @@ fD_write(FILE* outfile, const fdDef* obj,int alias)
 
    name=fD_GetName(obj);
 
-   if (fD_ProtoNum(obj)!=numregs)
+   if (fD_ProtoNum(obj)!=numargs)
    {
       if (!Quiet)
-	 fprintf(stderr, "%s gets %d fd args and %d proto%s.\n", name, numregs,
+	 fprintf(stderr, "%s gets %d fd args and %d proto%s.\n", name, numargs,
 		 fD_ProtoNum(obj), fD_ProtoNum(obj)!= 1 ? "s" : "");
-      for (count=d0; count<numregs; count++)
+      for (count=d0; count<numargs; count++)
       {
 	 if (fD_GetReg(obj, count) != illegal &&
 	     fD_GetProto(obj, count) == fD_nostring)
@@ -1675,16 +1734,16 @@ fD_write(FILE* outfile, const fdDef* obj,int alias)
    
    fprintf(outfile, "%s %s(", rettype, name);
    
-   if (numregs>0)
+   if (numargs>0)
    {
-      for (count=d0; count<numregs; count++)
+      for (count=d0; count<numargs; count++)
       {
 	 if (strchr(fD_GetProto(obj, count),'%'))
 	    sprintf(Buffer, fD_GetProto(obj, count), fD_GetParam(obj, count));
 	 else
 	    sprintf(Buffer, "%s %s",
 		    fD_GetProto(obj, count), fD_GetParam(obj, count));
-	 if (count<numregs-1)
+	 if (count<numargs-1)
 	    fprintf(outfile, "%s, ", Buffer);
 	 else
 	    fprintf(outfile, "%s", Buffer);
@@ -1693,12 +1752,7 @@ fD_write(FILE* outfile, const fdDef* obj,int alias)
 
    fprintf(outfile, ") (");
 
-   if (numregs>0)
-   {
-      for (count=d0; count<numregs-1; count++)
-	 fprintf(outfile, "%s,", fD_GetRegStr(obj, count));
-      fprintf(outfile, "%s", fD_GetRegStr(obj, count));
-   }
+   fD_PrintRegs(outfile, obj);
 
    fprintf(outfile, ")\n");
 
@@ -1724,9 +1778,9 @@ fD_write(FILE* outfile, const fdDef* obj,int alias)
 
       fprintf(outfile, "%s %s(", rettype, tagname);
    
-      if (numregs>0)
+      if (numargs>0)
       {
-	 for (count=d0; count<numregs; count++)
+	 for (count=d0; count<numargs; count++)
 	 {
 	    if (strchr(fD_GetProto(obj, count),'%'))
 	       sprintf(Buffer, fD_GetProto(obj, count),
@@ -1734,7 +1788,7 @@ fD_write(FILE* outfile, const fdDef* obj,int alias)
 	    else
 	       sprintf(Buffer, "%s %s",
 		       fD_GetProto(obj, count), fD_GetParam(obj, count));
-	    if (count<numregs-1)
+	    if (count<numargs-1)
 	       fprintf(outfile, "%s, ", Buffer);
 	    else
 	       fprintf(outfile, "Tag %s, ...", fD_GetParam(obj, count));
@@ -1743,12 +1797,7 @@ fD_write(FILE* outfile, const fdDef* obj,int alias)
 
       fprintf(outfile, ") (");
 
-      if (numregs>0)
-      {
-	 for (count=d0; count<numregs-1; count++)
-	    fprintf(outfile, "%s,", fD_GetRegStr(obj, count));
-	 fprintf(outfile, "%s", fD_GetRegStr(obj, count));
-      }
+      fD_PrintRegs(outfile, obj);
 
       fprintf(outfile, ")\n");
    }
@@ -1759,9 +1808,9 @@ fD_write(FILE* outfile, const fdDef* obj,int alias)
 
       fprintf(outfile, "%s %s(", rettype, varname);
    
-      if (numregs>0)
+      if (numargs>0)
       {
-	 for (count=d0; count<numregs; count++)
+	 for (count=d0; count<numargs; count++)
 	 {
 	    if (strchr(fD_GetProto(obj, count),'%'))
 	       sprintf(Buffer, fD_GetProto(obj, count),
@@ -1769,7 +1818,7 @@ fD_write(FILE* outfile, const fdDef* obj,int alias)
 	    else
 	       sprintf(Buffer, "%s %s",
 		       fD_GetProto(obj, count), fD_GetParam(obj, count));
-	    if (count<numregs-1)
+	    if (count<numargs-1)
 	       fprintf(outfile, "%s, ", Buffer);
 	    else
 	       fprintf(outfile, "...");
@@ -1778,12 +1827,7 @@ fD_write(FILE* outfile, const fdDef* obj,int alias)
 
       fprintf(outfile, ") (");
 
-      if (numregs>0)
-      {
-	 for (count=d0; count<numregs-1; count++)
-	    fprintf(outfile, "%s,", fD_GetRegStr(obj, count));
-	 fprintf(outfile, "%s", fD_GetRegStr(obj, count));
-      }
+      fD_PrintRegs(outfile, obj);
 
       fprintf(outfile, ")\n");
    }
