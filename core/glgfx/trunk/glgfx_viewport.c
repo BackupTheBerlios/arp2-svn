@@ -9,6 +9,7 @@
 #include "glgfx.h"
 #include "glgfx_bitmap.h"
 #include "glgfx_viewport.h"
+#include "glgfx_intern.h"
 
 struct glgfx_viewport* glgfx_viewport_create(int width, int height,
 					     int xoffset, int yoffset) {

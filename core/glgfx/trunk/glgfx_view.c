@@ -10,6 +10,11 @@
 #include "glgfx_view.h"
 #include "glgfx_viewport.h"
 
+struct glgfx_view {
+    struct glgfx_monitor* monitor;
+    GList*                viewports;
+};
+
 struct glgfx_view* glgfx_view_create(struct glgfx_monitor* monitor) {
   struct glgfx_view* view;
 

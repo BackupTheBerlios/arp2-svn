@@ -3,25 +3,21 @@
 
 #include <glgfx.h>
 #include <glgfx_monitor.h>
+#include <inttypes.h>
 
-#include <GL/gl.h>
+struct glgfx_bitmap;
 
-struct glgfx_bitmap {
-    struct glgfx_monitor*   monitor;
-    int                     width;
-    int                     height;
-    int                     bits;
-    int                     flags;
-    enum glgfx_pixel_format format;
-    GLuint                  texture;
-    GLuint                  pbo;
-    size_t                  size;
-    bool                    locked;
-    GLenum                  locked_usage;
-    GLenum                  locked_access;
-    void*                   locked_memory;
+enum glgfx_bitmap_attr {
+  glgfx_bitmap_width = 0,
+  glgfx_bitmap_height,
+  glgfx_bitmap_format,
+  glgfx_bitmap_bytesperpixel,
+  glgfx_bitmap_bytesperrow,
+  glgfx_bitmap_locked,
+  glgfx_bitmap_mapaddr,
+
+  glgfx_bitmap_max
 };
-
 
 struct glgfx_bitmap* glgfx_bitmap_create(int width, int height, int bits,
 					 int flags, struct glgfx_bitmap* friend,
@@ -32,6 +28,10 @@ bool glgfx_bitmap_update(struct glgfx_bitmap* bitmap, void* data, size_t size);
 void* glgfx_bitmap_map(struct glgfx_bitmap* bitmap);
 bool glgfx_bitmap_unmap(struct glgfx_bitmap* bitmap);
 bool glgfx_bitmap_unlock(struct glgfx_bitmap* bitmap);
+
+bool glgfx_bitmap_getattr(struct glgfx_bitmap* bm,
+			  enum glgfx_bitmap_attr attr,
+			  uint32_t* storage);
 
 bool glgfx_bitmap_select(struct glgfx_bitmap* bitmap);
 bool glgfx_bitmap_waitblit(struct glgfx_bitmap* bitmap);

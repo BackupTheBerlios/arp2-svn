@@ -12,8 +12,8 @@
 
 int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) {
   // If unset, sync to vblank as default (nvidia driver)
-  setenv("__GL_SYNC_TO_VBLANK", "0", False);
-  setenv("__GL_NV30_EMULATE", "0", False);
+  setenv("__GL_SYNC_TO_VBLANK", "0", 0);
+  setenv("__GL_NV30_EMULATE", "0", 0);
 
 /* Section "Device" */
 /*     Identifier "NV AGP" */
@@ -24,16 +24,16 @@ int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) 
 /* EndSection */
 
   if (glgfx_create_monitors()) {
-    int width = 1024;
-    int height = 768;
-    unsigned short* data;
+    int width = 1200;
+    int height = 800;
+    unsigned int* data;
 
 #if UPLOAD_MODE < 2
     data = calloc(sizeof (*data), width * height);
 #endif
     
     struct glgfx_bitmap* bm = glgfx_bitmap_create(width, height, 24, 0, NULL,
-						  glgfx_pixel_a4r4g4b4, glgfx_monitors[0]);
+						  glgfx_pixel_a8r8g8b8, glgfx_monitors[0]);
 
     if (bm != NULL) {
 #if UPLOAD_MODE > 0

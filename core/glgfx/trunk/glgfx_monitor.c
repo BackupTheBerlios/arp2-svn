@@ -1,15 +1,18 @@
 
 #include "glgfx-config.h"
-#include <signal.h>
-#include <setjmp.h>
-#include <stdlib.h>
+
 #include <errno.h>
+#include <inttypes.h>
+#include <setjmp.h>
+#include <signal.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <X11/Xlib.h>
-#include <X11/extensions/xf86dga.h>
 
 #include "glgfx_monitor.h"
+#include "glgfx_intern.h"
+
+#include <X11/extensions/xf86dga.h>
 
 #define glXChooseVisualAttrs(d, s, tag1 ...) \
   ({ int _attrs[] = { tag1 }; glXChooseVisual((d), (s), _attrs); })
@@ -293,6 +296,47 @@ void glgfx_monitor_fullscreen(struct glgfx_monitor* monitor, bool fullscreen) {
 }
 
 
+bool glgfx_monitor_getattr(struct glgfx_monitor* monitor,
+			   enum glgfx_monitor_attr attr,
+			   uint32_t* storage) {
+  if (monitor == NULL || storage == NULL || attr < 0 || attr >= glgfx_monitor_max) {
+    return false;
+  }
+
+  switch (attr) {
+    case glgfx_monitor_width:
+      *storage = monitor->mode.hdisplay;
+      break;
+
+    case glgfx_monitor_height:
+      *storage = monitor->mode.vdisplay;
+      break;
+
+    case glgfx_monitor_format: 
+      *storage = glgfx_pixel_unknown;
+      break;
+
+    case glgfx_monitor_vsync:
+      *storage = monitor->dotclock * 1000.0 / (monitor->mode.htotal * monitor->mode.vtotal);
+      break;
+
+    case glgfx_monitor_hsync:
+      *storage = monitor->dotclock * 1000.0 / monitor->mode.htotal;
+      break;
+      
+    case glgfx_monitor_dotclock:
+      *storage = monitor->dotclock * 1000.0;
+      break;
+
+      
+    default:
+      abort();
+  }
+
+  return true;
+}
+
+
 bool glgfx_monitor_select(struct glgfx_monitor* monitor) {
   static struct glgfx_monitor* current_monitor = NULL;
 
@@ -330,3 +374,5 @@ bool glgfx_monitor_waittof(struct glgfx_monitor* monitor) {
   glXSwapBuffers(monitor->display, monitor->window);
   return true;
 }
+
+

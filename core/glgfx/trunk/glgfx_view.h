@@ -5,12 +5,7 @@
 #include <glgfx_monitor.h>
 #include <glgfx_viewport.h>
 
-#include <glib.h>
-
-struct glgfx_view {
-    struct glgfx_monitor* monitor;
-    GList*                viewports;
-};
+struct glgfx_view;
 
 struct glgfx_view* glgfx_view_create(struct glgfx_monitor* monitor);
 

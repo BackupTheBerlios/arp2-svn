@@ -6,6 +6,7 @@
 #include <GL/glext.h>
 
 #include "glgfx_bitmap.h"
+#include "glgfx_intern.h"
 
 struct pixel_info {
     GLint  internal_format;
@@ -174,6 +175,8 @@ bool glgfx_bitmap_unmap(struct glgfx_bitmap* bitmap) {
     if (glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER_EXT)) {
       rc = true;
     }
+
+    bitmap->locked_memory = NULL;
   }
 
   return rc;
@@ -239,10 +242,54 @@ bool glgfx_bitmap_unlock(struct glgfx_bitmap* bitmap) {
   check_error();
 
   bitmap->locked = false;
-  bitmap->locked_memory = NULL;
   
   return rc;
 }
+
+
+bool glgfx_bitmap_getattr(struct glgfx_bitmap* bm,
+			  enum glgfx_bitmap_attr attr,
+			  uint32_t* storage) {
+  if (bm == NULL || storage == NULL || attr < 0 || attr >= glgfx_bitmap_max) {
+    return false;
+  }
+
+  switch (attr) {
+    case glgfx_bitmap_width:
+      *storage = bm->width;
+      break;
+
+    case glgfx_bitmap_height:
+      *storage = bm->height;
+      break;
+
+    case glgfx_bitmap_format: 
+      *storage = bm->format;
+      break;
+
+    case glgfx_bitmap_bytesperpixel:
+      *storage = formats[bm->format].size;
+      break;
+      
+    case glgfx_bitmap_bytesperrow:
+      *storage = formats[bm->format].size * bm->width;
+      break;
+      
+    case glgfx_bitmap_locked:
+      *storage = bm->locked;
+      break;
+      
+    case glgfx_bitmap_mapaddr:
+      *storage = (uint32_t) bm->locked_memory;
+      break;
+      
+    default:
+      abort();
+  }
+
+  return true;
+}
+
 
 bool glgfx_bitmap_select(struct glgfx_bitmap* bitmap) {
   if (bitmap == NULL) {

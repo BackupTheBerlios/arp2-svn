@@ -28,9 +28,7 @@ void glgfx_destroy_monitors(void);
 bool glgfx_waitblit(void);
 bool glgfx_waittof(void);
 
-bool glopen(void);
-void glclose(void);
-
+struct glgfx_monitor;
 #define max_monitors  8               // Four cards, two outputs/card max
 extern int                   glgfx_num_monitors;
 extern struct glgfx_monitor* glgfx_monitors[max_monitors];

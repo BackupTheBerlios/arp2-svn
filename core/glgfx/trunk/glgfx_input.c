@@ -7,6 +7,7 @@
 
 #include "glgfx.h"
 #include "glgfx_input.h"
+#include "glgfx_intern.h"
 #include "glgfx_monitor.h"
 
 static GQueue* pending_queue;

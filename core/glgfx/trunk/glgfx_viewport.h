@@ -5,25 +5,8 @@
 #include <glgfx_bitmap.h>
 #include <glgfx_monitor.h>
 
-#include <glib.h>
-#include <GL/gl.h>
-
-struct glgfx_rasinfo {
-    struct glgfx_bitmap* bitmap;
-    int                  xoffset;
-    int                  yoffset;
-    int                  width;
-    int                  height;
-};
-
-struct glgfx_viewport {
-    int                     width;
-    int                     height;
-    int                     xoffset;
-    int                     yoffset;
-    GList*                  rasinfos;
-};
-
+struct glgfx_rasinfo;
+struct glgfx_viewport;
 
 struct glgfx_viewport* glgfx_viewport_create(int width, int height,
 					     int xoffset, int yoffset);
