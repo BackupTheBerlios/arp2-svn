@@ -109,8 +109,10 @@ BEGIN {
 	my %params    = @_;
 	my $prototype = $params{'prototype'};
 	my $sfd       = $self->{SFD};
-	
-	print_gateproto ($sfd, $prototype);
+
+	if (!$self->{LIBPROTO}) {
+	    print_gateproto ($sfd, $prototype);
+	}
 	
 	if ($self->{PROTO}) {
 	    print ";\n";
