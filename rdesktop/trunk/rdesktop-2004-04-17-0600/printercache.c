@@ -41,9 +41,16 @@ printercache_mkdir(char *base, char *printer)
 {
 	char *path;
 
+#ifndef ENABLE_AMIGA
 	path = (char *) xmalloc(strlen(base) + sizeof("/.rdesktop/rdpdr/") + strlen(printer) + 1);
 
 	sprintf(path, "%s/.rdesktop", base);
+#else
+	path = (char *) xmalloc(strlen(base) + sizeof("RDesktop/rdpdr/") + strlen(printer) + 1);
+
+	sprintf(path, "%sRDesktop", base);
+#endif
+
 	if ((mkdir(path, 0700) == -1) && errno != EEXIST)
 	{
 		perror(path);
@@ -81,6 +88,7 @@ printercache_unlink_blob(char *printer)
 	if (printer == NULL)
 		return False;
 
+#ifndef ENABLE_AMIGA
 	home = getenv("HOME");
 	if (home == NULL)
 		return False;
@@ -89,6 +97,16 @@ printercache_unlink_blob(char *printer)
 				sizeof("/AutoPrinterCacheData") + 1);
 
 	sprintf(path, "%s/.rdesktop/rdpdr/%s/AutoPrinterCacheData", home, printer);
+#else
+	home = "ENVARC:";
+	if (home == NULL)
+		return False;
+
+	path = (char *) xmalloc(strlen(home) + sizeof("RDesktop/rdpdr/") + strlen(printer) +
+				sizeof("/AutoPrinterCacheData") + 1);
+
+	sprintf(path, "%sRDesktop/rdpdr/%s/AutoPrinterCacheData", home, printer);
+#endif
 
 	if (unlink(path) < 0)
 	{
@@ -96,7 +114,11 @@ printercache_unlink_blob(char *printer)
 		return False;
 	}
 
+#ifndef ENABLE_AMIGA
 	sprintf(path, "%s/.rdesktop/rdpdr/%s", home, printer);
+#else
+	sprintf(path, "%sRDesktop/rdpdr/%s", home, printer);
+#endif
 
 	if (rmdir(path) < 0)
 	{
@@ -121,6 +143,7 @@ printercache_rename_blob(char *printer, char *new_printer)
 	if (printer == NULL)
 		return False;
 
+#ifndef ENABLE_AMIGA
 	home = getenv("HOME");
 	if (home == NULL)
 		return False;
@@ -135,7 +158,23 @@ printercache_rename_blob(char *printer, char *new_printer)
 
 	sprintf(printer_path, "%s/.rdesktop/rdpdr/%s", home, printer);
 	sprintf(new_printer_path, "%s/.rdesktop/rdpdr/%s", home, new_printer);
+#else
+	home = "ENVARC:";
+	if (home == NULL)
+		return False;
 
+	printer_maxlen =
+		(strlen(printer) >
+		 strlen(new_printer) ? strlen(printer) : strlen(new_printer)) + strlen(home) +
+		sizeof("RDesktop/rdpdr/") + 1;
+
+	printer_path = (char *) xmalloc(printer_maxlen);
+	new_printer_path = (char *) xmalloc(printer_maxlen);
+
+	sprintf(printer_path, "%sRDesktop/rdpdr/%s", home, printer);
+	sprintf(new_printer_path, "%sRDdesktop/rdpdr/%s", home, new_printer);
+#endif
+	
 	printf("%s,%s\n", printer_path, new_printer_path);
 	if (rename(printer_path, new_printer_path) < 0)
 	{
@@ -162,6 +201,7 @@ printercache_load_blob(char *printer_name, uint8 ** data)
 
 	*data = NULL;
 
+#ifndef ENABLE_AMIGA
 	home = getenv("HOME");
 	if (home == NULL)
 		return 0;
@@ -169,6 +209,15 @@ printercache_load_blob(char *printer_name, uint8 ** data)
 	path = (char *) xmalloc(strlen(home) + sizeof("/.rdesktop/rdpdr/") + strlen(printer_name) +
 				sizeof("/AutoPrinterCacheData") + 1);
 	sprintf(path, "%s/.rdesktop/rdpdr/%s/AutoPrinterCacheData", home, printer_name);
+#else
+	home = "ENVARC:";
+	if (home == NULL)
+		return 0;
+
+	path = (char *) xmalloc(strlen(home) + sizeof("RDdesktop/rdpdr/") + strlen(printer_name) +
+				sizeof("/AutoPrinterCacheData") + 1);
+	sprintf(path, "%sRDesktop/rdpdr/%s/AutoPrinterCacheData", home, printer_name);
+#endif
 
 	fd = open(path, O_RDONLY);
 	if (fd == -1)
@@ -199,6 +248,7 @@ printercache_save_blob(char *printer_name, uint8 * data, uint32 length)
 	if (printer_name == NULL)
 		return;
 
+#ifndef ENABLE_AMIGA
 	home = getenv("HOME");
 	if (home == NULL)
 		return;
@@ -209,6 +259,18 @@ printercache_save_blob(char *printer_name, uint8 * data, uint32 length)
 	path = (char *) xmalloc(strlen(home) + sizeof("/.rdesktop/rdpdr/") + strlen(printer_name) +
 				sizeof("/AutoPrinterCacheData") + 1);
 	sprintf(path, "%s/.rdesktop/rdpdr/%s/AutoPrinterCacheData", home, printer_name);
+#else
+	home = "ENVARC:";
+	if (home == NULL)
+		return;
+
+	if (!printercache_mkdir(home, printer_name))
+		return;
+
+	path = (char *) xmalloc(strlen(home) + sizeof("RDesktop/rdpdr/") + strlen(printer_name) +
+				sizeof("/AutoPrinterCacheData") + 1);
+	sprintf(path, "%sRDdesktop/rdpdr/%s/AutoPrinterCacheData", home, printer_name);
+#endif
 
 	fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0600);
 	if (fd == -1)
