@@ -11,7 +11,10 @@ sfdc - Compile SFD files into someting useful
 sfdc [options] file1.sfd [file2.sfd ...]
 
   Options:
+    --gateprefix=PREFIX     Prefix for gatestub functions
     --help -h               Show full help message and exit
+    --libarg=LOCATION       Where to pass the libbase for library functions
+    --libprefix=PREFIX      Prefix for library functions
     --man                   Show full manual page and exit
     --mode=MODE             What to do
     --output=FILE -o FILE   Where to store the output
@@ -24,11 +27,30 @@ sfdc [options] file1.sfd [file2.sfd ...]
 =over 8
 
 
+=item B<--gateprefix>
+
+Sets a function name prefix for the gate stub functions when
+generating gatestubs.
+
+
 =item B<--help>
 
 Show the full help message and exit.
 
     
+=item B<--libarg>
+
+Specifies where to place the library base argument when generating
+gatestubs. Possible values are B<none>, B<first> and B<last>. The
+default is B<none>.
+
+
+=item B<--libprefix>
+
+Sets a function name prefix for the local library functions when
+generating gatestubs.
+
+
 =item B<--man>
 
 Show the complete manual page and exit.

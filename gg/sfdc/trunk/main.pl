@@ -30,25 +30,40 @@ sub will_close_output ( $$ );
 sub close_output ();
 
 my %targets = (
-	      '(\w)+(-.*)?-aros'              =>
-	       { target => 'aros',
-		 macros => 'MacroAROS',
-		 stubs  => 'StubAROS' },
+	      'generic' =>
+               { target    => 'generic',
+		 macros    => 'Macro',
+		 stubs     => 'Stub',
+		 gatestubs => 'Gate'
+	       },
+    
+	      '(\w)+(-.*)?-aros' =>
+	       { target    => 'aros',
+		 macros    => 'MacroAROS',
+		 stubs     => 'StubAROS',
+		 gatestubs => 'Gate'
+	       },
 	       
-	      'i.86be(-pc)?-amithlon'         =>
-	       { target => 'amithlon',
-		 macros => 'MacroLP',
-		 stubs  => 'StubAmithlon' },
+	      'i.86be(-pc)?-amithlon' =>
+	       { target    => 'amithlon',
+		 macros    => 'MacroLP',
+		 stubs     => 'StubAmithlon',
+		 gatestubs => 'Gate'
+	       },
 	       
-	      'm68k(-unknown)?-amigaos'       =>
-	       { target => 'amigaos',
-		 macros => 'Macro68k',
-		 stubs  => 'Stub68k' },
+	      'm68k(-unknown)?-amigaos' =>
+	       { target    => 'amigaos',
+		 macros    => 'Macro68k',
+		 stubs     => 'Stub68k',
+		 gatestubs => 'Gate'
+	       },
 	       
 	      'p(ower)?pc(-unknown)?-morphos' =>
-	       { target => 'morphos',
-		 macros => 'MacroMOS',
-		 stubs  => 'StubMOS' },
+	       { target    => 'morphos',
+		 macros    => 'MacroMOS',
+		 stubs     => 'StubMOS',
+		 gatestubs => 'Gate'
+	       },
 	      );
 
 my $classes;
@@ -59,21 +74,27 @@ my $classes;
 
 Getopt::Long::Configure ("bundling");
 
-my $help    = '0';
-my $man     = '0';
-my $mode    = 'dump';
-my $output  = '-';
-my $quiet   = '0';
-my $target  = 'm68k-unknown-amigaos';
-my $version = '0';
+my $gateprefix = '';
+my $help       = '0';
+my $libarg     = 'none';
+my $libprefix  = '';
+my $man        = '0';
+my $mode       = 'dump';
+my $output     = '-';
+my $quiet      = '0';
+my $target     = 'm68k-unknown-amigaos';
+my $version    = '0';
 
-GetOptions ('help|h'     => \$help,
-	    'man'        => \$man,
-	    'mode=s'     => \$mode,
-	    'output|o=s' => \$output,
-	    'quiet|q'    => \$quiet,
-	    'target=s'   => \$target,
-	    'version|v'  => \$version) or exit 10;
+GetOptions ('gateprefix=s' => \$gateprefix,
+            'help|h'       => \$help,
+            'libarg=s'     => \$libarg,
+            'libprefix=s'  => \$libprefix,
+	    'man'          => \$man,
+	    'mode=s'       => \$mode,
+	    'output|o=s'   => \$output,
+	    'quiet|q'      => \$quiet,
+	    'target=s'     => \$target,
+	    'version|v'    => \$version) or exit 10;
 
 if ($version) {
     print STDERR "sfdc 1.0 (16.07.2003)\n";
@@ -103,8 +124,14 @@ if ($#ARGV < 0) {
 
 $mode = lc $mode;
 
-if (!($mode =~ /^(clib|dump|fd|macros|proto|stubs)$/)) {
+if (!($mode =~ /^(clib|dump|fd|macros|proto|stubs|gatestubs)$/)) {
     pod2usage (-message => "Unknown mode specified. Use --help for a list.",
+	       -verbose => 0,
+	       -exitval => 10);
+}
+
+if ($libarg !~ /^(first|last|none)$/) {
+    pod2usage (-message => "Unknown libarg specified. Use --help for a list.",
 	       -verbose => 0,
 	       -exitval => 10);
 }
@@ -152,9 +179,9 @@ for my $i ( 0 .. $#ARGV ) {
 	    $obj = $$classes{'macros'}->new( sfd => $sfd );
 
 	    # By tradition, the functions in the macro files are sorted
-	    @{$$sfd{'prototypes'}} = sort {
-		$$a{'funcname'} cmp $$b{'funcname'}
-	    } @{$$sfd{'prototypes'}};
+#	    @{$$sfd{'prototypes'}} = sort {
+#		$$a{'funcname'} cmp $$b{'funcname'}
+#	    } @{$$sfd{'prototypes'}};
 	    last;
 	};
 
@@ -167,9 +194,14 @@ for my $i ( 0 .. $#ARGV ) {
 	    $obj = $$classes{'stubs'}->new( sfd => $sfd );
 
 	    # By tradition, the functions in the stub files are sorted
-	    @{$$sfd{'prototypes'}} = sort {
-		$$a{'funcname'} cmp $$b{'funcname'}
-	    } @{$$sfd{'prototypes'}};
+#	    @{$$sfd{'prototypes'}} = sort {
+#		$$a{'funcname'} cmp $$b{'funcname'}
+#	    } @{$$sfd{'prototypes'}};
+	    last;
+	};
+
+	/^gatestubs$/ && do {
+	    $obj = $$classes{'gatestubs'}->new( sfd => $sfd );
 	    last;
 	};
 	
