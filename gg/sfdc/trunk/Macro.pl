@@ -120,14 +120,19 @@ BEGIN {
 	    print "$$prototype{'real_funcname'}(";
 	}
 	else {
-	    printf "	LP%d%s%s(0x%x, ", $$prototype{'numargs'},
-	    $nr ? "NR" : "", $nb ? "NB" : "", $$prototype{'bias'};
+	    my $argtypes = join (', ',@{$$prototype{'argtypes'}});
 
-	    if (!$nr) {
-		print "$$prototype{'return'}, ";
+	    if ($argtypes eq '') {
+		$argtypes = "void";
 	    }
 
-	    print "$$prototype{'funcname'}, ";
+	    # Skip jmp instruction (is m68k ILLEGAL in MOS)
+	    my $o = $$prototype{'bias'} + 2;
+	    
+	    print "	({$$prototype{'return'} (*_func) ($argtypes) = \\\n";
+	    print "	    ($$prototype{'return'} (*) ($argtypes))\\\n";
+	    print "	    *((ULONG*) (((char*) $self->{BASE}) - $o));\\\n";
+	    print "	  (*_func)(";
 	}
     }
 
@@ -143,7 +148,7 @@ BEGIN {
 
 	if ($$prototype{'type'} eq 'varargs') {
 	    if ($argname eq '...') {
-		print "($argtype) _args);";
+		print "($argtype) _args";
 	    }
 	    else {
 		print "($argname), ";
@@ -155,7 +160,7 @@ BEGIN {
 	    # Skip the first stdarg completely
 	    if( $argnum != $first_stdargnum ) {
 		if ($argname eq '...') {
-		    print "($argtype) _tags);";
+		    print "($argtype) _tags";
 		}
 		else {
 		    print "($argname), ";
@@ -163,7 +168,7 @@ BEGIN {
 	    }
 	}
 	else {
-	    print "$argtype, $argname, $argreg, ";
+	    print ($argnum != 0 ? ", ($argname)" : "($argname)");
 	}
     }
     
@@ -174,12 +179,6 @@ BEGIN {
 	my $sfd       = $self->{SFD};
 
 	
-	if ($$prototype{'type'} !~ /^(varargs|stdarg)$/ &&
-	    $$sfd{'base'} ne '') {
-	    print "\\\n	, $self->{BASE})\n";
-	}
-	else {
-	    print "})\n";
-	}
+	print "); })\n";
     }
 }

@@ -4,7 +4,7 @@
 BEGIN {
     package MacroMOS;
     use vars qw(@ISA);
-    @ISA = qw (Macro);
+    @ISA = qw (MacroLP);
 
     sub new {
 	my $proto  = shift;
