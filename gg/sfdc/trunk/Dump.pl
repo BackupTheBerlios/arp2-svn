@@ -52,8 +52,17 @@ BEGIN {
 	print "	Comment:		$$prototype{'comment'}\n";
 	print "\n";
 	print "	Return value:		$$prototype{'return'}\n";
+	print "	Arguments:		";
+	print join (",\n\t\t\t\t", @{$$prototype{'args'}});
+	print "\n";
 	print "	Argument names:		";
 	print join (", ", @{$$prototype{'argnames'}});
+	print "\n";
+	print "	Local arguments:	";
+	print join (",\n\t\t\t\t", @{$$prototype{'___args'}});
+	print "\n";
+	print "	Local argument names:	";
+	print join (", ", @{$$prototype{'___argnames'}});
 	print "\n";
 	print "	Argument types:		";
 	print join (",\n\t\t\t\t", @{$$prototype{'argtypes'}});

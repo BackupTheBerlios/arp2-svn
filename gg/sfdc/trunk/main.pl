@@ -29,11 +29,11 @@ sub open_output ( $$ );
 sub will_close_output ( $$ );
 sub close_output ();
 
-my %macros = (
-	      '(\w)+(-.*)?-aros'              => 'MacroAROS',
-	      'i.86be(-pc)?-amithlon'         => 'Macro',
-	      'm68k(-unknown)?-amigaos'       => 'Macro68k',
-	      'p(ower)?pc(-unknown)?-morphos' => 'MacroMOS',
+my %classes = (
+	      '(\w)+(-.*)?-aros'              => [ 'MacroAROS', 'Stub' ],
+	      'i.86be(-pc)?-amithlon'         => [ 'Macro',     'Stub' ],
+	      'm68k(-unknown)?-amigaos'       => [ 'Macro68k',  'Stub' ],
+	      'p(ower)?pc(-unknown)?-morphos' => [ 'MacroMOS',  'Stub' ],
 	      );
 
 ################################################################################
@@ -86,14 +86,14 @@ if ($#ARGV < 0) {
 
 $mode = lc $mode;
 
-if (!($mode =~ /^(clib|dump|fd|macro|proto)$/)) {
+if (!($mode =~ /^(clib|dump|fd|macros|proto|stubs)$/)) {
     pod2usage (-message => "Unknown mode specified. Use --help for a list.",
 	       -verbose => 0,
 	       -exitval => 10);
 }
 
 check_target: {
-    foreach my $class (keys %macros) {
+    foreach my $class (keys %classes) {
 	if ($target =~ /^$class$/) {
 	    last check_target;
 	}
@@ -130,10 +130,10 @@ for my $i ( 0 .. $#ARGV ) {
 	    last;
 	};
     
-	/^macro$/ && do {
-	    foreach my $class (keys %macros) {
+	/^macros$/ && do {
+	    foreach my $class (keys %classes) {
 		if ($target =~ /^$class$/) {
-		    $obj = $macros{$class}->new( sfd => $sfd );
+		    $obj = $classes{$class}[0]->new( sfd => $sfd );
 		}
 	    }
 
@@ -149,6 +149,20 @@ for my $i ( 0 .. $#ARGV ) {
 	    last;
 	};
 
+	/^stubs$/ && do {
+	    foreach my $class (keys %classes) {
+		if ($target =~ /^$class$/) {
+		    $obj = $classes{$class}[1]->new( sfd => $sfd );
+		}
+	    }
+
+	    # By tradition, the functions in the stub files are sorted
+	    @{$$sfd{'prototypes'}} = sort {
+		$$a{'funcname'} cmp $$b{'funcname'}
+	    } @{$$sfd{'prototypes'}};
+	    last;
+	};
+	
 	die "Unknown mode specified: " . $mode;
     }
 
@@ -438,13 +452,17 @@ sub parse_proto ( $$ ) {
     # Nuke whitespaces from the register specification
     $registers =~ s/\s//;
 
-    $$prototype{'return'}     = $return;
-    $$prototype{'funcname'}   = $name;
-    @{$$prototype{'args'}}     = ();
-    @{$$prototype{'regs'}} = split(/,/,lc $registers);  # Make regs lower case
-    @{$$prototype{'argnames'}} = ();                    # Initialize array
-    @{$$prototype{'argtypes'}} = ();                    # Initialize array
+    $$prototype{'return'}      = $return;
+    $$prototype{'funcname'}    = $name;
 
+    @{$$prototype{'regs'}} = split(/,/,lc $registers);  # Make regs lower case
+    
+    @{$$prototype{'args'}}        = ();
+    @{$$prototype{'___args'}}     = ();
+    @{$$prototype{'argnames'}}    = ();
+    @{$$prototype{'___argnames'}} = ();
+    @{$$prototype{'argtypes'}}    = ();
+    
     my @args = split(/,/,$arguments);
 
     # Fix function pointer arguments and build $$prototype{'args'} 
@@ -494,7 +512,9 @@ sub parse_proto ( $$ ) {
     my $type = '';
     
     foreach my $arg (@{$$prototype{'args'}}) {
-	my $name  = '';
+	my $name    = '';
+	my $___name = '';
+	my $___arg  = '';
 
 	if ($arg =~ /.*\(.*?\)\s*\(.*\)/) {
 	    my $type1;
@@ -502,22 +522,31 @@ sub parse_proto ( $$ ) {
 	    
 	    ($type1, $name, $type2) =
 		( $arg =~ /^\s*(.*)\(\s*\*\s*(\w+)\s*\)\s*(\(.*\))\s*/ );
-	    $type = $type1 . "(*)" . $type2;
+	    $type = "$type1(*)$type2";
+	    $___name = "___$name";
+	    $___arg = "$type1(*___$name)$type2";
 	}
 	elsif ($arg !~ /^\.\.\.$/) {
 	    ($type, $name) = ( $arg =~ /^\s*(.*?)\s+(\w+)\s*$/ );
+	    $___name = "___$name";
+	    $___arg = "$type ___$name";
 	}
 	else {
 	    $type = $varargs_type;
 	    $name = '...';
+	    $___name = '...';
+	    $___arg = '...';
 	}
 
 	if ($type eq '' || $name eq '' ) {
 	    print STDERR "Type or name missing from '$arg'.\n";
 	    die;
 	}
-	
+
+	push @{$$prototype{'___args'}}, $___arg;
 	push @{$$prototype{'argnames'}}, $name;
+	push @{$$prototype{'___argnames'}}, $___name;
+
 	push @{$$prototype{'argtypes'}}, $type;
     }
 }

@@ -43,7 +43,7 @@ BEGIN {
 		}
 	    }
 	
-	    printf "	LP%d%s%s%s%s%s(0x%x, ", $#{$$prototype{'args'}} + 1,
+	    printf "	LP%d%s%s%s%s%s(0x%x, ", $#{$$prototype{'___args'}} + 1,
 	    $nr ? "NR" : "", $nb ? "NB" : "",
 	    $a4 ? "A4" : "", $a5 ? "A5" : "",
 	    $self->{FUNCARGTYPE} ne '' ? "FP" : "",

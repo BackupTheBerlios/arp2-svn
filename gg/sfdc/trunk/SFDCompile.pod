@@ -36,14 +36,14 @@ Show the complete manual page and exit.
 
 =item B<--mode>
 
-Instructs F<SFDCompile> what to do. F<SFDCompile> can handle B<clib>,
-B<dump>, B<fd>, B<macro> and B<proto> arguments.
+Instructs F<SFDCompile> what to do. F<SFDCompile> can handle the
+following arguments:
 
 =over 8
 
 =item B<clib>
 
-Generate C prototypes to be placed in F<Include/clib>.
+Generate C prototypes to be placed in F<Include/clib/>.
 
 
 =item B<dump>
@@ -56,24 +56,32 @@ Dumps all information gathered from the SFD file. This is the default.
 Generate an old-style FD file.
 
     
-=item B<macro>
+=item B<macros>
 
 Generate a headerfile containing F<gcc> specific preprocessor macros,
 similar to F<fd2inline>'s B<--new> switch. For targets, it generates a
-file suitable to be placed in the F<Include/defines> directory.
+file suitable to be placed in the F<Include/defines/> directory.
 
     
 =item B<proto>
 
-Generate header file to be placed in F<Include/proto> that includes
+Generate header file to be placed in F<Include/proto/> that includes
 the C prototypes as well as compiler-specific inlines or pragma files.
+
+
+=item B<stubs>
+
+Generate C library stubs suitable to be compiled and archived into
+F<libamiga.a>, F<libamigastubs.a> or
+F<libI<E<lt>moduleE<gt>>.a>. Using the B<%f> escape sequence in the
+B<--output> switch is strongly recommended.
 
 =back
 
 
 =item B<--output> 
 
-Specifies where the result will be stored. The followign escape
+Specifies where the result will be stored. The following escape
 sequencies are allowed in the file name. If the sequence B<%f> is
 present in the name, a new file will be created for each function
 processed.

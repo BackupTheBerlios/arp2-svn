@@ -62,7 +62,7 @@ BEGIN {
 	for my $i (0 .. $#{$$prototype{'args'}}) {
 	    $self->function_arg (prototype => $prototype,
 				 argtype   => $$prototype{'argtypes'}[$i],
-				 argname   => $$prototype{'argnames'}[$i],
+				 argname   => $$prototype{'___argnames'}[$i],
 				 argreg    => $$prototype{'regs'}[$i],
 				 argnum    => $i );
 	}
@@ -94,15 +94,8 @@ BEGIN {
 	my $prototype = $params{'prototype'};
 	my $sfd      = $self->{SFD};
 
-	my @argnames ;
-
-	foreach my $arg (@{$$prototype{'argnames'}}) {
-	    $arg =~ s/^(\w)/___$1/;
-	    push @argnames, $arg;
-	}
-
 	print "#define $$prototype{'funcname'}(";
-	print join (', ', @argnames);
+	print join (', ', @{$$prototype{'___argnames'}});
 	print ") \\\n";
     }
 
@@ -127,7 +120,7 @@ BEGIN {
 	    print "$$prototype{'real_funcname'}(";
 	}
 	else {
-	    printf "	LP%d%s%s(0x%x, ", $#{$$prototype{'args'}} + 1,
+	    printf "	LP%d%s%s(0x%x, ", $#{$$prototype{'___args'}} + 1,
 	    $nr ? "NR" : "", $nb ? "NB" : "", $$prototype{'bias'};
 
 	    if (!$nr) {
@@ -157,7 +150,7 @@ BEGIN {
 	    }
 	}
 	elsif ($$prototype{'type'} eq 'stdarg' ) {
-	    my $first_stdargnum = $#{$$prototype{'argnames'}} - 1;
+	    my $first_stdargnum = $#{$$prototype{'___argnames'}} - 1;
 
 	    # Skip the first stdarg completely
 	    if( $argnum != $first_stdargnum ) {
