@@ -1,0 +1,299 @@
+## version $VER: flexcat.catalog 2.2 ($TODAY)
+## language svenska
+## codeset 0
+;
+## chunk ANNO FlexCat translation by Magnus Holmgren <lear@algonet.se>
+;
+;   FlexCat 2.0
+;
+;
+;   FlexCat:                 The flexible catalog generator
+;   Copyright (C) 1993-1998  Jochen Wiedmann and Marcin Orlowski
+;
+;   Error message: Out of memory.
+msgMemoryError
+Ej tillräckligt med minne!
+;Out of memory!
+;
+;   Warning message; must contain one %s (file), one %d (line number)
+;   DON'T EAT THE TRAILING SPACE HERE!
+msgWarning
+%s, rad %d; varning: \
+
+;%s, Line %d; warning: \
+;
+;
+;   Warning message: Expected hex character.
+msgExpectedHex
+Hexadecimal siffra förväntades ([0-9,a-f,A-F]).
+;Expected hex character (one of [0-9a-fA-F]).
+;
+;   Warning message: Expected octal character.
+msgExpectedOctal
+Oktal siffra förväntades ([0-7]).
+;Expected octal character (one of [0-7]).
+;
+;   Error message: Cannot open catalog description; must contain one %s
+;   (file name)
+msgNoCatalogDescription
+Kunde inte öppna katalogbeskrivningen "%s"!
+;Cannot open catalog description %s.
+;
+;   Warning message: Too much Lengthbytes; must contain one %d (maximum).
+msgNoLengthBytes
+LengthBytes > %d (storlek av långord) går inte.
+;LengthBytes > %d (sizeof long) not possible.
+;
+;   Warning message: Unknown catalog description command.
+msgUnknownCDCommand
+Okänt kommando i katalogbeskrivning
+;Unknown catalog description command
+;
+;   Warning message: Unexpected blank.
+msgUnexpectedBlanks
+Oväntade mellanslag.
+;Unexpected blanks.
+;
+;   Warning message: Identifier expected.
+msgNoIdentifier
+Identifierare saknas.
+;Missing identifier.
+;
+;   Warning message: '(' expected.
+msgNoLeadingBracket
+"(" saknas.
+;Missing '('.
+;
+;   Warning message: Identifier number redeclared.
+msgDoubleID
+ID-nummer redan använt.
+;ID number used twice.
+;
+;   Warning message: Identifier redeclared.
+msgDoubleIdentifier
+Identifierare redan använd.
+;Identifier redeclared.
+;
+;   Warning message: '/' expected (MinLen).
+msgNoMinLen
+MinLen förväntades (tecknet "/").
+;Expected MinLen (character '/').
+;
+;   Warning message: '/' expected (MaxLen).
+msgNoMaxLen
+MaxLen förväntades (tecknet "/").
+;Expected MaxLen (character '/').
+;
+;   Warning message: ')' expected.
+msgNoTrailingBracket
+")" förväntades.
+;Expected ')'.
+;
+;   Warning message: Extra characters
+msgExtraCharacters
+Extra tecken vid radslut.
+;Extra characters at the end of the line.
+;
+;   Warning message: Missing catalog string
+msgNoString
+Oväntat filslut (katalogsträng saknas).
+;Unexpected end of file (missing catalog string).
+;
+;   Warning message: String too short.
+msgShortString
+Strängen är för kort.
+;String too short.
+;
+;   Warning message: String too long.
+msgLongString
+Strängen är för lång.
+;String too long.
+;
+;   Error message: No catalog translation file; must contain one %s (file
+;   name).
+msgNoCatalogTranslation
+Kunde inte öppna katalogöversättningen "%s"!
+;Cannot open catalog translation file %s.
+;
+;   Warning message: Missing catalog translation command.
+msgNoCTCommand
+Kommando saknas i katalogöversättning (ett andra "#"-tecken förväntades).
+;Missing catalog translation command. (Expected second '#'.)
+;
+;   Warning message: Unknown catalog translation command.
+msgUnknownCTCommand
+Okänt kommando i katalogöversättning.
+;Unknown catalog translation command.
+;
+;   Error message: Missing catalog translation version.
+msgNoCTVersion
+Saknar version för katalogöversättning!\n\
+Använd "##version" eller "##rcsid" och "##name".
+;Missing catalog translation version; use either ##version\n\
+;or ##rcsid and ##name.
+;
+;   Error message: Missing catalog translation language.
+msgNoCTLanguage
+Saknar språk för katalogöversättning!
+;Missing catalog translation language.
+;
+;   Error message: Cannot open catalog file. Must contain one %s (file name).
+msgNoCatalog
+Kunde inte öppna katalogen "%s"!
+;Cannot open catalog file %s.
+;
+;   Error message: Cannot create catalog translation file. Must contain
+;   one %s (file name).
+msgNoNewCTFile
+Kunde inte skapa katalogöversättningen "%s"!
+;Cannot create catalog translation file %s.
+;
+;   Warning message: Unknown identifier. Must contain one %s (identifier).
+msgUnknownIdentifier
+"%s" saknas i katalogbeskrivningen.
+;%s missing in catalog description.
+;
+;   Error message: No source description file. Must contain one %s (file
+;   name).
+msgNoSourceDescription
+Kunde inte öppna källkodsbeskrivningen "%s"!
+;Cannot open source description file %s.
+;
+;   Error message: No source file. Must contain one %s (file name).
+msgNoSource
+Kunde inte öppna källkoden "%s"!
+;Cannot open source file %s.
+;
+;   Warning message: Unknown string type
+msgUnknownStringType
+Okänd strängtyp.
+;Unknown string type.
+;
+;   Warning message: Missing trailing ')' in %(..).
+msgNoTerminateBracket
+Oväntat radslut (")"-tecken saknas).
+;Unexpected end of line. (Missing ')')
+;
+;   Usage message
+msgUsage
+    CDFILE        Katalogbeskrivning att läsa.\n\
+    CTFILE        Katalogöversättning att läsa.\n\
+    CATALOG       Katalog att skapa.\n\
+    NEWCTFILE     Katalogöversättning att skapa.\n\
+    SOURCES       Källkoder att skapa; måste vara i stil med fil=sd-fil,\n\
+                  där fil är en källkodsfil, och sd-fil är en\n\
+                  källkodsbeskrivningsfil.\n\
+    WARNCTGAPS    Varnar om symboler saknas i .ct-filen.\n\
+    NOOPTIM       Ta med likadana strängar (likadana i både #?.cd och #?.ct).\n\
+    FILL          Använd beskrivningstexter om översättning saknas.\n\
+    FLUSH         Rensa minnet när katalogen skrivs.\n\
+    NOBEEP        Bänk inte skärmen vid fel och varningar.\n\
+    QUIET         Visa inte varningar.
+;  CDFILE        Catalog description file to scan\n\
+;  CTFILE        Catalog translation file to scan\n\
+;  CATALOG       Catalog file to create\n\
+;  NEWCTFILE     Catalog translation file to create\n\
+;  SOURCES       Sources to create; must be something like sfile=sdfile,\n\
+;                where sfile is a sourcefile and sdfile is a source\n\
+;                description file\n\
+;  WARNCTGAPS    Warn symbols missing in CT file\n\
+;  NOOPTIM       Do not skip unchanged strings (equal in both #?.cd and #?.ct)\n\
+;  FILL          Use descriptor texts if translation are missing\n\
+;  FLUSH         Flush memory when catalog is written\n\
+;  NOBEEP        Suppress DisplayBeep()'s on error and warnings\n\
+;  QUIET         Suppress warning messages
+;
+;   Error message: No catalog translation argument
+msgNoCTArgument
+För att skapa en katalog måste en katalogöversättning anges!\n
+;Creating a catalog needs a catalog translation file as argument.\n
+;
+;   Warning message: No binary characters.
+msgNoBinChars
+Binära tecken i strängtypen "None".
+;Binary characters in stringtype None.
+;
+;   Warning message: Gap in CT file.
+msgCTGap
+ID "%s" saknas i .ct-fil.
+;ID %s missing in CT file.
+;
+;   Warning: Catalog language declared twice
+msgDoubleCTLanguage
+Katalogspråk angett två gånger.
+;Catalog language declared twice.
+;
+;   Warning: Catalog version declared twice
+msgDoubleCTVersion
+Katalogversion angavs två gånger.
+;Catalog version declared twice.
+;
+;   Warning: Wrong Rcs ID
+msgWrongRcsId
+Felaktigt RCS-ID (måste vara i formatet\n\
+'$Date: 2003/05/05 20:47:40 $ $Revision: 1.1.1.1 $').
+;Incorrect rcs ID (must be similar to\n\
+;'$Date: 2003/05/05 20:47:40 $ $Revision: 1.1.1.1 $')
+;
+;
+; NEW IN 1.9
+;
+msgUsageHead
+Användning
+;Usage
+;
+msgPrefsError
+Kunde inte tolka miljövariabeln FlexCat.prefs;\n\
+använder förinställda värden. Inställningsmall: \
+
+;Error processing FlexCat.prefs variable, falling back to defaults.\n\
+;Preferences template: \
+;
+;
+;
+; NEW IN 2.0
+;
+; NOTE: This string is concatenated with msgUsage, so make sure you
+;       indented it the same way etc. And DON'T MISS trailing LF here!
+;       Type FLEXCAT and check how it looks.
+;
+msgUsage_2
+    NOLANGTOLOWER Ändra inte #language till gemener.\n\
+    NOBUFFEREDIO  Använd inga IO-buffrar.\n\
+    MODIFIED      Skapa bara katalogen om källfilerna är nyare.\n
+;  NOLANGTOLOWER Prevents #language name from being lowercased\n\
+;  NOBUFFEREDIO  Disables IO buffers\n\
+;  MODIFIED      Creates the catalog only when #?.c(d|t) files were changed\n
+;
+;
+;
+; NEW IN 2.0
+;
+msgUpToDate
+Filen "%s" behöver inte uppdateras
+;File %s is up to date
+;
+msgCantCheckDate
+Kunde inte läsa datumet för "%s"
+;Cannot get the datestamp of %s
+;
+;
+; NEW IN 2.2
+;
+msgUsage_3
+    COPYMSGNEW    Kopiera "**NEW**"-kommentarer vid uppdatering av #?.ct-fil.\n\
+    OLDMSGNEW     Om gammal #?.ct-fil använder annan "**NEW**"-kommentar,\n\
+                  ange den här.
+;  COPYMSGNEW    Turns on copying **NEW** markers while updating #?.ct file\n\
+;  OLDNEWMSG     If old #?.ct file is using other marker, specify it here
+;
+; === Ny sträng ===
+;
+msgTrailingEllipsis
+Orginalsträngen har avslutande punkter
+; Original string has a trailing ellipsis (...)
+;
+msgTrailingSpaces
+Orginalsträngen har avslutande mellanslag
+; Original string has a trailing spaces
+;
