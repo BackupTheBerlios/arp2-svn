@@ -165,6 +165,7 @@ static struct
    ULONG  a_nomouse;
    STRPTR a_experience;
    ULONG  a_rdp4;
+   STRPTR a_ignore;
 } a_args =
 {
    NULL,
@@ -191,7 +192,8 @@ static struct
    FALSE,
    FALSE,
    "56K",
-   FALSE
+   FALSE,
+   NULL
 };
 
 static struct WBStartup*  wb_msg = NULL;
@@ -278,7 +280,7 @@ cleanup(void)
        CleanupAmiSSL(TAG_DONE);
     }
     DropInterface((struct Interface *)IAmiSSL);
-    ISocket = NULL;
+    IAmiSSL = NULL;
     CloseLibrary(LibBase);
   }
   if (ISocket)

@@ -1627,7 +1627,7 @@ ui_select(int rdp_socket)
 
     mask = (1UL << amiga_wb_port->mp_SigBit) | amiga_clip_signals;
 
-#ifdef __libnix__
+#if defined(__libnix__) || defined(__amigaos4__)
       mask |= SIGBREAKF_CTRL_C;
 #endif
 
@@ -1659,7 +1659,7 @@ ui_select(int rdp_socket)
       return False;
     }
 
-#ifdef __libnix__
+#if defined(__libnix__) || defined(__amigaos4__)
     if (mask & SIGBREAKF_CTRL_C) {
       SetSignal(0,SIGBREAKF_CTRL_C);
       quit = TRUE;

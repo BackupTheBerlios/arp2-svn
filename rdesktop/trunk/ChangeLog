@@ -1,3 +1,10 @@
+2005-01-13  Martin Blom  <martin@blom.org>
+
+	* Released version 1.3.1cvs (13.01.2005).
+
+	* More OS4 patches from Jörg, including a fix for a potential
+	memory trash when using exess tooltypes.
+
 2005-01-12  Martin Blom  <martin@blom.org>
 
 	* Released version 1.3.1cvs (12.01.2005).
