@@ -74,7 +74,7 @@ rm -rf ${RPM_BUILD_ROOT}
 
 %changelog
 * Fri Nov 12 2004 Martin Blom <martin@blom.org>
-- Updated to 1.2b.
+- Updated to 1.3.
 
 * Thu Jul 27 2003 Martin Blom <martin@blom.org>
 - Initial rpm.
