@@ -53,9 +53,9 @@ my %targets = (
 
 my $classes;
 
-################################################################################
-### Main program ###############################################################
-################################################################################
+###############################################################################
+### Main program ##############################################################
+###############################################################################
 
 Getopt::Long::Configure ("bundling");
 
@@ -213,12 +213,12 @@ exit 0;
 
 
 
-################################################################################
-### Subroutines ################################################################
-################################################################################
+###############################################################################
+### Subroutines ###############################################################
+###############################################################################
 
 
-### parse_sfd: Parse a SFD file hand return a hash record ######################
+### parse_sfd: Parse a SFD file hand return a hash record #####################
 
 sub parse_sfd ( $ ) {
     my $file = shift;
@@ -440,7 +440,7 @@ sub parse_sfd ( $ ) {
 }
 
 
-### parse_proto: Parse a single function prototype  ############################
+### parse_proto: Parse a single function prototype  ###########################
 
 sub parse_proto ( $$ ) {
     my $prototype      = shift;
@@ -573,7 +573,7 @@ sub BEGIN {
     my $old_output = '';
 
 
-### close_output: Close the output file if necessary  ##########################
+### close_output: Close the output file if necessary  #########################
 
     sub close_output () {
 	close (STDOUT);
@@ -581,7 +581,7 @@ sub BEGIN {
     }
     
 
-### check_output: Check if the file will be reopended by open_output ###########
+### check_output: Check if the file will be reopended by open_output ##########
 
     sub will_close_output ( $$ ) {
 	my $sfd      = shift;
@@ -603,7 +603,7 @@ sub BEGIN {
 	}
     }
     
-### open_output: (Re)open the output file if necessary  ########################
+### open_output: (Re)open the output file if necessary  #######################
 
     sub open_output ( $$ ) {
 	my $sfd      = shift;
