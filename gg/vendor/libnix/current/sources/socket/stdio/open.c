@@ -3,11 +3,11 @@
 #include <limits.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <sys/stat.h>
 #define DEVICES_TIMER_H
 #include <dos/dosextens.h>
 #include <proto/exec.h>
 #include <proto/dos.h>
+#include <sys/stat.h>
 #include "debuglib.h"
 #include "select.h"
 #include "stdio.h"
@@ -29,7 +29,7 @@ struct MsgPort *__selport=0;
 static StdFileDes **stdfiledes;
 static unsigned long stdfilesize=0;
 static long stderrdes=0; /* The normal Amiga shell sets no process->pr_CES stream
-                          * -> we use Open("*",MODE_NEWFILE) in this case */
+                            -> we use Open("*",MODE_NEWFILE) in this case */
 
 /*
 **
@@ -91,7 +91,7 @@ static int _file_dup(StdFileDes *sfd)
 
   if (fp2) {
     int fd = fp2->lx_pos;
-    fp2->lx_inuse = 0;
+    free(fp2);
     stdfiledes[fd] = sfd;
     sfd->lx_inuse++;
     return fd;
@@ -364,8 +364,8 @@ int dup2(int d1,int d2)
 
     if (sfd2) {
       close(d2);
-      //if (!sfd2->lx_inuse)
-      //  free(sfd2);
+      if (!sfd2->lx_inuse)
+        free(sfd2);
     }
 
     stdfiledes[d2] = stdfiledes[d1];
@@ -427,8 +427,7 @@ StdFileDes *_lx_fdfromfh(int sock,LX_FILE_TYPE type)
 **
 */
 void __initstdio(void)
-{ extern struct WBStartup *_WBenchMsg;
-  StdFileDes *fp,**sfd;
+{ StdFileDes *fp,**sfd;
 
   if((__selport=CreateMsgPort())) {
     if((stdfiledes=sfd=(StdFileDes **)malloc(3*sizeof(StdFileDes *)))) {
@@ -451,7 +450,7 @@ void __initstdio(void)
                 fp->lx_sys    = -1;
                 fp->lx_oflags = O_WRONLY;
                 if((fp->lx_fh=((struct Process *)FindTask(NULL))->pr_CES)==0)
-                  if(_WBenchMsg||(fp->lx_fh=stderrdes=Open("*",MODE_OLDFILE))==0)
+                  if((fp->lx_fh=stderrdes=Open("*",MODE_OLDFILE))==0)
                     fp->lx_fh=sfd[STDOUT_FILENO]->lx_fh;
                 if(_setup_file(fp)) {
                   ++stdfilesize; return;

@@ -1,4 +1,4 @@
-#ifndef mc68000
+#ifndef __mc68000
 
 #include <string.h>
 

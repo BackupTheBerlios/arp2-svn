@@ -11,17 +11,19 @@ extern void __seterrno(void);
 FILE *freopen(const char *filename,const char *mode,FILE *stream)
 { int error=__fflush(stream);
 
-  close(stream->file);
-  if(stream->name!=NULL) /* file is temporary */
-  { BPTR cd=CurrentDir(stream->tmpdir); /* cd t: */
-    if(!DeleteFile(stream->name))  /* delete file */
-    { __seterrno();
-      error=1; }
-    free(stream->name); /* free filename */
-    stream->name=NULL;
-    UnLock(CurrentDir(cd)); /* cd back, unlock t: */
+  if(stream->file!=~0)
+  { close(stream->file);
+    if(stream->name!=NULL) /* file is temporary */
+    { BPTR cd=CurrentDir(stream->tmpdir); /* cd t: */
+      if(!DeleteFile(stream->name))  /* delete file */
+      { __seterrno();
+        error=1; }
+      free(stream->name); /* free filename */
+      stream->name=NULL;
+      UnLock(CurrentDir(cd)); /* cd back, unlock t: */
+    }
+    stream->file=~0;
   }
-  stream->file=0;
 
   if(error)
     return NULL;

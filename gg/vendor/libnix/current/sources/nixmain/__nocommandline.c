@@ -16,7 +16,15 @@ extern char __stdiowin[];
 
 static char *cline=NULL; /* Copy of commandline */
 static BPTR cd=0l;       /* Lock for Current Directory */
-static BPTR window=0l;   /* CLI-window for start from workbench */
+static struct MsgPort *old_ConsoleTask;
+static BPTR input,old_input,output,old_output;
+
+#if defined(__GNUC__) && defined(__mc68000)
+static __inline APTR dosbase(void) { return DOSBase; }
+#define LOCALDOS register APTR DOSBase __asm("a6") = dosbase();
+#else
+#define LOCALDOS /**/
+#endif
 
 /* This guarantees that this module gets linked in.
    If you replace this by an own reference called
@@ -24,17 +32,23 @@ static BPTR window=0l;   /* CLI-window for start from workbench */
 ALIAS(__nocommandline,__initcommandline);
 
 void __initcommandline(void)
-{
-  struct WBStartup *wbs=_WBenchMsg;
+{ struct WBStartup *wbs=_WBenchMsg;
 
   if(wbs!=NULL)
-  { if(__stdiowin[0])
-    { BPTR win;
+  { LOCALDOS
 
-      if((window=win=Open(__stdiowin,MODE_OLDFILE))==0l)
+    if(__stdiowin[0])
+    { BPTR in,out;
+
+      if((in=Open(__stdiowin,MODE_NEWFILE))==0l)
+        if((in=Open("NIL:",MODE_NEWFILE))==0l)
+          exit(RETURN_FAIL);
+      input = in;
+      old_ConsoleTask = SetConsoleTask(((struct FileHandle *)BADDR(in))->fh_Type);
+      if((output=out=Open("*",MODE_OLDFILE))==0l)
         exit(RETURN_FAIL);
-      SelectInput(win);
-      SelectOutput(win);
+      old_input = SelectInput(in);
+      old_output = SelectOutput(out);
     }
     if(wbs->sm_ArgList!=NULL) /* cd to icon */
       cd=CurrentDir(DupLock(wbs->sm_ArgList->wa_Lock));
@@ -42,8 +56,7 @@ void __initcommandline(void)
     __argc=0;
     __argv=(char **)wbs;
   }else
-  { 
-    char **av,*a,*cl=__commandline;
+  { char **av,*a,*cl=__commandline;
     size_t i=__commandlen;
     int ac;
 
@@ -97,7 +110,7 @@ void __initcommandline(void)
       while(*a++)
         ; 
     }
-  
+
     for(i=256;;i+=256) /* try in steps of 256 bytes */
     { if(!(*av=(char *)AllocVec(i,MEMF_ANY)))
         break;
@@ -116,11 +129,20 @@ void __exitcommandline(void)
 { struct WBStartup *wbs=_WBenchMsg;
 
   if(wbs!=NULL)
-  { BPTR file;
-    if((file=window)!=0l)
-      Close(file);
+  { BPTR in,out;
+    LOCALDOS
+
     if(wbs->sm_ArgList!=NULL) /* set original lock */
       UnLock(CurrentDir(cd));
+    if((in=input)!=0l)
+    { if((out=output)!=0l)
+      { SelectOutput(old_output);
+        SelectInput(old_input);
+        Close(out);
+      }
+      SetConsoleTask(old_ConsoleTask);
+      Close(in);
+    }
   }else
   { char *cl=cline;
 
@@ -128,8 +150,7 @@ void __exitcommandline(void)
     { char **av=__argv;
 
       if(av!=NULL)
-      { 
-        if(*av!=NULL)
+      { if(*av!=NULL)
           FreeVec(*av);
         FreeVec(av);
       }

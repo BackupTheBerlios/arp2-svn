@@ -13,7 +13,7 @@ int __fflush(FILE *stream) /* fflush exactly one file */
   { size=stream->p-stream->buffer; /* calculate size */
     subbuf=stream->buffer;
     while(size)
-    { if((subsize=write(stream->file,subbuf,size))<0)
+    { if((subsize=write(stream->file,subbuf,size))==EOF)
       { stream->flags|=__SERR; /* error flag */
         return EOF; }
       size-=subsize;

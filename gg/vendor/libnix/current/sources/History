@@ -341,31 +341,42 @@ P improved memset(), bcopy() and bzero()
 B fixed (harmless?) bug in freopen() open mode handling
   (did only handle rwa[b]+ but not rwa+[b])
 
+B fixed puts() to return a nonnegative integer on success
+  (only fputs() returns 0 on success, argh!)
+
 B fixed append filemode to really write at end of file only
 
-S changed fdopen() to be independed from freopen()
+S changed fdopen() to be independent from freopen()
 
 S stdin/stdout/stderr initialization now use fdopen()
-  (-> removed freopen()'s stdio open kludge)
+  (removed freopen()'s stdio open kludge)
 
-S adapted chmod() to return success if SetProtection
-  fails because source is locked
+S adapted chmod() to return success if SetProtection() fails
+  because source is "locked"
 
 F finally rewrote devinit.c to use GCC 2.7.2.1 features
   (now in sync with libinit.c/libinitr.c)
 
-B fixed Makefiles for case sensitives filesystems, cross
-  compilation support (dosesn't use ar directly anymore)
-  and proper $(MAKE) handling
+B fixed Makefiles for proper $(MAKE) handling, case sensitive
+  filesystems and cross compilation support (doesn't use eg.
+  ar/ranlib directly anymore)
 
 B fixed hole in math/Makefile.in :-(
   (didn't reference *all* objects leading to vfprint/vfscanf)
 
-F added a better and more general debug scheme
+F added better and more general debug scheme
 
 F added gettimeofday() from libnixPPC package
 
+F added popen() and pclose()
+  (requires mounted logical pipe: device!)
+
 S general code cleanup
   (eg. replaced all numerical stdio flags with #defines)
+
+F added __buffsize to be able to increase default i/o buffersize
+  from outside the library (defaults to BUFSIZ)
+
+F merged normal and baserelative startupcode
 
 V2.0

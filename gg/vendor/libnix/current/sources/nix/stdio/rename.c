@@ -18,7 +18,7 @@ int rename(const char *old,const char *new)
       {
 #endif
 
-#if defined (__GNUC__)
+#if defined(__GNUC__) && defined(__mc68000)
   #undef DOS_BASE_NAME
   #define DOS_BASE_NAME dosbase
   register APTR dosbase __asm("a6") = DOSBase;

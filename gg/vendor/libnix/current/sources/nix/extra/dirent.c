@@ -1,10 +1,10 @@
-#include <dirent.h>
 #include <stdlib.h>
 #include <string.h>
 #include <exec/memory.h>
 #include <proto/exec.h>
 #include <proto/dos.h>
-#include <strsup.h>
+#include "dirent.h"
+#include "strsup.h"
 
 DIR *opendir(const char *dirname)
 { DIR *dirp;

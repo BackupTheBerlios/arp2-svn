@@ -136,4 +136,4 @@ l9:	movel	sp@+,a6
 	rts
 ");
 
-ADD2EXIT(__exit_stk,-50);
+ADD2EXIT(__exit_stk,-55);

@@ -7,12 +7,17 @@
 |
 | You should use the non-resident startup-code if you need it !
 
+| some feature macros
+
+#define REL(x) a4@(x/**/:W)
+#define SYS(x) jsr a6@(_LVO/**/x/**/:W)
+
 | some specific defines
 
 _LVOForbid	=	-132
 _LVOAllocMem	=	-198
-_LVOFindTask	=	-294
 _LVOFreeMem	=	-210
+_LVOFindTask	=	-294
 _LVOGetMsg	=	-372
 _LVOReplyMsg	=	-378
 _LVOWaitPort	=	-384
@@ -37,7 +42,7 @@ start:		movel	a0,d3
 		movel	4:W,a6
 
 		subal	a1,a1
-		jsr	a6@(_LVOFindTask:W)
+		SYS	(FindTask)
 		movel	d0,a3
 		tstl	a3@(pr_CLI:W)
 		subal	a2,a2
@@ -45,10 +50,10 @@ start:		movel	a0,d3
 
 | wb start - get our message
 
-fromWB: 	lea	a3@(pr_MsgPort:W),a0
-		jsr	a6@(_LVOWaitPort:W)
+fromWB:		lea	a3@(pr_MsgPort:W),a0
+		SYS	(WaitPort)
 		lea	a3@(pr_MsgPort:W),a0
-		jsr	a6@(_LVOGetMsg:W)
+		SYS	(GetMsg)
 		movel	d0,a2
 
 | resident setup - allocate memory and relocate
@@ -60,7 +65,7 @@ fromCLI:	movql	#ERROR_NO_FREE_STORE,d7
 		movel	d2,d0
 		movql	#1,d1
 		swap	d1
-		jsr	a6@(_LVOAllocMem:W)
+		SYS	(AllocMem)
 		movel	d0,a4
 		movel	a4,d0
 		beq	cleanup
@@ -68,7 +73,7 @@ fromCLI:	movql	#ERROR_NO_FREE_STORE,d7
 		movel	d5,d0
 		movel	a5,a0
 		movel	a4,a1
-		jsr	a6@(_LVOCopyMemQuick:W)
+		SYS	(CopyMemQuick)
 		lea	___datadata_relocs,a0
 		movel	a0@+,d0
 		beq	no_reloc
@@ -80,59 +85,58 @@ do_reloc:	movel	a0@+,a1
 		bne	do_reloc
 no_reloc:	lea	a4@(0x7ffe:W),a4
 
-		movel	sp,a4@(___SaveSP:W)
-		movel	a6,a4@(_SysBase:W)
-		movel	a2,a4@(__WBenchMsg:W)
-		movel	d3,a4@(___commandline:W)
-		movel	d4,a4@(___commandlen:W)
-		movel	d2,a4@(___MemLen:W)
+		movel	sp,REL(___SaveSP)
+		movel	a6,REL(_SysBase)
+		movel	a2,REL(__WBenchMsg)
+		movel	d3,REL(___commandline)
+		movel	d4,REL(___commandlen)
+		movel	d2,REL(___memlen)
 
 | call main() - push args onto stack
 
-		lea	a4@(___INIT_LIST__:W),a2
-		addqw	#4,a2
+		lea	REL(___INIT_LIST__),a2
 		moveql	#-1,d2
 		jbsr	callfuncs
 
-		movel	a4@(___env:W),sp@-
-		movel	a4@(___argv:W),sp@-
-		movel	a4@(___argc:W),sp@-
+		movel	REL(___env),sp@-
+		movel	REL(___argv),sp@-
+		movel	REL(___argc),sp@-
 		jbsr	_main
 		movel	d0,sp@(4:W)
 
 | exit() entry - get return val, restore stackptr
 
-__exit: 	lea	a4@(___EXIT_LIST__:W),a2
-		addqw	#4,a2
+__exit:		lea	REL(___EXIT_LIST__),a2
 		moveql	#0,d2
 		jbsr	callfuncs
 
 		movel	sp@(4:W),d7
-		movel	a4@(___SaveSP:W),sp
+		movel	REL(___SaveSP),sp
 
 | prepare cleanup - setup regs, free resident memory
 
-		movel	a4@(_SysBase:W),a6
+		movel	REL(_SysBase),a6
 
-		movel	a4@(__WBenchMsg:W),a2
-		movel	a4@(___MemLen:W),d0
+		movel	REL(__WBenchMsg),a2
+		movel	REL(___memlen),d0
 		lea	a4@(-0x7ffe:W),a1
-		jsr	a6@(_LVOFreeMem:W)
+		SYS	(FreeMem)
 
 | cleanup - reply wbmsg and exit
 
 cleanup:	movel	a2,d0
 		beqs	todos
-		jsr	a6@(_LVOForbid:W)
+		SYS	(Forbid)
 		movel	a2,a1
-		jsr	a6@(_LVOReplyMsg:W)
+		SYS	(ReplyMsg)
 todos:		movel	d7,d0
 		rts
 
 | call all functions in the NULL terminated list pointed to by a2
 | d2 ascending or descending priority mode
 
-callfuncs:	lea	a4@(cleanupflag:W),a5
+callfuncs:	addql	#4,a2
+callloop:	lea	REL(cleanupflag),a5
 		movel	a2,a3
 		moveql	#0,d3
 		jra	oldpri
@@ -142,19 +146,19 @@ stabloop:	movel	a3@+,d4
 		jne	notnow
 		movel	d0,a0
 		jsr	a0@
-notnow: 	eorl	d2,d4
+notnow:		eorl	d2,d4
 		eorl	d2,d5
 		cmpl	d5,d4
 		jcc	oldpri
 		cmpl	d3,d4
 		jls	oldpri
 		movel	d4,d3
-oldpri: 	movel	a3@+,d0
+oldpri:		movel	a3@+,d0
 		jne	stabloop
 		eorl	d2,d3
 		movel	d3,a5@
 		cmpl	d2,d3
-		jne	callfuncs
+		jne	callloop
 		rts
 
 | redirection of _exit
@@ -175,8 +179,8 @@ oldpri: 	movel	a3@+,d0
 .comm		__WBenchMsg,4
 .comm		___commandline,4
 .comm		___commandlen,4
-.comm		___MemLen,4
 .comm		___argc,4
 .comm		___argv,4
 .comm		___env,4
+.lcomm		___memlen,4
 .lcomm		cleanupflag,4

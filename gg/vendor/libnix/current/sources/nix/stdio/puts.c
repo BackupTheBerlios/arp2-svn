@@ -7,5 +7,5 @@ int puts(const char *s)
       return EOF;
   if(fputc('\n',stdout)==EOF)
     return EOF;
-  return 0;
+  return '\n';
 }

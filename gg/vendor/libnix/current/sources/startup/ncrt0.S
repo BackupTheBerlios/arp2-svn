@@ -1,6 +1,15 @@
-| not baserelative startup code for gcc v2.3.3+
-| (c) by M.Fleischer and G.Nikl Wed Apr 13 17:44 1994
+| normal and baserelative startup code for gcc v2.3.3+
+| (c) by M.Fleischer and G.Nikl Wed Apr 13 17:45 1994
 | No bugs known
+
+| some feature macros
+
+#if !defined(SMALL_DATA)
+#define REL(x) x
+#else
+#define REL(x) a4@(x/**/:W)
+#endif
+#define SYS(x) jsr a6@(_LVO/**/x/**/:W)
 
 | some specific defines
 
@@ -22,63 +31,79 @@ pr_CLI		=	 172
 
 | first entry - init some vars, check for cli or wb start
 
-start:		movel	a0,___commandline
-		movel	d0,___commandlen
+start:
 
-		movel	sp,___SaveSP
+#if defined(SMALL_DATA)
+
+		movel	#___bss_size,d1
+		jbsr	_geta4
+		beqs	nobss
+		lea	REL(__edata),a1
+clrbss:		clrl	a1@+
+		subql	#4,d1
+		bnes	clrbss
+nobss:
+
+#endif
+
+		movel	a0,REL(___commandline)
+		movel	d0,REL(___commandlen)
+
+		movel	sp,REL(___SaveSP)
 		movel	4:W,a6
-		movel	a6,_SysBase
+		movel	a6,REL(_SysBase)
 
 		subal	a1,a1
-		jsr	a6@(_LVOFindTask:W)
+		SYS	(FindTask)
 		movel	d0,a3
 		tstl	a3@(pr_CLI:W)
 		bne	fromCLI
 
 | wb start - get wbmsg
 
-fromWB: 	lea	a3@(pr_MsgPort:W),a0
-		jsr	a6@(_LVOWaitPort:W)
+fromWB:		lea	a3@(pr_MsgPort:W),a0
+		SYS	(WaitPort)
 		lea	a3@(pr_MsgPort:W),a0
-		jsr	a6@(_LVOGetMsg:W)
-		movel	d0,__WBenchMsg
+		SYS	(GetMsg)
+		movel	d0,REL(__WBenchMsg)
 
 | execute all init functions then call main
 
-fromCLI:	lea	___INIT_LIST__+4,a2
+fromCLI:	lea	REL(___INIT_LIST__),a2
 		moveql	#-1,d2
 		jbsr	callfuncs
 
-		movel	___env,sp@-
-		movel	___argv,sp@-
-		movel	___argc,sp@-
+		movel	REL(___env),sp@-
+		movel	REL(___argv),sp@-
+		movel	REL(___argc),sp@-
 		jbsr	_main
 		movel	d0,sp@(4:W)
 
 | exit() entry - execute all exit functions, reply wbmsg
 
-__exit: 	lea	___EXIT_LIST__+4,a2
+__exit:		lea	REL(___EXIT_LIST__),a2
 		moveql	#0,d2
 		jbsr	callfuncs
 
-		movel	_SysBase,a6
+		movel	REL(_SysBase),a6
 
-		movel	__WBenchMsg,d2
+		movel	REL(__WBenchMsg),d2
 		beq	todos
-		jsr	a6@(_LVOForbid:W)
+		SYS	(Forbid)
 		movel	d2,a1
-		jsr	a6@(_LVOReplyMsg:W)
+		SYS	(ReplyMsg)
 
 | leave - get return val, restore stackptr
 
 todos:		movel	sp@(4:W),d0
-		movel	___SaveSP,sp
+		movel	REL(___SaveSP),sp
 		rts
 
 | call all functions in the NULL terminated list pointed to by a2
 | d2 ascending or descending priority mode
 
-callfuncs:	lea	cleanupflag,a5
+callfuncs:	addql	#4,a2
+callloop:	lea	REL(cleanupflag),a5
 		movel	a2,a3
 		moveql	#0,d3
 		jra	oldpri
@@ -88,24 +113,37 @@ stabloop:	movel	a3@+,d4
 		jne	notnow
 		movel	d0,a0
 		jsr	a0@
-notnow: 	eorl	d2,d4
+notnow:		eorl	d2,d4
 		eorl	d2,d5
 		cmpl	d5,d4
 		jcc	oldpri
 		cmpl	d3,d4
 		jls	oldpri
 		movel	d4,d3
-oldpri: 	movel	a3@+,d0
+oldpri:		movel	a3@+,d0
 		jne	stabloop
 		eorl	d2,d3
 		movel	d3,a5@
 		cmpl	d2,d3
-		jne	callfuncs
+		jne	callloop
+
+#if defined(SMALL_DATA)
+
+		rts
+
+| get baseptr
+
+_geta4:		lea	___a4_init,a4
+		rts
+
+#else
 
 | geta4() doesn´t do anything, but enables you to use
 | one source for both code models
 
-_geta4: 	rts
+_geta4:		rts
+
+#endif
 
 | redirection of _exit
 

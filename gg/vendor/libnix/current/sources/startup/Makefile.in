@@ -40,17 +40,17 @@ veryclean:
 # baserelative resident startup-code
 
 nrcrt0.o: nrcrt0.S
-	$(CC) -c $^
+	$(CC) -traditional -o $@ -c $^
 	echo "\$$$(V)" >>$@
 
 # baserelative startup code
 
-nbcrt0.o: nbcrt0.S
-	$(CC) -c $^
+nbcrt0.o: ncrt0.S
+	$(CC) -traditional -o $@ -c $^ -DSMALL_DATA
 	echo "\$$$(V)" >>$@
 
 # normal (=large) startup code
 
 ncrt0.o: ncrt0.S
-	$(CC) -c $^
+	$(CC) -traditional -o $@ -c $^
 	echo "\$$$(V)" >>$@

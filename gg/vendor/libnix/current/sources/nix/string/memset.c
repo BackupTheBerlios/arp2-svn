@@ -5,7 +5,8 @@ void *memset(void *s,int c,size_t n)
   if(n)
   { unsigned long *p=(unsigned long *)s;
     if(n>15)
-    { c*=0x01010101;
+    { c&=0x000000ff;
+      c*=0x01010101;
       if((long)p&1)
       { *((char *)p)++=c;
         n--; }

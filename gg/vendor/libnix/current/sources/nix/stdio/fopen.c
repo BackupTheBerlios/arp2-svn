@@ -16,8 +16,10 @@ struct MinList __filelist = { /* list of open files (fflush() needs also access)
 FILE *fopen(const char *filename,const char *mode)
 { struct filenode *node = (struct filenode *)calloc(1,sizeof(*node));
   if(node!=NULL)
-  { if((node->FILE.buffer=(char *)malloc(BUFSIZ))!=NULL)
-    { node->FILE.bufsize=BUFSIZ;
+  { int bsiz = __buffsize;
+    if((node->FILE.buffer=(char *)malloc(bsiz))!=NULL)
+    { node->FILE.bufsize=bsiz;
+      node->FILE.file=~0;
       node->FILE.flags|=__SMBF; /* Buffer is malloc'ed */
       if(freopen(filename,mode,&node->FILE)!=NULL)
       { AddHead((struct List *)&__filelist,(struct Node *)&node->node);

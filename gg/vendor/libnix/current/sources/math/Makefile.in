@@ -23,13 +23,14 @@ OPTIONS=-I$(srcdir)/../headers -DFULL_SPECIFIERS $(CFLAGS)
 
 OBJECTS2=$(OBJECTS) \
          ../nix/assert/__eprintf.o \
+         ../nix/extra/popen.o \
          ../nix/stdio/printf.o ../nix/stdio/fprintf.o ../nix/stdio/sprintf.o \
          ../nix/stdio/vprintf.o ../nix/stdio/vsprintf.o stdio/vfprintf.o \
          ../nix/stdio/scanf.o ../nix/stdio/fscanf.o ../nix/stdio/sscanf.o \
          ../nix/stdio/vscanf.o ../nix/stdio/vsscanf.o stdio/vfscanf.o \
          ../nix/stdio/tmpfile.o ../nix/stdio/tmpnam.o
 
-SUBDIRS2=$(SUBDIRS) ../nix/assert ../nix/stdio
+SUBDIRS2=$(SUBDIRS) ../nix/assert ../nix/extra ../nix/stdio
 
 REDEF=-D_DOSBase=___DOSBase \
       -D_UtilityBase=___UtilityBase \

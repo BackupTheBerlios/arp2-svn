@@ -6,8 +6,9 @@
    Code status: Public Domain.
 */
 
-#include <limits.h>
 #include <float.h>
+#include <limits.h>
+#include "rand48.h"
 
 /* Parameters for the linear congruential algorithm:
    parm[0..2] is the current value of Xn (internal seed, m.s.word last)

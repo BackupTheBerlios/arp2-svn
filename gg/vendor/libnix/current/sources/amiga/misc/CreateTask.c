@@ -10,13 +10,6 @@ struct newMemList {
   struct MemEntry nml_ME[2];
 };
 
-const struct newMemList MemTemplate = {
-  {0,},
-  2,
-  { {MEMF_CLEAR|MEMF_PUBLIC, sizeof(struct Task)},
-    {MEMF_CLEAR, 0} }
-};
-
 #define NEWLIST(l) ((l)->lh_Head = (struct Node *)&(l)->lh_Tail, \
                     /*(l)->lh_Tail = NULL,*/ \
                     (l)->lh_TailPred = (struct Node *)&(l)->lh_Head)
@@ -30,7 +23,13 @@ struct Task *CreateTask(STRPTR name, LONG pri, APTR initpc, ULONG stacksize)
 
   stacksize=(stacksize+3)&~3;
 
-  { long *p1,*p2;
+  { static const struct newMemList MemTemplate = {
+      {0,},
+      2,
+      { {MEMF_CLEAR|MEMF_PUBLIC, sizeof(struct Task)},
+        {MEMF_CLEAR, 0} }
+    };
+    long *p1,*p2;
     int i;
 
     for (p1=(long *)&nml,p2=(long*)&MemTemplate,i=7; i; *p1++=*p2++,i--) ;

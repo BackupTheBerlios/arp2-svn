@@ -7,7 +7,7 @@
 #include <dos/dosextens.h>
 #include <proto/exec.h>
 #include <proto/dos.h>
-#include <stdio.h>
+#include "stdio.h"
 #include "stabs.h"
 
 /*
@@ -20,9 +20,8 @@ extern void __seterrno(void);
 */
 static StdFileDes **stdfiledes;
 static unsigned long stdfilesize=0;
-static long stderrdes=0; /* The normal Amiga shell sets no process->pr_CES stream -
-                          * we use Open("*",MODE_NEWFILE) in this case
-                          */
+static long stderrdes=0; /* The normal Amiga shell sets no process->pr_CES stream
+                            -> we use Open("*",MODE_NEWFILE) in this case */
 
 /*
 **
@@ -81,11 +80,11 @@ int open(const char *path,int flags,...)
     return -1;
 #endif
 
-  if ((sfd=_allocfd())) {
+  if((sfd=_allocfd())) {
     sfd->lx_sys=0;
     sfd->lx_oflags=flags;
-    if ((sfd->lx_fh=Open((char *)path,flags&O_TRUNC?MODE_NEWFILE:
-                         flags&(O_WRONLY|O_RDWR)?MODE_READWRITE:MODE_OLDFILE))) {
+    if((sfd->lx_fh=Open((char *)path,flags&O_TRUNC?MODE_NEWFILE:
+                        flags&(O_WRONLY|O_RDWR)?MODE_READWRITE:MODE_OLDFILE))) {
       _setup_file(sfd); return sfd->lx_pos;
     }
     __seterrno();
@@ -98,10 +97,10 @@ int open(const char *path,int flags,...)
 int close(int d)
 { StdFileDes *sfd = _lx_fhfromfd(d);
 
-  if (sfd) {
-    if (!(sfd->lx_inuse-=1)) {
-      if (sfd->lx_pos=d,!sfd->lx_sys) {
-        if (!Close(sfd->lx_fh)) {
+  if(sfd) {
+    if(!(sfd->lx_inuse-=1)) {
+      if(sfd->lx_pos=d,!sfd->lx_sys) {
+        if(!Close(sfd->lx_fh)) {
           __seterrno(); return EOF;
         }
       }
@@ -117,7 +116,7 @@ int close(int d)
 ssize_t read(int d,void *buf,size_t nbytes)
 { StdFileDes *sfd = _lx_fhfromfd(d);
 
-  if (sfd) {
+  if(sfd) {
     long r;
     __chkabort();
     if((r=Read(sfd->lx_fh,buf,nbytes))!=EOF)
@@ -131,7 +130,7 @@ ssize_t read(int d,void *buf,size_t nbytes)
 ssize_t write(int d,const void *buf,size_t nbytes)
 { StdFileDes *sfd = _lx_fhfromfd(d);
 
-  if (sfd) {
+  if(sfd) {
     long r;
     __chkabort();
     switch((sfd->lx_oflags&O_APPEND)!=0) {
@@ -151,12 +150,12 @@ ssize_t write(int d,const void *buf,size_t nbytes)
 off_t lseek(int d,off_t offset,int whence)
 { StdFileDes *sfd = _lx_fhfromfd(d);
 
-  if (sfd) {
+  if(sfd) {
     long r,file=sfd->lx_fh;
     __chkabort();
-    if (Seek(file,offset,whence==SEEK_SET?OFFSET_BEGINNING:
-                         whence==SEEK_END?OFFSET_END:OFFSET_CURRENT)!=EOF)
-      if ((r=Seek(file,0,OFFSET_CURRENT))!=EOF)
+    if(Seek(file,offset,whence==SEEK_SET?OFFSET_BEGINNING:
+                        whence==SEEK_END?OFFSET_END:OFFSET_CURRENT)!=EOF)
+      if((r=Seek(file,0,OFFSET_CURRENT))!=EOF)
         return r;
     __seterrno();
   }
@@ -194,8 +193,7 @@ StdFileDes *_lx_fhfromfd(int d)
 **
 */
 void __initstdio(void)
-{ extern struct WBStartup *_WBenchMsg;
-  StdFileDes *fp,**sfd;
+{ StdFileDes *fp,**sfd;
 
   if((stdfiledes=sfd=(StdFileDes **)malloc(3*sizeof(StdFileDes *)))) {
     if((sfd[STDIN_FILENO]=fp=(StdFileDes *)malloc(sizeof(StdFileDes)))) {
@@ -212,7 +210,7 @@ void __initstdio(void)
         _setup_file(fp);
         if((sfd[STDERR_FILENO]=fp=(StdFileDes *)malloc(sizeof(StdFileDes)))) {
           if((fp->lx_fh=((struct Process *)FindTask(NULL))->pr_CES)==0)
-            if(_WBenchMsg||(fp->lx_fh=stderrdes=Open("*",MODE_OLDFILE))==0)
+            if((fp->lx_fh=stderrdes=Open("*",MODE_OLDFILE))==0)
               fp->lx_fh=sfd[STDOUT_FILENO]->lx_fh;
           fp->lx_pos    = STDERR_FILENO;
           fp->lx_sys    = -1;

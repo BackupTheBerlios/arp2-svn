@@ -1,15 +1,16 @@
+#include <stdio.h>
+#include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <dos/dosextens.h>
 #include <proto/dos.h>
-#include <strsup.h>
-#include <stdio.h>
+#include "strsup.h"
 
 extern void __seterrno(void);
 
 int fstat(int d,struct stat *buf)
 { extern int __stat(struct stat *buf,struct FileInfoBlock *fib);
-#if defined (__GNUC__)
+#if defined(__GNUC__) && defined(__mc68000)
   #undef DOS_BASE_NAME
   #define DOS_BASE_NAME dosbase
   register APTR dosbase __asm("a6") = DOSBase;

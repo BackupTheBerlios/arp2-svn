@@ -10,8 +10,9 @@ FILE *fdopen(int filedes,const char *mode)
   if (mode!=NULL)
   { struct filenode *node = (struct filenode *)calloc(1,sizeof(*node));
     if(node!=NULL)
-    { if((node->FILE.buffer=(char *)malloc(BUFSIZ))!=NULL)
-      { node->FILE.bufsize=BUFSIZ;
+    { int bsiz = __buffsize;
+      if((node->FILE.buffer=(char *)malloc(bsiz))!=NULL)
+      { node->FILE.bufsize=bsiz;
         node->FILE.file=filedes;
         node->FILE.flags|=__SMBF; /* Buffer is malloc'ed */
         if(isatty(filedes))

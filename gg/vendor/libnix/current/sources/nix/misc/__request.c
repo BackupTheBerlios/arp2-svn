@@ -1,3 +1,25 @@
+#if !defined(__mc68000)
+
+#include <dos/dosextens.h>
+#include <proto/intuition.h>
+#include <proto/exec.h>
+
+void __request(const char *msg)
+{ APTR IntuitionBase, SysBase=*(APTR *)4L;
+
+  if (((struct Process *)FindTask(NULL))->pr_WindowPtr != (APTR)-1L) {
+    if ((IntuitionBase=OpenLibrary("intuition.library",0))) {
+      static struct IntuiText body = { 0,0,0, 15,5, NULL, NULL, NULL },
+                                ok = { 0,0,0,  6,3, NULL, "Ok", NULL };
+      body.IText = (UBYTE *)msg;
+      AutoRequest(NULL,&body,NULL,&ok,0,0,640,72);
+      CloseLibrary(IntuitionBase);
+    }
+  }
+}
+
+#else
+
 #include "bases.h"
 
 asm("
@@ -49,3 +71,5 @@ ___request:
 l_fail:	moveml	sp@+,#0x4c1c
 	rts
 ");
+
+#endif

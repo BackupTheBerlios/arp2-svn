@@ -24,7 +24,7 @@ OPTIONS=-I$(srcdir)/../headers -D_SOCKET_IO $(CFLAGS)
 OBJECTS2=$(OBJECTS) \
          ../nix/assert/__eprintf.o \
          ../nix/extra/creat.o ../nix/extra/getw.o ../nix/extra/putw.o \
-         ../nix/extra/setbuffer.o ../nix/extra/setlinebuf.o \
+         ../nix/extra/popen.o ../nix/extra/setbuffer.o ../nix/extra/setlinebuf.o \
          ../nix/signal/raise.o ../nix/signal/signal.o ../nix/signal/__chkabort.o \
          ../nix/stdio/fdopen.o ../nix/stdio/fflush.o ../nix/stdio/fgetc.o \
          ../nix/stdio/fgetpos.o ../nix/stdio/fgets.o ../nix/stdio/fopen.o \

@@ -66,10 +66,10 @@ extern int fgetc(FILE *stream);
 extern int fputc(int c,FILE *stream);
 extern int ungetc(int c,FILE *stream);
 extern int sprintf(char *s,const char *format,...);
-extern int sscanf(const char *s,const char *format,...);
-extern int vprintf(const char *format,va_list args);
 extern int vsprintf(char *s,const char *format,va_list args);
+extern int fprintf(FILE *stream,const char *format,...);
 extern int vfprintf(FILE *stream,const char *format,va_list args);
+extern int sscanf(const char *s,const char *format,...);
 extern int vscanf(const char *format,va_list args);
 extern int vsscanf(const char *s,const char *format,va_list args);
 extern int vfscanf(FILE *stream,const char *format,va_list args);
@@ -104,6 +104,7 @@ extern FILE **__sF; /* Standard I/O streams */
 #define feof(fp)   ((fp)->flags&__SEOF)
 
 /* own stuff */
+extern int __buffsize;              /* default stdio buffer size */
 extern struct MinList __filelist;   /* List of all fopen'ed files */
 extern struct MinList __memorylist; /* List of memory puddles */
 
