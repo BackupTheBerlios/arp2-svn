@@ -97,6 +97,13 @@ my %targets = (
 		 gatestubs => 'Gate68k'
 	       },
 	       
+	      'p(ower)?pc(-unknown)?-amigaos' =>
+	       { target    => 'amigaos4',
+		 macros    => 'MacroAOS4',
+		 stubs     => 'StubAOS4',
+		 gatestubs => 'GateAOS4'
+	       },
+    
 	      'p(ower)?pc(-unknown)?-morphos' =>
 	       { target    => 'morphos',
 		 macros    => 'MacroMOS',
