@@ -45,7 +45,7 @@ BEGIN {
 
 	if ($$prototype{'type'} !~ /^(varargs|stdarg)$/) {
 	    printf "	AROS_LC%d%s(%s, %s, \\\n",
-	    $#{$$prototype{'___args'}} + 1, $nb ? "I" : "",
+	    $$prototype{'numargs'}, $nb ? "I" : "",
 	    $$prototype{'return'}, $$prototype{'funcname'};
 	}
 	else {

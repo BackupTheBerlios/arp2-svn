@@ -59,7 +59,7 @@ BEGIN {
 	
 	$self->function_define (prototype => $prototype);
 	$self->function_start (prototype => $prototype);
-	for my $i (0 .. $#{$$prototype{'args'}}) {
+	for my $i (0 .. $$prototype{'numargs'} - 1 ) {
 	    $self->function_arg (prototype => $prototype,
 				 argtype   => $$prototype{'argtypes'}[$i],
 				 argname   => $$prototype{'___argnames'}[$i],
@@ -108,7 +108,7 @@ BEGIN {
 	my $nb        = $$sfd{'base'} eq '';
 
 	if ($$prototype{'type'} eq 'stdarg') {
-	    my $first_stdargnum = $#{$$prototype{'argnames'}} - 1;
+	    my $first_stdargnum = $$prototype{'numargs'} - 2;
 	    my $first_stdarg = $$prototype{'argnames'}[$first_stdargnum];
 	    
 	    print "	({ULONG _tags[] = { $first_stdarg, __VA_ARGS__ }; ";
@@ -120,7 +120,7 @@ BEGIN {
 	    print "$$prototype{'real_funcname'}(";
 	}
 	else {
-	    printf "	LP%d%s%s(0x%x, ", $#{$$prototype{'___args'}} + 1,
+	    printf "	LP%d%s%s(0x%x, ", $$prototype{'numargs'},
 	    $nr ? "NR" : "", $nb ? "NB" : "", $$prototype{'bias'};
 
 	    if (!$nr) {
@@ -150,7 +150,7 @@ BEGIN {
 	    }
 	}
 	elsif ($$prototype{'type'} eq 'stdarg' ) {
-	    my $first_stdargnum = $#{$$prototype{'___argnames'}} - 1;
+	    my $first_stdargnum = $$prototype{'numargs'} - 2;
 
 	    # Skip the first stdarg completely
 	    if( $argnum != $first_stdargnum ) {

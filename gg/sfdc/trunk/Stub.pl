@@ -66,7 +66,7 @@ BEGIN {
 	print "$$prototype{'return'}\n";
 	print "$$prototype{'funcname'}(";
 	if ($$sfd{'base'} ne '') {
-	    if ($#{$$prototype{'___args'}} == 0) {
+	    if ($$prototype{'numargs'} == 0) {
 		print "BASE_PAR_DECL0";
 	    }
 	    else {

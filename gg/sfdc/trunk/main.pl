@@ -452,10 +452,13 @@ sub parse_proto ( $$ ) {
     # Nuke whitespaces from the register specification
     $registers =~ s/\s//;
 
-    $$prototype{'return'}      = $return;
-    $$prototype{'funcname'}    = $name;
+    $$prototype{'return'}   = $return;
+    $$prototype{'funcname'} = $name;
 
-    @{$$prototype{'regs'}} = split(/,/,lc $registers);  # Make regs lower case
+    $$prototype{'numargs'}  = 0;
+    $$prototype{'numregs'}  = 0;
+    
+    @{$$prototype{'regs'}}  = split(/,/,lc $registers);  # Make regs lower case
     
     @{$$prototype{'args'}}        = ();
     @{$$prototype{'___args'}}     = ();
@@ -487,6 +490,9 @@ sub parse_proto ( $$ ) {
 	$par_cnt -= ( $arg =~ tr/\)/\)/ );
     }
 
+    $$prototype{'numargs'} = $#{$$prototype{'args'}} + 1;
+    $$prototype{'numregs'} = $#{$$prototype{'regs'}} + 1;
+    
     # varags -> stdarg (stdarg is a tag list) Example:
     # varargs: LONG Printf( STRPTR format, ... );
     # stdarg: BOOL AslRequestTags( APTR requester, Tag Tag1, ... );
@@ -499,10 +505,10 @@ sub parse_proto ( $$ ) {
     # Make sure we have the same number of arguments as registers, or,
     # if this is a stdarg function, possible one extra, á la "Tag, ..."
     
-    if ( !($#{$$prototype{'args'}} == $#{$$prototype{'regs'}} || 
+    if ( !($$prototype{'numargs'} == $$prototype{'numregs'} || 
 	   (($$prototype{'type'} eq 'stdarg' ||
 	     $$prototype{'type'} eq 'varargs') &&
-	    $#{$$prototype{'args'}} == $#{$$prototype{'regs'}} + 1)) ) {
+	    $$prototype{'numargs'} == $$prototype{'numregs'} + 1)) ) {
 
 	print STDERR "Failed to parse arguments/registers on SFD " .
 	    "line $$prototype{'line'}:\n$$prototype{'value'}\n";
