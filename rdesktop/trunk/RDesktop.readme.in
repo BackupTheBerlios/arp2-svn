@@ -2,7 +2,7 @@ Short:    A Remote Desktop Protocol Client for accessing Windows NT Terminal Ser
 Author:   Matthew Chapman et al, Martin Blom <martin@blom.org>
 Type:     comm/tcp
 Requires: @OS_VERSION@@ALIBS@, a TCP/IP stack, access to a Windows computer
-Version:  1.3.1cvs-@OS@ (07.01.2005)
+Version:  1.3.1cvs-@OS@ (08.01.2005)
 
 RDESKTOP
 
