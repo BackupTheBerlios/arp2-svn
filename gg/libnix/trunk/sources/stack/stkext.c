@@ -1,3 +1,6 @@
+
+#if defined( __mc68000__ )
+
 #include "bases.h"
 #include "stabs.h"
 
@@ -137,3 +140,5 @@ l9:	movel	sp@+,a6
 ");
 
 ADD2EXIT(__exit_stk,-55);
+
+#endif

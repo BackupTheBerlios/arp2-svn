@@ -1,3 +1,6 @@
+
+#if defined( __mc68000__ )
+
 #include "bases.h"
 
 asm("
@@ -66,3 +69,5 @@ l4:	exg	d0,a3			| move back
 	addql	#4,d0			| compensate for returnaddress
 	rts
 ");
+
+#endif

@@ -7,7 +7,7 @@
                     /*(l)->lh_Tail = NULL,*/ \
                     (l)->lh_TailPred = (struct Node *)&(l)->lh_Head)
 
-struct MsgPort *CreatePort(STRPTR name,LONG pri)
+struct MsgPort *CreatePort(CONST_STRPTR name,LONG pri)
 { APTR SysBase = *(APTR *)4L;
   struct MsgPort *port = NULL;
   UBYTE portsig;
@@ -18,7 +18,7 @@ struct MsgPort *CreatePort(STRPTR name,LONG pri)
     else {
       port->mp_Node.ln_Type = NT_MSGPORT;
       port->mp_Node.ln_Pri  = pri;
-      port->mp_Node.ln_Name = name;
+      port->mp_Node.ln_Name = (STRPTR) name;
       /* done via AllocMem
       port->mp_Flags        = PA_SIGNAL;
       */

@@ -1,36 +1,33 @@
-#undef __HAVE_68881__
-#include <math.h>
+/* @(#)s_ldexp.c 5.1 93/09/24 */
+/*
+ * ====================================================
+ * Copyright (C) 1993 by Sun Microsystems, Inc. All rights reserved.
+ *
+ * Developed at SunPro, a Sun Microsystems, Inc. business.
+ * Permission to use, copy, modify, and distribute this
+ * software is freely granted, provided that this notice
+ * is preserved.
+ * ====================================================
+ */
 
-#define MANT_MASK 0x800FFFFF    /* Mantissa extraction mask     */
-#define ZPOS_MASK 0x3FF00000    /* Positive # mask for exp = 0  */
-#define ZNEG_MASK 0x3FF00000    /* Negative # mask for exp = 0  */
+#include <sys/cdefs.h>
+#if defined(LIBM_SCCS) && !defined(lint)
+__RCSID("$NetBSD: s_ldexp.c,v 1.8 1999/07/02 15:37:43 simonb Exp $");
+#endif
 
-#define EXP_MASK 0x7FF00000     /* Mask for exponent            */
-#define EXP_SHIFTS 20           /* Shifts to get into LSB's     */
-#define EXP_BIAS 1023           /* Exponent bias                */
+#include "math.h"
+#include "math_private.h"
+#include <errno.h>
 
-
-union dtol
+#ifdef __STDC__
+	double ldexp(double value, int exp)
+#else
+	double ldexp(value, exp)
+	double value; int exp;
+#endif
 {
-  double dval;
-  int ival[2];
-};
-
-double ldexp (double x,int n)
-{
-  union dtol number;
-  int *iptr, cn;
-
-  if (x == 0.0)
-    return (0.0);
-  else
-    {
-      number.dval = x;
-      iptr = &number.ival[0];
-      cn = (((*iptr) & EXP_MASK) >> EXP_SHIFTS) - EXP_BIAS;
-      *iptr &= ~EXP_MASK;
-      n += EXP_BIAS;
-      *iptr |= ((n + cn) << EXP_SHIFTS) & EXP_MASK;
-      return (number.dval);
-    }
+	if(!finite(value)||value==0.0) return value;
+	value = scalbn(value,exp);
+	if(!finite(value)||value==0.0) errno = ERANGE;
+	return value;
 }

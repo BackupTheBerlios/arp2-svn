@@ -2,5 +2,5 @@
 
 VOID LibFreePooled(APTR poolHeader, APTR memory, ULONG memSize)
 {
-  AsmFreePooled(poolHeader,memory,memSize,*(APTR *)4L);
+  _AsmFreePooled(poolHeader,memory,memSize,*(APTR *)4L);
 }

@@ -1,3 +1,6 @@
+
+#if defined( __mc68000__ )
+
 #include "bases.h"
 
 asm("
@@ -9,3 +12,5 @@ ___stkovf:
 	clrl	"A4(___stk_limit)"	| generate no more stackoverflows
 	jra	__XCOVF
 ");
+
+#endif

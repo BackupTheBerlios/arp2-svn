@@ -1,13 +1,5 @@
-#if 0
 
-#include <utility/hooks.h>
-
-ULONG HookEntry(struct Hook *hook asm("a0"),APTR obj asm("a2"),APTR msg asm("a1"))
-{
-  return (*hook->h_SubEntry)(hook,obj,msg);
-}
-
-#else
+#if defined( __mc68000__ )
 
 asm("
 		.text
@@ -23,4 +15,39 @@ _HookEntry:	movel	a1,sp@-
 		rts
 ");
 
+#elif defined( __i386__ ) && defined( __amithlon__ ) && defined( __BIG_ENDIAN__ )
+
+__asm("
+	.text
+	.balign	4
+	.type	_HookEntry,@function
+_HookEntry:
+	movl	%ebp,%eax  /* A1 */
+	bswap	%eax
+	push	%eax
+
+	movl	%esi,%eax  /* A2 */
+	bswap	%eax
+	push	%eax
+
+	movl	%ebx,%eax  /* A0 */
+	bswap	%eax
+	push	%eax
+  
+	mov	12(%ebx),%eax
+	bswap	%eax
+	call	*%eax
+        add     $12,%esp
+        ret
+
+.L_HookEntry:
+	.size	_HookEntry,.L_HookEntry-_HookEntry
+	
+	.globl	HookEntry
+	.type	HookEntry,@function
+HookEntry = _HookEntry+1
+");
+
+#else
+# warning No HookEntry implementation
 #endif

@@ -1,3 +1,4 @@
+struct VSPrite;
 #include <clib/alib_protos.h>
 #include <proto/graphics.h>
 

@@ -380,3 +380,21 @@ F added __buffsize to be able to increase default i/o buffersize
 F merged normal and baserelative startupcode
 
 V2.0
+
+F Ported to i386/Amithlon (Martin Blom)
+
+F Added a bunch of functions from NetBSD's libm: acosh() asinh()
+  atanh() cbrt() copysign() erf() expm1() finite() frexp() hypot()
+  ilogb() infinity() j0() j1() jn() ldexp() lgamma_r() log1p() logb()
+  modf() nextafter() remainder() rint() scalb() scalbn()
+  __kernel_cos() __kernel_sin() __kernel_tan()
+  Not added: rem_pio2() __kernel_rem_pio2() because of internal compiler
+  error in __kernel_rem_pio2(). (Martin Blom)
+
+F Added code to handle 'long double' in vfprintf.c. (I just cast it to
+  a double.) (Martin Blom)
+
+S Switched from LGPL to Runtime GPL.
+
+F The Amithlon patch is now relative the release version of libnix 2,
+  not the beta.

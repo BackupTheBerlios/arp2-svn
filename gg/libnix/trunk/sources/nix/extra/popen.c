@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <exec/memory.h>
 #include <dos/dostags.h>
 #include <dos/dosextens.h>
 #include <proto/exec.h>

@@ -1,3 +1,6 @@
+
+#if defined( __mc68000__ )
+
 asm("
 		.text
 
@@ -21,3 +24,29 @@ L_Null:		rts
 L_Invoke:	movel	a0@(8:W),sp@-
 		rts
 ");
+
+#else
+
+#include <intuition/classes.h>
+#include <clib/alib_protos.h>
+
+ULONG
+DoMethodA( Object *obj, Msg message )
+{
+  if( obj == NULL )
+  {
+    return 0;
+  }
+  else
+  {
+    return CallHookA( &OCLASS( obj )->cl_Dispatcher, obj, message );
+  }
+}
+
+ULONG
+DoMethod( Object *obj, ULONG methodID, ... )
+{
+  return DoMethodA( obj, (APTR) &methodID );
+};
+
+#endif

@@ -1,3 +1,6 @@
+
+#if defined( __mc68000__ )
+
 #include <proto/mathieeedoubbas.h>
 #include "stabs.h"
 
@@ -9,3 +12,5 @@ ALIAS(__nedf2,__eqdf2);
 ALIAS(__gtdf2,__eqdf2);
 ALIAS(__ltdf2,__eqdf2);
 ALIAS(__ledf2,__eqdf2);
+
+#endif

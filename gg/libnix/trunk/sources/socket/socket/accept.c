@@ -9,7 +9,7 @@ int accept(int s, struct sockaddr *name, int *namelen)
   int rc;
 
   if ((fp=_lx_fhfromfd(s)) == NULL)
-    return NULL;
+    return 0;
 
   if ((fp2=_create_socket(fp->lx_family, fp->lx_domain, fp->lx_protocol)) == NULL)
     return -1;

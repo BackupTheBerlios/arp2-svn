@@ -29,6 +29,18 @@
 
 extern unsigned char *__decimalpoint;
 
+/* I had to break this function out, since the i686be compiler fails to
+ * compile otherwize. :(
+ */
+
+void
+kill_trailing_zeros( size_t* preci, size_t* dreq, size_t dnum, char* buffer )
+{
+  while((*preci)&&((*dreq)-->dnum||buffer[*dreq]=='0'))
+    (*preci)--;
+}
+
+
 static int __vfprintf(FILE *stream,const char *format,va_list args)
 { unsigned char buf[((BUFSIZ/4)+3)&~3];
   FILE fp;
@@ -201,7 +213,10 @@ int vfprintf(FILE *stream,const char *format,va_list args)
           size_t size,dnum,dreq;
           char *udstr=NULL;
 
-          v=va_arg(args,double);
+	  if(subtype=='L')
+	    v=va_arg(args,long double);
+	  else
+	    v=va_arg(args,double);
 
           if(isinf(v))
           { if(v>0)
@@ -272,11 +287,14 @@ int vfprintf(FILE *stream,const char *format,va_list args)
           while(dnum<dreq&&dnum<MINFLOATSIZE) /* Calculate all decimal places needed */
           { buffer[dnum++]=(char)v+'0';
             v=(v-(double)(char)v)*10.0; }
-
+#if 0
           if(killzeros) /* Kill trailing zeros if possible */
             while(preci&&(dreq-->dnum||buffer[dreq]=='0'))
               preci--;
-
+#else
+	  if(killzeros) /* Kill trailing zeros if possible */
+	    kill_trailing_zeros(&preci,&dreq,dnum,buffer);
+#endif
           if(type=='f')/* Calculate actual size of string (without sign) */
           { size=preci+1; /* numbers after decimal point + 1 before */
             if(ex1>0)

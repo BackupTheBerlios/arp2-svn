@@ -13,7 +13,7 @@ int fstat(int d,struct stat *buf)
 #if defined(__GNUC__) && defined(__mc68000)
   #undef DOS_BASE_NAME
   #define DOS_BASE_NAME dosbase
-  register APTR dosbase __asm("a6") = DOSBase;
+  register APTR dosbase = DOSBase;
 #endif
   StdFileDes *fp = _lx_fhfromfd(d);
   struct FileInfoBlock *fib;

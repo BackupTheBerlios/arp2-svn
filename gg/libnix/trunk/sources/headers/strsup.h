@@ -1,6 +1,8 @@
 #ifndef _STRSUP_H
 #define _STRSUP_H
 
+#if defined(__mc68000__)
+
 #include <sys/types.h>
 
 #ifdef __OPTIMIZE__
@@ -164,5 +166,7 @@ static  __inline__ size_t strlen_plus_one(const char *string)
 
   do;while(*s++); return (s-string);
 }
+
+#endif
 
 #endif /* _STRSUP_H */
