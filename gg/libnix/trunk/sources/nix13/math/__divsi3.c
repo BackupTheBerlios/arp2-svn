@@ -1,3 +1,6 @@
+
+#if defined( __mc68000__ )
+
 asm("
 		.globl	_div
 		.globl	_ldiv
@@ -39,3 +42,53 @@ LC1:		movel	sp@+,d2
 		movel	sp@+,d3
 		rts
 ");
+
+#elif defined( __i386__ )
+
+asm("
+	.text
+	.align	4
+	.globl	__modsi3
+	.type	__modsi3,@function
+__modsi3:
+	push	%ebp
+	mov	%esp,%ebp
+
+	movl	8(%ebp),%eax
+	bswap	%eax
+	cltd
+	movl	12(%ebp),%ecx
+	bswap	%ecx
+	idivl	%ecx,%eax
+	movl	%edx,%eax
+
+	leave
+	ret
+
+	.align	4
+	.globl	div
+	.globl	ldiv
+	.globl	__divsi3
+	.type	div,@function
+	.type	ldiv,@function
+	.type	__divsi3,@function
+div:
+ldiv:
+__divsi3:
+	push	%ebp
+	mov	%esp,%ebp
+
+	movl	8(%ebp),%eax
+	bswap	%eax
+	cltd
+	movl	12(%ebp),%ecx
+	bswap	%ecx
+	idivl	%ecx,%eax
+
+	leave
+	ret
+");
+
+#else
+# error Unsupported CPU
+#endif

@@ -1,3 +1,6 @@
+
+#if defined( __mc68000__ )
+
 #include "bases.h"
 #include "stabs.h"
 
@@ -27,3 +30,5 @@ ___unlk_a5_rts:
 ");
 
 ALIAS(__move_d0_sp,__stkrst);
+
+#endif

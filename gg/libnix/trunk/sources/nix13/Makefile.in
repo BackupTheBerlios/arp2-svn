@@ -19,7 +19,7 @@ endif
 
 CURDIR = $(shell pwd)
 
-OPTIONS=-I$(srcdir)/../headers $(CFLAGS) -msmall-code
+OPTIONS=-I$(srcdir)/../headers $(CFLAGS)
 
 REDEF=-D_DOSBase=___DOSBase \
       -D_UtilityBase=___UtilityBase \

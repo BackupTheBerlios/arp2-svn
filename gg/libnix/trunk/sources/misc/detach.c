@@ -69,11 +69,17 @@ void __initdetach(void)
 
         cli->cli_Module = 0; /* I'm no longer owner of this */
 
+#if defined( __mc68000__ )
         /* Adjust stack, release semaphore and return 0 in one.
          * Maybe the 3 movel are a bit too cautious, but they ARE working
          */
         asm("movel %0,sp;movel %1,a6;movel %2,a0;moveql #0,d0;jmp a6@(-570)"::
             "r"(stack),"r"(SysBase),"r"(sema):"sp","a6","a0");
+#else
+	Forbid();
+	ReleaseSemaphore(sema);
+	_exit( 0 );
+#endif
       }
 
       ReleaseSemaphore(sema); /* Again only caution - you never know */

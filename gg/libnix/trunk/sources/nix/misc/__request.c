@@ -1,3 +1,6 @@
+
+#if defined( __mc68000__ )
+
 #include "bases.h"
 
 asm("
@@ -49,3 +52,57 @@ ___request:
 l_fail:	moveml	sp@+,#0x4c1c
 	rts
 ");
+
+#else
+
+struct Device;
+struct IORequest;
+struct MemHeader;
+struct SemaphoreMessage;
+struct SignalSemaphore;
+
+#include <dos/dosextens.h>
+#include <intuition/intuition.h>
+#include <proto/exec.h>
+#include <proto/intuition.h>
+
+static const struct IntuiText body = {
+  0, 0, 0,
+  15, 5,
+  NULL, NULL, NULL
+};
+
+static const struct IntuiText ok = {
+  0, 0, 0,
+  6, 3,
+  NULL, "Ok", NULL
+};
+
+void
+__request( const char* str )
+{
+  struct ExecBase* SysBase = *(struct ExecBase**) 4;
+  struct Process*  me;
+  
+  me = (struct Process*) FindTask( NULL );
+
+  if( me->pr_WindowPtr != (APTR) -1 )
+  {
+    struct IntuitionBase* IntuitionBase;
+
+    IntuitionBase = (struct IntuitionBase*)
+      OpenLibrary( "intuition.library", 0 );
+
+    if( IntuitionBase != NULL )
+    {
+      AutoRequest( NULL,
+		   &body, NULL, &ok,
+		   0, 0,
+		   ( 640 >> 4 ) << 4, 72 );
+
+      CloseLibrary( IntuitionBase );
+    }
+  }
+}
+
+#endif

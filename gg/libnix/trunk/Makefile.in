@@ -15,6 +15,8 @@
 srcdir =	@srcdir@
 VPATH =		@srcdir@
 
+host_cpu =	@host_cpu@
+
 # Common prefix for machine-independent installed files.
 prefix =	@prefix@
 
@@ -37,12 +39,17 @@ CURDIR := $(shell pwd)
 
 MAK2=$(MAKE) -f $(CURDIR)/sources/Makefile
 
+ifeq ($(host_cpu),m68k)
 SUBDIRS=startup lib libb lib020 libb020 lib881 libb881#lib060 libb060 libb32 libb32881 libb32060
+else
+SUBDIRS=startup lib
+endif
 
 all: libnix.guide libnix.info $(SUBDIRS)
 	cd sources;	$(MAKE) filelists
 	cd startup;	$(MAKE) -f $(CURDIR)/sources/startup/Makefile V="$(V)"
 	cd lib; 	$(MAK2) V="$(V)" CFLAGS="-Wall -O3 -fomit-frame-pointer"
+ifeq ($(host_cpu),m68k)
 	cd libb;	$(MAK2) V="$(V)" CFLAGS="-Wall -O3 -fomit-frame-pointer -fbaserel -DSMALL_DATA"
 	cd lib020;	$(MAK2) V="$(V)" CFLAGS="-Wall -O3 -fomit-frame-pointer -m68020"
 	cd libb020;	$(MAK2) V="$(V)" CFLAGS="-Wall -O3 -fomit-frame-pointer -fbaserel -DSMALL_DATA -m68020"
@@ -54,21 +61,27 @@ all: libnix.guide libnix.info $(SUBDIRS)
 #	cd libb32881;	$(MAK2) V="$(V)" CFLAGS="-Wall -O3 -fomit-frame-pointer -fbaserel32 -DSMALL_DATA -m68020 -m68881"
 #	cd libb32060;	$(MAK2) V="$(V)" CFLAGS="-Wall -O3 -fomit-frame-pointer -fbaserel32 -DSMALL_DATA -m68060 -m68881"
 #	cd libix;	$(MAK2) V="$(V)" CFLAGS="-Wall -O3 -fomit-frame-pointer -DIXPATHS"
+endif
 
 $(SUBDIRS):
 	mkdir $@
 
 libamiga:
 	if [ ! -d lib ] ; then mkdir lib ; else true ; fi
+ifeq ($(host_cpu),m68k)
 	if [ ! -d libb ] ; then mkdir libb ; else true ; fi
 	if [ ! -d libb32 ] ; then mkdir libb32 ; else true ; fi
+endif
 	cd sources;	$(MAK2) filelists
 	cd lib; 	$(MAK2) libamiga CFLAGS="-O3 -fomit-frame-pointer"
+ifeq ($(host_cpu),m68k)
 	cd libb;	$(MAK2) libamiga CFLAGS="-O3 -fomit-frame-pointer -fbaserel"
 #	cd libb32;	$(MAK2) libamiga CFLAGS="-O3 -fomit-frame-pointer -fbaserel32 -m68020"
+endif
 
 clean:
 	cd lib; 	$(MAK2) clean
+ifeq ($(host_cpu),m68k)
 	cd libb;	$(MAK2) clean
 	cd lib020;	$(MAK2) clean
 	cd libb020;	$(MAK2) clean
@@ -80,10 +93,12 @@ clean:
 #	cd libb32881;	$(MAK2) clean
 #	cd libb32060;	$(MAK2) clean
 #	cd libix;	$(MAK2) clean
+endif
 	-rm -f sources/*/filelist sources/stubs/libbases/* sources/stubs/libnames/*
 
 veryclean:
 	cd lib; 	$(MAK2) veryclean
+ifeq ($(host_cpu),m68k)
 	cd libb;	$(MAK2) veryclean
 	cd lib020;	$(MAK2) veryclean
 	cd libb020;	$(MAK2) veryclean
@@ -95,6 +110,7 @@ veryclean:
 #	cd libb32881;	$(MAK2) veryclean
 #	cd libb32060;	$(MAK2) veryclean
 #	cd libix;	$(MAK2) veryclean
+endif
 	-rm sources/*/filelist
 
 libnix.guide: libnix.texi
@@ -107,6 +123,7 @@ install: installdirs
 	$(INSTALL) startup/*.o $(libdir)/libnix
 	$(INSTALL) lib/*/lib*.a $(libdir)/libnix
 	$(INSTALL) lib/misc/*.o $(libdir)/libnix
+ifeq ($(host_cpu),m68k)
 	$(INSTALL) libb/*/lib*.a $(libdir)/libb/libnix
 	$(INSTALL) libb/misc/*.o $(libdir)/libb/libnix
 	$(INSTALL) lib020/*/lib*.a $(libdir)/libm020/libnix
@@ -127,6 +144,7 @@ install: installdirs
 #	$(INSTALL) libb32881/misc/*.o $(libdir)/libb32/libm020/libm881/libnix
 #	$(INSTALL) libb32060/*/lib*.a $(libdir)/libb32/libm060/libnix
 #	$(INSTALL) libb32060/misc/*.o $(libdir)/libb32/libm060/libnix
+endif
 	$(INSTALL_DATA) *.info* $(infodir)
 	$(INSTALL_DATA) libnix.guide $(guidedir)/libnix.guide
 
@@ -135,7 +153,9 @@ installdirs: mkinstalldirs
 	$(infodir) \
 	$(guidedir) \
 	$(libdir) \
-	$(libdir)/libnix \
+	$(libdir)/libnix
+ifeq ($(host_cpu),m68k)
+	$(srcdir)/mkinstalldirs \
 	$(libdir)/libm020 \
 	$(libdir)/libm020/libnix \
 	$(libdir)/libm020/libm881 \
@@ -158,6 +178,7 @@ installdirs: mkinstalldirs
 #	$(libdir)/libb32/libm020/libm881/libnix \
 #	$(libdir)/libb32/libm060 \
 #	$(libdir)/libb32/libm060/libnix
+endif
 
 distribution:
 	mkdir t:gg t:gg/lib t:gg/lib/libnix

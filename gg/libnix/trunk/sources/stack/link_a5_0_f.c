@@ -1,3 +1,6 @@
+
+#if defined( __mc68000__ )
+
 #include "bases.h"
 
 asm("
@@ -25,3 +28,5 @@ l2:	moveq	#0,d0
 	moveq	#0,d1
 	jra	___stkext_f
 ");
+
+#endif

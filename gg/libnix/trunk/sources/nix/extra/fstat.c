@@ -2,7 +2,7 @@
 #include <sys/stat.h>
 #include <dos/dosextens.h>
 #include <proto/dos.h>
-#include <strsup.h>
+//#include <strsup.h>
 #include <stdio.h>
 
 extern void __seterrno(void);
@@ -12,7 +12,7 @@ int fstat(int d,struct stat *buf)
 #if defined (__GNUC__)
   #undef DOS_BASE_NAME
   #define DOS_BASE_NAME dosbase
-  register APTR dosbase __asm("a6") = DOSBase;
+  register APTR dosbase = DOSBase;
 #endif
   StdFileDes *fp = _lx_fhfromfd(d);
   struct FileInfoBlock *fib;

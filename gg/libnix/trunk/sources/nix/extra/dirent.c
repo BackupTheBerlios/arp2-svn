@@ -4,7 +4,7 @@
 #include <exec/memory.h>
 #include <proto/exec.h>
 #include <proto/dos.h>
-#include <strsup.h>
+//#include <strsup.h>
 
 DIR *opendir(const char *dirname)
 { DIR *dirp;

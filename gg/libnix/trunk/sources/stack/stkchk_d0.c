@@ -1,3 +1,6 @@
+
+#if defined( __mc68000__ )
+
 #include "bases.h"
 
 asm("
@@ -20,3 +23,5 @@ ___stkchk_0:
 
 L0:	jra	___stkovf
 ");
+
+#endif

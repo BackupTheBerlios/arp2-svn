@@ -91,12 +91,16 @@ of the non-ANSI functions and a lot of ideas.
 @node Disclaimer,Naming,Authors,Top
 @chapter Disclaimer
 
-This package is public domain. That means that you can copy, use and modify it
+This package is free software. That means that you can copy, use and modify it
 without any problems and that you can get it for free. If you actually
 paid for getting it this is completely your fault - I didn't see a cent
 of that money. It also means that I cannot be made responsible for any damage
 resulting out of the use of it - you simply shouldn't trust anything you didn't
 pay for :-).
+
+If you make any changes to it, you have to publish those changes. See
+the file @file{COPYING.LIB} for the full license.
+
 
 @node Naming,Usage,Disclaimer,Top
 @chapter Naming conventions

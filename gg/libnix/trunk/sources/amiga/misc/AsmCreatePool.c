@@ -4,7 +4,7 @@
                     (l)->mlh_Tail = NULL, \
                     (l)->mlh_TailPred = (struct MinNode *)&(l)->mlh_Head)
 
-APTR ASM AsmCreatePool(REG(d0,ULONG requirements),REG(d1,ULONG puddleSize),REG(d2,ULONG threshSize),REG(a6,APTR SysBase))
+APTR _AsmCreatePool(ULONG requirements,ULONG puddleSize,ULONG threshSize,APTR SysBase)
 {
   if (((struct Library *)SysBase)->lib_Version>=39)
     return (CreatePool(requirements,puddleSize,threshSize));
@@ -23,7 +23,7 @@ APTR ASM AsmCreatePool(REG(d0,ULONG requirements),REG(d1,ULONG puddleSize),REG(d
   }
 }
 
-VOID ASM AsmDeletePool(REG(a0,POOL *poolHeader),REG(a6,APTR SysBase))
+VOID _AsmDeletePool(POOL *poolHeader,APTR SysBase)
 { ULONG *pool,size;
 
   if (((struct Library *)SysBase)->lib_Version>=39)
@@ -35,3 +35,17 @@ VOID ASM AsmDeletePool(REG(a0,POOL *poolHeader),REG(a6,APTR SysBase))
     FreeMem(poolHeader,sizeof(POOL));
   }
 }
+
+#if defined( __mc68000__ )
+
+APTR ASM AsmCreatePool(REG(d0,ULONG requirements),REG(d1,ULONG puddleSize),REG(d2,ULONG threshSize),REG(a6,APTR SysBase))
+{
+  _AsmCreatePool( requirements, puddleSize, threshSize, SysBase );
+}
+
+VOID ASM AsmDeletePool(REG(a0,POOL *poolHeader),REG(a6,APTR SysBase))
+{
+  _AsmDeletePool( poolHeader, SysBase );
+}
+
+#endif

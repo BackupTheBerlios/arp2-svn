@@ -1,13 +1,5 @@
-#if 0
 
-#include <utility/hooks.h>
-
-ULONG HookEntry(struct Hook *hook asm("a0"),APTR obj asm("a2"),APTR msg asm("a1"))
-{
-  return (*hook->h_SubEntry)(hook,obj,msg);
-}
-
-#else
+#if defined( __mc68000__ )
 
 asm("
 		.text

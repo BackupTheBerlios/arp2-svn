@@ -21,7 +21,7 @@ int rename(const char *old,const char *new)
 #if defined (__GNUC__)
   #undef DOS_BASE_NAME
   #define DOS_BASE_NAME dosbase
-  register APTR dosbase __asm("a6") = DOSBase;
+  register APTR dosbase = DOSBase;
 #endif
 
         BPTR lnew=Lock((char *)new,SHARED_LOCK);

@@ -7,6 +7,8 @@
 srcdir =	@srcdir@
 VPATH =		@srcdir@
 
+host_cpu =	@host_cpu@
+
 CC =		@CC@
 CPP =		@CPP@
 AS =		@AS@
@@ -26,7 +28,11 @@ OPTIONS=-I$(srcdir)/../headers -O -fomit-frame-pointer
 
 .PHONY: all filelist subdirs clean veryclean
 
+ifeq ($(host_cpu),m68k)
 all: nrcrt0.o nbcrt0.o ncrt0.o libinit.o libinitr.o devinit.o
+else
+all: ncrt0.o crti.o crtn.o #libinit.o libinitr.o devinit.o
+endif
 
 subdirs:
 
@@ -37,6 +43,7 @@ clean:
 veryclean:
 	-rm *.o
 
+ifeq ($(host_cpu),m68k)
 # baserelative resident startup-code
 
 nrcrt0.o: nrcrt0.S
@@ -54,3 +61,9 @@ nbcrt0.o: nbcrt0.S
 ncrt0.o: ncrt0.S
 	$(CC) -c $^
 	echo "\$$$(V)" >>$@
+else
+
+ncrt0.o: crt0-ix86be.c
+	$(CC) -c $^ -o $@
+	echo "\$$$(V)" >>$@
+endif

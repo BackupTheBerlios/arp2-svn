@@ -1,6 +1,6 @@
 #include "pool.h"
 
-APTR ASM AsmAllocPooled(REG(a0,POOL *poolHeader),REG(d0,ULONG memSize),REG(a6,APTR SysBase))
+APTR _AsmAllocPooled(POOL *poolHeader,ULONG memSize,APTR SysBase)
 {
   if (((struct Library *)SysBase)->lib_Version>=39)
     return (AllocPooled(poolHeader,memSize));
@@ -60,3 +60,12 @@ out:
     return puddle;
   }
 }
+
+#if defined( __mc68000__ )
+
+APTR ASM AsmAllocPooled(REG(a0,POOL *poolHeader),REG(d0,ULONG memSize),REG(a6,APTR SysBase))
+{
+  return _AsmAllocPooled( poolHeader, memSize, SysBase );
+}
+
+#endif

@@ -29,6 +29,10 @@
 
 extern unsigned char *__decimalpoint;
 
+#if defined( __i386__ )
+# undef FULL_SPECIFIERS
+#endif
+
 static int __vfprintf(FILE *stream,const char *format,va_list args)
 { unsigned char buf[((BUFSIZ/4)+3)&~3];
   FILE fp;

@@ -1,3 +1,6 @@
+
+#if defined( __mc68000__ )
+
 asm("
 		.text
 
@@ -21,3 +24,5 @@ L_Null:		rts
 L_Invoke:	movel	a0@(8:W),sp@-
 		rts
 ");
+
+#endif

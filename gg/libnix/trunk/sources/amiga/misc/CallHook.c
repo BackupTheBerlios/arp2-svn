@@ -1,3 +1,6 @@
+
+#if defined( __mc68000__ )
+
 asm("
 		.text
 
@@ -21,3 +24,5 @@ L_CallHook:	movel	a6,sp@-
 L_callit:	movel	a0@(8:W),sp@-
 		rts
 ");
+
+#endif

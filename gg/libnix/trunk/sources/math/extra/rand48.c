@@ -129,6 +129,10 @@ lcong48(unsigned short *new_parm)
    (the result is the two m.s.words of the updated seed).
 */
 
+#if defined( __i386__ )
+# warning 64 bit integers not supported by i686be-amithlon-gcc yet!
+#else
+
 static long
 rng(unsigned short *seed)
 {
@@ -161,7 +165,7 @@ rng(unsigned short *seed)
 
   return (long)((((unsigned long)seed[2]) << 16) + seed[1]);
 }
-
+#endif
 
 /*--------------------------------------------------------------------------*
  * Interface functions to the random number generator                       *

@@ -1,3 +1,6 @@
+
+#if defined( __mc68000__ )
+
 #include "bases.h"
 
 asm("
@@ -22,3 +25,5 @@ ___stkrst_f:
 	movel	a2@,a2
 	rts
 ");
+
+#endif

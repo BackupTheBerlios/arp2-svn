@@ -1,6 +1,6 @@
 #include "pool.h"
 
-VOID ASM AsmFreePooled(REG(a0,POOL *poolHeader),REG(a1,APTR memory),REG(d0,ULONG memSize),REG(a6,APTR SysBase))
+VOID ASM _AsmFreePooled(POOL *poolHeader,APTR memory,ULONG memSize,APTR SysBase)
 {
   if (((struct Library *)SysBase)->lib_Version>=39)
     return (FreePooled(poolHeader,memory,memSize));
@@ -28,3 +28,12 @@ VOID ASM AsmFreePooled(REG(a0,POOL *poolHeader),REG(a1,APTR memory),REG(d0,ULONG
     size=*--puddle; FreeMem(puddle,size);
   }
 }
+
+#if defined( __mc68000__ )
+
+VOID ASM AsmFreePooled(REG(a0,POOL *poolHeader),REG(a1,APTR memory),REG(d0,ULONG memSize),REG(a6,APTR SysBase))
+{
+  _AsmFreePooled( poolHeader, memory, memSize, SysBase );
+}
+
+#endif

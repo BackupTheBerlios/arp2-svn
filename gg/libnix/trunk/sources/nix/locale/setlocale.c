@@ -6,7 +6,7 @@
 #include <libraries/locale.h>
 #include <proto/locale.h>
 #include <proto/exec.h>
-#include <strsup.h>
+//#include <strsup.h>
 #include "stabs.h"
 
 extern struct LocaleBase *LocaleBase;
@@ -69,7 +69,7 @@ char *setlocale(int category,const char *name)
     return string;
   }
 
-  if((string=malloc(strlen_plus_one(name)))==NULL) /* gets freed next time */
+  if((string=malloc(strlen(name)+1))==NULL) /* gets freed next time */
     return NULL;
   strcpy(string,name);
 

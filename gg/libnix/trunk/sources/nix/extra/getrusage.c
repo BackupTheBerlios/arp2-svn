@@ -3,7 +3,7 @@
 #include <sys/resource.h>
 #include <sys/times.h>
 #include <string.h>
-#include <strsup.h>
+//#include <strsup.h>
 #include "stabs.h"
 
 extern void timer(long *);

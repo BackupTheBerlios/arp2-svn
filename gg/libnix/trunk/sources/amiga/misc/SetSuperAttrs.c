@@ -1,3 +1,6 @@
+
+#if defined( __mc68000__ )
+
 asm("
 		.text
 
@@ -22,3 +25,7 @@ L_Null:		movel	sp@+,a2
 L_Invoke:	movel	a0@(8:W),sp@-
 		rts
 ");
+
+#else
+/* FIXME: Some other day ... */
+#endif

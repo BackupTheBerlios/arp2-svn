@@ -2,7 +2,7 @@
 #include <proto/locale.h>
 #include <locale.h>
 #include <string.h>
-#include <strsup.h>
+//#include <strsup.h>
 
 extern struct Locale *__localevec[];
 
