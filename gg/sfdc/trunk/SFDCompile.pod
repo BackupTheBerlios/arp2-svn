@@ -62,7 +62,7 @@ Show the complete manual page and exit.
 Instructs F<sfdc> what to do. F<sfdc> can handle the
 following arguments:
 
-=over 8
+=over 4
 
 =item B<clib>
 
@@ -111,7 +111,7 @@ the C prototypes as well as compiler-specific inlines or pragma files.
 
 =item B<sas-pragmas>
 
-Generate a SAS/C pragmas file.
+Generate a F<SAS/C>/F<LATTICE>/F<DICE> pragmas file.
 
 
 =item B<stubs>
@@ -132,7 +132,7 @@ sequencies are allowed in the file name. If the sequence B<%f> is
 present in the name, a new file will be created for each function
 processed.
 
-=over 8
+=over 4
 
 =item B<%b>
 
@@ -166,7 +166,7 @@ Specifies the target when generating macros etc. The target names
 follow the GNU autoconf standard. Some possible values are listed
 below. The default is B<m68k-unknown-amigaos>.
 
-=over 8
+=over 4
 
 =item B<i?86-pc-aros>, B<i?86-linux-aros>, B<ppc-aros> ...
 
@@ -206,6 +206,74 @@ distributed with B<NDK 3.9>. It is also an replacement for
 F<fd2inline> from GeekGadgets and the MorphOS team, later improved to
 death by Martin Blom. It's now a complete mess and needs a
 replacement. SFD files and F<sfdc> might to be a good start.
+
+For developers using F<gcc>, F<sfdc> aims to handle all your needs
+when it comes to libraries, devices, datatypes, BOOPSI classes or
+similar modules. F<sfdc> can also generate F<SAS/C> and F<DICE> files
+for end users of such modules.
+
+The basis for all work performed by F<sfdc> is the B<SFD> file, which
+contains all required information about the module and the functions
+provided. From this information, F<sfdc> can:
+
+=over 4
+
+=item *
+
+Generate an old-style B<FD> file for futher processing with other tools.
+
+
+=item *
+
+Generate a B<C prototype file>, such as those normally found in the
+F<Include/clib/> directory.
+
+
+=item *
+
+Generate F<gcc> B<inlines> (actually preprocessor macros) or F<SAS/C>
+B<pragmas> for direct library function calls (without going via
+library stubs).
+
+
+=item *
+
+Generate the F<Include/proto/> file, which includes the
+F<Include/clib/> file and either the F<gcc> inlines or F<SAS/C>
+pragmas.
+
+
+=item *
+
+Generate an B<assembler LVO> file, which contains the library offset
+of all functions in the library.
+
+
+=item *
+
+Generate B<C stubs>, which can be compiled and archived into a stub
+library.
+
+
+=item *
+
+Generate library B<gateway stubs>, which can be used as part of your
+module as glue between the module function table and your C functions.
+
+
+=back
+
+
+Additionally, F<sfdc> does all this for several Amiga-like operating
+systems: traditional B<AmigaOS>, native B<Amithlon>, B<AROS> and
+B<MorphOS>.
+
+F<sfdc> uses F<autoconf> style identifies for the operating systems,
+making it easy to generate the correct output. Just make sure
+F<configure.in> contains the B<AC_CANONICAL_SYSTEM> command and use
+B<@host@> in your F<Makefile.in>. Using F<autoconf> and F<sfdc>, it's
+easy to make for example a library that can be compiled or
+cross-compiiled for any of the mentioned architectures.
 
 
 =head1 RETURN VALUE
