@@ -1,0 +1,120 @@
+## automake - create Makefile.in from Makefile.am
+## Copyright (C) 1994, 1995, 1996 Free Software Foundation, Inc.
+
+## This program is free software; you can redistribute it and/or modify
+## it under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2, or (at your option)
+## any later version.
+
+## This program is distributed in the hope that it will be useful,
+## but WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+## GNU General Public License for more details.
+
+## You should have received a copy of the GNU General Public License
+## along with this program; if not, write to the Free Software
+## Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+## 02111-1307, USA.
+
+MAKEGUIDE= $(MAKEINFO) --amiga
+
+MAKEHTML = texi2html -number -split_chapter
+
+.texi.guide:
+	$(MAKEGUIDE) -I$(srcdir) $< -o $@
+
+.texinfo.guide:
+	$(MAKEGUIDE) -I$(srcdir) $< -o $@
+
+.txi.guide:
+	$(MAKEGUIDE) -I$(srcdir) $< -o $@
+
+.texi.html:
+	$(MAKEHTML) -I$(srcdir) $< 
+
+.texinfo.html:
+	$(MAKEHTML) -I$(srcdir) $< 
+
+## Look in both . and srcdir because the guide pages might have been
+## rebuilt in the build directory.  Can't cd to srcdir; that might
+## break a possible install-sh reference.
+install-guide: $(GUIDE_DEPS)
+	$(mkinstalldirs) $(DESTDIR)$(guidedir)
+	for file in $(GUIDE_DEPS); do		\
+## We use these strange circumlocutions because we want the "ifile" to
+## be relative, for the install.
+	  for ifile in `echo $$file*`; do \
+	    $(INSTALL_DATA) $$ifile $(DESTDIR)$(guidedir)/$$ifile; \
+	  done;					\
+## We need the 'else' because in some broken versions of sh 'if' will
+## return false if the test fails.  We use ':' because the GNU
+## standards prohibit us from using 'true'.
+## FIXME no one has install-info, so for now we just comment it out.
+##	  if $(SHELL) -c 'install-guide --version' >/dev/null 2>&1; then \
+##	    install-guide --dir-file=$(guidedir)/dir $$d/$$file; \
+##	  else :; fi;				\
+	done
+
+uninstall-guide:
+	for file in *.guide*; do	\
+	  rm -f $(DESTDIR)$(guidedir)/$$file; \
+	done
+
+install-ps: $(PS_S)
+	$(mkinstalldirs) $(DESTDIR)$(psdir)
+	for file in $(PS_DEPS); do		\
+	  for ifile in `echo $$file*`; do \
+	    $(INSTALL_DATA) $$ifile $(DESTDIR)$(psdir)/$$ifile; \
+	  done;					\
+	done
+
+uninstall-ps:
+	for file in *.ps*; do	\
+	  rm -f $(DESTDIR)$(psdir)/$$file; \
+	done
+
+install-dvi: $(DVIS)
+	$(mkinstalldirs) $(DESTDIR)$(dvidir)
+	for file in $(DVIS); do		\
+	  for ifile in `echo $$file*`; do \
+	    $(INSTALL_DATA) $$ifile $(DESTDIR)$(dvidir)/$$ifile; \
+	  done;					\
+	done
+
+uninstall-dvi:
+	for file in *.dvi*; do	\
+	  rm -f $(DESTDIR)$(dvidir)/$$file; \
+	done
+
+## JvdW Sat Sep 20 22:15:09 1997
+## target is dependant on PACKAGE.html which is *NOT* generated
+## result is that this target is always generated :(
+## two 'solutions'
+## - somehow generate the correct dependancy
+## - remove '-split_chapter' from MAKEHTML
+install-html: $(HTML_DEPS)
+	$(mkinstalldirs) $(DESTDIR)$(htmldir)
+## hack to prevent re-generation of HTMLS
+	@touch $(HTML_DEPS)
+	@for file in $(HTML_DEPS); do \
+	  if test -f $$file; then d=.; else d=$(srcdir); fi; \
+## Get the basename of the generated html file and append toc/footer/numbers to it
+	  bfile=`basename $$file .html`; \
+	  for ifile in `cd $$d && echo $$file $$bfile'_toc.html' $$bfile'_foot.html' $$bfile'_[0-9].html' $$bfile'_[0-9][0-9].html'`; do \
+	    if test -f $$d/$$ifile; then \
+	      echo " $(INSTALL_DATA) $$d/$$ifile $(DESTDIR)$(htmldir)/$$ifile"; \
+	      $(INSTALL_DATA) $$d/$$ifile $(DESTDIR)$(htmldir)/$$ifile; \
+	    else : ; fi; \
+	  done; \
+	done
+## hack to get rid of the unneeded file
+	@rm -f $(htmldir)/$(HTML_DEPS)
+
+uninstall-html:
+	@for file in $(HTML_DEPS); do \
+	  bfile=`basename $$file .html`; \
+	  for ifile in `cd $(DESTDIR)$(htmldir) && echo $$file $$bfile'_toc.html' $$bfile'_foot.html' $$bfile'_[0-9].html' $$bfile'_[0-9][0-9].html'`; do \
+	    echo "removing: $(DESTDIR)$(htmldir)/$$ifile"; \
+	    rm -f $(DESTDIR)$(htmldir)/$$ifile; \
+	  done; \
+	done
