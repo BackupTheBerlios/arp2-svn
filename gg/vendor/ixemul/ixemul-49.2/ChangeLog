@@ -1,0 +1,64 @@
+2001-06-01  Emmanuel Lesueur <lesueur@club-internet.fr>
+	* Adapted the signal handling process to the new MorphOS
+	  scheduler. It seems to have fixed the CTRL-C crashes.
+	* Bumped version to 49.2.
+
+2001-03-28  Emmanuel Lesueur <lesueur@club-internet.fr>
+	* Fixed math functions for MorphOS
+
+2000-10-21  Emmanuel Lesueur <lesueur@club-internet.fr>
+	* Implemented cache manipulation functions, besides flush_cache().
+	* Fixed problems with executing non-ixemul programs.
+	* Bumped version to 49.1.
+
+2000-10-04  Emmanuel Lesueur <lesueur@club-internet.fr>
+	* Fixed various problems with 68k ixemul programs
+	* Completed support for 68k stack management
+	* Improved configure/make
+	* Fixed some includes bugs
+	* Added support for ctors/dtors in crt0.o
+	* Added the missing _err/_warn
+	* Compiled the ixpipe: handler and some tools
+
+2000-09-17  Emmanuel Lesueur <lesueur@club-internet.fr>
+	* fixed wb startup problems.
+	* fixed problem with stack extension of 68k program
+
+2000-08-30  Emmanuel Lesueur <lesueur@club-internet.fr>
+	* fixed siglongjmp()
+	* fixed a race condition in wait4()
+
+2000-06-20  Emmanuel Lesueur <lesueur@club-internet.fr>
+
+	* Added MorphOS support.
+	* bumped version from 48.1 to 49.0.
+
+2000-05-07  Emmanuel Lesueur <lesueur@club-internet.fr>
+
+	* replaced the signal handling by one based on exceptions.
+
+1999-07-12  David Zaroski  <zaroski@cronus.ninemoons.com>
+
+	* (library/lseek.c): fix error reporting in __extend_file()
+
+1999-06-13  Fred Fish  <fnf@ninemoons.com>
+
+	* version.in: Bump development version from 48.0 to 48.1 and
+	update the date fields.
+
+1999-03-06  David Zaroski  <zaroski@cronus.ninemoons.com>
+
+	* (configure.in): add support for cross compiling
+	* (Makefile.in) : ditto
+	* (man/Makefile.in): fix man page generation
+	* Regenerate configure
+	
+Sat May 23 23:53:18 1998  Fred Fish  <fnf@ninemoons.com>
+
+	* Makefile.in (OS): Remove pos from default list of operating systems
+	to build for.
+
+1998-03-25  Fred Fish  <fnf@ninemoons.com>
+
+	* ChangeLog: New file
+	* Makefile.in (CPU-FPU-TYPES): Add 68060.68881

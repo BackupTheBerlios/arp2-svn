@@ -1,0 +1,27 @@
+/*
+ * J.T. Conklin, December 12, 1994
+ * Public Domain
+ */
+
+#ifdef __PPC__
+
+#include <err.h>
+#include <stdarg.h>
+
+void
+_vwarnx(fmt, ap)
+	const char *fmt;
+	va_list ap;
+{
+	vwarnx(fmt, ap);
+}
+
+#else
+
+#include <sys/cdefs.h>
+
+#ifdef __indr_reference
+__indr_reference(_vwarnx, vwarnx);
+#endif
+#endif
+#endif
