@@ -1268,15 +1268,15 @@ ui_create_window(void)
 #ifdef __MORPHOS__
       WA_ExtraGadget_Iconify, amiga_icon != NULL,
 #endif
-      WA_IDCMP,          IDCMP_CLOSEWINDOW |
-      IDCMP_GADGETUP |
-      IDCMP_ACTIVEWINDOW |
-      IDCMP_INACTIVEWINDOW |
-      IDCMP_NEWSIZE |
-      IDCMP_SIZEVERIFY |
-      IDCMP_RAWKEY |
-      IDCMP_MOUSEBUTTONS |
-      (g_sendmotion ? IDCMP_MOUSEMOVE : 0),
+      WA_IDCMP,          (IDCMP_CLOSEWINDOW |
+			  IDCMP_GADGETUP |
+			  IDCMP_ACTIVEWINDOW |
+			  IDCMP_INACTIVEWINDOW |
+			  IDCMP_NEWSIZE |
+			  IDCMP_SIZEVERIFY |
+			  IDCMP_RAWKEY |
+			  IDCMP_MOUSEBUTTONS |
+			  (g_sendmotion ? IDCMP_MOUSEMOVE : 0)),
       TAG_DONE
     };
   

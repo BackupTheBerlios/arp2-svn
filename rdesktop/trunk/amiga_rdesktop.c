@@ -179,7 +179,11 @@ parse_server_and_port(char *server)
   }
 }
 
-enum { UI_INIT = 1, RDPSND_INIT, RDPDR_INIT, RDP_CONNECT, UI_CREATE_WINDOW };
+enum { UI_INIT          = 1,
+       RDPSND_INIT      = 2,
+       RDPDR_INIT       = 4,
+       RDP_CONNECT      = 8,
+       UI_CREATE_WINDOW = 16};
 
 static int startup = 0;
 
@@ -190,27 +194,27 @@ cleanup(void)
   {
     FreeDiskObject( amiga_icon );
   }
-  
-  switch (startup)
-  {
-    case UI_CREATE_WINDOW:
-      cache_destroy();
-      ui_destroy_window();
 
-    case RDP_CONNECT:
-      DEBUG(("Disconnecting...\n"));
-      rdp_disconnect();
-
-    case RDPDR_INIT:
-    case RDPSND_INIT:
+  if (startup & RDPSND_INIT) {
 #ifdef WITH_RDPSND
       rdpsnd_deinit();
 #endif
-
-    case UI_INIT:
-      ui_deinit();
   }
 
+  if (startup & UI_CREATE_WINDOW) {
+    cache_destroy();
+    ui_destroy_window();
+  }
+
+  if (startup & RDP_CONNECT) {  
+    DEBUG(("Disconnecting...\n"));
+    rdp_disconnect();
+  }
+
+  if (startup & UI_INIT) {
+    ui_deinit();
+  }
+  
   CloseLibrary( CyberGfxBase );
   CyberGfxBase = NULL;
 
@@ -675,22 +679,22 @@ main(int argc, char *argv[])
   if (!ui_init())
     return RETURN_FAIL;
 
-  startup = UI_INIT;
+  startup |= UI_INIT;
 	
 #ifdef WITH_RDPSND
   if (g_rdpsnd)
   {
     rdpsnd_init();
-    startup = RDPSND_INIT;
+    startup |= RDPSND_INIT;
   }
 #endif
   rdpdr_init();
-  startup = RDPDR_INIT;
+  startup |= RDPDR_INIT;
 
   if (!rdp_connect(server, flags, domain, password, shell, directory))
     return RETURN_FAIL;
 
-  startup = RDP_CONNECT;
+  startup |= RDP_CONNECT;
 	
   /* By setting encryption to False here, we have an encrypted login 
      packet but unencrypted transfer of other packets */
@@ -703,7 +707,7 @@ main(int argc, char *argv[])
   cache_create();
   if (ui_create_window())
   {
-    startup = UI_CREATE_WINDOW;
+    startup |= UI_CREATE_WINDOW;
     rdp_retval = rdp_main_loop();
   }
 	
