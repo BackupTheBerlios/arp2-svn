@@ -39,7 +39,8 @@ $(RDESKTOP): 	$(OBJECTS)
 	$(CC) $(LDFLAGS) $^ $(LDLIBS) $(OUTPUT_OPTION)
 
 lha:		$(RDESKTOP)
-	$(LHA) $(LHA_CREATE) $(RDESKTOP).lha $(RDESKTOP) $(RDESKTOP).readme COPYING
+	$(LHA) $(LHA_CREATE) $(RDESKTOP).lha $(RDESKTOP) $(RDESKTOP).readme \
+	       COPYING ChangeLog
 	find * -name '*.info' -exec $(LHA) $(LHA_ADD) $(RDESKTOP).lha "{}" \;
 
 %.d:		%.c
