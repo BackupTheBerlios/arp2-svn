@@ -93,6 +93,8 @@ BEGIN {
 
 	if ($self->{PROTO}) {
 	    print ";\n";
+	    print "#define $prototype->{funcname} AROS_SLIB_ENTRY(" .
+		"$prototype->{funcname},$sfd->{Basename})\n";
 	}
 	else {
 	    print "\n";
