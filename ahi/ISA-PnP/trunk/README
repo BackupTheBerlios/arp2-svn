@@ -1,4 +1,9 @@
-$Id$
+Short:    A Plug And Play ISA software layer for AmigaOS.
+Uploader: Martin Blom <martin@blom.org>
+Author:   Martin Blom <martin@blom.org>
+Type:     hard/drivr
+Requires: 68020+, GG2 Bus+ ISA bridge card, some PnP ISA cards
+Version:  1.2
 
                                   ISA-PnP
                                   *******
@@ -35,6 +40,8 @@ tooltype (that BindDrivers uses)
   during the resource allocation phase.
 
 * DISABLE_DEVICE=<device id>
+  DISABLE_DEVICE=<card id>:<logical device number>
+  DISABLE_DEVICE=<card id>/<serial number>:<logical device number>
 
   Disables a logical device.  No resources will be assigned this device
   during the resource allocation phase.
@@ -65,8 +72,11 @@ or applications currently using it will crash instantly!
 The API
 ¯¯¯¯¯¯¯
 ISA-PnP installs a Exec resource named "isapnp.resource", that provides a
-few functions that can be used by drivers and applications to find PNP ISA
+few functions that can be used by drivers and applications to find PnP ISA
 cards and logical devices, gain exclusive access to them and a set of
 helper functions to access registers and memory on the ISA bus.
 
 The API is not final, not finished and probably not working either.
+
+
+$Id$

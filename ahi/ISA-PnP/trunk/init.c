@@ -499,16 +499,22 @@ HexToInt( UBYTE c )
   }
 }
 
-// CTL0048/1236 => "CTL\0" 4 8 1236
+// CTL0048        => "CTL\0" 4 8 -1   -1
+// CTL0048/1236   => "CTL\0" 4 8 1236 -1
+// CTL0048:0      => "CTL\0" 4 8 -1   0
+// CTL0048/1236:0 => "CTL\0" 4 8 1236 0
 
 static int
 ParseID( UBYTE* string,
          LONG*  manufacturer,
          WORD*  product,
          BYTE*  revision,
-         LONG*  serial )
+         LONG*  serial,
+         WORD*  logical_device )
 {
-  int chars = 0;
+  int  chars = 0;
+  LONG ser   = -1;
+  LONG dev   = -1;
 
   *manufacturer = ISAPNP_MAKE_ID( ToUpper( string[ 0 ] ),
                                   ToUpper( string[ 1 ] ),
@@ -532,37 +538,66 @@ ParseID( UBYTE* string,
   }
 
   chars = 7;
-  
-  if( serial != NULL )
+
+  if( string[ chars ] == '/' )
   {
-    if( string[ 7 ] == '/' )
-    {
-      int conv = StrToLong( string + 8, serial );
+    int conv;
       
-      if( conv == -1 )
-      {
-        return 0;
-      }
-      else
-      {
-        chars += conv;
-      }
-    }
-    else if( string[ 7 ] == 0 || string[ 7 ] != ' ' )
+    if( serial == NULL )
     {
-      *serial = -1;
+      // Not allowed if we don't ask for it
+      return NULL;
+    }
+
+    conv = StrToLong( string + chars + 1, &ser );
+
+    if( conv == -1 )
+    {
+      return 0;
     }
     else
     {
-      return 0;
+      chars += conv + 1;
     }
+  
   }
-  else
+
+  if( serial != NULL )
   {
-    if( string[ 7 ] != 0 && string[ 7 ] != ' ' )
+    *serial = ser;
+  }
+
+  if( string[ chars ] == ':' )
+  {
+    int conv;
+   
+    if( logical_device == NULL )
+    {
+      // Not allowed if we don't ask for it
+      return NULL;
+    }
+
+    conv = StrToLong( string + chars + 1, &dev );
+
+    if( conv == -1 )
     {
       return 0;
     }
+    else
+    {
+      chars += conv + 1;
+    }
+  
+  }
+
+  if( logical_device != NULL )
+  {
+    *logical_device = dev;
+  }
+
+  if( string[ chars ] != 0 && string[ chars ] != ' ' )
+  {
+    return 0;
   }
 
   return chars;
@@ -584,7 +619,7 @@ HandleToolTypes( UBYTE**             tool_types,
       LONG serial;
 
       if( ParseID( *tool_types + 13, 
-                   &manufacturer, &product, &revision, &serial ) )
+                   &manufacturer, &product, &revision, &serial, NULL ) )
       {
         struct ISAPNP_Card* card = NULL;
 
@@ -609,19 +644,48 @@ HandleToolTypes( UBYTE**             tool_types,
       LONG manufacturer;
       WORD product;
       BYTE revision;
+      LONG serial;
+      WORD log_dev;
 
       if( ParseID( *tool_types + 15, 
-                   &manufacturer, &product, &revision, NULL ) )
+                   &manufacturer, &product, &revision, &serial, &log_dev ) )
       {
-        struct ISAPNP_Device* dev = NULL;
-
-        while( ( dev = ISAPNP_FindDevice( dev,
-                                          manufacturer,
-                                          product,
-                                          revision,
-                                          res ) ) != NULL )
+        if( log_dev == -1 )
         {
-          dev->isapnpd_Disabled = TRUE;
+          struct ISAPNP_Device* dev = NULL;
+
+          while( ( dev = ISAPNP_FindDevice( dev,
+                                            manufacturer,
+                                            product,
+                                            revision,
+                                            res ) ) != NULL )
+          {
+            dev->isapnpd_Disabled = TRUE;
+          }
+        }
+        else
+        {
+          struct ISAPNP_Card* card = NULL;
+
+          while( ( card = ISAPNP_FindCard( card,
+                                           manufacturer,
+                                           product,
+                                           revision,
+                                           serial,
+                                           res ) ) != NULL )
+          {
+            struct ISAPNP_Device* dev;
+            
+            for( dev = (struct ISAPNP_Device*) card->isapnpc_Devices.lh_Head;
+                 dev->isapnpd_Node.ln_Succ != NULL;
+                 dev = (struct ISAPNP_Device*) dev->isapnpd_Node.ln_Succ )
+            {
+              if( dev->isapnpd_DeviceNumber == (UWORD) log_dev )
+              {
+                dev->isapnpd_Disabled = TRUE;
+              }
+            }
+          }
         }
       }
       else
@@ -640,7 +704,7 @@ HandleToolTypes( UBYTE**             tool_types,
       UWORD  dev_num = 0;
 
       str  = *tool_types + 14;
-      conv = ParseID( str,  &manufacturer, &product, &revision, NULL );
+      conv = ParseID( str,  &manufacturer, &product, &revision, NULL, NULL );
 
       str += conv;
 
