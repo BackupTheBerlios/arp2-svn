@@ -32,6 +32,9 @@ clean:
 distclean:	clean
 	$(RM) Makefile cross/bin/gg-fix-includes config.status
 
+maintainter-clean: distclean
+	$(RM) $(srcdir)/configure gg-fd2sfd.spec
+
 install:	all
 	$(INSTALL) -d $(bindir) $(fd2sfddir)
 
