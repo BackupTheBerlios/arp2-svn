@@ -1949,8 +1949,6 @@ ui_select(int rdp_socket)
 	      }
 #endif
 
-	      printf("code %d %x, qualifier %x\n", msg->Code, msg->Code, msg->Qualifier);
-
 
 	      // RAmiga-Q quits.
 	      ie.ie_Code = msg->Code;
@@ -1991,7 +1989,23 @@ ui_select(int rdp_socket)
               if( scancode == 0 )
                 break;
 
+	      // Handle NUM LOCK
+	      if (scancode == 0x45) {
+		if (amiga_is_os4) {
+		  numlock = (flag == KBD_FLAG_DOWN);
+		}
+		else if (flag & KBD_FLAG_UP) {
+		  numlock = !numlock;
+		}
+	      }
+
+	      // Handle CAPS LOCK
 	      capslock = (msg->Qualifier & IEQUALIFIER_CAPSLOCK) != 0;
+
+	      // Handle SCROLL LOCK
+	      if (scancode == 0x46 && (flag & KBD_FLAG_UP)) {
+		amiga_scrolllock = !amiga_scrolllock;
+	      }
 
 	      // Sync NumLock/CapsLock
 	      if (numlock != amiga_numlock ||
@@ -2003,20 +2017,9 @@ ui_select(int rdp_socket)
 			       ui_get_numlock_state(read_keyboard_state()), 0);
 	      }
 
-	      // Handle CAPS LOCK
-              if (scancode == 0x3a) {
-                // ... by not sending it
+	      // These are syncronized; don't send codes
+              if (scancode == 0x3a || scancode == 0x45) {
 		break;
-	      }
-
-	      // Handle NUM LOCK
-	      if (scancode == 0x45 && (flag & KBD_FLAG_UP)) {
-		amiga_numlock = !amiga_numlock;
-	      }
-
-	      // Handle SCROLL LOCK
-	      if (scancode == 0x46 && (flag & KBD_FLAG_UP)) {
-		amiga_scrolllock = !amiga_scrolllock;
 	      }
 	      	      
               if( scancode & 0x80 )
@@ -2141,7 +2144,6 @@ ui_get_numlock_state(unsigned int amiga_qualifiers)
     state |= KBD_FLAG_SCROLL;
   }
 
-  printf ("state is now %04x\n", state);
   return state;
 }
 
