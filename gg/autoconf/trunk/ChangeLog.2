@@ -1448,6 +1448,15 @@
 	single statement, so that one can make pipes with AC_TRYs, just as
 	in 2.13.
 
+2000-12-22  Fred Fish  <fnf@be.com>
+
+	* Makefile.in (install-info): Test for a file before trying to
+	install it.
+	(install-guide): Ditto.
+	(install-html): Ditto.
+	(install-dvi): Ditto.
+	(install-ps): Ditto.
+
 2000-12-20  Lars J. Aas  <larsa@sim.no>
 
 	* aclang.m4 (_AC_COMPILER_OBJEXT, _AC_COMPILER_EXEEXT_O):
@@ -1702,6 +1711,11 @@
 	(AS_MESSAGE): Use `as_me'.
 	* acgeneral.m4: More banners in the log.
 	(_AC_INIT_DEFAULTS): Compute as_me before using it.
+
+2000-12-10  Fred Fish  <fnf@gg.geekgadgets.org>
+
+	* Makefile.in (install-html): Look for either autoconf.html or
+	autoconf_1.html, so that split chapter html works.
 
 2000-12-08  Akim Demaille  <akim@epita.fr>
 
@@ -8316,6 +8330,11 @@
 	* acspecific.m4 (AC_RSH, AC_ARG_ARRAY, AC_HAVE_POUNDBANG): No use
 	to hide, you are DEFUNCT.
 
+1999-11-21  Fred Fish  <fnf@ninemoons.com>
+
+	* acspecific.m4 (AC_PROG_CC):  Remove "-opt global" from args passed
+	to BeOS Metrowerks compiler.  New compiler doesn't grok it.
+
 1999-11-14  Akim Demaille  <akim@epita.fr>
 
 	* autoconf.texi (Invoking ifnames): ifnames no longer supports
@@ -9980,6 +9999,11 @@
 	* acspecific.m4 (AC_PROG_CXX): Look for gpp after g++. gpp is the
 	DJGPP C++ compiler, since `g++' is not a valid DOS filename.
 
+Thu Jun 24 12:11:36 1999  Fred Fish  <fnf@be.com>
+
+	* acspecific.m4 (AC_FUNC_GETLOADAVG):  Disable obsolete assumption
+	that a system with ELF/DWARF support is SVR4.
+
 1999-06-12  Ben Elliston  <bje@cygnus.com>
 
 	* config.guess: Detect Linux on ia64.
@@ -10109,6 +10133,11 @@
 	Determine C library version on GNU/Linux for the PowerPC.
 	* config.sub: Numerous additions. Some cleanup.
 
+Tue May  4 20:02:33 1999  Fred Fish  <fnf@be.com>
+
+	* acspecific.m4 (AC_EXEEXT): Ignore metroworks mwcc generated *.xSYM
+	files.
+
 1999-04-29  Ben Elliston  <bje@cygnus.com>
 
 	* config.sub: Handle `t3e' alias for Cray T3E. Contributed by
@@ -10163,6 +10192,13 @@
 	Cygwin. Contributed by Scott Stanton.
 
 	* config.sub: Handle MPE/iX.
+
+1999-04-08  Fred Fish  <fnf@ninemoons.com>
+
+	* acgeneral.m4 (srcdir): Add 'else true' to tests so when the test
+	fails and is the last thing executed, pdksh doesn't return a failure
+	status to the parent configure script.
+
 
 1999-04-07  Ben Elliston  <bje@cygnus.com>
 
@@ -10746,10 +10782,29 @@ Thu Sep  3 09:34:39 1998  Matthew D. Langston  <langston@SLAC.Stanford.EDU>
 	(AC_TRY_COMPILER): Make Fortran 77 aware (i.e. conditionalize
 	whether to `#include "confdefs.h"').
 
+1998-07-24  David Zaroski  <zaroski@firewall.ninemoons.com>
+
+	* acspecific.m4 (AC_PROG_CC): Add cross compiler detection to
+	assist in 'AR', 'RANLIB', and 'LD' selection.
+	* Regenerate configure
+
 Thu Jun 18 12:13:27 1998  Ian Lance Taylor  <ian@cygnus.com>
 
 	* acspecific.m4 (AC_EXEEXT): Correct setting of ac_exeext when
 	there is no extension.
+
+Thu Jun 11 23:26:56 1998  Fred Fish  <fnf@ninemoons.com>
+
+	* acgeneral.m4 (AC_OUTPUT_LINKS): Fix so that args remain
+	quoted in generated configure script.  Broke this in previous
+	change.
+
+Mon Jun  1 00:25:23 1998  Fred Fish  <fnf@ninemoons.com>
+
+	* acgeneral.m4 (AC_OUTPUT_LINKS): Guard against args containing
+	only spaces, as may happen if AC_LINK_FILES is called multiple
+	times with args that expand to nothing, which are then glued
+	together with spaces.
 
 Mon Jun  1 12:30:39 1998  Ian Lance Taylor  <ian@cygnus.com>
 
@@ -10799,6 +10854,48 @@ Thu Apr 30 16:29:00 1998  Syd Polk  <spolk@cygnus.com>
 	to have unistd.h included or the DEC compiler does not
 	flag the error that triggers setting the variable.
 
+Mon Mar  2 08:37:54 1998  Fred Fish  <fnf@ninemoons.com>
+
+	* acspecific.m4 (AC_FUNC_WAIT3): Force rusage test program to
+	always return 0 on AmigaOS.
+
+Sat Feb 14 00:40:25 1998  Fred Fish  <fnf@ninemoons.com>
+
+	* acspecific.m4 (AC_PROG_CC): Improve the code that automatically
+	selects the right version of mwcc based on the type of BeOS (PPC
+	or Intel) and also selects corresponding values for AR, LD, and
+	RANLIB.
+	* config.guess: Add support for guessing Intel BeOS configuration
+ 	as i686-unknown-beos.
+	
+Mon Jan 19 12:47:41 1998  Fred Fish  <fnf@ninemoons.com>
+
+	* acgeneral.m4:  Apply patch from Thomas Dickey <dickey@clark.net>
+	that improves the AC_OUTPUT macro by allowing it to generate the
+	contents of the config.h file rather than simply substituting in a
+ 	template.  This is currently used/needed only by ncurses.
+	* configure: Regenerated.
+	
+Wed Dec  3 09:49:14 1997  Fred Fish  <fnf@ninemoons.com>
+
+	* config.sub, config.guess: Resync with latest versions and apply
+ 	GG specific changes.
+	
+Tue Nov 25 07:57:32 1997  Fred Fish  <fnf@ninemoons.com>
+
+	* acspecific.m4 (AC_PROG_CC): Assign default values of LD appropriate
+	to whether Metrowerks compiler or gcc is being used, just as defaults
+	for AR and RANLIB are also provided.
+	
+Wed Nov 19 22:55:22 1997  Dave Zaroski <cz253@cleveland.freenet.edu>
+
+	* acspecific.m4 (AC_FUNC_VFORK): Add #define of HAVE_VFORK if a 
+	  working version of vfork() is found.
+
+	* acconfig.h: Add support for HAVE_VFORK define
+
+	* Regenerate configure
+
 Tue Nov 18 14:21:38 1997  Eric Mumpower  <nocturne@cygnus.com>
 
 	* autoreconf.sh: Do the right thing when AC_CONFIG_HEADER is
@@ -10808,12 +10905,41 @@ Tue Nov 18 14:21:38 1997  Eric Mumpower  <nocturne@cygnus.com>
 	autoreconf would end up executing incorrect shell code (e.g.
 	"test ! -f 1.h 2.h.in") in such cases.
 	Patch submitted in parallel to bug-gnu-utils@prep.ai.mit.edu.
+	
+Thu Nov 13 21:22:55 1997  Fred Fish  <fnf@ninemoons.com>
+
+	* acspecific.m4 (AC_PROG_CC): Set AR to "mwld" and RANLIB to "true"
+ 	for any value of CC that starts "mwcc ..." or "bcc ...".
+	(AC_ARFLAGS): Set ARFLAGS to use "-xml -o" for any value of CC that
+	starts "mwcc ..." or "bcc ...".  Otherwise use "cr".
+	
+Thu Oct 16 09:55:14 1997  Fred Fish  <fnf@ninemoons.com>
+
+	* autoconf.sh: Revert change that kept configure file from
+	being executable.
 
 Fri Oct  3 18:10:39 1997  Ian Lance Taylor  <ian@cygnus.com>
 
 	* acgeneral.m4 (AC_CACHE_SAVE): Add a grep when checking whether
 	set quotes correctly, to avoid a cache overflow on HP-UX 9.
 	* configure: Rebuild.
+
+Tue Sep 23 15:33:00 1997  Fred Fish  <fnf@ninemoons.com>
+
+	* acspecific.m4 (AC_PROG_CC): Remove setting ARFLAGS based on CC.
+	AC_ARFLAGS: Set ARFLAGS based on CC here.
+
+Mon Sep 22 15:41:50 1997  Fred Fish  <fnf@ninemoons.com>
+
+	From: Norbert Pueschel <pueschel@imsdd.meb.uni-bonn.de>
+	* acgeneral.m4: Look for configure.gnu in subdir, before looking
+	for configure.  This allows packages that have their own configure
+	script to more easily integrate in a tree of other packages with
+	autoconf generated configure scripts.
+
+Sat Sep 20 22:15:09 1997 Joop van de Wege (JoopvandeWege@mococo.nl)
+	* acgeneral.m4 : added support for building html documentation
+	from texinfo files.
 
 Wed Sep 11 15:35:19 1997  Chris Provenzano  <proven@cygnus.com>
 
@@ -10832,6 +10958,16 @@ Wed Sep  3 23:00:44 1997  Chris Provenzano  <proven@cygnus.com>
 	* Makefile.in : Set SHELL=@SHELL@. configure now substiutes
 	${CONFIG_SHELL-/bin/sh} in for @SHELL@ at configure time.
 
+Sat Aug 30 13:51:53 1997  Fred Fish  <fnf@ninemoons.com>
+
+	* acspecific.m4 (AC_ARFLAGS): New GG specific macro for 
+	checking ARFLAGS.
+
+Thu Aug 28 15:21:15 1997  Fred Fish  <fnf@ninemoons.com>
+
+	* config.guess: Add case that produces m68k-unknown-amigaos.
+	Add cases that produce powerpc-be-beos and powerpc-apple-beos.
+
 Mon Aug 11 01:40:37 1997  Jason Molenda  <crash@cygnus.co.jp>
 
 	* acspecific (AC_FUNC_VFORK): If cross-compiling, set
@@ -10845,6 +10981,12 @@ Tue Aug  5 23:00:05 1997  Ian Lance Taylor  <ian@cygnus.com>
 	$ac_config_guess.
 	(AC_CANONICAL_TARGET, AC_CANONICAL_BUILD): Likewise.
 
+Sun Jul  6 12:20:28 1997  Fred Fish  <fnf@ninemoons.com>
+
+	From Thomas Walter <walter@pctc.chemie.uni-erlangen.de>:
+	* acgeneral.m4: Grep for output of ac_space in output of "set"
+	command.
+
 Tue Dec 10 19:38:59 1996  David J MacKenzie  <djm@catapult.va.pubnix.com>
 
 	* acgeneral.m4 (AC_CACHE_SAVE): Use grep to prevent overflowing
@@ -10855,6 +10997,10 @@ Mon Dec  9 23:39:17 1996  David J MacKenzie  <djm@catapult.va.pubnix.com>
 	* acspecific.m4 (AC_FUNC_GETLOADAVG): Add a semicolon between
 	shell variable assignments; the evaluation order varies between
 	implementations.
+
+Wed Nov 27 10:22:00 1996  Lars Hecking  <lhecking@nmrc.ucc.ie>
+
+	* Product-Info: Updated to 2.12.
 
 Tue Nov 26 13:00:28 1996  David J MacKenzie  <djm@catapult.va.pubnix.com>
 
@@ -10928,6 +11074,23 @@ Tue Nov 19 10:29:06 1996  David J MacKenzie  <djm@catapult.va.pubnix.com>
 
 	* acgeneral.m4 (AC_OUTPUT_HEADER): Check that $CONFIG_HEADERS is
 	unset, not that it's empty.
+
+Thu Nov 21 22:00:15 1996  Lars Hecking  <lhecking@nmrc.ucc.ie>
+
+	* Product-Info: Updated to 2.11.
+
+	* acconfig.h: Revert change that added PACKAGE, PACKAGE_VERSION
+	and VERSION. This is generally handled in a local acconfig.h file.
+
+	* acspecific.m4 (AC_PATH_X_DIRECT): Added locations for Geek Gadgets
+	X11 header files and libraries.
+
+Sun Sep 29 14:05:34 1996  Fred Fish  <fnf@ninemoons.com>
+
+	* Makefile.in: Changes for guidedir, psdir, dvidir
+	* acconfig.h: Add PACKAGE, PACKAGE_VERSION, VERSION.
+	* acgeneral.m4: Support guidedir, psdir, dvidir.
+	* acspecific.m4: Use -O2 as gcc default rather than -O.
 
 Mon Nov 18 10:24:50 1996  David J MacKenzie  <djm@catapult.va.pubnix.com>
 
@@ -11266,6 +11429,12 @@ Mon Dec 11 22:12:54 1995  Roland McGrath  <roland@churchy.gnu.ai.mit.edu>
 
 	* acspecific.m4 (AC_PROG_CC_C_O): Rearrange logic to get the right
 	answer for cc.
+
+Thu Nov 30 14:42:29 1995  Fred Fish  <fnf@amigalib.com>
+
+	* acgeneral.m4: Revert change that added extra braces around
+	cache file entries to compensate for pdksh bug that caused
+	one level of braces to be eaten.  The pdksh bug is fixed.
 
 Fri Nov 24 17:26:38 1995  Miles Bader  <miles@gnu.ai.mit.edu>
 

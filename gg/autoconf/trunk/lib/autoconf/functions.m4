@@ -1610,14 +1610,24 @@ AC_CACHE_CHECK(whether setvbuf arguments are reversed,
 	 AC_RUN_IFELSE(
 	   [AC_LANG_PROGRAM(
 	      [[#include <stdio.h>]],
-	      [[/* This call has the arguments reversed.
+	      [[
+#		if defined (__amigaos__) || defined (__BEOS__)
+		/* AmigaOS is a non-reversed system.  Instead of the
+		   test program getting a segfault (no memory protection),
+		   it causes enforcer hits or other nastiness, so don't run
+		   the test program, just exit with status 1 to indicate that
+		   it is non-reversed. -fnf */
+		exit(1);
+#		 else
+		/* This call has the arguments reversed.
 		   A reversed system may check and see that the address of buf
 		   is not _IOLBF, _IONBF, or _IOFBF, and return nonzero.  */
 		char buf;
 		if (setvbuf (stdout, _IOLBF, &buf, 1) != 0)
 		  exit (1);
 		putchar ('\r');
-		exit (0); /* Non-reversed systems SEGV here.  */]])],
+		exit (0); /* Non-reversed systems SEGV here.  */
+#		endif ]])],
 	   [ac_cv_func_setvbuf_reversed=yes],
 	   [rm -f core *.core],
 	   [[: # Assume setvbuf is not reversed when cross-compiling.]])]
@@ -1812,6 +1822,12 @@ main ()
 
   sparc_address_test (0);
 
+#ifdef __amigaos__
+  /* FIXME: Force this test to succeed for AmigaOS, which has a fairly good
+     vfork() emulation, but doesn't support fork() at all.  -fnf */
+  exit (0);
+#endif
+
   child = vfork ();
 
   if (child == 0) {
@@ -1927,7 +1943,11 @@ main ()
   r.ru_stime.tv_sec = 0;
   r.ru_stime.tv_usec = 0;
   r.ru_majflt = r.ru_minflt = 0;
-  switch (fork ())
+#ifdef __amigaos__
+  switch (vfork())
+#else
+  switch (fork())
+#endif
     {
     case 0: /* Child.  */
       sleep(1); /* Give up the CPU.  */
@@ -1940,8 +1960,16 @@ main ()
       wait3(&i, 0, &r);
       /* Avoid "text file busy" from rm on fast HP-UX machines.  */
       sleep(2);
+#ifdef __amigaos__
+  /* On AmigaOS, using ixemul.library, the ru_stime fields are actually
+     filled in by wait3, however sometimes this test ends up with zero
+     in them, perhaps because it runs "too fast".  For now, just force
+     the result we want.  */
+  exit (0);
+#else
       exit (r.ru_nvcsw == 0 && r.ru_majflt == 0 && r.ru_minflt == 0
 	    && r.ru_stime.tv_sec == 0 && r.ru_stime.tv_usec == 0);
+#endif
     }
 }]])],
 	       [ac_cv_func_wait3_rusage=yes],

@@ -284,7 +284,11 @@ void ucatch (dummy) int dummy; { }
 int
 main ()
 {
+#ifdef __amigaos__
+  int i = vfork (), status;
+#else
   int i = fork (), status;
+#endif
 
   if (i == 0)
     {

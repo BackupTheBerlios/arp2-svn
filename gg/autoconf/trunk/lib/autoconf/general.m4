@@ -539,6 +539,10 @@ AC_SUBST([libdir],         ['${exec_prefix}/lib'])dnl
 AC_SUBST([includedir],     ['${prefix}/include'])dnl
 AC_SUBST([oldincludedir],  ['/usr/include'])dnl
 AC_SUBST([infodir],        ['${prefix}/info'])dnl
+AC_SUBST([guidedir],       ['${prefix}/guidedir'])dnl
+AC_SUBST([htmldir],        ['${prefix}/htmldir'])dnl
+AC_SUBST([psdir],          ['${prefix}/psdir'])dnl
+AC_SUBST([dvidir],         ['${prefix}/dvidir'])dnl
 AC_SUBST([mandir],         ['${prefix}/man'])dnl
 
 ac_prev=
@@ -639,6 +643,26 @@ do
     ac_prev=infodir ;;
   -infodir=* | --infodir=* | --infodi=* | --infod=* | --info=* | --inf=*)
     infodir=$ac_optarg ;;
+
+  -guidedir | --guidedir | --guidedi | --guided | --guide | --gui)
+    ac_prev=guidedir ;;
+  -guidedir=* | --guidedir=* | --guidedi=* | --guided=* | --guide=* |--gui=*)
+    guidedir="$ac_optarg" ;;
+
+  -htmldir | --htmldir | --htmldi | --htmld | --html | --htm)
+    ac_prev=htmldir ;;
+  -htmldir=* | --htmldir=* | --htmldi=* | --htmld=* | --html=* |--htm=*)
+    htmldir="$ac_optarg" ;;
+
+  -psdir | --psdir | --psdi | --psd | --ps)
+    ac_prev=psdir ;;
+  -psdir=* | --psdir=* | --psdi=* | --psd=* | --ps=*)
+    psdir="$ac_optarg" ;;
+
+  -dvidir | --dvidir | --dvidi | --dvid | --dvi | --dv)
+    ac_prev=dvidir ;;
+  -dvidir=* | --dvidir=* | --dvidi=* | --dvid=* | --dvi=* |--dv=*)
+    dvidir="$ac_optarg" ;;
 
   -libdir | --libdir | --libdi | --libd)
     ac_prev=libdir ;;
@@ -851,7 +875,8 @@ done
 
 # Be sure to have absolute paths.
 for ac_var in bindir sbindir libexecdir datadir sysconfdir sharedstatedir \
-	      localstatedir libdir includedir oldincludedir infodir mandir
+              localstatedir libdir includedir oldincludedir infodir guidedir \
+	      htmldir psdir dvidir mandir
 do
   eval ac_val=$`echo $ac_var`
   case $ac_val in
@@ -950,6 +975,10 @@ Fine tuning of the installation directories:
   --includedir=DIR       C header files [PREFIX/include]
   --oldincludedir=DIR    C header files for non-gcc [/usr/include]
   --infodir=DIR          info documentation [PREFIX/info]
+  --guidedir=DIR         Amigaguide documentation in DIR [PREFIX/guide]
+  --htmldir=DIR          HTML documentation in DIR [PREFIX/html]
+  --psdir=DIR            postscript documentation in DIR [PREFIX/ps]
+  --dvidir=DIR           TeX dvi documentation in DIR [PREFIX/dvi]
   --mandir=DIR           man documentation [PREFIX/man]
 _ACEOF
 

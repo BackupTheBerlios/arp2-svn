@@ -645,6 +645,27 @@ AC_SUBST(CXXCPP)dnl
 AC_LANG_POP(C++)dnl
 ])# AC_PROG_CXXCPP
 
+# AC_ARFLAGS
+# ----------
+# Set the flags needed by AR to create archives, dependant upon the compiler
+# being used.
+AC_DEFUN(AC_ARFLAGS,
+[ if test -z "$AR"; then
+  AC_CHECK_TOOL(AR, ar)
+fi
+AC_MSG_CHECKING([what flags $AR needs to create archives])
+AC_CACHE_VAL(gg_cv_arflags,
+[case "$CC" in
+  mwcc* | bcc*) ARFLAGS=${ARFLAGS-"-xml -o"} ;;
+  *)		ARFLAGS=${ARFLAGS-"cr"} ;;
+esac
+gg_cv_arflags=$ARFLAGS
+])dnl
+ARFLAGS="$gg_cv_arflags"
+AC_MSG_RESULT($ARFLAGS)
+AC_SUBST(ARFLAGS)dnl
+])
+
 
 # AC_LANG_COMPILER(C++)
 # ---------------------
