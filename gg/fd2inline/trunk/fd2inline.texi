@@ -176,7 +176,6 @@ There are a few preprocessor symbols which alter the behaviour of the
 @samp{proto} and @samp{inline} files:
 
 @table @code
-@cindex __NOLIBBASE__
 @item __NOLIBBASE__
 By default, the @samp{proto} files make external declarations of the
 library base pointers. You can disable this behaviour by defining
@@ -220,6 +219,15 @@ even worse if you use @samp{Enforcer} or @samp{CyberGuard}, which
 protect the low memory region). However, in some low-level cases (like
 startup code) you might prefer dereferencing @code{0x00000004}. To do
 this, define @code{_USEOLDEXEC_} before including @file{proto/exec.h}.
+
+@cindex __CLIB_TYPES__
+@item __CLIB_TYPES__
+By default, the @samp{stub} files just include the file
+@file{inline/stubs.h>}, which defines some basic types and forward
+declares a bunch of structures.  This works for most libraries, but it
+is not enough some third party libraries and some libraries distributed
+with AmigaOS 3.5 and later. If you define @code{__CLIB_TYPES__}, some
+definitions from the clib file will be activated.
 @end table
 
 @node Using inlines under p.OS, , Using inlines under AmigaOS, Using inlines
@@ -844,6 +852,37 @@ stubs (@pxref{Using fd2inline}).
 @cindex History
 @cindex What has changed
 
+Version 1.35,  February 2nd, 2002,  Martin Blom
+@itemize @bullet
+@item
+Modified @file{share/ix86be-amithlon/macros.h} to use _CallLib68k().
+@item
+When creating stubs or old-style inlines, the macros from
+@file{inline/macros.h} are now used.
+@end itemize
+
+Version 1.34,  January 6th, 2002,  Martin Blom
+@itemize @bullet
+@item
+Modified @file{share/ix86be-amithlon/macros.h} to use a variable length
+array for the register structure. This reduces the stack usage
+dramatically, since variable length arrays are deallocated when it goes
+out of scope, not when the function returns. I also added a7 to the
+register structure (it's not used when calling OS functions, though).
+@end itemize
+
+Version 1.33,  December 14th, 2001,  Martin Blom
+@itemize @bullet
+@item
+The @samp{--stubs} option was broken (at least) for ix86be-amithlon and
+ppc-morphos. In addition, it's now possible to define the preprocessor
+macro @var{__CLIB_TYPES__} and get all includes and typedefs from the
+clib file included.
+@item
+In order to avoid problems where a parameter name is the same as a typedef,
+all parameters are now prefixed with three underscores.
+@end itemize
+
 Version 1.32,  December 1st, 2001,  Martin Blom
 @itemize @bullet
 @item
@@ -871,7 +910,7 @@ version 2.00 (the PowerUp and MorphOS support; @samp{--pragma} and
 @item
 Added @samp{--quiet}.
 @item
-Fixed tag calls declared @code{const struct TagItem *} instead of
+Fixed tag calls declared @code{CONST struct TagItem *} instead of
 just @code{const struct TagItem *}.
 @end itemize
 
