@@ -37,29 +37,6 @@
 struct Library*  MMUBase = NULL;
 
 
-int
-RemapCustom( void*              location, 
-             ULONG              size,
-             ULONG*             user_ram_properties,
-             ULONG*             user_custom_properties,
-             ULONG*             super_ram_properties,
-             ULONG*             super_custom_properties,
-             struct MMUContext* uctx,
-             struct MMUContext* sctx );
-
-
-int
-RestoreCustom( void*              location, 
-               ULONG              size,
-               ULONG              user_ram_properties,
-               ULONG              user_custom_properties,
-               ULONG              super_ram_properties,
-               ULONG              super_custom_properties,
-               struct MMUContext* uctx,
-               struct MMUContext* sctx );
-
-
-
 void
 Test( struct Custom* custom );
 
@@ -96,23 +73,32 @@ main( void )
     }
     else
     {
-      if( ! ActivatePUH( pd ) )
+      if( ! InstallPUH( PUHF_PATCH_ROM, pd ) )
       {
         rc = 20;
       }
       else
       {
+        if( ! ActivatePUH( pd ) )
+        {
+          rc = 20;
+        }
+        else
+        {
 #ifdef TEST_MODE
-        Test( (struct Custom*) location );
+          Test( (struct Custom*) location );
 #else
-        Test( (struct Custom*) 0xdff000 );
+          Test( (struct Custom*) 0xdff000 );
 #endif
 
-        printf( "Waiting for CTRL-C...\n" );
-        Wait( SIGBREAKF_CTRL_C );
-        printf( "Got it.\n" );
+          printf( "Waiting for CTRL-C...\n" );
+          Wait( SIGBREAKF_CTRL_C );
+          printf( "Got it.\n" );
         
-        DeactivatePUH( pd );
+          DeactivatePUH( pd );
+        }
+        
+        UninstallPUH( pd );
       }
       
       FreePUH( pd );

@@ -63,27 +63,52 @@ WriteLong( void* address, ULONG value );
 
 /* The emulator */
 
+
+/* Flags for InstallPUH() and PUHData.m_Flags */
+
+#define PUHF_NONE       0L
+#define PUHF_PATCH_ROM	(1L << 0)
+
+#define PUHB_PATCH_ROM	0
+
+
+
 struct PUHData
 {
+  ULONG			m_Flags;
+  BOOL                  m_Active;
+  UWORD                 m_Pad;
+
   void*                 m_Intercepted;
   volatile void*        m_Custom;
-
-  void*                 m_ShadowBuffer;
-  ULONG	                m_ShadowSize;
-
-  BOOL                  m_Active;
 
   struct MMUContext*    m_UserContext;
   struct MMUContext*    m_SuperContext;
   
   struct ExceptionHook* m_UserException;
   struct ExceptionHook* m_SuperException;
-  
-  ULONG                 m_UserRAMProperties;
-  ULONG                 m_UserCustomProperties;
-  ULONG                 m_SuperRAMProperties;
-  ULONG                 m_SuperCustomProperties;
+
+  void*                 m_ROM;
+  void*                 m_ROMShadowBuffer;
+  void*                 m_CustomShadowBuffer;
+
+  ULONG	                m_ROMSize;
+  ULONG	                m_CustomSize;
+
+  struct
+  {  
+    ULONG                 m_UserROM;
+    ULONG                 m_UserROMShadow;
+    ULONG                 m_UserCustom;
+    ULONG                 m_UserCustomShadow;
+    ULONG                 m_SuperROM;
+    ULONG                 m_SuperROMShadow;
+    ULONG                 m_SuperCustom;
+    ULONG                 m_SuperCustomShadow;
+  } m_Properties;
+
 };
+
 
 
 struct PUHData*
@@ -92,6 +117,15 @@ AllocPUH( void );
 
 void
 FreePUH( struct PUHData* pd );
+
+
+BOOL
+InstallPUH( ULONG           flags,
+	    struct PUHData* pd );
+
+
+void
+UninstallPUH( struct PUHData* pd );
 
 
 BOOL

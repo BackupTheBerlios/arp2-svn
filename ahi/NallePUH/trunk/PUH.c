@@ -36,13 +36,16 @@
 
 #include "PUH.h"
 
+#define ROMEND       0x01000000L
+#define MAGIC_ROMEND 0x14L
+
 
 static BOOL
-RemapCustom( struct PUHData* pd );
+RemapMemory( struct PUHData* pd );
 
 
 static BOOL
-RestoreCustom( struct PUHData* pd );
+RestoreMemory( struct PUHData* pd );
 
 
 ASMCALL INTERRUPT ULONG
@@ -223,28 +226,48 @@ AllocPUH( void )
       }
       else
       {
+        void* rom_shadow   = NULL;
+        void* rom_start    = NULL;
+        ULONG rom_size     = NULL;
+
+        // Get location of Kickstart ROM  
+        rom_size  = *( (ULONG*) ( ROMEND - MAGIC_ROMEND ) );
+        rom_start = ( (UBYTE*) ROMEND ) - rom_size;
+
+        pd->m_Flags                = 0L;
+
+        pd->m_Active               = FALSE;
+        pd->m_Pad                  = 0;
+
 #ifdef TEST_MODE
-        pd->m_Intercepted    = location;
-        pd->m_Custom         = (void*) 0xdff000;
+        pd->m_Intercepted          = location;
+        pd->m_Custom               = (void*) 0xdff000;
 #else
-        pd->m_Intercepted    = (void*) 0xdff000;
-        pd->m_Custom         = location;
+        pd->m_Intercepted          = (void*) 0xdff000;
+        pd->m_Custom               = location;
 #endif
-        pd->m_ShadowBuffer   = location;
-        pd->m_ShadowSize     = size;
 
-        pd->m_Active         = FALSE;
+        pd->m_UserContext          = uctx;        
+        pd->m_SuperContext         = sctx;
 
-        pd->m_UserContext    = uctx;        
-        pd->m_SuperContext   = sctx;
+        pd->m_UserException        = NULL;        
+        pd->m_SuperException       = NULL;
 
-        pd->m_UserException  = NULL;        
-        pd->m_SuperException = NULL;
+        pd->m_ROM                  = rom_start;
+        pd->m_ROMShadowBuffer      = rom_shadow;
+        pd->m_CustomShadowBuffer   = location;
 
-        pd->m_UserRAMProperties     = NULL;
-        pd->m_UserCustomProperties  = NULL;
-        pd->m_SuperRAMProperties    = NULL;
-        pd->m_SuperCustomProperties = NULL;
+        pd->m_ROMSize              = rom_size;
+        pd->m_CustomSize           = size;
+
+        pd->m_Properties.m_UserROMShadow     = NULL;
+        pd->m_Properties.m_UserROM           = NULL;
+        pd->m_Properties.m_UserCustomShadow  = NULL;
+        pd->m_Properties.m_UserCustom        = NULL;
+        pd->m_Properties.m_SuperROMShadow    = NULL;
+        pd->m_Properties.m_SuperROM          = NULL;
+        pd->m_Properties.m_SuperCustomShadow = NULL;
+        pd->m_Properties.m_SuperCustom       = NULL;
       }
     }
   }
@@ -264,9 +287,9 @@ FreePUH( struct PUHData* pd )
   {
     DeactivatePUH( pd );
 
-    if( pd->m_ShadowBuffer != NULL )
+    if( pd->m_CustomShadowBuffer != NULL )
     {
-      FreeMem( pd->m_ShadowBuffer, pd->m_ShadowSize );
+      FreeMem( pd->m_CustomShadowBuffer, pd->m_CustomSize );
     }
     
     FreeVec( pd );
@@ -275,12 +298,15 @@ FreePUH( struct PUHData* pd )
 
 
 /******************************************************************************
-** Activate PUH ***************************************************************
+** Installl PUH ***************************************************************
 ******************************************************************************/
 
 BOOL
-ActivatePUH( struct PUHData* pd )
+InstallPUH( ULONG           flags,
+            struct PUHData* pd )
 {
+  pd->m_Flags = flags;
+
   pd->m_UserException = 
       AddContextHook( MADTAG_CONTEXT, (ULONG) pd->m_UserContext,
                       MADTAG_TYPE,    MMUEH_SEGFAULT,
@@ -314,7 +340,7 @@ ActivatePUH( struct PUHData* pd )
 
       // Re-map 
 
-      if( ! RemapCustom( pd ) )
+      if( ! RemapMemory( pd ) )
       {
         printf( "Unable to install remap.\n" );
       }
@@ -330,15 +356,20 @@ ActivatePUH( struct PUHData* pd )
 
 
 /******************************************************************************
-** Deactivate PUH *************************************************************
+** Uninstall PUH **************************************************************
 ******************************************************************************/
 
 void
-DeactivatePUH( struct PUHData* pd )
+UninstallPUH( struct PUHData* pd )
 {
+  if( pd == NULL )
+  {
+    return;
+  }
+
   if( pd->m_Active )
   {
-    RestoreCustom( pd );
+    RestoreMemory( pd );
   }
 
   if( pd->m_SuperException != NULL )
@@ -355,7 +386,58 @@ DeactivatePUH( struct PUHData* pd )
     pd->m_UserException = NULL;
   }
   
+  pd->m_Flags  = 0L;
   pd->m_Active = FALSE;
+}
+
+
+/******************************************************************************
+** Activate PUH ***************************************************************
+******************************************************************************/
+
+BOOL
+ActivatePUH( struct PUHData* pd )
+{
+  if( ! SetPageProperties( pd->m_UserContext,
+                           MAPP_INVALID | MAPP_SINGLEPAGE | MAPP_REPAIRABLE,
+                           MAPP_INVALID | MAPP_SINGLEPAGE | MAPP_REPAIRABLE,
+                           (ULONG) pd->m_Intercepted, TAG_DONE ) )
+  {
+    return FALSE;
+  }
+
+  if( ! SetPageProperties( pd->m_SuperContext,
+                           MAPP_INVALID | MAPP_SINGLEPAGE | MAPP_REPAIRABLE,
+                           MAPP_INVALID | MAPP_SINGLEPAGE | MAPP_REPAIRABLE,
+                           (ULONG) pd->m_Intercepted, TAG_DONE ) )
+  {
+    // Try to deactivate
+    
+    DeactivatePUH( pd );
+
+    return FALSE;
+  }
+  
+  return TRUE;
+}
+
+
+/******************************************************************************
+** Deactivate PUH *************************************************************
+******************************************************************************/
+
+void
+DeactivatePUH( struct PUHData* pd )
+{
+  SetPageProperties( pd->m_UserContext,
+                     MAPP_SINGLEPAGE | MAPP_REPAIRABLE,
+                     MAPP_INVALID | MAPP_SINGLEPAGE | MAPP_REPAIRABLE,
+                     (ULONG) pd->m_Intercepted, TAG_DONE );
+
+  SetPageProperties( pd->m_SuperContext,
+                     MAPP_SINGLEPAGE | MAPP_REPAIRABLE,
+                     MAPP_INVALID | MAPP_SINGLEPAGE | MAPP_REPAIRABLE,
+                     (ULONG) pd->m_Intercepted, TAG_DONE );
 }
 
 
@@ -364,35 +446,44 @@ DeactivatePUH( struct PUHData* pd )
 ******************************************************************************/
 
 static BOOL
-RemapCustom( struct PUHData* pd )
+RemapMemory( struct PUHData* pd )
 {
-  BOOL rc = FALSE;
+  BOOL  rc = FALSE;
 
-  // Get properties for the RAM buffer and custom chip register area
+  // Get properties for the areas we will modify
 
-  pd->m_UserRAMProperties = GetProperties( pd->m_UserContext, 
-                                           (ULONG) pd->m_ShadowBuffer,
-                                           TAG_DONE );
+  pd->m_Properties.m_UserROM =
+      GetProperties( pd->m_UserContext, (ULONG) pd->m_ROM, TAG_DONE );
 
-  pd->m_UserCustomProperties = GetProperties( pd->m_UserContext, 
-                                              0xdff000, 
-                                              TAG_DONE );
+  pd->m_Properties.m_UserROMShadow =
+      GetProperties( pd->m_UserContext, (ULONG) pd->m_ROMShadowBuffer, TAG_DONE );
 
-  pd->m_SuperRAMProperties = GetProperties( pd->m_SuperContext, 
-                                            (ULONG) pd->m_ShadowBuffer,
-                                            TAG_DONE );
+  pd->m_Properties.m_UserCustom = 
+      GetProperties( pd->m_UserContext, (ULONG) 0xdff000, TAG_DONE );
 
-  pd->m_SuperCustomProperties = GetProperties( pd->m_SuperContext,
-                                               0xdff000,
-                                               TAG_DONE );
+  pd->m_Properties.m_UserCustomShadow = 
+      GetProperties( pd->m_UserContext, (ULONG) pd->m_CustomShadowBuffer, TAG_DONE );
 
 
-  if( ( pd->m_UserRAMProperties     & MAPP_REMAPPED ) ||
-      ( pd->m_UserCustomProperties  & MAPP_INVALID )  ||
-      ( pd->m_SuperRAMProperties    & MAPP_REMAPPED ) ||
-      ( pd->m_SuperCustomProperties & MAPP_INVALID ) )
+  pd->m_Properties.m_SuperROM =
+      GetProperties( pd->m_SuperContext, (ULONG) pd->m_ROM, TAG_DONE );
+
+  pd->m_Properties.m_SuperROMShadow =
+      GetProperties( pd->m_SuperContext, (ULONG) pd->m_ROMShadowBuffer, TAG_DONE );
+
+  pd->m_Properties.m_SuperCustom = 
+      GetProperties( pd->m_SuperContext, (ULONG) 0xdff000, TAG_DONE );
+
+  pd->m_Properties.m_SuperCustomShadow = 
+      GetProperties( pd->m_SuperContext, (ULONG) pd->m_CustomShadowBuffer, TAG_DONE );
+
+
+  if( ( pd->m_Properties.m_UserCustom  & MAPP_REPAIRABLE ) ||
+      ( pd->m_Properties.m_SuperCustom & MAPP_REPAIRABLE ) )
   {
-    printf( "Custom chip register area already remapped!" );
+    // This is odd ...
+
+    printf( "Custom chip register area marked 'repairable'!" );
   }
   else
   {
@@ -415,19 +506,19 @@ RemapCustom( struct PUHData* pd )
     else
     {
       if( ! SetProperties( pd->m_UserContext,
-                           ( pd->m_UserCustomProperties | 
+                           ( pd->m_Properties.m_UserCustom | 
                              MAPP_REMAPPED ),
                            ~0UL,
-                           (ULONG) pd->m_ShadowBuffer, 
-                           pd->m_ShadowSize,
+                           (ULONG) pd->m_CustomShadowBuffer, 
+                           pd->m_CustomSize,
                            MAPTAG_DESTINATION, 0xdff000,
                            TAG_DONE ) ||
           ! SetProperties( pd->m_SuperContext,
-                           ( pd->m_SuperCustomProperties | 
+                           ( pd->m_Properties.m_SuperCustom | 
                              MAPP_REMAPPED ),
                            ~0UL,
-                           (ULONG) pd->m_ShadowBuffer, 
-                           pd->m_ShadowSize,
+                           (ULONG) pd->m_CustomShadowBuffer, 
+                           pd->m_CustomSize,
                            MAPTAG_DESTINATION, 0xdff000,
                            TAG_DONE ) )
       {
@@ -438,28 +529,26 @@ RemapCustom( struct PUHData* pd )
         ULONG address;
 
 #ifdef TEST_MODE
-        address = (ULONG) pd->m_ShadowBuffer;
+        address = (ULONG) pd->m_CustomShadowBuffer;
 #else
         address = 0xdff000;
 #endif
 
         if( ! SetProperties( pd->m_UserContext,
-                             ( pd->m_UserCustomProperties | 
-                               MAPP_INVALID | 
+                             ( pd->m_Properties.m_UserCustom | 
                                MAPP_SINGLEPAGE |
                                MAPP_REPAIRABLE ),
                              ~0UL,
                              address, 
-                             pd->m_ShadowSize,
+                             pd->m_CustomSize,
                              TAG_DONE ) ||
             ! SetProperties( pd->m_SuperContext,
-                             ( pd->m_SuperCustomProperties | 
-                               MAPP_INVALID | 
+                             ( pd->m_Properties.m_SuperCustom | 
                                MAPP_SINGLEPAGE |
                                MAPP_REPAIRABLE ),
                              ~0UL,
                              address, 
-                             pd->m_ShadowSize,
+                             pd->m_CustomSize,
                              TAG_DONE ) )
         {
           printf( "Failed to set properties for custom chip register area.\n" );
@@ -517,7 +606,7 @@ RemapCustom( struct PUHData* pd )
 ******************************************************************************/
 
 static BOOL
-RestoreCustom( struct PUHData* pd )
+RestoreMemory( struct PUHData* pd )
 {
   BOOL            rc = FALSE;
   struct MinList* user_mapping;
@@ -539,14 +628,14 @@ RestoreCustom( struct PUHData* pd )
   else
   {
     if( ! SetProperties( pd->m_UserContext,
-                         pd->m_UserRAMProperties, ~0UL,
-                         (ULONG) pd->m_ShadowBuffer, 
-                         pd->m_ShadowSize,
+                         pd->m_Properties.m_UserCustomShadow, ~0UL,
+                         (ULONG) pd->m_CustomShadowBuffer, 
+                         pd->m_CustomSize,
                          TAG_DONE ) ||
         ! SetProperties( pd->m_SuperContext,
-                         pd->m_SuperRAMProperties, ~0UL,
-                         (ULONG) pd->m_ShadowBuffer,
-                         pd->m_ShadowSize,
+                         pd->m_Properties.m_SuperCustomShadow, ~0UL,
+                         (ULONG) pd->m_CustomShadowBuffer,
+                         pd->m_CustomSize,
                          TAG_DONE ) )
     {
       printf( "Failed to set properties for for re-mapped area.\n" );
@@ -555,12 +644,12 @@ RestoreCustom( struct PUHData* pd )
     else
     {
       if( ! SetProperties( pd->m_UserContext,
-                           pd->m_UserCustomProperties, ~0UL,
-                           0xdff000, pd->m_ShadowSize,
+                           pd->m_Properties.m_UserCustom, ~0UL,
+                           0xdff000, pd->m_CustomSize,
                            TAG_DONE ) ||
           ! SetProperties( pd->m_SuperContext,
-                           pd->m_SuperCustomProperties, ~0UL,
-                           0xdff000, pd->m_ShadowSize,
+                           pd->m_Properties.m_SuperCustom, ~0UL,
+                           0xdff000, pd->m_CustomSize,
                            TAG_DONE ) )
       {
         printf( "Failed to set properties for custom chip register area.\n" );
