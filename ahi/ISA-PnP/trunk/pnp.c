@@ -1211,7 +1211,7 @@ ISAPNP_FindCard( REG( a0, struct ISAPNP_Card* last_card ),
       {
         if( revision == -1 || card->m_ID.m_Revision == revision )
         {
-          if( serial == -1 || card->m_SerialNumber == serial )
+          if( serial == -1 || (LONG) card->m_SerialNumber == serial )
           {
             return card;
           }

@@ -30,8 +30,10 @@
 #include <libraries/expansionbase.h>
 
 #include <clib/alib_protos.h>
+#include <proto/dos.h>
 #include <proto/exec.h>
 #include <proto/expansion.h>
+#include <proto/utility.h>
 
 #include "include/resources/isapnp.h"
 #include "isapnp_private.h"
@@ -41,6 +43,11 @@
 #include "init.h"
 #include "pnp.h"
 #include "pnp_structs.h"
+
+
+static BOOL
+HandleToolTypes( UBYTE**            tool_types, 
+                 struct ISAPNPBase* res );
 
 
 /******************************************************************************
@@ -70,11 +77,12 @@ const struct Resident RomTag =
 ** Globals ********************************************************************
 ******************************************************************************/
 
-struct Device*          TimerBase     = NULL;
-struct ExecBase*        SysBase       = NULL;
-struct ExpansionBase*   ExpansionBase = NULL;
-struct ISAPNPBase*      ISAPNPBase    = NULL;
-struct UtilityBase*     UtilityBase   = NULL;
+struct Device*         TimerBase     = NULL;
+struct DosLibrary*     DOSBase       = NULL;
+struct ExecBase*       SysBase       = NULL;
+struct ExpansionBase*  ExpansionBase = NULL;
+struct ISAPNPBase*     ISAPNPBase    = NULL;
+struct UtilityBase*    UtilityBase   = NULL;
 
 /* linker can use symbol b for symbol a if a is not defined */
 #define ALIAS(a,b) asm(".stabs \"_" #a "\",11,0,0,0\n.stabs \"_" #b "\",1,0,0,0")
@@ -150,14 +158,6 @@ KPrintF( "No legal CurrentBinding structure.\n" );
     {
       struct ConfigDev* cd = current_binding.cb_ConfigDev;
 
-      UBYTE** cp = current_binding.cb_ToolTypes;
-      
-      while( cp && *cp )
-      {
-        KPrintF( "Tool type: %s\n", *cp );
-        ++cp;
-      }
-
       if( cd == NULL )
       {
         // No card found
@@ -212,22 +212,27 @@ KPrintF( "No cards found.\n" );
             else
             {
               // Let's see if we're to disable any cards or devices
-              
-inaktivera korten här!
 
-              if( ! ISAPNP_ConfigureCards( res ) )
+              if( ! HandleToolTypes( current_binding.cb_ToolTypes, res ) )
               {
-                // Unable to configure cards
-
-KPrintF( "Unable to configure cards.\n" );
+KPrintF( "Unable to handle tool types.\n" );
               }
               else
               {
+                if( ! ISAPNP_ConfigureCards( res ) )
+                {
+                  // Unable to configure cards
 
-                cd->cd_Flags  &= ~CDF_CONFIGME;
-                cd->cd_Driver  = res;
+KPrintF( "Unable to configure cards.\n" );
+                }
+                else
+                {
 
-                ISAPNPBase = res;
+                  cd->cd_Flags  &= ~CDF_CONFIGME;
+                  cd->cd_Driver  = res;
+
+                  ISAPNPBase = res;
+                }
               }
             }
           }
@@ -295,16 +300,21 @@ OpenLibs( void )
 {
   SysBase = *( (struct ExecBase**) 4 );
 
-KPrintF( "Opening libs... " );
-
   /* Utility Library (libnix depends on it, and out startup-code is not
      executed when BindDriver LoadSeg()s us!) */
 
   UtilityBase = (struct UtilityBase *) OpenLibrary( "utility.library", 37 );
 
-KPrintF( "utility.library " );
-
   if( UtilityBase == NULL)
+  {
+    return FALSE;
+  }
+
+  /* DOS Library */
+
+  DOSBase = (struct DosLibrary*) OpenLibrary( "dos.library", 37 );
+
+  if( DOSBase == NULL )
   {
     return FALSE;
   }
@@ -312,8 +322,6 @@ KPrintF( "utility.library " );
   /* Expansion Library */
 
   ExpansionBase = (struct ExpansionBase*) OpenLibrary( EXPANSIONNAME, 37 );
-
-KPrintF( "expansion.library " );
 
   if( ExpansionBase == NULL )
   {
@@ -339,8 +347,6 @@ KPrintF( "expansion.library " );
     return FALSE;
   }
 
-KPrintF( "timer.device\n" );
-
   TimerBase = (struct Device *) TimerIO->tr_node.io_Device;
 
   return TRUE;
@@ -361,11 +367,170 @@ CloseLibs( void )
 
   FreeVec( TimerIO );
 
+  CloseLibrary( (struct Library*) DOSBase );
   CloseLibrary( (struct Library*) ExpansionBase );
   CloseLibrary( (struct Library*) UtilityBase );
 
   TimerIO       = NULL;
   TimerBase     = NULL;
+  DOSBase       = NULL;
   ExpansionBase = NULL;  
   UtilityBase   = NULL;
+}
+
+
+/******************************************************************************
+** Handle the tool typs *******************************************************
+******************************************************************************/
+
+static int
+HexToInt( UBYTE c )
+{
+  if( c >= '0' && c <= '9' )
+  {
+    return c - '0';
+  }
+  else if( c >= 'A' && c <= 'F' )
+  {
+    return c - 'A' + 10;
+  }
+  else if( c >= 'a' && c <= 'f' )
+  {
+    return c - 'a' + 10;
+  }
+  else
+  {
+    return -1;
+  }
+}
+
+// CTL0048/1236 => "CTL\0" 4 8 1236
+
+static BOOL
+ParseID( UBYTE* string,
+         LONG*  manufacturer,
+         WORD*  product,
+         BYTE*  revision,
+         LONG*  serial )
+{
+  *manufacturer = ISAPNP_MAKE_ID( ToUpper( string[ 0 ] ),
+                                  ToUpper( string[ 1 ] ),
+                                  ToUpper( string[ 2 ] ) );
+
+  *product      = ( HexToInt( string[ 3 ] ) << 8 ) |
+                  ( HexToInt( string[ 4 ] ) << 4 ) |
+                  ( HexToInt( string[ 5 ] ) );
+
+
+  if( *product == -1 )
+  {
+    return FALSE;
+  }
+
+  *revision = HexToInt( string[ 6 ] );
+
+  if( *revision == -1 )
+  {
+    return FALSE;
+  }
+  
+  if( serial != NULL )
+  {
+    if( string[ 7 ] == '/' )
+    {
+      if( StrToLong( string + 8, serial ) == -1 )
+      {
+        return FALSE;
+      }
+    }
+    else if( string[ 7 ] == 0 )
+    {
+      *serial = -1;
+    }
+    else
+    {
+      return FALSE;
+    }
+  }
+  else
+  {
+    if( string[ 7 ] != 0 )
+    {
+      return FALSE;
+    }
+  }
+
+  return TRUE;
+}
+
+
+static BOOL
+HandleToolTypes( UBYTE**            tool_types, 
+                 struct ISAPNPBase* res )
+{
+  while( *tool_types )
+  {
+    if( Strnicmp( *tool_types, "DISABLE_CARD=", 13 ) == 0 )
+    {
+      LONG manufacturer;
+      WORD product;
+      BYTE revision;
+      LONG serial;
+
+      if( ParseID( *tool_types + 13, 
+                   &manufacturer, &product, &revision, &serial ) )
+      {
+        struct ISAPNP_Card* card = NULL;
+
+        while( ( card = ISAPNP_FindCard( card,
+                                         manufacturer,
+                                         product,
+                                         revision,
+                                         serial,
+                                         res ) ) != NULL )
+        {
+          card->m_Disabled = TRUE;
+        }
+      }
+      else
+      {
+        KPrintF( "Illegal tool type: %s\n", *tool_types );
+        return FALSE;
+      }
+    }
+    else if( Strnicmp( *tool_types, "DISABLE_DEVICE=", 15 ) == 0 )
+    {
+      LONG manufacturer;
+      WORD product;
+      BYTE revision;
+
+      if( ParseID( *tool_types + 15, 
+                   &manufacturer, &product, &revision, NULL ) )
+      {
+        struct ISAPNP_Device* dev = NULL;
+
+        while( ( dev = ISAPNP_FindDevice( dev,
+                                          manufacturer,
+                                          product,
+                                          revision,
+                                          res ) ) != NULL )
+        {
+          dev->m_Disabled = TRUE;
+        }
+      }
+      else
+      {
+        KPrintF( "Illegal tool type: %s\n", *tool_types );
+        return FALSE;
+      }
+    }
+    else
+    {
+      // Ignore unknown tool types
+    }
+
+    ++tool_types;
+  }
+
+  return TRUE;
 }
