@@ -25,7 +25,8 @@ TXT		= sfdc.txt
 all:	$(EXECUTABLE) $(MAN) $(TXT)
 
 clean:
-	$(RM) $(EXECUTABLE) $(MAN) $(TXT) config.log
+	$(RM) $(EXECUTABLE) $(MAN) $(TXT) config.log \
+	      $(EXECUTABLE)-$(VERSION).tar.gz
 
 distclean:	clean
 	$(RM) config.status Makefile
