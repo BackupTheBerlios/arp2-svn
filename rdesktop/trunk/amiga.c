@@ -725,7 +725,8 @@ amiga_restore_window( void )
 			      amiga_window->BorderTop,
 			      g_width, g_height,
 			      bytesperpixel != 1 );
-    
+
+    WaitBlit();
     xfree( amiga_backup );
     amiga_backup = NULL;
   }
@@ -1379,6 +1380,7 @@ ui_destroy_window()
   
   if( amiga_backup != NULL )
   {
+    WaitBlit();
     xfree( amiga_backup );
     amiga_backup = NULL;
   }
@@ -1837,6 +1839,7 @@ ui_create_glyph(int width, int height, uint8 *data)
 void
 ui_destroy_glyph(HGLYPH glyph)
 {
+  WaitBlit();
   xfree( glyph );
 }
 
@@ -1994,6 +1997,7 @@ ui_destroy_cursor(HCURSOR cursor)
       DisposeObject(c->Pointer);
     }
 
+    WaitBlit();
     xfree( c->Planes );
 
     xfree( c );
