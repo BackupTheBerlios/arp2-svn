@@ -573,7 +573,7 @@ sub parse_sfd ( $ ) {
 	};
 	
 	if ( $proto_line =~
-	     /.*[A-Za-z0-9_]+\s*\(.*\).*\(((base|sysv|[\saAdD][0-7]-?),?)*\)\s*$/
+	     /.*[A-Za-z0-9_]+\s*\(.*\).*\(((base|sysv|autoreg|[\saAdD][0-7]-?),?)*\)\s*$/
 	     ) {
 
 	    if ($proto_line =~ /.*\(.*[0-7]-.*\)\s*$/) {
@@ -665,6 +665,7 @@ sub parse_sfd ( $ ) {
 	$$result{'basename'} = "wb";
     }
 
+    $$result{'basename'} =~ s/-/_/g;
     $$result{'basename'} = lc $$result{'basename'};
     $$result{'BASENAME'} = uc $$result{'basename'};
     $$result{'Basename'} = ucfirst $$result{'basename'};
@@ -709,6 +710,10 @@ sub parse_proto ( $$$ ) {
     @{$$prototype{'___argnames'}} = ();
     @{$$prototype{'argtypes'}}    = ();
 
+    if ($arguments =~ /^(void|VOID)$/) {
+	$arguments = "";
+    }
+
     my @args = split(/,/,$arguments);
 
     # Fix function pointer arguments and build $$prototype{'args'} 
@@ -738,6 +743,23 @@ sub parse_proto ( $$$ ) {
     if ($registers =~ /sysv/) {
 	$prototype->{type} = 'cfunction';
 	$prototype->{nb}   = 1;
+    }
+    elsif ($registers =~ /autoreg/) {
+	my $a_cnt = 0;
+	my $d_cnt = 0;
+	foreach my $arg (@{$$prototype{'args'}}) {
+	    if ($arg =~ /\*/) {
+		push @{$$prototype{'regs'}}, "a$a_cnt";
+		$a_cnt++;
+	    }
+	    else {
+		push @{$$prototype{'regs'}}, "d$d_cnt";
+		$d_cnt++;
+	    }
+	}
+	
+	$prototype->{numregs} = $#{$$prototype{'regs'}} + 1;
+	$prototype->{nb}      = $sfd->{base} eq '';
     }
     else {
 	# Split regs and make them lower case
@@ -848,9 +870,6 @@ sub parse_proto ( $$$ ) {
 	    $type = "$type1(*)$type2";
 	    $___name = "___$name";
 	    $___arg = "$type1(*___$name) $type2";
-	}
-	elsif ($arg =~ /^(VOID|void)$/) {
-	    next;
 	}
 	elsif ($arg !~ /^\.\.\.$/) {
 	    ($type, $name) = ( $arg =~ /^\s*(.*?[\s*]*?)\s*(\w+)\s*$/ );
