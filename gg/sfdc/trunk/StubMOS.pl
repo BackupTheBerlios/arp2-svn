@@ -24,6 +24,23 @@ BEGIN {
 	print "#include <stdarg.h>\n";
 	print "\n";
     }
+
+    sub function_proto {
+	my $self      = shift;
+	my %params    = @_;
+	my $prototype = $params{'prototype'};
+
+	if ($prototype->{type} eq 'varargs') {
+
+	    # We have to add the attribute to ourself first
+	    
+	    $self->SUPER::function_proto (@_);
+	    print " __attribute__((varargs68k));\n";
+	    print "\n";
+	}
+
+	$self->SUPER::function_proto (@_);
+    }
     
     sub function_start {
 	my $self      = shift;
