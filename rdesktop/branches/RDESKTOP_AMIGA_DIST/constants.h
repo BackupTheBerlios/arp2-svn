@@ -1,47 +1,45 @@
 /*
    rdesktop: A Remote Desktop Protocol client.
    Miscellaneous protocol constants
-   Copyright (C) Matthew Chapman 1999-2000
-   
+   Copyright (C) Matthew Chapman 1999-2001
+
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
    the Free Software Foundation; either version 2 of the License, or
    (at your option) any later version.
-   
+
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
-   
+
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
 /* TCP port for Remote Desktop Protocol */
-/* #define TCP_PORT_RDP 3389 */
+#define TCP_PORT_RDP 3389
 
 /* ISO PDU codes */
-enum ISO_PDU_CODE
-{
-	ISO_PDU_CR = 0xE0, /* Connection Request */
-	ISO_PDU_CC = 0xD0, /* Connection Confirm */
-	ISO_PDU_DR = 0x80, /* Disconnect Request */
-	ISO_PDU_DT = 0xF0, /* Data */
-	ISO_PDU_ER = 0x70  /* Error */
+enum ISO_PDU_CODE {
+	ISO_PDU_CR = 0xE0,	/* Connection Request */
+	ISO_PDU_CC = 0xD0,	/* Connection Confirm */
+	ISO_PDU_DR = 0x80,	/* Disconnect Request */
+	ISO_PDU_DT = 0xF0,	/* Data */
+	ISO_PDU_ER = 0x70	/* Error */
 };
 
 /* MCS PDU codes */
-enum MCS_PDU_TYPE
-{
-	MCS_EDRQ = 1,	/* Erect Domain Request */
-	MCS_DPUM = 8,	/* Disconnect Provider Ultimatum */
-	MCS_AURQ = 10,	/* Attach User Request */
-	MCS_AUCF = 11,	/* Attach User Confirm */
-	MCS_CJRQ = 14,	/* Channel Join Request */
-	MCS_CJCF = 15,	/* Channel Join Confirm */
-	MCS_SDRQ = 25,	/* Send Data Request */
-	MCS_SDIN = 26	/* Send Data Indication */
+enum MCS_PDU_TYPE {
+	MCS_EDRQ = 1,		/* Erect Domain Request */
+	MCS_DPUM = 8,		/* Disconnect Provider Ultimatum */
+	MCS_AURQ = 10,		/* Attach User Request */
+	MCS_AUCF = 11,		/* Attach User Confirm */
+	MCS_CJRQ = 14,		/* Channel Join Request */
+	MCS_CJCF = 15,		/* Channel Join Confirm */
+	MCS_SDRQ = 25,		/* Send Data Request */
+	MCS_SDIN = 26		/* Send Data Indication */
 };
 
 #define MCS_CONNECT_INITIAL	0x7f65
@@ -76,7 +74,7 @@ enum MCS_PDU_TYPE
 #define SEC_TAG_PUBKEY		0x0006
 #define SEC_TAG_KEYSIG		0x0008
 
-#define SEC_RSA_MAGIC		0x31415352 /* RSA1 */
+#define SEC_RSA_MAGIC		0x31415352	/* RSA1 */
 
 /* RDP licensing constants */
 #define LICENCE_TOKEN_SIZE	10
@@ -94,16 +92,14 @@ enum MCS_PDU_TYPE
 #define LICENCE_TAG_HOST	0x0010
 
 /* RDP PDU codes */
-enum RDP_PDU_TYPE
-{
+enum RDP_PDU_TYPE {
 	RDP_PDU_DEMAND_ACTIVE = 1,
 	RDP_PDU_CONFIRM_ACTIVE = 3,
 	RDP_PDU_DEACTIVATE = 6,
 	RDP_PDU_DATA = 7
 };
 
-enum RDP_DATA_PDU_TYPE
-{
+enum RDP_DATA_PDU_TYPE {
 	RDP_DATA_PDU_UPDATE = 2,
 	RDP_DATA_PDU_CONTROL = 20,
 	RDP_DATA_PDU_POINTER = 27,
@@ -114,31 +110,27 @@ enum RDP_DATA_PDU_TYPE
 	RDP_DATA_PDU_FONT2 = 39
 };
 
-enum RDP_CONTROL_PDU_TYPE
-{
+enum RDP_CONTROL_PDU_TYPE {
 	RDP_CTL_REQUEST_CONTROL = 1,
 	RDP_CTL_GRANT_CONTROL = 2,
 	RDP_CTL_DETACH = 3,
 	RDP_CTL_COOPERATE = 4
 };
 
-enum RDP_UPDATE_PDU_TYPE
-{
+enum RDP_UPDATE_PDU_TYPE {
 	RDP_UPDATE_ORDERS = 0,
 	RDP_UPDATE_BITMAP = 1,
 	RDP_UPDATE_PALETTE = 2,
 	RDP_UPDATE_SYNCHRONIZE = 3
 };
 
-enum RDP_POINTER_PDU_TYPE
-{
+enum RDP_POINTER_PDU_TYPE {
 	RDP_POINTER_MOVE = 3,
-	RDP_POINTER_COLOR =6,
-        RDP_POINTER_CACHED =7
+	RDP_POINTER_COLOR = 6,
+	RDP_POINTER_CACHED = 7
 };
 
-enum RDP_INPUT_DEVICE
-{
+enum RDP_INPUT_DEVICE {
 	RDP_INPUT_SYNCHRONIZE = 0,
 	RDP_INPUT_CODEPOINT = 1,
 	RDP_INPUT_VIRTKEY = 2,
@@ -153,16 +145,27 @@ enum RDP_INPUT_DEVICE
 #define KBD_FLAG_DOWN           0x4000
 #define KBD_FLAG_UP             0x8000
 
+#define KBD_FLAG_SCROLL   0x0001
+#define KBD_FLAG_NUMLOCK  0x0002
+#define KBD_FLAG_CAPITAL  0x0004
+
 #define MOUSE_FLAG_MOVE         0x0800
 #define MOUSE_FLAG_BUTTON1      0x1000
 #define MOUSE_FLAG_BUTTON2      0x2000
 #define MOUSE_FLAG_BUTTON3      0x4000
+#define MOUSE_FLAG_BUTTON4      0x0280
+#define MOUSE_FLAG_BUTTON5      0x0380
 #define MOUSE_FLAG_DOWN         0x8000
-/* what's the code for wheel up, wheel down? */
 
 /* Raster operation masks */
+#ifdef GUI_WIN32
+#define ROP2_S(rop3) (rop3)
+#define ROP2_P(rop3) (rop3)
+#define WIN32_ROP(rop3) (((DWORD)rop3) << 16)
+#else
 #define ROP2_S(rop3) (rop3 & 0xf)
 #define ROP2_P(rop3) ((rop3 & 0x3) | ((rop3 & 0x30) >> 2))
+#endif
 
 #define ROP2_COPY	0xc
 #define ROP2_XOR	0x6
@@ -173,6 +176,7 @@ enum RDP_INPUT_DEVICE
 #define MIX_TRANSPARENT	0
 #define MIX_OPAQUE	1
 
+#define TEXT2_VERTICAL   0x04
 #define TEXT2_IMPLICIT_X 0x20
 
 /* RDP capabilities */
@@ -215,13 +219,14 @@ enum RDP_INPUT_DEVICE
 /* Logon flags */
 #define RDP_LOGON_NORMAL	0x33
 #define RDP_LOGON_AUTO		0x8
+#define RDP_COMPRESSION		0x80
+
+/* cache size */
+#define RDPCACHE_COLOURMAPSIZE  0x06
 
 /* Backing store methods */
-enum BS_TYPE
-{
-	BS_NONE = 0,	/* do not use backing store */
-	BS_XWIN = 1,    /* use X server backing store */
-	BS_PIXMAP = 2   /* use internal pixmap backing store */
+enum BS_TYPE {
+	BS_NONE = 0,		/* do not use backing store */
+	BS_XWIN = 1,		/* use X server backing store */
+	BS_PIXMAP = 2		/* use internal pixmap backing store */
 };
-
-

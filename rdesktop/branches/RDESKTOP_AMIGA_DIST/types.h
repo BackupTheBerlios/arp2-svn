@@ -1,8 +1,8 @@
 /*
    rdesktop: A Remote Desktop Protocol client.
    Common data types
-   Copyright (C) Matthew Chapman 1999-2000
-   
+   Copyright (C) Matthew Chapman 1999-2001
+
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
    the Free Software Foundation; either version 2 of the License, or
@@ -18,7 +18,11 @@
    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
-typedef int Bool;
+#ifdef GUI_WIN32
+#include <WTypes.h>
+#endif
+
+typedef int BOOL;
 
 #ifndef True
 #define True  (1)
@@ -26,32 +30,35 @@ typedef int Bool;
 #endif
 
 typedef unsigned char uint8;
+typedef signed char sint8;
 typedef unsigned short uint16;
-typedef short sint16;
+typedef signed short sint16;
 typedef unsigned int uint32;
 
+#ifdef GUI_WIN32
+typedef void *HGLYPH;
+typedef HPALETTE HCOLOURMAP;
+#else
 typedef void *HBITMAP;
 typedef void *HGLYPH;
 typedef void *HCOLOURMAP;
 typedef void *HCURSOR;
+#endif
 
-typedef struct _COLOURENTRY
-{
+typedef struct _COLOURENTRY {
 	uint8 red;
 	uint8 green;
 	uint8 blue;
 
 } COLOURENTRY;
 
-typedef struct _COLOURMAP
-{
+typedef struct _COLOURMAP {
 	uint16 ncolours;
 	COLOURENTRY *colours;
 
 } COLOURMAP;
 
-typedef struct _BOUNDS
-{
+typedef struct _BOUNDS {
 	uint16 left;
 	uint16 top;
 	uint16 right;
@@ -59,16 +66,14 @@ typedef struct _BOUNDS
 
 } BOUNDS;
 
-typedef struct _PEN
-{
+typedef struct _PEN {
 	uint8 style;
 	uint8 width;
 	uint8 colour;
 
 } PEN;
 
-typedef struct _BRUSH
-{
+typedef struct _BRUSH {
 	uint8 xorigin;
 	uint8 yorigin;
 	uint8 style;
@@ -76,8 +81,7 @@ typedef struct _BRUSH
 
 } BRUSH;
 
-typedef struct _FONTGLYPH
-{
+typedef struct _FONTGLYPH {
 	uint16 offset;
 	uint16 baseline;
 	uint16 width;
@@ -86,8 +90,7 @@ typedef struct _FONTGLYPH
 
 } FONTGLYPH;
 
-typedef struct _DATABLOB
-{
+typedef struct _DATABLOB {
 	void *data;
 	int size;
 

@@ -1,7 +1,7 @@
 /*
    rdesktop: A Remote Desktop Protocol client.
    Parsing primitives
-   Copyright (C) Matthew Chapman 1999-2000
+   Copyright (C) Matthew Chapman 1999-2001
    
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -18,13 +18,11 @@
    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
-
 /* Parser state */
-typedef struct stream
-{
+typedef struct stream {
 	unsigned char *p;
 	unsigned char *end;
-        unsigned char *data;
+	unsigned char *data;
 	unsigned int size;
 
 	/* Offsets of various headers */

@@ -1,7 +1,7 @@
 /*
    rdesktop: A Remote Desktop Protocol client.
    Cache routines
-   Copyright (C) Matthew Chapman 1999-2000
+   Copyright (C) Matthew Chapman 1999-2001
    
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -12,7 +12,7 @@
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
-   
+
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
@@ -22,230 +22,247 @@
 
 #define NUM_ELEMENTS(array) (sizeof(array) / sizeof(array[0]))
 
-
 /* BITMAP CACHE */
 static HBITMAP bmpcache[3][600];
 
 /* Retrieve a bitmap from the cache */
-HBITMAP cache_get_bitmap (uint8 cache_id, uint16 cache_idx)
+HBITMAP
+cache_get_bitmap(uint8 cache_id, uint16 cache_idx)
 {
-  HBITMAP bitmap;
+	HBITMAP bitmap;
 
-  if ((cache_id < NUM_ELEMENTS (bmpcache))
-      && (cache_idx < NUM_ELEMENTS (bmpcache[0])))
-    {
-      bitmap = bmpcache[cache_id][cache_idx];
-      if (bitmap != NULL)
-	return bitmap;
-    }
+	if ((cache_id < NUM_ELEMENTS(bmpcache))
+	    && (cache_idx < NUM_ELEMENTS(bmpcache[0]))) {
+		bitmap = bmpcache[cache_id][cache_idx];
+		if (bitmap != NULL)
+			return bitmap;
+	}
 
-  ERROR ("get bitmap %d:%d\n", cache_id, cache_idx);
-  return NULL;
+	error("get bitmap %d:%d\n", cache_id, cache_idx);
+	return NULL;
 }
 
 /* Store a bitmap in the cache */
 void
-cache_put_bitmap (uint8 cache_id, uint16 cache_idx, HBITMAP bitmap)
+cache_put_bitmap(uint8 cache_id, uint16 cache_idx, HBITMAP bitmap)
 {
-  HBITMAP old;
+	HBITMAP old;
 
-  if ((cache_id < NUM_ELEMENTS (bmpcache))
-      && (cache_idx < NUM_ELEMENTS (bmpcache[0])))
-    {
-      old = bmpcache[cache_id][cache_idx];
-      if (old != NULL)
-	ui_destroy_bitmap (old);
+	if ((cache_id < NUM_ELEMENTS(bmpcache))
+	    && (cache_idx < NUM_ELEMENTS(bmpcache[0]))) {
+		old = bmpcache[cache_id][cache_idx];
+		if (old != NULL)
+			ui_destroy_bitmap(old);
 
-      bmpcache[cache_id][cache_idx] = bitmap;
-    }
-  else
-    {
-      ERROR ("put bitmap %d:%d\n", cache_id, cache_idx);
-    }
+		bmpcache[cache_id][cache_idx] = bitmap;
+	} else {
+		error("put bitmap %d:%d\n", cache_id, cache_idx);
+	}
 }
-
 
 /* FONT CACHE */
 static FONTGLYPH fontcache[12][256];
 
 /* Retrieve a glyph from the font cache */
 FONTGLYPH *
-cache_get_font (uint8 font, uint16 character)
+cache_get_font(uint8 font, uint16 character)
 {
-  FONTGLYPH *glyph;
+	FONTGLYPH *glyph;
 
-  if ((font < NUM_ELEMENTS (fontcache))
-      && (character < NUM_ELEMENTS (fontcache[0])))
-    {
-      glyph = &fontcache[font][character];
-      if (glyph->pixmap != NULL)
-	return glyph;
-    }
+	if ((font < NUM_ELEMENTS(fontcache))
+	    && (character < NUM_ELEMENTS(fontcache[0]))) {
+		glyph = &fontcache[font][character];
+		if (glyph->pixmap != NULL)
+			return glyph;
+	}
 
-  ERROR ("get font %d:%d\n", font, character);
-  return NULL;
+	error("get font %d:%d\n", font, character);
+	return NULL;
 }
 
 /* Store a glyph in the font cache */
 void
-cache_put_font (uint8 font, uint16 character, uint16 offset,
-		uint16 baseline, uint16 width, uint16 height, HGLYPH pixmap)
+cache_put_font(uint8 font, uint16 character, uint16 offset,
+	       uint16 baseline, uint16 width, uint16 height, HGLYPH pixmap)
 {
-  FONTGLYPH *glyph;
+	FONTGLYPH *glyph;
 
-  if ((font < NUM_ELEMENTS (fontcache))
-      && (character < NUM_ELEMENTS (fontcache[0])))
-    {
-      glyph = &fontcache[font][character];
-      if (glyph->pixmap != NULL)
-	ui_destroy_glyph (glyph->pixmap);
+	if ((font < NUM_ELEMENTS(fontcache))
+	    && (character < NUM_ELEMENTS(fontcache[0]))) {
+		glyph = &fontcache[font][character];
+		if (glyph->pixmap != NULL)
+			ui_destroy_glyph(glyph->pixmap);
 
-      glyph->offset = offset;
-      glyph->baseline = baseline;
-      glyph->width = width;
-      glyph->height = height;
-      glyph->pixmap = pixmap;
-    }
-  else
-    {
-      ERROR ("put font %d:%d\n", font, character);
-    }
+		glyph->offset = offset;
+		glyph->baseline = baseline;
+		glyph->width = width;
+		glyph->height = height;
+		glyph->pixmap = pixmap;
+	} else {
+		error("put font %d:%d\n", font, character);
+	}
 }
-
 
 /* TEXT CACHE */
 static DATABLOB textcache[256];
 
 /* Retrieve a text item from the cache */
 DATABLOB *
-cache_get_text (uint8 cache_id)
+cache_get_text(uint8 cache_id)
 {
-  DATABLOB *text;
+	DATABLOB *text;
 
-  if (cache_id < NUM_ELEMENTS (textcache))
-    {
-      text = &textcache[cache_id];
-      if (text->data != NULL)
-	return text;
-    }
+	if (cache_id < NUM_ELEMENTS(textcache)) {
+		text = &textcache[cache_id];
+		if (text->data != NULL)
+			return text;
+	}
 
-  ERROR ("get text %d\n", cache_id);
-  return NULL;
+	error("get text %d\n", cache_id);
+	return NULL;
 }
 
 /* Store a text item in the cache */
 void
-cache_put_text (uint8 cache_id, void *data, int length)
+cache_put_text(uint8 cache_id, void *data, int length)
 {
-  DATABLOB *text;
+	DATABLOB *text;
 
-  if (cache_id < NUM_ELEMENTS (textcache))
-    {
-      text = &textcache[cache_id];
-      if (text->data != NULL)
-	xfree (text->data);
+	if (cache_id < NUM_ELEMENTS(textcache)) {
+		text = &textcache[cache_id];
+		if (text->data != NULL)
+			xfree(text->data);
 
-      text->data = xmalloc (length);
-      text->size = length;
-      memcpy (text->data, data, length);
-    }
-  else
-    {
-      ERROR ("put text %d\n", cache_id);
-    }
+		text->data = xmalloc(length);
+		text->size = length;
+		memcpy(text->data, data, length);
+	} else {
+		error("put text %d\n", cache_id);
+	}
 }
-
 
 /* DESKTOP CACHE */
 static uint8 deskcache[0x38400 * 4];
 
 /* Retrieve desktop data from the cache */
 uint8 *
-cache_get_desktop (uint32 offset, int cx, int cy, int bytes_per_pixel)
+cache_get_desktop(uint32 offset, int cx, int cy, int bytes_per_pixel)
 {
-  int length = cx * cy * bytes_per_pixel;
+	int length = cx * cy * bytes_per_pixel;
 
-  if ((offset + length) <= sizeof (deskcache))
-    {
-      return &deskcache[offset];
-    }
+	if ((offset + length) <= sizeof (deskcache)) {
+		return &deskcache[offset];
+	}
 
-  ERROR ("get desktop %d:%d\n", offset, length);
-  return NULL;
+	error("get desktop %d:%d\n", offset, length);
+	return NULL;
 }
 
 /* Store desktop data in the cache */
 void
-cache_put_desktop (uint32 offset, int cx, int cy, int scanline,
-		   int bytes_per_pixel, uint8 * data)
+cache_put_desktop(uint32 offset, int cx, int cy, int scanline,
+		  int bytes_per_pixel, uint8 * data)
 {
-  int length = cx * cy * bytes_per_pixel;
+	int length = cx * cy * bytes_per_pixel;
 
-  if ((offset + length) <= sizeof (deskcache))
-    {
-      cx *= bytes_per_pixel;
-      while (cy--)
-	{
-	  memcpy (&deskcache[offset], data,cx);
-	  data += scanline;
-	  offset += cx;
+	if ((offset + length) <= sizeof (deskcache)) {
+		cx *= bytes_per_pixel;
+		while (cy--) {
+			memcpy(&deskcache[offset], data, cx);
+			data += scanline;
+			offset += cx;
+		}
+	} else {
+		error("put desktop %d:%d\n", offset, length);
 	}
-    }
-  else
-    {
-      ERROR ("put desktop %d:%d\n", offset, length);
-    }
 }
-
 
 /* CURSOR CACHE */
 static HCURSOR cursorcache[0x20];
 
 /* Retrieve cursor from cache */
-HCURSOR cache_get_cursor (uint16 cache_idx)
+HCURSOR
+cache_get_cursor(uint16 cache_idx)
 {
-  HCURSOR cursor;
+	HCURSOR cursor;
 
-  if (cache_idx < NUM_ELEMENTS (cursorcache))
-    {
-      cursor = cursorcache[cache_idx];
-      if (cursor != NULL)
-	return cursor;
-    }
+	if (cache_idx < NUM_ELEMENTS(cursorcache)) {
+		cursor = cursorcache[cache_idx];
+		if (cursor != NULL)
+			return cursor;
+	}
 
-  ERROR ("get cursor %d\n", cache_idx);
-  return NULL;
+	error("get cursor %d\n", cache_idx);
+	return NULL;
 }
 
 /* Store cursor in cache */
 void
-cache_put_cursor (uint16 cache_idx, HCURSOR cursor)
+cache_put_cursor(uint16 cache_idx, HCURSOR cursor)
 {
-  HCURSOR old;
+	HCURSOR old;
 
-  if (cache_idx < NUM_ELEMENTS (cursorcache))
-    {
-      old = cursorcache[cache_idx];
-      if (old != NULL)
-	ui_destroy_cursor (old);
+	if (cache_idx < NUM_ELEMENTS(cursorcache)) {
+		old = cursorcache[cache_idx];
+		if (old != NULL)
+			ui_destroy_cursor(old);
 
-      cursorcache[cache_idx] = cursor;
-    }
-  else
-    {
-      ERROR ("put cursor %d\n", cache_idx);
-    }
+		cursorcache[cache_idx] = cursor;
+	} else {
+		error("put cursor %d\n", cache_idx);
+	}
 }
 
+
+/* COLOURMAP CACHE */
+static HCOLOURMAP colourmapcache[RDPCACHE_COLOURMAPSIZE];
+
+/* Retrieve a colourmap item from the cache */
+HCOLOURMAP
+cache_get_colourmap(uint8 cache_id)
+{
+ HCOLOURMAP map;
+
+ if (cache_id < NUM_ELEMENTS(colourmapcache))
+ {
+  map = colourmapcache[cache_id];
+  if (map != NULL)
+   return map;
+ }
+
+ error("get colourmap %d\n", cache_id);
+ return NULL;
+}
+
+/* Store a colourmap item in the cache */
+void
+cache_put_colourmap(uint8 cache_id, HCOLOURMAP data)
+{
+ HCOLOURMAP map;
+
+ if (cache_id < NUM_ELEMENTS(colourmapcache))
+ {
+  map = colourmapcache[cache_id];
+  if (map != NULL)
+   ui_destroy_colourmap(map);
+
+  colourmapcache[cache_id] = data;
+ }
+ else
+ {
+  error("put colourmap %d\n", cache_id);
+ }
+}
 
 /* Initialize the cache */
 void
 cache_create (void)
 {
-  memset( bmpcache,    0, sizeof( bmpcache ) );
-  memset( fontcache,   0, sizeof( fontcache ) );
-  memset( textcache,   0, sizeof( textcache ) );
-  memset( cursorcache, 0, sizeof( cursorcache ) );
+  memset( bmpcache,       0, sizeof( bmpcache ) );
+  memset( fontcache,      0, sizeof( fontcache ) );
+  memset( textcache,      0, sizeof( textcache ) );
+  memset( cursorcache,    0, sizeof( cursorcache ) );
+  memset( colourmapcache, 0, sizeof( colourmapcache ) );
 }
 
 
@@ -253,19 +270,20 @@ cache_create (void)
 void
 cache_destroy (void)
 {
-  int i;  
-  HBITMAP*   bitmap;
-  FONTGLYPH* font;
-  DATABLOB*  text;
-  HCURSOR*   cursor;
-
+  int i;
+  HBITMAP*    bitmap;
+  FONTGLYPH*  font;
+  DATABLOB*   text;
+  HCURSOR*    cursor;
+  HCOLOURMAP* map;
+  
   for( i = 0, bitmap = (HBITMAP*) bmpcache;
        i < sizeof( bmpcache ) / sizeof( HBITMAP );
        ++i, ++bitmap )
   {
     if( *bitmap != NULL )
     {
-     	ui_destroy_bitmap( *bitmap );
+      ui_destroy_bitmap( *bitmap );
     }
   }
 
@@ -285,7 +303,7 @@ cache_destroy (void)
   {
     if( text->data != NULL )
     {
-    	xfree( text->data );
+      xfree( text->data );
     }
   }
 
@@ -295,7 +313,17 @@ cache_destroy (void)
   {
     if( *cursor != NULL )
     {
-    	ui_destroy_cursor( *cursor );
+      ui_destroy_cursor( *cursor );
+    }
+  }
+
+  for( i = 0, map = (HCOLOURMAP*) colourmapcache;
+       i < sizeof( colourmapcache ) / sizeof( HCOLOURMAP );
+       ++i, ++map )
+  {
+    if( *colourmapcache != NULL )
+    {
+      ui_destroy_colourmap( *map );
     }
   }
 }
