@@ -136,6 +136,15 @@ BEGIN {
 	    print "#if 0\n";
 	    print "/* Unsupported */\n";
 	}
+
+	# Declare structs in case some ==include directive is missing
+	for my $argtype (@{$prototype->{argtypes}}) {
+	    my $struct;
+
+	    (undef, $struct) = ( $argtype =~ /\s*(const)?\s*struct\s*(\w+).*/) and
+		printf "struct $struct;\n";
+	}
+
 	
 	print "__inline $$prototype{'return'}\n";
 	print "$$prototype{'funcname'}(";
