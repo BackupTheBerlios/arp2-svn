@@ -1,5 +1,10 @@
 2004-05-28  Martin Blom  <martin@blom.org>
 
+	* Display error/warning requesters on the same screen as where the
+	RDesktop window is.
+
+2004-05-28  Martin Blom  <martin@blom.org>
+
 	* Released beta 4.
 
 2004-05-27  Martin Blom  <martin@blom.org>

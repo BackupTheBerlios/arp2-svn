@@ -707,6 +707,9 @@ main(int argc, char *argv[])
     return RETURN_WARN;
 }
 
+void
+amiga_req(char* prefix, char* txt);
+
 static void
 showmsg(char* prefix, char* format, va_list ap)
 {
@@ -721,14 +724,6 @@ showmsg(char* prefix, char* format, va_list ap)
   }
   else
   {
-    struct EasyStruct es =  {
-      sizeof (struct EasyStruct),
-      0,
-      (STRPTR) "RDesktop",
-      (STRPTR) "%s: %s",
-      "OK"
-    };
-    ULONG args[] = { (ULONG) prefix, (ULONG) txt };
     int lf = strlen( txt ) - 1;
 
     if( lf >= 0 &&  txt[ lf ] == '\n' )
@@ -736,7 +731,7 @@ showmsg(char* prefix, char* format, va_list ap)
       txt[ lf ] = '\0';
     }
     
-    EasyRequestArgs( NULL, &es, NULL, args );
+    amiga_req( prefix, txt );
   }
 }
 

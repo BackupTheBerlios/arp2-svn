@@ -117,6 +117,22 @@ struct Cursor
 
 
 
+void
+amiga_req(char* prefix, char* txt)
+{
+  struct EasyStruct es =  {
+    sizeof (struct EasyStruct),
+    0,
+    (STRPTR) "RDesktop",
+    (STRPTR) "%s: %s",
+    "OK"
+  };
+  ULONG args[] = { (ULONG) prefix, (ULONG) txt };
+    
+  EasyRequestArgs( amiga_window, &es, NULL, args );
+}
+
+
 static void
 amiga_remap_pens( UBYTE* from, UBYTE* to, size_t length )
 {
