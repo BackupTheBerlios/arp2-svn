@@ -1407,8 +1407,7 @@ ui_create_window(void)
                                    WA_Borderless,     TRUE,
                                    WA_NoCareRefresh,  TRUE,
                                    WA_SimpleRefresh,  TRUE,
-                                   TAG_MORE,          (ULONG) common_window_tags,
-                                   TAG_DONE  /* Is TAG_MORE jsr or jmp? */ );
+                                   TAG_MORE,          (ULONG) common_window_tags );
   }
   else
   {
@@ -1446,8 +1445,7 @@ ui_create_window(void)
                                    WA_PubScreen,      (ULONG) amiga_pubscreen,
                                    WA_Zoom,           (ULONG) zoom,
                                    WA_SmartRefresh,   TRUE,
-                                   TAG_MORE,          (ULONG) common_window_tags,
-                                   TAG_DONE  /* Is TAG_MORE jsr or jmp? */ );
+                                   TAG_MORE,          (ULONG) common_window_tags );
   
     // We don't need it anymore
     UnlockPubScreen( NULL, amiga_pubscreen );
