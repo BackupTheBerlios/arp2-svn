@@ -31,13 +31,18 @@ distclean:	clean
 	$(RM) config.status Makefile
 
 install:	all
+	$(INSTALL) --directory $(bindir) $(mandir)/man1
 	$(INSTALL_PROGRAM) $(EXECUTABLE) $(bindir)
 	$(INSTALL_DATA) $(MAN) $(mandir)/man1
 
-tgz:		all
+pack:		all
 	make distclean
-	dir=$(shell basename `pwd`) && cd .. && \
-		tar cfvz $(EXECUTABLE)-$(VERSION).tar.gz $$dir
+	mkdir .$(EXECUTABLE)-$(VERSION)
+	cp -a * .$(EXECUTABLE)-$(VERSION)
+	$(RM) -r .$(EXECUTABLE)-$(VERSION)/CVS
+	mv .$(EXECUTABLE)-$(VERSION) $(EXECUTABLE)-$(VERSION)
+	tar cfvz $(EXECUTABLE)-$(VERSION).tar.gz $(EXECUTABLE)-$(VERSION)
+	$(RM) -r $(EXECUTABLE)-$(VERSION)
 
 $(EXECUTABLE):	$(MAIN) $(CLASSES) $(PODS)
 	sed "s/SFDC_VERSION/$(VERSION)/g" $^ | sed "s/SFDC_DATE/$(DATE)/g" >$@
