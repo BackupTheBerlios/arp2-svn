@@ -1,7 +1,7 @@
 
 CPPFLAGS	=
-CFLAGS		= -g -O2 -W -Wall
-LDFLAGS		= #-noixemul
+CFLAGS		= -O2 -W -Wall
+LDFLAGS		= -noixemul
 
 all:	AHIInOut
 
@@ -10,6 +10,7 @@ clean:
 
 AHIInOut:	AHIInOut.o debug.o
 	$(CC) $(LDFLAGS) $^ $(OUTPUT_OPTION)
+	strip -s $@
 
 
 debug.o:	debug.s

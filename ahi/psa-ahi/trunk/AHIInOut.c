@@ -12,7 +12,6 @@
 #include <proto/exec.h>
 #include <proto/dos.h>
 
-#include <stdio.h>
 #include <string.h>
 
 #include "CompilerSpecific.h"
@@ -20,28 +19,45 @@
 
 /*** Definitions *************************************************************/
 
-#define PORTNAME        "AHIInOut"
+#define PORTNAME            "AHIInOut"
 
 struct Context
 {
-  struct Task*              PSATask;
-  ULONG                     PSASignalMask;
+  struct Task*              PlayTask;
+  struct Task*              RecordTask;
+  ULONG                     PlaySignalMask;
+  ULONG                     RecordSignalMask;
+
+  struct Hook               SoundHook;
+  struct Hook               RecordHook;
+
+  ULONG                     Mode;
+  ULONG                     Frequency;
+  ULONG                     RecordSamples;
+  struct AHIAudioCtrl*      AudioCtrl;
   struct AHIEffMasterVolume MasterVol;
   ULONG                     MasterVolRC;
-  struct Hook               SoundHook;
-  struct AHIAudioCtrl*      AudioCtrl;
+
   BOOL                      Playing;
   BOOL                      Recording;
+
   BOOL                      Sound0Loaded;
   BOOL                      Sound1Loaded;
   UWORD                     CurrentSound;
   UWORD                     NextSound;
+
+  WORD*                     RecordBuffer1;
+  WORD*                     RecordBuffer2;
+  ULONG                     RecordBufferType;
+  ULONG                     RecordBufferLength;
+  ULONG                     RecordBufferOffset;
 };
 
 
 /*** Prototypes **************************************************************/
 
-void kprintf( char* fmt, ... );
+//void kprintf( char* fmt, ... );
+#define kprintf( ... )
 
 static BOOL Init( void );
 static void ShutDown( void );
@@ -55,9 +71,15 @@ static BOOL AllocAudio( ULONG mode, ULONG freq, struct Context* this );
 static void FreeAudio( struct Context* this );
 
 static HOOKCALL ULONG
-SoundFunc( REG( a0, struct Hook *hook ),
-           REG( a2, struct AHIAudioCtrl *actrl ),
-           REG( a1, struct AHISoundMessage *smsg ) );
+SoundFunc( REG( a0, struct Hook*            hook ),
+           REG( a2, struct AHIAudioCtrl*    actrl ),
+           REG( a1, struct AHISoundMessage* msg ) );
+
+static HOOKCALL ULONG
+RecordFunc( REG( a0, struct Hook*             hook ),
+            REG( a2, struct AHIAudioCtrl*     actrl ),
+            REG( a1, struct AHIRecordMessage* msg ) );
+
 
 
 /*** Global variables ********************************************************/
@@ -78,27 +100,9 @@ main( void )
 {
   ExternalIOMessage *pEIOsg;
 
-  struct MsgPort    *port;
-  ULONG         ulSignal,ulPortSignal;
-
-  BYTE        *pbBuff1,*pbBuff2;
-
-  WORD		*pwRecBuff1 = NULL ,*pwRecBuff2 = NULL;
-  WORD        *pwRecTmp1,*pwRecTmp2;
-  WORD 		wDummySmp = 0;
-  BOOL 		fRecording;
-
-  BYTE 		bMode = -1;
-
-  LONG        lSize = 0;
-  LONG        lCurBuff = 0;
-  ULONG         ulClock;
-  WORD        wChannels;
-  WORD        wDataType;
-  struct Task     *ptaskAL16 = NULL;
-  ULONG         ulSigMaskAL16 = 0;
-
-  LONG lTmp;
+  struct MsgPort* port;
+  ULONG           ulSignal;
+  ULONG           ulPortSignal;
 
   struct Context context;
   
@@ -126,8 +130,6 @@ main( void )
   if( port != NULL )
   {
     BOOL fQuit      = FALSE;
-    BOOL fPlaying   = FALSE;
-    BOOL fRecording = FALSE;
 
     ulPortSignal = 1 << port->mp_SigBit;
 
@@ -167,7 +169,7 @@ kprintf( "Got message!\n" );
               pEIOsg->lError = EIO_ERR_NOERROR;
               ReplyMsg((struct Message *)pEIOsg);
 
-              kprintf("EIO_CMD_INFO received\n");
+kprintf("EIO_CMD_INFO received\n");
  
               break;
 
@@ -177,12 +179,13 @@ kprintf( "Got message!\n" );
               ULONG sample_freq = -1;
 
 kprintf( "EIO_CMD_PLAY\n" );
-              pEIOsg->lError = EIO_ERR_NOERROR;
 
-              context.PSATask       = pEIOsg->ptaskSwapper;
-              context.PSASignalMask = pEIOsg->ulSignalMask;
+              pEIOsg->lError         = EIO_ERR_NOERROR;
 
-              sample_freq = pEIOsg->ulClock;
+              context.PlayTask       = pEIOsg->ptaskSwapper;
+              context.PlaySignalMask = pEIOsg->ulSignalMask;
+
+              sample_freq            = pEIOsg->ulClock;
 
               if( pEIOsg->wDataType == EIO_DAT_16LS )
               {
@@ -204,68 +207,38 @@ kprintf( "EIO_CMD_PLAY\n" );
                 pEIOsg->lError = EIO_ERR_DATATYPE;
               }
 
-              if( context.Sound0Loaded )
+              /* Re-allocate audio using new frequency if it has changed. */
+
+              if( pEIOsg->lError == EIO_ERR_NOERROR 
+                  && context.Frequency != sample_freq )
+              {
+                if( !AllocAudio( AHI_DEFAULT_ID, 
+                                 sample_freq, 
+                                 &context ) )
+                {
+                  pEIOsg->lError = EIO_ERR_HARDFAIL;
+                }
+              }
+
+              if( pEIOsg->lError == EIO_ERR_NOERROR )
               {
                 AHI_UnloadSound( 0, context.AudioCtrl );
-                context.Sound0Loaded = FALSE;
-              }
-
-              if( context.Sound1Loaded )
-              {
                 AHI_UnloadSound( 1, context.AudioCtrl );
+
+                context.Sound0Loaded = FALSE;
                 context.Sound1Loaded = FALSE;
-              }
 
-              if( pEIOsg->fOnePage )
-              {
-                struct AHISampleInfo si;
+                if( pEIOsg->fOnePage )
+                {
+                  struct AHISampleInfo si;
                 
-                si.ahisi_Type    = sample_type;
-                si.ahisi_Address = pEIOsg->pbBuffer1;
-                si.ahisi_Length  = pEIOsg->lBufferSize 
-                                   / AHI_SampleFrameSize( sample_type );
+                  si.ahisi_Type    = sample_type;
+                  si.ahisi_Address = pEIOsg->pbBuffer1;
+                  si.ahisi_Length  = pEIOsg->lBufferSize 
+                                     / AHI_SampleFrameSize( sample_type );
 
 kprintf( "Loadsound 0: %lx, %ld\n", si.ahisi_Address, si.ahisi_Length );
-                if( AHI_LoadSound( 0,
-                                   AHIST_DYNAMICSAMPLE,
-                                   &si,
-                                   context.AudioCtrl ) != AHIE_OK )
-                {
-                  pEIOsg->lError = EIO_ERR_HARDFAIL;
-                }
-                else
-                {
-                  context.Sound0Loaded = TRUE;
-                }
-                
-                context.CurrentSound = 0;
-                context.NextSound    = 0;
-              }
-              else
-              {
-                struct AHISampleInfo si;
-                
-                si.ahisi_Type    = sample_type;
-                si.ahisi_Address = pEIOsg->pbBuffer1;
-                si.ahisi_Length  = pEIOsg->lBufferSize 
-                                   / AHI_SampleFrameSize( sample_type );
-
-kprintf( "Loadsound 0: %lx, %ld\n", si.ahisi_Address, si.ahisi_Length );
-                if( AHI_LoadSound( 0,
-                                   AHIST_DYNAMICSAMPLE,
-                                   &si,
-                                   context.AudioCtrl ) != AHIE_OK )
-                {
-                  pEIOsg->lError = EIO_ERR_HARDFAIL;
-                }
-                else
-                {
-                  context.Sound0Loaded = TRUE;
-                  
-                  si.ahisi_Address = pEIOsg->pbBuffer2;
-
-kprintf( "Loadsound 1: %lx, %ld\n", si.ahisi_Address, si.ahisi_Length );
-                  if( AHI_LoadSound( 1,
+                  if( AHI_LoadSound( 0,
                                      AHIST_DYNAMICSAMPLE,
                                      &si,
                                      context.AudioCtrl ) != AHIE_OK )
@@ -274,14 +247,54 @@ kprintf( "Loadsound 1: %lx, %ld\n", si.ahisi_Address, si.ahisi_Length );
                   }
                   else
                   {
-                    context.Sound1Loaded = TRUE;
+                    context.Sound0Loaded = TRUE;
+                  }
+                
+                  context.CurrentSound = 0;
+                  context.NextSound    = 0;
+                }
+                else
+                {
+                  struct AHISampleInfo si;
+  
+                  si.ahisi_Type    = sample_type;
+                  si.ahisi_Address = pEIOsg->pbBuffer1;
+                  si.ahisi_Length  = pEIOsg->lBufferSize 
+                                     / AHI_SampleFrameSize( sample_type );
+
+kprintf( "Loadsound 0: %lx, %ld\n", si.ahisi_Address, si.ahisi_Length );
+                  if( AHI_LoadSound( 0,
+                                     AHIST_DYNAMICSAMPLE,
+                                     &si,
+                                     context.AudioCtrl ) != AHIE_OK )
+                  {
+                    pEIOsg->lError = EIO_ERR_HARDFAIL;
+                  }
+                  else
+                  {
+                    context.Sound0Loaded = TRUE;
+                  
+                    si.ahisi_Address = pEIOsg->pbBuffer2;
+
+kprintf( "Loadsound 1: %lx, %ld\n", si.ahisi_Address, si.ahisi_Length );
+                    if( AHI_LoadSound( 1,
+                                       AHIST_DYNAMICSAMPLE,
+                                       &si,
+                                       context.AudioCtrl ) != AHIE_OK )
+                    {
+                      pEIOsg->lError = EIO_ERR_HARDFAIL;
+                    }
+                    else
+                    {
+                      context.Sound1Loaded = TRUE;
+                    }
+  
                   }
 
+                  context.CurrentSound = 1;
+                  context.NextSound    = 0;
                 }
-
-                context.CurrentSound = 1;
-                context.NextSound    = 0;
-              }
+              }              
 
               if( pEIOsg->lError == EIO_ERR_NOERROR )
               {
@@ -311,102 +324,103 @@ kprintf( "AHI_ControlAudio(play)\n" );
             }
 
             case EIO_CMD_REC:
-              /* Get parameters from AL16...*/
-              ptaskAL16     = pEIOsg->ptaskSwapper;
-              ulSigMaskAL16   = pEIOsg->ulSignalMask;
+            {
+              ULONG sample_type = -1;
+              ULONG sample_freq = -1;
 
-              /* NEW! */
-              pwRecBuff1    = (WORD *)pEIOsg->pbBuffer3;
-              pwRecBuff2    = (WORD *)pEIOsg->pbBuffer4;
+kprintf( "EIO_CMD_REC\n" );
 
-              lSize       = pEIOsg->lBufferSize;
-//              fOnePage    = pEIOsg->fOnePage;
-              wDataType     = pEIOsg->wDataType;
-              ulClock     = pEIOsg->ulClock;
-              wChannels     = pEIOsg->wChannels;
-              wDummySmp = 0;
+              pEIOsg->lError           = EIO_ERR_NOERROR;
 
-              lCurBuff = 1;
+              context.RecordTask       = pEIOsg->ptaskSwapper;
+              context.RecordSignalMask = pEIOsg->ulSignalMask;
 
-//              bMode = MODE_REC;
+              sample_freq              = pEIOsg->ulClock;
 
+              if( pEIOsg->wDataType == EIO_DAT_16LS )
+              {
+                if( pEIOsg->wChannels == 1 )
+                {
+                  sample_type = AHIST_M16S;
+                }
+                else if( pEIOsg->wChannels == 2)
+                {
+                  sample_type = AHIST_S16S;
+                }
+                else
+                {
+                  pEIOsg->lError = EIO_ERR_CHANNELS;
+                }
+              }
+              else
+              {
+                pEIOsg->lError = EIO_ERR_DATATYPE;
+              }
 
-//              pEIOsg->lError = EIO_ERR_NOERROR;
-              pEIOsg->lError = EIO_ERR_UNKNOWNCMD;
+              /* Re-allocate audio using new frequency if it has changed. */
+
+              if( pEIOsg->lError == EIO_ERR_NOERROR 
+                  && context.Frequency != sample_freq )
+              {
+                if( !AllocAudio( AHI_DEFAULT_ID, 
+                                 sample_freq, 
+                                 &context ) )
+                {
+                  pEIOsg->lError = EIO_ERR_HARDFAIL;
+                }
+              }
+
+              context.RecordBuffer1      = (WORD*) pEIOsg->pbBuffer3;
+              context.RecordBuffer2      = (WORD*) pEIOsg->pbBuffer4;
+              context.RecordBufferType   = sample_type;
+              context.RecordBufferLength = pEIOsg->lBufferSize
+                                           / AHI_SampleFrameSize( sample_type );
+              context.RecordBufferOffset = 0;
+
+              if( context.RecordSamples > context.RecordBufferLength )
+              {
+                pEIOsg->lError = EIO_ERR_BUFFERSIZE;
+              }
+
+              context.Recording = TRUE;
+
+              if( AHI_ControlAudio( context.AudioCtrl,
+                                    AHIC_Record, TRUE,
+                                    TAG_DONE ) != AHIE_OK )
+              {
+                context.Recording = FALSE;
+                pEIOsg->lError    = EIO_ERR_HARDFAIL;
+              }
+
               ReplyMsg((struct Message *)pEIOsg);
 
-              kprintf("EIO_CMD_REC received (%luHz)",ulClock);
-              if(wDataType == EIO_DAT_16LS)
-                kprintf("(16 bit)\n");
-#if 0
-              kprintf("Recording buffer %ld\n",lCurBuff);
-
-              pwRecTmp1 = pwRecBuff1;
-              pwRecTmp2 = pwRecBuff2;
-              
-
-              /* Simulated recording */
-              for(lTmp = 0;lTmp<(lSize/2);lTmp++)
-                  *pwRecTmp1++ = wDummySmp;
-
-              wDummySmp++;
-
-
-              /* Only for demo: ask the timer.device to
-                 signal us in DELAY seconds. Please remove
-                 this and let your board signal us when it
-                 completed buffer 1 */
-
-              ptimerequest->tr_time.tv_secs = DELAY;
-              ptimerequest->tr_time.tv_micro= 0;
-
-              SendIO((struct IORequest *)ptimerequest);
-
-              fRecording = TRUE;
-#endif
               break;
+            }
 
             case EIO_CMD_STOP:
               pEIOsg->lError = EIO_ERR_NOERROR;
               ReplyMsg((struct Message *)pEIOsg);
-              kprintf("EIO_CMD_STOP  received\n");
+kprintf("EIO_CMD_STOP  received\n");
 
-kprintf( "AHI_ControlAudio(stop)\n" );
-              if( context.Playing )
-              {
-                context.Playing = FALSE;
-                AHI_ControlAudio( context.AudioCtrl,
-                                  AHIC_Play, FALSE,
-                                  TAG_DONE );
-              }
+              AHI_ControlAudio( context.AudioCtrl,
+                                AHIC_Play,   FALSE,
+                                AHIC_Record, FALSE,
+                                TAG_DONE );
 
-              if( context.Recording )
-              {
-                context.Recording = FALSE;
-                AHI_ControlAudio( context.AudioCtrl,
-                                  AHIC_Record, FALSE,
-                                  TAG_DONE );
-              }
+              context.Playing   = FALSE;
+              context.Recording = FALSE;
 
-              if( context.Sound0Loaded )
-              {
-                AHI_UnloadSound( 0, context.AudioCtrl );
-                context.Sound0Loaded = FALSE;
-              }
+              AHI_UnloadSound( 0, context.AudioCtrl );
+              AHI_UnloadSound( 1, context.AudioCtrl );
 
-              if( context.Sound1Loaded )
-              {
-                AHI_UnloadSound( 1, context.AudioCtrl );
-                context.Sound1Loaded = FALSE;
-              }
+              context.Sound0Loaded = FALSE;
+              context.Sound1Loaded = FALSE;
 
               break;
 
             case EIO_CMD_SETPARAMS:
-
               pEIOsg->lError = EIO_ERR_NOERROR;
               ReplyMsg((struct Message *)pEIOsg);
-              kprintf("EIO_CMD_SETPARAMS  received\n");
 
               /* Parameters passing removed. Doesn't
                  apply to generic boards and AHI as
@@ -416,7 +430,6 @@ kprintf( "AHI_ControlAudio(stop)\n" );
 
 
             case EIO_CMD_QUIT:
-
               pEIOsg->lError = EIO_ERR_NOERROR;
               ReplyMsg((struct Message *)pEIOsg);
 
@@ -434,7 +447,7 @@ kprintf( "AHI_ControlAudio(stop)\n" );
     }
   }
 
-printf( "Exiting... " );
+kprintf( "Exiting... " );
 
   if( port != NULL )
   {
@@ -541,16 +554,23 @@ CloseAHI( void )
 ** Construct ******************************************************************
 ******************************************************************************/
 
+/* Initializes the Context structure. */
+
 static BOOL
 Construct( struct Context* this )
 {
   memset( this, 0, sizeof( struct Context ) );
 
-  this->SoundHook.h_Entry = SoundFunc;
-  this->SoundHook.h_Data  = this;
+  this->SoundHook.h_Entry  = SoundFunc;
+  this->SoundHook.h_Data   = this;
 
-  return AllocAudio( AHI_DEFAULT_ID, 
-                     AHI_DEFAULT_FREQ, 
+  this->RecordHook.h_Entry = RecordFunc;
+  this->RecordHook.h_Data  = this;
+
+  /* Pre-allocate the audio hardware, so that nobody steals it... */
+
+  return AllocAudio( AHI_DEFAULT_ID,
+                     AHI_DEFAULT_FREQ,
                      this );
 }
 
@@ -558,6 +578,8 @@ Construct( struct Context* this )
 /******************************************************************************
 ** Destruct *******************************************************************
 ******************************************************************************/
+
+/* Deallocates everything in the Context structure. */
 
 static void
 Destruct( struct Context* this )
@@ -589,13 +611,21 @@ AllocAudio( ULONG mode,
 
   if( this->AudioCtrl != NULL )
   {
-    /* Raise volume to use the full dynamic range */
+    this->Frequency    = freq;
 
-    this->MasterVol.ahie_Effect   = AHIET_MASTERVOLUME;
-    this->MasterVol.ahiemv_Volume = 0x20000;
-    this->MasterVolRC = AHI_SetEffect( &this->MasterVol, 
-                                       this->AudioCtrl );
-    return TRUE;
+    if( AHI_GetAudioAttrs( AHI_INVALID_ID, this->AudioCtrl,
+                           AHIDB_AudioID,          (ULONG) &this->Mode,
+                           AHIDB_MaxRecordSamples, (ULONG) &this->RecordSamples,
+                           TAG_DONE ) )
+    {
+      /* Raise volume to use the full dynamic range */
+
+      this->MasterVol.ahie_Effect   = AHIET_MASTERVOLUME;
+      this->MasterVol.ahiemv_Volume = 0x20000;
+      this->MasterVolRC = AHI_SetEffect( &this->MasterVol, 
+                                         this->AudioCtrl );
+      return TRUE;
+    }
   }
 
   return FALSE;
@@ -626,23 +656,108 @@ FreeAudio( struct Context* this )
 ** SoundFunc ******************************************************************
 ******************************************************************************/
 
+/* Called by AHI each time a sound has been started */
+
 static HOOKCALL ULONG
 SoundFunc( REG( a0, struct Hook*            hook ),
            REG( a2, struct AHIAudioCtrl*    actrl ),
-           REG( a1, struct AHISoundMessage* smsg ) )
+           REG( a1, struct AHISoundMessage* msg ) )
 {
   struct Context* this = (struct Context*) hook->h_Data;
   UWORD           snd;
 
   if( this->Playing )
   {
-    snd                = this->NextSound;
-    this->NextSound    = this->CurrentSound;
-    this->CurrentSound = snd;
+    snd                = this->CurrentSound;;
+    this->CurrentSound = this->NextSound;
+    this->NextSound    = snd;
 
-    AHI_SetSound( 0, this->NextSound, 0, 0, this->AudioCtrl, AHISF_NONE );
-    Signal( this->PSATask, this->PSASignalMask );
-    kprintf( "Queued sound %ld\n", this->NextSound );
+    AHI_SetSound( 0, snd, 0, 0, this->AudioCtrl, AHISF_NONE );
+    Signal( this->PlayTask, this->PlaySignalMask );
+kprintf( "Queued sound %ld\n", snd );
+  }
+
+  return 0;
+}
+
+/******************************************************************************
+** RecordFunc *****************************************************************
+******************************************************************************/
+
+/* Called by AHI each time there is new data available */
+
+static HOOKCALL ULONG
+RecordFunc( REG( a0, struct Hook*             hook ),
+            REG( a2, struct AHIAudioCtrl*     actrl ),
+            REG( a1, struct AHIRecordMessage* msg ) )
+{
+  struct Context* this = (struct Context*) hook->h_Data;
+
+  if( this->Recording && msg->ahirm_Type == AHIST_S16S )
+  {
+    int   i;
+    int   len;
+    WORD* src;
+    WORD* dst;
+kprintf( "Recording hook\n" );
+    src = msg->ahirm_Buffer;
+
+    len = min( this->RecordBufferLength - this->RecordBufferOffset,
+               msg->ahirm_Length );
+
+    while( len > 0 )
+    {
+kprintf( "Copying %ld samples\n", len );
+      switch( this->RecordBufferType )
+      {
+        case AHIST_M16S:
+          /* Copy left channel only */
+
+          dst = &this->RecordBuffer1[ this->RecordBufferOffset ];
+
+          for( i = 0; i < len; i++ )
+          {
+            *dst++ = *src;
+            src   += 2;
+          }
+          break;
+
+        case AHIST_S16S:
+          /* Copy left channel only */
+
+          dst = &this->RecordBuffer1[ this->RecordBufferOffset * 2 ];
+
+          for( i = 0; i < len; i++ )
+          {
+            *dst++ = *src++;
+            *dst++ = *src++;
+          }
+          break;
+      }
+
+      this->RecordBufferOffset += len;
+
+      if( this->RecordBufferOffset >= this->RecordBufferLength )
+      {
+        WORD* buf;
+        buf                 = this->RecordBuffer1;
+        this->RecordBuffer1 = this->RecordBuffer2;
+        this->RecordBuffer2 = buf;
+      
+        this->RecordBufferOffset = 0;
+
+        Signal( this->RecordTask, this->RecordSignalMask );
+kprintf( "Swapped to buffer %lx\n", buf );
+
+        len = min( this->RecordBufferLength,
+                   msg->ahirm_Length - len );
+      }
+      else
+      {
+        /* End while loop */
+        len = 0;
+      }
+    }
   }
 
   return 0;
