@@ -13,13 +13,22 @@ dnl Checks for programs.
 AC_PROG_CC
 AC_PROG_GCC_TRADITIONAL
 AC_PROG_INSTALL
-AC_PROG_RANLIB
+AC_CHECK_TOOL(RANLIB, ranlib, :)
+### begin-GG-local
+AC_CHECK_TOOL(AR, ar)
+AC_ARFLAGS
+### end-GG-local
 
 AC_ISC_POSIX
 AC_MINIX
 
 # Needed on sysV68 for sigblock, sigsetmask.  But check for it in libc first.
 AC_CHECK_FUNC(sigblock, , AC_CHECK_LIB(bsd, sigblock))
+
+# On some systems, like BeOS, ncurses needs select, which is in libnet
+# on pre-bone systems and libsocket on bone-enabled systems.
+# So ensure libnet/libsocket will be used in further testing.
+AC_SEARCH_LIBS(select, [net socket])
 
 # Some GNU/Linux systems (e.g., SuSE 4.3, 1996) don't have curses, but
 # rather ncurses.  So we check for it.
@@ -61,6 +70,28 @@ AC_FUNC_SETVBUF_REVERSED
 AC_CHECK_FUNCS(setvbuf getcwd memset bzero strchr sigprocmask sigsetmask)
 dnl strerror, xmalloc, xrealloc, probably others should be added.
 AC_REPLACE_FUNCS(memcpy memmove strdup strcasecmp strerror strncasecmp)
+
+dnl Enable AmigaGuide target, even on non-AmigaDOS platforms
+AC_ARG_ENABLE(amigaguide,
+[  --enable-amigaguide     Allow AmigaGuide target on non-AmigaDOS platforms],
+  [case "${enableval}" in
+    yes) configure_amigaguide=true ;;
+    no) configure_amigaguide=false ;;
+    *) AC_MSG_ERROR(bad value ${enableval} for AmigaGuide option) ;;
+   esac],
+  [configure_amigaguide=false])
+
+dnl This should always be true for the GeekGadgets version of makeinfo, 
+dnl so enable amigaguide explicit, and use this for conditionals in the
+dnl documentation as well.
+
+configure_amigaguide=true
+
+if test "x$configure_amigaguide" = "xtrue"; then
+  AC_DEFINE(ENABLE_AMIGAGUIDE)
+fi
+
+AM_CONDITIONAL(DOC_AMIGAGUIDE, test "x$configure_amigaguide" = "xtrue")
 
 dnl Checks for variables.
 # HP-UX 9 (at least) needs -lncurses which defines termcap variables PC etc.

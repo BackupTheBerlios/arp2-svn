@@ -257,4 +257,18 @@ DECLARE (int, splitting, 1);    /* Defaults to true for now. */
   (strncmp (input_text + input_text_offset, string, strlen (string)) == 0)
 
 
+#if defined (__amigaos__) && !defined (ENABLE_AMIGAGUIDE) 
+#  define ENABLE_AMIGAGUIDE
+#endif
+
+#if defined (ENABLE_AMIGAGUIDE)
+
+/* Non-zero indicates that we're converting to AmigaGuide hypertext,
+   instead of plain info. The numerical value indicates what specific
+   version we're targeting. Currently, the accepted values are 34, 39
+   and 40. */
+DECLARE (int, amiga_guide, 0);
+
+#endif /* ENABLE_AMIGAGUIDE */
+
 #endif /* not MAKEINFO_H */

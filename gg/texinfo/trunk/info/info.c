@@ -523,6 +523,13 @@ info_error (format, arg1, arg2)
 }
 
 
+#ifdef __MSDOS__
+#define SPEECH_FRIENDLY_ARG "\
+ --speech-friendly        be friendly to speech synthesizers.\n"
+#else
+#define SPEECH_FRIENDLY_ARG ""
+#endif
+
 /* Produce a scaled down description of the available options to Info. */
 static void
 info_short_help ()
@@ -564,13 +571,7 @@ Email bug reports to bug-texinfo@gnu.org,\n\
 general questions and discussion to help-texinfo@gnu.org.\n\
 "),
   program_name,
-#ifdef __MSDOS__
-"\
- --speech-friendly        be friendly to speech synthesizers.\n"
-#else
-""
-#endif
-	  );
+  SPEECH_FRIENDLY_ARG);
 
   xexit (0);
 }

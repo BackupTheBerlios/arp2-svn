@@ -3,14 +3,21 @@
 
 #serial 3
 
+dnl GG-local: Do not short-circuit running of the AC_CHECK_HEADERS macros 
+dnl below.  The problem is that if you configure with a cache file that
+dnl says these headers exist, then the macro doesn't get run and the
+dnl appropriate HAVE_<file> macro does not get set in config.h.  As an
+dnl example, just configure this twice in a row and compare the config.h
+dnl files for each configure run.  -fnf
+
 AC_DEFUN(jm_CHECK_DECLARATION,
 [
   AC_REQUIRE([AC_HEADER_STDC])dnl
-  test -z "$ac_cv_header_memory_h" && AC_CHECK_HEADERS(memory.h)
-  test -z "$ac_cv_header_string_h" && AC_CHECK_HEADERS(string.h)
-  test -z "$ac_cv_header_strings_h" && AC_CHECK_HEADERS(strings.h)
-  test -z "$ac_cv_header_stdlib_h" && AC_CHECK_HEADERS(stdlib.h)
-  test -z "$ac_cv_header_unistd_h" && AC_CHECK_HEADERS(unistd.h)
+  AC_CHECK_HEADERS(memory.h)
+  AC_CHECK_HEADERS(string.h)
+  AC_CHECK_HEADERS(strings.h)
+  AC_CHECK_HEADERS(stdlib.h)
+  AC_CHECK_HEADERS(unistd.h)
   AC_MSG_CHECKING([whether $1 is declared])
   AC_CACHE_VAL(jm_cv_func_decl_$1,
     [AC_TRY_COMPILE($2,

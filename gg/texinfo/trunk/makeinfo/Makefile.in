@@ -57,6 +57,9 @@ POST_INSTALL = :
 NORMAL_UNINSTALL = :
 PRE_UNINSTALL = :
 POST_UNINSTALL = :
+host_alias = @host_alias@
+host_triplet = @host@
+AR = @AR@
 CATALOGS = @CATALOGS@
 CATOBJEXT = @CATOBJEXT@
 CC = @CC@
@@ -122,6 +125,10 @@ DISTFILES = $(DIST_COMMON) $(SOURCES) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
 
 TAR = gtar
 GZIP_ENV = --best
+DEP_FILES =  .deps/cmds.P .deps/defun.P .deps/files.P .deps/footnote.P \
+.deps/html.P .deps/index.P .deps/insertion.P .deps/lang.P .deps/macro.P \
+.deps/makeinfo.P .deps/multi.P .deps/node.P .deps/sectioning.P \
+.deps/toc.P
 SOURCES = $(makeinfo_SOURCES)
 OBJECTS = $(makeinfo_OBJECTS)
 
@@ -129,9 +136,9 @@ all: all-redirect
 .SUFFIXES:
 .SUFFIXES: .S .c .o .s
 $(srcdir)/Makefile.in: Makefile.am $(top_srcdir)/configure.in $(ACLOCAL_M4) 
-	cd $(top_srcdir) && $(AUTOMAKE) --gnu --include-deps makeinfo/Makefile
+	cd $(top_srcdir) && $(AUTOMAKE) --gnu makeinfo/Makefile
 
-Makefile: $(srcdir)/Makefile.in  $(top_builddir)/config.status
+Makefile: $(srcdir)/Makefile.in  $(top_builddir)/config.status $(BUILT_SOURCES)
 	cd $(top_builddir) \
 	  && CONFIG_FILES=$(subdir)/$@ CONFIG_HEADERS= $(SHELL) ./config.status
 
@@ -160,9 +167,6 @@ uninstall-binPROGRAMS:
 	list='$(bin_PROGRAMS)'; for p in $$list; do \
 	  rm -f $(DESTDIR)$(bindir)/`echo $$p|sed 's/$(EXEEXT)$$//'|sed '$(transform)'|sed 's/$$/$(EXEEXT)/'`; \
 	done
-
-.c.o:
-	$(COMPILE) -c $<
 
 .s.o:
 	$(COMPILE) -c $<
@@ -278,6 +282,11 @@ distdir = $(top_builddir)/$(PACKAGE)-$(VERSION)/$(subdir)
 subdir = makeinfo
 
 distdir: $(DISTFILES)
+	here=`cd $(top_builddir) && pwd`; \
+	top_distdir=`cd $(top_distdir) && pwd`; \
+	distdir=`cd $(distdir) && pwd`; \
+	cd $(top_srcdir) \
+	  && $(AUTOMAKE) --include-deps --build-dir=$$here --srcdir-name=$(top_srcdir) --output-dir=$$top_distdir --gnu makeinfo/Makefile
 	@for file in $(DISTFILES); do \
 	  d=$(srcdir); \
 	  if test -d $$d/$$file; then \
@@ -298,38 +307,38 @@ distdir: $(DISTFILES)
 	      || exit 1; \
 	  fi; \
 	done
-cmds.o: cmds.c ../lib/system.h ../config.h ../lib/getopt.h cmds.h \
-	defun.h insertion.h files.h footnote.h lang.h macro.h \
-	makeinfo.h node.h sectioning.h toc.h
-defun.o: defun.c ../lib/system.h ../config.h ../lib/getopt.h defun.h \
-	insertion.h makeinfo.h
-files.o: files.c ../lib/system.h ../config.h ../lib/getopt.h files.h \
-	macro.h makeinfo.h
-footnote.o: footnote.c ../lib/system.h ../config.h ../lib/getopt.h \
-	footnote.h macro.h makeinfo.h
-html.o: html.c ../lib/system.h ../config.h ../lib/getopt.h cmds.h html.h \
-	lang.h makeinfo.h sectioning.h
-index.o: index.c ../lib/system.h ../config.h ../lib/getopt.h index.h \
-	makeinfo.h cmds.h lang.h macro.h toc.h
-insertion.o: insertion.c ../lib/system.h ../config.h ../lib/getopt.h \
-	cmds.h defun.h insertion.h macro.h makeinfo.h
-lang.o: lang.c ../lib/system.h ../config.h ../lib/getopt.h cmds.h lang.h \
-	makeinfo.h
-macro.o: macro.c ../lib/system.h ../config.h ../lib/getopt.h cmds.h \
-	macro.h makeinfo.h insertion.h
-makeinfo.o: makeinfo.c ../lib/system.h ../config.h ../lib/getopt.h \
-	makeinfo.h cmds.h files.h footnote.h html.h index.h insertion.h \
-	macro.h node.h toc.h
-multi.o: multi.c ../lib/system.h ../config.h ../lib/getopt.h insertion.h \
-	makeinfo.h
-node.o: node.c ../lib/system.h ../config.h ../lib/getopt.h cmds.h \
-	files.h footnote.h macro.h makeinfo.h node.h sectioning.h \
-	insertion.h
-sectioning.o: sectioning.c ../lib/system.h ../config.h ../lib/getopt.h \
-	cmds.h macro.h makeinfo.h node.h toc.h sectioning.h
-toc.o: toc.c ../lib/system.h ../config.h ../lib/getopt.h makeinfo.h \
-	cmds.h files.h macro.h node.h lang.h sectioning.h toc.h
 
+DEPS_MAGIC := $(shell mkdir .deps > /dev/null 2>&1 || :)
+
+-include $(DEP_FILES)
+
+mostlyclean-depend:
+
+clean-depend:
+
+distclean-depend:
+	-rm -rf .deps
+
+maintainer-clean-depend:
+
+%.o: %.c
+	@echo '$(COMPILE) -c $<'; \
+	$(COMPILE) -Wp,-MD,.deps/$(*F).pp -c $<
+	@-cp .deps/$(*F).pp .deps/$(*F).P; \
+	tr ' ' '\012' < .deps/$(*F).pp \
+	  | sed -e 's/^\\$$//' -e '/^$$/ d' -e '/:$$/ d' -e 's/$$/ :/' \
+	    >> .deps/$(*F).P; \
+	rm .deps/$(*F).pp
+
+%.lo: %.c
+	@echo '$(LTCOMPILE) -c $<'; \
+	$(LTCOMPILE) -Wp,-MD,.deps/$(*F).pp -c $<
+	@-sed -e 's/^\([^:]*\)\.o[ 	]*:/\1.lo \1.o :/' \
+	  < .deps/$(*F).pp > .deps/$(*F).P; \
+	tr ' ' '\012' < .deps/$(*F).pp \
+	  | sed -e 's/^\\$$//' -e '/^$$/ d' -e '/:$$/ d' -e 's/$$/ :/' \
+	    >> .deps/$(*F).P; \
+	rm -f .deps/$(*F).pp
 info-am:
 info: info-recursive
 dvi-am:
@@ -368,23 +377,24 @@ distclean-generic:
 
 maintainer-clean-generic:
 mostlyclean-am:  mostlyclean-binPROGRAMS mostlyclean-compile \
-		mostlyclean-tags mostlyclean-generic
+		mostlyclean-tags mostlyclean-depend mostlyclean-generic
 
 mostlyclean: mostlyclean-recursive
 
-clean-am:  clean-binPROGRAMS clean-compile clean-tags clean-generic \
-		mostlyclean-am
+clean-am:  clean-binPROGRAMS clean-compile clean-tags clean-depend \
+		clean-generic mostlyclean-am
 
 clean: clean-recursive
 
 distclean-am:  distclean-binPROGRAMS distclean-compile distclean-tags \
-		distclean-generic clean-am
+		distclean-depend distclean-generic clean-am
 
 distclean: distclean-recursive
 
 maintainer-clean-am:  maintainer-clean-binPROGRAMS \
 		maintainer-clean-compile maintainer-clean-tags \
-		maintainer-clean-generic distclean-am
+		maintainer-clean-depend maintainer-clean-generic \
+		distclean-am
 	@echo "This command is intended for maintainers to use;"
 	@echo "it deletes files that may require special tools to rebuild."
 
@@ -399,12 +409,14 @@ uninstall-exec-recursive installdirs-recursive uninstalldirs-recursive \
 all-recursive check-recursive installcheck-recursive info-recursive \
 dvi-recursive mostlyclean-recursive distclean-recursive clean-recursive \
 maintainer-clean-recursive tags tags-recursive mostlyclean-tags \
-distclean-tags clean-tags maintainer-clean-tags distdir info-am info \
-dvi-am dvi check check-am installcheck-am installcheck install-exec-am \
-install-exec install-data-am install-data install-am install \
-uninstall-am uninstall all-redirect all-am all installdirs-am \
-installdirs mostlyclean-generic distclean-generic clean-generic \
-maintainer-clean-generic clean mostlyclean distclean maintainer-clean
+distclean-tags clean-tags maintainer-clean-tags distdir \
+mostlyclean-depend distclean-depend clean-depend \
+maintainer-clean-depend info-am info dvi-am dvi check check-am \
+installcheck-am installcheck install-exec-am install-exec \
+install-data-am install-data install-am install uninstall-am uninstall \
+all-redirect all-am all installdirs-am installdirs mostlyclean-generic \
+distclean-generic clean-generic maintainer-clean-generic clean \
+mostlyclean distclean maintainer-clean
 
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.

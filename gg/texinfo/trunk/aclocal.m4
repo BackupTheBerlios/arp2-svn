@@ -15,14 +15,21 @@ dnl PARTICULAR PURPOSE.
 
 #serial 3
 
+dnl GG-local: Do not short-circuit running of the AC_CHECK_HEADERS macros 
+dnl below.  The problem is that if you configure with a cache file that
+dnl says these headers exist, then the macro doesn't get run and the
+dnl appropriate HAVE_<file> macro does not get set in config.h.  As an
+dnl example, just configure this twice in a row and compare the config.h
+dnl files for each configure run.  -fnf
+
 AC_DEFUN(jm_CHECK_DECLARATION,
 [
   AC_REQUIRE([AC_HEADER_STDC])dnl
-  test -z "$ac_cv_header_memory_h" && AC_CHECK_HEADERS(memory.h)
-  test -z "$ac_cv_header_string_h" && AC_CHECK_HEADERS(string.h)
-  test -z "$ac_cv_header_strings_h" && AC_CHECK_HEADERS(strings.h)
-  test -z "$ac_cv_header_stdlib_h" && AC_CHECK_HEADERS(stdlib.h)
-  test -z "$ac_cv_header_unistd_h" && AC_CHECK_HEADERS(unistd.h)
+  AC_CHECK_HEADERS(memory.h)
+  AC_CHECK_HEADERS(string.h)
+  AC_CHECK_HEADERS(strings.h)
+  AC_CHECK_HEADERS(stdlib.h)
+  AC_CHECK_HEADERS(unistd.h)
   AC_MSG_CHECKING([whether $1 is declared])
   AC_CACHE_VAL(jm_cv_func_decl_$1,
     [AC_TRY_COMPILE($2,
@@ -289,7 +296,9 @@ AC_DEFUN(AM_HEADER_TIOCGWINSZ_NEEDS_SYS_IOCTL,
 # but which still want to provide support for the GNU gettext functionality.
 # Please note that the actual code is *not* freely available.
 
-# serial 5
+# serial 107
+
+AC_PREREQ(2.13)               dnl Minimum Autoconf version required.
 
 AC_DEFUN(AM_WITH_NLS,
   [AC_MSG_CHECKING([whether NLS is requested])
@@ -304,12 +313,12 @@ AC_DEFUN(AM_WITH_NLS,
 
     dnl If we use NLS figure out what method
     if test "$USE_NLS" = "yes"; then
-      AC_DEFINE(ENABLE_NLS)
+      AC_DEFINE(ENABLE_NLS, 1, [Define to 1 if NLS is requested.])
       AC_MSG_CHECKING([whether included gettext is requested])
       AC_ARG_WITH(included-gettext,
         [  --with-included-gettext use the GNU gettext library included here],
         nls_cv_force_use_gnu_gettext=$withval,
-        nls_cv_force_use_gnu_gettext=yes)
+        nls_cv_force_use_gnu_gettext=no)
       AC_MSG_RESULT($nls_cv_force_use_gnu_gettext)
 
       nls_cv_use_gnu_gettext="$nls_cv_force_use_gnu_gettext"
@@ -329,17 +338,13 @@ AC_DEFUN(AM_WITH_NLS,
 
 	   if test "$gt_cv_func_gettext_libc" != "yes"; then
 	     AC_CHECK_LIB(intl, bindtextdomain,
-	       [AC_CACHE_CHECK([for gettext in libintl],
-		 gt_cv_func_gettext_libintl,
-		 [AC_CHECK_LIB(intl, gettext,
-		  gt_cv_func_gettext_libintl=yes,
-		  gt_cv_func_gettext_libintl=no)],
-		 gt_cv_func_gettext_libintl=no)])
+	       [AC_CHECK_LIB(intl, gettext)])
 	   fi
 
 	   if test "$gt_cv_func_gettext_libc" = "yes" \
-	      || test "$gt_cv_func_gettext_libintl" = "yes"; then
-	      AC_DEFINE(HAVE_GETTEXT)
+	      || test "$ac_cv_lib_intl_gettext" = "yes"; then
+	      AC_DEFINE(HAVE_GETTEXT, 1,
+	  [Define to 1 if you have gettext and don't want to use GNU gettext.])
 	      AM_PATH_PROG_WITH_TEST(MSGFMT, msgfmt,
 		[test -z "`$ac_dir/$ac_word -h 2>&1 | grep 'dv '`"], no)dnl
 	      if test "$MSGFMT" != "no"; then
@@ -369,7 +374,8 @@ AC_DEFUN(AM_WITH_NLS,
 	    dnl No gettext in C library.  Try catgets next.
 	    AC_CHECK_LIB(i, main)
 	    AC_CHECK_FUNC(catgets,
-	      [AC_DEFINE(HAVE_CATGETS)
+	      [AC_DEFINE(HAVE_CATGETS, 1,
+			 [Define as 1 if you have catgets and don't want to use GNU gettext.])
 	       INTLOBJS="\$(CATOBJS)"
 	       AC_PATH_PROG(GENCAT, gencat, no)dnl
 	       if test "$GENCAT" != "no"; then
@@ -440,6 +446,10 @@ AC_DEFUN(AM_WITH_NLS,
       nls_cv_header_intl=intl/libintl.h
       nls_cv_header_libgt=intl/libgettext.h
     fi
+    if test -z "$nls_cv_header_intl"; then
+      # Clean out junk possibly left behind by a previous configuration.
+      rm -f intl/libintl.h
+    fi
     AC_LINK_FILES($nls_cv_header_libgt, $nls_cv_header_intl)
     AC_OUTPUT_COMMANDS(
      [case "$CONFIG_FILES" in *po/Makefile.in*)
@@ -498,7 +508,7 @@ strdup __argz_count __argz_stringify __argz_next])
      AC_CHECK_FUNCS(stpcpy)
    fi
    if test "${ac_cv_func_stpcpy}" = "yes"; then
-     AC_DEFINE(HAVE_STPCPY)
+     AC_DEFINE(HAVE_STPCPY, 1, [Define to 1 if you have the stpcpy function.])
    fi
 
    AM_LC_MESSAGES
@@ -583,17 +593,16 @@ strdup __argz_count __argz_stringify __argz_next])
    dnl Generate list of files to be processed by xgettext which will
    dnl be included in po/Makefile.
    test -d po || mkdir po
-   if test "x$srcdir" != "x."; then
    changequote(, )dnl
-     if test "x`echo $srcdir | sed -e 's@^[A-z]:@@' -e 's@/.*@@'`" = "x"; then
-       posrcprefix="$srcdir/"
-     else
-       posrcprefix="../$srcdir/"
-     fi
+   case "$srcdir" in
+   .) 
+     posrcprefix="../" ;;
+   /* | [A-Za-z]:*)
+     posrcprefix="$srcdir/" ;;
+   *)
+     posrcprefix="../$srcdir/" ;;
+   esac
    changequote([, ])dnl
-   else
-     posrcprefix="../"
-   fi
    rm -f po/POTFILES
    sed -e "/^#/d" -e "/^\$/d" -e "s,.*,	$posrcprefix& \\\\," -e "\$s/\(.*\) \\\\/\1/" \
 	< $srcdir/po/POTFILES.in > po/POTFILES

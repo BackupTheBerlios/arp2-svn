@@ -1,3 +1,67 @@
+2001-02-09  Fred Fish  <fnf@geekgadgets.org>
+
+	* info/info.c (info_short_help): On some systems printf may be a
+	macro so eliminate cpp directives inside printf arg list.
+
+2001-01-02  Fred Fish  <fnf@geekgadgets.org>
+
+	* acinclude.m4: Remove shortcircuiting some tests.
+	* aclocal.m4: Regenerated.
+	* config.in: Regenerated.
+	* configure: Regenerated.
+	* ChangeLog: Regenerated.
+	* Makefile.in: Regenerated.
+	* doc/Makefile.in: Regenerated.
+	* info/Makefile.in: Regenerated.
+	* lib/Makefile.in: Regenerated.
+	* makeinfo/Makefile.in: Regenerated.
+	* makeinfo/tests/Makefile.in: Regenerated.
+	* util/Makefile.in: Regenerated.
+	
+2000-12-22  Fred Fish  <fnf@be.com>
+
+	* aclocal.m4 (AM_WITH_NLS): Update with fixes from a more recent
+	version.
+	* configure.in (select): Use AC_SEARCH_LIBS to search for in
+	libnet and libsocket.
+	* config.in: Regenerated.
+	* configure: Regenerated.
+
+2000-09-07  Fred Fish  <fnf@ninemoons.com>
+
+	* aclocal.m4 (jm_CHECK_DECLARATION): Don't short-circuit running of
+	the AC_CHECK_HEADER macros because if a cache file exists from a
+	previous run, the macros won't get run, and the defines in config.h
+	won't get set the same way as with a clean configure from scratch.
+	* configure: Regenerated with current autoconf.
+	
+2000-07-14  Fred Fish  <fnf@ninemoons.com>
+
+	* lib/system.h (O_BINARY): BeOS defines O_BINARY in fcntl.h, and this
+	is used in conditional compilations.  BeOS does not need special
+	handling for the O_BINARY case, so #undef O_BINARY.
+
+2000-07-11  Fred Fish  <fnf@ninemoons.com>
+
+	* configure.in (ENABLE_AMIGAGUIDE): Add --enable-amigaguide support.
+	* config.in: Regenerated
+	* acconfig.h (ENABLE_AMIGAGUIDE): Add.
+	* makeinfo/makeinfo.c (long_options): Add --amiga flags.
+	* makeinfo/makeinfo.h (amiga_guide): Declare.
+
+2000-07-11  Fred Fish  <fnf@ninemoons.com>
+
+	* configure.in (AC_PROG_RANLIB): Use AC_CHECK_TOOL instead.
+	(AR): Use AC_CHECK_TOOL to set.
+	(AC_ARFLAGS): Use GG specific macro to set ARFLAGS.
+	* Makefile.in, configure: regenerated.
+	* doc/Makefile.in: regenerated.
+	* info/Makefile.in: regenerated.
+	* lib/Makefile.in: regenerated.
+	* makeinfo/Makefile.in: regenerated.
+	* makeinfo/tests/Makefile.in: regenerated.
+	* util/Makefile.in: regenerated.
+	
 1999-09-28  Karl Berry  <karl@gnu.org>
 
 	* doc/texinfo.txi: New isbn.

@@ -60,6 +60,9 @@ POST_INSTALL = :
 NORMAL_UNINSTALL = :
 PRE_UNINSTALL = :
 POST_UNINSTALL = :
+host_alias = @host_alias@
+host_triplet = @host@
+AR = @AR@
 CATALOGS = @CATALOGS@
 CATOBJEXT = @CATOBJEXT@
 CC = @CC@
@@ -122,7 +125,7 @@ MANS = $(man_MANS)
 
 NROFF = nroff
 DIST_COMMON =  README $(info_TEXINFOS) Makefile.am Makefile.in mdate-sh \
-stamp-vti stamp-vti.1 texinfo.tex version.texi
+stamp-vti stamp-vti1 texinfo.tex version.texi
 
 
 DISTFILES = $(DIST_COMMON) $(SOURCES) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
@@ -133,9 +136,9 @@ all: all-redirect
 .SUFFIXES:
 .SUFFIXES: .dvi .info .ps .texi .texinfo .txi
 $(srcdir)/Makefile.in: Makefile.am $(top_srcdir)/configure.in $(ACLOCAL_M4) 
-	cd $(top_srcdir) && $(AUTOMAKE) --gnu --include-deps doc/Makefile
+	cd $(top_srcdir) && $(AUTOMAKE) --gnu doc/Makefile
 
-Makefile: $(srcdir)/Makefile.in  $(top_builddir)/config.status
+Makefile: $(srcdir)/Makefile.in  $(top_builddir)/config.status $(BUILT_SOURCES)
 	cd $(top_builddir) \
 	  && CONFIG_FILES=$(subdir)/$@ CONFIG_HEADERS= $(SHELL) ./config.status
 
@@ -166,6 +169,29 @@ maintainer-clean-vti:
 texinfo: texinfo.txi version.texi
 texinfo.dvi: texinfo.txi version.texi
 
+
+$(srcdir)/version.texi: stamp-vti1
+	@:
+
+$(srcdir)/stamp-vti1: info-stnd.texi $(top_srcdir)/configure.in
+	@echo "@set UPDATED `$(SHELL) $(srcdir)/mdate-sh $(srcdir)/info-stnd.texi`" > vti1.tmp
+	@echo "@set EDITION $(VERSION)" >> vti1.tmp
+	@echo "@set VERSION $(VERSION)" >> vti1.tmp
+	@cmp -s vti1.tmp $(srcdir)/version.texi \
+	  || (echo "Updating $(srcdir)/version.texi"; \
+	      cp vti1.tmp $(srcdir)/version.texi)
+	-@rm -f vti1.tmp
+	@cp $(srcdir)/version.texi $@
+
+mostlyclean-vti1:
+	-rm -f vti1.tmp
+
+clean-vti1:
+
+distclean-vti1:
+
+maintainer-clean-vti1:
+	-rm -f $(srcdir)/stamp-vti1 $(srcdir)/version.texi
 
 info-stnd.info: info-stnd.texi version.texi
 info-stnd.dvi: info-stnd.texi version.texi
@@ -338,6 +364,11 @@ distdir = $(top_builddir)/$(PACKAGE)-$(VERSION)/$(subdir)
 subdir = doc
 
 distdir: $(DISTFILES)
+	here=`cd $(top_builddir) && pwd`; \
+	top_distdir=`cd $(top_distdir) && pwd`; \
+	distdir=`cd $(distdir) && pwd`; \
+	cd $(top_srcdir) \
+	  && $(AUTOMAKE) --include-deps --build-dir=$$here --srcdir-name=$(top_srcdir) --output-dir=$$top_distdir --gnu doc/Makefile
 	@for file in $(DISTFILES); do \
 	  d=$(srcdir); \
 	  if test -d $$d/$$file; then \
@@ -386,22 +417,22 @@ distclean-generic:
 	-rm -f config.cache config.log stamp-h stamp-h[0-9]*
 
 maintainer-clean-generic:
-mostlyclean-am:  mostlyclean-vti mostlyclean-vti.1 mostlyclean-aminfo \
+mostlyclean-am:  mostlyclean-vti mostlyclean-vti1 mostlyclean-aminfo \
 		mostlyclean-generic
 
 mostlyclean: mostlyclean-am
 
-clean-am:  clean-vti clean-vti.1 clean-aminfo clean-generic \
+clean-am:  clean-vti clean-vti1 clean-aminfo clean-generic \
 		mostlyclean-am
 
 clean: clean-am
 
-distclean-am:  distclean-vti distclean-vti.1 distclean-aminfo \
+distclean-am:  distclean-vti distclean-vti1 distclean-aminfo \
 		distclean-generic clean-am
 
 distclean: distclean-am
 
-maintainer-clean-am:  maintainer-clean-vti maintainer-clean-vti.1 \
+maintainer-clean-am:  maintainer-clean-vti maintainer-clean-vti1 \
 		maintainer-clean-aminfo maintainer-clean-generic \
 		distclean-am
 	@echo "This command is intended for maintainers to use;"
@@ -410,7 +441,7 @@ maintainer-clean-am:  maintainer-clean-vti maintainer-clean-vti.1 \
 maintainer-clean: maintainer-clean-am
 
 .PHONY: mostlyclean-vti distclean-vti clean-vti maintainer-clean-vti \
-mostlyclean-vti.1 distclean-vti.1 clean-vti.1 maintainer-clean-vti.1 \
+mostlyclean-vti1 distclean-vti1 clean-vti1 maintainer-clean-vti1 \
 install-info-am uninstall-info mostlyclean-aminfo distclean-aminfo \
 clean-aminfo maintainer-clean-aminfo install-man1 uninstall-man1 \
 install-man5 uninstall-man5 install-man uninstall-man tags distdir \

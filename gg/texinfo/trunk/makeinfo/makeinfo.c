@@ -459,6 +459,12 @@ struct option long_options[] =
   { "reference-limit", 1, 0, 'r' },
   { "verbose", 0, &verbose_mode, 1 },
   { "version", 0, 0, 'V' },
+#if defined (ENABLE_AMIGAGUIDE)
+  { "amiga-34", 0, &amiga_guide, 34 }, /* Convert to AmigaGuide V34 */
+  { "amiga-39", 0, &amiga_guide, 39 }, /* Convert to AmigaGuide V39 */
+  { "amiga", 0, &amiga_guide, 40 }, /* Convert to AmigaGuide V40 */
+  { "amiga-40", 0, &amiga_guide, -40 }, /* Catch obsolete option */
+#endif /* ENABLE_AMIGAGUIDE */
   {NULL, 0, NULL, 0}
 };
 

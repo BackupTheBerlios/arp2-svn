@@ -114,6 +114,12 @@ extern int strcoll ();
 #endif /* not HAVE_FCNTL_H */
 #endif /* not O_RDONLY */
 
+/* BeOS defines O_BINARY in fcntl.h, and this confuses things.
+   So revert that.  -fnf */
+#ifdef __BEOS__
+#undef O_BINARY
+#endif
+
 /* MS-DOS and similar non-Posix systems have some peculiarities:
     - they distinguish between binary and text files;
     - they use both `/' and `\\' as directory separator in file names;

@@ -41,6 +41,9 @@
 /* Define to the version of the distribution.  */
 #undef VERSION
 
+/* Enable AmigaGuide.  */
+#undef ENABLE_AMIGAGUIDE
+ 
 @BOTTOM@
 
 
