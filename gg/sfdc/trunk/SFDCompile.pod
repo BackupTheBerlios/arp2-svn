@@ -333,3 +333,14 @@ are the same as fd2inline generates at least.
 
 Replace AROS_LP with AROS_LD. Because it is guaranteed to define the
 function prototype. [verhaegs]
+
+=item B<1.2b (2004-11-12)>
+
+Correctly handle the argument "type **arg", where there is no
+whitespace between the argument type and the argument name.
+
+Correctly handle ty prototype "void function (void)", were there is a
+whitespace between the function name and the pretense and "void" is
+used to indicate no arguments.
+
+

@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w                                      -- # -*- perl -*-
 #
 #     sfdc - Compile SFD files into someting useful
-#     Copyright (C) 2003 Martin Blom <martin@blom.org>
+#     Copyright (C) 2003-2004 Martin Blom <martin@blom.org>
 #     
 #     This program is free software; you can redistribute it and/or
 #     modify it under the terms of the GNU General Public License
@@ -193,7 +193,7 @@ GetOptions ('addvectors=s' => \$addvectors,
 
 if ($version) {
     print STDERR "sfdc SFDC_VERSION (SFDC_DATE)\n";
-    print STDERR "Copyright (C) 2003 Martin Blom <martin\@blom.org>\n";
+    print STDERR "Copyright (C) 2003-2004 Martin Blom <martin\@blom.org>\n";
     print STDERR "This is free software; " .
 	"see the source for copying conditions.\n";
     exit 0;
@@ -573,7 +573,7 @@ sub parse_sfd ( $ ) {
 	};
 	
 	if ( $proto_line =~
-	     /.*[A-Za-z0-9_]+\(.*\).*\(((base|sysv|[\saAdD][0-7]-?),?)*\)\s*$/
+	     /.*[A-Za-z0-9_]+\s*\(.*\).*\(((base|sysv|[\saAdD][0-7]-?),?)*\)\s*$/
 	     ) {
 
 	    if ($proto_line =~ /.*\(.*[0-7]-.*\)\s*$/) {
@@ -849,8 +849,11 @@ sub parse_proto ( $$$ ) {
 	    $___name = "___$name";
 	    $___arg = "$type1(*___$name) $type2";
 	}
+	elsif ($arg =~ /^(VOID|void)$/) {
+	    next;
+	}
 	elsif ($arg !~ /^\.\.\.$/) {
-	    ($type, $name) = ( $arg =~ /^\s*(.*?)\s+(\w+)\s*$/ );
+	    ($type, $name) = ( $arg =~ /^\s*(.*?[\s*]*?)\s*(\w+)\s*$/ );
 	    $___name = "___$name";
 	    $___arg = "$type ___$name";
 	}
