@@ -98,6 +98,7 @@ static LONG           amiga_pens[ 256 ];
 static LONG           amiga_broken_blitter = FALSE;
 static APTR           amiga_blt_buffer     = NULL;
 static ULONG          amiga_blt_length     = 0;
+static int            amiga_clipping       = FALSE;
 
 struct Glyph
 {
@@ -133,7 +134,6 @@ amiga_get_blt_buffer( ULONG length )
 {
   if( length > amiga_blt_length )
   {
-//    printf( "amiga_blt_buffer grows from %d to %d bytes\n", amiga_blt_length, length );
     FreeVec( amiga_blt_buffer );
     amiga_blt_buffer = AllocVec( length, MEMF_ANY );
 
@@ -176,7 +176,8 @@ RemappedWriteChunkyPixels(struct RastPort *rp,LONG xstart,LONG ystart,
     {
       InitRastPort(&temprp);
 
-      temprp.BitMap = AllocBitMap( width, 1, 8, BMF_MINPLANES, rp->BitMap );
+      temprp.BitMap = AllocBitMap( width, 1, amiga_bpp,
+				   BMF_MINPLANES, rp->BitMap );
 
       if( temprp.BitMap != NULL)
       {
@@ -227,7 +228,8 @@ SafeWriteChunkyPixels(struct RastPort *rp,LONG xstart,LONG ystart,
     {
       InitRastPort(&temprp);
 
-      temprp.BitMap = AllocBitMap( width, 1, 8, BMF_MINPLANES, rp->BitMap );
+      temprp.BitMap = AllocBitMap( width, 1, amiga_bpp,
+				   BMF_MINPLANES, rp->BitMap );
 
       if( temprp.BitMap != NULL)
       {
@@ -268,7 +270,6 @@ SoftClipBlit( struct RastPort *srcRP, LONG xSrc, LONG ySrc,
   ULONG* src;
   ULONG* dst;
 
-//  printf( "soft %02x\n", minterm );
   src = amiga_get_blt_buffer( sizeof( ULONG ) * xSize * ySize * 2 );
 
   if( src == NULL )
@@ -303,6 +304,21 @@ SoftClipBlit( struct RastPort *srcRP, LONG xSrc, LONG ySrc,
 
 
 VOID
+SoftBltBitMapRastPort( struct BitMap *srcBitMap, LONG xSrc, LONG ySrc,
+		       struct RastPort *destRP, LONG xDest, LONG yDest,
+		       LONG xSize, LONG ySize,
+		       ULONG minterm )
+{
+  struct RastPort rp;
+
+  InitRastPort( &rp );
+  rp.BitMap = srcBitMap;
+
+  SoftClipBlit( &rp, xSrc, ySrc, destRP, xDest, yDest, xSize, ySize, minterm );
+}
+
+
+VOID
 WorkingClipBlit( struct RastPort *srcRP, LONG xSrc, LONG ySrc,
 		 struct RastPort *destRP, LONG xDest, LONG yDest,
 		 LONG xSize, LONG ySize,
@@ -310,6 +326,8 @@ WorkingClipBlit( struct RastPort *srcRP, LONG xSrc, LONG ySrc,
 {
   if( amiga_broken_blitter && minterm != 0xc0 )
   {
+    // MinTerms does not work with CyberGraphX
+
     SoftClipBlit( srcRP, xSrc, ySrc,
 		  destRP, xDest, yDest,
 		  xSize, ySize,
@@ -333,12 +351,12 @@ WorkingBltBitMapRastPort( struct BitMap *srcBitMap, LONG xSrc, LONG ySrc,
 {
   if( amiga_broken_blitter && minterm != 0xc0 )
   {
-    struct RastPort rp;
-
-    InitRastPort( &rp );
-    rp.BitMap = srcBitMap;
-
-    SoftClipBlit( &rp, xSrc, ySrc, destRP, xDest, yDest, xSize, ySize, minterm );
+    // MinTerms does not work with CyberGraphX
+ 
+    SoftBltBitMapRastPort( srcBitMap, xSrc, ySrc,
+			   destRP, xDest, yDest,
+			   xSize, ySize,
+			   minterm );
   }
   else
   {
@@ -348,6 +366,70 @@ WorkingBltBitMapRastPort( struct BitMap *srcBitMap, LONG xSrc, LONG ySrc,
 		       minterm );
   }
 }
+
+
+VOID
+amiga_blt_rastport( struct RastPort *srcRP, LONG xSrc, LONG ySrc,
+		    struct RastPort *destRP, LONG xDest, LONG yDest,
+		    LONG xSize, LONG ySize,
+		    ULONG minterm )
+{
+  // This function works like ClipBlit, with the exception that
+  // the installed clip region does not affect the source rastport.
+  //
+  // If you have a better idea, mail me!
+
+  
+  // Use BltBitMapRastPort when possible
+    
+  if( g_fullscreen )
+  {
+    WorkingBltBitMapRastPort( srcRP->BitMap, xSrc, ySrc,
+			      destRP, xDest, yDest,
+			      xSize, ySize,
+			      minterm );
+  }
+  else
+  {
+    if( ! amiga_clipping )
+    {
+      WorkingClipBlit( srcRP, xSrc, ySrc,
+		       destRP, xDest, yDest,
+		       xSize, ySize,
+		       minterm );
+    }
+    else
+    {
+      struct RastPort temprp;
+    
+      InitRastPort( &temprp );
+
+      temprp.BitMap = AllocBitMap( xSize, ySize, amiga_bpp,
+				   BMF_MINPLANES, amiga_window->RPort->BitMap );
+
+      if( temprp.BitMap != NULL )
+      {
+	struct Region*  region;
+	  
+	region = InstallClipRegion( amiga_window->WLayer, NULL );
+
+	ClipBlit( srcRP, xSrc, ySrc,
+		  &temprp, 0, 0, xSize, ySize, 0xc0 );
+
+	InstallClipRegion( amiga_window->WLayer, region );
+    
+	BltBitMapRastPort( temprp.BitMap, 0, 0,
+			   destRP, xDest, yDest,
+			   xSize, ySize,
+			   minterm );
+
+	WaitBlit();
+	FreeBitMap( temprp.BitMap );
+      }
+    }
+  }
+}
+
 
 
 
@@ -385,7 +467,6 @@ amiga_obtain_pen( ULONG color )
       return -1;
   }
 
-//  printf( "obtainpen %x %x %x\n", r, g, b );
   return ObtainBestPen( amiga_window->WScreen->ViewPort.ColorMap,
 			r, g, b,
 			OBP_Precision, PRECISION_EXACT,
@@ -398,7 +479,6 @@ amiga_obtain_pen( ULONG color )
 static void
 amiga_release_pen( LONG pen )
 {
-//  printf( "releasepen %x\n", pen );
   if( g_server_bpp != 8 )
   {
     ReleasePen( amiga_window->WScreen->ViewPort.ColorMap, pen );
@@ -407,11 +487,14 @@ amiga_release_pen( LONG pen )
 
 
 static void
-amiga_write_pixels( struct RastPort* rp, int x, int y, int width, int height, uint8* data, int data_width )
+amiga_write_pixels( struct RastPort* rp,
+		    int x, int y, int width, int height,
+		    uint8* data, int data_width )
 {
   if( g_server_bpp == 8 )
   {
-    RemappedWriteChunkyPixels( rp, x, y, x + width - 1, y + height - 1, data, data_width );
+    RemappedWriteChunkyPixels( rp, x, y, x + width - 1, y + height - 1,
+			       data, data_width );
   }
   else
   {
@@ -432,7 +515,9 @@ amiga_write_pixels( struct RastPort* rp, int x, int y, int width, int height, ui
 	  {
 	    UWORD color = ( src[ xx + 1 ] << 8 ) | src[ xx + 0 ];
 
-	    argb_data[ i++ ] = ( ( color & 0x7c00 ) << 9 ) | ( ( color & 0x03e0 ) << 6 ) | ( ( color & 0x001f ) << 3 );
+	    argb_data[ i++ ] = ( ( ( color & 0x7c00 ) << 9 ) |
+				 ( ( color & 0x03e0 ) << 6 ) |
+				 ( ( color & 0x001f ) << 3 ) );
 	  }
 
 	  src += data_width * 2;
@@ -451,7 +536,9 @@ amiga_write_pixels( struct RastPort* rp, int x, int y, int width, int height, ui
 	  {
 	    UWORD color = ( src[ xx + 1 ] << 8 ) | src[ xx + 0 ];
 
-	    argb_data[ i++ ] = ( ( color & 0xf800 ) << 8 ) | ( ( color & 0x07e0 ) << 5 ) | ( ( color & 0x001f ) << 3 );
+	    argb_data[ i++ ] = ( ( ( color & 0xf800 ) << 8 ) |
+				 ( ( color & 0x07e0 ) << 5 ) |
+				 ( ( color & 0x001f ) << 3 ) );
 	  }
 
 	  src += data_width * 2;
@@ -468,13 +555,9 @@ amiga_write_pixels( struct RastPort* rp, int x, int y, int width, int height, ui
 	{
 	  for( xx = 0; xx < width * 3; xx += 3 )
 	  {
-	    argb_data[ i++ ] = ( src[ xx + 2] << 16 ) | ( src[ xx + 1 ] << 8 ) | src[ xx + 0 ];
-
-/* 	    if( xx == 0 && yy == 0 ) { */
-/* 	      printf( "ARGB color: %08x\n", argb_data[i-1]); */
-/* 	      printf( "%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x\n", */
-/* 		      data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7], data[8], data[9], data[10], data[11], data[12], data[13], data[14], data[15] ); */
-/* 	    } */
+	    argb_data[ i++ ] = ( ( src[ xx + 2] << 16 ) |
+				 ( src[ xx + 1 ] << 8 ) |
+				 src[ xx + 0 ] );
 	  }
 
 	  src += data_width * 3;
@@ -504,7 +587,8 @@ amiga_read_video_memory( void* buffer, int xmod,
 
     InitRastPort(&temprp);
 
-    temprp.BitMap = AllocBitMap( cx, 1, 8, BMF_MINPLANES, amiga_window->RPort->BitMap );
+    temprp.BitMap = AllocBitMap( cx, 1, amiga_bpp,
+				 BMF_MINPLANES, amiga_window->RPort->BitMap );
 
     if( temprp.BitMap != NULL)
     {
@@ -616,7 +700,8 @@ amiga_restore_window( void )
 static int
 amiga_translate_key( int code )
 {
-  // Good URL: http://panda.cs.ndsu.nodak.edu/~achapwes/PICmicro/keyboard/scancodes1.html
+  // Good URL:
+  // http://panda.cs.ndsu.nodak.edu/~achapwes/PICmicro/keyboard/scancodes1.html
   
   switch( code )
   {
@@ -871,12 +956,6 @@ amiga_translate_key( int code )
 }
 
 
-void 
-init_keycodes(int id)
-{
-//  printf( "Initializing keycodes for %d\n", id );
-}
-
 Bool
 ui_init(void)
 {
@@ -935,7 +1014,7 @@ ui_init(void)
 				 ASLSM_TitleText,            (ULONG) g_title,
 				 ASLSM_MinWidth,             640,
 				 ASLSM_MinHeight,            480,
-				 ASLSM_MaxDepth,             32,
+				 ASLSM_MaxDepth,             24,
 				 ASLSM_InitialDisplayID,     amiga_screen_id,
 				 ASLSM_InitialDisplayWidth,  width,
 				 ASLSM_InitialDisplayHeight, height,
@@ -953,7 +1032,6 @@ ui_init(void)
 
       if( ! AslRequestTags( req, TAG_DONE ) )
       {
-//	error( "ui_init: Requester canceled.\n" );
 	return False;
       }
   
@@ -1089,11 +1167,7 @@ ui_init(void)
     }
   }
 
-//  printf( "amiga_broken_blitter is %d\n", amiga_broken_blitter );
-//  printf("ui_init: g_server_bpp = %d, amiga_bpp = %d\n", g_server_bpp, amiga_bpp );
-  
   g_width = g_width & ~3;
-//  g_width = ( g_width + 3 ) & ~3;
 
   /* create invisible 1x1 cursor to be used as null cursor */
   amiga_null_cursor = ui_create_cursor( 0, 0, 16, 1,
@@ -1142,7 +1216,7 @@ ui_deinit(void)
 Bool
 ui_create_window(void)
 {
-  ULONG                       common_window_tags[] =
+  ULONG common_window_tags[] =
     {
       WA_ReportMouse,    g_sendmotion ? TRUE : FALSE,
       WA_Activate,       TRUE,
@@ -1165,8 +1239,6 @@ ui_create_window(void)
     };
   
 
-//  printf("ui_openwin: g_server_bpp = %d, amiga_bpp = %d\n", g_server_bpp, amiga_bpp );
-  
   if( g_fullscreen )
   {
     amiga_screen = OpenScreenTags( NULL,
@@ -1226,8 +1298,6 @@ ui_create_window(void)
       zoom[ 2 ] = amiga_pubscreen->Width;
     }
 
-//    printf( "zoom: %d %d %d %d\n", zoom[0], zoom[1], zoom[2], zoom[3] );
-    
     amiga_window = OpenWindowTags( NULL,
                                    WA_Title,          (ULONG) g_title,
                                    WA_DragBar,        TRUE,
@@ -1264,6 +1334,8 @@ ui_create_window(void)
 void
 ui_destroy_window()
 {
+  ui_reset_clip();
+  
   if( amiga_app_icon != NULL )
   {
     RemoveAppIcon( amiga_app_icon );
@@ -1633,7 +1705,8 @@ ui_create_bitmap(int width, int height, uint8 *data)
   {
     InitRastPort( rp );
     
-    bmp = AllocBitMap( width, height, 8, BMF_MINPLANES, amiga_window->RPort->BitMap );
+    bmp = AllocBitMap( width, height, amiga_bpp,
+		       BMF_MINPLANES, amiga_window->RPort->BitMap );
     
     if( bmp != NULL )
     {
@@ -1648,41 +1721,6 @@ ui_create_bitmap(int width, int height, uint8 *data)
     }
   }
 
-//  printf("create_bitmap (%dx%d)\n", width, height );
-#if 0
-  if( width == 64 && height == 64 ) {
-    int x, y;
-    unsigned char* p = data;
-
-    for( y = 0; y < height; ++y ) {
-      for( x = 0; x < width; ++x ) {
-	printf( "%02x ", *p++ );
-      }
-      printf( "\n" );
-    }
-
-    printf( "remapped:\n" );
-    p = data;
-
-    for( y = 0; y < height; ++y ) {
-      for( x = 0; x < width; ++x ) {
-	printf( "%02x ", amiga_pens[*p++] );
-      }
-      printf( "\n" );
-    }
-
-    printf( "expanded:\n" );
-    p = data;
-    
-    for( y = 0; y < height; ++y ) {
-      for( x = 0; x < width; ++x ) {
-	printf( "%03x ", GetRGB4(amiga_window->WScreen->ViewPort.ColorMap, amiga_pens[*p++]));
-      }
-      printf( "\n" );
-    }
-  }
-#endif
-    
   return (HBITMAP) rp;
 }
 
@@ -1690,8 +1728,6 @@ void
 ui_paint_bitmap(int x, int y, int cx, int cy,
 		int width, int height, uint8 *data)
 {
-//  printf("paint_bitmap %d,%d (%dx%d/%dx%d)\n", x, y, cx, cy, width, height);
-  
   x += amiga_window->BorderLeft;
   y += amiga_window->BorderTop;
 
@@ -1702,8 +1738,6 @@ void
 ui_destroy_bitmap(HBITMAP bmp)
 {
   struct RastPort* rp = (struct RastPort*) bmp;
-
-//  printf("destroy_bitmap %x\n", rp );
 
   if( rp != NULL )
   {
@@ -1763,7 +1797,6 @@ ui_create_cursor(unsigned int x, unsigned int y, int width,
 {
   struct Cursor* c;
 
-//  printf("create_cursor: %d,%d; %dx%d ", x, y, width, height );
   c = (struct Cursor*) xmalloc( sizeof( *c ) );
   
   if( c != NULL )
@@ -1819,8 +1852,8 @@ ui_create_cursor(unsigned int x, unsigned int y, int width,
             col += 3;
           }
 
-#define CCOL(a,b) CCOL2((a)*2+(b))
-#define CCOL2(a) (a)==0 ? " " : (a)==1 ? "+" : (a)==2 ? "=" : "*"
+/* #define CCOL(a,b) CCOL2((a)*2+(b)) */
+/* #define CCOL2(a) (a)==0 ? " " : (a)==1 ? "+" : (a)==2 ? "=" : "*" */
 /* 	  printf("%02x.%02x ", *p1, *p2); */
 /* 	  printf( "%s", CCOL(*p1 & 0x80, *p2 & 0x80) ); */
 /* 	  printf( "%s", CCOL(*p1 & 0x40, *p2 & 0x40) ); */
@@ -1855,7 +1888,7 @@ ui_create_cursor(unsigned int x, unsigned int y, int width,
                               POINTERA_YOffset,   -y,
                               POINTERA_WordWidth, wordsperrow,
                               POINTERA_XResolution, POINTERXRESN_SCREENRES,
-                              POINTERA_YResolution, POINTERXRESN_SCREENRES,
+                              POINTERA_YResolution, POINTERYRESN_SCREENRESASPECT,
                               TAG_DONE );
       
       if( c->Pointer != NULL )
@@ -1875,7 +1908,6 @@ ui_create_cursor(unsigned int x, unsigned int y, int width,
     }
   }
 
-//  printf( "=> %x\n", c);
   return (HCURSOR) c;
 }
 
@@ -1885,7 +1917,6 @@ ui_set_cursor(HCURSOR cursor)
 {
   struct Cursor* c = (struct Cursor*) cursor;
 
-//  printf("set_cursor %x\n", cursor);
   if( c->Pointer != NULL )
   {
     SetWindowPointer( amiga_window,
@@ -1900,8 +1931,6 @@ void
 ui_destroy_cursor(HCURSOR cursor)
 {
   struct Cursor* c = (struct Cursor*) cursor;
-
-//  printf( "destroy_cursor %x\n", cursor);
 
   if( cursor == amiga_last_cursor )
   {
@@ -1925,7 +1954,7 @@ void
 ui_set_null_cursor(void)
 {
   HCURSOR tmp = amiga_last_cursor;
-//  printf("set_null_cursor\n");
+
   ui_set_cursor( amiga_null_cursor );
   amiga_last_cursor = tmp;
 }
@@ -1936,7 +1965,6 @@ ui_create_colourmap(COLOURMAP *colours)
 {
   ULONG* map;
 
-//  printf( "********** new colormap!!!\n" );
   /* Allocate space for WORD, WORD, ncolours RGB ULONG, ULONG */
 
   map = xmalloc( 2 + 2 + colours->ncolours * 3 * 4 + 4 );
@@ -2023,13 +2051,13 @@ ui_set_colourmap(HCOLOURMAP map)
   if( CyberGfxBase == NULL ||
       GetCyberMapAttr( amiga_window->RPort->BitMap,
                        CYBRMATTR_ISCYBERGFX ) == FALSE ||
-      GetCyberMapAttr( amiga_window->RPort->BitMap, 
+      GetCyberMapAttr( amiga_window->RPort->BitMap,
                        CYBRMATTR_PIXFMT ) == PIXFMT_LUT8 )
   {
     struct RastPort temprp;
     UBYTE*          buffer;
 
-    // Pen for LUT may have changed: Fix screen! 
+    // Pen for LUT may have changed: Fix screen!
 
     buffer = amiga_get_blt_buffer( g_width );
 
@@ -2037,7 +2065,8 @@ ui_set_colourmap(HCOLOURMAP map)
     {
       InitRastPort(&temprp);
 
-      temprp.BitMap = AllocBitMap( g_width, 1, 8, BMF_MINPLANES, amiga_window->RPort->BitMap );
+      temprp.BitMap = AllocBitMap( g_width, 1, amiga_bpp,
+				   BMF_MINPLANES, amiga_window->RPort->BitMap );
 
       if( temprp.BitMap != NULL)
       {
@@ -2076,21 +2105,16 @@ void
 ui_set_clip(int x, int y, int cx, int cy)
 {
   struct Region* r;
-
+  
   x += amiga_window->BorderLeft;
   y += amiga_window->BorderTop;
-
-  if( amiga_old_region != NULL )
-  {
-    ui_reset_clip();
-  }
 
   r = NewRegion();
   
   if( r != NULL )
   {
     struct Rectangle rect;
-    
+   
     rect.MinX = x;
     rect.MaxX = x + cx - 1;
     rect.MinY = y;
@@ -2098,10 +2122,16 @@ ui_set_clip(int x, int y, int cx, int cy)
     
     OrRectRegion( r, &rect );
     
-    LockLayer( 0, amiga_window->WLayer );
-    amiga_old_region = InstallClipRegion( amiga_window->WLayer, r );
-    UnlockLayer( amiga_window->WLayer );
+    r = InstallClipRegion( amiga_window->WLayer, r );
+
+    if( r != NULL )
+    {
+      DisposeRegion( r );
+    }
+    
   }
+
+  amiga_clipping = TRUE;
 }
 
 
@@ -2110,16 +2140,14 @@ ui_reset_clip()
 {
   struct Region* r;
 
-  LockLayer( 0, amiga_window->WLayer );
-  r = InstallClipRegion( amiga_window->WLayer, amiga_old_region );
-  UnlockLayer( amiga_window->WLayer );
-
+  r = InstallClipRegion( amiga_window->WLayer, NULL );
+  
   if( r != NULL )
   {
     DisposeRegion( r );
   }
 
-  amiga_old_region = NULL;
+  amiga_clipping = FALSE;
 }
 
 
@@ -2137,11 +2165,10 @@ ui_destblt(uint8 opcode,
   x += amiga_window->BorderLeft;
   y += amiga_window->BorderTop;
 
-  WorkingClipBlit( amiga_window->RPort, x, y,
-		   amiga_window->RPort, x, y,
-		   cx, cy,
-		   opcode << 4 );
-//  printf("destblit\n");
+  amiga_blt_rastport( amiga_window->RPort, x, y,
+		      amiga_window->RPort, x, y,
+		      cx, cy,
+		      opcode << 4 );
 }
 
 
@@ -2150,26 +2177,18 @@ ui_patblt(uint8 opcode,
 	  /* dest */ int x, int y, int cx, int cy,
 	  /* brush */ BRUSH *brush, int bgcolour, int fgcolour)
 {
-//  opcode &= 15;
-
   // TODO: This function is totally fucked up and shout be rewritten
   
   x += amiga_window->BorderLeft;
   y += amiga_window->BorderTop;
 
-/*   printf( "Doing %d on (%d,%d)-(%d,%d) using brush %d, fg=%x bg=%x (%03x, %03x)\n", */
-/* 	  opcode, x, y, x+cx-1, y+cy-1, brush->style, fgcolour, bgcolour, */
-/* 	  GetRGB4(amiga_window->WScreen->ViewPort.ColorMap, amiga_pens[fgcolour]), */
-/* 	  GetRGB4(amiga_window->WScreen->ViewPort.ColorMap, amiga_pens[bgcolour]) */
-/*     ); */
-  
   switch (brush->style)
   {
     case 0:	/* Solid */
-      WorkingClipBlit( amiga_window->RPort, x, y, // Not really used
-		       amiga_window->RPort, x, y,
-		       cx, cy,
-		       ( opcode ^ 3 ) << 4   /* B is always 1 */ );
+      amiga_blt_rastport( amiga_window->RPort, x, y, // Not really used
+			  amiga_window->RPort, x, y,
+			  cx, cy,
+			  ( opcode ^ 3 ) << 4   /* B is always 1 */ );
       break;
 
     case 3:	/* Pattern */
@@ -2178,7 +2197,8 @@ ui_patblt(uint8 opcode,
 
       InitRastPort( &rp );
     
-      rp.BitMap = AllocBitMap( cx, cy, 8, BMF_MINPLANES, amiga_window->RPort->BitMap );
+      rp.BitMap = AllocBitMap( cx, cy, amiga_bpp,
+			       BMF_MINPLANES, amiga_window->RPort->BitMap );
     
       if( rp.BitMap != NULL )
       {
@@ -2198,17 +2218,14 @@ ui_patblt(uint8 opcode,
             if( mask & ( 1 << ( ( h + brush->xorigin ) & 7 ) ) )
             {
               SetAPen( &rp, fgpen );
-//	      printf("*");
             }
             else
             {
               SetAPen( &rp, bgpen );
-//	      printf(" ");
             }
     
             WritePixel( &rp, h, v );
           }
-//	  printf("\n");
         }
 
 	amiga_release_pen( bgpen );
@@ -2244,11 +2261,10 @@ ui_screenblt(uint8 opcode,
   x += amiga_window->BorderLeft;
   y += amiga_window->BorderTop;
 
-  WorkingClipBlit( amiga_window->RPort, srcx, srcy,
-		   amiga_window->RPort, x, y,
-		   cx, cy,
-		   opcode << 4 );
-//  printf("screenblt\n");
+  amiga_blt_rastport( amiga_window->RPort, srcx, srcy,
+		      amiga_window->RPort, x, y,
+		      cx, cy,
+		      opcode << 4 );
 }
 
 
@@ -2260,25 +2276,10 @@ ui_memblt(uint8 opcode,
   x += amiga_window->BorderLeft;
   y += amiga_window->BorderTop;
 
-  WorkingClipBlit( (struct RastPort*) src, srcx, srcy,
-		   amiga_window->RPort, x, y,
-		   cx, cy,
-		   opcode << 4 );
-//  printf("memblt (opcode=%x) %d,%d (%dx%d)\n", opcode, x, y, cx, cy);
-
-/*   if( cx == 64 && cy == 58 ) */
-/*   { */
-/*     struct RastPort* rp = (struct RastPort*) src; */
-
-/*     for( y = 0; y < 16; ++y ) { */
-/*       for( x = 0; x < 16; ++x ) { */
-/* 	ULONG v = ReadRGBPixel( rp, x, y ); */
-
-/* 	printf( "%x%x%x ", (v >> 20) & 15, (v >> 12) & 15, (v >> 4) & 15 ); */
-/*       } */
-/*       printf( "\n" ); */
-/*     } */
-/*   } */
+  amiga_blt_rastport( (struct RastPort*) src, srcx, srcy,
+		      amiga_window->RPort, x, y,
+		      cx, cy,
+		      opcode << 4 );
 }
 
 void
@@ -2312,9 +2313,6 @@ ui_triblt(uint8 opcode,
       unimpl("triblt 0x%x\n", opcode);
       ui_memblt(ROP2_COPY, x, y, cx, cy, src, srcx, srcy);
   }
-
-/* printf( "Did %d on (%d,%d)-(%d,%d) from bitmap %08x: %d, %d using brush %08x, fg=%d bg=%d\n",  */
-/*         opcode, x, y, x+cx-1, y+cy-1, src, srcx, srcy, brush, fgcolour, bgcolour ); */
 }
 
 void
@@ -2324,7 +2322,6 @@ ui_line(uint8 opcode,
 {
   LONG amiga_pen = amiga_obtain_pen( pen->colour );
 
-//  printf( "line\n" );
   startx += amiga_window->BorderLeft;
   starty += amiga_window->BorderTop;
 
@@ -2350,8 +2347,6 @@ ui_rect(
   x += amiga_window->BorderLeft;
   y += amiga_window->BorderTop;
 
-//  printf( "rect: %d,%d %dx%d, color %x, pen %x\n", x, y, cx, cy, colour, pen );
-  
   SetABPenDrMd( amiga_window->RPort, pen, 0, JAM1 );
   RectFill( amiga_window->RPort, x, y, x + cx - 1, y + cy - 1 );
 

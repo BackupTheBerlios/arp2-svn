@@ -1,5 +1,10 @@
 2004-05-26  Martin Blom  <martin@blom.org>
 
+	* Use BltBitMapRastPort() instead of ClipBlit() for fullscreen
+	sessions. For window sessions, use we have to remove the clip
+	region, ClipBlit() into a temporary bitmap, reinstall the clip
+	region and then BltBitMapRastPort() back. Sigh.
+
 	* Added a couple of really nice PNG icons by André Siegel.
 
 	* Keep a temporary blit buffer allocated until program exit, so we
