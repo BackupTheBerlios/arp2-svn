@@ -33,7 +33,7 @@ clean:
 	$(RM) $(RDESKTOP) $(OBJECTS) $(DEPS) config.log
 
 distclean:	clean
-	$(RM) config.h config.status stamp-h.in Makefile
+	$(RM) config.h config.status stamp-h.in Makefile RDesktop.readme 
 
 $(RDESKTOP): 	$(OBJECTS)
 	$(CC) $(LDFLAGS) $^ $(LDLIBS) $(OUTPUT_OPTION)
