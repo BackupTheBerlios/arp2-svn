@@ -33,6 +33,7 @@
 #include <proto/exec.h>
 #include <proto/graphics.h>
 #include <proto/icon.h>
+#include <proto/iffparse.h>
 #include <proto/intuition.h>
 #include <proto/layers.h>
 #include <proto/utility.h>
@@ -98,6 +99,7 @@ static const char version[] = "$VER: RDesktop 1.3.1cvs-"
 struct Library*       AslBase       = NULL;
 struct Library*       CyberGfxBase  = NULL;
 struct GfxBase*       GfxBase       = NULL;
+struct Library*       IFFParseBase  = NULL;
 struct Library*       IconBase      = NULL;
 struct IntuitionBase* IntuitionBase = NULL;
 struct Library*       LayersBase    = NULL;
@@ -227,6 +229,9 @@ cleanup(void)
   CloseLibrary( (struct Library*) IntuitionBase );
   IntuitionBase = NULL;
 
+  CloseLibrary( IFFParseBase );
+  IFFParseBase = NULL;
+
   CloseLibrary( IconBase );
   IconBase = NULL;
   
@@ -286,6 +291,13 @@ main(int argc, char *argv[])
     error( "Unable to open '%s'.\n", "icon.library" );
   }
       
+  IFFParseBase = OpenLibrary("iffparse.library", 39);
+
+  if( IFFParseBase == NULL )
+  {
+    error( "Unable to open '%s'.\n", "iffparse.library" );
+  }
+
   IntuitionBase = (struct IntuitionBase*) OpenLibrary( "intuition.library", 39 );
   
   if( IntuitionBase == NULL )
