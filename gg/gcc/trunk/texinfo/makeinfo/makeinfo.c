@@ -37,11 +37,11 @@ int minor_version = 68;
 #include <time.h>
 #endif /* !TM_IN_SYS_TIME */
 
-#ifdef __GNUC__
+#if defined (__GNUC__) && !defined (C_ALLOCA)
 # undef alloca
 # define alloca __builtin_alloca
 #else
-# ifdef HAVE_ALLOCA_H
+# if defined (HAVE_ALLOCA_H) && !defined (C_ALLOCA)
 #  include <alloca.h>
 # else
 #  ifndef _AIX

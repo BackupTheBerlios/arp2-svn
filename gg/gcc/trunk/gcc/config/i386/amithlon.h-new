@@ -265,14 +265,15 @@ do { long l;						\
 
 #undef STARTFILE_SPEC
 #define STARTFILE_SPEC							\
-  "%{!noixemul: "							\
-   "%{pg:gcrt0.o%s} "							\
-   "%{!pg: %{p:mcrt0.o%s} "						\
-          "%{!p:crt0.o%s}}} "						\
-  "%{noixemul:"								\
-    "%{resident:libnix/nrcrt0.o%s} "					\
-    "%{!resident:%{fbaserel:libnix/nbcrt0.o%s}%{!fbaserel:libnix/ncrt0.o%s}} " \
-   "libnix/crti.o%s} "                                                  \
+  "%{!shared: "								\
+    "%{!noixemul: "							\
+     "%{pg:gcrt0.o%s} "							\
+     "%{!pg: %{p:mcrt0.o%s} "						\
+            "%{!p:crt0.o%s}}} "						\
+    "%{noixemul:"							\
+      "%{resident:libnix/nrcrt0.o%s} "					\
+      "%{!resident:%{fbaserel:libnix/nbcrt0.o%s}%{!fbaserel:libnix/ncrt0.o%s}} " \
+     "libnix/crti.o%s}} "                                               \
   "%{!shared:crtbegin.o%s} %{shared:crtbeginS.o%s}"
 
 #undef ENDFILE_SPEC

@@ -256,6 +256,12 @@ Sun Feb 22 17:38:32 1998  Karl Berry  <karl@cs.umb.edu>
 	From: Andreas Schwab <schwab@issan.informatik.uni-dortmund.de>
 	Date: 22 Dec 1997 10:32:53 +0100
 
+Sun Feb 22 01:19:57 1998  Fred Fish  <fnf@ninemoons.com>
+
+	* info/tilde.c: Only use gcc's builtin alloca if C_ALLOCA is defined.
+	Only include <alloca.h> if C_ALLOCA is defined.
+	* makeinfo/makeinfo.c: Ditto.
+
 Sat Feb 21 17:41:26 1998  Karl Berry  <karl@cs.umb.edu>
 
 	* makeinfo/makeinfo.c (find_and_load): Malloc enough room for the

@@ -31,11 +31,11 @@
 /* Include config.h before doing alloca.  */
 #include "info.h"
 
-#ifdef __GNUC__
+#if defined (__GNUC__) && !defined (C_ALLOCA)
 # undef alloca
 # define alloca __builtin_alloca
 #else
-# ifdef HAVE_ALLOCA_H
+# if defined (HAVE_ALLOCA_H) && !defined (C_ALLOCA)
 #  include <alloca.h>
 # else
 #  ifndef _AIX

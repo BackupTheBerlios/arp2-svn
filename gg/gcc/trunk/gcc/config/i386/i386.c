@@ -4208,11 +4208,43 @@ output_fix_trunc (insn, operands)
 	output_asm_insn (AS2 (mov%L0,%4,%0), operands);
       else
 	{
-	  xops[0] = operands[0];
-	  xops[1] = operands[4];
-	  output_asm_insn (output_move_double (xops), xops);
+	  if( WORDS_BIG_ENDIAN )
+	  {
+	    if( REG_P ((operands[0])))
+	    {
+	      // Move LITTLE ENDIAN double word
+
+	      xops[0] = gen_rtx_REG (SImode, REGNO (operands[0]) + 1);
+	      xops[1] = operands[4];
+	      output_asm_insn (AS2 (mov%L0,%1,%0), xops);
+
+	      xops[0] = operands[0];
+	      xops[1] = adj_offsettable_operand (operands[4], 4);
+	      output_asm_insn (AS2 (mov%L0,%1,%0), xops);
+	    }
+	    else
+	    {
+	      // Should not happen?
+	      abort();
+	    }
+	  }
+	  else
+	  {
+	    xops[0] = operands[0];
+	    xops[1] = operands[4];
+	    output_asm_insn (output_move_double (xops), xops);
+	  }
 	}
     }
+  else
+  {
+    if (WORDS_BIG_ENDIAN)
+    {
+      // Can this ever happen?
+      
+      abort();
+    }
+  }
 
   return AS1 (fldc%W2,%2);
 }
