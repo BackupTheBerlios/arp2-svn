@@ -37,25 +37,21 @@
 #include <errno.h>
 #include <stdlib.h>
 
-#ifdef __amigaos4__
+#if defined(__amigaos4__)
 # include <unistd.h>
 # include <time.h>
 # include <proto/bsdsocket.h>
-#else
-# if defined(__libnix__)
+#elif defined(__libnix__)
 #  include <libnix.h>
-# elif defined(__ixemul__)
-#  include <ix.h>
-# else
-#  error I need ixemul or libnix!
-# endif
+#elif defined(__ixemul__)
+# include <ix.h>
+#else
+# error I need OS4, ixemul or libnix!
 #endif
 
 #include <cybergraphx/cybergraphics.h>
+#include <exec/execbase.h>
 #include <exec/memory.h>
-#ifdef HAVE_NEWMOUSE_H
-# include <newmouse.h>
-#endif
 #ifdef HAVE_DEVICES_NEWMOUSE_H
 # include <devices/newmouse.h>
 #endif
@@ -70,6 +66,9 @@
 #include <intuition/intuition.h>
 #include <intuition/pointerclass.h>
 #include <libraries/asl.h>
+#ifdef HAVE_NEWMOUSE_H
+# include <newmouse.h>
+#endif
 #include <workbench/workbench.h>
 #include <proto/asl.h>
 #include <proto/cybergraphics.h>
@@ -109,9 +108,19 @@ struct DiskObject* amiga_icon = NULL;
 static struct MsgPort* amiga_wb_port  = NULL;
 static struct AppIcon* amiga_app_icon = NULL;
 
+static BOOL           amiga_is_morphos         = FALSE;
+static BOOL           amiga_is_amithlon        = FALSE;
+static BOOL           amiga_is_os4             = FALSE;
+
 static UWORD          amiga_last_qualifier     = 0;
+static BOOL           amiga_numlock            = FALSE;
+
 static HCURSOR        amiga_last_cursor        = NULL;
 static HCURSOR        amiga_null_cursor        = NULL;
+
+static BOOL           amiga_broken_cursor      = FALSE;
+static BOOL           amiga_broken_blitter     = FALSE;
+
 static struct Screen* amiga_pubscreen          = NULL;
 static ULONG          amiga_bpp                = 8;
 static struct Screen* amiga_screen             = NULL;
@@ -120,12 +129,11 @@ static struct Window* amiga_window             = NULL;
 static struct Region* amiga_old_region         = NULL;
 static ULONG          amiga_cursor_colors[ 3 * 3 ];
 static LONG           amiga_pens[ 256 ];
-static LONG           amiga_broken_cursor      = FALSE;
-static LONG           amiga_broken_blitter     = FALSE;
 static APTR           amiga_tmp_buffer         = NULL;
 static ULONG          amiga_tmp_buffer_length  = 0;
 static struct BitMap* amiga_tmp_bitmap         = NULL;
-static int            amiga_clipping           = FALSE;
+static BOOL           amiga_clipping           = FALSE;
+
 #ifdef __amigaos4__
 struct DrawInfo      *amiga_DrInfo             = NULL;
 struct Image         *amiga_IconifyImage       = NULL;
@@ -823,32 +831,54 @@ amiga_restore_window( void )
 
 
 static int
-amiga_translate_key( int code, ULONG qualifier )
+amiga_translate_key( int code, ULONG qualifier, BOOL* numlock )
 {
   // Good URL:
   // http://panda.cs.ndsu.nodak.edu/~achapwes/PICmicro/keyboard/scancodes1.html
 
-#ifdef __amigaos4__
   // OS4 handles NumLock internally, so we have to undo it.
-  if (qualifier & IEQUALIFIER_NUMERICPAD) {
-    case 0x5c: code = 0x5c; break;     //  /    
-    case 0x5d: code = 0x5d; break;     //  *    
-    case 0x4a: cdoe = 0x4a; break;     //  -    
-    case 0x70: code = 0x3d; break;     //  7    
-    case 0x4c: code = 0x3e; break;     //  8    
-    case 0x48: code = 0x3f; break;     //  9    
-    case 0x5e: code = 0x5e; break;     //  +    
-    case 0x4f: code = 0x2d; break;     //  4    
-//  case nada: code = 0x2e; break;     //  5 (no keycode sent)
-    case 0x4e: code = 0x2f; break;     //  6    
-    case 0x71: code = 0x1d; break;     //  1    
-    case 0x4d: code = 0x1e; break;     //  2    
-    case 0x49: code = 0x1f; break;     //  3    
-    case 0x43: code = 0x43; break;     //  Enter
-    case 0x47: code = 0x0f; break;     //  0
-    case 0x46: code = 0x3c; break;     //  ,
+  if (amiga_is_os4 && (qualifier & IEQUALIFIER_NUMERICPAD)) {
+    int new_code = code;
+    
+    switch (code) {
+      case 0x70: new_code = 0x3d; break;     //  7    
+      case 0x4c: new_code = 0x3e; break;     //  8    
+      case 0x48: new_code = 0x3f; break;     //  9    
+      case 0x4f: new_code = 0x2d; break;     //  4    
+//    case nada: new_code = 0x2e; break;     //  5 (no code sent?)
+      case 0x4e: new_code = 0x2f; break;     //  6    
+      case 0x71: new_code = 0x1d; break;     //  1    
+      case 0x4d: new_code = 0x1e; break;     //  2    
+      case 0x49: new_code = 0x1f; break;     //  3    
+      case 0x47: new_code = 0x0f; break;     //  0
+      case 0x46: new_code = 0x3c; break;     //  ,
+    }
+
+    if (code != new_code) {
+      // The numeric keypad sent cursor keys -> Undo and clear numlock
+      code = new_code;
+      *numlock = FALSE;
+    }
+    else {
+      switch (code) {
+	case 0x3d:     //  7    
+	case 0x3e:     //  8    
+	case 0x3f:     //  9    
+	case 0x2d:     //  4    
+	case 0x2e:     //  5
+	case 0x2f:     //  6    
+	case 0x1d:     //  1    
+	case 0x1e:     //  2    
+	case 0x1f:     //  3    
+	case 0x0f:     //  0
+	case 0x3c:     //  ,
+	  // The numeric keypad sent numbers -> Set numlock
+	  *numlock = TRUE;
+	  break;
+      }
+    }
   }
-#endif
+
   
   switch( code )
   {
@@ -1032,12 +1062,12 @@ amiga_translate_key( int code, ULONG qualifier )
       return 0x4e;
 
     case 0x5f:    // help
-#ifndef __amigaos4__
-      return 0x5d | 0x80;             // Map to Windows App/Menu key
-#else
-      return 0x46;		      // Map to Scroll Lock key
-#endif
-      
+      if (amiga_is_os4) {
+	return 0x46;		      // Map to Scroll Lock key
+      }
+      else {
+	return 0x5d | 0x80;           // Map to Windows App/Menu key
+      }
       
     case 0x60:    // lshift
       return 0x2a;
@@ -1063,32 +1093,34 @@ amiga_translate_key( int code, ULONG qualifier )
     case 0x67:    // ramiga
       return 0x5c | 0x80;             // Map to Windows right GUI key
 
-    case 0x68:    // unused
-    case 0x69:    // unused
-    case 0x6a:    // unused
-      return 0;
+    case 0x68:    // unused mousebutton
+    case 0x69:    // unused mousebutton
+    case 0x6a:    // unused mousebutton
+      break;
 
-#ifdef __amigaos4__
-    case 0x6b:	  // OS4 Menu key
-      return 0x5d | 0x80;
-
-    case 0x6d:    // OS4 print screen
-      return 0x37 | 0x80;
-
-    case 0x79:    // OS4 num lock
-      return 0x45;
-
-#else
-
-    case 0x6b:	  // MOS scroll lock
-      return 0x46;
+    case 0x6b:	  // OS4 Menu key/MOS scroll lock
+      if (amiga_is_os4) {
+	return 0x5d | 0x80;
+      }
+      else {
+	return 0x46;
+      }
 
     case 0x6c:    // MOS print screen
-      return 0x37 | 0x80;
-
-    case 0x6d:	  // MOS numlock
-      return 0x45;
-#endif
+      if (amiga_is_morphos) {
+	return 0x37 | 0x80;
+      }
+      else {
+	break;
+      }
+      
+    case 0x6d:    // OS4 print screen/MOS num lock
+      if (amiga_is_os4) {
+	return 0x37 | 0x80;
+      }
+      else {
+	return 0x45;
+      }
 
     case 0x6e:    // MOS/OS4 pause
       if (qualifier & IEQUALIFIER_CONTROL) {
@@ -1124,6 +1156,10 @@ amiga_translate_key( int code, ULONG qualifier )
       
     case 0x77:    // MOS/CDTV ff
       return 0x30 | 0x80;             // Map to volume up
+
+    case 0x79:    // OS4 num lock
+      return 0x45;
+
   }
 
   return 0;
@@ -1345,9 +1381,22 @@ ui_init(void)
 
   if (OpenResource("amithlon.resource") ||
       OpenResource("umilator.resource")) {
-    amiga_broken_cursor = TRUE;
+    amiga_is_amithlon = TRUE;
   }
 
+  if (SysBase->LibNode.lib_Version >= 50) {
+    if (FindResident("MorphOS")) {
+      amiga_is_morphos = TRUE;
+    }
+    else {
+      amiga_is_os4 = TRUE;
+    }
+  }
+
+  if (amiga_is_amithlon) {
+    amiga_broken_cursor = TRUE;
+  }
+  
   g_width = g_width & ~3;
 
   /* create invisible 1x1 cursor to be used as null cursor */
@@ -1686,7 +1735,7 @@ ui_select(int rdp_socket)
 
     mask = (1UL << amiga_wb_port->mp_SigBit) | amiga_clip_signals;
 
-#if defined(__libnix__) || defined(__amigaos4__)
+#if !defined(__ixemul__)
       mask |= SIGBREAKF_CTRL_C;
 #endif
 
@@ -1702,14 +1751,14 @@ ui_select(int rdp_socket)
     }
 #endif
 
-#ifdef __amigaos4__
+#if defined(__amigaos4__)
     res  = WaitSelect(n, &rfds, &wfds, NULL, &tv, &mask );
-#else
-# ifdef __libnix__
+#elif defined(__libnix__)
     res  = lx_select(n, &rfds, &wfds, NULL, &tv, &mask );
-# else
+#elif defined(__ixemul__)
     res  = ix_select(n, &rfds, &wfds, NULL, &tv, &mask );
-# endif
+#else
+# error "Don't know how to wait for signals!"
 #endif
 
     if( res == -1 && mask == 0 )
@@ -1718,7 +1767,7 @@ ui_select(int rdp_socket)
       return False;
     }
 
-#if defined(__libnix__) || defined(__amigaos4__)
+#if !defined(__ixemul__)
     if (mask & SIGBREAKF_CTRL_C) {
       SetSignal(0,SIGBREAKF_CTRL_C);
       quit = TRUE;
@@ -1742,10 +1791,9 @@ ui_select(int rdp_socket)
 	    {
 	      RemoveAppIcon( amiga_app_icon );
 	      amiga_app_icon = NULL;
-#ifdef __MORPHOS__
+#if defined(__MORPHOS__)
 	      ShowWindow( amiga_window );
-#endif
-#ifdef __amigaos4__
+#elif defined(__amigaos4__)
 	      ShowWindow( amiga_window, WINDOW_FRONTMOST );
 	      ActivateWindow( amiga_window );
 #endif
@@ -1863,8 +1911,9 @@ ui_select(int rdp_socket)
             
 	    case IDCMP_RAWKEY:
 	    {
-	      int scancode;
-	      int flag;
+	      int  scancode;
+	      int  flag;
+	      BOOL numlock = amiga_numlock; 
 
 #if defined(HAVE_NEWMOUSE_H) || defined(HAVE_DEVICES_NEWMOUSE_H)
 	      int button = 0;
@@ -1896,7 +1945,7 @@ ui_select(int rdp_socket)
 	      }
 #endif
 
-	      //printf("code %d %x, qualifier %x\n", msg->Code, msg->Code, msg->Qualifier);
+	      printf("code %d %x, qualifier %x\n", msg->Code, msg->Code, msg->Qualifier);
 
 
 	      // RAmiga-Q quits.
@@ -1932,7 +1981,14 @@ ui_select(int rdp_socket)
               }
 
 	      scancode = amiga_translate_key( msg->Code & ~0x80,
-					      msg->Qualifier );
+					      msg->Qualifier,
+					      &numlock );
+
+	      if (numlock != amiga_numlock) {
+		amiga_numlock = numlock;
+		rdp_send_input(0, RDP_INPUT_SYNCHRONIZE, 0,
+			       ui_get_numlock_state(read_keyboard_state()), 0);
+	      }
 
               if( scancode == 0 )
                 break;
@@ -1946,6 +2002,12 @@ ui_select(int rdp_socket)
 
                 flag = KBD_FLAG_UP;
               }
+
+	      if (scancode == 0x45 &&
+		  (flag & (KBD_FLAG_UP|KBD_FLAG_DOWN)) == KBD_FLAG_UP) {
+		// Handle NUM LOCK
+		amiga_numlock = !amiga_numlock;
+	      }
 
               if( scancode & 0x80 )
               {
@@ -2055,8 +2117,7 @@ read_keyboard_state()
 uint16
 ui_get_numlock_state(unsigned int state)
 {
-  // TODO: Find NumLock in state ... :-)
-  return 0;
+  return amiga_numlock ? KBD_FLAG_NUMLOCK : 0;
 }
 
 

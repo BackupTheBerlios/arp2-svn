@@ -113,6 +113,7 @@ struct CyberGfxIFace  *ICyberGfx      = NULL;
 struct SocketIFace    *ISocket        = NULL;
 struct UserGroupIFace *IUserGroup     = NULL;
 struct AmiSSLIFace    *IAmiSSL        = NULL;
+struct KeymapIFace    *IKeymap        = NULL;
 uint32 AmiSSL_initialized = FALSE;
 #else
 struct Library*        AslBase        = NULL;
@@ -120,11 +121,11 @@ struct GfxBase*        GfxBase        = NULL;
 struct Library*        IFFParseBase   = NULL;
 struct Library*        IconBase       = NULL;
 struct Library*        KeymapBase     = NULL;
-struct KeyMapResource* KeymapResource = NULL;
 struct IntuitionBase*  IntuitionBase  = NULL;
 struct UtilityBase*    UtilityBase    = NULL;
 struct Library*        WorkbenchBase  = NULL;
 #endif
+struct KeyMapResource* KeymapResource = NULL;
 struct Library*        CyberGfxBase   = NULL;
 struct Library*        LayersBase     = NULL;
 
@@ -356,6 +357,14 @@ cleanup(void)
     IUserGroup = NULL;
     CloseLibrary(LibBase);
   }
+  if (IKeymap)
+  {
+    struct Library *LibBase = ((struct Interface *)IKeymap)->Data.LibBase;
+
+    DropInterface((struct Interface *)IKeymap);
+    IKeymap = NULL;
+    CloseLibrary(LibBase);
+  }
 
   if (ICyberGfx)
   {
@@ -451,14 +460,6 @@ main(int argc, char *argv[])
     error( "Unable to open '%s'.\n", "keymap.library" );
   }
 
-  KeymapResource = OpenResource("keymap.resource"); 
-
-  if( KeymapResource == NULL )
-  {
-    error( "Unable to open '%s'.\n", "keymap.resource" );
-  }
- 
-
   IconBase = OpenLibrary("icon.library", 0);
 
   if( IconBase == NULL )
@@ -481,9 +482,29 @@ main(int argc, char *argv[])
     return RETURN_FAIL;
   }
 #endif
+
+  KeymapResource = OpenResource("keymap.resource"); 
+
+  if( KeymapResource == NULL )
+  {
+    error( "Unable to open '%s'.\n", "keymap.resource" );
+  }
+ 
 #ifdef __amigaos4__
 {
   struct Library *LibBase;
+
+  LibBase = OpenLibrary("keymap.library", 36);
+  if (NULL != LibBase)
+  {
+     IKeymap = (struct KeymapIFace *)GetInterface(LibBase, "main", 1, NULL);
+     if (!IKeymap) CloseLibrary(LibBase);
+  }
+  if( NULL == IKeymap)
+  {
+    error( "Unable to open '%s'.\n", "keymap.library" );
+    return RETURN_FAIL;
+  }
 
   LibBase = OpenLibrary("bsdsocket.library", 3L);
   if (NULL != LibBase)

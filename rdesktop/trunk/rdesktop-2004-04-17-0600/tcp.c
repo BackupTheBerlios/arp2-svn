@@ -29,6 +29,7 @@
 #include "rdesktop.h"
 #ifdef __amigaos4__
 # include <proto/bsdsocket.h>
+# define close(sock) CloseSocket(sock)
 #endif
 
 #ifndef INADDR_NONE

@@ -1,5 +1,13 @@
 2005-01-29  Martin Blom  <martin@blom.org>
 
+	* Added NumLock sync when running under OS4.
+
+	* RDesktop now detects OS4/MOS at runtime instead of compile
+	time. This makes the keymap code work even when the m68k binary is
+	run under OS4.
+
+	* Added OS4 TCP and keymap patch fro Jörg.
+
 	* Released version 1.3.1cvs (29.01.2005).
 
 2005-01-28  Martin Blom  <martin@blom.org>
