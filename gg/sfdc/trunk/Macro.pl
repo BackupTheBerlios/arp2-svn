@@ -108,7 +108,7 @@ BEGIN {
 
 	if ($$prototype{'type'} eq 'stdarg') {
 	    my $first_stdargnum = $$prototype{'numargs'} - 2;
-	    my $first_stdarg = $$prototype{'argnames'}[$first_stdargnum];
+	    my $first_stdarg = $$prototype{'___argnames'}[$first_stdargnum];
 	    
 	    print "	({ULONG _tags[] = { $first_stdarg, __VA_ARGS__ }; ";
 	    print "$$prototype{'real_funcname'}(";	    

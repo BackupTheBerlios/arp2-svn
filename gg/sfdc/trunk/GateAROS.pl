@@ -99,6 +99,7 @@ BEGIN {
 	else {
 	    print "\n";
 	    print "{\n";
+	    print "  AROS_LIBFUNC_INIT\n";
 	    print "  return $libprefix$prototype->{funcname}(";
 
 	    if ($libarg eq 'first' && !$prototype->{nb}) {
@@ -114,6 +115,7 @@ BEGIN {
 	    }
 	
 	    print ");\n";
+	    print "  AROS_LIBFUNC_EXIT\n";
 	    print "}\n";
 	}
     }

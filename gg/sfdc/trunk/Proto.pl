@@ -53,6 +53,7 @@ BEGIN {
 	    print "#  endif /* __CONSTLIBBASEDECL__ */\n";
 	    print "   ${base};\n";
 	    print "# endif /* !__NOLIBBASE__ */\n";
+	    print "#endif /* !__amigaos4__ */\n";
 	    print "\n";
 	}
     }

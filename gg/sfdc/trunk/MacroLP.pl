@@ -64,7 +64,7 @@ BEGIN {
 	if ($$prototype{'type'} !~ /^(varargs)|(stdarg)$/) {
 
 	    if (!$prototype->{nb}) {
-		print "\\\n	, $self->{BASE})\n";
+		print ",\\\n	, $self->{BASE})\n";
 	    }
 	    else {
 		print ")\n";

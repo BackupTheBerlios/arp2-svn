@@ -30,7 +30,7 @@ BEGIN {
 	    print ", IF_CACHEFLUSHALL, NULL, 0, IF_CACHEFLUSHALL, NULL, 0)\n";
 	}
 	else {
-	    print "})\n";
+	    $self->SUPER::function_end (@_);
 	}
     }
 }
