@@ -87,5 +87,5 @@ AC_HEADER_TIME
 #AC_FUNC_VPRINTF
 #AC_CHECK_FUNCS([bzero gethostbyname gethostname getmntent gettimeofday memset mkdir rmdir select socket strchr strerror strrchr strspn strstr strtol utime])
 
-AC_CONFIG_FILES([RDesktop.readme Makefile])
+AC_CONFIG_FILES([RDesktop.readme Makefile],[echo timestamp > stamp-h])
 AC_OUTPUT
