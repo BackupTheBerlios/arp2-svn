@@ -1604,7 +1604,7 @@ void
 fD_write(FILE* outfile, const fdDef* obj,int alias)
 {
    static int bias = -1;
-   static int priv = 1;
+   static int priv = -1;
    shortcard count, numregs;
    const char *tagname, *varname, *name, *rettype;
    int vd=0, a45=0, d7=0;
@@ -2225,9 +2225,6 @@ main(int argc, char** argv)
 	      strcmp(BaseNamL, "cardres") == 0 ? "card" : BaseNamL, type);
    }
 
-   // We always need this
-   fprintf(outfile, "==include <exec/types.h>\n");
-	    
    clib = fopen( clibfilename, "r" );
 
    if (clib == NULL)
@@ -2244,6 +2241,9 @@ main(int argc, char** argv)
       }
       else
       {
+	 int got_exec_types = 0;
+	 int got_utility_tagitem = 0;
+	 
 	 while (fgets(buffer, 1023, clib) != NULL)
 	 {
 	    int i = 0;
@@ -2264,7 +2264,7 @@ main(int argc, char** argv)
 
 		  i += 7;
 
-		  while (buffer[i] == ' ' || buffer[i] == '\t') ++i;
+ 		  while (buffer[i] == ' ' || buffer[i] == '\t') ++i;
 
 		  start = buffer[i];
 		  
@@ -2283,12 +2283,49 @@ main(int argc, char** argv)
 
 		  while (buffer[i] != end && buffer[i] != 0) ++i;
 		  buffer[i] = 0;
-		     
-		  fprintf(outfile, "==include %c%s%c\n", start, inc, end );
+
+		  if (strncmp(inc, "proto/", 6) &&
+		      strncmp(inc, "pragma/", 7) &&
+		      strncmp(inc, "ppcinline/", 10) &&
+                      strncmp(inc, "ppcpragma/", 10) &&
+		      strncmp(inc, "ppcproto/", 9) &&
+		      strncmp(inc, "inline/", 7) &&
+		      strncmp(inc, "stormprotos/", 12) )
+		  {
+		    fprintf(outfile, "==include %c%s%c\n", start, inc, end );
+		  }
+
+		  if (!strcmp(inc,"exec/types.h"))
+		    got_exec_types = 1;
+		  else if (!strcmp(inc,"utility/tagitem.h"))
+		    got_utility_tagitem = 1;
 	       }
 	    }
+	    else if (!strncmp(buffer+i,"typedef",7))
+	    {
+	       char* td;
+
+	       i += 7;
+		 
+	       while (buffer[i] == ' ' || buffer[i] == '\t') ++i;
+
+	       td = buffer+i;
+	       
+	       while (buffer[i] != ';' && buffer[i] != 0) ++i;
+	       buffer[i] = 0;
+
+	       fprintf(outfile, "* Unofficial extension on next line\n");
+	       fprintf(outfile, "==typedef %s\n", td);
+	    }
 	 }
-		
+
+	 // We always need these (for basic types like ULONG and Tag)
+	 if (!got_exec_types)
+	   fprintf(outfile, "==include <exec/types.h>\n");
+
+	 if (!got_utility_tagitem)
+	   fprintf(outfile, "==include <utility/tagitem.h>\n");
+	 
 	 free(buffer);
       }
       
