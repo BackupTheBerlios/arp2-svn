@@ -1,6 +1,9 @@
 
 @SET_MAKE@
 
+PACKAGE_TARNAME	= @PACKAGE_TARNAME@
+PACKAGE_VERSION	= @PACKAGE_VERSION@
+
 srcdir		= @srcdir@
 VPATH		= @srcdir@
 
@@ -39,7 +42,8 @@ clean:
 
 distclean:	clean
 	$(RM) -r autom4te.cache config.h config.status stamp-h Makefile \
-		 exec_dbg_inline.h
+		 exec_dbg_inline.h \
+		 $(PACKAGE_TARNAME)-$(PACKAGE_VERSION).tar.gz
 
 libdebug.a:	$(SER_OBJECTS)
 	$(AR) $(ARFLAGS) $@ $^
@@ -48,6 +52,13 @@ libddebug.a:	$(PAR_OBJECTS)
 	$(AR) $(ARFLAGS) $@ $^
 
 test:		test.c libdebug.a
+
+tgz:	distclean
+	cp -r $(srcdir) /tmp/$(PACKAGE_TARNAME)-$(PACKAGE_VERSION)
+	(cd /tmp && tar cfvz - --exclude=CVS \
+		$(PACKAGE_TARNAME)-$(PACKAGE_VERSION)) \
+		> $(PACKAGE_TARNAME)-$(PACKAGE_VERSION).tar.gz
+	$(RM) -r /tmp/$(PACKAGE_TARNAME)-$(PACKAGE_VERSION)
 
 #
 # Auto-remake autoconf stuff
