@@ -1,3 +1,7 @@
+2005-03-18  Martin Blom  <martin@blom.org>
+
+	* all: gfx-glgfx backend "finished".
+
 2005-03-13  Martin Blom  <martin@blom.org>
 
 	* all: Libtoolized and added new gfx-glgfx backend.
@@ -22,7 +26,7 @@
 
 	* src/hardfile_unix.c: Made it work with > 2 GB hardfiles.
 
-	* Imported E-UAE 0.8.27 into local CVS.
+	* all: Imported E-UAE 0.8.27 into local CVS.
 
 2005-01-07 00:45  evi1rich
 
