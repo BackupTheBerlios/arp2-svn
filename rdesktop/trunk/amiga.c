@@ -1064,7 +1064,7 @@ ui_init(void)
       return False;
   }
 
-  // Check for fucked up graphics subsystem
+  // Check for working minterm handling
 
   if( amiga_bpp > 8 )
   {
