@@ -1,5 +1,7 @@
 2005-01-29  Martin Blom  <martin@blom.org>
 
+	* Added CapsLock sync.
+
 	* Added NumLock sync when running under OS4.
 
 	* RDesktop now detects OS4/MOS at runtime instead of compile
