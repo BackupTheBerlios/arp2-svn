@@ -51,6 +51,11 @@ BEGIN {
 	print "	Available since:	V$$prototype{'version'}\n";
 	print "	Comment:		$$prototype{'comment'}\n";
 	print "\n";
+	print "	No return:		";
+	print $prototype->{nr} ? "Yes\n" : "No\n";
+	print "	No base:		";
+	print $prototype->{nb} ? "Yes\n" : "No\n";
+	print "\n";
 	print "	Return value:		$$prototype{'return'}\n";
 	print "	Arguments:		";
 	print join (",\n\t\t\t\t", @{$$prototype{'args'}});
