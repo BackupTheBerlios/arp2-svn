@@ -38,5 +38,8 @@ bool glgfx_waittof(void);
 bool glopen(void);
 void glclose(void);
 
+#define check_error() glgfx_check_error(__PRETTY_FUNCTION__, __FILE__, __LINE__);
+void glgfx_check_error(char const* func, char const* file, int line);
+
 #endif /* ARP2_glgfx_glgfx_h */
 

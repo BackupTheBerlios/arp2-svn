@@ -1,9 +1,9 @@
 
 CPPFLAGS	= -DDEBUG -W -Wall
-CFLAGS		= -O2 -pthread
-LDLIBS		= -L/usr/X11R6/lib -lX11 -lXxf86vm -lXext -ldl -lGL -lglut
+CFLAGS		= -O2 -pthread $(shell pkg-config glib-2.0 --cflags)
+LDLIBS		= -L/usr/X11R6/lib -lX11 -lXxf86vm -lXext -ldl -lGL -lglut $(shell pkg-config glib-2.0 --libs)
 
-GLGFX_OBJECTS	= glgfx.o glgfx_monitor.o glgfx_bitmap.o
+GLGFX_OBJECTS	= glgfx.o glgfx_monitor.o glgfx_viewport.o glgfx_bitmap.o
 GLGFX_TARGET	= glgfx
 
 OBJECTS		= $(GLGFX_OBJECTS)
@@ -15,7 +15,7 @@ clean:
 	$(RM) $(TARGETS) $(OBJECTS) Makefile.dep
 
 Makefile.dep:	$(GLGFX_OBJECTS:%.o=%.c)
-	@$(CC) -MM $^ > $@
+	@$(CC) $(CPPFLAGS) $(CFLAGS) -MM $^ > $@
 
 include Makefile.dep
 

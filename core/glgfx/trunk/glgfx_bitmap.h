@@ -26,6 +26,9 @@ struct glgfx_bitmap* glgfx_bitmap_create(int width, int height, int bits,
 					 int flags, struct glgfx_bitmap* friend,
 					 int format, struct glgfx_monitor* monitor);
 void glgfx_bitmap_destroy(struct glgfx_bitmap* bitmap);
+bool glgfx_bitmap_lock(struct glgfx_bitmap* bitmap, bool read, bool write);
+bool glgfx_bitmap_unlock(struct glgfx_bitmap* bitmap);
+
 bool glgfx_bitmap_select(struct glgfx_bitmap* bitmap);
 bool glgfx_bitmap_waitblit(struct glgfx_bitmap* bitmap);
 

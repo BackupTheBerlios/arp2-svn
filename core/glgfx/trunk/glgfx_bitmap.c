@@ -3,7 +3,6 @@
 #define GL_GLEXT_PROTOTYPES
 #include <GL/gl.h>
 #include <GL/glext.h>
-#include <GL/glu.h>
 
 #include "glgfx_bitmap.h"
 
@@ -15,23 +14,12 @@ struct pixel_info {
 };
 
 static struct pixel_info formats[] = {
-  { GL_RGB,  GL_RGB,  GL_UNSIGNED_BYTE, 3 }, // glgfx_pixel_r8g8b8,    RGB,  3 * UBYTE
-  { GL_RGBA, GL_RGBA, GL_UNSIGNED_BYTE, 4 }, // glgfx_pixel_r8g8b8a8,  RGBA, 4 * UBYTE
-  { GL_RGB,  GL_BGR,  GL_UNSIGNED_BYTE, 3 }, // glgfx_pixel_b8g8r8,    BGR,  3 * UBYTE
-  { GL_RGBA, GL_BGRA, GL_UNSIGNED_BYTE, 4 }, // gqlgfx_pixel_b8g8r8a8   BGRA, 4 * UBYTE
+  { 0, 0, 0, 0},
+  { GL_RGB8,  GL_RGB,  GL_UNSIGNED_BYTE, 3 }, // glgfx_pixel_r8g8b8,     RGB,  3 * UBYTE
+  { GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE, 4 }, // glgfx_pixel_r8g8b8a8,   RGBA, 4 * UBYTE
+  { GL_RGB8,  GL_BGR,  GL_UNSIGNED_BYTE, 3 }, // glgfx_pixel_b8g8r8,     BGR,  3 * UBYTE
+  { GL_RGBA8, GL_BGRA, GL_UNSIGNED_BYTE, 4 }, // glgfx_pixel_b8g8r8a8   BGRA, 4 * UBYTE
 };
-
-#define check_error() _check_error(__PRETTY_FUNCTION__, __FILE__, __LINE__);
-static void _check_error(char const* func, char const* file, int line) {
-  GLenum error = glGetError();
-
-  if (error != 0) {
-    char const* msg = gluErrorString(error);
-    
-    BUG("OpenGL error %d %s:%d (%s): %s\n", error, file, line, func, msg);
-    abort();
-  }
-}
 
 static enum glgfx_pixel_format select_format(int bits __attribute__((unused)),
 					     struct glgfx_bitmap* friend,
@@ -90,6 +78,14 @@ struct glgfx_bitmap* glgfx_bitmap_create(int width, int height, int bits,
 	       NULL);
   check_error();
 
+/*   float rgba[4] = { 0, 1, 0, 0.1 }; */
+/*   glTexParameterfv(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_BORDER_COLOR, rgba); */
+  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+//  glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+  
   glEnable(GL_TEXTURE_RECTANGLE_ARB);
   check_error();
 
@@ -102,6 +98,7 @@ void glgfx_bitmap_destroy(struct glgfx_bitmap* bitmap) {
     return;
   }
 
+  glgfx_bitmap_unlock(bitmap);
   glDeleteBuffers(1, &bitmap->pbo);
   glDeleteTextures(1, &bitmap->texture);
   free(bitmap);
@@ -121,15 +118,15 @@ bool glgfx_bitmap_lock(struct glgfx_bitmap* bitmap, bool read, bool write) {
   
   if (read && write) {
     usage = GL_STREAM_COPY_ARB;
-    access = READ_WRITE_ARB;
+    access = GL_READ_WRITE_ARB;
   }
   else if (!read && write) {
     usage = GL_STREAM_DRAW_ARB;
-    access = WRITE_ONLY_ARB;
+    access = GL_WRITE_ONLY_ARB;
   }
   else {
     usage = GL_STATIC_READ_ARB;
-    access = READ_ONLY_ARB;
+    access = GL_READ_ONLY_ARB;
   }
 
   if (bitmap->pbo == 0) {
@@ -144,7 +141,7 @@ bool glgfx_bitmap_lock(struct glgfx_bitmap* bitmap, bool read, bool write) {
 
   if (read) {
     glBindBuffer(GL_PIXEL_PACK_BUFFER_EXT, bitmap->pbo);
-    // Read texture data into buffer here
+    // TODO: Read texture data into buffer here
     glBindBuffer(GL_PIXEL_PACK_BUFFER_EXT, 0);
   }
 
@@ -155,6 +152,8 @@ bool glgfx_bitmap_lock(struct glgfx_bitmap* bitmap, bool read, bool write) {
     bitmap->locked = true;
     bitmap->locked_write = write;
   }
+
+  return bitmap->locked;
 }
 
 bool glgfx_bitmap_unlock(struct glgfx_bitmap* bitmap) {
@@ -174,18 +173,19 @@ bool glgfx_bitmap_unlock(struct glgfx_bitmap* bitmap) {
 
     glTexImage2D(GL_TEXTURE_RECTANGLE_ARB, 0,
 		 formats[bitmap->format].internal_format,
-		 width, height, 0,
+		 bitmap->width, bitmap->height, 0,
 		 formats[bitmap->format].format,
 		 formats[bitmap->format].type,
 		 NULL);
     check_error();
   }
 
+  glBindBuffer(GL_PIXEL_UNPACK_BUFFER_EXT, 0);
+  check_error();
+
   bitmap->locked = false;
   bitmap->locked_memory = NULL;
   bitmap->locked_write = false;
-  glBindBuffer(GL_PIXEL_UNPACK_BUFFER_EXT, 0);
-  check_error();
   
   return rc;
 }
@@ -194,7 +194,8 @@ bool glgfx_bitmap_select(struct glgfx_bitmap* bitmap) {
   if (bitmap == NULL) {
     return false;
   }
-  
+
+  // TODO: Set rendering buffer to the bitmap here
   abort();
   return false;
 }
@@ -206,5 +207,5 @@ bool glgfx_bitmap_waitblit(struct glgfx_bitmap* bitmap) {
 
   glgfx_bitmap_select(bitmap);
   glFinish();
+  return true;
 }
-

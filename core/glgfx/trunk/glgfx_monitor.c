@@ -57,7 +57,8 @@ struct glgfx_monitor* glgfx_monitor_create(char const*  display_name,
     return NULL;
   }
 
-  D(BUG("Opened display %s.\n", display_name));
+  D(BUG("Opened display %s. Extensions: %s\n", display_name,
+	glXQueryExtensionsString(monitor->display, DefaultScreen(monitor->display))));
 
   int dummy;
   if (!XF86VidModeQueryExtension(monitor->display, &dummy, &dummy)) {
@@ -182,6 +183,8 @@ struct glgfx_monitor* glgfx_monitor_create(char const*  display_name,
     glgfx_monitor_destroy(monitor);
     return NULL;
   }
+
+//  D(BUG("Supported extensions: %s\n", glGetString(GL_EXTENSIONS)));
 
   // Setup a standard integer 2D coordinate system
   glViewport(0, 0, monitor->mode.hdisplay, monitor->mode.vdisplay);
