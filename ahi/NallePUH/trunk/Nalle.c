@@ -21,12 +21,18 @@
 
 #include "CompilerSpecific.h"
 
+#include <classes/window.h>
 #include <devices/ahi.h>
 #include <exec/errors.h>
 #include <exec/memory.h>
+#include <libraries/resource.h>
 
+#include <clib/alib_protos.h>
 #include <proto/ahi.h>
 #include <proto/exec.h>
+#include <proto/intuition.h>
+#include <proto/locale.h>
+#include <proto/resource.h>
 
 #include <hardware/custom.h>
 #include <hardware/dmabits.h>
@@ -42,11 +48,11 @@ static struct MsgPort*      AHImp     = NULL;
 static struct AHIRequest*   AHIio     = NULL;
 static BYTE                 AHIDevice = IOERR_OPENFAIL;
 
-struct Library* AHIBase       = NULL;
-struct Library* MMUBase       = NULL;
-struct Library *IntuitionBase = NULL;
-struct Library *LocaleBase    = NULL;
-struct Library *ResourceBase  = NULL;
+struct Library*       AHIBase       = NULL;
+struct Library*       MMUBase       = NULL;
+struct IntuitionBase* IntuitionBase = NULL;
+struct LocaleBase*    LocaleBase    = NULL;
+struct Library* 		  ResourceBase  = NULL;
 
 static BOOL
 OpenLibs( void );
@@ -59,6 +65,12 @@ OpenAHI( void );
 
 static void 
 CloseAHI( void );
+
+static BOOL
+ShowGUI( void );
+
+static BOOL
+HandleGUI( Object* window );
 
 static void
 Test( struct Custom* custom );
@@ -79,10 +91,6 @@ main( int   argc,
   ULONG frequency = 0;
   ULONG level     = 0;
 
-  char* mode_ptr;
-  char* freq_ptr;
-  char* levl_ptr;
-
 
   if( ! OpenLibs() )
   {
@@ -102,21 +110,28 @@ main( int   argc,
     return 10;
   }
 
-  mode_id   = strtol( argv[ 1 ], &mode_ptr, 0 );
-  frequency = strtol( argv[ 2 ], &freq_ptr, 0 );
-  level     = strtol( argv[ 3 ], &levl_ptr, 0 );
+	if( ! gui_mode )
+	{
+	  char* mode_ptr;
+  	char* freq_ptr;
+	  char* levl_ptr;
 
-  if( *mode_ptr != 0 || *freq_ptr != 0 || *levl_ptr != 0 )
-  {
-    printf( "All arguments must be numbers.\n" );
-    return 10;
-  }
+	  mode_id   = strtol( argv[ 1 ], &mode_ptr, 0 );
+  	frequency = strtol( argv[ 2 ], &freq_ptr, 0 );
+	  level     = strtol( argv[ 3 ], &levl_ptr, 0 );
 
-  if( level > 2 )
-  {
-    printf( "Invalid value for Level.\n" );
-    return 10;
-  }
+	  if( *mode_ptr != 0 || *freq_ptr != 0 || *levl_ptr != 0 )
+  	{
+    	printf( "All arguments must be numbers.\n" );
+	    return 10;
+  	}
+
+	  if( level > 2 )
+  	{
+    	printf( "Invalid value for Level.\n" );
+	    return 10;
+  	}
+ 	}
 
   if( ! OpenAHI() )
   {
@@ -138,7 +153,11 @@ main( int   argc,
     {
       if( gui_mode )
       {
-        
+        if( ! ShowGUI() )
+        {
+        	printf( "Failed to create GUI.\n" );
+        	rc = 20;
+        }
       }
       else
       {
@@ -303,8 +322,8 @@ Test( struct Custom* custom )
 static BOOL
 OpenLibs( void )
 {
-  IntuitionBase = OpenLibrary( "intuition.library", 39 );
-  LocaleBase    = OpenLibrary( "locale.library", 39 );
+  IntuitionBase = (struct IntuitionBase*) OpenLibrary( "intuition.library", 39 );
+  LocaleBase    = (struct LocaleBase*) OpenLibrary( "locale.library", 39 );
   ResourceBase  = OpenLibrary( "resource.library", 44 );
   MMUBase       = OpenLibrary( "mmu.library", 41 );
 
@@ -312,8 +331,8 @@ OpenLibs( void )
       LocaleBase    == NULL ||
       ResourceBase  == NULL )
   {
-    CloseLibrary( IntuitionBase );
-    CloseLibrary( LocaleBase );
+    CloseLibrary( (struct Library*) IntuitionBase );
+    CloseLibrary( (struct Library*) LocaleBase );
     CloseLibrary( ResourceBase );
     
     IntuitionBase = NULL;
@@ -341,8 +360,8 @@ OpenLibs( void )
 static void
 CloseLibs( void )
 {
-  CloseLibrary( IntuitionBase );
-  CloseLibrary( LocaleBase );
+  CloseLibrary( (struct Library*) IntuitionBase );
+  CloseLibrary( (struct Library*) LocaleBase );
   CloseLibrary( ResourceBase );
 
   // We must not close mmu.library if we have pached applications running!
@@ -408,4 +427,146 @@ CloseAHI( void )
   AHImp     = NULL;
   AHIio     = NULL;
   AHIDevice = IOERR_OPENFAIL;
+}
+
+
+/******************************************************************************
+** ShowGUI ********************************************************************
+******************************************************************************/
+
+static BOOL
+ShowGUI( void )
+{
+  BOOL            rc = FALSE;
+
+  struct Catalog* catalog;
+  struct Screen*  screen;
+  struct MsgPort* idcmp_port;
+  struct MsgPort* app_port;
+  RESOURCEFILE    resource;
+  Object*         window;
+  struct Gadget** gadgets;
+
+  catalog = OpenCatalogA( NULL, "NallePUH.catalog",NULL);
+  
+  screen = LockPubScreen( NULL );
+  
+  if( screen != NULL )
+  {
+    idcmp_port = CreateMsgPort();
+    
+    if( idcmp_port != NULL )
+    {
+      app_port = CreateMsgPort();
+      
+      if( app_port != NULL )
+      {
+        resource = RL_OpenResource( RCTResource, screen, catalog );
+        
+        if( resource != NULL )
+        {
+          window = RL_NewObject( resource, WIN_1_ID,
+                                 WINDOW_SharedPort, (ULONG) idcmp_port,
+                                 WINDOW_AppPort,    (ULONG) app_port,
+                                 TAG_DONE );
+                                 
+          if( window != NULL )
+          {
+            gadgets = (struct Gadget **) RL_GetObjectArray( resource, 
+                                                            window, 
+                                                            GROUP_2_ID );
+            if( gadgets != NULL )
+            {
+              DoMethod( window, WM_OPEN );
+              
+              rc = HandleGUI( window );
+              
+              DoMethod( window, WM_CLOSE);
+            }
+          }
+          RL_CloseResource( resource );
+        }
+        
+        DeleteMsgPort( app_port );
+      }
+      
+      DeleteMsgPort( idcmp_port );
+    }
+
+    UnlockPubScreen( NULL, screen );
+  }
+  
+  CloseCatalog( catalog );
+
+  return rc;
+}
+
+
+/******************************************************************************
+** HandleGUI ********************************************************************
+******************************************************************************/
+
+static BOOL
+HandleGUI( Object* window )
+{
+	BOOL  rc             = FALSE;
+	BOOL  quit           = FALSE;
+	ULONG window_signals = 0;
+
+	GetAttr( WINDOW_SigMask, window, &window_signals );
+	
+	while( ! quit )
+	{
+		ULONG mask;
+		
+		mask = Wait( window_signals | SIGBREAKF_CTRL_C );
+		
+		if( mask & SIGBREAKF_CTRL_C )
+		{
+			quit = TRUE;
+			rc   = TRUE;
+			break;
+		}
+
+		if( mask & window_signals )
+		{
+			ULONG input_flags = 0;
+			ULONG code        = 0;
+			
+			while( ( input_flags = DoMethod( window, WM_HANDLEINPUT, &code ) ) 
+						 != WMHI_LASTMSG )
+			{
+				switch( input_flags & WMHI_CLASSMASK)
+				{
+					case WMHI_CLOSEWINDOW:
+						quit = TRUE;
+						rc   = TRUE;
+						break;
+
+					case WMHI_ICONIFY:
+						DoMethod( window, WM_ICONIFY );
+						break;
+						
+				  case WMHI_UNICONIFY:
+				  	DoMethod( window, WM_OPEN );
+				  	break;
+
+					case WMHI_GADGETUP:
+						switch( input_flags & RL_GADGETMASK )
+						{
+							printf( "Gadget %ld\n", input_flags & RL_GADGETMASK );
+							break;
+						}
+						break;
+
+					default:
+						printf( "input_flags: %08lx, code: %ld\n", input_flags, code );
+						break;
+				}
+			}
+		}
+		
+	}
+
+	return rc;
 }

@@ -327,6 +327,7 @@ FreePUH( struct PUHData* pd )
   if( pd != NULL )
   {
     DeactivatePUH( pd );
+		UninstallPUH( pd );
 
     FreeVec( pd );
   }
@@ -493,6 +494,8 @@ UninstallPUH( struct PUHData* pd )
   {
     return;
   }
+
+	DeactivatePUH( pd );
 
   if( pd->m_Active )
   {
