@@ -21,6 +21,7 @@
 
 #include <dos/dos.h>
 #include <exec/memory.h>
+#include <exec/resident.h>
 #include <hardware/custom.h>
 #include <hardware/dmabits.h>
 #include <mmu/context.h>
@@ -46,6 +47,10 @@ RemapMemory( struct PUHData* pd );
 
 static BOOL
 RestoreMemory( struct PUHData* pd );
+
+
+static void
+PatchROMShadowBuffer( struct PUHData* pd );
 
 
 ASMCALL INTERRUPT ULONG
@@ -226,7 +231,6 @@ AllocPUH( void )
       }
       else
       {
-        void* rom_shadow   = NULL;
         void* rom_start    = NULL;
         ULONG rom_size     = NULL;
 
@@ -254,7 +258,7 @@ AllocPUH( void )
         pd->m_SuperException       = NULL;
 
         pd->m_ROM                  = rom_start;
-        pd->m_ROMShadowBuffer      = rom_shadow;
+        pd->m_ROMShadowBuffer      = NULL;
         pd->m_CustomShadowBuffer   = location;
 
         pd->m_ROMSize              = rom_size;
@@ -338,15 +342,40 @@ InstallPUH( ULONG           flags,
       ActivateException( pd->m_UserException );
       ActivateException( pd->m_SuperException );
 
-      // Re-map 
+      // Are we supposed to patch the ROM?
 
-      if( ! RemapMemory( pd ) )
+      if( flags & PUHF_PATCH_ROM )
       {
-        printf( "Unable to install remap.\n" );
+        pd->m_ROMShadowBuffer = AllocAligned( pd->m_ROMSize,
+                                              MEMF_PUBLIC | MEMF_FAST,
+                                              RemapSize( pd->m_UserContext  ) );
+       
+        if( pd->m_ROMShadowBuffer == NULL )
+        {
+          printf( "Out of memory!\n" );
+        }
+        else
+        {
+          CopyMemQuick( pd->m_ROM, pd->m_ROMShadowBuffer, pd->m_ROMSize );
+
+          PatchROMShadowBuffer( pd );
+
+          CacheClearU();
+        }
       }
-      else
+
+      if( ! ( flags & PUHF_PATCH_ROM ) || pd->m_ROMShadowBuffer != NULL )
       {
-        pd->m_Active = TRUE;
+        // Re-map 
+
+        if( ! RemapMemory( pd ) )
+        {
+          printf( "Unable to install remap.\n" );
+        }
+        else
+        {
+          pd->m_Active = TRUE;
+        }
       }
     }
   }
@@ -370,6 +399,12 @@ UninstallPUH( struct PUHData* pd )
   if( pd->m_Active )
   {
     RestoreMemory( pd );
+  }
+
+  if( pd->m_ROMShadowBuffer != NULL )
+  {
+    FreeMem( pd->m_ROMShadowBuffer, pd->m_ROMSize );
+    pd->m_ROMShadowBuffer = NULL;
   }
 
   if( pd->m_SuperException != NULL )
@@ -555,20 +590,64 @@ RemapMemory( struct PUHData* pd )
         }
         else
         {
-          struct MMUContext* ctxs[ 3 ] = 
-          {
-            pd->m_UserContext,
-            pd->m_SuperContext,
-            NULL
-          };
+          BOOL activate = TRUE;
 
-          if( ! RebuildTreesA( ctxs ) )
+          // Remap Kickstart ROM, if provided
+          
+          if( pd->m_ROMShadowBuffer != NULL )
           {
-            printf( "Failed to rebuild MMU trees.\n" );
+            activate = 
+            SetProperties( pd->m_UserContext,
+                           ( pd->m_Properties.m_UserROM | 
+                             MAPP_ROM ),
+                           ~0UL,
+                           (ULONG) pd->m_ROMShadowBuffer, 
+                           pd->m_ROMSize,
+                           TAG_DONE ) &&
+            SetProperties( pd->m_SuperContext,
+                           ( pd->m_Properties.m_SuperROM | 
+                             MAPP_ROM ),
+                             ~0UL,
+                             (ULONG) pd->m_ROMShadowBuffer,
+                             pd->m_ROMSize,
+                             TAG_DONE ) &&
+            SetProperties( pd->m_UserContext,
+                           ( pd->m_Properties.m_UserROM |
+                             MAPP_ROM | MAPP_REMAPPED ),
+                             ~0UL,
+                             (ULONG) pd->m_ROM,
+                             pd->m_ROMSize,
+                             MAPTAG_DESTINATION, (ULONG) pd->m_ROMShadowBuffer,
+                             TAG_DONE ) &&
+            SetProperties( pd->m_SuperContext,
+                           ( pd->m_Properties.m_SuperROM |
+                             MAPP_ROM | MAPP_REMAPPED ),
+                             ~0UL,
+                             (ULONG) pd->m_ROM,
+                             pd->m_ROMSize,
+                             MAPTAG_DESTINATION, (ULONG) pd->m_ROMShadowBuffer,
+                             TAG_DONE );
           }
-          else
+          
+          if( activate )
           {
-            rc = TRUE;
+            struct MMUContext* ctxs[ 3 ] = 
+            {
+              pd->m_UserContext,
+              pd->m_SuperContext,
+              NULL
+            };
+
+            // We need to disable, since we may have patched exec.library!
+
+            Disable();
+            rc = RebuildTreesA( ctxs );
+            Enable();
+
+            if( ! rc )
+            {
+              printf( "Failed to rebuild MMU trees.\n" );
+            }
           }
         }
       }
@@ -639,7 +718,6 @@ RestoreMemory( struct PUHData* pd )
                          TAG_DONE ) )
     {
       printf( "Failed to set properties for for re-mapped area.\n" );
-      rc = 20;
     }
     else
     {
@@ -653,24 +731,65 @@ RestoreMemory( struct PUHData* pd )
                            TAG_DONE ) )
       {
         printf( "Failed to set properties for custom chip register area.\n" );
-        rc = 20;
       }
       else
       {
-        struct MMUContext* ctxs[ 3 ] = 
+        BOOL activate = TRUE;
+        
+        if( pd->m_ROMShadowBuffer != NULL )
         {
-          pd->m_UserContext,
-          pd->m_SuperContext,
-          NULL
-        };
-
-        if( ! RebuildTreesA( ctxs ) )
-        {
-          printf( "Failed to rebuild MMU trees.\n" );
+          if( ! SetProperties( pd->m_UserContext,
+                               pd->m_Properties.m_UserROMShadow, ~0UL,
+                               (ULONG) pd->m_ROMShadowBuffer, 
+                               pd->m_ROMSize,
+                               TAG_DONE ) ||
+              ! SetProperties( pd->m_SuperContext,
+                               pd->m_Properties.m_SuperROMShadow, ~0UL,
+                               (ULONG) pd->m_ROMShadowBuffer,
+                               pd->m_ROMSize,
+                               TAG_DONE ) )
+          {
+            printf( "Failed to set properties for for patched ROM area.\n" );
+            activate = FALSE;
+          }
+          else
+          {
+            if( ! SetProperties( pd->m_UserContext,
+                                 pd->m_Properties.m_UserROM, ~0UL,
+                                 (ULONG) pd->m_ROM, 
+                                 pd->m_ROMSize,
+                                 TAG_DONE ) ||
+                ! SetProperties( pd->m_SuperContext,
+                                 pd->m_Properties.m_SuperROM, ~0UL,
+                                 (ULONG) pd->m_ROM,
+                                 pd->m_ROMSize,
+                                 TAG_DONE ) )
+            {
+              printf( "Failed to set properties for for ROM area.\n" );
+              activate = FALSE;
+            }
+          }
         }
-        else
+
+        if( activate )
         {
-          rc = TRUE;
+          struct MMUContext* ctxs[ 3 ] = 
+          {
+            pd->m_UserContext,
+            pd->m_SuperContext,
+            NULL
+          };
+
+          // We need to disable, since we may have patched exec.library!
+
+          Disable();
+          rc = RebuildTreesA( ctxs );
+          Enable();
+
+          if( ! rc )
+          {
+            printf( "Failed to rebuild MMU trees.\n" );
+          }
         }
       }
     }
@@ -699,6 +818,64 @@ RestoreMemory( struct PUHData* pd )
   UnlockContextList();
   
   return rc;
+}
+
+
+/******************************************************************************
+** Patch kickstart ROM ********************************************************
+******************************************************************************/
+
+static void
+PatchROMShadowBuffer( struct PUHData* pd )
+{
+  union
+  {
+    void*            m_Void;
+    WORD*            m_Word;
+    LONG*            m_Long;
+    struct Resident* m_Resident;
+  } ptr;
+
+  void* end;
+
+  ptr.m_Void = pd->m_ROMShadowBuffer;
+  end        = (void*) ( (ULONG) pd->m_ROMShadowBuffer + pd->m_ROMSize );
+
+  while( ptr.m_Void < end )
+  {
+    // Check for new module
+
+    if( *ptr.m_Word == RTC_MATCHWORD )
+    {
+      if( ptr.m_Resident->rt_MatchTag == 
+          pd->m_ROM + ( ptr.m_Void - pd->m_ROMShadowBuffer ) )
+      {
+        printf( "Found module %s at $%08lx-$%08lx\n", 
+                ptr.m_Resident->rt_Name,
+                (ULONG) ptr.m_Void, 
+                (ULONG) pd->m_ROMShadowBuffer + ( ptr.m_Resident->rt_EndSkip - pd->m_ROM ) );
+      }
+ 
+      if( strcmp( ptr.m_Resident->rt_Name, "audio.device" ) == 0 )
+      {
+        printf( "Skipping %s...\n", ptr.m_Resident->rt_Name );
+
+        ptr.m_Void += ( ptr.m_Resident->rt_EndSkip - pd->m_ROM );
+      }
+    }
+
+    if( ( *ptr.m_Long & ~0xfff ) == 0xdff000 )
+    {
+      *ptr.m_Long = pd->m_Custom + ( *ptr.m_Long & 0xfff );
+
+      printf( "Patched chip access at $%08lx (%03lx).\n",
+              (ULONG) ptr.m_Void, *ptr.m_Long & 0xfff );
+    }
+
+    // Skip to next word
+
+    ++ptr.m_Word;
+  }
 }
 
 

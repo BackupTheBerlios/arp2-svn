@@ -79,11 +79,13 @@ main( void )
       }
       else
       {
+#if 0
         if( ! ActivatePUH( pd ) )
         {
           rc = 20;
         }
         else
+#endif
         {
 #ifdef TEST_MODE
           Test( (struct Custom*) location );

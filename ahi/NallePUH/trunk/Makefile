@@ -1,5 +1,5 @@
 
-CFLAGS	= -m68000 -mnobitfield -mregparm -fomit-frame-pointer -O1 \
+CFLAGS	= -m68000 -mnobitfield -fomit-frame-pointer -O1 \
 	  -W -Wall -Wno-unused -g
 LDFLAGS	= -noixemul
 
