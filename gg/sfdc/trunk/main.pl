@@ -75,7 +75,7 @@ my @lf =
  '                        struct ExecBase* SysBase)' .
  '                       (d0,a0,a6)',
  'struct Library* LibOpen() ()',
- 'struct Library* LibClose()()',
+ 'BPTR LibClose()()',
  'BPTR LibExpunge()()',
  'ULONG LibNull()()'
  ];
@@ -103,9 +103,10 @@ my @bf  =
  '                               struct ExecBase* SysBase)' .
  '                              (d0,a0,a6)',
  'struct ClassLibrary* ClassOpen() ()',
- 'struct ClassLibrary* ClassClose()()',
+ 'BPTR ClassClose()()',
  'BPTR ClassExpunge()()',
  'ULONG ClassNull()()',
+ 'Class* ObtainEngine()()',
  ];
 
 my %targets = (
