@@ -224,12 +224,14 @@ static BOOL
 ReadResourceData( struct ISAPNP_Card* card,
                   struct ISAPNPBase*  res )
 {
-  UBYTE                        check_sum       = 0;
-  struct ISAPNP_Device*        dev             = NULL;
-  struct ISAPNP_ResourceGroup* resources       = NULL;
-  struct ISAPNP_ResourceGroup* saved_resources = NULL;
+  UBYTE                        check_sum     = 0;
+  UWORD                        dev_num       = 0;
+  BOOL                         read_more     = TRUE;
+  struct ISAPNP_Device*        dev           = NULL;
+  struct ISAPNP_ResourceGroup* options       = NULL;
+  struct ISAPNP_ResourceGroup* saved_options = NULL;
 
-  while( TRUE )
+  while( read_more )
   {
     ULONG i;
     UBYTE rd;
@@ -307,7 +309,7 @@ ReadResourceData( struct ISAPNP_Card* card,
         
         AddTail( (struct List*) &dev->m_IDs, (struct Node*) id );
 
-        resources = dev->m_Resources;
+        options = dev->m_Options;
 
         dev->m_SupportedCommands = GetNextResourceData( res );
         --length;
@@ -317,11 +319,15 @@ ReadResourceData( struct ISAPNP_Card* card,
           dev->m_SupportedCommands |= GetNextResourceData( res ) << 8;
         }
         
+        dev->m_DeviceNumber = dev_num;
+        ++dev_num;
+
         AddTail( &card->m_Devices, (struct Node*) dev );
 
         break;
       }
       
+
       case PNPISA_RDN_COMPATIBLE_DEVICE_ID:
       {
         struct ISAPNP_Identifier* id;
@@ -383,7 +389,7 @@ ReadResourceData( struct ISAPNP_Card* card,
           r->m_IRQType = ISAPNP_IRQRESOURCE_ITF_HIGH_EDGE;
         }
 
-        AddTail( (struct List*) &resources->m_Resources, (struct Node*) r );
+        AddTail( (struct List*) &options->m_Resources, (struct Node*) r );
 
         break;
       }
@@ -406,7 +412,7 @@ ReadResourceData( struct ISAPNP_Card* card,
 
         length -= 2;
 
-        AddTail( (struct List*) &resources->m_Resources, (struct Node*) r );
+        AddTail( (struct List*) &options->m_Resources, (struct Node*) r );
 
         break;
       }
@@ -451,15 +457,15 @@ ReadResourceData( struct ISAPNP_Card* card,
 
         // Insert in priority order
         
-        Enqueue( (struct List*) &resources->m_ResourceGroups, 
-                 (struct Node*) rg );
-
-        if( saved_resources == NULL )
+        if( saved_options == NULL )
         {
-          saved_resources = resources;
+          saved_options = options;
         }
 
-        resources = rg;
+        Enqueue( (struct List*) &saved_options->m_ResourceGroups, 
+                 (struct Node*) rg );
+
+        options = rg;
 
         break;
       }
@@ -467,8 +473,8 @@ ReadResourceData( struct ISAPNP_Card* card,
 
       case PNPISA_RDN_END_DF:
       {
-        resources       = saved_resources;
-        saved_resources = NULL;
+        options       = saved_options;
+        saved_options = NULL;
         
         break;
       }
@@ -498,7 +504,7 @@ ReadResourceData( struct ISAPNP_Card* card,
 
         length -= 7;
 
-        AddTail( (struct List*) &resources->m_Resources, (struct Node*) r );
+        AddTail( (struct List*) &options->m_Resources, (struct Node*) r );
 
         break;
       }
@@ -525,7 +531,7 @@ ReadResourceData( struct ISAPNP_Card* card,
         
         length -= 3;
 
-        AddTail( (struct List*) &resources->m_Resources, (struct Node*) r );
+        AddTail( (struct List*) &options->m_Resources, (struct Node*) r );
 
         break;
       }
@@ -570,8 +576,30 @@ ReadResourceData( struct ISAPNP_Card* card,
         break;
       }
       
+
+      case PNPISA_RDN_END_TAG:
+      {
+        UBYTE cs;
+        
+        cs = GetNextResourceData( res );
+        --length;
+        
+        if( cs == 0 )
+        {
+          check_sum = 0;
+        }
+        else
+        {
+          check_sum += cs;
+        }
+
+        read_more = FALSE;
+        break;
+      }
+
+
       default:
-        KPrintF( "%02lx, length %ld: ", name, length );
+        KPrintF( "UNKNOWN RESOURCE: %02lx, length %ld: ", name, length );
 
         while( length > 0 )
         {
@@ -587,14 +615,9 @@ ReadResourceData( struct ISAPNP_Card* card,
 
     while( length > 0 )
     {
-      KPrintF( "!" );
+      KPrintF( "*** " );
       GetNextResourceData( res );
       --length;
-    }
-
-    if( name == PNPISA_RDN_END_TAG )
-    {
-      break;
     }
   }
 
@@ -608,7 +631,7 @@ ReadResourceData( struct ISAPNP_Card* card,
 ** Assign a CSN to all cards and build the card/device database ***************
 ******************************************************************************/
 
-ULONG
+static ULONG
 AddCards( UBYTE              rd_data_port_value, 
           struct ISAPNPBase* res )
 {
@@ -637,9 +660,6 @@ AddCards( UBYTE              rd_data_port_value,
 
     if( ReadSerialIdentifier( card, res ) )
     {
-      KPrintF( "Vendor: %s, Product: %03lx, Revision: %lx, Serial: %08lx\n",
-               card->m_ID.m_Vendor, card->m_ID.m_ProductID, card->m_ID.m_Revision, card->m_SerialNumber );
-
       // Assign a CSN to the card and move it to the config state
 
       ++csn;
@@ -667,6 +687,245 @@ AddCards( UBYTE              rd_data_port_value,
   }
 
   return csn;
+}
+
+
+/******************************************************************************
+** Configure all cards in the database ****************************************
+******************************************************************************/
+
+static void
+ShowResource( struct ISAPNP_Resource* resource,
+              struct ISAPNPBase*      res )
+{
+  switch( resource->m_Type )
+  {
+    case ISAPNP_NT_IRQ_RESOURCE:
+    {
+      struct ISAPNP_IRQResource* r = (struct ISAPNP_IRQResource*) resource;
+      int                        b;
+      
+      KPrintF( "IRQ" );
+      
+      for( b = 0; b < 16; ++b )
+      {
+        if( r->m_IRQMask & ( 1 << b ) )
+        {
+          KPrintF( " %ld", b );
+        }
+      }
+      
+      KPrintF( ", type" );
+      
+      if( r->m_IRQType & ISAPNP_IRQRESOURCE_ITF_HIGH_EDGE )
+      {
+        KPrintF( " +E" );
+      }
+
+      if( r->m_IRQType & ISAPNP_IRQRESOURCE_ITF_LOW_EDGE )
+      {
+        KPrintF( " -E" );
+      }
+
+      if( r->m_IRQType & ISAPNP_IRQRESOURCE_ITF_HIGH_LEVEL )
+      {
+        KPrintF( " +L" );
+      }
+
+      if( r->m_IRQType & ISAPNP_IRQRESOURCE_ITF_LOW_LEVEL )
+      {
+        KPrintF( " -L" );
+      }
+      
+      KPrintF( "\n" );
+      break;
+    }
+
+    case ISAPNP_NT_DMA_RESOURCE:
+    {
+      struct ISAPNP_DMAResource* r = (struct ISAPNP_DMAResource*) resource;
+      int                        b;
+      
+      KPrintF( "DMA" );
+      
+      for( b = 0; b < 8; ++b )
+      {
+        if( r->m_ChannelMask & ( 1 << b ) )
+        {
+          KPrintF( " %ld", b );
+        }
+      }
+
+      KPrintF( ", " );
+      switch( r->m_Flags & ISAPNP_DMARESOURCE_F_TRANSFER_MASK )
+      {
+        case ISAPNP_DMARESOURCE_F_TRANSFER_8BIT:
+          KPrintF( "8" );
+          break;
+
+        case ISAPNP_DMARESOURCE_F_TRANSFER_BOTH:
+          KPrintF( "8 and 16" );
+          break;
+          
+        case ISAPNP_DMARESOURCE_F_TRANSFER_16BIT:
+          KPrintF( "16" );
+          break;
+        
+      }
+      KPrintF( " bit transfer, " );
+      
+      switch( r->m_Flags & ISAPNP_DMARESOURCE_F_SPEED_MASK )
+      {
+        case ISAPNP_DMARESOURCE_F_SPEED_COMPATIBLE:
+          KPrintF( "compatible" );
+          break;
+
+        case ISAPNP_DMARESOURCE_F_SPEED_TYPE_A:
+          KPrintF( "type A" );
+          break;
+
+        case ISAPNP_DMARESOURCE_F_SPEED_TYPE_B:
+          KPrintF( "type B" );
+          break;
+
+        case ISAPNP_DMARESOURCE_F_SPEED_TYPE_F:     
+          KPrintF( "type F" );
+          break;
+      }
+      
+      KPrintF( " speed." );
+
+      if( r->m_Flags & ISAPNP_DMARESOURCE_FF_BUS_MASTER )
+      {
+        KPrintF( " [Bus master]" );
+      }
+
+      if( r->m_Flags & ISAPNP_DMARESOURCE_FF_BYTE_MODE )
+      {
+        KPrintF( " [Byte mode]" );
+      }
+
+      if( r->m_Flags & ISAPNP_DMARESOURCE_FF_WORD_MODE )
+      {
+        KPrintF( " [Word mode]" );
+      }
+
+      KPrintF( "\n" );
+
+      break;
+    }
+
+
+    case ISAPNP_NT_IO_RESOURCE:
+    {
+      struct ISAPNP_IOResource* r = (struct ISAPNP_IOResource*) resource;
+
+      if( r->m_MinBase == r->m_MaxBase )
+      {
+        KPrintF( "IO at %04lx, length %02lx.",
+                 r->m_MinBase, r->m_Length );
+      }
+      else
+      {
+        KPrintF( "IO between %04lx and %04lx, length %02lx, %ld byte aligned.",
+                 r->m_MinBase, r->m_MaxBase, r->m_Length, r->m_Alignment );
+      }
+           
+      if( ( r->m_Flags & ISAPNP_IORESOURCE_FF_FULL_DECODE ) == 0 )
+      {
+        KPrintF( " [10 bit decode only]" );
+      }
+
+      KPrintF( "\n" );
+      break;
+    }
+
+
+    case ISAPNP_NT_MEMORY_RESOURCE:
+      KPrintF( "Memory\n" );
+      break;
+
+    default:
+      KPrintF( "Unknown resource!" );
+      break;
+  }
+}
+
+static void
+ShowResourceGroup( struct ISAPNP_ResourceGroup* resource_group,
+                   struct ISAPNPBase* res )
+{
+  struct ISAPNP_Resource*      r;
+  struct ISAPNP_ResourceGroup* rg;
+
+  for( r = (struct ISAPNP_Resource*) resource_group->m_Resources.mlh_Head;
+       r->m_MinNode.mln_Succ != NULL;
+       r = (struct ISAPNP_Resource*) r->m_MinNode.mln_Succ )
+  {
+    KPrintF( "      " );
+    ShowResource( r, res );
+  }
+
+  if( resource_group->m_ResourceGroups.mlh_Head->mln_Succ != NULL )  
+  {
+    KPrintF( "    One of\n" );
+
+    for( rg = (struct ISAPNP_ResourceGroup*) resource_group->m_ResourceGroups.mlh_Head;
+         rg->m_MinNode.mln_Succ != NULL;
+         rg = (struct ISAPNP_ResourceGroup*) rg->m_MinNode.mln_Succ )
+    {
+      KPrintF( "    {\n" );
+      ShowResourceGroup( rg, res );
+      KPrintF( "    }\n" );
+    }
+  }
+}
+
+
+static void
+ShowCards( struct ISAPNPBase* res )
+{
+  struct ISAPNP_Card* card;
+
+  for( card = (struct ISAPNP_Card*) res->m_Cards.lh_Head; 
+       card->m_Node.ln_Succ != NULL; 
+       card = (struct ISAPNP_Card*) card->m_Node.ln_Succ )
+  {
+    struct ISAPNP_Device* dev;
+    int                   dev_id;
+
+    KPrintF( "Card %ld: %s%03lx%lx ('%s')\n",
+             card->m_CSN, 
+             card->m_ID.m_Vendor, card->m_ID.m_ProductID, card->m_ID.m_Revision,
+             card->m_Node.ln_Name != NULL ? card->m_Node.ln_Name : "" );
+
+    for( dev = (struct ISAPNP_Device*) card->m_Devices.lh_Head;
+         dev->m_Node.ln_Succ != NULL; 
+         dev = (struct ISAPNP_Device*) dev->m_Node.ln_Succ )
+    {
+      struct ISAPNP_Identifier* id;
+
+      KPrintF( "  Logical device %ld: ",
+               dev->m_DeviceNumber );
+
+      for( id = (struct ISAPNP_Identifier*) dev->m_IDs.mlh_Head;
+           id->m_MinNode.mln_Succ != NULL;
+           id = (struct ISAPNP_Identifier*) id->m_MinNode.mln_Succ )
+      {
+        KPrintF( "%s%03lx%lx ", id->m_Vendor, id->m_ProductID, id->m_Revision );
+      }
+
+      if( dev->m_Node.ln_Name != NULL )
+      {
+        KPrintF( "('%s')", dev->m_Node.ln_Name );
+      }
+
+      KPrintF( "\n" );
+
+      KPrintF( "    Resources:\n" );
+      ShowResourceGroup( dev->m_Options, res );
+    }
+  }
 }
 
 
@@ -700,6 +959,10 @@ PNPISA_ConfigureCards( REG( a6, struct ISAPNPBase* res ) )
   if( res->m_Cards.lh_Head->ln_Succ == NULL )
   {
     KPrintF( "Failed to find PNP ISA cards\n" );
+  }
+  else
+  {
+    ShowCards( res );
   }
 
   // Reset all cards

@@ -62,8 +62,6 @@ struct ISAPNP_Card
   UBYTE                    m_MajorPnPVersion;
   UBYTE                    m_MinorPnPVersion;
   UBYTE                    m_VendorPnPVersion;
-
-  STRPTR                   m_Identifier;
 };
 
 struct ISAPNP_ResourceGroup;
@@ -76,9 +74,11 @@ struct ISAPNP_Device
   UWORD       	               m_Pad1;
   
   struct MinList               m_IDs;
-  struct ISAPNP_ResourceGroup* m_Resources;
+  struct ISAPNP_ResourceGroup* m_Options;
+  struct MinList               m_Resources;
 
   UWORD                        m_SupportedCommands;
+  UWORD                        m_DeviceNumber;
 };
 
 /* Flags for m_SupportedCommands */
@@ -124,10 +124,10 @@ struct ISAPNP_IRQResource
 
 /* Flags for m_IRQType */
 
-#define ISAPNP_IRQRESOURCE_ITF_HIGH_EDGE  0x00
-#define ISAPNP_IRQRESOURCE_ITF_LOW_EDGE   0x01
-#define ISAPNP_IRQRESOURCE_ITF_HIGH_LEVEL 0x02
-#define ISAPNP_IRQRESOURCE_ITF_LOW_LEVEL  0x04
+#define ISAPNP_IRQRESOURCE_ITF_HIGH_EDGE  0x01
+#define ISAPNP_IRQRESOURCE_ITF_LOW_EDGE   0x02
+#define ISAPNP_IRQRESOURCE_ITF_HIGH_LEVEL 0x04
+#define ISAPNP_IRQRESOURCE_ITF_LOW_LEVEL  0x08
 #define ISAPNP_IRQRESOURCE_ITB_HIGH_EDGE  0
 #define ISAPNP_IRQRESOURCE_ITB_LOW_EDGE   1
 #define ISAPNP_IRQRESOURCE_ITB_HIGH_LEVEL 2

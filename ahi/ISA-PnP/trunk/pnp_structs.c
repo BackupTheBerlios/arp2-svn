@@ -71,9 +71,9 @@ PNPISA_FreeCard( REG( a0, struct ISAPNP_Card* card ),
     return;
   }
 
-  KPrintF( "Nuking card %s%03lx%lx ('%s')\n",
-           card->m_ID.m_Vendor, card->m_ID.m_ProductID, card->m_ID.m_Revision,
-           card->m_Node.ln_Name != NULL ? card->m_Node.ln_Name : "" );
+//  KPrintF( "Nuking card %s%03lx%lx ('%s')\n",
+//           card->m_ID.m_Vendor, card->m_ID.m_ProductID, card->m_ID.m_Revision,
+//           card->m_Node.ln_Name != NULL ? card->m_Node.ln_Name : "" );
 
   while( ( dev = (struct ISAPNP_Device*) RemHead( &card->m_Devices ) ) )
   {
@@ -108,13 +108,15 @@ PNPISA_AllocDevice( REG( a6, struct ISAPNPBase* res ) )
 
     NewList( (struct List*) &dev->m_IDs );
     
-    dev->m_Resources = PNPISA_AllocResourceGroup( ISAPNP_RG_PRI_GOOD, res );
+    dev->m_Options = PNPISA_AllocResourceGroup( ISAPNP_RG_PRI_GOOD, res );
     
-    if( dev->m_Resources == NULL )
+    if( dev->m_Options == NULL )
     {
       PNPISA_FreeDevice( dev, res );
       dev = NULL;
     }
+    
+    NewList( (struct List*) &dev->m_Resources );
   }
 
   return dev;
@@ -130,26 +132,34 @@ PNPISA_FreeDevice( REG( a0, struct ISAPNP_Device* dev ),
                    REG( a6, struct ISAPNPBase*    res ) )
 {
   struct ISAPNP_Identifier* id;
+  struct ISAPNP_Resource*   r;
 
   if( dev == NULL )
   {
     return;
   }
 
-  KPrintF( "Nuking logical device '%s'\n",
-           dev->m_Node.ln_Name != NULL ? dev->m_Node.ln_Name : "" );
+//  KPrintF( "Nuking logical device '%s'\n",
+//           dev->m_Node.ln_Name != NULL ? dev->m_Node.ln_Name : "" );
 
 
   while( ( id = (struct ISAPNP_Identifier*) 
              RemHead( (struct List*) &dev->m_IDs ) ) )
   {
-    KPrintF( "Nuking (compatible) device %s%03lx%lx\n",
-             id->m_Vendor, id->m_ProductID, id->m_Revision );
+//    KPrintF( "Nuking (compatible) device %s%03lx%lx\n",
+//             id->m_Vendor, id->m_ProductID, id->m_Revision );
 
     FreeVec( id );
   }
 
-  PNPISA_FreeResourceGroup( dev->m_Resources, res );
+  PNPISA_FreeResourceGroup( dev->m_Options, res );
+
+  while( ( r = (struct ISAPNP_Resource*) 
+               RemHead( (struct List*) &dev->m_Resources ) ) )
+  {
+    PNPISA_FreeResource( r, res );
+  }
+
 
   if( dev->m_Node.ln_Name != NULL )
   {
@@ -201,7 +211,7 @@ PNPISA_FreeResourceGroup( REG( a0, struct ISAPNP_ResourceGroup* rg ),
     return;
   }
 
-  KPrintF( "Nuking resource group.\n" );
+//  KPrintF( "Nuking resource group.\n" );
 
   while( ( r = (struct ISAPNP_Resource*) 
                RemHead( (struct List*) &rg->m_Resources ) ) )
@@ -273,7 +283,7 @@ PNPISA_FreeResource( REG( a0, struct ISAPNP_Resource* r ),
     return;
   }
 
-  KPrintF( "Nuking resource %ld.\n", r->m_Type );
+//  KPrintF( "Nuking resource %ld.\n", r->m_Type );
 
   FreeVec( r );
 }
