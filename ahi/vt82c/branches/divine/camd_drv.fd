@@ -1,0 +1,9 @@
+##bias 0
+##public
+Init(SysBase)(a6)
+Expunge(dummy)(d0)
+OpenPort(data,portnum,transmitfunc,recievefunc,userdata)(a3,d0,a0,a1,a2)
+ClosePort(data,portnum)(a3,d0)
+ActivateXmit(userdata,portnum)(a2,d0)
+Interrupt(data)(a1)
+##end
