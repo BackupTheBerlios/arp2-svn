@@ -35,7 +35,7 @@ DO_CATENATE =   @DO_CATENATE@
 # I *love* GNU make!
 define catenate
 /bin/echo -n creating $@...
-/bin/echo -e "$(^:%=#include \"%\"\n)" >$@
+/bin/echo "$(^:%=#include \"%\"\n)" >$@
 /bin/echo done
 endef
 
@@ -47,11 +47,7 @@ endif
 
 INCS =          -I$(srcdir) -I$(srcdir)/../library -I$(srcdir)/../include
 
-ifeq ($(OS),pos)
-ALL_CFLAGS =    $(CFLAGS) $(FLAVOR_CFLAGS) $(INCS) $(OTHER_CFLAGS) $(POS_CFLAGS) -g
-else
-ALL_CFLAGS =    $(CFLAGS) $(FLAVOR_CFLAGS) $(INCS) $(OTHER_CFLAGS) -g
-endif
+ALL_CFLAGS =    $(CFLAGS) $(FLAVOR_CFLAGS) $(INCS) $(OTHER_CFLAGS)
 
 LIB =           libstring.a
 

@@ -93,14 +93,9 @@ struct file {
    * long (!) alignment in the struct. The file-table will be allocated
    * by AllocMem(), thus by itself it will have DOS-compatible alignment,
    * if you don't follow this, you'll get some nice gurus.. */
-#ifdef __pos__
-  struct pOS_TimeVal f_tv;
-  struct pOS_DosIOReq f_select_sp;
-#else
   struct StandardPacket f_sp; /* all IO is done thru the Packet-Interface,
 			       * not the higher-level DOS-functions */
   struct StandardPacket f_select_sp; /* for the select() function */
-#endif
   struct stat f_stb;    /* file-params at open-time, or after changes to fd */
   int   f_sync_flags;   /* for process synchronization */
 };

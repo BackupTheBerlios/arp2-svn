@@ -14,7 +14,7 @@ double frexp(double value, int *eptr)
   union
   {
     double v;
-    struct 
+    struct
     {
       u_int u_sign  :  1;
       u_int u_exp   : 11;
@@ -38,7 +38,7 @@ double frexp(double value, int *eptr)
 #undef _ENTRY
 #undef ENTRY
 #undef _C_LABEL
-#define ENTRY(name) asm(".text; .globl " #name "; " #name ":");
+#define ENTRY(name) asm(".text; .globl " #name "; .type " #name ",@function;" #name ":");
 
 /* fabs(double) */
 ENTRY(fabs)
@@ -51,12 +51,48 @@ asm("
 ENTRY(__negdf2)
 asm("
 	fneg    3,3
+	blr
 ");
 
 /* -single */
 ENTRY(__negsf2)
 asm("
 	fneg    3,3
+	blr
+");
+
+ENTRY(__divsi3)
+asm("
+	divw	3,3,4
+	blr
+");
+
+ENTRY(__modsi3)
+asm("
+	divw	5,3,4
+	mullw	5,5,4
+	subf	3,5,3
+	blr
+");
+
+ENTRY(__mulsi3)
+asm("
+	mullw	3,3,4
+	blr
+");
+
+ENTRY(__udivsi3)
+asm("
+	divwu	3,3,4
+	blr
+");
+
+ENTRY(__umodsi3)
+asm("
+	divwu	5,3,4
+	mullw	5,5,4
+	subf	3,5,3
+	blr
 ");
 
 #else
@@ -87,7 +123,7 @@ asm("
 ");
 #endif
 
-#if defined(__PPC__) || defined(mc68020) || defined(mc68030) || defined(mc68040) || defined(mc68060)
+#if defined(mc68020) || defined(mc68030) || defined(mc68040) || defined(mc68060)
 
 // Let the compiler do the hard work :-)
 
@@ -122,7 +158,7 @@ unsigned __umodsi3(unsigned a, int b)
 }
 
 
-#else
+#elif !defined(__PPC__)
 
 
 SItype __divsi3(SItype a, SItype b)
@@ -158,7 +194,7 @@ SItype __mulsi3(SItype a, SItype b)
 
   if (a < 0) a = -a;
   if (b < 0) b = -b;
-  
+
   res = mulu(a,b);
   return neg ? -res : res;
 }
@@ -386,7 +422,7 @@ double __floatsidf(SItype a)
  *  if the first 32 bits of both doubles are equal, and
  *  both doubles are negative, then the result can no longer
  *  be trusted.
- * 
+ *
  *  This is the output of a small test program:
  *
  *    test -2.000001 -2.0000009
@@ -671,8 +707,22 @@ double ldexp(double value, int exp)
  * integral part into iptr (a pointer to double).
  */
 
+#ifdef __PPC__
+double const floor(double parm);
+double const ceil(double parm);
+#endif
+
 double modf(double value, double *iptr)
 {
+#ifdef __PPC__
+    if(value<0){
+        *iptr=ceil(value);
+        return(*iptr-value);
+    }else{
+        *iptr=floor(value);
+        return(value-*iptr);
+    }
+#else
   /* if value negative */
   if (IEEEDPTst(value) < 0)
     {
@@ -686,6 +736,7 @@ double modf(double value, double *iptr)
       *iptr = IEEEDPFloor(value);
       return IEEEDPSub(value, *iptr);
     }
+#endif
 }
 
 #endif /* __HAVE_68881__ */

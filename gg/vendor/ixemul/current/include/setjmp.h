@@ -36,6 +36,10 @@
 #ifndef _SETJMP_H_
 #define _SETJMP_H_
 
+#ifdef ixemul
+
+/* ixemul */
+
 #ifdef __PPC__
 #define _JBLEN  (7+19+2*18+14+3*6) /* onstack, sigmask, r1, r2, flags, lr, cr, r13-r31, f14-f31, pc, *a7, d2-d7, a2-a7, fp2-fp7 */
 #else
@@ -45,6 +49,17 @@
 typedef int sigjmp_buf[_JBLEN + 1];
 
 typedef int jmp_buf[_JBLEN];
+
+#else
+
+/* libnix */
+
+#define _JBLEN  59 /* r1,r13-r31,cr,lr,f14-f31,r2 */
+
+typedef int jmp_buf[_JBLEN] __attribute__((aligned(8)));
+typedef int sigjmp_buf[_JBLEN+2] __attribute__((aligned(8)));
+
+#endif
 
 #include <sys/cdefs.h>
 

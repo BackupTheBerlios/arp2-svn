@@ -16,9 +16,15 @@
  *  License along with this library; if not, write to the Free
  *  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- *  $Id: ixnet_open.c,v 1.2 2000/06/20 22:17:10 emm Exp $
+ *  $Id: ixnet_open.c,v 1.3 2004/08/14 04:09:50 henes Exp $
  *
  *  $Log: ixnet_open.c,v $
+ *  Revision 1.3  2004/08/14 04:09:50  henes
+ *  fixed some amitcp assign references
+ *
+ *  I note ixnet is lacking error checking... I see some AllocSignal are not checked.
+ *  Also some other stuff...
+ *
  *  Revision 1.2  2000/06/20 22:17:10  emm
  *  First attempt at a native MorphOS ixemul
  *
@@ -120,7 +126,11 @@ won't be used.", ixnetbase->ixnet_lib.lib_Version, ixnetbase->ixnet_lib.lib_Revi
 		 * usergroup.library might open yet - some people bypass the
 		 * "login" command which loads usergroup.library
 		 */
+#ifdef NATIVE_MORPHOS
+		p->u_UserGroupBase = OpenLibrary("usergroup.library",1);
+#else
 		p->u_UserGroupBase = OpenLibrary("AmiTCP:libs/usergroup.library",1);
+#endif
 
 		if (p->u_UserGroupBase) {
 		    struct TagItem ug_list[] = {

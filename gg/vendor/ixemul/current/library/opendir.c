@@ -63,7 +63,7 @@ opendir (const char *name)
 
 	  return d;
 	}
-	
+
       err = errno;
 
       syscall (SYS_close, d->dd_fd);

@@ -388,7 +388,7 @@
 #endif /* !NO_INLINE_STDARG */
 
 #define TCP_SyslogA(level, format, ap) \
-	LP3NR(0x102, TCP_SyslogA, ULONG, level, d0, const char *, format, a0, va_list, ap, a1, \
+	LP3NR(0x102, TCP_SyslogA, ULONG, level, d0, const char *, format, a0, APTR, ap, a1, \
 	, AMITCP_BASE_NAME, IF_CACHEFLUSHALL, NULL, 0, IF_CACHEFLUSHALL, NULL, 0)
 
 #define TCP_WaitSelect(nfds, readfds, writefds, execptfds, timeout, maskp) \

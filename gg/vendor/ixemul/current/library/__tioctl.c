@@ -47,33 +47,31 @@
 #include <sgtty.h>
 
 #define OEXTB 15
-#undef B0       
-#undef B50      
-#undef B75      
-#undef B110     
-#undef B134     
-#undef B150     
-#undef B200     
-#undef B300     
-#undef B600     
-#undef B1200    
-#undef B1800    
-#undef B2400    
-#undef B4800    
-#undef B9600    
-#undef EXTA     
-#undef EXTB     
+#undef B0
+#undef B50
+#undef B75
+#undef B110
+#undef B134
+#undef B150
+#undef B200
+#undef B300
+#undef B600
+#undef B1200
+#undef B1800
+#undef B2400
+#undef B4800
+#undef B9600
+#undef EXTA
+#undef EXTB
 #include <sys/termios.h>
 #include <ctype.h>
-#ifndef __pos__
 #include <devices/conunit.h>
-#endif
 #include <intuition/intuition.h>
 
 /* IOCTLs on "interactive" files */
 
 int
-__tioctl(struct file *f, unsigned int cmd, unsigned int inout, 
+__tioctl(struct file *f, unsigned int cmd, unsigned int inout,
 	 unsigned int arglen, unsigned int arg)
 {
   int omask, result, err = 0;
@@ -138,10 +136,10 @@ __tioctl(struct file *f, unsigned int cmd, unsigned int inout,
       {
 	struct termios *t = (struct termios *)arg;
 	int makeraw;
-	
+
 	makeraw = (t->c_lflag & (ICANON | ECHO)) != (ICANON | ECHO);
-	/* the only thing that counts so far.. if ICANON is disabled,        
-	 * we disable ECHO too, no matter what the user wanted, and 
+	/* the only thing that counts so far.. if ICANON is disabled,
+	 * we disable ECHO too, no matter what the user wanted, and
 	 * send a RAW-packet.. */
 	if (!makeraw && (f->f_ttyflags & IXTTY_RAW))
 	  {
@@ -166,12 +164,28 @@ __tioctl(struct file *f, unsigned int cmd, unsigned int inout,
 	    f->f_ttyflags |= IXTTY_OPOST;
 	    if (t->c_oflag & ONLCR)
 	      f->f_ttyflags |= IXTTY_ONLCR;
+	    else
+	      f->f_ttyflags &= ~IXTTY_ONLCR;
 	  }
 	else
 	  {
 	    f->f_ttyflags &= ~IXTTY_OPOST;
 	  }
 	result = 0;
+
+	/* jDc: apparently some apps assume that setting stdin attrs changes stdout as well (ex: joe) */
+	/* well... makes sense since SetMode() works on both stdout and stdin */
+	if (f == u.u_ofile[fileno(stdin)])
+	{
+	  struct file *fo = u.u_ofile[fileno(stdout)];
+	  fo->f_ttyflags = f->f_ttyflags;
+	}
+	else
+	if (f == u.u_ofile[fileno(stdout)])
+	{
+	  struct file *fi = u.u_ofile[fileno(stdin)];
+	  fi->f_ttyflags = f->f_ttyflags;
+	}
 	break;
       }
 
@@ -210,15 +224,29 @@ __tioctl(struct file *f, unsigned int cmd, unsigned int inout,
 	else
 	  f->f_ttyflags &= ~(IXTTY_ICRNL | IXTTY_OPOST | IXTTY_ONLCR);
 	result = 0;
+
+	/* jDc: apparently some apps assume that setting stdin attrs changes stdout as well (ex: joe) */
+	/* well... makes sense since SetMode() works on both stdout and stdin */
+	if (f == u.u_ofile[fileno(stdin)])
+	{
+	  struct file *fo = u.u_ofile[fileno(stdout)];
+	  fo->f_ttyflags = f->f_ttyflags;
+	}
+	else
+	if (f == u.u_ofile[fileno(stdout)])
+	{
+	  struct file *fi = u.u_ofile[fileno(stdin)];
+	  fi->f_ttyflags = f->f_ttyflags;
+	}
 	break;
       }
 
     case TIOCGWINSZ:
       {
 	struct winsize *ws = (struct winsize *) arg;
-	struct Window *w;
+	//struct Window *w;
 
-#ifdef __pos__ /* TODO */
+#if 0
 	static const UBYTE WindowStatusReport[] = { 0x9b, 0x30, 0x20, 0x71 };
 	char Buffer[20];
 	int Size;
@@ -246,7 +274,7 @@ __tioctl(struct file *f, unsigned int cmd, unsigned int inout,
 
 #elif 1
 	static const UBYTE WindowStatusReport[] = { 0x9b, ' ', 'q' };
-	struct InfoData *info;
+	//struct InfoData *info;
 	char Buffer[32];
 	int Size;
 	int row = 24, col = 80;
@@ -267,7 +295,7 @@ __tioctl(struct file *f, unsigned int cmd, unsigned int inout,
 
 	if (Size <= 0)
 	  break;
-	  
+
 	Buffer[Size] = '\0';
 	KPRINTF(("Size %ld Buffer \"%s\"\n", Size, Buffer + 1));
 	for (index = 0; index < Size && Buffer[index] != (char)0x9b; ++index);
@@ -294,14 +322,14 @@ __tioctl(struct file *f, unsigned int cmd, unsigned int inout,
 	  break;
 
 	w = (struct Window *) info->id_VolumeNode;
-	if (! w) 
+	if (! w)
 	  break;
 	/* this information is from DevCon notes, not from the Bantam book */
 	ios = (struct IOStdReq *) info->id_InUse;
-	if (! ios || ((int)ios & 1)) 
+	if (! ios || ((int)ios & 1))
 	  break;
 	cu = (struct ConUnit *) ios->io_Unit;
-	if (!cu) 
+	if (!cu)
 	  break;
 
 	/* paranoid check.. */
@@ -363,7 +391,7 @@ __tioctl(struct file *f, unsigned int cmd, unsigned int inout,
       /* should I really try to resize the window ?? */
 
     default:
-      /* this is no error, but nevertheless we don't take any actions.. */      
+      /* this is no error, but nevertheless we don't take any actions.. */
       result = 0;
       break;
     }

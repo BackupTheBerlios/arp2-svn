@@ -17,11 +17,7 @@ static inline unsigned int get_a4(void)
 #ifdef NATIVE_MORPHOS
   asm ("mr %0,13" : "=g" (res));
 #else
-# ifdef __i386__
-  res = 0;
-# else
   asm ("movel a4,%0" : "=g" (res));
-# endif
 #endif
   return res;
 }

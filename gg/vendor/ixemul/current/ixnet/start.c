@@ -39,13 +39,15 @@ struct Resident initDDescrip={
   RTC_MATCHWORD,
   &initDDescrip,
   &initDDescrip + 1,
-  RTF_PPC | RTF_AUTOINIT,
+  RTF_PPC | RTF_AUTOINIT | RTF_EXTENDED,
   IXNET_VERSION,
   NT_LIBRARY,
   IXNET_PRIORITY,
   IXNET_NAME,
   IXNET_IDSTRING "\r\n",
-  &Init
+  &Init,
+  IXNET_REVISION,
+  NULL
 };
 
 /*
@@ -53,7 +55,7 @@ struct Resident initDDescrip={
  * one for the ppc.library.
  * ** IMPORTANT **
  */
-ULONG   __amigappc__=1;
+ULONG   __abox__=1;
 
 
 int libReserved(void) {
@@ -99,10 +101,10 @@ ULONG libExpungeFunc(struct ixnet_base *base) {
 
       ixnet_expunge(base);
 
+      seg = base->ix_seg_list;
+
       FreeMem((char *)base - base->ixnet_lib.lib_NegSize,
 	      base->ixnet_lib.lib_NegSize + base->ixnet_lib.lib_PosSize);
-
-      seg = base->ix_seg_list;
     }
 
   return seg;
@@ -274,4 +276,4 @@ ppcFuncTable:"
 	.size    ppcFuncTable,endppcFuncTable-ppcFuncTable
 ");
 
- 
+

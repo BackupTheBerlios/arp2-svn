@@ -174,9 +174,9 @@ _trampoline_ix_exec_entry (void)
   char **argv = (char **)p[2];
   char **environ = (char **)p[3];
   int *real_errno = (int *)p[4];
-  int (*main)(int, char **, char **) = (int(*)(int, char **, char **))(p[5]^1);
+  int (*mainfunc)(int, char **, char **) = (int(*)(int, char **, char **))(p[5]^1);
 
-  return ix_exec_entry(argc, argv, environ, real_errno, main);
+  return ix_exec_entry(argc, argv, environ, real_errno, mainfunc);
 }
 
 struct EmulLibEntry _gate_ix_exec_entry = {

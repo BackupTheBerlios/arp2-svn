@@ -80,7 +80,7 @@ vsyslog(int pri, const char *fmt, va_list ap)
 
 #else
 
-#include <sys/ixemul_syscall.h>
+#include <sys/syscall.h>
 
 void
 vsyslog(int pri, const char *fmt, va_list ap)

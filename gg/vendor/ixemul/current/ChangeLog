@@ -1,3 +1,101 @@
+2005-02-18 Jacek Piszczek <jacadcaps@poczta.onet.pl>
+	* Added a possibility to disable IXTTY_ONLCR.
+	* Added a \n to ^D filter when IXTTY_ONLCR is disabled.
+	* TIOCSET* functions applied to stdin update stdout, etc to
+	  fix some compatibility issues.
+	* Bumped version to 49.17.
+
+2005-02-16  Harry Sintonen <sintonen@iki.fi>
+	* Fixed snprintf/vsnprintf(p,0,...) wrong return value. Both
+	  functions would always return -1 instead of the number of
+	  characters that would have been written (not counting \0).
+	* Bumped version to 49.16.
+
+2005-01-14  David Gerber <zapek@morphos.net>
+	* Fixed scandir() to return proper file types.
+
+2005-01-05  Emmanuel Lesueur <lesueur@club-internet.fr>
+	* Added a way to send unix signals to an ixemul process from a non
+	  ixemul process.
+	* Bumped version to 49.15.
+
+2004-10-04  Harry Sintonen <sintonen@iki.fi>
+	* nmap returned NULL instead of -1 for error in one case (report
+	  by jorge).
+
+2004-08-28  Harry Sintonen <sintonen@iki.fi>
+	* ixemul/ixnet LIB_Expunge: Don't reference already freed memory.
+	* Bumped version to 49.14.
+
+2004-07-05  Harry Sintonen <sintonen@iki.fi>
+	* Removed the global max file limit of 512. Currently the close()d
+	  filenodes don't get released, but are cached for reuse.
+	* Bumped version to 49.13.
+
+2004-06-17  Harry Sintonen <sintonen@iki.fi>
+	* Fixed ix_create_extio wrong message node type.
+
+2004-04-02  Emmanuel Lesueur <lesueur@club-internet.fr>
+	* Altivec stack alignment fixes.
+	* Bumped version to 49.12.
+
+2004-03-18  Sigbjørn Skjæret <cisc@broadpark.no>
+	* Fixed ENV: notification, you can actually use global envvars now.
+
+2003-12-27  Harry Sintonen <sintonen@iki.fi>
+	* Optimized bcopy(), bzero() and memset().
+	* Fixed bzero() trashing whole memory if called with odd
+	  address and 0 len.
+	* Bumped version to 49.11.
+
+2003-12-12  Harry Sintonen <sintonen@iki.fi>
+	* Fixed uname() to return sensible values under MorphOS.
+	* No longer relies on shared math libraries under MorphOS.
+	* Bumped version to 49.10.
+
+2003-10-15  Emmanuel Lesueur <lesueur@club-internet.fr>
+	* Fixed chdir("/") so that mkdir -p /ram/foo/bar works.
+	* Bumped version to 49.9.
+
+2003-08-24  Mark Olsen <bigfoot@private.dk>
+	* file fds no longer set exc fdset in select because there is data
+	  to read.
+
+2003-08-17  David Gerber <zapek@morphos.net>
+	* Added direct mapping of /dev/(random|urandom|srandom|prandom) to
+	  the RANDOM: device.
+	* Bumped version to 49.8.
+
+2003-08-06  Harry Sintonen <sintonen@iki.fi>
+	* Fixed getcwd() off-by-one buffer overflow if ix_translate_slash
+	  was enabled.
+	* Fixed getcwd() buffer overflows with buffer size of 1.
+	* Fixed getcwd() errno in error cases.
+	* Bumped version to 49.7.
+
+2003-07-19  Harry Sintonen <sintonen@iki.fi>
+	* Fixed open() not seeking to file end for O_APPEND.
+	* Bumped version to 49.6.
+
+2003-07-17  Harry Sintonen <sintonen@iki.fi>
+	* Fixed lstat() entering forever loop if called for multiassign
+	  where the first assign doesn't match.
+	* Bumped version to 49.5.
+
+2003-07-15  Harry Sintonen <sintonen@iki.fi>
+	* Fixed ftruncate() and truncate() wrong return value for success.
+	* Bumped version to 49.4.
+
+2003-07-07  Harry Sintonen <sintonen@iki.fi>
+	* Fixed getwd() and getcwd() to prefer NameFromLock() of
+	  pr_CurrentDir over buffersize limited GetCurrentDirName().
+	* Bumped version to 49.3.
+
+2002-11-30  David Gerber <zapek@morphos.net>
+	* Removed "Physical blocks build one logical block (for stdio)"
+	  option which is computed automatically depending on device
+	  blocksize now.
+
 2001-06-01  Emmanuel Lesueur <lesueur@club-internet.fr>
 	* Adapted the signal handling process to the new MorphOS
 	  scheduler. It seems to have fixed the CTRL-C crashes.
@@ -52,7 +150,7 @@
 	* (Makefile.in) : ditto
 	* (man/Makefile.in): fix man page generation
 	* Regenerate configure
-	
+
 Sat May 23 23:53:18 1998  Fred Fish  <fnf@ninemoons.com>
 
 	* Makefile.in (OS): Remove pos from default list of operating systems

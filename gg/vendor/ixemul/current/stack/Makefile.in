@@ -63,7 +63,7 @@ endif
 OTHER_CFLAGS =  -fomit-frame-pointer
 ALL_CFLAGS =    $(CFLAGS) $(FLAVOR_CFLAGS) $(OTHER_CFLAGS) $(INCS) $(DEFS) -DFOR_LIBC
 
-INCS =          -I$(srcdir) -I$(srcdir)/../library -I$(srcdir)/../include -I/p
+INCS =          -I$(srcdir) -I$(srcdir)/../library -I$(srcdir)/../include #-I/p
 LIB =           libstack.a
 
 .c.o:

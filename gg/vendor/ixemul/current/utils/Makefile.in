@@ -21,7 +21,7 @@ LDFLAGS =       @LDFLAGS@
 
 #### End system configuration section ####
 
-INCLUDES =      -I$(srcdir) -I$(srcdir)/../include -I$(srcdir)/../library -I$(srcdir)/../static -I. -I/p
+INCLUDES =      -I$(srcdir) -I$(srcdir)/../include -I$(srcdir)/../library -I$(srcdir)/../static -I.
 DEFS =          -DHAVE_STRERROR -Dunix
 OUR_CFLAGS =    $(DEFS) $(INCLUDES) $(CFLAGS)
 OUR_LDFLAGS =   $(LDFLAGS) -B../libsrc/ -L../libsrc
@@ -53,7 +53,7 @@ POSIXRULES =    America/New_York
 .c.o:
 		$(CC) -c $(OUR_CFLAGS) $<
 
-all :           ixdebug ixprefs ixtrace ixrun ixtimezone ixstack ixpipe-handler \
+all :           ixprefs ixtrace ixrun ixtimezone ixstack ixpipe-handler \
 		ipcs ipcrm tzselect zoneinfo/GMT
 
 ixprefs :       $(IXPREFS_OBJ) getopt.o getopt1.o

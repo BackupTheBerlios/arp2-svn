@@ -61,11 +61,7 @@ ix_get_vars (int argc, char **ctype, int *_sys_nerr,
     default:
     case 12:
       if (execlib)
-#ifdef __pos__
-	*execlib = (int)gb_ExecLib;
-#else
 	*execlib = 0;
-#endif
 
     case 11:
       if (_res_socket)

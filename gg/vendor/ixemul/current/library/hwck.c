@@ -16,9 +16,12 @@
  *  License along with this library; if not, write to the Free
  *  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- *  $Id: hwck.c,v 1.5 2001/06/01 17:40:09 emm Exp $
+ *  $Id: hwck.c,v 1.6 2002/06/14 17:23:30 laire Exp $
  *
  *  $Log: hwck.c,v $
+ *  Revision 1.6  2002/06/14 17:23:30  laire
+ *  removed __pos__. Needs a test(i couldn^t)
+ *
  *  Revision 1.5  2001/06/01 17:40:09  emm
  *  Simplified signal handling. Minor old fixes.
  *
@@ -56,13 +59,7 @@
 #include <ixemul.h>
 #include <stdarg.h>
 #include <string.h>
-#ifdef __pos__
-#include <pIntui/EasyReq.h>
-#include <pInline/pIntui2.h>
-#define gb_IntuiBase IntuitionBase      /* reuse IntuitionBase for pOS */
-#else
 #include <proto/intuition.h>
-#endif
 
 int has_fpu = 0;
 int has_68010_or_up = 0;
@@ -96,24 +93,8 @@ static int show_msg(char *title, const char *msg, char *ap, char *gadgetformat)
   if (title == NULL)
     title = "ixemul.library message";
 
-#ifdef __pos__
-  if ((IntuitionBase = (struct IntuitionBase *)OpenLibrary("pintui.library", 0)))
-#else
   if ((IntuitionBase = (struct IntuitionBase *)OpenLibrary("intuition.library", 0)))
-#endif
     {
-#ifdef __pos__
-      struct pOS_EasyStruct panic = {
-	sizeof(struct pOS_EasyStruct),
-	0,
-	ESYTYP_Request,
-	title,
-	(char *)msg,
-	gadgetformat
-      };
-
-      ret = pOS_EasyRequestArgs(NULL, &panic, NULL, (const ULONG *)ap);
-#else
       struct EasyStruct panic = {
 	sizeof(struct EasyStruct),
 	0,
@@ -123,7 +104,6 @@ static int show_msg(char *title, const char *msg, char *ap, char *gadgetformat)
       };
 
       ret = EasyRequestArgs(NULL, &panic, NULL, ap);
-#endif
 
       CloseLibrary ((struct Library *) IntuitionBase);
    }
@@ -224,32 +204,16 @@ struct ixemul_base *ix_init_glue(struct ixemul_base *ixbase)
      when using Enforcer, besides the extra penalty of being in CHIP memory.
      Also, lots of accesses to address 4 can hurt interrupt performance. */
 
-#ifndef __pos__
   SysBase = *(struct ExecBase **)4;
-#endif
 
   ixemulbase = ixbase;
 
-#ifdef __pos__  
-  has_fpu = pOS_ExecCheck(EXTSTTAG_FPU, TRUE, TAG_END);
-  {
-    long cpu_type;
-
-    pOS_ExecCheck(EXTSTTAG_GetCPU, (long)&cpu_type, TAG_END);
-    has_68060_or_up = cpu_type >= EXCPUTYP_68060;
-    has_68040_or_up = cpu_type >= EXCPUTYP_68040;
-    has_68030_or_up = cpu_type >= EXCPUTYP_68030;
-    has_68020_or_up = cpu_type >= EXCPUTYP_68020;
-    has_68010_or_up = cpu_type >= EXCPUTYP_68010;
-  }
-#else
   has_fpu = SysBase->AttnFlags & (AFF_68881 | AFF_68882);
   has_68060_or_up = (SysBase->AttnFlags & AFF_68060);
   has_68040_or_up = has_68060_or_up || (SysBase->AttnFlags & AFF_68040);
   has_68030_or_up = has_68040_or_up || (SysBase->AttnFlags & AFF_68030);
   has_68020_or_up = has_68030_or_up || (SysBase->AttnFlags & AFF_68020);
   has_68010_or_up = has_68020_or_up || (SysBase->AttnFlags & AFF_68010);
-#endif
 
 #if defined (mc68020) || defined (mc68030) || defined (mc68040) || defined (mc68060)
   if (!has_68020_or_up)

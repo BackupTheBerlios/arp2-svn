@@ -36,7 +36,7 @@
 
 #if defined(LIBC_SCCS) && !defined(lint)
 /*static char *sccsid = "from: @(#)vfprintf.c   5.50 (Berkeley) 12/16/92";*/
-static char *rcsid = "$Id: vfprintf.c,v 1.2 2000/06/20 22:17:51 emm Exp $";
+static char *rcsid = "$Id: vfprintf.c,v 1.3 2004/04/07 14:31:05 emm Exp $";
 #endif /* LIBC_SCCS and not lint */
 
 /*
@@ -439,7 +439,7 @@ reswitch:       switch (ch) {
 					ch = (ch == 'g') ? 'e' : 'E';
 				else
 					ch = 'g';
-			} 
+			}
 			if (ch <= 'e') {        /* 'e' or 'E' fmt */
 				--expt;
 				expsize = exponent(expstr, expt, ch);
@@ -724,8 +724,8 @@ cvt(value, ndigits, flags, sign, decpt, ch, length)
 	if (ch == 'f') {
 		mode = 3;               /* ndigits after the decimal point */
 	} else {
-		/* To obtain ndigits after the decimal point for the 'e' 
-		 * and 'E' formats, round to ndigits + 1 significant 
+		/* To obtain ndigits after the decimal point for the 'e'
+		 * and 'E' formats, round to ndigits + 1 significant
 		 * figures.
 		 */
 		if (ch == 'e' || ch == 'E') {

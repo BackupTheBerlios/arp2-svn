@@ -20,13 +20,10 @@
 #define _KERNEL
 #include "ixemul.h"
 #include "kprintf.h"
-#ifndef __pos__
 #include <hardware/intbits.h>
-#endif
 #include "multiuser.h"
 #include <string.h>
 
-#ifndef __pos__  
 void
 __ix_close_muFS( struct user *ix_u )
 {
@@ -61,7 +58,6 @@ __ix_close_muFS( struct user *ix_u )
 	muLogout(muT_Quiet, TRUE, TAG_DONE);
     }
 }
-#endif
 
 void ix_stack_usage(void)
 {
@@ -119,15 +115,8 @@ ix_close (struct ixemul_base *ixbase)
   Disable();
   ixremove(&timer_task_list, &ix_u->u_user_node);
   Enable();
-#ifdef __pos__
-  if (ix_u->IRQBase)
-    {
-      struct pOS_StdIRQResourceMFunction *const IRQ = _pOS_GetIRQResourceFunction(ix_u->IRQBase);
 
-      (*IRQ->pOS_RemIRQServer_func)(ix_u->IRQBase, IRQTYP_VBlank, &ix_u->u_itimerint);
-      pOS_CloseResource(ix_u->IRQBase);
-    }
-#else
+#ifndef NATIVE_MORPHOS
   RemIntServer (INTB_VERTB, &ix_u->u_itimerint);
 #endif
 
@@ -172,7 +161,7 @@ ix_close (struct ixemul_base *ixbase)
   CloseDevice ((struct IORequest *) ix_u->u_time_req);
   KPRINTF(("delete timer req\n"));
   ix_delete_extio((struct IORequest *)ix_u->u_time_req);
-  
+
   if (ix_u->u_startup_cd != (BPTR) -1)
     {
       KPRINTF(("UnLock current dir\n"));
@@ -187,11 +176,9 @@ ix_close (struct ixemul_base *ixbase)
   KPRINTF(("delete sync port\n"));
   ix_delete_port(ix_u->u_sync_mp);
 
-#ifndef __pos__
   /* try to free it here */
-  KPRINTF(("closing mufs\n")); 
+  KPRINTF(("closing mufs\n"));
   __ix_close_muFS(ix_u);
-#endif
 
   KPRINTF(("relinking processes\n"));
   Forbid();
@@ -213,7 +200,7 @@ KPRINTF(("user = %lx\n", cu));
       if (ix_u->u_session->s_count-- <= 1)
 	kfree(ix_u->u_session);
     }
-  
+
 KPRINTF(("ysptr = %lx\n", ix_u->p_ysptr));
   if (ix_u->p_ysptr)
     safe_getuser(ix_u->p_ysptr)->p_osptr = ix_u->p_osptr;

@@ -57,7 +57,6 @@
 
 /* this function fills in InfoData information from a statfs structure
    that has at least its f_fsid field set to the handler */
-#ifndef __pos__ /* TODO */
 static void
 internal_statfs (struct statfs *buf, struct InfoData *info, struct StandardPacket *sp)
 {
@@ -133,7 +132,7 @@ internal_statfs (struct statfs *buf, struct InfoData *info, struct StandardPacke
 	buf->f_flags |= MNT_RDONLY;
 	    
       buf->f_fsize  = info->id_BytesPerBlock;
-      buf->f_bsize  = info->id_BytesPerBlock * ix.ix_fs_buf_factor;
+      buf->f_bsize  = info->id_BytesPerBlock;
       buf->f_blocks = info->id_NumBlocks;
       buf->f_bfree =
 	buf->f_bavail = info->id_NumBlocks - info->id_NumBlocksUsed;
@@ -142,15 +141,11 @@ internal_statfs (struct statfs *buf, struct InfoData *info, struct StandardPacke
       buf->f_ffree = -1;
    }
 }
-#endif
 
 
 int
 getfsstat (struct statfs *buf, long bufsize, int flags)
 {
-#ifdef __pos__
-  return 0;
-#else
   int num_devs = 0;
   struct statfs *orig_buf = buf;
   long orig_bufsize = bufsize;
@@ -212,17 +207,12 @@ getfsstat (struct statfs *buf, long bufsize, int flags)
     }
 
   return num_devs;
-#endif
 }
 
 int
 fstatfs (int fd, struct statfs *buf)
 {
   usetup;
-#ifdef __pos__
-  errno = EOPNOTSUPP;
-  return -1;
-#else
   struct file *f = u.u_ofile[fd];
   struct DosLibrary *dl;
   struct RootNode *rn;
@@ -294,7 +284,6 @@ fstatfs (int fd, struct statfs *buf)
   errno = EBADF;  
   KPRINTF (("&errno = %lx, errno = %ld\n", &errno, errno));
   return -1;
-#endif
 }
 
 
@@ -302,10 +291,6 @@ int
 statfs (const char *path, struct statfs *buf)
 {
   usetup;
-#ifdef __pos__
-  errno = EOPNOTSUPP;
-  return -1;
-#else
   struct MsgPort *handler;
   BPTR lock;
   int omask, err;
@@ -382,5 +367,4 @@ statfs (const char *path, struct statfs *buf)
 
       return 0;
     }
-#endif
 }

@@ -38,13 +38,15 @@ struct Resident initDDescrip={
   RTC_MATCHWORD,
   &initDDescrip,
   &initDDescrip + 1,
-  RTF_PPC | RTF_AUTOINIT,
+  RTF_PPC | RTF_AUTOINIT | RTF_EXTENDED,
   IX_VERSION,
   NT_LIBRARY,
   IX_PRIORITY,
   IX_NAME,
   IX_IDSTRING "\r\n",
-  &Init
+  &Init,
+  IX_REVISION,
+  NULL
 };
 
 /*
@@ -52,7 +54,7 @@ struct Resident initDDescrip={
  * one for the ppc.library.
  * ** IMPORTANT **
  */
-ULONG   __amigappc__=1;
+ULONG   __abox__=1;
 
 
 int libReserved(void) {
@@ -97,10 +99,10 @@ ULONG libExpungeFunc(struct ixemul_base *base) {
 
       ix_expunge(base);
 
+      seg = base->ix_seg_list;
+
       FreeMem((char *)base - base->ix_lib.lib_NegSize,
 	      base->ix_lib.lib_NegSize + base->ix_lib.lib_PosSize);
-
-      seg = base->ix_seg_list;
     }
 
   return seg;
@@ -214,11 +216,11 @@ static const struct EmulLibEntry _gate___must_recompile={
 #define _gate___must_recompile570 _gate___must_recompile
 
 #ifdef TRACE_LIBRARY
-#define SYSTEM_CALL(func, vec, nargs) extern const struct EmulLibEntry _gate_trace_ ## func;
+#define SYSTEM_CALL(func, vec, nargs, stk) extern const struct EmulLibEntry _gate_trace_ ## func;
 #else
-#define SYSTEM_CALL(func, vec, nargs) extern const struct EmulLibEntry _gate_ ## func;
+#define SYSTEM_CALL(func, vec, nargs, stk) extern const struct EmulLibEntry _gate_ ## func;
 #endif
-#include <sys/ixemul_syscall.def>
+#include <sys/syscall.def>
 #undef SYSTEM_CALL
 
 /* The library 68k gates table. We use gates that read the function
@@ -235,11 +237,11 @@ int (*funcTable[])() = {
   /* my libraries definitions */
 
 #ifdef TRACE_LIBRARY
-#define SYSTEM_CALL(func, vec, nargs) (int(*)())&_gate_trace_ ## func,
+#define SYSTEM_CALL(func, vec, nargs, stk) (int(*)())&_gate_trace_ ## func,
 #else
-#define SYSTEM_CALL(func, vec, nargs) (int(*)())&_gate_ ## func,
+#define SYSTEM_CALL(func, vec, nargs, stk) (int(*)())&_gate_ ## func,
 #endif
-#include <sys/ixemul_syscall.def>
+#include <sys/syscall.def>
 #undef SYSTEM_CALL
 
   (int(*)())-1
@@ -350,22 +352,11 @@ asm(".section \".text\"; .align 2");
 	"addi   1,1,256\n" \
 	"blr");
 
-#include <sys/ixemul_syscall.def>
+#include <sys/syscall.def>
 SYSTEM_CALL(__must_recompile,0,X)
 #undef SYSTEM_CALL
 
 #endif
-
-/* The library ppc functions table. */
-/* Hack: build that table in asm to avoid getting errors about
- * bad prototypes... */
-
-asm("
-	.globl      ppcFuncTable
-	.section    \".rodata\"
-	.align      2
-	.type       ppcFuncTable,@object
-ppcFuncTable:"
 
 #define __obsolete_div __must_recompile
 #define __obsolete_inet_makeaddr __must_recompile
@@ -434,12 +425,59 @@ ppcFuncTable:"
 #define __must_recompile529 __must_recompile
 #define __must_recompile530 __must_recompile
 #define __must_recompile570 __must_recompile
-#ifdef TRACE_LIBRARY
-#define SYSTEM_CALL(func, vec, nargs) ".long " STR(_trace_ ## func) "\n"
-#else
-#define SYSTEM_CALL(func, vec, nargs) ".long " STR(func) "\n"
+
+/* Glues that align the stack to a 16 bytes boundary if needed. */
+#ifdef __MORPHOS__
+#define SYSTEM_CALL_STK(func, vec, nargs) \
+	void _safe_ ## func(void); \
+	asm("	.section \".text\"\n" \
+	"	.type	_safe_"STR(func)",@function\n" \
+	"_safe_"STR(func)":\n" \
+	"	andi.	11,1,15\n" \
+	"	bne-	._align_"STR(func)"\n" \
+	"	b	"STR(func)"\n" \
+	"._align_"STR(func)":\n" \
+	"	addi	11,11,16\n" \
+	"	mflr	0\n" \
+	"	neg	11,11\n" \
+	"	stw	0,4(1)\n" \
+	"	stwux	1,1,11\n" \
+	"	bl	"STR(func)"\n" \
+	"	lwz	1,0(1)\n" \
+	"	lwz	0,4(1)\n" \
+	"	mtlr	0\n" \
+	"	blr");
+#define SYSTEM_CALL_NOSTK(func, vec, nargs)
+#define SYSTEM_CALL_VSTK(func, vec, nargs) void _stk_ ## func(void);
+#define SYSTEM_CALL(func, vec, nargs, stk) SYSTEM_CALL_ ## stk(func, vec, nargs)
+#include <sys/syscall.def>
+#undef SYSTEM_CALL
 #endif
-#include <sys/ixemul_syscall.def>
+
+/* The library ppc functions table. */
+/* Hack: build that table in asm to avoid getting errors about
+ * bad prototypes... */
+
+asm("
+	.globl      ppcFuncTable
+	.section    \".rodata\"
+	.align      2
+	.type       ppcFuncTable,@object
+ppcFuncTable:"
+
+#ifdef TRACE_LIBRARY
+#define SYSTEM_CALL(func, vec, nargs, stk) ".long " STR(_trace_ ## func) "\n"
+#else
+#ifndef __MORPHOS__
+#define SYSTEM_CALL(func, vec, nargs, stk) ".long " STR(func) "\n"
+#else
+#define SAFE_STK(func) STR(_safe_ ## func)
+#define SAFE_NOSTK(func) STR(func)
+#define SAFE_VSTK(func) STR(_stk_ ## func)
+#define SYSTEM_CALL(func, vec, nargs, stk) ".long " SAFE_ ## stk(func) "\n"
+#endif
+#endif
+#include <sys/syscall.def>
 #undef SYSTEM_CALL
 
 "endppcFuncTable:

@@ -17,9 +17,17 @@
  *  License along with this library; if not, write to the Free
  *  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- *  $Id: pipe.c,v 1.1.1.1 2000/05/07 19:38:24 emm Exp $
+ *  $Id: pipe.c,v 1.2 2004/07/04 22:47:12 piru Exp $
  *
  *  $Log: pipe.c,v $
+ *  Revision 1.2  2004/07/04 22:47:12  piru
+ *  2004-07-05  Harry Sintonen <sintonen@iki.fi>
+ *  	* Removed the global max file limit of 512. Currently the close()d
+ *  	  files don't get released, but are cached for reuse instead.
+ *  	* Bumped version to 49.13.
+ *
+ *  WARNING: Since the deps are broken, you better make clean before build!
+ *
  *  Revision 1.1.1.1  2000/05/07 19:38:24  emm
  *  Imported sources
  *
@@ -98,6 +106,7 @@ pipe (int pv[2])
 	      goto ret;
 	    }
 	  f1->f_count = 0;
+	  ffree(f1);
 	}
 
       kfree (ss);
@@ -137,6 +146,8 @@ __pclose (struct file *f)
 	    Signal(ss->task, 1UL << u.u_pipe_sig);
 	  ix_wakeup ((u_int)ss);
 	}
+
+      ffree(f);
     }
 
   Permit();

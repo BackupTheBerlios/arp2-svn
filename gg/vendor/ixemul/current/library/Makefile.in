@@ -40,7 +40,7 @@ DO_CATENATE =   @DO_CATENATE@
 # I *love* GNU make!
 define catenate
 /bin/echo -n creating $@...
-/bin/echo -e "$(^:%=#include \"%\"\n)" >$@
+/bin/echo "$(^:%=#include \"%\"\n)" >$@
 /bin/echo done
 endef
 
@@ -54,18 +54,14 @@ endif
 
 INCS = -I$(srcdir) -I$(srcdir)/../library -I$(srcdir)/../include -I.
 
-ifeq ($(OS),pos)
-STD_CFLAGS = $(CFLAGS) $(INCS) $(OTHER_CFLAGS) $(POS_CFLAGS) -g
-else
-STD_CFLAGS = $(CFLAGS) $(INCS) $(OTHER_CFLAGS) -g
-endif
+STD_CFLAGS = $(CFLAGS) $(INCS) $(OTHER_CFLAGS)
 
 ALL_CFLAGS = $(FLAVOR_CFLAGS) $(STD_CFLAGS)
 
 ifeq ($(OS),morphos)
-NATIVE_FLAGS = $(NATIVE_CFLAGS) $(OTHER_CFLAGS) $(filter -DDEBUG_VERSION -DNOTRAP, $(ALL_CFLAGS)) -DNATIVE_MORPHOS -DCPU_$(FPU)
+NATIVE_FLAGS = $(NATIVE_CFLAGS) $(INCS) $(OTHER_CFLAGS) $(filter -DDEBUG_VERSION -DNOTRAP, $(ALL_CFLAGS)) -DNATIVE_MORPHOS -DCPU_$(FPU)
 else
-NATIVE_FLAGS = $(NATIVE_CFLAGS) $(OTHER_CFLAGS) $(filter -DDEBUG_VERSION -DNOTRAP, $(ALL_CFLAGS)) -DCPU_$(CPU) -DFPU_$(FPU)
+NATIVE_FLAGS = $(NATIVE_CFLAGS) $(INCS) $(OTHER_CFLAGS) $(filter -DDEBUG_VERSION -DNOTRAP, $(ALL_CFLAGS)) -DCPU_$(CPU) -DFPU_$(FPU)
 endif
 
 LIB =           library.a
@@ -76,7 +72,7 @@ LIB =           library.a
 # (-Xlinker -u -Xlinker ___load_seg).
 
 ifeq ($(CPU), powerpc)
-LINKFLAGS =     -nostdlib -nostartfiles -Xlinker -u -Xlinker __load_seg
+LINKFLAGS =     -nostdlib -nostartfiles -L/gg/ppc-morphos/lib/libnix/ -Xlinker -u -Xlinker __load_seg
 else
 LINKFLAGS =     -nostdlib -nostartfiles -Xlinker -u -Xlinker ___load_seg
 endif
@@ -119,9 +115,9 @@ ifeq ($(OS),pos)
 LIBS =          -lgcc /pos/pos_dev/poslib/List.lib
 else
 ifeq ($(OS),morphos)
-LIBS =          -lgcc -lamiga -lsyscall
+LIBS =          -lgcc -labox -lsyscall -laboxstubs -lmoto -lm
 else
-LIBS =          -lgcc -lamiga
+LIBS =          -lgcc -labox
 endif
 endif
 
@@ -197,33 +193,34 @@ endif
 
 
 ixemul.library: $(OBJ_N) $(IXLIBS)
-		$(CC) -s $(LINKFLAGS) $(OBJ_N) $(IXLIBS) $(LIBS) -o $@
+		$(CC) $(LINKFLAGS) $(OBJ_N) $(IXLIBS) $(LIBS) -o $@
 
 ixemul.trace:   $(OBJ_T) $(IXLIBS)
-		$(CC) -s $(LINKFLAGS) $(OBJ_T) $(IXLIBS) $(LIBS) -o $@
+		$(CC) $(LINKFLAGS) $(OBJ_T) $(IXLIBS) $(LIBS) -o $@
 
 ixemul.debug:   $(OBJ_N) $(IXLIBS)
 		$(CC) -g $(LINKFLAGS) $(OBJ_N) $(IXLIBS) $(LIBS) -o $@
 
 clean:
 		rm -rf 680?0 notrap powerpc
+		rm -f create_header parse_version
 
 clobber:        clean
 		rm -f Makefile
 
 ifeq ($(CPU), powerpc)
 
-start.o:        start.c version.h $(srcdir)/../include/sys/ixemul_syscall.def $(srcdir)/ix_internals.h
+start.o:        start.c version.h $(srcdir)/../include/sys/syscall.def ix_internals.h
 
-start.ot:       start.c version.h $(srcdir)/../include/sys/ixemul_syscall.def $(srcdir)/ix_internals.h
+start.ot:       start.c version.h $(srcdir)/../include/sys/syscall.def ix_internals.h
 		$(CC) $(STD_CFLAGS) -DTRACE_LIBRARY -c $< -o $@
 
 else
 
-start.o:        start.S version.h $(srcdir)/../include/sys/ixemul_syscall.def $(srcdir)/ix_internals.h
+start.o:        start.S version.h $(srcdir)/../include/sys/syscall.def ix_internals.h
 		$(CC) $(STD_CFLAGS) -traditional -c -m68000 -msoft-float $< -o $@
 
-start.ot:       start.S version.h $(srcdir)/../include/sys/ixemul_syscall.def $(srcdir)/ix_internals.h
+start.ot:       start.S version.h $(srcdir)/../include/sys/syscall.def ix_internals.h
 		$(CC) $(STD_CFLAGS) -DTRACE_LIBRARY -traditional -c -m68000 -msoft-float $< -o $@
 
 endif
@@ -233,7 +230,7 @@ endif
 
 ifneq ($(CPU), powerpc)
 
-trap.o:         trap.S $(srcdir)/ix_internals.h
+trap.o:         trap.S ix_internals.h
 		$(CC) $(STD_CFLAGS) -traditional -c -m68020 -m68881 $< -o $@
 
 endif
@@ -267,15 +264,14 @@ tracecntl.o:    tracecntl.c
 tracecntl.ot:   tracecntl.c
 		$(CC) $(ALL_CFLAGS) -DTRACE_LIBRARY $(FIXED_A4) -c $< -o $@
 
-$(srcdir)/ix_internals.h:
-		make create_header
+ix_internals.h: create_header
 		./create_header >$@
 
 create_header:  create_header.o
 		$(NATIVE_CC) $(NATIVE_LDFLAGS) $< -o $@
 
 create_header.o:        create_header.c $(srcdir)/../include/user.h ixemul.h
-		$(NATIVE_CC) $(NATIVE_FLAGS) $(INCS) -c $< -o $@
+		$(NATIVE_CC) $(NATIVE_FLAGS) -c $< -o $@
 
 parse_version:  parse_version.o
 		$(NATIVE_CC) $(NATIVE_LDFLAGS) $< -o $@
@@ -286,5 +282,5 @@ parse_version.o:  parse_version.c
 version.h:      parse_version $(srcdir)/../version.in
 		./parse_version $(srcdir) >$@
 
-gates.o:        ../include/sys/ixemul_syscall.def
+gates.o:        ../include/sys/syscall.def
 

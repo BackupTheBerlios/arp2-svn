@@ -109,6 +109,7 @@ socket (int domain, int type, int protocol)
 	  /* free the allocated fd */
 	  u.u_ofile[fd] = 0;
 	  fp->f_count = 0;
+	  ffree(fp);
 	  break;
 	}
 
@@ -195,6 +196,7 @@ accept (int s, struct sockaddr *name, int *namelen)
 	  /* the second file */
 	  u.u_ofile[fd2] = 0;
 	  fp2->f_count = 0;
+	  ffree(fp2);
 	  break;
 	}
       domain = (fp->f_type == DTYPE_SOCKET) ? AF_INET : AF_UNIX;
@@ -530,6 +532,7 @@ ix_obtain_socket(long id, int inet, int stream, int protocol)
       /* free the allocated fd */
       u.u_ofile[fd2] = 0;
       fp2->f_count = 0;
+      ffree(fp2);
       break;
     }
 
@@ -621,6 +624,8 @@ soo_close (struct file *fp)
     return 0;
 
   err = netcall(NET__tcp_close, fp);
+
+  ffree(fp);
 
   KPRINTF (("&errno = %lx, errno = %ld\n", &errno, errno));
   return err;

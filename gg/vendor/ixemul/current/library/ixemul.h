@@ -16,23 +16,7 @@
  *  License along with this library; if not, write to the Free
  *  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- *  ixemul.h,v 1.1.1.1 1994/04/04 04:29:38 amiga Exp
- *
- *  ixemul.h,v
- * Revision 1.1.1.1  1994/04/04  04:29:38  amiga
- * Initial CVS check in.
- *
- *  Revision 1.4  1993/11/05  22:14:40  mwild
- *  changes there, here...
- *
- *  Revision 1.3  1992/10/20  16:32:33  mwild
- *  *** empty log message ***
- *
- *  Revision 1.2  1992/07/04  19:25:26  mwild
- *  change __rwport to reflect the current state of the (now global) async port
- *
- * Revision 1.1  1992/05/14  20:36:14  mwild
- * Initial revision
+ *  $Id: ixemul.h,v 1.15 2005/01/05 11:56:44 emm Exp $
  *
  */
 
@@ -76,15 +60,11 @@
 #define INITLONG(field,val)     .word 0xc000; .word (field); .long (val)
 
 /*
- * our library base.. 
+ * our library base..
  */
 
 /* custom part */
-#ifdef __pos__
-#define IXBASE_MYFLAGS          (IXBASE_LIBRARY + 4)
-#else
 #define IXBASE_MYFLAGS          (IXBASE_LIBRARY + 0)
-#endif
 #define IXBASE_SEGLIST          (IXBASE_MYFLAGS + 2)
 #define IXBASE_C_PRIVATE        (IXBASE_SEGLIST + 4)
 
@@ -92,22 +72,24 @@
 
 #define pOS_AMIGAEXEC
 
-#ifndef __pos__
-//#ifdef __PPC__
-//#include <ppcinline/stubs.h>
-//#else
+#ifdef __PPC__
+#ifndef __MORPHOS__
+#include <ppcinline/macros.h>
+#endif
+#else
 #include <inline/stubs.h>
-//#endif
+#endif
+
+#ifdef NATIVE_MORPHOS
+#define USE_DYNFILETAB	1
+/* for exec/list.h macros */
+#define AROS_ALMOST_COMPATIBLE 1
 #endif
 
 #include <sys/types.h>
 
 #define _SIZE_T
 #define __pOS_INCSPSTRUCT
-
-#ifdef __pos__
-#include <ixpos.h>
-#endif
 
 #include <exec/types.h>
 #include <exec/libraries.h>
@@ -121,10 +103,6 @@
 #include <emul/emulregs.h>
 #endif
 #endif
-#ifdef __pos__
-#include <pDos/Notify.h>
-#define NotifyRequest pOS_DosNotifyReq
-#endif
 
 #ifdef _KERNEL
 #define _INTERNAL_FILE
@@ -134,7 +112,7 @@
 #include <sys/param.h>
 #include <sys/ipc.h>
 #include <packets.h>
-#include <sys/ixemul_syscall.h>
+#include <sys/syscall.h>
 #include <sys/ixnet_syscall.h>
 #include <sys/unix_socket.h>
 #include <signal.h>
@@ -195,7 +173,7 @@ enum
   IX_NETWORK_END_OF_ENUM
 };
 
-/* configure this to the number of hash queues you like, 
+/* configure this to the number of hash queues you like,
  * use a prime number !!
  */
 #define IX_NUM_SLEEP_QUEUES     31
@@ -209,13 +187,14 @@ enum
 #define IX_PTY_OPEN             0x05  /* 0101 */
 #define IX_PTY_CLOSE            0x0a  /* 1010 */
 
+struct ixsemaphore
+{
+  struct SignalSemaphore lock;
+  void (*send_signal)(struct Task *, int ixsig);
+};
+
 struct ixemul_base {
-#ifdef __pos__
-  struct pOS_Library            ix_lib;
-  char                         *ix_fake_base;       /* points to the fake pOS base */
-#else
   struct Library                ix_lib;
-#endif
 #ifdef __MORPHOS__
   int                        (**basearray)();
 #endif
@@ -227,14 +206,19 @@ struct ixemul_base {
   unsigned char                 ix_debug_flag;
   BPTR                          ix_seg_list;    /* used by start.s */
 
+#if USE_DYNFILETAB
+  struct MinList                ix_free_file_list;
+  struct MinList                ix_used_file_list;
+#else
   /* the global file table with current size */
   struct file                   *ix_file_tab;
   struct file                   *ix_fileNFILE;
   struct file                   *ix_lastf;
+#endif
 
   int                           ix_membuf_limit;
-  
-  /* multiplier for id_BytesPerBlock to get to st_blksize, default 64 */
+
+  /* multiplier for id_BytesPerBlock to get to st_blksize, default 64 *OBSOLETE* [zapek] */
   int                           ix_fs_buf_factor;
 
   unsigned long                 ix_flags;
@@ -247,32 +231,20 @@ struct ixemul_base {
   int                           ix_next_free_port;
   struct Task                  *ix_task_switcher;
   char                        **ix_global_environment;
-#ifdef __pos__
-  struct pOS_DosNotifyReq       ix_notify_request;
-  short                         ix_added_notify;
-#else
   struct NotifyRequest          ix_notify_request;
-#endif
   int                           ix_env_has_changed;
   char                          ix_ptys[IX_NUM_PTYS];
   struct ix_unix_name          *ix_unix_names;
-#ifdef __pos__
-  struct pOS_Interrupt          ix_itimerint;
-  char                          ix_func_table[0];
-#else
   struct Interrupt              ix_itimerint;
-#endif
   struct MsgPort               *ix_task_switcher_port;
   struct List                   ix_framemsg_list;
-  struct ixlist 		ix_detached_processes;
+  struct ixlist			ix_detached_processes;
+  struct ixsemaphore		ix_semaphore;
 #endif /* _KERNEL */
 };
 
 #ifndef syscall
-#ifdef __pos__
-#define syscall(vec, args...) \
-  ({register int (*_sc)()=(void *)(&((char *)ixfakebase)[-((vec)+4)*6]); _sc(args);})
-#elif defined(NATIVE_MORPHOS)
+#if defined(NATIVE_MORPHOS)
 extern int (**_ixbasearray)();
 #define syscall(vec, args...) \
   ((_ixbasearray[vec-1])(args))
@@ -300,17 +272,13 @@ struct ix_settings {
   unsigned long flags;
   int membuf_limit;
   int red_zone_size;    /* obsolete */
-  int fs_buf_factor;
+  int fs_buf_factor;	/* obsolete */
   int network_type;
 };
 
 /* structure to keep track of the current SegList */
 struct my_seg {
-#ifdef __pos__
-  struct pOS_SegmentLst *segment;
-#else
   BPTR  segment;        /* the thing our clients can use */
-#endif
   enum { LOADSEG, RESSEG } type;
   char  *name;          /* name of the executable */
   BPTR  programdir;     /* lock of the program's directory */
@@ -350,11 +318,7 @@ extern struct ixemul_base *ixemulbase;
 extern char *ixfakebase;
 
 #ifdef NOTRAP
-#ifdef __pos__
-#define getuser(p)        ((struct user *)(((struct Process *)(p))->pr_Task.tc_UserData[0]))
-#else
 #define getuser(p)        ((struct user *)(((struct Process *)(p))->pr_Task.tc_UserData))
-#endif
 #else
 #define getuser(p)        ((struct user *)(((struct Process *)(p))->pr_Task.tc_TrapData))
 #endif
@@ -373,11 +337,7 @@ extern int has_68060_or_up;
 #define AFF_68060         (1L<<7)
 #endif
 
-#ifdef __pos__
-#define usetup            struct user *u_ptr = getuser(FindTask(0))
-#else
 #define usetup            struct user *u_ptr = getuser(SysBase->ThisTask)
-#endif /* __pos__ */
 
 #define u                 (*u_ptr)
 #define ix                (*ixemulbase)
@@ -388,15 +348,9 @@ struct lockinfo
   char buf[1024];
   char *name;
 
-#ifndef __pos__
   struct StandardPacket sp;
-#endif
   char str[257];
-#ifdef __pos__
-  char *bstr;   /* char pointer to str + 1 */
-#else
   BPTR bstr;    /* BCPL pointer to str[] */
-#endif
   struct MsgPort *handler;
 
   BPTR parent_lock;
@@ -423,8 +377,8 @@ static inline u_int get_sp (void)
 }
 
 #else
-static inline u_int get_usp (void) 
-{ 
+static inline u_int get_usp (void)
+{
   u_int res;
 
   asm volatile ("movel  usp,%0" : "=a" (res));
@@ -436,8 +390,8 @@ static inline void set_usp (u_int new_usp)
   asm volatile ("movel  %0,usp" : /* no output */ : "a" (new_usp));
 }
 
-static inline u_int get_sp (void) 
-{ 
+static inline u_int get_sp (void)
+{
   u_int res;
 
   asm volatile ("movel  sp,%0" : "=a" (res));
@@ -449,16 +403,16 @@ static inline void set_sp (u_int new_sp)
   asm volatile ("movel  %0,sp" : /* no output */ : "a" (new_sp));
 }
 
-static inline u_short get_sr (void) 
-{ 
+static inline u_short get_sr (void)
+{
   u_short res;
 
   asm volatile ("movew  sr,%0" : "=g" (res));
   return res;
 }
 
-static inline u_int get_fp (void) 
-{ 
+static inline u_int get_fp (void)
+{
   u_int res;
 
   asm volatile ("movel  a5,%0" : "=g" (res));
@@ -467,28 +421,6 @@ static inline u_int get_fp (void)
 #endif
 
 #define PRIVATE
-#ifdef __pos__
-
-#include <pDos/Date.h>
-
-#define OFFSET_FROM_1970 (22*365+5)
-
-extern struct Library *muBase;
-
-#define SysBase gb_ExecBase
-#define DosBase gb_DosBase
-#define DOSBase gb_DosBase
-#define MathIeeeSingBasBase gb_MathIeeeSingBasBase
-#define MathIeeeDoubBasBase gb_MathIeeeDoubBasBase
-#define MathIeeeDoubTransBase gb_MathIeeeDoubTransBase
-
-extern struct pOS_ExecBase *SysBase;
-extern struct pOS_ExecLibFunction *gb_ExecLib;
-
-extern struct pOS_DosBase *DOSBase;
-
-#else
-
 #define OFFSET_FROM_1970 (8*365+2)
 
 extern struct ExecBase *SysBase;
@@ -498,17 +430,21 @@ extern struct Library *muBase;
 /* Multiuser inlines */
 #include "multiuser_inlines.h"
 
-//#ifdef __PPC__
-//#include <ppcinline/exec.h>
-//#include <ppcinline/dos.h>
-//#else
+#ifdef __PPC__
+#ifdef __MORPHOS__
+#include <proto/exec.h>
+#include <proto/dos.h>
+#else
+#include <ppcinline/exec.h>
+#include <ppcinline/dos.h>
+#endif
+#else
 #include <inline/exec.h>
 #include <inline/dos.h>
-//#endif
+#endif
 
 /*#include <inline/alib.h>*/
 
-#endif
 
 #undef PRIVATE
 

@@ -16,9 +16,23 @@
  *  License along with this library; if not, write to the Free
  *  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- *  $Id: __close.c,v 1.1.1.1 2000/05/07 19:37:50 emm Exp $
+ *  $Id: __close.c,v 1.4 2004/07/04 22:47:11 piru Exp $
  *
  *  $Log: __close.c,v $
+ *  Revision 1.4  2004/07/04 22:47:11  piru
+ *  2004-07-05  Harry Sintonen <sintonen@iki.fi>
+ *  	* Removed the global max file limit of 512. Currently the close()d
+ *  	  files don't get released, but are cached for reuse instead.
+ *  	* Bumped version to 49.13.
+ *
+ *  WARNING: Since the deps are broken, you better make clean before build!
+ *
+ *  Revision 1.3  2002/07/01 20:38:48  emm
+ *  Got rid of __plock(). Beware of potential compatibility problems.
+ *
+ *  Revision 1.2  2002/06/14 17:23:29  laire
+ *  removed __pos__. Needs a test(i couldn^t)
+ *
  *  Revision 1.1.1.1  2000/05/07 19:37:50  emm
  *  Imported sources
  *
@@ -45,7 +59,6 @@ __close(struct file *f)
 {
   if (f->f_count == 1)
     {
-#ifndef __pos__ /* TODO */
       usetup;
 
       if (!memcmp(f->f_name, "/fifo/pty", 9) && SELPKT_IN_USE(f))
@@ -53,7 +66,6 @@ __close(struct file *f)
 	  SendPacket3(f, __srwport, ACTION_STACK, f->f_fh->fh_Arg1, (int)"\n", 1);
 	  __wait_sync_packet(&f->f_sp);
 	}
-#endif
       __wait_select_packet((struct StandardPacket *)&f->f_select_sp);
     }
 
@@ -72,7 +84,7 @@ __close(struct file *f)
 	{
 	  int i = (f->f_name[9] - 'p') * 16 + f->f_name[10] - (f->f_name[10] >= 'a' ? 'a' - 10 : '0');
 	  char mask = (f->f_name[17] == 'm' ? IX_PTY_MASTER : IX_PTY_SLAVE);
-	  
+
 	  ix.ix_ptys[i] &= ~(mask & IX_PTY_OPEN);
 	  ix.ix_ptys[i] |= mask & IX_PTY_CLOSE;
 	  if (!(ix.ix_ptys[i] & IX_PTY_OPEN))
@@ -89,7 +101,7 @@ __close(struct file *f)
       /* if we have to set some modes, do it now */
       if (f->f_stb_dirty & FSDF_MODE)
 	syscall (SYS_chmod, f->f_name, f->f_stb.st_mode);
-    
+
       /* if we have to set some ids, do it now */
       if (f->f_stb_dirty & FSDF_OWNER)
 	syscall (SYS_chown, f->f_name, f->f_stb.st_uid, f->f_stb.st_gid);
@@ -102,11 +114,13 @@ __close(struct file *f)
   /* NOTE: the FEXTNAME flag tells us that the name in the
    * file structure wasn't allocated by kmalloc(), so we
    * shouldn't kfree() it either. */
-  if (!(f->f_flags & FEXTNAME) && f->f_name) 
+  if (!(f->f_flags & FEXTNAME) && f->f_name)
     {
-      KPRINTF (("f->f_name(%s) ", f->f_name));
+      KPRINTF (("f->f_name(%s)\n", f->f_name));
       kfree (f->f_name);
     }
+
+  ffree(f);
 
 unlock:
   ix_unlock_base ();

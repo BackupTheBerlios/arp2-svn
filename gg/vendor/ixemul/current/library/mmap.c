@@ -32,7 +32,7 @@ caddr_t mmap (caddr_t addr, size_t len, int prot, int flags, int fd, off_t offse
   if (flags & MAP_FIXED)
     {
       errno = ENOMEM;
-      return NULL;
+      return (daddr_t)-1;
     }
   if (!(flags & MAP_ANON) && (fd < 0 || fd >= NOFILE || !u.u_ofile[fd]))
     {

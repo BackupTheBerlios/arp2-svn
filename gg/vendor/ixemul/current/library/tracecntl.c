@@ -51,10 +51,6 @@
 
 #include <sys/tracecntl.h>
 
-#ifdef __pos__
-#include <pProto/pList.h>
-#endif
-
 #ifdef TRACE_LIBRARY
 
 static struct List packets = {
@@ -87,11 +83,7 @@ trace_entry (int scall, int (*func)(int, ...),
   int te_action, handler_active;
 
   /* for safety, don't do anything if running in Forbid() or Disable() */
-#ifdef __pos__
-  if (me->tc_TDNestCnt >= 0 || me->tc_IDNestCnt >= 0)
-#else
   if (SysBase->TDNestCnt >= 0 || SysBase->IDNestCnt >= 0)
-#endif
     return TRACE_ACTION_JMP;
 
   /* have to do this here, or the handler may get into a deadlock
@@ -99,7 +91,7 @@ trace_entry (int scall, int (*func)(int, ...),
   if (u.u_trace_flags)
     return TRACE_ACTION_JMP;
 
-  /* get default action value */  
+  /* get default action value */
   switch (scall)
     {
       case SYS_abort:
@@ -125,7 +117,7 @@ trace_entry (int scall, int (*func)(int, ...),
       case SYS_ceil:            /* 4 bytes be called JMP'y */
       case SYS_atof:
       case SYS_frexp:
-      case SYS_modf:      
+      case SYS_modf:
       case SYS_ldexp:
       case SYS_ldiv:            /* functions returning a pointer to a struct in a1 */
       case SYS_div:
@@ -160,9 +152,9 @@ trace_entry (int scall, int (*func)(int, ...),
 	  /* wanted to use u.u_sync_mp here, but this leads to some
 	     deadlock situations when the port is used for packets.. */
 	  tp->tp_message.mn_ReplyPort = (struct MsgPort *) me;
-	  SetSignal (0, SIGBREAKF_CTRL_E);
+	  SetSignal (0, /* SIGBREAKF_CTRL_E change this, signal already used */);
 	  PutMsg (tp->tp_tracer_port, (struct Message *) tp);
-	  Wait (SIGBREAKF_CTRL_E);
+	  Wait (/*SIGBREAKF_CTRL_E FIXME */);
 	  /* the last handler wins ;-)) */
 	  te_action = tp->tp_action;
 	  handler_active = 1;
@@ -176,7 +168,7 @@ trace_entry (int scall, int (*func)(int, ...),
   if (! handler_active)
     te_action = TRACE_ACTION_JMP;
 
-  switch (te_action)      
+  switch (te_action)
     {
     case TRACE_ACTION_ABORT:
       abort();
@@ -184,7 +176,7 @@ trace_entry (int scall, int (*func)(int, ...),
     default:
     case TRACE_ACTION_JMP:
       return TRACE_ACTION_JMP;
-      
+
     case TRACE_ACTION_JSR:
       {
 	int result, error;
@@ -197,7 +189,7 @@ trace_entry (int scall, int (*func)(int, ...),
 
 	/* replace the function address with the result */
 	*(int *)&func = result;
-	
+
 	/* and repeat the process of calling the trace handler(s) */
 	ix_mutex_lock(&psem);
 	for (tp  = (struct trace_packet *) packets.lh_Head;
@@ -215,9 +207,9 @@ trace_entry (int scall, int (*func)(int, ...),
 		KPRINTF (("&errno = %lx, errno = %ld\n", &errno, errno));
 		tp->tp_errno = u.u_errno;
 		tp->tp_message.mn_ReplyPort = (struct MsgPort *) me;
-		SetSignal (0, SIGBREAKF_CTRL_E);
+		SetSignal (0, /*SIGBREAKF_CTRL_E fix me */);
 		PutMsg (tp->tp_tracer_port, (struct Message *) tp);
-		Wait (SIGBREAKF_CTRL_E);
+		Wait (/*SIGBREAKF_CTRL_E fix me */);
 
 		error = errno;
 		/* should be safe.. */
@@ -265,7 +257,7 @@ ix_tracecntl (enum trace_cmd cmd, struct trace_packet *tp)
       ix_mutex_unlock(&psem);
       u.u_trace_flags = 0;
       return 0;
-      
+
     default:
       errno = EINVAL;
       KPRINTF (("&errno = %lx, errno = %ld\n", &errno, errno));

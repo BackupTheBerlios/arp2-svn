@@ -21,7 +21,7 @@ struct ix_settings *ix_get_settings(void)
   settings.flags = ix.ix_flags;
   settings.membuf_limit = ix.ix_membuf_limit;
   settings.red_zone_size = 0; /* obsolete */
-  settings.fs_buf_factor = ix.ix_fs_buf_factor;
+  settings.fs_buf_factor = 1; /* obsolete */
   settings.network_type = ix.ix_network_type;
   return &settings;
 }
@@ -36,7 +36,7 @@ struct ix_settings *ix_get_default_settings(void)
     0,                  /* membuf_limit  */
     0,                  /* red_zone_size */
     64,                 /* fs_buf_factor */
-    IX_NETWORK_AUTO     /* network_type */
+    IX_NETWORK_AMITCP   /* network_type */
   };
 
   return &default_settings;
@@ -53,8 +53,6 @@ void ix_set_settings(struct ix_settings *settings)
   ix.ix_flags = settings->flags;
   if (settings->membuf_limit >= 0)
     ix.ix_membuf_limit = settings->membuf_limit;
-  if (settings->fs_buf_factor > 0)
-    ix.ix_fs_buf_factor = settings->fs_buf_factor;
   if (settings->network_type >= 0 && settings->network_type < IX_NETWORK_END_OF_ENUM)
     ix.ix_network_type = settings->network_type;
 }
@@ -97,11 +95,7 @@ long ix_get_long(unsigned long id, unsigned long extra)
       return IX_CPU_68000;
 
     case IXID_OS:
-#ifdef __pos__
-      return OS_IS_POS;
-#else
       return OS_IS_AMIGAOS;
-#endif
 
     case IXID_OFILE:
       return u.u_ofile;

@@ -46,6 +46,8 @@ __mclose(struct file *f)
 	}
       KPRINTF (("f->f_mf.mf_buffer "));
       kfree (f->f_mf.mf_buffer);
+
+      ffree(f);
     }
 
   ix_unlock_base ();

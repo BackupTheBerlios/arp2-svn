@@ -16,31 +16,7 @@
  *  License along with this library; if not, write to the Free
  *  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- *  $Id: machdep.c,v 1.10 2001/07/02 16:24:16 emm Exp $
- *
- *  machdep.c,v
- *
- *  Revision ??? emm
- *  Replaced the launch() polling by task exceptions.
- *
- *  Revision 1.1.1.1  1994/04/04  04:30:40  amiga
- *  Initial CVS check in.
- *
- *  Revision 1.5  1993/11/05  21:59:18  mwild
- *  add code to deal with inet.library
- *
- *  Revision 1.4  1992/10/20  16:25:24  mwild
- *  no nasty 'c' polling in DEF-signalhandler...
- *
- *  Revision 1.3  1992/08/09  20:57:59  amiga
- *  add volatile to sysbase access, or the optimizer takes illegal shortcuts...
- *
- *  Revision 1.2  1992/07/04  19:20:20  mwild
- *  add yet another state in which not to force a context switch.
- *  Probably unnecessary paranoia...
- *
- *  Revision 1.1  1992/05/14  19:55:40  mwild
- *  Initial revision
+ *  $Id: machdep.c,v 1.15 2005/01/05 11:56:44 emm Exp $
  *
  */
 
@@ -83,7 +59,7 @@ struct framemsg {
   int                   fm_code;        /* additional info for handler */
   void                  *fm_addr;       /* yet another info for handler ;-)) */
   sig_t                 fm_handler;     /* handler addr for u_sigc */
-  /*void                  *fm_sp;         /* sp to restore */
+  /*void                  *fm_sp;*/         /* sp to restore */
   int                   fm_state;       /* task state to restore */
   sigset_t              fm_waitsigs;    /* waiting signals to restore */
   struct sigcontext     fm_context;     /* context to restore */
@@ -463,8 +439,8 @@ restore_frame(struct framemsg *fm)
       task->tc_State = TS_WAIT;
       task->tc_SigWait = fm->fm_waitsigs;
       /* If waited signals occured during the exception, resend them */
-      if ((task->tc_SigWait|task->tc_SigExcept) & task->tc_SigRecvd)
-	Signal(task, task->tc_SigRecvd);
+      if ((task->tc_SigWait|task->tc_SigExcept) & task->tc_SigRcvd)
+	Signal(task, task->tc_SigRcvd);
       Enable();
       KPRINTF(("done\n"));
     }
@@ -578,7 +554,7 @@ except_handler(sigset_t sigs asm("d0"))
   */
 
   /*
-   * first check AmigaOS signals. If SIGMSG is set to SIG_IGN or SIG_DFL, 
+   * first check AmigaOS signals. If SIGMSG is set to SIG_IGN or SIG_DFL,
    * we do our default mapping of SIGBREAKF_CTRL_C into SIGINT.
    */
   newsigs = sigs & ~u.u_lastrcvsig;
@@ -596,7 +572,7 @@ except_handler(sigset_t sigs asm("d0"))
   if (u.u_ixnetbase)
     netcall(NET__siglaunch, newsigs);
 
-  if (((u.p_sigignore & sigmsg) || !(u.p_sigcatch & sigmsg)) 
+  if (((u.p_sigignore & sigmsg) || !(u.p_sigcatch & sigmsg))
       && (newsigs & SIGBREAKF_CTRL_C))
     {
       /* in that case send us a SIGINT, if it's not ignored */
@@ -605,10 +581,10 @@ except_handler(sigset_t sigs asm("d0"))
 	  struct Process *proc = (struct Process *)(u.u_session ? u.u_session->pgrp : (int)me);
 	  _psignalgrp(proc, SIGINT);
 	}
-	
+
       /* in this mode we fully handle and use SIGBREAKF_CTRL_C, so remove it
        * from the Exec signal mask */
-       
+
 #ifdef NATIVE_MORPHOS
       Disable();
 #endif
@@ -634,6 +610,23 @@ except_handler(sigset_t sigs asm("d0"))
 	}
       else
 	_psignal (me, SIGMSG);
+    }
+
+  /* Convert CTRL_F into SIGWINCH */
+  if (newsigs & SIGBREAKF_CTRL_F)
+    {
+      KPRINTF(("Got CTRL-F\n"));
+#ifdef NATIVE_MORPHOS
+      Disable();
+#endif
+      me->tc_SigRecvd &= ~SIGBREAKF_CTRL_F;
+      u.u_lastrcvsig &= ~SIGBREAKF_CTRL_F;
+#ifdef NATIVE_MORPHOS
+      Enable();
+#endif
+      KPRINTF(("send SIGWINCH\n"));
+      _psignal(me, SIGWINCH);
+      KPRINTF(("SIGWINCH sent\n"));
     }
 
   if ((i = CURSIG(&u)))
@@ -666,7 +659,7 @@ void
 sendsig (struct user *p, sig_t handler, int sig, int mask, unsigned code, void *addr)
 {
   struct Task           *me = SysBase->ThisTask;
-  struct framemsg       *fm;
+  //struct framemsg       *fm;
   int                   oonstack;
   struct sigcontext     sc;
   struct user           *u_ptr = getuser(me);
@@ -680,7 +673,7 @@ sendsig (struct user *p, sig_t handler, int sig, int mask, unsigned code, void *
   if (!p->u_onstack && (p->u_sigonstack & sigmask(sig)))
     p->u_onstack = 1;
 
-#ifdef NATIVE_MORPHOS 
+#ifdef NATIVE_MORPHOS
 
   sc.sc_onstack = oonstack;
   sc.sc_mask = mask;
@@ -708,13 +701,13 @@ sendsig (struct user *p, sig_t handler, int sig, int mask, unsigned code, void *
       caos.reg_d1 = code;
       caos.reg_a0 = (ULONG)addr;
       caos.reg_a1 = (ULONG)&sc;
-      caos.reg_a2 = (APTR)((int)handler & ~1);
+      caos.reg_a2 = (ULONG)((int)handler & ~1);
       caos.reg_a4 = u.u_a4;
       MyEmulHandle->EmulCall68k(&caos);
     }
   else
     {
-      int old_r13;
+      int old_r13 = old_r13;
       KPRINTF(("is_ppc = %ld, r13 = %lx\n", u.u_is_ppc, u.u_r13));
       if (u.u_is_ppc && u.u_r13)
 	  asm volatile ("mr %0,13; mr 13,%1" : "=&r" (old_r13) : "r" (u.u_r13) : "r13");
@@ -787,9 +780,7 @@ sig_exit (unsigned int code)
   struct Process *me = (struct Process *)SysBase->ThisTask;
   struct user *u_ptr = getuser(me);
   char err_buf[255];
-#ifndef __pos__
   struct CommandLineInterface *cli;
-#endif
   char process_name[255];
   int is_fg;
 
@@ -832,15 +823,6 @@ sig_exit (unsigned int code)
    *  o  whether this is SIGINT or not
    */
 
-#ifdef __pos__
-  if (1)
-    {
-      if (!pOS_GetProgramName(process_name, sizeof(process_name)))
-	process_name[0] = 0;
-
-      is_fg = 1;
-    }
-#else
   if ((cli = BTOCPTR (me->pr_CLI)))
     {
       if (!GetProgramName(process_name, sizeof(process_name)))
@@ -848,13 +830,12 @@ sig_exit (unsigned int code)
 
       is_fg = cli->cli_Interactive && !cli->cli_Background;
     }
-#endif
   else
     {
       process_name[0] = 0;
       if (me->pr_Task.tc_Node.ln_Name)
 	strncpy (process_name, me->pr_Task.tc_Node.ln_Name, sizeof (process_name) - 1);
-	
+
       /* no WB process is ever considered fg */
       is_fg = 0;
     }
@@ -870,13 +851,11 @@ sig_exit (unsigned int code)
 	  strcat (err_buf, process_name);
 	  /* if we're a CLI we have an argument line saved, that we can print
 	   * as well */
-#ifndef __pos__
 	  if (cli)
-#endif
 	    {
 	      int line_len;
 	      char *cp;
-	      
+
 	      /* we can display upto column 77, this should be safe on all normal
 	       * amiga CLI windows */
 	      line_len = 77 - strlen (err_buf) - 1;
@@ -895,11 +874,7 @@ sig_exit (unsigned int code)
 	    }
 	}
 
-#ifdef __pos__
-      if (1)
-#else
       if (cli)
-#endif
 	{
 	  /* uniformly append ONE line feed */
 	  strcat (err_buf, "\n");
@@ -1003,7 +978,7 @@ setrun (struct Task *t)
       else if (t != me || p->u_exceptsigs == 0)
 	{
 	  KPRINTF (("signaling $%lx\n", t));
-	  Signal (t, SIGBREAKF_CTRL_F);
+	  Signal (t, SIGBREAKF_CTRL_E);
 	}
 
       Permit();
@@ -1107,7 +1082,7 @@ trap (void)
   KPRINTF (("trap()\n"));
 
 #if 0
-  usp = orig_usp = get_usp () ;/*+ 8;      /* skip argument parameters */
+  usp = orig_usp = get_usp () ;/*+ 8;*/      /* skip argument parameters */
   format = ((u_int *)usp)[0];
   addr = (void *)((u_int *)usp)[1];
   regs = (struct reg *)((u_int *)usp)[2];
@@ -1122,7 +1097,7 @@ trap (void)
   p->u_fpregs = fpregs;
   /* format contains the vector * 4, in the lower 12 bits */
   sig = *(int *)((u_char *)hwtraptable + (format & 0x0fff));
-  
+
   if (sig == SIGTRAP)
     regs->r_sr &= ~0x8000;      /* turn off the trace flag */
 
@@ -1148,3 +1123,20 @@ void resume_signal_check(void)
 }
 
 #endif
+
+void safe_psignal(struct Task *t, int sig)
+{
+  /* This is somewhat abusing the timer_task_list. Oh well. */
+  struct ixnode* node;
+  for (node = timer_task_list.head; node; node = node->next)
+    {
+      struct user *p = (struct user *)((char *)node - offsetof(struct user, u_user_node));
+      if (p->u_task == t)
+	{
+	  _psignal(t, sig);
+	  return;
+	}
+    }
+
+  /* check detached processes ? */
+}

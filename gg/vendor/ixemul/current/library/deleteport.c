@@ -31,7 +31,13 @@
 #include "ixemul.h"
 #include <exec/ports.h>
 
-#ifdef NATIVE_MORPHOS
+#ifdef TRACK_MALLOCS
+#undef FreeMem
+#define FreeMem(x,y) debug_FreeMem(x,y)
+void debug_FreeMem(int,int);
+#endif
+
+#if 0 //def NATIVE_MORPHOS
 
 void DeletePort(struct MsgPort *port)
 { int i;
@@ -50,9 +56,5 @@ void DeletePort(struct MsgPort *port)
 void
 ix_delete_port (struct MsgPort *port)
 {
-#ifdef __pos__
-  pOS_DeletePort((void *)port);
-#else
   DeletePort(port);
-#endif
 }

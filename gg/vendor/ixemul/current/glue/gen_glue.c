@@ -1,15 +1,14 @@
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
+#include <sys/types.h>
+#include <sys/syscall.h>
 
-#include <sys/ixemul_syscall.h>
+#include <stdio.h>
 
 struct syscall {
   char *name;
   int   vec;
 } syscalls[] = {
-#define SYSTEM_CALL(func,vec,args) { #func, vec},
-#include <sys/ixemul_syscall.def>
+#define SYSTEM_CALL(func,vec,args,stk) { #func, vec},
+#include <sys/syscall.def>
 #undef SYSTEM_CALL
 };
 
@@ -318,7 +317,7 @@ void write_code(short *code, int len, FILE *f)
     for (i = 0; i < len / 2; i++)
     {
       short x = code[i];                /* little endian */
-      
+
       fputc(((char *)&x)[1], f);
       fputc(((char *)&x)[0], f);
     }
@@ -354,7 +353,7 @@ int main(int argc, char **argv)
     morphos = 1, lbaserel = 1;
   else if (strcmp(argv[1], "no-baserel"))
     usage();
-  
+
   for (i = 0, sc = syscalls; i < nsyscall; i++, sc++)
     {
       int namelen = strlen(sc->name);
@@ -395,7 +394,7 @@ int main(int argc, char **argv)
       sprintf (name, "%s.o", sc->name);
 
       fp = fopen (name, "w");
-      
+
       if (!fp)
 	{
 	  perror (sc->name);
@@ -453,19 +452,19 @@ int main(int argc, char **argv)
           else
 	    {
 	      if (baserel && sc->vec != SYS_ix_geta4)
-	        {
-	          code = baserel_code;
-	          size = sizeof(baserel_code);
-	          offset1 = BASEREL_OFFSET1;
-	          offset2 = BASEREL_OFFSET2;
-	        }
+		{
+		  code = baserel_code;
+		  size = sizeof(baserel_code);
+		  offset1 = BASEREL_OFFSET1;
+		  offset2 = BASEREL_OFFSET2;
+		}
 	      else if (lbaserel && sc->vec != SYS_ix_geta4)
-	        {
-	          code = large_baserel_code;
-	          size = sizeof(large_baserel_code);
-	          offset1 = LARGE_BASEREL_OFFSET1;
-	          offset2 = LARGE_BASEREL_OFFSET2;
-	        }
+		{
+		  code = large_baserel_code;
+		  size = sizeof(large_baserel_code);
+		  offset1 = LARGE_BASEREL_OFFSET1;
+		  offset2 = LARGE_BASEREL_OFFSET2;
+		}
 	      code[offset1] = v;
 	      code[offset2] = namelen + 4 + 2;
 	      write_code(code, size, fp);

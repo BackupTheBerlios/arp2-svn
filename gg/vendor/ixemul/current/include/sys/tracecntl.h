@@ -21,7 +21,7 @@
 #define _SYS_TRACECNTL_H
 
 #include <sys/types.h>
-#include <sys/ixemul_syscall.h>
+#include <sys/syscall.h>
 #include <exec/ports.h>
 
 struct trace_packet {

@@ -61,15 +61,18 @@ ftruncate (int fd, off_t len)
 	  err = 0;
 	  omask = syscall (SYS_sigsetmask, ~0);
 	  __get_file (f);
-#ifdef __pos__
-	  res = pOS_SetFileSize((void *)f->f_fh, len);
-#else
 	  res = SetFileSize(CTOBPTR(f->f_fh), len, OFFSET_BEGINNING);
-#endif
 	  if (res == -1)
 	    err = __ioerr_to_errno(IoErr());
 	  else
+	  {
+	    /* 15-Jul-2003 bugfix: 0 indicates success! used to return
+	     * whatever SetFileSize returned (new filesize) - Piru
+	     */
+	    res = 0;
+
 	    err = 0;
+	  }
 	  __release_file (f);
 	  syscall (SYS_sigsetmask, omask);
 	  errno = err;

@@ -67,10 +67,6 @@
 #define SELMODE_OUT     1
 #define SELMODE_EXC     2
 
-#ifdef __pos__
-#define SELPKT_IN_USE(f) ((f)->f_select_sp.dr_Message.mn_ReplyPort)
-#else
 #define SELPKT_IN_USE(f) ((f)->f_select_sp.sp_Pkt.dp_Port)
-#endif
 
 #endif

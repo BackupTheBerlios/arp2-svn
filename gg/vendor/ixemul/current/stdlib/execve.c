@@ -22,9 +22,7 @@
 #include <string.h>
 #include "ixemul.h"
 #include "kprintf.h"
-#ifndef __pos__
 #include <hardware/intbits.h>
-#endif
 #include <ctype.h>
 #include <sys/wait.h>
 #include <stdio.h>
@@ -55,11 +53,7 @@
 #define MAGIC_PPC(code) \
   (B_MAGIC_PPC(code) && (code[1] & 0xffff) == OMAGIC)
 
-#ifdef __pos__
-static int compatible_startup (int argc, char **argv);
-#else
 static int compatible_startup (void *code, int argc, char **argv);
-#endif
 static char *quote (char *orig);
 static void volatile on_real_stack (BPTR *segs, char **argv, char **environ, int omask);
 
@@ -186,7 +180,7 @@ dupvec (char **vec)
   char **vp;
   char **res;
   static char *empty[] = { NULL };
-  
+
   if (! vec)
     return empty;
 
@@ -194,7 +188,7 @@ dupvec (char **vec)
 
   /* contrary to `real' vfork(), malloc() works in the child on its own
      data, that is it won't clobber anything in the parent  */
-  
+
   res = (char **) syscall (SYS_malloc, (n + 1) * 4);
   if (res)
     {
@@ -207,7 +201,7 @@ dupvec (char **vec)
   return res;
 }
 
-static void volatile 
+static void volatile
 on_real_stack (BPTR *segs, char **argv, char **environ, int omask)
 {
   int private_startup;
@@ -220,9 +214,7 @@ on_real_stack (BPTR *segs, char **argv, char **environ, int omask)
   struct CommandLineInterface *cli;
   BPTR oldseglist;
 
-#ifndef __pos__
   int sg;
-#endif
   jmp_buf old_exit;
   u_int old_a4 = 0;
   void *old_sdata_ptr = NULL;
@@ -240,7 +232,7 @@ on_real_stack (BPTR *segs, char **argv, char **environ, int omask)
   environ = *u.u_environ;
   argv = dupvec(argv);
   KPRINTF_ARGV ("copy of argv", argv);
-    
+
   u.u_segs = (struct my_seg *)segs;
 
   /* install `child` SegList */
@@ -267,30 +259,12 @@ on_real_stack (BPTR *segs, char **argv, char **environ, int omask)
     ix_panic("Not a Process.");
   }*/
 
-#ifdef __pos__
-  {
-    struct pOS_SegmentInfo SI = { sizeof(struct pOS_SegmentInfo) };
-    struct pOS_Segment *Seg;
-    
-    u.u_start_pc = 0;
-    for (Seg = &u.u_segs->segment->sel_Seg; Seg; Seg = Seg->seg_Next)
-    {
-      if (pOS_GetSegmentPtrInfo(u.u_segs->segment, Seg, NULL, &SI) && SI.segi_HunkType == HUNKTYP_Code)
-      {
-	u.u_start_pc = (int)SI.segi_StartAddress;
-	u.u_end_pc = SI.segi_SegmSize + u.u_start_pc;
-	break;
-      }
-    }
-  }
-#else
   sg = (long)*segs;
   sg <<= 2;
   u.u_start_pc = sg + 4;
   u.u_end_pc = sg + *(long *)(sg - 4) - 8;
-#endif
   code = (void *)u.u_start_pc;
-  
+
   /* Check whether this program has our magic header.  See crt0.c for details. */
 
   if (code && MAGIC_16 (code))
@@ -340,7 +314,7 @@ on_real_stack (BPTR *segs, char **argv, char **environ, int omask)
   if (private_startup)
     {
       entry = (void *) hdr->a_entry;
-      
+
       if (! entry)
 	{
 	  private_startup = 0;
@@ -353,7 +327,7 @@ on_real_stack (BPTR *segs, char **argv, char **environ, int omask)
 #endif
 	}
     }
-      
+
   /* okay, get ready to turn us into a new process, as much as
      we can actually.. */
 
@@ -380,7 +354,7 @@ on_real_stack (BPTR *segs, char **argv, char **environ, int omask)
      Unix program would ever expect stdio buffers to be flushed by
      an execve() call. So since stdio is in the library I know the
      address of the handler to skip ;-)) */
-     
+
   while (__atexit)
     {
       while (__atexit->ind --)
@@ -438,7 +412,7 @@ on_real_stack (BPTR *segs, char **argv, char **environ, int omask)
 
   /* clear the a4 pointers */
   bzero((char *)&u - u.u_a4_pointers_size * 4, u.u_a4_pointers_size * 4);
-	      
+
   /* save the original exit-jmpbuf, as ix_exec_entry() will destroy
    * it later */
   bcopy (u.u_jmp_buf, old_exit, sizeof (old_exit));
@@ -448,7 +422,7 @@ on_real_stack (BPTR *segs, char **argv, char **environ, int omask)
       old_sdata_ptr = u.u_sdata_ptr;
       u.p_flag &= ~SFREEA4;
     }
-	      
+
   /* count the arguments */
   for (f = 0; argv[f]; f++) ;
   KPRINTF (("found %ld args\n", f));
@@ -465,7 +439,7 @@ on_real_stack (BPTR *segs, char **argv, char **environ, int omask)
   {
     BPTR origprogdir = 0;
     extern void ix_stack_usage(void);
-	
+
     /* to run as a `true' AmigaOS program, ProgramName should
      * only be that: the program name with no path. An ixemul
      * program retrieves its name from argv[0] anyway.
@@ -481,9 +455,7 @@ on_real_stack (BPTR *segs, char **argv, char **environ, int omask)
 
     if (private_startup)
       {
-#ifdef __pos__
-	u.p_xstat = entry(ixemulbase, f, argv, environ, 0x704F5300); /* 'pOS\0' */
-#elif defined(NATIVE_MORPHOS)
+#if defined(NATIVE_MORPHOS)
 	if (private_startup < 0) /* ppc code */
 	  u.p_xstat = entry(ixemulbase, f, argv, environ, 0);
 	else /* 68k code */
@@ -522,11 +494,7 @@ on_real_stack (BPTR *segs, char **argv, char **environ, int omask)
 	 *  this process would be killed, while the child was still running.
 	 */
 	omask = syscall(SYS_sigsetmask, ~0);
-#ifdef __pos__
-	compatible_startup (f, argv);
-#else
 	compatible_startup (code, f, argv);
-#endif
 	syscall(SYS_sigsetmask, omask);
       }
 
@@ -563,17 +531,17 @@ on_real_stack (BPTR *segs, char **argv, char **environ, int omask)
 
   if (old_a4)
     {
-      u.u_a4 = old_a4; 
+      u.u_a4 = old_a4;
       u.u_sdata_ptr = old_sdata_ptr;
       u.p_flag |= SFREEA4;
     }
 #ifdef NATIVE_MORPHOS
   u.u_is_ppc = old_is_ppc;
 #endif
-  KPRINTF (("old program doing _exit(%ld)\n", f));
+  KPRINTF (("old program doing _exit(%ld)\n", u.p_xstat));
   /* and fake an _exit */
   _clean_longjmp (old_exit, 1);
-}  
+}
 
 struct user *safe_getuser(struct Process *task)
 {
@@ -601,118 +569,6 @@ struct user *safe_getuser(struct Process *task)
   return u_ptr;
 }
 
-#ifdef __pos__
-
-static int
-compatible_startup (int argc, char **argv)
-{
-  char *al;
-  int max, res;
-  u_int oldsigalloc;
-  struct Process *me = (struct Process *)SysBase->ThisTask;
-  struct user *u_ptr = getuser(me);
-  struct pOS_SegmentLst *seglst = u.u_segs->segment;
-  
-  /* ignore the command name ;-) */
-  argv++;
-
-  max = 1024;
-  al = (char *) kmalloc (max);
-  res = -1;
-  if (al)
-    {
-      char *cp;
-      void *old_trapdata, *old_trapcode;
-      int old_flags;
-      void *old_launch, *old_switch;
-      struct file **f;
-
-      for (cp = al; *argv; )
-	{
-	  char *newel = quote (*argv);
-	  int elsize = strlen (newel ? newel : *argv) + 2;
-	  
-	  if (cp + elsize >= al + max)
-	    {
-	      char *nal;
-	      max <<= 1;
-	      nal = (char *) krealloc (al, max);
-	      if (! nal) break;
-	      cp = nal + (cp-al);
-	      al = nal;
-	    }
-
-	  strcpy (cp, newel ? newel : *argv);
-	  cp += elsize - 2;
-	  *cp++ = ' ';
-	  *cp = 0;
-	  if (newel) kfree (newel);
-	  ++argv;
-	}
-
-      *cp = 0;
-
-      /* problem with RunCommand: the allocated signal mask is not reset
-	 for the new process, thus if several RunCommands are nested, a
-	 late started process might run out of signals. This behavior makes
-	 no sense, since the starting process is *suspended* while the `child'
-	 is running, thus it doesn't need its signals in the meantime ! */
-
-      oldsigalloc = me->pr_Task.tc_SigAlloc & 0xffff0000;       /* hacky...*/
-      me->pr_Task.tc_SigAlloc &= 0xffff;
-
-      /* cleanup as much of ixemul.library as possible, so that the started
-	 process can take over */
-      old_flags             = me->pr_Task.tc_Flags;
-      me->pr_Task.tc_Flags  = u.u_otask_flags;
-      old_launch            = me->pr_Task.tc_Launch;
-      me->pr_Task.tc_Launch = u.u_olaunch; /* restoring this disables our signals */
-      old_switch            = me->pr_Task.tc_Switch;
-      me->pr_Task.tc_Switch = u.u_oswitch;
-
-      /* BEWARE that after this reset no library functions can be
-	 called any longer until the moment where trapdata is 
-	 reinstalled !! */
-
-#ifndef NOTRAP
-      old_trapcode = me->pr_Task.tc_TrapCode;
-      me->pr_Task.tc_TrapCode = u.u_otrap_code;
-#endif
-      f = u.u_ofile;
-      old_trapdata = getuser(me);
-      getuser(me) = 0;
-
-/* TODO : use IXPIPE to pipe between pOS and ixemul programs! */
-      res = pOS_RunCommand(seglst, me->pr_Task.tc_SPUpper - me->pr_Task.tc_SPLower,
-			   f[0]->f_fh, f[1]->f_fh, f[2]->f_fh, al);
-
-      /* reinstall enough of ixemul to be able to finish cleanly 
-	 (the recent addition of an ix_sleep() at the end of a vfork'd
-	  process makes it necessary to reinstall the signalling facilities!) */
-      getuser(me) = old_trapdata;
-#ifndef NOTRAP
-      me->pr_Task.tc_TrapCode = old_trapcode;
-#endif
-      me->pr_Task.tc_Launch = old_launch;
-      me->pr_Task.tc_Switch = old_switch;
-      me->pr_Task.tc_Flags  = old_flags;
-
-      /* Some programs can set ixemul Signals. This can happen because
-	 ixemul resets the allocated signal mask in the Task structure.
-	 Make very sure they're off, or Enforcer hits will be the result
-	 because the 'deathmessage-handshake' returns too early. */
-      SetSignal(0, ~0);
-
-      kfree (al);
-
-      me->pr_Task.tc_SigAlloc |= oldsigalloc;
-    }
-
-  u.p_xstat = W_EXITCODE(res, 0);
-  return res;
-}
-
-#else /* __pos__ */
 /* some rather rude support to start programs that don't have a struct exec
  * information at the beginning.
  * 1.3 NOTE: This will only start plain C programs, nothing that smells like
@@ -729,7 +585,7 @@ compatible_startup (void *code, int argc, char **argv)
   u_int oldsigalloc;
   struct Process *me = (struct Process *)SysBase->ThisTask;
   struct user *u_ptr = getuser(me);
-  
+
   KPRINTF (("entered compatible_startup()\n"));
   KPRINTF (("argc = %ld\n", argc));
   KPRINTF_ARGV ("argv", argv);
@@ -755,7 +611,7 @@ compatible_startup (void *code, int argc, char **argv)
 	  char *newel = quote (*argv);
 	  int elsize = strlen (newel ? newel : *argv) + 3;
 	  KPRINTF (("arg [%s] quoted as [%s]\n", *argv, newel ? newel : *argv));
-	  
+
 	  if (cp + elsize >= al + max)
 	    {
 	      char *nal;
@@ -773,7 +629,7 @@ compatible_startup (void *code, int argc, char **argv)
 	  if (newel) kfree (newel);
 	  ++argv;
 	}
-      
+
       /* BCPL weirdness ... */
       *cp++ = '\n';
       *cp = 0;
@@ -796,19 +652,21 @@ compatible_startup (void *code, int argc, char **argv)
       old_except_code           = me->pr_Task.tc_ExceptCode;
       me->pr_Task.tc_ExceptCode = u.u_oexcept_code;
       SetExcept(u.u_oexcept_sigs, ~0);
+#ifndef NATIVE_MORPHOS
       RemIntServer (INTB_VERTB, & u.u_itimerint);
+#endif
       Disable();
       ixremove(&timer_task_list, &u.u_user_node);
       Enable();
 
       /* limited support (part 2 ;-)) for I/O redirection on old programs
-	 If we're redirecting to a plain file, don't go thru a IXPIPE, 
+	 If we're redirecting to a plain file, don't go thru a IXPIPE,
 	 temporarily use our DOS files in that case. Any other file type
 	 is routed thru an IXPIPE though. */
-      
+
       f = u.u_ofile[0];
       old_cis = dup_cis = 0;
-      
+
       /* I do wish I knew why pty's need to go though ixpipe:. But if I don't
 	 do this, the output simply disappears :-( */
 
@@ -820,7 +678,7 @@ compatible_startup (void *code, int argc, char **argv)
       else if (!f)
 	{
 	  int fd = syscall(SYS_open, "/dev/null", 0);
-    
+
 	  dup_cis = dup2_BPTR (fd);
 	  syscall(SYS_close, fd);
 	}
@@ -841,7 +699,7 @@ compatible_startup (void *code, int argc, char **argv)
       else if (!f)
 	{
 	  int fd = syscall(SYS_open, "/dev/null", 1);
-    
+
 	  dup_cos = dup2_BPTR (fd);
 	  syscall(SYS_close, fd);
 	}
@@ -860,7 +718,7 @@ compatible_startup (void *code, int argc, char **argv)
       else if (!f)
 	{
 	  int fd = syscall(SYS_open, "/dev/null", 2);
-    
+
 	  dup_ces = dup2_BPTR (fd);
 	  syscall(SYS_close, fd);
 	}
@@ -897,7 +755,7 @@ compatible_startup (void *code, int argc, char **argv)
 	KPRINTF(("RunCommand(%lx, %ld, \"%s\", %ld)\n", seg, stack_size, al, len));
 	res = RunCommand(seg, stack_size, al, len);
       }
-      /* reinstall enough of ixemul to be able to finish cleanly 
+      /* reinstall enough of ixemul to be able to finish cleanly
 	 (the recent addition of an ix_sleep() at the end of a vfork'd
 	  process makes it necessary to reinstall the signalling facilities!) */
       Forbid();
@@ -909,7 +767,9 @@ compatible_startup (void *code, int argc, char **argv)
       Permit();
 
       /* have to do this, or ix_close() is not able to RemoveIntServer .. */
+#ifndef NATIVE_MORPHOS
       AddIntServer(INTB_VERTB, & u.u_itimerint);
+#endif
       Disable();
       ixaddhead(&timer_task_list, &u.u_user_node);
       Enable();
@@ -952,7 +812,7 @@ dup2_BPTR (int fd)
 {
   long id;
   char name[20];
-  
+
   id = syscall(SYS_fcntl, fd, F_EXTERNALIZE, 0);
   if (id >= 0)
     {
@@ -980,7 +840,7 @@ readargs_kludge (BPTR bp)
      very deep wish, nevertheless unheard by dos...
      Without this kludge, you have to actually press return if stdin is not
      redirected...
-     Thanks mbs: without your shell code I would never have guessed that 
+     Thanks mbs: without your shell code I would never have guessed that
 		 something that weird could be possible....
    */
   if (ix.ix_dos_base->lib_Version <= 37)
@@ -993,16 +853,14 @@ readargs_kludge (BPTR bp)
     }
 }
 
-#endif /* __pos__ */
-
 static char *
 quote (char *orig)
 {
   int i;
   char *new, *cp;
-  
+
   i = strlen (orig);
-  
+
   if (strpbrk (orig, "\"\'\\ \t\n"))
     {
       /* worst case, each character needs quoting plus starting and ending " */
@@ -1019,10 +877,10 @@ quote (char *orig)
 	}
       *cp++ = '"';
       *cp = 0;
-      
+
       return new;
     }
   else
     return 0;   /* means `just use the original string' */
-}   
+}
 

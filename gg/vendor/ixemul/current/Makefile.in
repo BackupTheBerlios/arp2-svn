@@ -112,7 +112,7 @@ CPU-FPU-TYPES = @TYPES@
 #                        This can be used for debugging with a debugger other
 #                        than gdb.
 
-OTHER_CFLAGS = -g -static -Wall -O2 -DNOTRAP
+OTHER_CFLAGS = -static -Wall -O2 -DNOTRAP
 
 # Flags used when compiling 68k code
 M68K_CFLAGS = -fomit-frame-pointer
@@ -125,10 +125,6 @@ MORPHOS_CFLAGS = -DNATIVE_MORPHOS
 
 # Flags used when compiling for PowerUp
 POWERUP_CFLAGS = -DSHAREDL
-
-# Flags used when compiling for pOS
-POS_CFLAGS = -D__pos__ -I/p -I/pos/pOS_Dev/pOSxA
-
 
 ###############################################
 ###                                         ###
@@ -226,19 +222,19 @@ ppc-base-cpu-fpu-types = $(addsuffix .morphos, $(cpu-fpu-types)) \
 ### Now fill in the directory name
 
 ifeq ($(BUILD_M68K), yes)
-    m68k-base-targets         := $(foreach d, $(BASE), $(m68k-base-types))
-    m68k-cpu-targets          := $(foreach d, $(CPUONLY), $(m68k-cpu-types))
-    m68k-cpu-os-targets       := $(foreach o, $(filter amigaos pos, $(OS)), $(addsuffix .$(o),$(foreach d, $(CPUOSONLY), $(m68k-cpu-os-types))))
-    m68k-cpu-fpu-os-targets   := $(foreach o, $(filter amigaos pos, $(OS)), $(addsuffix .$(o),$(foreach d, $(CPUFPUOS), $(m68k-cpu-fpu-os-types))))
-    m68k-base-cpu-fpu-targets := $(foreach d, $(BASECPUFPU), $(m68k-base-cpu-fpu-types))
+	m68k-base-targets         := $(foreach d, $(BASE), $(m68k-base-types))
+	m68k-cpu-targets          := $(foreach d, $(CPUONLY), $(m68k-cpu-types))
+	m68k-cpu-os-targets       := $(foreach o, $(filter amigaos pos, $(OS)), $(addsuffix .$(o),$(foreach d, $(CPUOSONLY), $(m68k-cpu-os-types))))
+	m68k-cpu-fpu-os-targets   := $(foreach o, $(filter amigaos pos, $(OS)), $(addsuffix .$(o),$(foreach d, $(CPUFPUOS), $(m68k-cpu-fpu-os-types))))
+	m68k-base-cpu-fpu-targets := $(foreach d, $(BASECPUFPU), $(m68k-base-cpu-fpu-types))
 endif
 
 ifeq ($(BUILD_PPC), yes)
-    ppc-base-targets         := $(foreach d, $(BASE), $(ppc-base-types))
-    ppc-cpu-targets          := $(foreach d, $(CPUONLY), $(ppc-cpu-types))
-    ppc-cpu-os-targets       := $(foreach o, $(filter morphos powerup, $(OS)), $(addsuffix .$(o),$(foreach d, $(CPUOSONLY), $(ppc-cpu-os-types))))
-    ppc-cpu-fpu-os-targets   := $(foreach o, $(filter morphos powerup, $(OS)), $(addsuffix .$(o),$(foreach d, $(CPUFPUOS), $(ppc-cpu-fpu-os-types))))
-    ppc-base-cpu-fpu-targets := $(foreach d, $(BASECPUFPU), $(ppc-base-cpu-fpu-types))
+	ppc-base-targets         := $(foreach d, $(BASE), $(ppc-base-types))
+	ppc-cpu-targets          := $(foreach d, $(CPUONLY), $(ppc-cpu-types))
+	ppc-cpu-os-targets       := $(foreach o, $(filter morphos powerup, $(OS)), $(addsuffix .$(o),$(foreach d, $(CPUOSONLY), $(ppc-cpu-os-types))))
+	ppc-cpu-fpu-os-targets   := $(foreach o, $(filter morphos powerup, $(OS)), $(addsuffix .$(o),$(foreach d, $(CPUFPUOS), $(ppc-cpu-fpu-os-types))))
+	ppc-base-cpu-fpu-targets := $(foreach d, $(BASECPUFPU), $(ppc-base-cpu-fpu-types))
 endif
 
 

@@ -75,36 +75,95 @@ buildargv(ap, arg, envpp)
 	return(argv);
 }
 
-int execl(const char *name, const char *arg, ...)
+int vexecl(const char *name, const char *arg, my_va_list ap)
 {
 	usetup;
-	my_va_list ap;
 	int sverrno;
 	char **argv;
 
-	my_va_start(ap, arg);
 	if ((argv = buildargv(ap, arg, (char ***)NULL)))
 		(void)execve(name, argv, *u.u_environ);
-	my_va_end(ap);
 	sverrno = errno;
 	free(argv);
 	errno = sverrno;
 	KPRINTF (("&errno = %lx, errno = %ld\n", &errno, errno));
 	return(-1);
+}
+
+int execl(const char *name, const char *arg, ...)
+{
+	int r;
+	my_va_list ap;
+	my_va_start(ap, arg);
+	r = vexecl(name, arg, ap);
+	my_va_end(ap);
+	return r;
 }
 
 #ifdef NATIVE_MORPHOS
 
 int _varargs68k_execl(const char *name, const char *arg, char *ap1)
 {
-	usetup;
 	my_va_list ap;
-	int sverrno;
-	char **argv;
-
 	my_va_init_68k(ap, ap1);
-	if ((argv = buildargv(ap, arg, (char ***)NULL)))
-		(void)execve(name, argv, *u.u_environ);
+	return vexecl(name, arg, ap);
+}
+
+asm("	.section \".text\"
+	.type	_stk_execl,@function
+	.globl	_stk_execl
+_stk_execl:
+	andi.	11,1,15
+	mr	12,1
+	bne-	.align_execl
+	b	execl
+.align_execl:
+	addi	11,11,128
+	mflr	0
+	neg	11,11
+	stw	0,4(1)
+	stwux	1,1,11
+
+	stw	5,16(1)
+	stw	6,20(1)
+	stw	7,24(1)
+	stw	8,28(1)
+	stw	9,32(1)
+	stw	10,36(1)
+	bc	4,6,.nofloat_execl
+	stfd	1,40(1)
+	stfd	2,48(1)
+	stfd	3,56(1)
+	stfd	4,64(1)
+	stfd	5,72(1)
+	stfd	6,80(1)
+	stfd	7,88(1)
+	stfd	8,96(1)
+.nofloat_execl:
+
+	addi	5,1,104
+	lis	0,0x200
+	addi	12,12,8
+	addi	11,1,8
+	stw	0,0(5)
+	stw	12,4(5)
+	stw	11,8(5)
+	bl	vexecl
+	lwz	1,0(1)
+	lwz	0,4(1)
+	mtlr	0
+	blr
+");
+#endif
+
+int vexecle(const char *name, const char *arg, my_va_list ap)
+{
+	usetup;
+	int sverrno;
+	char **argv, **envp;
+
+	if ((argv = buildargv(ap, arg, &envp)))
+		(void)execve(name, argv, envp);
 	sverrno = errno;
 	free(argv);
 	errno = sverrno;
@@ -112,38 +171,80 @@ int _varargs68k_execl(const char *name, const char *arg, char *ap1)
 	return(-1);
 }
 
-#endif
-
 int execle(const char *name, const char *arg, ...)
 {
-	usetup;
+	int r;
 	my_va_list ap;
-	int sverrno;
-	char **argv, **envp;
-
 	my_va_start(ap, arg);
-	if ((argv = buildargv(ap, arg, &envp)))
-		(void)execve(name, argv, envp);
+	r = vexecle(name, arg, ap);
 	my_va_end(ap);
-	sverrno = errno;
-	free(argv);
-	errno = sverrno;
-	KPRINTF (("&errno = %lx, errno = %ld\n", &errno, errno));
-	return(-1);
+	return r;
 }
 
 #ifdef NATIVE_MORPHOS
 
 int _varargs68k_execle(const char *name, const char *arg, char *ap1)
 {
-	usetup;
 	my_va_list ap;
-	int sverrno;
-	char **argv, **envp;
-
 	my_va_init_68k(ap, ap1);
-	if ((argv = buildargv(ap, arg, &envp)))
-		(void)execve(name, argv, envp);
+	return vexecle(name, arg, ap);
+}
+
+asm("	.section \".text\"
+	.type	_stk_execle,@function
+	.globl	_stk_execle
+_stk_execle:
+	andi.	11,1,15
+	mr	12,1
+	bne-	.align_execle
+	b	execle
+.align_execle:
+	addi	11,11,128
+	mflr	0
+	neg	11,11
+	stw	0,4(1)
+	stwux	1,1,11
+
+	stw	5,16(1)
+	stw	6,20(1)
+	stw	7,24(1)
+	stw	8,28(1)
+	stw	9,32(1)
+	stw	10,36(1)
+	bc	4,6,.nofloat_execle
+	stfd	1,40(1)
+	stfd	2,48(1)
+	stfd	3,56(1)
+	stfd	4,64(1)
+	stfd	5,72(1)
+	stfd	6,80(1)
+	stfd	7,88(1)
+	stfd	8,96(1)
+.nofloat_execle:
+
+	addi	5,1,104
+	lis	0,0x200
+	addi	12,12,8
+	addi	11,1,8
+	stw	0,0(5)
+	stw	12,4(5)
+	stw	11,8(5)
+	bl	vexecle
+	lwz	1,0(1)
+	lwz	0,4(1)
+	mtlr	0
+	blr
+");
+#endif
+
+int vexeclp(const char *name, const char *arg, my_va_list ap)
+{
+	usetup;
+	int sverrno;
+	char **argv;
+
+	if ((argv = buildargv(ap, arg, (char ***)NULL)))
+		(void)execvp(name, argv);
 	sverrno = errno;
 	free(argv);
 	errno = sverrno;
@@ -151,45 +252,70 @@ int _varargs68k_execle(const char *name, const char *arg, char *ap1)
 	return(-1);
 }
 
-#endif
-
 int execlp(const char *name, const char *arg, ...)
 {
-	usetup;
+	int r;
 	my_va_list ap;
-	int sverrno;
-	char **argv;
-
 	my_va_start(ap, arg);
-	if ((argv = buildargv(ap, arg, (char ***)NULL)))
-		(void)execvp(name, argv);
+	r = vexeclp(name, arg, ap);
 	my_va_end(ap);
-	sverrno = errno;
-	free(argv);
-	errno = sverrno;
-	KPRINTF (("&errno = %lx, errno = %ld\n", &errno, errno));
-	return(-1);
+	return r;
 }
 
 #ifdef NATIVE_MORPHOS
 
 int _varargs68k_execlp(const char *name, const char *arg, char *ap1)
 {
-	usetup;
 	my_va_list ap;
-	int sverrno;
-	char **argv;
-
 	my_va_init_68k(ap, ap1);
-	if ((argv = buildargv(ap, arg, (char ***)NULL)))
-		(void)execvp(name, argv);
-	sverrno = errno;
-	free(argv);
-	errno = sverrno;
-	KPRINTF (("&errno = %lx, errno = %ld\n", &errno, errno));
-	return(-1);
+	return vexeclp(name, arg, ap);
 }
 
+asm("	.section \".text\"
+	.type	_stk_execlp,@function
+	.globl	_stk_execlp
+_stk_execlp:
+	andi.	11,1,15
+	mr	12,1
+	bne-	.align_execlp
+	b	execlp
+.align_execlp:
+	addi	11,11,128
+	mflr	0
+	neg	11,11
+	stw	0,4(1)
+	stwux	1,1,11
+
+	stw	5,16(1)
+	stw	6,20(1)
+	stw	7,24(1)
+	stw	8,28(1)
+	stw	9,32(1)
+	stw	10,36(1)
+	bc	4,6,.nofloat_execlp
+	stfd	1,40(1)
+	stfd	2,48(1)
+	stfd	3,56(1)
+	stfd	4,64(1)
+	stfd	5,72(1)
+	stfd	6,80(1)
+	stfd	7,88(1)
+	stfd	8,96(1)
+.nofloat_execlp:
+
+	addi	5,1,104
+	lis	0,0x200
+	addi	12,12,8
+	addi	11,1,8
+	stw	0,0(5)
+	stw	12,4(5)
+	stw	11,8(5)
+	bl	vexeclp
+	lwz	1,0(1)
+	lwz	0,4(1)
+	mtlr	0
+	blr
+");
 #endif
 
 int execv(const char *name, char * const *argv)
@@ -225,7 +351,7 @@ int execvp(const char *name, char * const *argv)
 	   along the $PATH */
 	execv (name, argv);
 	/* if we get here, the execv() failed. So start magic ;-)) */
-	
+
 	KPRINTF(("execv failed\n"));
 
 	/* only continue if execv didn't find the program. */

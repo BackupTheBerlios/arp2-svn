@@ -49,6 +49,8 @@ static char rcsid[] = "$NetBSD: fread.c,v 1.6 1995/02/02 02:09:34 jtc Exp $";
 #include <stdio.h>
 #include <string.h>
 
+#define LARGEREADS	1
+
 size_t
 fread(buf, size, count, fp)
 	void *buf;
@@ -71,6 +73,42 @@ fread(buf, size, count, fp)
 		fp->_r = 0;
 	total = resid;
 	p = buf;
+#if LARGEREADS
+	r = fp->_r;
+	/* TODO: should limit to specific buffering modes? - Piru */
+	if (resid >= r + fp->_bf._size) {
+		/* empty current buffer first, if any - Piru */
+		if (r) {
+			(void)memcpy((void *)p, (void *)fp->_p, r);
+			fp->_r = 0;
+			fp->_p += r;
+			p += r;
+			resid -= r;
+		}
+
+		/* do large read - Piru */
+		if (resid) {
+			int actual;
+
+			actual = (*fp->_read)(fp->_cookie, (char *)p, resid);
+			/* TODO: should fill the buffer with max(fp->_bf._size, actual)
+			   from the end? - Piru */
+			if (actual <= 0) {
+				if (actual == 0) {
+					fp->_flags |= __SEOF;
+				}
+				else {
+					fp->_flags |= __SERR;
+				}
+			}
+			else {
+				resid -= actual;
+			}
+			return ((total - resid) / size);
+		}
+	}
+	else {
+#endif
 	while (resid > (r = fp->_r)) {
 		(void)memcpy((void *)p, (void *)fp->_p, (size_t)r);
 		fp->_p += r;
@@ -85,5 +123,8 @@ fread(buf, size, count, fp)
 	(void)memcpy((void *)p, (void *)fp->_p, resid);
 	fp->_r -= resid;
 	fp->_p += resid;
+#if LARGEREADS
+	}
+#endif
 	return (count);
 }

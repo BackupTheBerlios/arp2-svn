@@ -42,12 +42,11 @@ RM =            rm -f
 
 BASE =          no-baserel
 
-INCS =          -idirafter $(srcdir)/../include
-
 FLAVOR_CFLAGS =
 OTHER_CFLAGS =
 ALL_CFLAGS =    $(CFLAGS) $(FLAVOR_CFLAGS) $(OTHER_CFLAGS) $(INCS)
 
+INCS =          -I$(srcdir) -I$(srcdir)/../library -I$(srcdir)/../include
 LIB =           libglue.a
 LIB_P =         libglue_p.a
 SHELL =         /bin/sh
@@ -85,42 +84,19 @@ endif
 endif
 endif
 
-#$(LIB):         gen_glue
-#		rm -f *.o
-#		./gen_glue $(BASE)
-#		$(AR) r $@ *.o
-#		rm -f *.o
-
-$(LIB):         gen_asm_glue
-		rm -f *.o *.s
-		./gen_asm_glue $(BASE)
-		for file in *.s; do \
-		  echo $${file}; \
-		  $(AS) $${file} -o `basename $${file} .s`.o; \
-		done
+$(LIB):         gen_glue
+		rm -f *.o
+		./gen_glue $(BASE)
 		$(AR) r $@ *.o
-		rm -f *.o *.s
+		rm -f *.o
 
-#$(LIB_P):       gen_glue
-#		rm -f *.o
-#		./gen_glue profiling
-#		$(AR) r $@ *.o
-#		rm -f *.o
-
-$(LIB_P):       gen_asm_glue
-		rm -f *.o *.s
-		./gen_asm_glue profiling
-		for file in *.s; do \
-		  echo $${file}; \
-		  $(AS) $${file} -o `basename $${file} .s`.o; \
-		done
+$(LIB_P):       gen_glue
+		rm -f *.o
+		./gen_glue profiling
 		$(AR) r $@ *.o
-		rm -f *.o *.s
+		rm -f *.o
 
-gen_glue:       gen_glue.c $(srcdir)/../include/sys/ixemul_syscall.def
-		$(CC) $(ALL_CFLAGS) $< -o $@
-
-gen_asm_glue:	gen_asm_glue.c $(srcdir)/../include/sys/ixemul_syscall.def
+gen_glue:       $(srcdir)/gen_glue.c $(srcdir)/../include/sys/syscall.def
 		$(CC) $(ALL_CFLAGS) $< -o $@
 
 clean:

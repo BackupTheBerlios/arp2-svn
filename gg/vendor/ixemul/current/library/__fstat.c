@@ -51,12 +51,8 @@ __fstat(struct file *f)
 {
   long len, pos, bytesperblock;
   struct FileInfoBlock *fib;
-#ifdef __pos__
-  struct pOS_DosInfoData *info;
-#else
   struct InfoData *info;
   BPTR lock;
-#endif
   int omask;
   BOOL res;
   int is_interactive = IsInteractive(CTOBPTR(f->f_fh));
@@ -76,7 +72,7 @@ __fstat(struct file *f)
     {
       st->st_mode = S_IFCHR | 0777;
       st->st_nlink = 1;
-      st->st_blksize = ix.ix_fs_buf_factor * 512;
+      st->st_blksize = 512;
       st->st_blocks = 0;
       goto end;
     }
@@ -115,11 +111,7 @@ __fstat(struct file *f)
 
       /* some kind of a default-size for directories... */
       st->st_size = fib->fib_DirEntryType < 0 ? fib->fib_Size : 1024; 
-#ifdef __pos__
-      st->st_handler = (long)f->f_fh->fh_DosDev;
-#else
       st->st_handler = (long)f->f_fh->fh_Type;
-#endif
       st->st_dev = (dev_t)st->st_handler; /* trunc to 16 bit */
       st->st_ino = get_unique_id(NULL, f->f_fh);
       st->st_atime =
@@ -157,11 +149,7 @@ __fstat(struct file *f)
 			S_IFREG | (0666 & ~u.u_cmask) : S_IFCHR | 0777;
 	}
 
-#ifdef __pos__
-      st->st_handler = (long)f->f_fh->fh_DosDev;
-#else
       st->st_handler = (long)f->f_fh->fh_Type;
-#endif
       /* the following is a limited try to support programs, that assume that
        * st_dev is always valid */
       st->st_dev = (dev_t)(long)st->st_handler; /* truncate to 16 bit */
@@ -188,11 +176,6 @@ __fstat(struct file *f)
   bytesperblock = 0;
   if (S_ISREG(st->st_mode))
   {
-#ifdef __pos__
-    res = pOS_GetDosInfoDataFH(f->f_fh, (void *)info);
-    if (res && info->id_Mount && info->id_Mount->dmd_Type == DMDTYP_BOD)
-      bytesperblock = info->id_Mount->dmd_U.dmd_BOD.dmbod_BytesPerBlock;
-#else
     lock = DupLockFromFH(CTOBPTR(f->f_fh));
     if (lock)
       {
@@ -201,15 +184,12 @@ __fstat(struct file *f)
       }
     if (res && info->id_BytesPerBlock)
       bytesperblock = info->id_BytesPerBlock;
-#endif
   }
 
   st->st_blksize = 0;
   if (res && bytesperblock)
     {
       st->st_blksize = bytesperblock;
-      if (!is_interactive && S_ISREG(st->st_mode))
-	st->st_blksize *= ix.ix_fs_buf_factor;
       if (!st->st_blocks) 
 	st->st_blocks = ((st->st_size + bytesperblock - 1) / bytesperblock);
       else

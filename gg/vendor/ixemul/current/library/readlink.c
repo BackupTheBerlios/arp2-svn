@@ -16,18 +16,7 @@
  *  License along with this library; if not, write to the Free
  *  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- *  readlink.c,v 1.1.1.1 1994/04/04 04:30:31 amiga Exp
- *
- *  readlink.c,v
- * Revision 1.1.1.1  1994/04/04  04:30:31  amiga
- * Initial CVS check in.
- *
- *  Revision 1.2  1992/05/18  12:22:32  mwild
- *  set errno, and only send READLINK packet if the file really is a symlink
- *
- * Revision 1.1  1992/05/14  19:55:40  mwild
- * Initial revision
- *
+ *  $Id: readlink.c,v 1.3 2002/07/01 20:38:48 emm Exp $
  */
 
 #define _KERNEL
@@ -44,6 +33,8 @@
 #define ACTION_READ_LINK 1024
 #endif
 
+#if 0
+
 struct readlink_vec {
   char *buf;
   int bufsize;
@@ -52,9 +43,6 @@ struct readlink_vec {
 static int
 __readlink_func (struct lockinfo *info, struct readlink_vec *rv, int *error)
 {
-#ifdef __pos__
-  info->result = 0;   /* not yet supported */
-#else
   struct StandardPacket *sp = &info->sp;
 
   /* this baby uses CSTRings, absolutely unique... */
@@ -66,9 +54,8 @@ __readlink_func (struct lockinfo *info, struct readlink_vec *rv, int *error)
 
   PutPacket (info->handler, sp);
   __wait_sync_packet (sp);
-  
+
   info->result = sp->sp_Pkt.dp_Res1;
-#endif
 
   *error = info->result <= 0;
 
@@ -82,9 +69,9 @@ int readlink(const char *path, char *buf, int bufsiz)
   struct stat stb;
   int rc;
   usetup;
-  
+
   /* readlink is buggy in the current fs release (37.26 here), in that
-     it reports OBJECT_NOT_FOUND if a file is present but not a 
+     it reports OBJECT_NOT_FOUND if a file is present but not a
      symbolic link */
   if (syscall(SYS_lstat, path, &stb) == 0)
     {
@@ -92,7 +79,7 @@ int readlink(const char *path, char *buf, int bufsiz)
 	{
 	  rv.buf = alloca(bufsiz);
 	  rv.bufsize = bufsiz;
-  
+
 	  rc = __plock ((char *)path, __readlink_func, &rv);
 	  if (rc <= 0)
 	    {
@@ -126,6 +113,76 @@ int readlink(const char *path, char *buf, int bufsiz)
   /* errno should be set already by lstat() */
   return -1;
 }
+
+#else
+
+char *ix_to_ados(char *, const char *);
+
+int readlink(const char *path, char *buf, int bufsiz)
+{
+  struct stat stb;
+  int rc = 0;
+  int omask;
+  usetup;
+
+  /* readlink is buggy in the current fs release (37.26 here), in that
+     it reports OBJECT_NOT_FOUND if a file is present but not a
+     symbolic link */
+  if (syscall(SYS_lstat, path, &stb) == 0)
+    {
+      if (S_ISLNK (stb.st_mode))
+	{
+	  char *apath = alloca(strlen(path) + 3);
+	  char *dest = alloca(bufsiz);
+	  struct DevProc *dvp;
+
+	  apath = ix_to_ados(apath, path);
+
+	  omask = syscall(SYS_sigsetmask, ~0);
+
+	  dvp = GetDeviceProc(apath, NULL);
+	  if (dvp)
+	    {
+	      rc = ReadLink(dvp->dvp_Port, dvp->dvp_Lock, apath, dest, bufsiz);
+	      FreeDeviceProc(dvp);
+	    }
+
+	  syscall(SYS_sigsetmask, omask);
+
+	  if (rc == 0)
+	    {
+	      errno = __ioerr_to_errno (IoErr ());
+	      KPRINTF (("&errno = %lx, errno = %ld\n", &errno, errno));
+	    }
+	  else
+	    {
+	      int len = a2u(NULL, dest);
+	      char *p = alloca(len);
+
+	      a2u(p, dest);
+	      if (p[0] == '.' && p[1] == '/')  /* skip ./ */
+	      {
+		p += 2;
+		len -= 2;
+	      }
+	      rc = (len - 1 < bufsiz ? len - 1 : bufsiz);
+	      memcpy(buf, p, rc);
+	      if (rc < bufsiz)
+		buf[rc] = '\0';
+	    }
+	  return rc > 0 ? rc : -1;
+	}
+      else
+	{
+	  errno = EINVAL;
+	  KPRINTF (("&errno = %lx, errno = %ld\n", &errno, errno));
+	}
+    }
+  /* errno should be set already by lstat() */
+  return -1;
+}
+
+#endif
 
 int a2u(char *buf, char *src)
 {

@@ -6,8 +6,9 @@
  *  This source is placed in the public domain.
  */
 
+#if 0
 #undef FOR_LIBC // No longer supported since pOS is dead...
-#if defined(__pos__) || defined(FOR_LIBC)
+#if defined(FOR_LIBC)
 
 #define _KERNEL
 #include <ixemul.h>
@@ -34,7 +35,7 @@ void KPrintF(const char *format, ...)
 }
 #endif
 
-#if !defined(__i386__) && !defined(NATIVE_MORPHOS) && (!defined(__pos__) || defined(FOR_LIBC))
+#if !defined(NATIVE_MORPHOS) && defined(FOR_LIBC)
 asm("
 	.globl  _KPrintF
 
@@ -53,15 +54,10 @@ KDoFmt:
 	rts
 
 _KPrintF:
-"
-#ifdef FOR_LIBC
-"
 	movel   "A4(_ix_os)",d0
 	cmpil   #0x704F5300,d0
 	beqs    _pos_kprintf
-"
-#endif
-"       lea     sp@(4),a1
+	   lea     sp@(4),a1
 	movel   a1@+,a0
 	movel   a2,sp@-
 	lea     KPutChar,a2
@@ -70,4 +66,5 @@ _KPrintF:
 	rts
 ");
 
+#endif
 #endif

@@ -18,9 +18,19 @@
  *  License along with this library; if not, write to the Free
  *  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- *  $Id: ix_startup.c,v 1.5 2000/09/18 21:28:19 emm Exp $
+ *  $Id: ix_startup.c,v 1.8 2003/12/13 02:56:54 zapek Exp $
  *
  *  $Log: ix_startup.c,v $
+ *  Revision 1.8  2003/12/13 02:56:54  zapek
+ *  network now defaults to amitcp
+ *  removed a few warnings
+ *
+ *  Revision 1.7  2002/07/01 20:38:48  emm
+ *  Got rid of __plock(). Beware of potential compatibility problems.
+ *
+ *  Revision 1.6  2002/06/14 17:23:30  laire
+ *  removed __pos__. Needs a test(i couldn^t)
+ *
  *  Revision 1.5  2000/09/18 21:28:19  emm
  *  Moved WB message handling in ix_open. Fixed a race condition in memory management.
  *
@@ -84,7 +94,7 @@ ix_startup (char *aline, int alen,
 
   /*
    * The following code to reset the fpu might not be necessary, BUT since
-   * a CLI shell doesn't spawn a new process when executing a command - it 
+   * a CLI shell doesn't spawn a new process when executing a command - it
    * insteads calls the command like a subroutine - it depends on the Shell
    * whether the fpu is setup correctly. And I don't like to depend on any
    * thing ;-)
@@ -94,13 +104,9 @@ ix_startup (char *aline, int alen,
   /* first deal with WB messages, since those HAVE to be answered properly,
    * even if we should fail later (memory, whatever..) */
 
-#ifndef __pos__
   if (proc->pr_CLI)
-#endif
     {
-#ifndef __pos__
       struct CommandLineInterface *cli = (void *)BADDR(proc->pr_CLI);
-#endif
       long segs;
 
       /* for usage by sys_exit() for example */
@@ -109,30 +115,11 @@ ix_startup (char *aline, int alen,
       u.u_arglinelen = alen;
       u.u_segs = &mySeg;
       u.u_segs->name = NULL;
-#ifdef __pos__
-      segs = proc->pr_SegList;
-      u.u_segs->segment = (void *)segs;
-      {
-	struct pOS_SegmentInfo SI = { sizeof(struct pOS_SegmentInfo) };
-	struct pOS_Segment *Seg;
-    
-	for (Seg = &u.u_segs->segment->sel_Seg; Seg; Seg = Seg->seg_Next)
-	{
-	  if (pOS_GetSegmentPtrInfo(u.u_segs->segment, Seg, NULL, &SI) && SI.segi_HunkType == HUNKTYP_Code)
-	  {
-	    u.u_start_pc = (int)SI.segi_StartAddress;
-	    u.u_end_pc = SI.segi_SegmSize + u.u_start_pc;
-	    break;
-	  }
-	}
-      }
-#else
       segs = cli->cli_Module;
       u.u_segs->segment = segs;
       segs <<= 2;
       u.u_start_pc = segs + 4;
       u.u_end_pc = segs + *(long *)(segs - 4) - 8;
-#endif
     }
 
   u.u_expand_cmd_line = expand;
@@ -163,14 +150,10 @@ KPRINTF(("a7=%lx: %08lx %08lx %08lx %08lx %08lx %08lx %08lx %08lx\n",
       syscall (SYS_sigsetmask, 0);
       /* the first time thru call the program */
       KPRINTF (("calling __main()\n"));
-#ifdef __pos__
-      _main(aline, alen, main);
-#else
       if (proc->pr_CLI)
 	_main(aline, alen, main);
       else
 	_main(u.u_wbmsg, wb_default_window, main);
-#endif
       /* NORETURN */
     }
   /* in this case we came from a longjmp-call */
@@ -187,12 +170,12 @@ KPRINTF(("a7=%lx: %08lx %08lx %08lx %08lx %08lx %08lx %08lx %08lx\n",
 
   __ix_remove_sigwinch ();
 
-  /* had to move the closing of files out of ix_close(), as close() may 
+  /* had to move the closing of files out of ix_close(), as close() may
      actually wait for the last packet to arrive, and inside ix_close() we're
      inside Forbid, and may thus never wait! */
 
   /* close all files */
-  for (fd = 0; fd < NOFILE; fd++) 
+  for (fd = 0; fd < NOFILE; fd++)
     if (u.u_ofile[fd]) syscall (SYS_close, fd);
 
   /* if at all possible, free memory before entering Forbid ! (Semaphore
@@ -209,7 +192,7 @@ KPRINTF(("a7=%lx: %08lx %08lx %08lx %08lx %08lx %08lx %08lx %08lx\n",
     send_death_msg(&u);
   Permit();
 
-  KPRINTF(("ix_startup: exiting\n"));
+  KPRINTF(("ix_startup: exiting (%ld)\n", exit_val));
 /*{int* p=(int*)get_sp();
 KPRINTF(("r1=%lx: %08lx %08lx %08lx %08lx %08lx %08lx %08lx %08lx\n",
 	 p, p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7]));
@@ -231,10 +214,10 @@ _trampoline_ix_startup (void)
   int alen = p[2];
   int expand = p[3];
   char *wb_default_window = (char *)p[4];
-  u_int main = p[5];
-  int *real_errno = p[6];
+  u_int mainfunc = p[5];
+  int *real_errno = (int *)p[6];
 
-  return ix_startup(aline, alen, expand, wb_default_window, main^1, real_errno);
+  return ix_startup(aline, alen, expand, wb_default_window, mainfunc^1, real_errno);
 }
 
 struct EmulLibEntry _gate_ix_startup = {

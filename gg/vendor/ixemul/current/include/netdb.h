@@ -40,12 +40,18 @@
 
 #define _PATH_HEQUIV            "/etc/hosts.equiv"
 #define _PATH_HOSTS             "/etc/hosts"
-#define _TCP_PATH_NETWORKS      "/AmiTCP/db/networks"
 #define _PATH_NETWORKS          "/etc/networks"
 #define _PATH_PROTOCOLS         "/etc/protocols"
-#define _TCP_PATH_PROTOCOLS     "/AmiTCP/db/protocols"
 #define _PATH_SERVICES          "/etc/services"
+#ifdef __MORPHOS__
+#define _TCP_PATH_NETWORKS      "/MOSSYS/net/db/networks"
+#define _TCP_PATH_PROTOCOLS     "/MOSSYS/net/db/protocols"
+#define _TCP_PATH_SERVICES      "/MOSSYS/net/db/services"
+#else
+#define _TCP_PATH_NETWORKS      "/AmiTCP/db/networks"
+#define _TCP_PATH_PROTOCOLS     "/AmiTCP/db/protocols"
 #define _TCP_PATH_SERVICES      "/AmiTCP/db/services"
+#endif
 
 /*
  * Structures returned by network data base library.  All addresses are

@@ -345,6 +345,33 @@ falloc(struct file **resultfp, int *resultfd)
 
   ix_lock_base ();
 
+#if USE_DYNFILETAB
+
+  {
+    struct MinNode *node;
+    node = REMHEAD(&ix.ix_free_file_list);
+    if (node)
+    {
+      fp = (void *) (node + 1);
+      ADDHEAD(&ix.ix_used_file_list, node);
+      goto slot;
+    }
+
+    node = kmalloc(sizeof(struct MinNode) + sizeof(struct file));
+    if (node)
+    {
+      fp = (void *) (node + 1);
+      memset(fp, 0, sizeof(struct file));
+      ADDHEAD(&ix.ix_used_file_list, node);
+      goto slot;
+    }
+
+    //ix_warning("ixemul.library out of memory!");
+    error = ENOMEM;
+  }
+
+#else
+
   if (ix.ix_lastf == 0)
     ix.ix_lastf = ix.ix_file_tab;
 
@@ -360,8 +387,12 @@ falloc(struct file **resultfp, int *resultfd)
    * unfortunately all code accessing file structures will then have
    * to be changed as well, and this is a job for later improvement,
    * first goal is to get this baby working... */
+
   ix_warning("ixemul.library file table full!");
   error = ENFILE;
+
+#endif
+
   goto do_ret;
 
 slot:
@@ -371,7 +402,9 @@ slot:
   fp->f_count = 1;
   fp->f_type = 0;               /* inexistant type ;-) */
   memset(&fp->f__fh, 0, sizeof(fp->f__fh));
+#if !USE_DYNFILETAB
   ix.ix_lastf = fp + 1;
+#endif
   if (resultfp)
     *resultfp = fp;
   if (resultfd)
@@ -383,6 +416,22 @@ do_ret:
   ix_unlock_base();
 
   return error;
+}
+
+
+void ffree(struct file *f)
+{
+#if USE_DYNFILETAB
+  if (f)
+  {
+    struct MinNode *node = ((struct MinNode *) f) - 1;
+
+    /* Remove from ix_used_file_list */
+    REMOVE(node);
+
+    ADDHEAD(&ix.ix_free_file_list, node);
+  }
+#endif
 }
 
 

@@ -25,26 +25,32 @@
 
 #include <exec/memory.h>
 #include <dos/var.h>
+#include <hardware/intbits.h>
 
 #include <string.h>
 #include <unistd.h>
 
+#ifdef TRACK_ALLOCS
+#undef AllocMem
+#undef FreeMem
+#define AllocMem(x,y) debug_AllocMem("init",x,y)
+#define FreeMem(x,y) debug_FreeMem(x,y)
+void *debug_AllocMem(const char *,int, int);
+void debug_FreeMem(int,int);
+#endif
+
 /* not changed after the library is initialized */
 struct ixemul_base              *ixemulbase = NULL;
 
-#ifdef __pos__
-struct pOS_ExecBase             *SysBase = NULL;
-struct pOS_ExecLibFunction      *gb_ExecLib = NULL;
-struct pOS_DosBase              *DOSBase = NULL;
-#else
 struct ExecBase                 *SysBase = NULL;
 struct DosLibrary               *DOSBase = NULL;
-#endif
 
+#ifndef __MORPHOS__
 #ifndef __HAVE_68881__
 struct MathIeeeSingBasBase      *MathIeeeSingBasBase = NULL;
 struct MathIeeeDoubBasBase      *MathIeeeDoubBasBase = NULL;
 struct MathIeeeDoubTransBase    *MathIeeeDoubTransBase = NULL;
+#endif
 #endif
 
 struct Library                  *muBase = NULL;
@@ -58,15 +64,13 @@ static struct
 }
 ix_libs[] =
 {
-#ifdef __pos__
-  { (void **)&DOSBase, "pdos.library", 0 },
-#else
   { (void **)&DOSBase, "dos.library", 37 },
-#endif
+#ifndef __MORPHOS__
 #ifndef __HAVE_68881__
   { (void **)&MathIeeeSingBasBase, "mathieeesingbas.library" },
   { (void **)&MathIeeeDoubBasBase, "mathieeedoubbas.library" },
   { (void **)&MathIeeeDoubTransBase, "mathieeedoubtrans.library" },
+#endif
 #endif
   { NULL, NULL }
 };
@@ -81,6 +85,7 @@ ULONG timer_resolution;
 struct framemsg;
 void handle_framemsg(struct framemsg *);
 #endif
+void safe_psignal(struct Task *, int);
 
 static void ix_task_switcher(void)
 {
@@ -144,7 +149,12 @@ static void ix_task_switcher(void)
   else
     {
       while (ix.ix_task_switcher == me)
-	Wait(SIGBREAKF_CTRL_C);
+      {
+	sigs = Wait((1 << 30) | SIGBREAKF_CTRL_C);
+
+	if (sigs & (1 << 30))
+	  ix.ix_env_has_changed = 1;
+      }
     }
 
   Forbid();
@@ -169,7 +179,7 @@ int open_libraries(void)
 void close_libraries(void)
 {
   int i;
-  
+
   for (i = 0; ix_libs[i].base; i++)
     if (*ix_libs[i].base)
       CloseLibrary(*ix_libs[i].base);
@@ -191,23 +201,24 @@ struct ixemul_base *ix_init (struct ixemul_base *ixbase)
       return 0;
     }
 
+#if USE_DYNFILETAB
+  NEWLIST((struct List *) &ixbase->ix_free_file_list);
+  NEWLIST((struct List *) &ixbase->ix_used_file_list);
+#else
   ixbase->ix_file_tab = (struct file *)AllocMem (NOFILE * sizeof(struct file), MEMF_PUBLIC | MEMF_CLEAR);
   ixbase->ix_fileNFILE = ixbase->ix_file_tab + NOFILE;
   ixbase->ix_lastf = ixbase->ix_file_tab;
-  
+#endif
+
   memset(&ixbase->ix_notify_request, 0, sizeof(ixbase->ix_notify_request));
   memset(&ixbase->ix_ptys, 0, sizeof(ixbase->ix_ptys));
-  
+
   ixnewlist(&timer_wait_queue);
   ixnewlist(&timer_ready_queue);
   ixnewlist(&timer_task_list);
   ixnewlist(&ixbase->ix_detached_processes);
 
-#ifdef __pos__
-  timer_resolution = 1000000 / 50;
-#else
   timer_resolution = 1000000 / SysBase->VBlankFrequency;
-#endif
 
   /* Read the GMT offset. This environment variable is 5 bytes long. The
      first 4 form a long that contains the offset in seconds and the fifth
@@ -226,10 +237,8 @@ struct ixemul_base *ix_init (struct ixemul_base *ixbase)
   if (GetVar("HOSTNAME", buf, 64, 0) > 0)
     strcpy(hostname, buf);
 
-#ifndef __pos__
   if (ixbase->ix_flags & ix_support_mufs)
     muBase = OpenLibrary("multiuser.library", 39);
-#endif
 
   /* initialize the list structures for the allocator */
   init_buddy ();
@@ -247,20 +256,15 @@ struct ixemul_base *ix_init (struct ixemul_base *ixbase)
   KPRINTF(("Task switcher      = %lx\n", ixbase->ix_task_switcher));
   KPRINTF(("Task switcher port = %lx\n", ixbase->ix_task_switcher_port));
 
-#ifdef __pos__
-  pOS_ConstructDosSigNotify(&ixbase->ix_notify_request, "ENV:", 0, (struct pOS_Task *)ixbase->ix_task_switcher, 30);
-#else
   ixbase->ix_notify_request.nr_stuff.nr_Signal.nr_Task = ixbase->ix_task_switcher;
   ixbase->ix_notify_request.nr_stuff.nr_Signal.nr_SignalNum = 30;
   ixbase->ix_notify_request.nr_Name = "ENV:";
   ixbase->ix_notify_request.nr_Flags = NRF_SEND_SIGNAL;
-#endif
 
   /* initialize port number for AF_UNIX(localhost) sockets */
   ixbase->ix_next_free_port = 1024;
 
-#if 0
-ndef __pos__ /* TODO */
+#ifdef NATIVE_MORPHOS
   if (ixbase->ix_task_switcher)
     {
       extern int ix_timer();
@@ -269,13 +273,25 @@ ndef __pos__ /* TODO */
       ixbase->ix_itimerint.is_Node.ln_Name = "ixemul timer interrupt";
       ixbase->ix_itimerint.is_Node.ln_Pri = 1;
       ixbase->ix_itimerint.is_Data = (APTR)0;
+#ifdef NATIVE_MORPHOS
+      {
+	static struct EmulLibEntry gate = { TRAP_LIBSRNR, 0, (void(*)())ix_timer };
+	ixbase->ix_itimerint.is_Code    = (APTR) &gate;
+      }
+#else
       ixbase->ix_itimerint.is_Code = (APTR)ix_timer;
+#endif
 
       AddIntServer(INTB_VERTB, &ixbase->ix_itimerint);
     }
 #endif
 
-  if (ixbase->ix_file_tab
+  if (
+#if USE_DYNFILETAB
+      1
+#else
+      ixbase->ix_file_tab
+#endif
 #ifndef NATIVE_MORPHOS
       && ixbase->ix_task_switcher_port
 #endif
@@ -287,20 +303,20 @@ ndef __pos__ /* TODO */
       ixbase->ix_global_environment = NULL;
       ixbase->ix_env_has_changed = 0;
 
-#ifdef __pos__
-      ixbase->ix_added_notify = pOS_DosStartNotify(&ixbase->ix_notify_request);
-#else
       StartNotify(&ixbase->ix_notify_request);
-#endif
       seminit();
+
+      ixbase->ix_semaphore.lock.ss_Link.ln_Name = "Ixemul";
+      ixbase->ix_semaphore.lock.ss_Link.ln_Pri = 0;
+      ixbase->ix_semaphore.send_signal = safe_psignal;
+      AddSemaphore(&ixbase->ix_semaphore.lock);
 
       return ixbase;
     }
 
   if (ixbase->ix_task_switcher)
     {
-#if 0
-ndef __pos__
+#ifdef NATIVE_MORPHOS
       RemIntServer(INTB_VERTB, &ixbase->ix_itimerint);
 #endif
 
@@ -313,13 +329,30 @@ ndef __pos__
 	Wait(SIGBREAKF_CTRL_C);
     }
 
+#if USE_DYNFILETAB
+  {
+    struct MinNode *node, *node2;
+    ForeachNodeSafe(&ix.ix_free_file_list, node, node2)
+    {
+      kfree(node);
+    }
+    /* should be empty here! */
+    ForeachNodeSafe(&ix.ix_used_file_list, node, node2)
+    {
+      kfree(node);
+    }
+    //NEWLIST((struct List *) &ixbase->ix_free_file_list);
+    //NEWLIST((struct List *) &ixbase->ix_used_file_list);
+  }
+#else
   if (ixbase->ix_file_tab)
     FreeMem (ixbase->ix_file_tab, NOFILE * sizeof(struct file));
   else
     ix_panic ("out of memory");
+#endif
 
   close_libraries();
-  
+
   return 0;
-}      
+}
 

@@ -66,13 +66,23 @@ vsnprintf(str, n, fmt, ap)
 	int ret;
 	FILE f;
 
-	if ((int)n < 1)
-		return (EOF);
 	f._flags = __SWR | __SSTR;
-	f._bf._base = f._p = (unsigned char *)str;
-	f._bf._size = f._w = n - 1;
+	/* To be compatible with glibc, we need to handle the special case where n is 0. */
+	if ((int)n < 1)
+	{
+		f._bf._base = f._p = (void *)-1;
+		f._bf._size = f._w = 0;
+	}
+	else
+	{
+		f._bf._base = f._p = (unsigned char *)str;
+		f._bf._size = f._w = n - 1;
+	}
 	ret = vfprintf(&f, fmt, ap);
-	*f._p = 0;
+	if (f._p != (void *)-1)
+	{
+		*f._p = 0;
+	}
 	return (ret);
 }
 

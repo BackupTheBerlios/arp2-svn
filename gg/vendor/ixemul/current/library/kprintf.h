@@ -21,6 +21,9 @@
 #define KPrintF dprintf
 #endif
 
+#include <proto/exec.h>
+#include <exec/execbase.h>
+
 extern void KPrintF(char *, ...);
 
 #define KPRINTF_WHERE           do { KPrintF ("%08lx:%s:%ld: ", SysBase->ThisTask, __FILE__, __LINE__); } while (0)

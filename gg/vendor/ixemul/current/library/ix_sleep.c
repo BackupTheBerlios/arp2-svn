@@ -17,35 +17,8 @@
  *  License along with this library; if not, write to the Free
  *  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- *  $Id: ix_sleep.c,v 1.5 2001/06/01 17:40:12 emm Exp $
+ *  $Id: ix_sleep.c,v 1.7 2005/01/05 11:56:44 emm Exp $
  *
- *  $Log: ix_sleep.c,v $
- *  Revision 1.5  2001/06/01 17:40:12  emm
- *  Simplified signal handling. Minor old fixes.
- *
- *  Revision 1.4  2000/09/05 21:00:03  emm
- *  Fixed some bugs. Deadlocks, memory trashing, ...
- *
- *  Revision 1.3  2000/06/20 22:17:23  emm
- *  First attempt at a native MorphOS ixemul
- *
- *  Revision 1.2  2000/05/18 19:52:07  emm
- *  MorphOS support added. Not fully working.
- *
- *  Revision 1.1.1.1  2000/05/07 19:38:09  emm
- *  Imported sources
- *
- *  Revision 1.2  2000/05/04 19:33:59  nobody
- *  Replaced tc_Launch polling by exceptions
- *
- *  Revision 1.1.1.1  2000/04/29 00:48:29  nobody
- *  Initial import
- *
- *  Revision 1.4  1994/06/19  15:13:19  rluebbert
- *  *** empty log message ***
- *
- * 
- * 
  */
 
 #define _KERNEL
@@ -71,7 +44,7 @@ ix_hash (u_int waitchan)
 
   res = (waitchan >> 16) ^ (waitchan & 0xffff);
   res %= IX_NUM_SLEEP_QUEUES;
-  return res; 
+  return res;
 }
 
 int
@@ -103,13 +76,15 @@ KPRINTF(("tsleep(%s, %lx), p_sig = %lx, mask = %lx\n", wmesg, waitchan, u.p_sig,
   u.p_wchan = (caddr_t) waitchan;
   u.p_wmesg = wmesg;
   the_list = &ixemulbase->ix_sleep_queues[ix_hash((u_int)waitchan)];
-  
+
   sm.sm_signal = u.u_sleep_sig;
 
   wait_sigs =  (1 << sm.sm_signal) | SIGBREAKF_CTRL_C;
-  
+
+#if 0
   if (timo)
     {
+      #warning "This looks all wrong. Apparently timo is always 0 though. - Piru"
       __time_req->tr_time.tv_sec = timo % 60;
       __time_req->tr_time.tv_usec = timo / 60;
       __time_req->tr_node.io_Command = TR_ADDREQUEST;
@@ -117,6 +92,7 @@ KPRINTF(("tsleep(%s, %lx), p_sig = %lx, mask = %lx\n", wmesg, waitchan, u.p_sig,
       SendIO((struct IORequest *)__time_req);
       wait_sigs |= 1 << __tport->mp_SigBit;
     }
+#endif
 
 KPRINTF(("forbid\n"));
   Forbid();
@@ -145,11 +121,13 @@ KPRINTF(("... wait() = %08lx, TDNestCnt = %ld\n", res, SysBase->TDNestCnt));
 KPRINTF(("permit\n"));
   Permit();
 
+#if 0
   if (timo)
     {
       AbortIO ((struct IORequest *)__time_req);
       WaitIO ((struct IORequest *)__time_req);
     }
+#endif
 
   u.p_wchan = 0;
   u.p_wmesg = 0;

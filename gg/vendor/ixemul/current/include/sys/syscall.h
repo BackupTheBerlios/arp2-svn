@@ -17,13 +17,13 @@
  *  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#ifndef _SYS_IXEMUL_SYSCALL_H
-#define _SYS_IXEMUL_SYSCALL_H
+#ifndef _SYS_SYSCALL_H
+#define _SYS_SYSCALL_H
 
-#define SYSTEM_CALL(func, vec, args) SYS_##func = vec,
+#define SYSTEM_CALL(func, vec, args, stk) SYS_##func = vec,
 
 enum _syscall_ {
-#include <sys/ixemul_syscall.def>
+#include <sys/syscall.def>
 #undef SYSTEM_CALL
 };
 

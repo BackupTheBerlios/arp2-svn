@@ -30,15 +30,6 @@
 #define _KERNEL
 #include "ixemul.h"
 
-#ifdef __pos__
-void
-__init_std_packet(struct StandardPacket *sp)
-{
-  struct pOS_DosIOReq *io = (void *)sp;
-
-  io->dr_Message.mn_ReplyPort = 0;
-}
-#else
 void
 __init_std_packet(struct StandardPacket *sp)
 {
@@ -48,4 +39,3 @@ __init_std_packet(struct StandardPacket *sp)
   sp->sp_Pkt.dp_Res2 =
   sp->sp_Msg.mn_Node.ln_Type = 0;
 }
-#endif

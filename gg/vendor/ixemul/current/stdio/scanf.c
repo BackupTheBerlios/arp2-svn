@@ -78,5 +78,51 @@ _varargs68k_scanf(char const *fmt, char *ap1)
 	return __svfscanf(stdin, fmt, ap);
 }
 
+asm("	.section \".text\"
+	.type	_stk_scanf,@function
+	.globl	_stk_scanf
+_stk_scanf:
+	andi.	11,1,15
+	mr	12,1
+	bne-	.align_scanf
+	b	scanf
+.align_scanf:
+	addi	11,11,128
+	mflr	0
+	neg	11,11
+	stw	0,4(1)
+	stwux	1,1,11
+
+	stw	4,12(1)
+	stw	5,16(1)
+	stw	6,20(1)
+	stw	7,24(1)
+	stw	8,28(1)
+	stw	9,32(1)
+	stw	10,36(1)
+	bc	4,6,.nofloat_scanf
+	stfd	1,40(1)
+	stfd	2,48(1)
+	stfd	3,56(1)
+	stfd	4,64(1)
+	stfd	5,72(1)
+	stfd	6,80(1)
+	stfd	7,88(1)
+	stfd	8,96(1)
+.nofloat_scanf:
+
+	addi	4,1,104
+	lis	0,0x100
+	addi	12,12,8
+	addi	11,1,8
+	stw	0,0(4)
+	stw	12,4(4)
+	stw	11,8(4)
+	bl	vscanf
+	lwz	1,0(1)
+	lwz	0,4(1)
+	mtlr	0
+	blr
+");
 #endif
 

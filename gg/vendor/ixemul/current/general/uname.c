@@ -34,9 +34,7 @@
 #include <unistd.h>
 #include <exec/resident.h>
 
-#ifdef __pos__
-static char sysname[] = "pOS";
-#elif defined(__MORPHOS__)
+#if defined(__MORPHOS__)
 static char sysname[] = "MorphOS";
 #else
 static char sysname[] = "AmigaOS";
@@ -60,11 +58,50 @@ uname (struct utsname *name)
       if (gethostname(&host[0],__SYS_NMLN) == 0)
 	{
 	  
-	  if (m_res = FindResident("MorphOS"))
+	  if ((m_res = FindResident("MorphOS")))
 	    {
 	      strncpy (name->sysname, "MorphOS", __SYS_NMLN);
+#if 1
+	      /* Proper code to get release & version strings - Piru
+	       */
+#ifdef __MORPHOS__
+	      /* old includes lack RTF_EXTENDED and rt_Revision */
+	      if (m_res->rt_Flags & RTF_EXTENDED)
+	      {
+	        sprintf(release, "%d.%d", m_res->rt_Version, m_res->rt_Revision);
+	      }
+	      else
+#endif
+	      {
+	        /* Anchient MorphOS: parse string (example): MorphOS ID 0.4 (dd.mm.yyyy) */
+	        CONST_STRPTR ps = m_res->rt_IdString;
+	        CONST_STRPTR p = ps;
+	        STRPTR d = release;
+	        if (p && *p)
+	        {
+	          while (*p && *p != '.') p++;
+	          if (*p)
+	          {
+	            while (p > ps && p[-1] != ' ') p--;
+
+	            while (*p && *p != ' ')
+	            {
+	              *d++ = *p++;
+	            }
+	            *d = '\0';
+	          }
+	        }
+	        if ((char *) d == release)
+	        {
+	          /* oops, no clue of revision */
+	          sprintf(release, "%d.?", m_res->rt_Version);
+	        }
+	      }
+	      sprintf(version, "%d.%d", SysBase->LibNode.lib_Version, SysBase->SoftVer);
+#else
 	      strcpy(release, "0.1"); /* shrug */
 	      sprintf(version, "%hd", m_res->rt_Version);
+#endif
 	      strcpy(machine, "powerpc");
 	    }
 	  else

@@ -42,7 +42,7 @@
 
 #ifdef __MORPHOS__
 #define CreatePort(x,y) CreateMsgPort()
-#define DeletePort 	DeleteMsgPort
+#define DeletePort	DeleteMsgPort
 #endif
 
 #define OUT_WIDTH  80   /* big enough (>30) to hold first information */
@@ -113,7 +113,7 @@ main (int argc, char *argv[])
 				{       tp.tp_syscall = i;
 					notfound=0;
 					break;
-				}               
+				}
 		}
 		if (notfound)
 		{
@@ -134,7 +134,7 @@ main (int argc, char *argv[])
       case 'p':
 	tp.tp_pid = atoi (optarg);
 	break;
-	
+
       case 'n':
 	skip_calls = atoi (optarg);
 	if (skip_calls < 0)
@@ -143,7 +143,7 @@ main (int argc, char *argv[])
 	  exit(1);
 	}
 	break;
-	
+
       case 's':
 	if (!isdigit(optarg[0]))
 	{
@@ -175,7 +175,7 @@ main (int argc, char *argv[])
 					{       call_table[i].interesting=0;
 						notfound=0;
 						break;
-					}               
+					}
 			}
 			if (notfound) fprintf(stderr,"[%s] is unknown to ixtrace, try again\n"
 										, calls);
@@ -207,7 +207,7 @@ main (int argc, char *argv[])
 					{       call_table[i].interesting=1;
 						notfound=0;
 						break;
-					}               
+					}
 			}
 			if (notfound) fprintf(stderr,"[%s] is unknown to ixtrace, try again\n"
 										, calls);
@@ -276,7 +276,7 @@ static void show(struct trace_packet *tp, int in)
 		  if (msg != (struct Message *)tp)
 		    {
 		      fprintf (stderr, "Got alien message! Don't do that ever again ;-)\n");
-		    } 
+		    }
 		  else
 		    {
 		      if (in)
@@ -284,7 +284,7 @@ static void show(struct trace_packet *tp, int in)
 		      if (! tp->tp_is_entry || tp->tp_action == TRACE_ACTION_JMP)
 			print_call (output, tp);
 		    }
-		  Signal ((struct Task *) msg->mn_ReplyPort, SIGBREAKF_CTRL_E);
+		  Signal ((struct Task *) msg->mn_ReplyPort, /*SIGBREAKF_CTRL_E fixme, see tracecntl.c */);
 		}
 	      if (sigs & SIGBREAKF_CTRL_C)
 		break;
@@ -293,7 +293,7 @@ static void show(struct trace_packet *tp, int in)
 	}
       else
 	perror ("ix_tracecntl");
-      
+
       DeletePort (mp);
     }
   else
@@ -331,14 +331,14 @@ print_call (FILE *output, struct trace_packet *tp)
       if (tp->tp_is_entry)
 	sprintf (argfield, "SYS_%d()\n", TP_SCALL (tp));
       else
-	sprintf (argfield, "SYS_%d() = $%lx (%d)\n", 
+	sprintf (argfield, "SYS_%d() = $%lx (%d)\n",
 		  TP_SCALL (tp), (unsigned long) TP_RESULT (tp), TP_ERROR (tp));
     }
   else
     {
       c = call_table + TP_SCALL (tp);
 
-      if ((!print_all && !c->interesting) || 
+      if ((!print_all && !c->interesting) ||
 	  (skip_sigsetmask && TP_SCALL (tp) == SYS_sigsetmask))
 	return;
 
@@ -403,7 +403,7 @@ get_fcntl_cmd (int cmd)
 
     case F_SETFL:
 	return "F_SETFL";
-	
+
     case F_GETOWN:
 	return "F_GETOWN";
 
@@ -434,21 +434,21 @@ char *
 get_open_mode (int mode)
 {
   static char buf[120];
-  
+
   switch (mode & O_ACCMODE)
     {
-    case O_RDONLY: 
+    case O_RDONLY:
       strcpy (buf, "O_RDONLY");
       break;
-      
+
     case O_WRONLY:
       strcpy (buf, "O_WRONLY");
       break;
-      
+
     case O_RDWR:
       strcpy (buf, "O_RDWR");
       break;
-      
+
     default:
       strcpy (buf, "O_illegal");
       break;
@@ -457,7 +457,7 @@ get_open_mode (int mode)
 #define ADD(flag) \
   if (mode & flag) strcat (buf, "|" #flag);
 
-  ADD (O_NONBLOCK);  
+  ADD (O_NONBLOCK);
   ADD (O_APPEND);
   ADD (O_SHLOCK);
   ADD (O_EXLOCK);
@@ -467,7 +467,7 @@ get_open_mode (int mode)
   ADD (O_TRUNC);
   ADD (O_EXCL);
 #undef ADD
-  
+
   return buf;
 }
 
@@ -521,7 +521,7 @@ get_ioctl_cmd (int cmd)
 
     case TIOCSWINSZ:
       return "TIOCSWINSZ";
-      
+
     default:
       sprintf (buf, "$%lx", (unsigned long) cmd);
       return buf;
@@ -533,7 +533,7 @@ static void
 vp_fcntl (char *buf, int len, struct call *c, struct trace_packet *tp)
 {
   int *argv =  & TP_FIRSTARG (tp);
-  
+
   if (tp->tp_is_entry)
     if (argv[1] == F_GETFL || argv[1] == F_SETFL)
       snprintf (buf, len+1, "fcntl(%d, %s, %s)",
@@ -544,11 +544,11 @@ vp_fcntl (char *buf, int len, struct call *c, struct trace_packet *tp)
   else
     if (argv[1] == F_GETFL || argv[1] == F_SETFL)
       snprintf (buf, len+1, "fcntl(%d, %s, %s) = %d (%d)",
-		argv[0], get_fcntl_cmd (argv[1]), 
+		argv[0], get_fcntl_cmd (argv[1]),
 		get_open_mode (argv[2]), TP_RESULT (tp), TP_ERROR (tp));
     else
       snprintf (buf, len+1, "fcntl(%d, %s, %d) = %d (%d)",
-		argv[0], get_fcntl_cmd (argv[1]), argv[2], 
+		argv[0], get_fcntl_cmd (argv[1]), argv[2],
 		TP_RESULT (tp), TP_ERROR (tp));
 
   strcat (buf, "\n");
@@ -559,7 +559,7 @@ static void
 vp_ioctl (char *buf, int len, struct call *c, struct trace_packet *tp)
 {
   int *argv = & TP_FIRSTARG (tp);
-  
+
   if (tp->tp_is_entry)
     snprintf (buf, len+1, "ioctl(%d, %s, $%lx)",
 	      argv[0], get_ioctl_cmd (argv[1]), argv[2]);
@@ -580,7 +580,7 @@ vp_open (char *buf, int len, struct call *c, struct trace_packet *tp)
   if (tp->tp_is_entry)
     snprintf (buf, len+1, "open(\"%s\", %s)", argv[0], get_open_mode (argv[1]));
   else
-    snprintf (buf, len+1, "open(\"%s\", %s) = %d (%d)", argv[0], 
+    snprintf (buf, len+1, "open(\"%s\", %s) = %d (%d)", argv[0],
 	      get_open_mode (argv[1]), TP_RESULT (tp), TP_ERROR (tp));
 
   strcat (buf, "\n");
@@ -596,8 +596,8 @@ vp_pipe (char *buf, int len, struct call *c, struct trace_packet *tp)
   else
     {
       int *pv = (int *) argv[0];
-    
-      snprintf (buf, len+1, "pipe([%d, %d]) = %d (%d)", 
+
+      snprintf (buf, len+1, "pipe([%d, %d]) = %d (%d)",
 		pv[0], pv[1], TP_RESULT (tp), TP_ERROR (tp));
     }
 

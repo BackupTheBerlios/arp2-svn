@@ -842,6 +842,9 @@ int unp_close(struct file *f)
       close_stream(f, FALSE, FALSE);
     }
 
+  if (f->f_count == 0)
+    ffree(f);
+
   ix_unlock_base();
   return 0;
 }

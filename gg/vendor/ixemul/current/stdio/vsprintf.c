@@ -58,10 +58,7 @@ int vsprintf(char *str, const char *fmt, my_va_list ap);
 #endif
 
 int
-vsprintf(str, fmt, ap)
-	char *str;
-	const char *fmt;
-	my_va_list ap;
+vsprintf(char *str, const char *fmt, my_va_list ap)
 {
 	int ret;
 	FILE f;

@@ -16,28 +16,6 @@
  *  You should have received a copy of the GNU Library General Public
  *  License along with this library; if not, write to the Free
  *  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- *
- *  $Id: ix_timer.c,v 1.3 2000/07/23 19:17:35 emm Exp $
- *
- *  $Log: ix_timer.c,v $
- *  Revision 1.3  2000/07/23 19:17:35  emm
- *  Added ppc stack extension support. Improved glues. Fixed some bugs.
- *
- *  Revision 1.2  2000/06/20 22:17:24  emm
- *  First attempt at a native MorphOS ixemul
- *
- *  Revision 1.1.1.1  2000/05/07 19:38:10  emm
- *  Imported sources
- *
- *  Revision 1.1.1.1  2000/04/29 00:47:41  nobody
- *  Initial import
- *
- *  Revision 1.3  1994/06/19  15:13:28  rluebbert
- *  *** empty log message ***
- *
- *  Revision 1.1  1992/05/14  19:55:40  mwild
- *  Initial revision
- *
  */
 
 #define _KERNEL
@@ -63,111 +41,115 @@
  * to generate a framepointer...
  */
 #ifdef NATIVE_MORPHOS
+
+#define getuserptr(ixnode) ((struct user *)(((char *)ixnode) - offsetof(struct user, u_user_node)))
+
 void
-ix_timer(void) {
-  struct Task *t_pass = (void *)REG_A1;
-  struct Task           *me;
-  struct user           *p;
-  u_int                 current_pc;
-  /*register u_int        a5 asm ("a5");
+ix_timer(void)
+{
+  /*u_int		current_pc;*/
+  /*register u_int	a5 asm ("a5");
   u_int                 sp;*/
   struct itimerval      *tim;
   /* not necessarily "me" */
   struct Task           *current_task;
+  struct ixnode         *node;
 
-  me = t_pass;
-  p = getuser(me);
   current_task = SysBase->ThisTask;
 
-  /* find out value of sp on invocation of this function. This is easy,
-   * since gcc generates a 
-   *   link a5,#..
-   * at the beginning. So we find sp with a5+4
-   */
-  /*sp = a5 + 4;*/
-
-  tim = p->u_timer;
-
-  /* The main work. Decrement the timers, and if they hit zero, generate
-   * the approprate signal */
-
-  /* real timer counts in real time */
-  if (timerisset (&tim->it_value) && !itimerdecr (tim, timer_resolution))
-    _psignal (me, SIGALRM);
-
-  /* virtual timer only counts, when current_task == me AND the task is
-   * not executing in system time. To get at the current PC, remember (or learn;-))
-   * that the stack in an interrupt handler looks like follows:
-   *   0(sp)  rts into ExitIntr
-   *   4(sp),8(sp),12(sp),16(sp),20(sp),24(sp) -> d0/d1/a0/a1/a5/a6
-   *    now the stuff for the correct rte instruction
-   *   28(sp) -> SR
-   *   30(sp) -> PC <- that's what we're interested in
-   */
-  /* heuristics for 2.0.. */
-  /*current_pc = *(u_int *)(sp + 46);*/
-
-  if (me == current_task)
+  for (node = timer_task_list.head; node; node = node->next)
     {
-      struct timeval *tv;
-      int is_user = 1/*current_pc >= p->u_start_pc && current_pc < p->u_end_pc*/;
+      struct user *p = getuserptr(node);
+      struct Task *me = p->u_task;
 
-      ++tim;
-      if (is_user && timerisset(&tim->it_value) &&
-	  !itimerdecr (tim, timer_resolution))
-	_psignal (me, SIGVTALRM);
-      ++tim;
+      /* find out value of sp on invocation of this function. This is easy,
+       * since gcc generates a
+       *   link a5,#..
+       * at the beginning. So we find sp with a5+4
+       */
+      /*sp = a5 + 4;*/
 
-      /* profiling timer, runs while this process is executing, no matter
-       * whether in system time or not */
-      if (timerisset(&tim->it_value) &&
-	  !itimerdecr (tim, timer_resolution))
-	_psignal (me, SIGPROF);
+      tim = p->u_timer;
 
-      /* now that we're done with the timers, if this is our task executing,
-       * update it's rusage fields */
-      tv = is_user ? &p->u_ru.ru_utime : &p->u_ru.ru_stime;
-      tv->tv_usec += timer_resolution;
-      if (tv->tv_usec >= 1000000)
+      /* The main work. Decrement the timers, and if they hit zero, generate
+       * the approprate signal */
+
+      /* real timer counts in real time */
+      if (timerisset (&tim->it_value) && !itimerdecr (tim, timer_resolution))
 	{
-	  tv->tv_usec -= 1000000; /* - is much cheaper than % */
-	  tv->tv_sec++;
+	  KPRINTF(("send SIGALARM to task $%lx\n", p->u_task));
+	  _psignal (p->u_task, SIGALRM);
 	}
-    }
-#if 0
-  switch (ix.ix_flags & ix_profile_method_mask)
-  {
-    case IX_PROFILE_PROGRAM:
-      if (p->u_prof.pr_scale) {
-	addupc (current_pc, &p->u_prof, 1);
-      }
-      break;
-    case IX_PROFILE_TASK:
-      if (me == current_task && p->u_prof.pr_scale) {
-	addupc (p->u_prof_last_pc, &p->u_prof, 1);
-      }
-      break;
-    case IX_PROFILE_ALWAYS:
-      if (p->u_prof.pr_scale)
-	addupc (p->u_prof_last_pc, &p->u_prof, 1);
-      break;
-  }
 
+      /* virtual timer only counts, when current_task == me AND the task is
+       * not executing in system time. To get at the current PC, remember (or learn;-))
+       * that the stack in an interrupt handler looks like follows:
+       *   0(sp)  rts into ExitIntr
+       *   4(sp),8(sp),12(sp),16(sp),20(sp),24(sp) -> d0/d1/a0/a1/a5/a6
+       *    now the stuff for the correct rte instruction
+       *   28(sp) -> SR
+       *   30(sp) -> PC <- that's what we're interested in
+       */
+      /* heuristics for 2.0.. */
+      /*current_pc = *(u_int *)(sp + 46);*/
+
+      if (me == current_task)
+        {
+	  struct timeval *tv;
+	  int is_user = 1/*current_pc >= p->u_start_pc && current_pc < p->u_end_pc*/;
+
+	  ++tim;
+	  if (is_user && timerisset(&tim->it_value) &&
+	      !itimerdecr (tim, timer_resolution))
+	    _psignal (me, SIGVTALRM);
+	  ++tim;
+
+	  /* profiling timer, runs while this process is executing, no matter
+	   * whether in system time or not */
+#if 0
+	  if (timerisset(&tim->it_value) &&
+	      !itimerdecr (tim, timer_resolution))
+	    _psignal (me, SIGPROF);
 #endif
+
+	  /* now that we're done with the timers, if this is our task executing,
+	   * update it's rusage fields */
+	  tv = is_user ? &p->u_ru.ru_utime : &p->u_ru.ru_stime;
+	  tv->tv_usec += timer_resolution;
+	  if (tv->tv_usec >= 1000000)
+	    {
+	      tv->tv_usec -= 1000000; /* - is much cheaper than % */
+	      tv->tv_sec++;
+	    }
+	}
+#if 0
+      switch (ix.ix_flags & ix_profile_method_mask)
+	{
+	  case IX_PROFILE_PROGRAM:
+	    if (p->u_prof.pr_scale) {
+	      addupc (current_pc, &p->u_prof, 1);
+	    }
+	    break;
+	  case IX_PROFILE_TASK:
+	    if (me == current_task && p->u_prof.pr_scale) {
+	      addupc (p->u_prof_last_pc, &p->u_prof, 1);
+	    }
+	    break;
+	  case IX_PROFILE_ALWAYS:
+	    if (p->u_prof.pr_scale)
+	      addupc (p->u_prof_last_pc, &p->u_prof, 1);
+	    break;
+	}
+#endif
+    }
+
   REG_SR |= 4; /* Set Z flag */
 }
 #elif 1
-#ifdef __pos__
-int
-ix_timer(struct pOS_Interrupt *inter)
-{
-  struct Task   *t_pass = (struct Task *)inter->is_UserData[0];
-#else
 int
 ix_timer(char *foobar, ...)
 {
   register struct Task  *t_pass asm ("a1");
-#endif
   struct Task           *me;
   struct user           *p;
   u_int                 current_pc;
@@ -182,7 +164,7 @@ ix_timer(char *foobar, ...)
   current_task = SysBase->ThisTask;
 
   /* find out value of sp on invocation of this function. This is easy,
-   * since gcc generates a 
+   * since gcc generates a
    *   link a5,#..
    * at the beginning. So we find sp with a5+4
    */
@@ -271,7 +253,7 @@ ix_timer (char *foobar, ...)
   current_task = SysBase->ThisTask;
 
   /* find out value of sp on invocation of this function. This is easy,
-   * since gcc generates a 
+   * since gcc generates a
    *   link a5,#..
    * at the beginning. So we find sp with a5+4
    */

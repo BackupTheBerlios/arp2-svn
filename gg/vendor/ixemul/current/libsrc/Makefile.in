@@ -50,7 +50,7 @@ endif
 ALL_CFLAGS =    $(CFLAGS) $(FLAVOR_CFLAGS) $(OTHER_CFLAGS) $(INCS) $(DEFS)
 
 DEFS =
-INCS =          -I$(srcdir) -I$(srcdir)/../library -I$(srcdir)/../include -I. -I/p
+INCS =          -I$(srcdir) -I$(srcdir)/../library -I$(srcdir)/../include -I. #-I/p
 SHELL =         /bin/sh
 
 ifeq ($(OS),morphos)
@@ -81,7 +81,7 @@ endif
 
 ifeq ($(OS), morphos)
 
-all:            libc.a libbc.a crt0.o rcrt0.o #bcrt0.o
+all:            libc.a libbc.a libb32c.a crt0.o lcrt0.o bcrt0.o rcrt0.o scrt0.o
 
 bcrt0.o:        crt0.c version.h
 		$(CC) $(CFLAGS) $(OTHER_CFLAGS) -mbaserel -DBASECRT0 $(INCS) -c $< -o $@
@@ -160,6 +160,7 @@ parse_version.o:  $(srcdir)/../library/parse_version.c
 
 clean:
 		rm -rf tempobj *.[oa]
+		rm -f parse_version
 
 clobber:        clean
 		rm -f Makefile version.h

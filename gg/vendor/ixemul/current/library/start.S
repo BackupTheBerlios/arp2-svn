@@ -34,10 +34,8 @@
    | loading you as a library).
 	.globl  Start           | we use this to force inclusion of start.s
 Start:
-#ifndef __pos__
    movel   #-1,d0
    rts
-#endif
 
 |-----------------------------------------------------------------------
 | A romtag structure.  Both "exec" and "ramlib" look for
@@ -50,22 +48,13 @@ initDDescrip:
      .word    RTC_MATCHWORD      | UWORD RT_MATCHWORD
      .long    initDDescrip       | APTR  RT_MATCHTAG
      .long    EndCode            | APTR  RT_ENDSKIP
-#ifdef __pos__
-     .long    RTF_AUTOINIT       | UBYTE RT_FLAGS
-     .word    IX_VERSION         | UBYTE RT_VERSION
-     .word    IX_REVISION        | UBYTE RT_VERSION
-#else
      .byte    RTF_AUTOINIT       | UBYTE RT_FLAGS
      .byte    IX_VERSION         | UBYTE RT_VERSION
-#endif
      .byte    NT_LIBRARY         | UBYTE RT_TYPE
      .byte    IX_PRIORITY        | BYTE  RT_PRI
      .long    ixName             | APTR  RT_NAME
      .long    idString           | APTR  RT_IDSTRING
      .long    Init               | APTR  RT_INIT
-#ifdef __pos__
-     .long    LibraryDescribe    | APTR  RT_DESCRIBE
-#endif
 
 | this is just fool proof, and this library will never make it to ROM
 | anyway, so resident tags are not that important ;-)
@@ -87,13 +76,6 @@ idString:
    | force word alignment
    .even
 
-#ifdef __pos__
-LibraryDescribe:
-	.long   EXTSTTAG_MainOSID
-	.long   pOS_MAINOSID
-	.long   TAG_END
-#endif
-
    | The romtag specified that we were "RTF_AUTOINIT".  This means
    | that the RT_INIT structure member points to one of these
    | tables below.  If the AUTOINIT bit was not set then RT_INIT
@@ -112,18 +94,7 @@ funcTable:
    .long   _libOpen
    .long   _libClose
    .long   _libExpunge
-#ifdef __pos__
-   .long   _libReserved
-   .long   _libReserved
-   .long   _libReserved
-   .long   _libReserved
-   .long   _libReserved
-   .long   _libReserved
-   .long   _libReserved
-   .long   _libReserved
-#else
    .long   Null
-#endif
 
    |------ my libraries definitions
 
@@ -192,27 +163,16 @@ funcTable:
 #define ___must_recompile530 ___must_recompile
 #define ___must_recompile570 ___must_recompile
 
-#ifdef __pos__
-   |------ function table end marker
-   .long   -1
-
-   .globl  _posFuncTable
-
-_posFuncTable:
-#endif
-
 #ifdef TRACE_LIBRARY
 #define SYSTEM_CALL(func, vec, args) .long trace_/**/func
 #else
 #define SYSTEM_CALL(func, vec, args) .long _/**/func
 #endif
-#include <sys/ixemul_syscall.def>
+#include <sys/syscall.def>
 #undef SYSTEM_CALL
 
-#ifndef __pos__
    |------ function table end marker
    .long   -1
-#endif
 
 #ifdef TRACE_LIBRARY
 
@@ -234,7 +194,7 @@ trace_/**/func: ;                                               \
 	rts;                                                    \
 1:      moveml sp@+,d0/d1/a0/a1;                                \
 	jmp _/**/func;
-#include <sys/ixemul_syscall.def>
+#include <sys/syscall.def>
 #undef SYSTEM_CALL
 #endif
 
@@ -258,7 +218,6 @@ dataTable:
 	INITLONG (IXBASE_IDSTRING,      idString)
 	.long   0
 
-#ifndef __pos__
    | This routine gets called after the library has been allocated.
    | The library pointer is in D0.  The segment list is in A0.
    | If it returns non-zero then the library will be linked into
@@ -407,4 +366,3 @@ L21:       |------ set up our return value
    moveml  sp@+,a2/a5/a6
    rts
 
-#endif /* __pos__ */

@@ -17,9 +17,12 @@
  *  License along with this library; if not, write to the Free
  *  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- *  $Id: ix_sigwinch.c,v 1.2 2000/06/20 22:17:23 emm Exp $
+ *  $Id: ix_sigwinch.c,v 1.3 2002/06/14 17:23:30 laire Exp $
  *
  *  $Log: ix_sigwinch.c,v $
+ *  Revision 1.3  2002/06/14 17:23:30  laire
+ *  removed __pos__. Needs a test(i couldn^t)
+ *
  *  Revision 1.2  2000/06/20 22:17:23  emm
  *  First attempt at a native MorphOS ixemul
  *
@@ -37,98 +40,6 @@
 #include "ixemul.h"
 #include "kprintf.h"
 #include <string.h>
-
-#ifdef __pos__
-
-#include <pInline/pIntui2.h>
-#define gb_IntuiBase IntuitionBase      /* reuse IntuitionBase for pOS */
-#include <pDevice/IEvent.h>
-#include <pDevice/Input.h>
-
-struct pOS_Window *get_window(BPTR lock, void *fh)
-{
-  struct pOS_DosIOReq IOReq;
-
-  if (lock)
-    pOS_InitDosIOReq(((struct pOS_FileLock *)lock)->fl_DosDev, &IOReq);
-  else
-    pOS_InitDosIOReq(((struct pOS_FileHandle *)fh)->fh_DosDev, &IOReq);
-  IOReq.dr_Command = DOSCMD_GetWindow;
-  IOReq.dr_U.dr_GetWindow.drgw_Lock = (void *)lock;
-  IOReq.dr_U.dr_GetWindow.drgw_FH = fh;
-  pOS_DoIO((struct pOS_IORequest *)&IOReq);
-  if (IOReq.dr_Error2 == 0)
-    return IOReq.dr_U.dr_GetWindow.drgw_ResWin;
-  return NULL;
-}
-
-static struct pOS_InputEvent *
-sigwinch_input_handler(const struct pOS_Interrupt *intr, struct pOS_InputEvent *old_chain)
-{
-  struct user *user = getuser(intr->is_UserData[0]);
-  struct pOS_Window *w = (struct pOS_Window *)user->u_window;
-  struct pOS_InputEvent *ie;
-
-  for (ie = old_chain; ie; ie = ie->ie_NextEvent)
-      if (ie->ie_Class == IECLASS_SIZEWINDOW)
-	  if (w == (struct pOS_Window *) ie->ie_EventAddress)
-	    _psignal((struct Task *)intr->is_UserData[0], SIGWINCH);
-
-  /* always return the old chain, since we don't consume or generate events */
-  return old_chain;
-}
-
-void __ix_install_sigwinch (void)
-{
-  struct Window *w;
-  struct Process *me = (struct Process *) SysBase->ThisTask;
-  struct user *u_ptr = getuser(me);
-
-  if (!pOS_IsFileInteractive(pOS_GetStdOutput()))
-    return;
-
-  w = (struct Window *)get_window(0, pOS_GetStdOutput());
-  if (!w) 
-    return;
-
-  if (!(u.u_idev_req = (struct IOStdReq *)
-	 ix_create_extio(u.u_sync_mp, sizeof (struct pOS_IOStdReq))));
-
-  if (pOS_OpenDevice ("pinput.device", 0, 
-		  (struct pOS_IORequest *) u.u_idev_req, 0, 0))
-    {
-      ix_delete_extio((struct IORequest *)u.u_idev_req);
-      u.u_idev_req = 0;
-      return;
-    }
- 
-  u.u_window = w;
-  u.u_idev_int.is_Code = (void *) sigwinch_input_handler;
-  u.u_idev_int.is_UserData[0] = (long)me;
-  u.u_idev_int.is_Node.ln_Pri = 10;     /* must be before console.device */
-  u.u_idev_int.is_Node.ln_Name = "ixemul SIGWINCH handler";
-  u.u_idev_req->io_Data = (APTR) &u.u_idev_int;
-  u.u_idev_req->io_Command = INDCMD_AddHandler;
-  pOS_DoIO ((struct pOS_IORequest *) u.u_idev_req);
-}
-
-
-void __ix_remove_sigwinch (void)
-{
-  usetup;
-
-  if (u.u_idev_req)
-    {
-      u.u_idev_req->io_Data = (APTR) &u.u_idev_int;
-      u.u_idev_req->io_Command = INDCMD_RemHandler;
-      pOS_DoIO ((struct pOS_IORequest *) u.u_idev_req);
-      pOS_CloseDevice ((struct pOS_IORequest *) u.u_idev_req);
-      ix_delete_extio((struct IORequest *)u.u_idev_req);
-      u.u_idev_req = 0;
-    }
-}
-
-#else
 
 #include <intuition/intuition.h>
 #include <devices/input.h>
@@ -240,4 +151,3 @@ void __ix_remove_sigwinch (void)
     }
 }
 
-#endif

@@ -16,33 +16,13 @@
  *  License along with this library; if not, write to the Free
  *  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- *  __load_seg.c,v 1.1.1.1 1994/04/04 04:30:54 amiga Exp
- *
- *  __load_seg.c,v
- * Revision 1.1.1.1  1994/04/04  04:30:54  amiga
- * Initial CVS check in.
- *
- *  Revision 1.5  1992/09/14  01:38:35  mwild
- *  fix a bug with #! expansion (forgot separating /)
- *
- *  Revision 1.4  1992/08/09  20:37:07  amiga
- *  change to use 2.x header files by default
- *
- *  Revision 1.3  1992/07/04  19:02:39  mwild
- *  fix typo, the buffer for interpreter-expansion was ways too small...
- *
- * Revision 1.2  1992/05/22  01:45:00  mwild
- * rewrote interpreter expansion, `should' now work as expected
- *
- * Revision 1.1  1992/05/14  19:55:40  mwild
- * Initial revision
- *
+ *  $Id: __load_seg.c,v 1.7 2004/08/26 17:26:22 emm Exp $
  */
 
 /* This module implements:
  * - basename(fullpath) -> filename
  * - loadseg() functions
- *   __load_seg(name, args): 
+ *   __load_seg(name, args):
  *     magic load_seg, with script-sniffing, stashes clean-up information
  *     in the `my_seg structure (see ixemul.h)
  *   __free_seg(seg):
@@ -60,8 +40,10 @@
 #include <dos/dostags.h>
 
 extern void *kmalloc (size_t size);
+extern char *ix_to_ados(char *buf, const char *name);
+extern char *check_root(char *);
 
-static struct my_seg *load_seg_or_script (BPTR lock, char *name, char **args, char *progname);
+static struct my_seg *load_seg_or_script (BPTR lock, char *name, char *adosname, char **args, char *progname);
 
 char *basename(char *tmp)
 {
@@ -87,7 +69,7 @@ dirlock (char *tmp)
   if (cp)
     {
       *cp = 0;
-      dir = __lock (tmp, ACCESS_READ);
+      dir = Lock(tmp, ACCESS_READ);
       *cp = '/';
     }
   else {
@@ -96,18 +78,14 @@ dirlock (char *tmp)
       {
 	o = cp[1];
 	cp[1] = 0;
-	dir = __lock (tmp, ACCESS_READ);
+	dir = Lock(tmp, ACCESS_READ);
 	cp[1] = o;
       }
     else {  /* duplicate the current directory lock for a simple pathname */
-#ifdef __pos__
-      dir = DupLock((int)((struct pOS_Process *)FindTask(0))->pr_CurrentDir);
-#else
       BPTR orig_dir = CurrentDir(NULL);
 
       dir = DupLock(orig_dir);
       CurrentDir(orig_dir);
-#endif
     }
   }
   return dir;
@@ -121,58 +99,43 @@ static struct my_seg *
 check_and_load_resident (char *filename)
 {
   struct my_seg *res = 0;
-#ifdef __pos__
-  struct pOS_SegmentLst *seg;
-#else
   struct Segment *seg;
-#endif
   char *base;
 
   /* big problem: Commo only stores the bare names in the resident
      list. So we have to truncate to the filename part, and so lose
-     the ability to explicitly load the disk version even if a 
+     the ability to explicitly load the disk version even if a
      resident version is installed */
 
   base = basename(filename);
   Forbid();
-#ifdef __pos__
-  seg = pOS_OpenSegment(base, 0);
-#else
   seg = FindSegment(base, 0, 0);
   if (seg)
     {
       /* strange they didn't provide a function for this... */
-      if (seg->seg_UC >= 0) 
+      if (seg->seg_UC >= 0)
 	seg->seg_UC++;
     }
-#endif
   Permit();
 
   if (seg) /* ok, we have the seg */
     {
+      KPRINTF(("__loadseg: \"%s\" is resident.\n", filename));
       if ((res = (struct my_seg *)kmalloc(sizeof(*res) + strlen(filename) + 1)))
 	{
-#ifdef __pos__
-	  res->segment = seg;
-#else
 	  res->segment = seg->seg_Seg;
-#endif
 	  res->type    = RESSEG;
 	  res->priv    = (u_int)seg;
 	  res->programdir = NULL;         /* no possible programdir as Commo didn't provide for it */
 	  res->name    = (char *)&res[1];
 	  strcpy(res->name, filename);
 	}
-      else 
+      else
 	{     /* oops, we can't deal with it */
-#ifdef __pos__
-	  pOS_CloseSegment(seg);
-#else
 	  Forbid();
 	  if (seg->seg_UC > 0)
 	    seg->seg_UC--;
 	  Permit();
-#endif
 	}
     }
   return res;
@@ -195,11 +158,7 @@ check_and_load_seg (char *filename)
     {
       if ((res = kmalloc (sizeof (*res) + strlen(filename) + 1)))
 	{
-#ifdef __pos__
-	  res->segment = (void *)seg;
-#else
 	  res->segment = seg;
-#endif
 	  res->type    = LOADSEG;
 	  res->priv    = seg;
 	  res->programdir = dirlock(filename);
@@ -217,7 +176,7 @@ check_and_load_seg (char *filename)
   errno = (err ? __ioerr_to_errno(err) : ENOENT);
   if (errno == ENOTDIR || errno == EFTYPE)
     errno = ENOENT;
-    
+
   return res;
 }
 
@@ -226,14 +185,11 @@ void
 __free_seg (BPTR *seg)
 {
   struct my_seg *ms;
-  
+
   ms = (struct my_seg *) seg;
   switch (ms->type)
     {
       case RESSEG:
-#ifdef __pos__
-	pOS_CloseSegment((void *)ms->priv);
-#else
 	{
 	  struct Segment *s = (struct Segment *) ms->priv;
 
@@ -242,7 +198,6 @@ __free_seg (BPTR *seg)
 	    s->seg_UC--;
 	  Permit ();
 	}
-#endif
 	break;
 
       case LOADSEG:
@@ -257,8 +212,8 @@ __free_seg (BPTR *seg)
   /* we could unlock the programdir before, but this way, we gain the `dynamic
    * type check' that this is truely a struct my_seg.
    * Also note that __unlock() can deal with NULL locks */
-  __unlock (ms->programdir);
-  
+  UnLock (ms->programdir);
+
   kfree (ms);
 }
 
@@ -273,7 +228,7 @@ __free_seg (BPTR *seg)
  */
 
 /*
- * IMPORTANT: only call this function with all signals masked!!! 
+ * IMPORTANT: only call this function with all signals masked!!!
  */
 
 /*
@@ -287,14 +242,35 @@ __load_seg (char *name, char **args)
   BPTR lock;
   struct my_seg *seg;
   usetup;
+  char *buf = alloca(strlen(name) + 4);
+  char *adosname;
+
+  adosname = ix_to_ados(buf, name);
 
   /* perhaps the name is vanilla enough, so that even LoadSeg() groks it? */
   if (args) *args = 0;
 
-  seg = check_and_load_resident (name);
+  seg = check_and_load_resident (adosname);
 
-  if (! seg)
-    seg = check_and_load_seg (name);
+  if (!seg)
+    seg = check_and_load_seg (adosname);
+
+  if (!seg)
+    {
+      LONG err = IoErr();
+      if (err == ERROR_OBJECT_NOT_FOUND)
+        {
+	  char *adosname2 = check_root(adosname);
+	  if (adosname2 && *adosname2)
+	    {
+	      adosname = adosname2;
+	      seg = check_and_load_seg(adosname);
+	      if (seg)
+		err = 0;
+	    }
+	  SetIoErr(err);
+	}
+    }
 
   if (seg)
     return (BPTR *)&seg->segment;
@@ -302,8 +278,8 @@ __load_seg (char *name, char **args)
   if (errno != ENOENT)
     return 0;
 
-  /* try to lock the file (using __lock() provides full path-parsing ;-)) */
-  lock = __lock (name, ACCESS_READ);
+  /* try to lock the file */
+  lock = Lock(adosname, ACCESS_READ);
   if (lock)
     {
       int err;
@@ -313,13 +289,16 @@ __load_seg (char *name, char **args)
       fib = alloca (sizeof(*fib) + 2);
       fib = LONG_ALIGN (fib);
       if (Examine (lock, fib))
-	seg = load_seg_or_script (parent, fib->fib_FileName, args, name);
+	seg = load_seg_or_script (parent, fib->fib_FileName, fib->fib_FileName, args, name);
       else
-	seg = load_seg_or_script (parent, basename(name), args, name);
+	{
+	  char *base = basename(name);
+	  seg = load_seg_or_script (parent, base, base, args, name);
+	}
       err = errno;
 
-      __unlock (parent);
-      __unlock (lock);
+      UnLock (parent);
+      UnLock (lock);
 
       errno = err;
       if (!seg && errno != ENOENT)
@@ -340,43 +319,6 @@ __load_seg (char *name, char **args)
     }
 
   /* so the command is not directly addressable, but perhaps it's in our PATH? */
-#ifdef __pos__
-  {
-    const struct pOS_ExList *pathlist = pOS_LockShellPathList();
-    struct pOS_ShellPath *node;
-    char progname[MAXPATHLEN];
-
-    if (pathlist)
-    {
-      for (node = (struct pOS_ShellPath *)pathlist->lh_Head;
-	   node;
-	   node = (struct pOS_ShellPath *)node->shp_Node.ln_Succ)
-	{
-	  BPTR ocd = CurrentDir(node->shp_Lock);
-
-	  if (NameFromLock(node->shp_Lock, progname, MAXPATHLEN) &&
-	      AddPart(progname, name, MAXPATHLEN))
-	    {
-	      seg = load_seg_or_script((BPTR)node->shp_Lock, name, args, name);
-	    }
-	  else
-	    {
-	      seg = 0;
-	      errno = ENOENT;
-	    }
-	  CurrentDir(ocd);
-	  if (seg)
-	    break;
-	  if (errno != ENOENT)
-	    {
-	      pOS_UnlockShellPathList(pathlist);
-	      return 0;
-	    }
-	}
-      pOS_UnlockShellPathList(pathlist);
-    }
-  }
-#else
   {
     struct Process *me = (struct Process *)SysBase->ThisTask;
     struct CommandLineInterface *cli;
@@ -397,9 +339,9 @@ __load_seg (char *name, char **args)
 	  {
 	    ocd = CurrentDir (lock_list->lock);
 	    if (NameFromLock(lock_list->lock, progname, MAXPATHLEN) &&
-		AddPart(progname, name, MAXPATHLEN))
+		AddPart(progname, adosname, MAXPATHLEN))
 	      {
-		seg = load_seg_or_script (lock_list->lock, name, args, progname);
+		seg = load_seg_or_script (lock_list->lock, name, adosname, args, progname);
 	      }
 	    else
 	      {
@@ -414,7 +356,6 @@ __load_seg (char *name, char **args)
 	  }
       }
   }
-#endif
 
   if (seg)
     return (BPTR *)&seg->segment;
@@ -425,7 +366,7 @@ __load_seg (char *name, char **args)
 }
 
 static struct my_seg *
-load_seg_or_script (BPTR parent, char *name, char **args, char *progname)
+load_seg_or_script (BPTR parent, char *name, char *adosname, char **args, char *progname)
 {
   BPTR ocd, tmpcd;
   short oroot;
@@ -437,7 +378,7 @@ load_seg_or_script (BPTR parent, char *name, char **args, char *progname)
   oroot = u.u_is_root;
   u.u_is_root = 0;
 
-  seg = check_and_load_seg (name);
+  seg = check_and_load_seg (adosname);
 
   if (!seg && errno != ENOENT)
     {
@@ -481,7 +422,7 @@ load_seg_or_script (BPTR parent, char *name, char **args, char *progname)
 	      if (n >= 2 && (magic[0] == '#' || magic[0] == ';') && magic[1] == '!')
 		{
 		  char interp[MAXINTERP + MAXPATHLEN + 2], *interp_start;
-	      
+
 		  interp[0] = magic[2];
 		  interp[1] = magic[3];
 		  n -= 2;
@@ -513,7 +454,7 @@ load_seg_or_script (BPTR parent, char *name, char **args, char *progname)
 
 		      if (!seg)
 			goto fd_close;
-		  
+
 		      /* using \001 as seperator for progam|argument|script */
 		      *cp++ = '\001';
 
@@ -523,7 +464,7 @@ load_seg_or_script (BPTR parent, char *name, char **args, char *progname)
 
 			/* first skip intergap whitespace */
 			while (isspace(*cp2) && *cp2 != '\n') cp2++;
-		       
+
 			/* in this case, set the argument as well. */
 			if (*cp2 && *cp2 != '\n')
 			{
@@ -554,7 +495,7 @@ fd_close:
   CurrentDir (ocd);
   u.u_is_root = oroot;
 
-  if (!seg)  
+  if (!seg)
     errno = ENOENT;
   return seg;
 }

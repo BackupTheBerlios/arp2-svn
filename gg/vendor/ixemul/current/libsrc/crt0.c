@@ -20,7 +20,7 @@
 //#include <inline/exec.h>
 //#include <inline/dos.h>
 
-#include <sys/ixemul_syscall.h>
+#include <sys/syscall.h>
 #include <sys/exec.h>
 
 #ifdef SHAREDL

@@ -100,6 +100,9 @@ _GetPathFromLock (BPTR lock, char *buffer, int buffer_length)
 	{
 	  if (next_fl != 0L)
 	    UnLock (next_fl);
+
+	  /* Remember to set errno! - Piru */
+	  errno = ERANGE;
 	  goto ret;
 	}
       bcopy (fib->fib_FileName, p, length);
@@ -128,6 +131,12 @@ _get_pwd (char *buffer, int buffer_length)
 
   if (u.u_is_root)
     {
+      if (buffer_length < 2)
+	{
+	  errno = ERANGE;
+	  return 0L;
+	}
+
       strcpy(buffer, "/");
       return buffer;
     }
@@ -138,16 +147,37 @@ _get_pwd (char *buffer, int buffer_length)
 
   if (proc == 0L || proc->pr_Task.tc_Node.ln_Type != NT_PROCESS)
     {
+      if (buffer_length < 2)
+	{
+	  errno = ERANGE;
+	  return 0L;
+	}
+
       buffer[0] = '\0';
       return buffer;
     }
 
   /* make room for slash */
   if (ix.ix_flags & ix_translate_slash)
-    buffer++;
+    {
+      if (buffer_length < 1)
+	{
+	  errno = ERANGE;
+	  return 0L;
+	}
 
-  if (GetCurrentDirName (buffer, buffer_length) ||
-      NameFromLock((BPTR)proc->pr_CurrentDir, buffer, buffer_length))
+      buffer++;
+
+      /* 6-Aug-2003 bugfix: MUST sub the size by one, too, or else we
+       * could trash innocent memory. - Piru
+       */
+      buffer_length--;
+    }
+
+  /* try NameFromLock first as GetCurrentDirName is limited by
+     CommandLineInterface size. - Piru */
+  if (NameFromLock((BPTR)proc->pr_CurrentDir, buffer, buffer_length) ||
+      GetCurrentDirName (buffer, buffer_length))
     {
       result = buffer;
       goto returnit;
@@ -170,6 +200,11 @@ returnit:
 
        bcopy (result, result - 1, strlen (result) + 1);
        return result - 1;
+    }
+
+  if (!result && IoErr() == ERROR_LINE_TOO_LONG)
+    {
+      errno = ERANGE;
     }
 
   return result;
@@ -201,10 +236,28 @@ getcwd (char *buffer, size_t buffer_length)
 
   if (buffer == 0L)
     {
+      /* Could support this linux extension later, fail for now. - Piru */
+      if (buffer_length == 0)
+	{
+	  errno = EINVAL;
+	  KPRINTF (("&errno = %lx, errno = %ld\n", &errno, errno));
+	  return 0L;
+	}
+
+      /* Could be  buffer_length as is IMO - Piru */
       buffer = (char *) syscall (SYS_malloc, buffer_length + 2);
       if (buffer == 0L)
 	{
 	  errno = ENOMEM;
+	  KPRINTF (("&errno = %lx, errno = %ld\n", &errno, errno));
+	  return 0L;
+	}
+    }
+  else
+    {
+      if (buffer_length == 0)
+	{
+	  errno = EINVAL;
 	  KPRINTF (("&errno = %lx, errno = %ld\n", &errno, errno));
 	  return 0L;
 	}

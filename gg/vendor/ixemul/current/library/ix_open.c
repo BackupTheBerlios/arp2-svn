@@ -24,9 +24,7 @@
 #include "../ixnet/ixnet.h"
 #include "kprintf.h"
 
-#ifndef __pos__
 #include <hardware/intbits.h>
-#endif
 #include <exec/memory.h>
 #include <string.h>
 
@@ -35,7 +33,6 @@ extern void trap_20 ();
 extern void trap_00 ();
 extern int ix_timer();
 
-#ifndef __pos__
 static BOOL
 __ix_open_muFS (struct user *ix_u)
 {
@@ -59,7 +56,6 @@ __ix_open_muFS (struct user *ix_u)
 
   return TRUE;
 }
-#endif
 
 struct ixemul_base *
 ix_open (struct ixemul_base *ixbase)
@@ -84,7 +80,7 @@ ix_open (struct ixemul_base *ixbase)
     }
 
   tmp = (char *)kmalloc(sizeof(struct user) + a4_size);
-  if (tmp)  
+  if (tmp)
     {
       /* bzero is safe, ie. doesn't need to reference struct user */
       bzero (tmp, sizeof (struct user) + a4_size);
@@ -98,14 +94,14 @@ ix_open (struct ixemul_base *ixbase)
       ix_u->u_oexcept_code = me->tc_ExceptCode;
       ix_u->u_otrap_code   = me->tc_TrapCode;
       ix_u->u_otrap_data   = getuser(me);
-    
+
       ixnewlist ((struct ixlist *)&ix_u->u_md.md_list);
 
       ix_u->u_mdp = &ix_u->u_md;
-      
+
       ix_u->u_task = me;
 
-      if (ix.ix_flags & ix_show_stack_usage)      
+      if (ix.ix_flags & ix_show_stack_usage)
 	{
 	  tmp = (char *)get_sp();
 #ifdef NATIVE_MORPHOS
@@ -132,14 +128,14 @@ ix_open (struct ixemul_base *ixbase)
 
       initstack();
 
-KPRINTF(("siginit\n"));	
+KPRINTF(("siginit\n"));
       /* setup the p_sigignore mask correctly */
       siginit (ix_u);
       me->tc_SigRecvd &= 0x0fff;
 
 KPRINTF(("allocsig\n"));
       /* this library is a replacement for any c-library, thus we should be
-       * started at the START of a program, and out of 16 available signals 
+       * started at the START of a program, and out of 16 available signals
        * these calls simply have to succeed... I know I'm a lazy guy ;-) */
       ix_u->u_sleep_sig = AllocSignal (-1);
       ix_u->u_pipe_sig = AllocSignal (-1);
@@ -149,44 +145,28 @@ KPRINTF(("allocsig\n"));
       ix_u->u_h_errno = &default_h_errno;
 
       /* ixnet.library is loaded iff ixbase->ix_network_type != IX_NETWORK_NONE */
-#ifdef __pos__ /* TODO */
-      ix_u->u_ixnetbase = NULL;
-#else
       if (ixbase->ix_network_type != IX_NETWORK_NONE)
 	{
+	  BOOL has_net = FALSE;
 	  KPRINTF(("open ixnet\n"));
-	  ix_u->u_ixnetbase = OpenLibrary("ixnet.library", 49);  // Let ixnet check if the ixnet version matches ours
+	  /* Don't try to open ixnet if there is no network active. */
+	  Forbid();
+	  has_net = FindName(&SysBase->LibList, "bsdsocket.library") != 0;
+	  Permit();
+	  if (has_net)
+	    ix_u->u_ixnetbase = OpenLibrary("ixnet.library", 49);  // Let ixnet check if the ixnet version matches ours
 	  KPRINTF(("ixnet = %lx\n",ix_u->u_ixnetbase));
 #ifdef NATIVE_MORPHOS
 	  if (ix_u->u_ixnetbase)
 	    ixnetarray = ((struct ixnet_base *)ix_u->u_ixnetbase)->basearray;
 #endif
 	}
-#endif
 
       me->tc_ExceptCode  = (APTR)except_handler;
       SetExcept(0xfffff000, 0xfffff000);
 
+#ifndef NATIVE_MORPHOS
       KPRINTF(("Installing interrupt server...\n"));
-#ifdef __pos__
-      ix_u->IRQBase = pOS_OpenResource("IRQ.resource");
-      if (ix_u->IRQBase)
-	{
-	  struct pOS_StdIRQResourceMFunction *const IRQ = _pOS_GetIRQResourceFunction(ix_u->IRQBase);
-	  
-	  ix_u->u_itimerint.is_Node.ln_Type = NTYP_INTERRUPT;
-	  ix_u->u_itimerint.is_Node.ln_Name = me->tc_Node.ln_Name;
-	  ix_u->u_itimerint.is_Node.ln_Pri  = 1;
-	  ix_u->u_itimerint.is_UserData[0]  = (LONG)me;
-	  ix_u->u_itimerint.is_Code         = (APTR)ix_timer;
-
-	  if (!(*IRQ->pOS_AddIRQServer_func)(ix_u->IRQBase, IRQTYP_VBlank, &ix_u->u_itimerint))
-	    {
-	      pOS_CloseResource(ix_u->IRQBase);
-	      ix_u->IRQBase = NULL;
-	    }
-	}
-#else
       ix_u->u_itimerint.is_Node.ln_Type = NT_INTERRUPT;
       ix_u->u_itimerint.is_Node.ln_Name = me->tc_Node.ln_Name;
       ix_u->u_itimerint.is_Node.ln_Pri  = 1;
@@ -210,7 +190,7 @@ KPRINTF(("allocsig\n"));
       ix_u->u_trace_flags = 1;
       ix_u->u_sync_mp = (struct MsgPort *)ix_create_port(0, 0);
       ix_u->u_select_mp = (struct MsgPort *)ix_create_port(0, 0);
-      
+
       /* the CD storage. since 0 is a valid value for a lock, we use -1 */
       ix_u->u_startup_cd = (BPTR)-1;
 
@@ -237,15 +217,11 @@ KPRINTF(("allocsig\n"));
 
       ix_u->u_cmask = 0022; /* default, see manpage for umask() */
 
-#ifdef __pos__
-      if (ix_u->u_sync_mp && ix_u->u_select_mp && ix_u->IRQBase)
-#else
       if (ix_u->u_sync_mp && ix_u->u_select_mp)
-#endif
 	{
 	  ix_u->u_time_req = (struct timerequest *)
 	    ix_create_extio(ix_u->u_sync_mp, sizeof (struct timerequest));
-	  
+
 	  if (ix_u->u_time_req)
 	    {
 	      if (!OpenDevice (TIMERNAME, UNIT_MICROHZ,
@@ -258,9 +234,6 @@ KPRINTF(("allocsig\n"));
 		   * generate a longjmp-botch using a not initialized jmpbuf! */
 		  syscall (SYS_sigsetmask, ~0);
 
-#ifdef __pos__
-		  return ixbase;
-#else
 		  if (__ix_open_muFS (ix_u))
 		    {
 		      KPRINTF(("ixemul opened: %lx\n", ixbase));
@@ -271,7 +244,6 @@ KPRINTF(("allocsig\n"));
 		      /* couldn't allocate muFS stuff */
 		      __ix_close_muFS (ix_u);
 		    }
-#endif
 		}
 	      /* couldn't open the timer device */
 	      ix_delete_extio((struct IORequest *)ix_u->u_time_req);
@@ -287,15 +259,7 @@ KPRINTF(("allocsig\n"));
       Disable();
       ixremove(&timer_task_list, &ix_u->u_user_node);
       Enable();
-#ifdef __pos__
-      if (ix_u->IRQBase)
-	{
-	  struct pOS_StdIRQResourceMFunction *const IRQ = _pOS_GetIRQResourceFunction(ix_u->IRQBase);
-
-	  (*IRQ->pOS_RemIRQServer_func)(ix_u->IRQBase, IRQTYP_VBlank, &ix_u->u_itimerint);
-	  pOS_CloseResource(ix_u->IRQBase);
-	}
-#else
+#ifndef NATIVE_MORPHOS
       RemIntServer (INTB_VERTB, &ix_u->u_itimerint);
 #endif
       SetExcept(0,~0);

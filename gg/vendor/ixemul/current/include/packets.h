@@ -20,14 +20,6 @@
 #ifndef _PACKETS_H
 #define _PACKETS_H
 
-#ifdef __pos__
-
-#define CTOBPTR(ptr) ((long)ptr)
-#define BTOCPTR(ptr) ((void *)ptr)
-#define HANDLER_NIL(fp) (!(fp)->f_fh->fh_DosDev)
-
-#else
-
 #define PutPacket(port,pack) PutMsg((port), (struct Message *)(pack))
 
 #define GetPacket(port) ((struct StandardPacket *)GetMsg(port))
@@ -79,8 +71,6 @@
 
 #define CTOBPTR(ptr) (((long)(ptr)) >> 2)
 #define BTOCPTR(ptr) ((void *)((ptr) << 2))
-
-#endif
 
 /* this version only works for word-aligned data as you get it from alloca()! */
 #define LONG_ALIGN(ptr) ((void *)((((long)(ptr))&3)?((long)ptr)+2:(long)ptr))

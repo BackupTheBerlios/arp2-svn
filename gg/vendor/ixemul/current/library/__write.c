@@ -123,6 +123,19 @@ int __write(struct file *f, char *buf, int len)
 		return res;
 	      continue;
 	    }
+
+	  /* jDc: ONLCR unset = \n must not work like \n\r, replace it with ^D instead */
+	  if ((!(f->f_ttyflags & IXTTY_ONLCR)) || (!(f->f_ttyflags & IXTTY_OPOST)))
+	    {
+	      tmp = __do_sync_write(f, "\033D", 2);
+	      if (tmp == -1)
+		return tmp;
+	      tmp = (tmp == 2 ? 1 : 0);
+	      res += tmp;
+	      if (tmp != bytes)
+		return res;
+	      continue;
+	    }
 	}
       else
 	for (bytes = 0; l + bytes < len && p[bytes] != '\n' && bytes < 256; bytes++) ;

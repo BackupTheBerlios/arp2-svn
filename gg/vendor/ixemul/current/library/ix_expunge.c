@@ -16,53 +16,19 @@
  *  You should have received a copy of the GNU Library General Public
  *  License along with this library; if not, write to the Free
  *  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- *
- *  $Id: ix_expunge.c,v 1.3 2001/06/01 17:40:10 emm Exp $
- *
- *  $Log: ix_expunge.c,v $
- *  Revision 1.3  2001/06/01 17:40:10  emm
- *  Simplified signal handling. Minor old fixes.
- *
- *  Revision 1.2  2000/06/20 22:17:21  emm
- *  First attempt at a native MorphOS ixemul
- *
- *  Revision 1.1.1.1  2000/05/07 19:38:06  emm
- *  Imported sources
- *
- *  Revision 1.2  2000/05/04 19:33:34  nobody
- *  Replaced tc_Launch polling by exceptions
- *
- *  Revision 1.1.1.1  2000/04/29 00:48:10  nobody
- *  Initial import
- *
- *  Revision 1.9  1994/07/07  15:08:35  rluebbert
- *  10*NOFILE -> NOFILE
- *
- *  Revision 1.8  1994/07/07  15:03:19  rluebbert
- *  Removed ttyport dummy routines
- *
- *  Revision 1.7  1994/07/07  12:22:20  rluebbert
- *  *** empty log message ***
- *
- *  Revision 1.6  1994/07/07  11:44:46  rluebbert
- *  *** empty log message ***
- *
- *  Revision 1.5  1994/06/19  15:12:54  rluebbert
- *  *** empty log message ***
- *
- *  Revision 1.3  1992/05/22  01:43:58  mwild
- *  when debugging, check whether buddy allocator clean
- *
- * Revision 1.2  1992/05/17  21:21:56  mwild
- * changed async mp to be global
- *
- * Revision 1.1  1992/05/14  19:55:40  mwild
- * Initial revision
- *
  */
 
 #define _KERNEL
 #include "ixemul.h"
+
+#include <hardware/intbits.h>
+
+#ifdef TRACK_ALLOCS
+#undef FreeMem
+#define FreeMem(x,y) debug_FreeMem(x,y)
+void debug_FreeMem(int,int);
+void dump_memlist(void);
+#endif
 
 #ifndef NATIVE_MORPHOS
 void delete_framemsgs();
@@ -75,14 +41,13 @@ void ix_expunge (struct ixemul_base *ixbase)
   struct Task *task;
   struct Task *me;
 
-#ifdef __pos__
-  if (ixbase->ix_added_notify)
-    pOS_DosEndNotify(&ixbase->ix_notify_request);
-  pOS_DestructDosNotify(&ixbase->ix_notify_request);
-#else
-//  RemIntServer(INTB_VERTB, &ixbase->ix_itimerint);
-  EndNotify(&ixbase->ix_notify_request);
+  RemSemaphore(&ixbase->ix_semaphore.lock);
+  ObtainSemaphore(&ixbase->ix_semaphore.lock);
+
+#ifdef NATIVE_MORPHOS
+  RemIntServer(INTB_VERTB, &ixbase->ix_itimerint);
 #endif
+  EndNotify(&ixbase->ix_notify_request);
 
   task = ixbase->ix_task_switcher;
   me = SysBase->ThisTask;
@@ -103,7 +68,7 @@ void ix_expunge (struct ixemul_base *ixbase)
   if (ixbase->ix_global_environment)
     {
       char **tmp = ixbase->ix_global_environment;
-      
+
       while (*tmp)
 	kfree(*tmp++);
       kfree(ixbase->ix_global_environment);
@@ -111,7 +76,24 @@ void ix_expunge (struct ixemul_base *ixbase)
 
   close_libraries();
 
+#if USE_DYNFILETAB
+  {
+    struct MinNode *node, *node2;
+    ForeachNodeSafe(&ix.ix_free_file_list, node, node2)
+    {
+      kfree(node);
+    }
+    /* should be empty here! */
+    ForeachNodeSafe(&ix.ix_used_file_list, node, node2)
+    {
+      kfree(node);
+    }
+    //NEWLIST((struct List *) &ixbase->ix_free_file_list);
+    //NEWLIST((struct List *) &ixbase->ix_used_file_list);
+  }
+#else
   FreeMem (ixbase->ix_file_tab, NOFILE * sizeof (struct file));
+#endif
 
 #ifndef NATIVE_MORPHOS
   if (vector_install_count)
@@ -119,5 +101,9 @@ void ix_expunge (struct ixemul_base *ixbase)
       vector_install_count = 1;         /* force restoration original bus error vector */
       Supervisor(restore_vector);
     }
+#endif
+
+#ifdef TRACK_ALLOCS
+  dump_memlist();
 #endif
 }

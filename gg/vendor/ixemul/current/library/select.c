@@ -47,17 +47,10 @@ static void handle_select_port(void)
 {
   usetup;
 
-#ifdef __pos__
-  struct pOS_DosIOReq *nio;
-
-  while ((nio = (void *)GetMsg(u.u_select_mp)))
-    nio->dr_Message.mn_ReplyPort = 0;
-#else
   struct StandardPacket *prw;
 
   while ((prw = GetPacket(u.u_select_mp)))
       prw->sp_Pkt.dp_Port = 0;
-#endif
 }
 
 static void inline setcopy(int nfd, u_int *ifd, u_int *ofd)
@@ -120,14 +113,21 @@ ix_select(int nfd, fd_set *ifd, fd_set *ofd, fd_set *efd, struct timeval *timeou
 	  else
 	    ++waitout;
 	}
+
       if (efd && FD_ISSET(i, efd) && (f = p->u_ofile[i]))
 	{
 	  /* question: can an exceptional condition also occur on a 
 	   * write-only fd?? */
+#if 0
+/* This code is completely broken, setting an exception when there's data ready.
+   Whoever wrote this needs serious bitchslapping :) -bigfoot */
 	  if (!f->f_read || !f->f_select)
 	    FD_CLR(i, efd);
 	  else
 	    ++waitexc;
+#else
+	  FD_CLR(i, efd);
+#endif
 	}
     }
 

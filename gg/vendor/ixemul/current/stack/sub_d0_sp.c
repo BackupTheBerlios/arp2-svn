@@ -1,6 +1,6 @@
 #include "a4.h"         /* for the A4 macro */
 
-#ifdef __m68000__
+#ifndef __PPC__
 asm("
 	.text
 	.even
@@ -29,10 +29,7 @@ ___unlk_a5_rts:
 	movel   sp@+,a5
 	rts
 ");
-
-#endif
-
-#ifdef __PPC__
+#else
 asm("
 	.section \".text\"
 	.align  2

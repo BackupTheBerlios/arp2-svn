@@ -1,11 +1,9 @@
-
-#ifdef __m68000__
 #include "a4.h"         /* for the A4 macro */
 
 /*
  * Special glue that doesn't clobber any registers.
  */
-
+#ifndef __PPC__
 asm("
 	.globl  ___stkovf
 ___stkovf:
@@ -37,83 +35,7 @@ ___stkext_startup:
 	addl    #-6*571-24,sp@
 	rts
 ");
-#endif
-
-
-#ifdef __i386__
-asm("
-	.section \".text\"
-	.align  4
-
-	.globl  ___stkovf
-	.type   __stkovf,@function
-
-___stkovf:
-        pushl   %eax   | anything will do!
-        pushl   %eax
-        movl    _ixbasearray,%eax
-        bswap   %eax
-        addl    4*481-4,%eax
-        movl    %eax,4(%esp)
-        popl    %eax
-	ret
-
-	.globl  ___stkext
-	.type   __stkext,@function
-
-___stkext:
-        pushl   %eax   | anything will do!
-        pushl   %eax
-        movl    _ixbasearray,%eax
-        bswap   %eax
-        addl    4*482-4,%eax
-        movl    %eax,4(%esp)
-        popl    %eax
-	ret
-
-	.globl  ___stkext_f
-	.type   __stkext_f,@function
-
-___stkext_f:
-        pushl   %eax   | anything will do!
-        pushl   %eax
-        movl    _ixbasearray,%eax
-        bswap   %eax
-        addl    4*483-4,%eax
-        movl    %eax,4(%esp)
-        popl    %eax
-	ret
-
-	.globl  ___stkrst
-	.type   __stkrst,@function
-
-___stkrst:
-        pushl   %eax   | anything will do!
-        pushl   %eax
-        movl    _ixbasearray,%eax
-        bswap   %eax
-        addl    4*484-4,%eax
-        movl    %eax,4(%esp)
-        popl    %eax
-	ret
-
-	.globl  ___stkext_startup
-	.type   __stkext_startup,@function
-
-___stkext_startup:
-        pushl   %eax   | anything will do!
-        pushl   %eax
-        movl    _ixbasearray,%eax
-        bswap   %eax
-        addl    4*571-4,%eax
-        movl    %eax,4(%esp)
-        popl    %eax
-	ret
-");
-#endif
-
-
-#ifdef __PPC__
+#else
 
 #if defined(BASEREL)
 #   define LDVAR(reg, var) "lwz "#reg","#var"@sdarel(13)"

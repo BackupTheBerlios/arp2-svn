@@ -34,7 +34,7 @@
 
 #include <exec/tasks.h>
 
-#ifdef NATIVE_MORPHOS
+#if 0 //def NATIVE_MORPHOS
 
 #include <exec/memory.h>
 
@@ -61,7 +61,7 @@ void NewList(struct List *list)
    p=(LONG *)list; *--p=(LONG)list;
 }
 
-struct Task *CreateTask(CONST_STRPTR name, LONG pri, CONST APTR initpc, ULONG stacksize)
+struct Task *CreateTask(STRPTR name, LONG pri, APTR initpc, ULONG stacksize)
 {
   struct Task *newtask,*task2;
   struct newMemList nml;
@@ -77,8 +77,6 @@ struct Task *CreateTask(CONST_STRPTR name, LONG pri, CONST APTR initpc, ULONG st
   }
   if (!(((unsigned int)ml=AllocEntry((struct MemList *)&nml)) & (1<<31)))
   {
-    static struct EmulLibEntry gate = { TRAP_LIBNR, 0, 0 };
-    gate.Func = (void(*)())initpc;
     newtask=ml->ml_ME[0].me_Addr;
     newtask->tc_Node.ln_Type=NT_TASK;
     newtask->tc_Node.ln_Pri=pri;
@@ -105,8 +103,14 @@ struct Task *CreateTask(CONST_STRPTR name, LONG pri, CONST APTR initpc, ULONG st
 struct Task *
 ix_create_task (unsigned char *name, long pri, void *initPC, u_long stackSize)
 {
-#ifdef __pos__
-  return (struct Task *)pOS_CreateTask(name, pri, initPC, (stackSize + 3) & ~3, sizeof(struct pOS_Task), 0, NULL);
+#ifdef NATIVE_MORPHOS
+  return NewCreateTask(
+      TASKTAG_NAME, name,
+      TASKTAG_PRI, pri,
+      TASKTAG_PC, initPC,
+      TASKTAG_CODETYPE, CODETYPE_PPC,
+      TASKTAG_STACKSIZE, stackSize,
+      TAG_END);
 #else
   /* round the stack up to longwords... */
   return CreateTask(name, pri, initPC, (stackSize + 3) & ~3);

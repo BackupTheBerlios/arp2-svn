@@ -100,7 +100,7 @@ setitimer(u_int which, const struct itimerval *itv, struct itimerval *oitv)
 	if (itv == 0)
 		return 0;
 
-	if (itimerfix((struct timeval *)&itv->it_value) || 
+	if (itimerfix((struct timeval *)&itv->it_value) ||
 	    itimerfix((struct timeval *)&itv->it_interval))
 		err_return (EINVAL);
 
@@ -145,9 +145,9 @@ int itimerfix(struct timeval *tv)
 int
 itimerdecr (struct itimerval *itp, int usec)    /* CALLED FROM INTERRUPT !! */
 {
-  if (itp->it_value.tv_usec < usec) 
+  if (itp->it_value.tv_usec < usec)
     {
-      if (itp->it_value.tv_sec == 0) 
+      if (itp->it_value.tv_sec == 0)
 	{
 	  /* expired, and already in next interval */
 	  usec -= itp->it_value.tv_usec;
@@ -165,16 +165,16 @@ itimerdecr (struct itimerval *itp, int usec)    /* CALLED FROM INTERRUPT !! */
 
   /* expired, exactly at end of interval */
 expire:
-  if (timerisset(&itp->it_interval)) 
+  if (timerisset(&itp->it_interval))
     {
       itp->it_value = itp->it_interval;
       itp->it_value.tv_usec -= usec;
-      if (itp->it_value.tv_usec < 0) 
+      if (itp->it_value.tv_usec < 0)
 	{
 	  itp->it_value.tv_usec += 1000000;
 	  itp->it_value.tv_sec--;
 	}
-    } 
+    }
   else
     itp->it_value.tv_usec = 0;          /* sec is already 0 */
 
@@ -254,7 +254,7 @@ setitimer(u_int which, const struct itimerval *itv, struct itimerval *oitv)
   if (itv == 0)
     return 0;
 
-  if (itimerfix((struct timeval *)&itv->it_value) || 
+  if (itimerfix((struct timeval *)&itv->it_value) ||
       itimerfix((struct timeval *)&itv->it_interval))
     errno_return(EINVAL, -1);
 
@@ -318,9 +318,9 @@ int itimerfix(struct timeval *tv)
 int
 itimerdecr (struct itimerval *itp, int usec)    /* CALLED FROM INTERRUPT !! */
 {
-  if (itp->it_value.tv_usec < usec) 
+  if (itp->it_value.tv_usec < usec)
     {
-      if (itp->it_value.tv_sec == 0) 
+      if (itp->it_value.tv_sec == 0)
 	{
 	  /* expired, and already in next interval */
 	  usec -= itp->it_value.tv_usec;
@@ -338,16 +338,16 @@ itimerdecr (struct itimerval *itp, int usec)    /* CALLED FROM INTERRUPT !! */
 
   /* expired, exactly at end of interval */
 expire:
-  if (timerisset(&itp->it_interval)) 
+  if (timerisset(&itp->it_interval))
     {
       itp->it_value = itp->it_interval;
       itp->it_value.tv_usec -= usec;
-      if (itp->it_value.tv_usec < 0) 
+      if (itp->it_value.tv_usec < 0)
 	{
 	  itp->it_value.tv_usec += 1000000;
 	  itp->it_value.tv_sec--;
 	}
-    } 
+    }
   else
     itp->it_value.tv_usec = 0;          /* sec is already 0 */
 

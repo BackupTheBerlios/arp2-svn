@@ -3,26 +3,30 @@ dnl
 AC_INIT(libsrc/crt0.c)
 
 dnl ##### Optional features.
+BUILD_PPC="X"
+BUILD_M68K="X"
 TYPES=""
-BUILD_M68K=no
-BUILD_PPC=no
 DO_CATENATE="yes"
 AC_ARG_ENABLE(ppc,
-[  --enable-ppc     build ixemul for MorphOS]
-[  --disable-ppc    don't build ixemul for MorphOS],
+[  --enable-ppc     build ixemul for MorphOS],
 if test "$enableval" = yes; then
     BUILD_PPC=yes
-fi,
-BUILD_PPC=X
-)
+fi)
+AC_ARG_ENABLE(ppc,
+[  --disable-ppc    don't build ixemul for MorphOS],
+if test "$enableval" = yes; then
+    BUILD_PPC=no
+fi)
 AC_ARG_ENABLE(m68k,
-[  --enable-m68k    build ixemul for AmigaOS]
-[  --disable-m68k   don't build ixemul for AmigaOS],
+[  --enable-m68k    build ixemul for AmigaOS],
 if test "$enableval" = yes; then
     BUILD_M68K=yes
-fi,
-BUILD_M68K=X
-)
+fi)
+AC_ARG_ENABLE(m68k,
+[  --disable-m68k   don't build ixemul for AmigaOS],
+if test "$enableval" = yes; then
+    BUILD_M68K=no
+fi)
 AC_ARG_ENABLE(cat,
 [  --disable-cat    don't catenate sources before compiling],
 if test "$enableval" = no; then
@@ -32,7 +36,6 @@ AC_ARG_WITH(cpu,
 [  --with-cpu=x            build the server for cpu x (x=68020.68881, 68000.soft-float, powerpc.604e, ...)],
 TYPES="$withval")
 
-AC_CANONICAL_HOST
 AC_PROG_INSTALL
 AC_PROG_AWK
 AC_PROG_CC
@@ -43,28 +46,19 @@ AC_ARFLAGS
 dnl ##### Find the version(s) to build
 case "${host}" in
 	m68k*-*-amigaos*)
-	    if test "$BUILD_M68K" = "X"; then
+	    if test "$BUILD_M68K"="X"; then
 		BUILD_M68K="yes"
 	    fi
-	    if test "$BUILD_PPC" = "X"; then
+	    if test "$BUILD_PPC"="X"; then
 		BUILD_PPC="no"
 	    fi
 	    ;;
 	p*pc-*-morphos*)
-	    if test "$BUILD_M68K" = "X"; then
+	    if test "$BUILD_M68K"="X"; then
 		BUILD_M68K="no"
 	    fi
-	    if test "$BUILD_PPC" = "X"; then
+	    if test "$BUILD_PPC"="X"; then
 		BUILD_PPC="yes"
-	    fi
-	    ;;
-	*)
-	    AC_MSG_WARN(Host ${host} not recognized.)
-	    if test "$BUILD_M68K" = "X"; then
-		AC_ERROR(You have to supply --enable-m68k or --disable-m68k.)
-	    fi
-	    if test "$BUILD_PPC" = "X"; then
-		AC_ERROR(You have to supply --enable-ppc or --disable-ppc.)
 	    fi
 	    ;;
 esac

@@ -62,10 +62,6 @@
 #include <sys/wait.h>
 #include <exec/execbase.h>
 
-#ifdef __pos__
-#define TypeOfMem(a) pOS_TypeOfMem((a), TOMEMMD_Physics)
-#endif
-
 int process_read_regs (struct user *p, struct reg *regs)
 {
   usetup;

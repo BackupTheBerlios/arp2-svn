@@ -17,9 +17,12 @@
  *  License along with this library; if not, write to the Free
  *  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- *  $Id: mathsup.c,v 1.2 2001/03/28 20:37:15 emm Exp $
+ *  $Id: mathsup.c,v 1.3 2003/12/12 14:21:41 piru Exp $
  *
  *  $Log: mathsup.c,v $
+ *  Revision 1.3  2003/12/12 14:21:41  piru
+ *  No longer relies on shared math libraries under MorphOS.
+ *
  *  Revision 1.2  2001/03/28 20:37:15  emm
  *  Fixed math functions.
  *
@@ -49,6 +52,20 @@
 
 #include <ixemul.h>
 #include <ixmath.h>
+
+#if 1
+
+#include <math.h>
+
+/* NOTE: This is different than the GNU extension - Piru */
+
+double sincos(double* pf2, double parm)
+{
+    *pf2 = cos(parm);
+    return sin(parm);
+}
+
+#else
 
 double sincos(double* pf2, double parm)
 {
@@ -189,6 +206,7 @@ double const ceil(double parm)
     return *(double*)&REG_D0;
 }
 
+#endif
 
 #elif !defined(__HAVE_68881__)
 

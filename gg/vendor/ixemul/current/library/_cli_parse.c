@@ -60,9 +60,7 @@ static void init_file(struct file *f, BPTR fh, char *defname)
 {
   f->f_fh = (struct FileHandle *)BTOCPTR(fh);
 
-#ifndef __pos__
   __init_std_packet(&f->f_sp);
-#endif
   __init_std_packet((void *)&f->f_select_sp);
   __fstat(f);
 
@@ -153,19 +151,13 @@ __ix_cli_parse(struct Process *this_proc, long alen, char *_aptr,
 {
   usetup;
   char *arg0;
-#ifndef __pos__
   struct CommandLineInterface *cli;
   char *next, *lmax;
-#endif
   struct Argument *arg, *narg;
   char *line, **cpp;
   int do_expand;
   int arglen;
-#ifdef __pos__
-  char **aptr;
-#else
   char *aptr;
-#endif
   struct ArgList ArgList;
   int expand_cmd_line = u.u_expand_cmd_line;
   struct file *fin, *fout;
@@ -215,6 +207,8 @@ __ix_cli_parse(struct Process *this_proc, long alen, char *_aptr,
 	    {
 	      u.u_ofile[0] = 0;
 	      fin->f_count--;
+	      if (fin->f_count == 0)
+	        ffree(fin);
 	    }
 				
 	  if ((fh = Output ()))
@@ -228,6 +222,8 @@ __ix_cli_parse(struct Process *this_proc, long alen, char *_aptr,
 	    {
 	      u.u_ofile[1] = 0;
 	      fout->f_count--;
+	      if (fout->f_count == 0)
+	        ffree(fout);
 	    }
 
 	  /* deal with stderr. Seems this was a last minute addition to 
@@ -237,11 +233,7 @@ __ix_cli_parse(struct Process *this_proc, long alen, char *_aptr,
 	     console. */
 
 	  fd = -1;
-#ifdef __pos__
-	  if ((fh = (BPTR)pOS_GetStdErrOutput()))
-#else
 	  if ((fh = this_proc->pr_CES))
-#endif
 	    {
 	      struct file *fp;
 
@@ -285,20 +277,11 @@ __ix_cli_parse(struct Process *this_proc, long alen, char *_aptr,
 	} /* falloc (&fout, &fd) */
     } /* falloc (&fin, &fd) */
 
-#ifdef __pos__
-  aptr = (char **)_aptr;
-#else
   aptr = alloca (alen + 1);
   memcpy(aptr, _aptr, alen + 1);
-#endif
 
-#ifdef __pos__
-  aptr++;
-  arg0 = (char *)(pOS_FindTask(0)->tc_Node.ln_Name);
-#else
   cli = (struct CommandLineInterface *) BTOCPTR (this_proc->pr_CLI);
   arg0 = (char *) BTOCPTR (cli->cli_CommandName);
-#endif
 
   /* init our argument list */
   ixnewlist ((struct ixlist *)&ArgList);
@@ -306,9 +289,6 @@ __ix_cli_parse(struct Process *this_proc, long alen, char *_aptr,
   /* lets start humble.. no arguments at all:-)) */
   ArgList.al_num = 0;
 
-#ifdef __pos__
-  for (narg = arg = 0; *aptr; aptr++)
-#else
   /* find end of command-line, stupid BCPL-stuff.. line can end
    * either with \n or with \0 .. */
   for (lmax = aptr; *lmax && *lmax != '\n' && *lmax != '\r'; ++lmax) ;
@@ -316,15 +296,9 @@ __ix_cli_parse(struct Process *this_proc, long alen, char *_aptr,
 
   /* loop over all arguments, expand all */
   for (line = aptr, narg = arg = 0; line < lmax; )
-#endif
     {
       do_expand = 0;
 
-#ifdef __pos__
-      for (line = *aptr; *line; line++)
-	do_expand |= iswild(*line);
-      line = *aptr;
-#else
       KPRINTF (("remaining cmd line = '%s'\n", line));
       /* skip over leading whitespace */
       while (isspace (*line)) line++;
@@ -392,7 +366,6 @@ __ix_cli_parse(struct Process *this_proc, long alen, char *_aptr,
 	    }
 	  *next = 0;
 	}
-#endif
 
       if (expand_cmd_line && do_expand)
 	{
@@ -425,9 +398,7 @@ __ix_cli_parse(struct Process *this_proc, long alen, char *_aptr,
 	}
 
       narg = (struct Argument *) ArgList.al_list.tail;
-#ifndef __pos__
       line = next + 1;
-#endif
     } /* for */
 
   /* prepend the program name */
@@ -435,20 +406,11 @@ __ix_cli_parse(struct Process *this_proc, long alen, char *_aptr,
 
   /* some stupid shells (like Wsh...) pass the WHOLE path of the
    * started program. We simply cut off what we don't want ;-)) */
-#ifdef __pos__
-  for (arglen = 0; arg0[arglen]; arglen++)
-#else
   for (arglen = 1; arglen <= arg0[0]; arglen++)
-#endif
     if (arg0[arglen] == ' ' || arg0[arglen] == '\t')
       break;
 
-#ifdef __pos__
-  line = arg0;
-  arglen++;
-#else
   line = arg0 + 1;
-#endif
 
   arg->a_arg = (char *) syscall (SYS_malloc, arglen);
 

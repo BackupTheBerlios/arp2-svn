@@ -234,12 +234,7 @@ struct user {
 	void                    (*u_oexcept_code)();
 	APTR                    u_otrap_code;
 	APTR                    u_otrap_data;
-#ifdef __pos__
-	void                    *IRQBase;       /* IRQ.resource base */
-	struct pOS_Interrupt    u_itimerint;    /* 1 interrupt / task */
-#else
 	struct Interrupt        u_itimerint;    /* 1 interrupt / task */
-#endif
 
 	int                     p_pgrp;         /* process group */
 	struct session          *u_session;     /* session pointer */
@@ -295,11 +290,7 @@ struct user {
 	/* this is for SIGWINCH support. */
 	struct IOStdReq         *u_idev_req;
 	struct Window           *u_window;      /* the watched window */
-#ifdef __pos__
-	struct pOS_Interrupt    u_idev_int;
-#else
 	struct Interrupt        u_idev_int;
-#endif
 
 	/* for `ps' (or dump as it's called for now.. ) */
 	char                    *p_wmesg;
@@ -458,13 +449,8 @@ struct user {
 	
 	/* ix_segment support */
 	ix_segment              u_segment_info;
-#ifdef __pos__
-	struct pOS_Segment      *u_segment_ptr;
-	struct pOS_SegmentLst   *u_segment_list;
-#else
 	short                   u_segment_no;   /* segment number (0-2) */
 	long                    u_segment_ptr;
-#endif
 	void			*u_sdata_ptr;
 	void 			*u_wbmsg;
 	struct ixnode		u_detached_node;

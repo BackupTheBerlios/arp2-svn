@@ -25,8 +25,95 @@
 #ifndef mc68000
 #include <string.h>
 
+#ifdef __PPC__
+
+/* Relatively fast bzero for PPC. - Piru */
+
+#define USE_INDEX	1
+#define USE_WRITE64	0
+
+void bzero(void *b, size_t len)
+{
+  typedef unsigned char u8;
+#if USE_WRITE64
+  typedef double        LTYPE;
+#else
+  typedef unsigned int  LTYPE;
+#endif
+  const size_t LSIZE = sizeof(LTYPE);
+  const size_t LMASK = sizeof(LTYPE) - 1;
+
+  if (len >= LSIZE * 4)
+  {
+    size_t n, o;
+
+    n = (size_t)b & LMASK;
+    if (n)
+    {
+      len -= n;
+      do
+        *((u8 *)b)++ = 0;
+      while (--n);
+    }
+    n = len / LSIZE;
+    len &= LMASK;
+
+    if (n >= 8)
+    {
+      o = n / 8;
+      n &= 7;
+
+#if USE_INDEX
+
+      do
+      {
+        ((LTYPE *)b)[0] = 0;
+        ((LTYPE *)b)[1] = 0;
+        ((LTYPE *)b)[2] = 0;
+        ((LTYPE *)b)[3] = 0;
+        ((LTYPE *)b)[4] = 0;
+        ((LTYPE *)b)[5] = 0;
+        ((LTYPE *)b)[6] = 0;
+        ((LTYPE *)b) += 8;
+        ((LTYPE *)b)[-1] = 0;
+
+      } while (--o);
+
+#else
+
+      ((LTYPE *)b)--;
+      do
+      {
+        *++((LTYPE *)b) = 0;
+        *++((LTYPE *)b) = 0;
+        *++((LTYPE *)b) = 0;
+        *++((LTYPE *)b) = 0;
+
+        *++((LTYPE *)b) = 0;
+        *++((LTYPE *)b) = 0;
+        *++((LTYPE *)b) = 0;
+        *++((LTYPE *)b) = 0;
+
+      } while (--o);
+      ((LTYPE *)b)++;
+
+#endif
+    }
+
+    while (n--)
+      *((LTYPE *)b)++ = 0;
+  }
+
+  while (len--)
+    *((u8 *)b)++ = 0;
+}
+
+#else
+
 void bzero(void *b,size_t len)
 { size_t n;
+  if (!len)
+    return;
   if((unsigned long)b&1)
   { *((char *)b)++=0;
     len--; }
@@ -37,6 +124,8 @@ void bzero(void *b,size_t len)
   while(len--)
     *((char *)b)++=0;
 }
+
+#endif
 #else
 #include "defs.h"
 

@@ -93,20 +93,20 @@ malloc (size_t size)
 
   /* guarantee long sizes (so we can use CopyMemQuick in realloc) */
   size = (size + 3) & ~3; /* next highest multiple of 4 */
-  
+
   /* we don't want to be interrupted between the allocation and the tracking */
   omask = syscall (SYS_sigsetmask, ~0);
 
   /* include management information */
   res = (struct mem_block *) b_alloc(size + sizeof (struct mem_block), 0); /* not MEMF_PUBLIC ! */
-  
+
   if (res)
     {
       u_int *lp = &res->size;
       *lp++ = size;
       *lp++ = MAGIC1; *lp++ = MAGIC1;
       lp = (u_int *)((u_char *)lp + size);
-      *lp++ = MAGIC2; 
+      *lp++ = MAGIC2;
 
       Forbid ();
       ixaddtail ((struct ixlist *)&mem_list, (struct ixnode *)res);
@@ -170,11 +170,12 @@ free (void *mem)
 	      ((u_char *)block - ((struct memalign_ptr *)mem - 1)->alignment);
     }
 
-   
+
 
   if (((u_int)block & 1) ||
       (block->magic[0] != MAGIC1 || block->magic[1] != MAGIC1))
     {
+*(int*)0=0;
       ix_panic ("free: start of block corrupt!");
       syscall (SYS_exit, 20);
     }
@@ -182,6 +183,7 @@ free (void *mem)
   end_magic = (u_int *)((u_char *)&block->realblock + block->size);
   if (end_magic[0] != MAGIC2)
     {
+*(int*)0=0;
       ix_panic ("free: end of block corrupt!");
       syscall (SYS_exit, 20);
     }
@@ -211,7 +213,7 @@ void all_free (void)
 
   /* be sure to use *our* memory lists in here, never all_free() the parents
      list.... */
-  
+
   for (b = (struct mem_block *)own_mem_list.head; b; b = nb)
     {
       nb = (struct mem_block *)b->node.next;
@@ -232,29 +234,30 @@ realloc (void *mem, size_t size)
 
   if (!mem)
     return (void *) malloc (size);
-    
+
   if (!size)
   {
     free(mem);
     return NULL;
   }
-    
+
   block = (struct mem_block *)((u_char *)mem - offsetof (struct mem_block, realblock));
 
-  
+
   /* duplicate the code in free() here so we don't have to check those magic
    * numbers twice */
-  
+
   if (((struct memalign_ptr *)mem - 1)->magic == MEMALIGN_MAGIC)
     {
       block = (struct mem_block *)
 	      ((u_char *)block - ((struct memalign_ptr *)mem - 1)->alignment);
     }
 
-   
+
   if (((u_int)block & 1) ||
       (block->magic[0] != MAGIC1 || block->magic[1] != MAGIC1))
     {
+*(int*)0=0;
       ix_panic ("realloc: start of block corrupt!");
       syscall (SYS_exit, 20);
     }

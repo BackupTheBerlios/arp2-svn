@@ -16,33 +16,7 @@
  *  License along with this library; if not, write to the Free
  *  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- *  $Id: buddy-alloc.c,v 1.3 2000/09/18 21:28:19 emm Exp $
- *
- *  $Log: buddy-alloc.c,v $
- *  Revision 1.3  2000/09/18 21:28:19  emm
- *  Moved WB message handling in ix_open. Fixed a race condition in memory management.
- *
- *  Revision 1.2  2000/06/20 22:17:18  emm
- *  First attempt at a native MorphOS ixemul
- *
- *  Revision 1.1.1.1  2000/05/07 19:38:00  emm
- *  Imported sources
- *
- *  Revision 1.1.1.1  2000/04/29 00:49:35  nobody
- *  Initial import
- *
- *  Revision 1.4  1994/06/19  15:02:51  rluebbert
- *  *** empty log message ***
- *
- *  Revision 1.2  1992/09/14  01:40:24  mwild
- *  change from using aligned blocks (obtained thru an AllocMem/FreeMem/AllocAbs
- *  hack) to using non-aligned blocks. The price for this is an additional
- *  field in every allocated block.
- *
- *  In the same run, change Forbid/Permit into Semaphore locking.
- *
- *  Revision 1.1  1992/05/22  01:42:33  mwild
- *  Initial revision
+ *  $Id: buddy-alloc.c,v 1.6 2004/03/26 17:26:30 emm Exp $
  *
  */
 #define _KERNEL
@@ -65,6 +39,90 @@
 #  undef MEMF_SWAP
 #  define MEMF_SWAP      0
 #endif
+
+#ifdef TRACK_ALLOCS
+
+#undef AllocMem
+#undef FreeMem
+
+#define AllocMem(x,y)    debug_AllocMem("malloc",x,y)
+#define FreeMem(x,y)     debug_FreeMem(x,y)
+
+#define MEMMAGIC 0x45134384
+
+struct mem_tracker {
+  struct ixnode node;
+  int magic;
+  int size;
+  const char *id;
+};
+
+struct ixlist memlist;
+
+void
+dump_memlist(void)
+{
+  struct mem_tracker *p;
+  dprintf("---------- Allocated memory ----------\n");
+  Forbid();
+  for (p = (struct mem_tracker *)memlist.head; p; p = (struct mem_tracker *)p->node.next)
+  {
+    dprintf("0x%08lx 0x%08lx %s\n", p + 1, p->size, p->id);
+  }
+  Permit();
+  dprintf("--------------------------------------\n");
+}
+
+void *
+debug_AllocMem(const char *id, int size, int reqs)
+{
+  struct mem_tracker *p;
+
+  Forbid();
+  p = AllocVec(size + sizeof(*p), reqs);
+  if (p)
+  {
+    ixaddtail(&memlist, &p->node);
+    p->magic = MEMMAGIC;
+    p->size = size;
+    p->id = id;
+    ++p;
+  }
+  Permit();
+
+  return p;
+}
+
+void
+debug_FreeMem(void *p, int size)
+{
+  if (p)
+  {
+    struct mem_tracker *q = (struct mem_tracker *)p - 1;
+
+    Forbid();
+    if (q->magic != MEMMAGIC)
+    {
+      dprintf("FreeMem a bad block: 0x%x size %d\n", p, size);
+      *(char *)0 = 0;
+    }
+    else if (q->size != size)
+    {
+      dprintf("FreeMem with bad size: 0x%x size %d old %d\n", p, size, q->size);
+      *(char *)0 = 0;
+    }
+    else
+    {
+      ixremove(&memlist, &q->node);
+      q->magic = 0;
+      FreeVec(q);
+    }
+    Permit();
+  }
+}
+
+#endif
+
 
 /* this provides a straight replacement for AllocMem() and FreeMem().
    Being this, it does *not* remember the size of allocation, the
@@ -123,7 +181,7 @@ struct free_block {
 void
 init_buddy (void)
 {
-  int i, l; 
+  int i, l;
 
   /* don't want such a nightmare of bug-hunt any more... */
   if (sizeof (struct free_block) > MINSIZE)
@@ -227,7 +285,7 @@ get_block (u_int free_pool, u_char index)
 
       return fb;
     }
-  else 
+  else
     {
       if ((fb = unlink_block (free_pool, index, 0)))
 	return fb;
@@ -305,7 +363,7 @@ b_alloc (int size, unsigned pool)
 
   bucket = log2 (size) - MINLOG2;
 
-  /* have to differentiate between PUBLIC and PRIVATE memory here, sigh. 
+  /* have to differentiate between PUBLIC and PRIVATE memory here, sigh.
      PRIVATE memory can safely be accessed by using a semaphore, PUBLIC
      memory however is allocated and free'd inside Forbid(), and using a
      semaphore there would possibly break a Forbid..
@@ -341,7 +399,7 @@ b_free (void *mem, int size)
 
   if (size < MINSIZE)
     size = MINSIZE;
-    
+
   if (size >= BUDDY_LIMIT - offsetof (struct free_block, next))
     {
       FreeMem(mem, size);
@@ -372,4 +430,3 @@ b_free (void *mem, int size)
 void cleanup_buddy(void)
 {
 }
-

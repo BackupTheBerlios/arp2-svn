@@ -38,16 +38,6 @@
 #define _KERNEL
 #include "ixemul.h"
 
-#ifdef __pos__
-int
-__ix_wb_parse(struct Process *ThisProcess, struct WBStartup *WBenchMsg,
-	  char *default_wb_window)
-{
-  return 0;
-}
-
-#else
-
 #include <workbench/workbench.h>
 #include <workbench/startup.h>
 
@@ -155,4 +145,3 @@ __ix_wb_parse(struct Process *ThisProcess, struct WBStartup *WBenchMsg,
   return FALSE;
 }
 
-#endif /* __pos__ */

@@ -2,11 +2,11 @@
 #define _INLINE_MULTIUSER_H
 
 #ifndef __INLINE_MACROS_H
-//#ifdef __PPC__
-//#include <ppcinline/macros.h>
-//#else
+#ifdef __PPC__
+#include <ppcinline/macros.h>
+#else
 #include <inline/macros.h>
-//#endif
+#endif
 #endif
 
 #ifndef MULTIUSER_BASE_NAME

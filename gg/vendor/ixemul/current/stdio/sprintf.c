@@ -89,5 +89,50 @@ _varargs68k_sprintf(char *str, char const *fmt, char *ap1)
 	return (ret);
 }
 
+asm("	.section \".text\"
+	.type	_stk_sprintf,@function
+	.globl	_stk_sprintf
+_stk_sprintf:
+	andi.	11,1,15
+	mr	12,1
+	bne-	.align_sprintf
+	b	sprintf
+.align_sprintf:
+	addi	11,11,128
+	mflr	0
+	neg	11,11
+	stw	0,4(1)
+	stwux	1,1,11
+
+	stw	5,16(1)
+	stw	6,20(1)
+	stw	7,24(1)
+	stw	8,28(1)
+	stw	9,32(1)
+	stw	10,36(1)
+	bc	4,6,.nofloat_sprintf
+	stfd	1,40(1)
+	stfd	2,48(1)
+	stfd	3,56(1)
+	stfd	4,64(1)
+	stfd	5,72(1)
+	stfd	6,80(1)
+	stfd	7,88(1)
+	stfd	8,96(1)
+.nofloat_sprintf:
+
+	addi	5,1,104
+	lis	0,0x200
+	addi	12,12,8
+	addi	11,1,8
+	stw	0,0(5)
+	stw	12,4(5)
+	stw	11,8(5)
+	bl	vsprintf
+	lwz	1,0(1)
+	lwz	0,4(1)
+	mtlr	0
+	blr
+");
 #endif
 

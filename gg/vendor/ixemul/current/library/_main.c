@@ -153,20 +153,11 @@ char **__ix_get_environ (void)
   char **cp, **tmp;
 
   /* 2.0 local environment overrides 1.3 global environment */
-#ifdef __pos__
-  struct pOS_Process *me = (struct pOS_Process *)FindTask (0);
-  struct pOS_LocalVar *lv, *nlv;
-#else
   struct Process *me = (struct Process *)SysBase->ThisTask;
   struct LocalVar *lv, *nlv;
-#endif
 
   /* count total number of local variables (skip aliases) */
-#ifdef __pos__
-  for (num_local = 0, lv = (void *)me->pr_LocalVars.lh_Head;
-#else
   for (num_local = 0, lv = (void *)me->pr_LocalVars.mlh_Head;
-#endif
        (nlv = (void *)lv->lv_Node.ln_Succ);
        lv = nlv)
     if (lv->lv_Node.ln_Type == LV_VAR)
@@ -175,11 +166,7 @@ char **__ix_get_environ (void)
   if ((cp = (char **) syscall (SYS_malloc, (num_local + 1) * 4)))
     {
       env = cp;
-#ifdef __pos__
-      for (lv = (void *)me->pr_LocalVars.lh_Head;
-#else
       for (lv = (void *)me->pr_LocalVars.mlh_Head;
-#endif
 	   (nlv = (void *)lv->lv_Node.ln_Succ);
 	   lv = nlv)
 	{
@@ -318,7 +305,6 @@ _main(char *aline, int alen, int (*main)(int, char **, char **))
   int                   exitcode;
 
   KPRINTF (("entered __main()\n"));
-#ifndef __pos__
   if (! me->pr_CLI)
     {
       /* Workbench programs expect to have their CD where the executed
@@ -333,7 +319,6 @@ _main(char *aline, int alen, int (*main)(int, char **, char **))
       argv = (char **) wb_msg;
     }
   else
-#endif
     {
       /* if we were started from the CLI, alen & aline are valid and
        * should now be split into arguments. This is done by the

@@ -1,6 +1,6 @@
 #ifndef LIBRARIES_USERGROUP_H
 #define LIBRARIES_USERGROUP_H \
-       "$Id: usergroup.h,v 1.2 2000/06/20 22:16:44 emm Exp $"
+       "$Id: usergroup.h,v 1.3 2004/08/12 00:37:59 laire Exp $"
 /*
  *      Definitions of AmiTCP/IP usergroup.library for 32 bit C compilers
  *
@@ -25,7 +25,7 @@
 
 #include <sys/param.h>
 
-#define USERGROUPNAME "AmiTCP:libs/usergroup.library"
+#define USERGROUPNAME "usergroup.library"
 
 /* Extended password encryption begins with underscore */
 #define _PASSWORD_EFMT1 '_'

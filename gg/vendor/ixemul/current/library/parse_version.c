@@ -86,9 +86,7 @@ int main(int argc, char **argv)
 #endif
 #endif
 
-#ifdef __pos__
-  strcat(tmp, ", pos");
-#elif defined(NATIVE_MORPHOS)
+#if defined(NATIVE_MORPHOS)
   strcat(tmp, ", morphos");
 #else
   strcat(tmp, ", amigaos");

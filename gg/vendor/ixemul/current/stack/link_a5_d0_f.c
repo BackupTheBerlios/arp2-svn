@@ -1,7 +1,6 @@
-
-#ifdef __m68000__
 #include "a4.h"         /* for the A4 macro */
 
+#ifndef __PPC__
 asm("
 	.text
 	.even

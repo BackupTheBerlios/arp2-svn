@@ -51,7 +51,6 @@ umask (mode_t mode)
   res = u.u_cmask;
   u.u_cmask = mode;
 
-#ifndef __pos__
   if (muBase) {
     long mumode = 0;
 
@@ -75,7 +74,6 @@ umask (mode_t mode)
 	muT_DefProtection, mumode,
 	TAG_DONE);
   }
-#endif
 
   return res;
 }

@@ -37,7 +37,6 @@ static const struct passwd builtin_nobody =
 
 /* multiuser specific stuff */
 
-#ifndef __pos__
 static char *
 getUserPasswd(char *name)
 {
@@ -114,7 +113,6 @@ UserInfo2pw (struct muUserInfo *UI)
 
   return pw;
 }
-#endif
 
 /* builtin passwd file parsing */
 
@@ -202,10 +200,8 @@ getuid(void)
 {
   usetup;
 
-#ifndef __pos__
   if (muBase)
     return (__amiga2unixid(muGetTaskOwner(NULL) >> 16));
-#endif
 
   return u.u_ruid;
 }
@@ -215,10 +211,8 @@ geteuid(void)
 {
   usetup;
 
-#ifndef __pos__
   if (muBase)
     return (__amiga2unixid(muGetTaskOwner(NULL) >> 16));
-#endif
 
   return u.u_euid;
 }
@@ -228,7 +222,6 @@ setreuid (int ruid, int euid)
 {
   usetup;
 
-#ifndef __pos__
   if (muBase)
   {
     int retval = 0;
@@ -261,7 +254,6 @@ setreuid (int ruid, int euid)
     return retval;
   }
   else
-#endif
     {
       if (ruid != -1)
 	u.u_ruid = (uid_t)ruid;
@@ -294,7 +286,6 @@ struct passwd *getpwuid (uid_t uid)
   if (uid == (uid_t)(-2))
     return (struct passwd *)&builtin_nobody; /* always handle nobody */
 
-#ifndef __pos__
   if (muBase)
     {
       /* active multiuser */
@@ -306,7 +297,6 @@ struct passwd *getpwuid (uid_t uid)
 
       return UserInfo2pw (UI);      /* handles errors */
     }
-#endif
 
   if (u.u_ixnetbase && (pw = (struct passwd *)netcall(NET_getpwuid, (int)uid)))
     return pw;
@@ -359,7 +349,6 @@ struct passwd *getpwnam (const char *name)
   if (!strcmp(name,"nobody"))
     return (struct passwd *)&builtin_nobody;
 
-#ifndef __pos__
   if (muBase)
     {
       struct muUserInfo *UI = u.u_UserInfo;
@@ -379,7 +368,6 @@ struct passwd *getpwnam (const char *name)
 
       return UserInfo2pw (UI);      /* handles errors */
     }
-#endif
 
   if (u.u_ixnetbase && (pw = (struct passwd *)netcall(NET_getpwnam, name)))
     return pw;
@@ -430,7 +418,6 @@ getpwent(void)
   char *name;
   usetup;
 
-#ifndef __pos__
   if (muBase)
     {
       struct muUserInfo *UI  = u.u_fileUserInfo;
@@ -440,7 +427,6 @@ getpwent(void)
 
       return UserInfo2pw (UI);       /* handles errors */
     }
-#endif
 
   if (u.u_ixnetbase)
     return (struct passwd *)netcall(NET_getpwent);
@@ -470,13 +456,11 @@ setpassent(int stayopen)
 {
   usetup;
 
-#ifndef __pos__
   if (muBase)
     {
       u.u_passwdfileopen = FALSE;
       return 1;
     }
-#endif
 
   if (u.u_ixnetbase)
     return netcall(NET_setpassent, stayopen);
@@ -493,13 +477,11 @@ setpwent(void)
 {
   usetup;
 
-#ifndef __pos__
   if (muBase)
     {
       u.u_passwdfileopen = FALSE;
       return 1;
     }
-#endif
 
   if (u.u_ixnetbase)
     return netcall(NET_setpwent);
@@ -516,13 +498,11 @@ endpwent(void)
 {
   usetup;
 
-#ifndef __pos__
   if (muBase)
     {
       u.u_passwdfileopen = FALSE;
       return;
     }
-#endif
 
   if (u.u_ixnetbase)
     netcall(NET_endpwent);

@@ -42,7 +42,7 @@ void exit2(int retval)
 {
   usetup;
 
-  KPRINTF(("exit2\n"));
+  KPRINTF(("exit2(%ld)\n", retval));
 
   /* ignore all signals from now on, as I don't think allowing signalling
      while running an exit-handler is such a good idea */

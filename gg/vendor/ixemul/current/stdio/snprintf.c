@@ -61,14 +61,24 @@ snprintf(char *str, size_t n, char const *fmt, ...)
 	my_va_list ap;
 	FILE f;
 
-	if ((int)n < 1)
-		return (EOF);
 	my_va_start(ap, fmt);
 	f._flags = __SWR | __SSTR;
-	f._bf._base = f._p = (unsigned char *)str;
-	f._bf._size = f._w = n - 1;
+	/* To be compatible with glibc, we need to handle the special case where n is 0. */
+	if ((int)n < 1)
+	{
+		f._bf._base = f._p = (void *)-1;
+		f._bf._size = f._w = 0;
+	}
+	else
+	{
+		f._bf._base = f._p = (unsigned char *)str;
+		f._bf._size = f._w = n - 1;
+	}
 	ret = vfprintf(&f, fmt, ap);
-	*f._p = 0;
+	if (f._p != (void *)-1)
+	{
+		*f._p = 0;
+	}
 	my_va_end(ap);
 	return (ret);
 }
@@ -82,16 +92,71 @@ _varargs68k_snprintf(char *str, size_t n, const char *fmt, char *ap1)
 	my_va_list ap;
 	FILE f;
 
-	if ((int)n < 1)
-		return (EOF);
 	my_va_init_68k(ap, ap1);
 	f._flags = __SWR | __SSTR;
-	f._bf._base = f._p = (unsigned char *)str;
-	f._bf._size = f._w = n - 1;
+	/* To be compatible with glibc, we need to handle the special case where n is 0. */
+	if ((int)n < 1)
+	{
+		f._bf._base = f._p = (void *)-1;
+		f._bf._size = f._w = 0;
+		dprintf("null varargs68k_snprintf fp 0x%lx\n", &f);
+	}
+	else
+	{
+		f._bf._base = f._p = (unsigned char *)str;
+		f._bf._size = f._w = n - 1;
+	}
 	ret = vfprintf(&f, fmt, ap);
-	*f._p = 0;
+	if (f._p != (void *)-1)
+	{
+		*f._p = 0;
+	}
 	return (ret);
 }
 
+asm("	.section \".text\"
+	.type	_stk_snprintf,@function
+	.globl	_stk_snprintf
+_stk_snprintf:
+	andi.	11,1,15
+	mr	12,1
+	bne-	.align_snprintf
+	b	snprintf
+.align_snprintf:
+	addi	11,11,128
+	mflr	0
+	neg	11,11
+	stw	0,4(1)
+	stwux	1,1,11
+
+	stw	6,20(1)
+	stw	7,24(1)
+	stw	8,28(1)
+	stw	9,32(1)
+	stw	10,36(1)
+	bc	4,6,.nofloat_snprintf
+	stfd	1,40(1)
+	stfd	2,48(1)
+	stfd	3,56(1)
+	stfd	4,64(1)
+	stfd	5,72(1)
+	stfd	6,80(1)
+	stfd	7,88(1)
+	stfd	8,96(1)
+.nofloat_snprintf:
+
+	addi	6,1,104
+	lis	0,0x300
+	addi	12,12,8
+	addi	11,1,8
+	stw	0,0(6)
+	stw	12,4(6)
+	stw	11,8(6)
+	bl	vsnprintf
+	lwz	1,0(1)
+	lwz	0,4(1)
+	mtlr	0
+	blr
+");
 #endif
 

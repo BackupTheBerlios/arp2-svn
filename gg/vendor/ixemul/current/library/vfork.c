@@ -17,99 +17,14 @@
  *  License along with this library; if not, write to the Free
  *  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- *  $Id: vfork.c,v 1.11 2001/06/01 17:40:16 emm Exp $
- *
- *  $Log: vfork.c,v $
- *  Revision 1.11  2001/06/01 17:40:16  emm
- *  Simplified signal handling. Minor old fixes.
- *
- *  Revision 1.10  2000/10/12 21:01:14  emm
- *  Fix for hits with non-ixemul programs
- *
- *  Revision 1.9  2000/10/11 20:48:28  emm
- *  Attempt at fixing the 'hit on exit' problem
- *
- *  Revision 1.8  2000/10/04 17:53:55  emm
- *  * Fixed various problems with 68k ixemul programs
- *  * Completed support for 68k stack management
- *  * Improved configure/make
- *  * Fixed some includes bugs
- *  * Added support for ctors/dtors in crt0.o
- *  * Added the missing _err/_warn
- *  * Compiled the ixpipe: handler and some tools
- *
- *  Revision 1.7  2000/09/13 21:13:53  emm
- *  Works on 68k again
- *
- *  Revision 1.6  2000/09/05 21:00:16  emm
- *  Fixed some bugs. Deadlocks, memory trashing, ...
- *
- *  Revision 1.5  2000/08/25 17:46:13  emm
- *  Fixed a race condition
- *
- *  Revision 1.4  2000/07/23 19:17:38  emm
- *  Added ppc stack extension support. Improved glues. Fixed some bugs.
- *
- *  Revision 1.3  2000/06/20 22:17:31  emm
- *  First attempt at a native MorphOS ixemul
- *
- *  Revision 1.2  2000/05/18 19:52:10  emm
- *  MorphOS support added. Not fully working.
- *
- *  Revision 1.1.1.1  2000/05/07 19:38:45  emm
- *  Imported sources
- *
- *  Revision 1.3  2000/05/07 21:00:16  nobody
- *  Included Zapek fixes.
- *
- *  Revision 1.2  2000/05/04 19:36:22  nobody
- *  Replaced tc_Launch polling by exceptions
- *
- *  Revision 1.1.1.1  2000/04/29 00:45:48  nobody
- *  Initial import
- *
- *  Revision 1.9  1994/06/19  15:18:29  rluebbert
- *  *** empty log message ***
- *
- *  Revision 1.7  1992/10/20  16:29:49  mwild
- *  allow a vfork'd process to use the parents memory pool. The new function
- *  vfork2() continues to use the old semantics.
- *
- *  Revision 1.6  1992/09/14  01:48:11  mwild
- *  move kmalloc() out of Forbid() (since the allocator is now Semaphore-based).
- *  move errno assignment after sigsetmask (thanks Niklas!)
- *  remove dead code
- *
- *  Revision 1.5  1992/08/09  21:01:43  amiga
- *  change to 2.x header files
- *  duplicate calling stack frame in vfork_resume() instead of just doing rts.
- *  temporary abort calling 1.3 vfork, until that's fixed again (when???).
- *
- *  Revision 1.4  1992/07/04  19:24:12  mwild
- *  get passing of environment right.
- *  change ix_sleep() calls to new semantics.
- *
- * Revision 1.3  1992/05/18  12:26:25  mwild
- * fixed bad typo that didn't close files before sending wait message.
- * Set childs Input()/Output() to NIL:, we only keep the files in our
- * own filetable.
- *
- * Revision 1.2  1992/05/18  01:02:31  mwild
- * add temporary Delay(100) before CloseLibrary() in the child after
- * vfork(), there seem to arrive some late packets (don't know why..)
- * pass NIL: filehandles as Input()/Output() to the child, so that the
- * real I/O-handles only depend on ix-filetable for usage-count
- *
- * Revision 1.1  1992/05/14  19:55:40  mwild
- * Initial revision
- *
+ *  $Id: vfork.c,v 1.13 2004/03/24 16:16:07 emm Exp $
  */
 
 #define _KERNEL
 #include "ixemul.h"
 #include "kprintf.h"
 
-#include <sys/ixemul_syscall.h>
+#include <sys/syscall.h>
 #include <sys/resource.h>
 #include <sys/wait.h>
 #include <stddef.h>
@@ -175,13 +90,13 @@ KPRINTF(("a7=%lx: %08lx %08lx %08lx %08lx %08lx %08lx %08lx %08lx\n",
 
   do
     {
-      if (!vm) 
+      if (!vm)
 	WaitPort (& me->pr_MsgPort);
 
       vm = (struct vfork_msg *) GetMsg (&me->pr_MsgPort);
     }
   while (!vm || vm->vm_self != me);
-      
+
   KPRINTF(("vforked: initializing\n"));
 
   if (ixb)
@@ -236,14 +151,14 @@ KPRINTF(("a7=%lx: %08lx %08lx %08lx %08lx %08lx %08lx %08lx %08lx\n",
       mu->u_rgid = pu->u_rgid;
       mu->u_egid = pu->u_egid;
 
-      if ((mu->u_ngroups = pu->u_ngroups)) 
+      if ((mu->u_ngroups = pu->u_ngroups))
 	bcopy((char *)pu->u_grouplist, (char *)mu->u_grouplist, pu->u_ngroups * sizeof(int));
 
       if ((mu->u_logname_valid = pu->u_logname_valid))
 	strcpy((char *)mu->u_logname, (char *)pu->u_logname);
 
       shmfork((struct user *)pu, (struct user *)mu);
-	    
+
       /* if we got our own malloc list already, it is safe to call malloc here.
 	 If not, the stuff done here is postponed to either vfork_resume, or
 	 execve */
@@ -262,7 +177,7 @@ KPRINTF(("a7=%lx: %08lx %08lx %08lx %08lx %08lx %08lx %08lx %08lx\n",
 	  /* borrow the variables of the parent */
 	  mu->u_environ = pu->u_environ;
 	  mu->u_errno = pu->u_errno;
-	  
+
 	  /* tell malloc to use the parents malloc lists */
 	  mu->u_mdp = pu->u_mdp;
 	}
@@ -272,7 +187,7 @@ KPRINTF(("a7=%lx: %08lx %08lx %08lx %08lx %08lx %08lx %08lx %08lx\n",
 	     offsetof (struct user, u_md) - offsetof (struct user, u_a4_pointers_size));
       bcopy ((char *)pu - a4_size, (char *)mu - a4_size, a4_size);
 
-      /* some things have been copied that should be reset */      
+      /* some things have been copied that should be reset */
       mu->p_flag &= ~(SFREEA4 | STRC);
       mu->p_xstat = 0;
       bzero ((void *)&mu->u_ru, sizeof (struct rusage));
@@ -307,8 +222,8 @@ KPRINTF(("a7=%lx: %08lx %08lx %08lx %08lx %08lx %08lx %08lx %08lx\n",
 		     point to the same file structure: obtaining one released file descriptor will
 		     obtain them all. So we have to scan for file descriptors that point to the
 		     same file structure for which we just obtained the socket and copy the new
-		     file structure into the dupped file descriptors. 
-		     
+		     file structure into the dupped file descriptors.
+
 		     Note that the newly created file structure has the field f_socket_id set to 0,
 		     so we won't come here again because of the if-statement above that tests whether
 		     the socket was released. */
@@ -320,7 +235,7 @@ KPRINTF(("a7=%lx: %08lx %08lx %08lx %08lx %08lx %08lx %08lx %08lx\n",
 		      /* do they point to the same file structure? */
 		      if (mu->u_ofile[fd] == mu->u_ofile[fd2])
 		      {
-			/* in that case copy the newly obtained socket into this file descriptor 
+			/* in that case copy the newly obtained socket into this file descriptor
 			   and increase the open count */
 			mu->u_ofile[fd2] = mu->u_ofile[newfd];
 			mu->u_ofile[newfd]->f_count++;
@@ -340,17 +255,17 @@ KPRINTF(("a7=%lx: %08lx %08lx %08lx %08lx %08lx %08lx %08lx %08lx\n",
       mu->u_segs = pu->u_segs;
       mu->u_start_pc = pu->u_start_pc;
       mu->u_end_pc = pu->u_end_pc;
-      
+
       mu->u_is_root = pu->u_is_root;
       mu->u_a4 = pu->u_a4;
 
       /* copying finished, allow other processes to vfork() as well ;-)) */
       ix_unlock_base ();
-      
-      /* remember the message we have to reply when either _exit() or 
+
+      /* remember the message we have to reply when either _exit() or
        * execve() is called */
       mu->p_vfork_msg = vm;
-      
+
       vm->vm_rc = 0;
 
 #ifdef NATIVE_MORPHOS
@@ -371,7 +286,7 @@ p=(int*)get_68k_sp();
 KPRINTF(("a7=%lx: %08lx %08lx %08lx %08lx %08lx %08lx %08lx %08lx\n",
 	 p, p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7]));
 }*/
-      /* we get here when the user does an _exit() 
+      /* we get here when the user does an _exit()
        * (so as well after execve() terminates !) */
       if (_setjmp ((void *)mu->u_jmp_buf))
 	{
@@ -402,10 +317,10 @@ KPRINTF(("a7=%lx: %08lx %08lx %08lx %08lx %08lx %08lx %08lx %08lx\n",
 	  /* overkill? */
 	  vfork_own_malloc ();
 
-	  /* although this is done in CloseLibrary(), files should 
+	  /* although this is done in CloseLibrary(), files should
 	     really be closed *before* a death-message is sent to
 	     the parent. */
-	  for (i = 0; i < NOFILE; i++) 
+	  for (i = 0; i < NOFILE; i++)
 	    if (u.u_ofile[i])
 	      syscall (SYS_close, i);
 
@@ -569,7 +484,7 @@ vfork_own_malloc (void)
   if (p->u_mdp != &p->u_md)
     {
       char **parent_environ = *p->u_environ;
-      
+
       /* switch to our memory list (which is initialized by OpenLibrary) */
       p->u_mdp = (void *)&p->u_md;
       /* dupvec now uses malloc() on our list */
@@ -791,7 +706,7 @@ _ix_vfork:
 	rts
 
 	| the following is longjmp(), with the subtle difference that this
-	| thing doesn't insist in returning something non-zero... 
+	| thing doesn't insist in returning something non-zero...
 _vfork_longjmp:
 	movel   sp@(4),a0       /* save area pointer */
 	tstl    a0@(8)          /* ensure non-zero SP */
@@ -985,18 +900,12 @@ static int get_stack_size(struct Process *proc)
 {
   int stack_size;
   char *tmp;
-#ifndef __pos__
   struct CommandLineInterface *CLI = BTOCPTR (proc->pr_CLI);
-#endif
 
   if ((tmp = getenv (STACKNAME)))
     stack_size = atoi (tmp);
   else
-#ifdef __pos__
-    stack_size = proc->pr_Task.tc_SPUpper - proc->pr_Task.tc_SPLower;
-#else
     stack_size = CLI ? CLI->cli_DefaultStack * 4 : proc->pr_StackSize;
-#endif
   if (stack_size < STACKSIZE)
     return STACKSIZE;
   return stack_size;
@@ -1011,9 +920,7 @@ _vfork (int own_malloc, struct reg_parms rp)
 {
   struct Process *me = (struct Process *) SysBase->ThisTask;
   struct user *u_ptr = getuser(me);
-#ifndef __pos__
   struct CommandLineInterface *CLI = (void *)(me->pr_CLI);
-#endif
   u_int stack_size = get_stack_size(me);
   u_int plower, pupper;
 /*#ifdef NATIVE_MORPHOS
@@ -1037,14 +944,7 @@ _vfork (int own_malloc, struct reg_parms rp)
 #endif
     { NP_Name, (ULONG) "vfork()'d process" },   /* to be overridden by execve() */
     { NP_StackSize, stack_size },               /* same size we use */
-#ifdef __pos__
-    { DOSTAG_ProcFlags, PROCF_FreeCurrDir },
-    { DOSTAG_CurrDirLock, (int)DupLock((int)me->pr_CurrentDir) },
-    { DOSTAG_CrtHomeShell, 1},
-    { DOSTAG_DupPath, 1 },
-#else
     { NP_Cli, (ULONG) (CLI ? -1 : 0) },         /* same thing we are */
-#endif
     { TAG_END, 0 }
   };
 
@@ -1114,7 +1014,7 @@ KPRINTF(("vfork: user=%lx, a4_size=%ld, a4=%lx\n",u_ptr,u_ptr->u_a4_pointers_siz
       return -1; /* not reached */
     }
 
-  /* As soon as this message is dispatched, the child will `return' and 
+  /* As soon as this message is dispatched, the child will `return' and
      deallocate the stack we're running on. So afterwards, *only* use
      register variables and then longjmp () back.
      Since we don't have a stack until after the longjmp(), temporarily
@@ -1151,7 +1051,7 @@ KPRINTF(("vfork: user=%lx, a4_size=%ld, a4=%lx\n",u_ptr,u_ptr->u_a4_pointers_siz
   plower = vm->vm_plower;
   pupper = vm->vm_pupper;
   me = vm->vm_pptr;
-  
+
   child = vm->vm_self;
   // restore u_ptr
   u_ptr = getuser(me);
@@ -1162,7 +1062,7 @@ KPRINTF(("vfork: user=%lx, a4_size=%ld, a4=%lx\n",u_ptr,u_ptr->u_a4_pointers_siz
       KPRINTF (("&errno = %lx, errno = %ld\n", &errno, errno));
       vm->vm_self = (struct Process *) -1;
     }
-      
+
   /* this is the parent return, so we pass the id of the new child */
   kfree (vm);
 
@@ -1262,7 +1162,7 @@ possible_childs(int pid, struct Process *cptr)
 			Delay(5);
 		}*/
     struct user *u_ptr = safe_getuser(cptr);
-	
+
     if (u_ptr->p_stat != SZOMB)
       if (pid == -1 ||
 	  (pid == 0 && u_ptr->p_pgrp == u.p_pgrp) ||
@@ -1342,7 +1242,7 @@ KPRINTF(("********** cu==0 !! real = %lx\n", cu));}
 	  if (status)
 	  {
 	    *status = dm->dm_status;
-	  }  
+	  }
 	  if (rusage)
 	    *rusage = dm->dm_rusage;
 
@@ -1365,29 +1265,29 @@ KPRINTF(("********** cu==0 !! real = %lx\n", cu));}
 	      KPRINTF(("wait4: checking pid p=%lx\n", p));
 	      pu = safe_getuser(p);
 	      if (pid == -1
-	          || ((int) p) == pid
-	          || pu->p_pgrp == -pid
-	          || (pid == 0
+		  || ((int) p) == pid
+		  || pu->p_pgrp == -pid
+		  || (pid == 0
 		      && u.p_pgrp == pu->p_pgrp))
-	        {             
-	          KPRINTF(("wait4: pu->p_stat=%lx, pu->flag=%lx\n",
+		{
+		  KPRINTF(("wait4: pu->p_stat=%lx, pu->flag=%lx\n",
 		      pu->p_stat, pu->p_flag));
-	          if (pu->p_stat == SSTOP
+		  if (pu->p_stat == SSTOP
 		      && (pu->p_flag & SWTED) == 0
 		      && (pu->p_flag & STRC || options & WUNTRACED))
-	            {
+		    {
 		      KPRINTF(("wait4: SSTOPed; p_xstat=0x%lx, W_STOPCODEd=0x%lx\n",
-		          pu->p_xstat, W_STOPCODE (pu->p_xstat)));
+			  pu->p_xstat, W_STOPCODE (pu->p_xstat)));
 		      pu->p_flag |= SWTED;
 		      if (status)
-		        {
-		          *status = W_STOPCODE (pu->p_xstat);
-		          KPRINTF(("wait4: status was set to %ld\n", *status));
-		        }
+			{
+			  *status = W_STOPCODE (pu->p_xstat);
+			  KPRINTF(("wait4: status was set to %ld\n", *status));
+			}
 		      Permit();
 		      return (int)p;
-	            }
-	        }
+		    }
+		}
 	    }
 	}
 

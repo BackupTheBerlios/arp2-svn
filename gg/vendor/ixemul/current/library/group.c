@@ -46,7 +46,6 @@ static const struct group builtin_nogroup =
 
 /* multiuser specific stuff */
 
-#ifndef __pos__
 static struct group *
 GroupInfo2grp (struct muGroupInfo *GI, struct muUserInfo *UI)
 {
@@ -65,7 +64,6 @@ GroupInfo2grp (struct muGroupInfo *GI, struct muUserInfo *UI)
   }
   return NULL;
 }
-#endif
 
 /* builtin group file parsing */
 
@@ -151,10 +149,8 @@ getgid (void)
 {
   usetup;
 
-#ifndef __pos__
   if (muBase)
     return (__amiga2unixid(muGetTaskOwner(NULL) & muMASK_GID));
-#endif
 
   return u.u_rgid;
 }
@@ -164,10 +160,8 @@ getegid (void)
 {
   usetup;
 
-#ifndef __pos__
   if (muBase)
     return (__amiga2unixid(muGetTaskOwner(NULL) & muMASK_GID));
-#endif
 
   return u.u_egid;
 }
@@ -177,13 +171,11 @@ setregid (int rgid, int egid)
 {
   usetup;
 
-#ifndef __pos__
   if (muBase)
     {
       errno = ENOSYS;
       return -1;
     }
-#endif
 
   if (rgid != -1)
     u.u_rgid = (gid_t)rgid;
@@ -218,7 +210,6 @@ struct group *getgrgid (gid_t gid)
   if (gid == (gid_t)(-2))
     return (struct group *)&builtin_nogroup; /* always handle nogroup */
 
-#ifndef __pos__
   if (muBase)
     {
       /* active multiuser */
@@ -230,7 +221,6 @@ struct group *getgrgid (gid_t gid)
 
       return GroupInfo2grp (GI, UI);       /* handles errors */
     }
-#endif
 
   if (u.u_ixnetbase && (gr = (struct group *)netcall(NET_getgrgid, (int)gid)))
     return gr;
@@ -271,7 +261,6 @@ struct group *getgrnam (const char *name)
   if (!strcmp(name,"nogroup"))
     return (struct group *)&builtin_nogroup; /* always handle nogroup */
 
-#ifndef __pos__
   if (muBase)
     {
       /* active multiuser */
@@ -293,7 +282,6 @@ struct group *getgrnam (const char *name)
 
       return GroupInfo2grp (GI, UI);       /* handles errors */
     }
-#endif
 
   if (u.u_ixnetbase && (gr = (struct group *)netcall(NET_getgrnam, name)))
     return gr;
@@ -332,7 +320,6 @@ getgrent(void)
   char *name;
   usetup;
 
-#ifndef __pos__
   if (muBase)
     {
       /* active multiuser */
@@ -344,7 +331,6 @@ getgrent(void)
 
       return GroupInfo2grp (GI, UI);       /* handles errors */
     }
-#endif
 
   if (u.u_ixnetbase)
     return (struct group *)netcall(NET_getgrent);
@@ -374,13 +360,11 @@ setgroupent(int stayopen)
 {
   usetup;
 
-#ifndef __pos__
   if (muBase)
     {
       u.u_groupfileopen = FALSE;
       return 1;
     }
-#endif
 
   if (u.u_ixnetbase)
     return netcall(NET_setgroupent, stayopen);
@@ -397,13 +381,11 @@ setgrent(void)
 {
   usetup;
 
-#ifndef __pos__
   if (muBase)
     {
       u.u_groupfileopen = FALSE;
       return 1;
     }
-#endif
 
   if (u.u_ixnetbase)
     return netcall(NET_setgrent);
@@ -420,13 +402,11 @@ endgrent(void)
 {
   usetup;
 
-#ifndef __pos__
   if (muBase)
     {
       u.u_groupfileopen = FALSE;
       return;
     }
-#endif
 
   if (u.u_ixnetbase)
     netcall(NET_endgrent);
@@ -444,10 +424,8 @@ setgroups (int ngroups, const int *gidset)
 {
   usetup;
 
-#ifndef __pos__
   if (muBase)
     return 0;
-#endif
 
   /* parameter check */
   if (gidset == NULL || ngroups < 0)
@@ -540,7 +518,6 @@ int getgroups(int gidsetlen, int *gidset)
       return -1;
     }
 
-#ifndef __pos__
   if (muBase)
     {
       /* muFS detected */
@@ -580,7 +557,6 @@ int getgroups(int gidsetlen, int *gidset)
 
       return i;
     }
-#endif
 
   if (gidsetlen < u.u_ngroups)
     {

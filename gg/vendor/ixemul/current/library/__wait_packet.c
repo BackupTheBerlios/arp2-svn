@@ -39,37 +39,6 @@
 #include <signal.h>
 
 
-#ifdef __pos__
-
-void
-__wait_select_packet(struct StandardPacket *sp)
-{
-  struct pOS_DosIOReq *io = (void *)sp;
-  struct pOS_DosIOReq *nio;
-  int omask;
-  usetup;
-
-  if (!io->dr_Message.mn_ReplyPort) return;
-
-  omask = syscall (SYS_sigsetmask, ~0);
-
-  for (;;)
-    {
-      if ((nio = (void *)GetMsg(u.u_select_mp)))
-	{
-	  nio->dr_Message.mn_ReplyPort = 0;
-	  if (nio == io) break;
-	}
-      else
-	{
-	  Wait(1 << u.u_select_mp->mp_SigBit);
-	}
-    }
-  syscall (SYS_sigsetmask, omask);
-}
-
-#else
-
 /* I'm using dp_Port as an indicator whether this packet is
    free. If in use, this field can't be 0. */
 #define PACKET_IN_USE(sp) (sp->sp_Pkt.dp_Port)
@@ -134,4 +103,3 @@ __wait_select_packet(struct StandardPacket *sp)
   syscall (SYS_sigsetmask, omask);
 }
 
-#endif

@@ -17,42 +17,7 @@
  *  License along with this library; if not, write to the Free
  *  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- *  $Id: kern_sig.c,v 1.4 2000/09/05 21:00:04 emm Exp $
- *
- *  $Log: kern_sig.c,v $
- *  Revision 1.4  2000/09/05 21:00:04  emm
- *  Fixed some bugs. Deadlocks, memory trashing, ...
- *
- *  Revision 1.3  2000/06/20 22:17:24  emm
- *  First attempt at a native MorphOS ixemul
- *
- *  Revision 1.2  2000/05/18 19:52:07  emm
- *  MorphOS support added. Not fully working.
- *
- *  Revision 1.1.1.1  2000/05/07 19:38:16  emm
- *  Imported sources
- *
- *  Revision 1.2  2000/05/07 20:59:46  nobody
- *  Included Zapek fixes.
- *
- *  Revision 1.1.1.1  2000/04/29 00:48:00  nobody
- *  Initial import
- *
- *  Revision 1.6  1994/07/11  00:32:56  rluebbert
- *  Put issig back in.
- *
- *  Revision 1.5  1994/07/11  00:27:37  rluebbert
- *  Commented out unused issig
- *
- *  Revision 1.4  1994/06/19  15:13:35  rluebbert
- *  *** empty log message ***
- *
- *  Revision 1.2  1992/07/04  19:19:51  mwild
- *  change to new ix_sleep() semantics
- *
- * Revision 1.1  1992/05/14  19:55:40  mwild
- * Initial revision
- *
+ *  $Id: kern_sig.c,v 1.6 2004/03/24 16:16:07 emm Exp $
  *
  *  Since the code originated from Berkeley, the following copyright
  *  header applies as well. The code has been changed, it's not the
@@ -146,7 +111,7 @@ sigaction (int sig, const struct sigaction *nsa, struct sigaction *osa)
       *sa = *nsa;
       setsigvec(sig, sa);
     }
-  
+
   return (0);
 }
 
@@ -210,7 +175,7 @@ setsigvec (int sig, struct sigaction *sa)
   else
     u.u_sigonstack &= ~bit;
 
-  if (sig == SIGCHLD) 
+  if (sig == SIGCHLD)
     {
       if (sa->sa_flags & SA_NOCLDSTOP)
 	u.p_flag |= SNOCLDSTOP;
@@ -225,14 +190,14 @@ setsigvec (int sig, struct sigaction *sa)
    * as we have to restart the process.
    */
   if (sa->sa_handler == SIG_IGN ||
-      (bit & defaultignmask && sa->sa_handler == SIG_DFL)) 
+      (bit & defaultignmask && sa->sa_handler == SIG_DFL))
     {
       u.p_sig &= ~bit;          /* never to be seen again */
       if (sig != SIGCONT)
 	u.p_sigignore |= bit;   /* easier in _psignal */
       u.p_sigcatch &= ~bit;
     }
-  else 
+  else
     {
       u.p_sigignore &= ~bit;
       if (sa->sa_handler == SIG_DFL)
@@ -260,7 +225,7 @@ sigprocmask (int how, const sigset_t *mask, sigset_t *omask)
     {
       Forbid();
 
-      switch (how) 
+      switch (how)
 	{
 	case SIG_BLOCK:
 	  u.p_sigmask |= *mask &~ sigcantmask;
@@ -273,7 +238,7 @@ sigprocmask (int how, const sigset_t *mask, sigset_t *omask)
 	case SIG_SETMASK:
 	  u.p_sigmask = *mask &~ sigcantmask;
 	  break;
-	
+
 	default:
 	  errno = EINVAL;
 	  KPRINTF (("&errno = %lx, errno = %ld\n", &errno, errno));
@@ -326,7 +291,7 @@ sigvec(int sig, struct sigvec *nsv, struct sigvec *osv)
     }
 
   sv = &vec;
-  if (osv) 
+  if (osv)
     {
       *(sig_t *)&sv->sv_handler = p->u_signal[sig];
       sv->sv_mask = p->u_sigmask[sig];
@@ -341,7 +306,7 @@ sigvec(int sig, struct sigvec *nsv, struct sigvec *osv)
       *osv = *sv;
     }
 
-  if (nsv) 
+  if (nsv)
     {
       *sv = *nsv;
       sv->sv_flags ^= SA_RESTART;       /* opposite of SV_INTERRUPT */
@@ -417,7 +382,7 @@ sigsetmask(int mask)
 
 /*
  * Suspend process until signal, providing mask to be set
- * in the meantime. 
+ * in the meantime.
  */
 /* ARGSUSED */
 int
@@ -521,13 +486,8 @@ pfind (pid_t p)
       struct List *exectasklist;
       struct Node * execnode;
 
-#ifdef __pos__
-      pOS_LockTaskList();
-      pOS_ExecCheck(EXTSTTAG_First + 0x106, (ULONG)&exectasklist, TAG_END);
-#else
       Disable();
       exectasklist = &(SysBase->TaskWait);
-#endif
       for (execnode = exectasklist->lh_Head; execnode->ln_Succ;
 	   execnode = execnode->ln_Succ)
 	{
@@ -536,11 +496,7 @@ pfind (pid_t p)
 	}
       if (execnode == NULL)
 	{
-#ifdef __pos__
-      pOS_ExecCheck(EXTSTTAG_First + 0x105, (ULONG)&exectasklist, TAG_END);
-#else
 	  exectasklist = &(SysBase->TaskReady);
-#endif
 	  for (execnode = exectasklist->lh_Head; execnode->ln_Succ;
 	       execnode = execnode->ln_Succ)
 	    {
@@ -548,11 +504,7 @@ pfind (pid_t p)
 		break;
 	    }
 	}
-#ifdef __pos__
-      pOS_UnlockTaskList();
-#else
       Enable();
-#endif
       if (execnode == NULL)
 	return 0;
       t = (struct Task *) p;
@@ -617,7 +569,7 @@ KPRINTF(("kill: done.\n"));
       return (0);
     }
 
-  /* signalling process groups is not (yet) implemented */  
+  /* signalling process groups is not (yet) implemented */
   errno = ESRCH;
   KPRINTF (("&errno = %lx, errno = %ld\n", &errno, errno));
   return -1;
@@ -634,7 +586,7 @@ killpg(int pgid, int signo)
     errno = ESRCH;
   KPRINTF (("&errno = %lx, errno = %ld\n", &errno, errno));
 
-  /* signalling process groups is not (yet) implemented */  
+  /* signalling process groups is not (yet) implemented */
   return -1;
 }
 
@@ -702,7 +654,7 @@ _psignal(struct Task *t, int sig)       /* MAY be called in Supervisor/Interrupt
    */
   if (p->p_flag & STRC)
     action = SIG_DFL;
-  else 
+  else
     {
 
       /* NOTE AMIGA !
@@ -712,7 +664,7 @@ _psignal(struct Task *t, int sig)       /* MAY be called in Supervisor/Interrupt
        * in a SIGILL, masked in, not ignored, not caught, that's it.
        */
       if (((mask & p->p_sigignore) || (mask & p->p_sigmask))
-	  && (sig == SIGILL  || sig == SIGBUS || sig == SIGFPE || 
+	  && (sig == SIGILL  || sig == SIGBUS || sig == SIGFPE ||
 	      sig == SIGTRAP || sig == SIGEMT))
 	{
 	  sig = SIGILL;
@@ -741,7 +693,7 @@ _psignal(struct Task *t, int sig)       /* MAY be called in Supervisor/Interrupt
 	action = SIG_DFL;
     }
 
-  switch (sig) 
+  switch (sig)
     {
     case SIGTERM:
       if ((p->p_flag&STRC) || action != SIG_DFL)
@@ -828,7 +780,7 @@ issig(struct user *p)   /* called in SUPERVISOR */
   else
 #endif*/
     {
-      asm volatile (" 
+      asm volatile ("
 	movel a5,a0
 	lea   Lget_sr,a5
 	movel 4:w,a6
@@ -865,7 +817,7 @@ issig(struct user *p)   /* called in SUPERVISOR */
        * We should see pending but ignored signals
        * only if STRC was on when they were posted.
        */
-      if ((mask & p->p_sigignore) && (p->p_flag & STRC) == 0) 
+      if ((mask & p->p_sigignore) && (p->p_flag & STRC) == 0)
 	{
 	  p->p_sig &= ~mask;
 	  continue;
@@ -873,7 +825,7 @@ issig(struct user *p)   /* called in SUPERVISOR */
 
       /* Don't do this while waiting in inet.library. */
       if (p->p_stat != SWAIT && (p->p_flag & STRC)
-	  && (p->p_flag & SVFORK) == 0) 
+	  && (p->p_flag & SVFORK) == 0)
 	{
 	  /*
 	   * If traced, always stop, and stay
@@ -937,7 +889,7 @@ restart:
        * Return the signal's number, or fall through
        * to clear it from the pending mask.
        */
-      switch ((int)p->u_signal[sig]) 
+      switch ((int)p->u_signal[sig])
 	{
 	case SIG_DFL:
 #if notyet
@@ -954,7 +906,7 @@ restart:
 	   * if process is member of an orphaned
 	   * process group, ignore tty stop signals.
 	   */
-	  if (mask & stopsigmask) 
+	  if (mask & stopsigmask)
 	    {
 #if notyet
 	      if (p->p_flag&STRC ||
@@ -967,7 +919,7 @@ restart:
 	      swtch();
 #endif
 	      break;
-	    } 
+	    }
 	  else if (mask & defaultignmask)
 	    {
 	      /*
@@ -1027,8 +979,8 @@ void
 psig(struct user *p, int sig)   /* called in SUPERVISOR */
 {
   int code, mask, returnmask;
-  register sig_t action; 
-  do 
+  register sig_t action;
+  do
     {
       if (sig == -1)
 	return;
@@ -1036,7 +988,7 @@ KPRINTF(("psig(%ld)\n", sig));
       mask = sigmask(sig);
       p->p_sig &= ~mask;
       action = p->u_signal[sig];
-      if (action != SIG_DFL) 
+      if (action != SIG_DFL)
 	{
 	   /*
 	    * Set the new mask value and also defer further
@@ -1077,7 +1029,7 @@ KPRINTF(("psig(%ld)\n", sig));
       p->u_acflag |= AXSIG;
 #endif
 
-      switch (sig) 
+      switch (sig)
 	{
 	case SIGILL:
 	case SIGIOT:

@@ -41,7 +41,7 @@ DO_CATENATE =   @DO_CATENATE@
 # I *love* GNU make!
 define catenate
 /bin/echo -n creating $@...
-/bin/echo -e "$(^:%=#include \"%\"\n)" >$@
+/bin/echo "$(^:%=#include \"%\"\n)" >$@
 /bin/echo done
 endef
 
@@ -62,12 +62,12 @@ ALL_CFLAGS =    $(CFLAGS) $(FLAVOR_CFLAGS) $(INCS) $(OTHER_CFLAGS) $(DEFS)
 endif
 
 ifeq ($(OS),morphos)
-NATIVE_FLAGS = $(NATIVE_CFLAGS) $(filter -DDEBUG_VERSION -DNOTRAP, $(ALL_CFLAGS)) -DNATIVE_MORPHOS -DCPU_$(FPU)
+NATIVE_FLAGS = $(NATIVE_CFLAGS) $(INCS)  $(filter -DDEBUG_VERSION -DNOTRAP, $(ALL_CFLAGS)) -DNATIVE_MORPHOS -DCPU_$(FPU)
 else
 ifeq ($(FPU),soft-float)
-NATIVE_FLAGS = $(NATIVE_CFLAGS) $(filter -DDEBUG_VERSION -DNOTRAP, $(ALL_CFLAGS)) -DCPU_$(CPU)
+NATIVE_FLAGS = $(NATIVE_CFLAGS) $(INCS)  $(filter -DDEBUG_VERSION -DNOTRAP, $(ALL_CFLAGS)) -DCPU_$(CPU)
 else
-NATIVE_FLAGS = $(NATIVE_CFLAGS) $(filter -DDEBUG_VERSION -DNOTRAP, $(ALL_CFLAGS)) -DCPU_$(CPU) -DFPU_$(FPU)
+NATIVE_FLAGS = $(NATIVE_CFLAGS) $(INCS)  $(filter -DDEBUG_VERSION -DNOTRAP, $(ALL_CFLAGS)) -DCPU_$(CPU) -DFPU_$(FPU)
 endif
 endif
 
@@ -82,7 +82,7 @@ SHELL =         sh
 # need some stuff in libgeneral.a
 
 ifeq ($(CPU),powerpc)
-LINKFLAGS =     -nostdlib -nostartfiles -L../../../glue/morphos -L../../../db/morphos
+LINKFLAGS =     -nostdlib -nostartfiles -L/gg/ppc-morphos/lib/libnix/ -L../../../glue/morphos -L../../../db/morphos
 else
 LINKFLAGS =     -nostdlib -nostartfiles -L../../../glue/no-baserel -L../../../db/no-baserel
 endif
@@ -159,30 +159,30 @@ ixnet.debug:    $(OBJ_N) $(IXLIBS)
 
 clean:
 		rm -rf 680?0 notrap powerpc
+		rm -f create_header parse_version
 
 clobber:        clean
 		rm -f Makefile
 
 ifeq ($(CPU),powerpc)
 
-start.o:        $(srcdir)/start.c version.h $(srcdir)/../include/sys/ixnet_syscall.def
+start.o:        $(srcdir)/start.c version.h $(srcdir)/../include/sys/ixnet_syscall.def ix_internals.h
 
 else
 
-start.o:        $(srcdir)/start.S version.h $(srcdir)/../include/sys/ixnet_syscall.def $(srcdir)/ix_internals.h
+start.o:        $(srcdir)/start.S version.h $(srcdir)/../include/sys/ixnet_syscall.def ix_internals.h
 		$(CC) $(ALL_CFLAGS) -traditional -c $< -o $@
 
 endif
 
-$(srcdir)/ix_internals.h:	
-		make create_header
+ix_internals.h: create_header
 		./create_header >$@
 
 create_header:  create_header.o
-		echo $(NATIVE_CC) $(NATIVE_LDFLAGS) $< -o $@
+		$(NATIVE_CC) $(NATIVE_LDFLAGS) $< -o $@
 
 create_header.o:        create_header.c $(srcdir)/../include/user.h ixnet.h
-		echo $(NATIVE_CC) $(NATIVE_FLAGS) -c $< -o $@
+		$(NATIVE_CC) $(NATIVE_FLAGS) -c $< -o $@
 
 parse_version:  parse_version.o
 		$(NATIVE_CC) $(NATIVE_LDFLAGS) $< -o $@

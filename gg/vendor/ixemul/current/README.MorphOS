@@ -11,6 +11,7 @@ changes should take care of the problem.
 - neither is profiling.
 - not compatible with the powerup bridge currently. That may or may
 not change.
+- DTYPE_MEM is broken, disabled for now.
 
 The stack size of the 68k emulation is set as usual, with the
 'stack' command. The size of the PPC stack is taken from the

@@ -7,7 +7,7 @@
 #define str(s) #s
 #define sstr(s) str(s)
 
-#ifdef __m68000__
+#ifndef __PPC__
 asm("
 	.data
 	.even

@@ -5,11 +5,17 @@
 #include <signal.h>
 #include <unistd.h>
 
-#ifdef __pos__
-#define StackSwapStruct pOS_StackSwapData
-#endif
-
 #include "kprintf.h"
+
+#ifdef TRACK_ALLOCS
+
+#undef AllocMem
+#undef FreeMem
+
+#define AllocMem(x,y)    debug_AllocMem("stack",x,y)
+#define FreeMem(x,y)     debug_FreeMem(x,y)
+
+#endif
 
 /*
  * Signal routines may want to benefit from stackextension too -
@@ -31,7 +37,7 @@ void atomic_off(sigset_t old)
 {
   usetup;
 
-  u.p_sigmask = old;  
+  u.p_sigmask = old;
 //  sigprocmask(SIG_SETMASK, &old, NULL);
 }
 
@@ -201,18 +207,30 @@ void *stkrst_f(char *callsp, char *endsp)
   int cpsize = endsp - callsp;
   struct StackSwapStruct sss;
   struct Task *me = SysBase->ThisTask;
+  unsigned long *p = (void *)callsp;
   usetup;
 
   KPRINTF(("stkrst_f(%lx, %lx, %lx)\n", callsp, endsp, u.u_ppc_stk_used));
 
+  KPRINTF(("stack %08lx %08lx %08lx %08lx %08lx %08lx %08lx %08lx\n",
+	p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7]));
+  KPRINTF(("stack %08lx %08lx %08lx %08lx %08lx %08lx %08lx %08lx\n",
+	p[8], p[9], p[10], p[11], p[12], p[13], p[14], p[15]));
+
   sss.stk_Pointer = (char *)u.u_ppc_stk_used->savesp - cpsize;
-  popframes_ppc(u.u_ppc_stk_used, &sss);
   CopyMem(callsp, sss.stk_Pointer, cpsize);
+  popframes_ppc(u.u_ppc_stk_used, &sss);
 
   me->tc_ETask->PPCSPUpper = (void*)sss.stk_Upper;
   me->tc_ETask->PPCSPLower = sss.stk_Lower;
 
   KPRINTF(("new r1 = %lx, upper = %lx, lower = %lx, used = %lx\n", sss.stk_Pointer, sss.stk_Upper, sss.stk_Lower, u.u_ppc_stk_used));
+
+  p = (void *)sss.stk_Pointer;
+  KPRINTF(("stack %08lx %08lx %08lx %08lx %08lx %08lx %08lx %08lx\n",
+	p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7]));
+  KPRINTF(("stack %08lx %08lx %08lx %08lx %08lx %08lx %08lx %08lx\n",
+	p[8], p[9], p[10], p[11], p[12], p[13], p[14], p[15]));
 
   return sss.stk_Pointer;
 }
@@ -260,32 +278,50 @@ void *stkext_startup_ppc(int stack0, char *sp, sigset_t *old, int ret_offset)
  * Allocate a new stackframe with d0 bytes minimum, copy the callers arguments
  * and set his returnaddress (offset d1 from the sp when called) to stk_rst_f
  */
-void *stkext_f(char *callsp, size_t d0, sigset_t *old, int ret_offset)
+void *stkext_f(char *callsp, size_t d0, sigset_t *old, int frame_size, int prev_frame_size)
 {
   char *argtop;
-  int cpsize;
+  char *new_r1;
   struct StackSwapStruct sss;
   struct Task *me = SysBase->ThisTask;
+  unsigned long *p = (void *)callsp;
+  int cpsize;
   usetup;
 
-  KPRINTF(("stkext_f(%lx, %lx, %lx, %lx, %lx) limit = %lx\n", callsp, STK_UPPER_PPC, STK_LOWER_PPC, u.u_ppc_stk_used, d0, u.u_ppc_stk_limit ? *u.u_ppc_stk_limit : NULL));
+  KPRINTF(("stkext_f(%lx, %lx, %lx, %lx, %lx) limit = %lx frame_size 0x%x prev_frame_size 0x%x\n",
+			  callsp, STK_UPPER_PPC, STK_LOWER_PPC, u.u_ppc_stk_used, d0,
+			  u.u_ppc_stk_limit ? *u.u_ppc_stk_limit : NULL, frame_size, prev_frame_size));
+
+  KPRINTF(("stack %08lx %08lx %08lx %08lx %08lx %08lx %08lx %08lx\n",
+	p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7]));
+  KPRINTF(("stack %08lx %08lx %08lx %08lx %08lx %08lx %08lx %08lx\n",
+	p[8], p[9], p[10], p[11], p[12], p[13], p[14], p[15]));
 
   if ((void *)callsp >= STK_UPPER_PPC || (void *)callsp < STK_LOWER_PPC)
     return callsp; /* User intentionally left area of stackextension */
 
-  argtop = callsp + ret_offset + u.u_ppc_stk_argbt;      /* Top of area with arguments */
+  argtop = callsp + frame_size + prev_frame_size + u.u_ppc_stk_argbt;      /* Top of area with arguments */
   if ((void *)argtop > STK_UPPER_PPC)
     argtop = STK_UPPER_PPC;
-  cpsize = argtop - callsp;
-  cpsize = (cpsize + 15) & ~15;
+  cpsize = argtop - callsp - frame_size;
 
   /* FIXME: is "+ u.u_stk_argbt" really necessary? It's added in pushframe(), too. */
-  pushframe_ppc(d0 + cpsize + 15, &sss, old, 0);
-  sss.stk_Pointer = (void *)(((int)sss.stk_Pointer & ~15) - cpsize);
-  CopyMem(callsp, sss.stk_Pointer, cpsize);
-  u.u_ppc_stk_used->savesp = callsp + ret_offset - 4; /* store sp */
+  pushframe_ppc(d0 + cpsize + frame_size + 15, &sss, old, 0);
+  sss.stk_Pointer = (void *)(((int)sss.stk_Pointer & ~15) - ((cpsize + frame_size + 15) & ~15));
+  new_r1 = (char *)sss.stk_Pointer;
+  CopyMem(callsp, new_r1, frame_size & ~15);
+  CopyMem(callsp + frame_size, new_r1 + (frame_size & ~15), cpsize);
+  u.u_ppc_stk_used->savesp = callsp + frame_size + prev_frame_size; /* store sp */
 
-  *(void **)((char *)sss.stk_Pointer + ret_offset) = &__stkrst_f; /* set returnaddress */
+  *(void **)new_r1 = new_r1 + (frame_size & ~15);
+
+  if (prev_frame_size)
+  {
+    *(void **)(new_r1 + (frame_size & ~15)) = new_r1 + (frame_size & ~15) + prev_frame_size;
+    *(void **)(new_r1 + (frame_size & ~15) + prev_frame_size + 4) = &__stkrst_f;
+  }
+  /*else
+    *(void **)(new_r1 + (frame_size & ~15) + 4) = &__stkrst_f;*/
 
   me->tc_ETask->PPCSPUpper = (void *)sss.stk_Upper;
   me->tc_ETask->PPCSPLower = sss.stk_Lower;
@@ -303,8 +339,13 @@ __stkext_f:
     4(r1)   = caller's return address
     ctr     = caller
     r3..r10 = arguments for function
+    r1 might not be aligned on 16 bytes boundary, so we align it. We reserve 64 bytes for our stack
+    frame plus some padding.
 */
-	stwu    1,-64(1)
+	andi.	11,1,15
+	addi	11,11,64
+	neg	12,11
+	stwux	1,1,12
 	stw     3,8(1)
 	stw     4,12(1)
 	stw     5,16(1)
@@ -315,6 +356,7 @@ __stkext_f:
 	stw     8,28(1)
 	stw     9,32(1)
 	stw     10,36(1)
+	stw	11,40(1)
 	stw     4,48(1)
 	stw     5,52(1)
 
@@ -324,28 +366,32 @@ __stkext_f:
 	mr      3,1
 	li      4,0
 	addi    5,1,60
-	li      6,68
-	bl      stkext_f
+	lwz	6,40(1)
+	li	7,0
+	bl      stkext_f	/* stkextf returns an aligned new stack. It removes the padding
+				   from our frame, so we just have 64 bytes now. */
 	mr      1,3
 
 	lwz     3,60(1)
 	bl      atomic_off
 
-	lwz     3,68(1)
+	lis	3,__stkrst_f@ha
 	lwz     4,48(1)
+	addi	3,3,__stkrst_f@l
 	lwz     5,52(1)
 	lwz     6,20(1)
+	mtlr    3
 	lwz     7,24(1)
 	lwz     8,28(1)
+	mtctr   4
+	lwz	3,4(11)
 	lwz     9,32(1)
 	lwz     10,36(1)
-	mtctr   4
-	mtlr    3
 	mtcr    5
 	lwz     3,8(1)
 	lwz     4,12(1)
 	lwz     5,16(1)
-	addi    1,1,64
+	addi	1,1,64
 	bctr
 __end__stkext_f:
 	.size	__stkext_f,__end__stkext_f-__stkext_f
@@ -353,38 +399,50 @@ __end__stkext_f:
 
 /* Attn: for ppc, this is actually alloca()
     r3 = size
+    The same alignment comments as above apply, except we have a 16 bytes frame.
 */
 
 	.globl  __stkext
 	.type   __stkext,@function
 __stkext:
-	stwu    1,-16(1)
+	andi.	11,1,15
+
+/*	beq+	l1
+	li	12,0
+	stw	0,0(12)
+l1:*/
+
 	mflr    0
+	addi	11,11,16
+	neg	12,11
+	stw     0,4(1)
+	stwux	1,1,12
 	stw     3,8(1)
-	stw     0,20(1)
 
 	addi    3,1,12
 	bl      atomic_on
 
-	lwz     6,16(1) 	/* r6 = end next frame */
+	lwz	7,0(1)		/* r6 = end of next frame */
 	mr      3,1		/* r3 = sp */
 	lwz     4,8(1)		/* r4 = size */
-	sub     6,6,1
 	addi	4,4,32
-	addi    5,1,12 		/* r5 = sigset */
-	addi    6,6,4           /* r6 = offset to the next saved lr */
-	bl      stkext_f
+	sub     6,7,1           /* r6 = offset to the next frame */
+	lwz	7,0(7)
+	addi    5,1,12		/* r5 = sigset */
+	sub	7,7,1
+	sub	7,7,6		/* r7 = size to copy after our frame */
+	bl      stkext_f	/* Aligns the stack and removes padding */
 	mr      1,3
 
 	lwz     3,12(1)
 	bl      atomic_off
 
 	lwz     0,20(1)
-	lwz     4,8(1)
+	lwz	4,8(1)
 	lwz     5,16(1)
 	mtlr    0
-	subfic  4,4,16
-	stwux   5,1,4
+	subfic	4,4,16
+	stwux	5,1,4
 	blr
 __end__stkext:
 	.size	__stkext,__end__stkext-__stkext
@@ -479,6 +537,7 @@ __stkrst_f:
 	mtlr    0
 	lwz     3,8(1)
 	addi    1,1,32
+	stw	3,0(2)
 	blr
 __end__stkrst_f:
 	.size	__stkrst_f,__end__stkrst_f-__stkrst_f
@@ -774,7 +833,7 @@ _trampoline___stkext_startup:
 	li      6,164           /* r6 = offset to saved lr */
 	bl      stkext_startup_ppc /* r3 = new ppc stack */
 	mr      1,3             /* install new ppc stack */
-	
+
 	/* install 68k stack */
 
         mr      3,16            /* r3 = d0 = __stack */
@@ -783,7 +842,7 @@ _trampoline___stkext_startup:
 	addi    3,3,8           /* r3 = a7 + 8 (skip two return addresses) */
 	lwz     13,4(31)        /* r13 = pop next return address */
 	stw     3,60(2)         /* REG_A7 = stk68k_startup() + 8 */
-	
+
 	/* call the startup function */
         lwz     15,0x5c(2)      /* EmulCall68k */
 	lwz     3,76(1)         /* r3 = sigset */
@@ -794,7 +853,7 @@ _trampoline___stkext_startup:
 	mr      16,3            /* new d0 = r3 */
 
 	/* restore the 68k stack if necessary */
-	lwz    	4,60(2)		/* r4 = new a7 */
+	lwz	4,60(2)		/* r4 = new a7 */
 	addi	3,31,8		/* r3 = original a7 */
 	stwu	13,-4(4)
 	bl      stkrst68k
@@ -961,7 +1020,7 @@ static void pushframe_68k(ULONG requiredstack, struct StackSwapStruct *sss, sigs
   if (recommendedstack<requiredstack)
     recommendedstack=requiredstack;
 
-  for (;;)  
+  for (;;)
   {
     sf = u.u_68k_stk_spare; /* get a stackframe from the spares list */
     if (sf == NULL)
@@ -1028,7 +1087,7 @@ static void pushframe_ppc(ULONG requiredstack, struct StackSwapStruct *sss, sigs
   if (recommendedstack<requiredstack)
     recommendedstack=requiredstack;
 
-  for (;;)  
+  for (;;)
   {
     sf = u.u_ppc_stk_spare; /* get a stackframe from the spares list */
     if (sf == NULL)
@@ -1213,7 +1272,7 @@ sf_ret:
 sf_noext:
 	addw    #12,sp
 	jra     sf_ret
-  
+
 	.globl  ___stkext_startup
 ___stkext_startup:
 	moveml  d0/d1/a0/a1/a6,sp@-
@@ -1251,7 +1310,7 @@ ___stkrst_f:
 	addqw   #4,sp
 	moveml  sp@+,d0/d1/a0/a1/a6
 	rts
-  
+
 	.globl  ___stkrst
 ___stkrst:
 	moveml  d0/d1/a0/a1/a6,sp@-         | preserve registers
@@ -1294,16 +1353,13 @@ void initstack(void)
   APTR lower, upper;
   struct Task *me = SysBase->ThisTask;
   struct user *u_ptr = getuser(me);
-#if !defined(__pos__)
   struct Process *proc = (struct Process *)me;
-#endif
 
   u.u_tc_splower = me->tc_SPLower;
   u.u_tc_spupper = me->tc_SPUpper;
 
   KPRINTF(("lower=%lx, upper=%lx\n", u.u_tc_splower, u.u_tc_spupper));
 
-#if !defined(__pos__)
   if (proc->pr_CLI)
   {
     /* Process stackframe:
@@ -1315,7 +1371,6 @@ void initstack(void)
     upper = (char *)proc->pr_ReturnAddr + 8;
   }
   else
-#endif
   {
     lower = u.u_tc_splower;
     upper = u.u_tc_spupper;
@@ -1398,7 +1453,7 @@ static void pushframe(ULONG requiredstack, struct StackSwapStruct *sss, sigset_t
   if (recommendedstack<requiredstack)
     recommendedstack=requiredstack;
 
-  for (;;)  
+  for (;;)
   {
     sf = u.u_stk_spare; /* get a stackframe from the spares list */
     if (sf == NULL)
@@ -1499,14 +1554,6 @@ int stkext_f(struct StackSwapStruct sss, sigset_t old,
 
 static int get_stack_size(struct Process *proc, int stack)
 {
-#ifdef __pos__
-  if (stack < STACKSIZE)
-    stack = STACKSIZE;
-
-  if (stack <= proc->pr_Task.tc_SPUpper - proc->pr_Task.tc_SPLower)
-    return 0;
-  return stack;
-#else
   struct CommandLineInterface *CLI;
 
   if (stack < STACKSIZE)
@@ -1521,7 +1568,6 @@ static int get_stack_size(struct Process *proc, int stack)
     return 0;
 
   return stack;
-#endif
 }
 
 

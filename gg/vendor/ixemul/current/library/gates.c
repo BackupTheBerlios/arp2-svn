@@ -528,7 +528,7 @@
 #undef setjmp
 #undef sigsetjmp
 #undef _setjmp
-#define SYSTEM_CALL(func, vec, args)  FUNC_##args(func)
-#include <sys/ixemul_syscall.def>
+#define SYSTEM_CALL(func, vec, args, stk)  FUNC_##args(func)
+#include <sys/syscall.def>
 #undef SYSTEM_CALL
 

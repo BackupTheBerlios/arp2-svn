@@ -61,7 +61,7 @@ static int add_item(struct buffer *buf, long key, char *name, int is_dir)
 
       buf->buf_size += BUFINCR;
       buf->bp = tmp + (buf->bp - buf->buf);
-      buf->buf = tmp; 
+      buf->buf = tmp;
       buf->bend = tmp + buf->buf_size;
     }
 
@@ -70,7 +70,7 @@ static int add_item(struct buffer *buf, long key, char *name, int is_dir)
   fd->fd_isdir = is_dir;
   fd->fd_namelen = len;
   /* watch out for mc68000: don't let bp ever get odd ! */
-  if (fd->fd_namelen & 1) 
+  if (fd->fd_namelen & 1)
     /* in that case zero pad the name */
     fd->fd_name[fd->fd_namelen++] = 0;
 
@@ -105,11 +105,7 @@ char *convert_dir (struct file *f, char *name, int omask)
   lock = __lock (name, ACCESS_READ);
   if (lock == 0 && IoErr() == 6262)  /* root directory */
     {
-#ifdef __pos__
-      struct pOS_DosDevice *dd, *ndd;
-#else
       struct DosList *dl;
-#endif
       int i = 3;
 
       /* put two dummy entries here.. some BSD code relies on the fact that
@@ -119,20 +115,6 @@ char *convert_dir (struct file *f, char *name, int omask)
       if (add_item(&buf, 2, "..", 1))
 	goto do_return;
 
-#ifdef __pos__
-      pOS_LockDosDevList();
-      for (dd = (struct pOS_DosDevice *)gb_DosBase->dos_Device.lh_Head;
-	   (ndd = (struct pOS_DosDevice *)dd->ddv_Dev.lib_Node.ln_Succ);
-	   dd = ndd)
-	{
-	  if (dd->ddv_Type == DDTYP_Volume &&
-	      add_item(&buf, i++, (char *)dd->ddv_Dev.lib_Node.ln_Name, 1))
-	    break;
-	}
-      pOS_UnlockDosDevList();
-      if (ndd)
-	goto do_return;
-#else      
       dl = LockDosList(LDF_VOLUMES | LDF_READ);
       while ((dl = NextDosEntry(dl, LDF_VOLUMES)))
 	{
@@ -147,7 +129,6 @@ char *convert_dir (struct file *f, char *name, int omask)
       UnLockDosList(LDF_VOLUMES | LDF_READ);
       if (dl)
 	goto do_return;
-#endif
       strcpy(pathname, "/");
       goto read_directory;
     }
@@ -162,7 +143,7 @@ char *convert_dir (struct file *f, char *name, int omask)
 	goto do_return;
       if (add_item(&buf, 2, "..", 1))
 	goto do_return;
-      
+
       /* don't include the dir-information into the file, *ix doesn't either. */
       if (rc0)
 	for (;;)
@@ -187,7 +168,7 @@ char *convert_dir (struct file *f, char *name, int omask)
 	      goto do_return;
 	  }
 
-read_directory:      
+read_directory:
       /* fine.. fill out the memory file object */
       f->f_type         = DTYPE_MEM;
       f->f_mf.mf_offset = 0;
@@ -199,7 +180,7 @@ read_directory:
       f->f_stb.st_size  = buf.bp - buf.buf;
       /*
        * have to use kmalloc() instead of malloc(), because this is no task-private
-       * data, it could (in the future) be shared by other tasks 
+       * data, it could (in the future) be shared by other tasks
        */
       f->f_name = (void *)kmalloc(strlen(pathname) + 2);
       if (f->f_name)

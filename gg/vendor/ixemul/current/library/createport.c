@@ -16,9 +16,15 @@
  *  License along with this library; if not, write to the Free
  *  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- *  $Id: createport.c,v 1.2 2000/06/20 22:17:19 emm Exp $
+ *  $Id: createport.c,v 1.4 2002/06/14 21:51:09 emm Exp $
  *
  *  $Log: createport.c,v $
+ *  Revision 1.4  2002/06/14 21:51:09  emm
+ *  Compiles again, but unstable.
+ *
+ *  Revision 1.3  2002/06/14 17:23:30  laire
+ *  removed __pos__. Needs a test(i couldn^t)
+ *
  *  Revision 1.2  2000/06/20 22:17:19  emm
  *  First attempt at a native MorphOS ixemul
  *
@@ -39,7 +45,13 @@
 
 #include <exec/ports.h>
 
-#ifdef NATIVE_MORPHOS
+#ifdef TRACK_ALLOCS
+#undef AllocMem
+#define AllocMem(x,y) debug_AllocMem("create_port",x,y)
+void *debug_AllocMem(const char *,int, int);
+#endif
+
+#if 0 //def NATIVE_MORPHOS
 
 #include <exec/memory.h>
 
@@ -47,7 +59,7 @@
 		    /*(l)->lh_Tail = NULL,*/ \
 		    (l)->lh_TailPred = (struct Node *)&(l)->lh_Head)
 
-struct MsgPort *CreatePort(CONST_STRPTR name,LONG pri)
+struct MsgPort *CreatePort(STRPTR name,LONG pri)
 { struct MsgPort *port = NULL;
   UBYTE portsig;
 
@@ -75,11 +87,7 @@ struct MsgPort *CreatePort(CONST_STRPTR name,LONG pri)
 struct MsgPort *
 ix_create_port(unsigned char *name, long pri)
 {
-#ifdef __pos__
-  struct MsgPort *port = (void *)pOS_CreatePort(name, pri);
-#else
   struct MsgPort *port = CreatePort(name, pri);
-#endif
   usetup;
 
   if (!port)
@@ -88,6 +96,6 @@ ix_create_port(unsigned char *name, long pri)
       KPRINTF (("&errno = %lx, errno = %ld\n", &errno, errno));
       return 0;
     }
-    
+
   return port;
 }

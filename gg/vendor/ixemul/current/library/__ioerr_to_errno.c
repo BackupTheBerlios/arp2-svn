@@ -39,60 +39,6 @@ int __ioerr_to_errno(int ioerr)
 
   switch (ioerr)
     {
-#ifdef __pos__
-      case DOSERR_Unknown:                      err = EIO;              break;
-      case DOSERR_Aborted:                      err = EIO;              break;
-      case DOSERR_NoMem:                        err = ENOMEM;           break;
-      case DOSERR_BadTemplate1:                 err = EINVAL;           break;
-      case DOSERR_BadTemplate2:                 err = EINVAL;           break;
-      case DOSERR_BadTemplateLogic:             err = EINVAL;           break;
-      case DOSERR_TooManyArgs:                  err = E2BIG;            break;
-      case DOSERR_RequiredArgMissing:           err = EINVAL;           break;
-      case DOSERR_KeyNeedsArg:                  err = EINVAL;           break;
-      case DOSERR_NeedsKeyword:                 err = EINVAL;           break;
-      case DOSERR_UnknownArg:                   err = EINVAL;           break;
-      case DOSERR_NameToLong:                   err = E2BIG;            break;
-      case DOSERR_FileIsNotLoadModul:           err = ENOEXEC;          break;
-      case DOSERR_ObjectInUse:                  err = EEXIST;           break;
-      case DOSERR_ObjectExists:                 err = EEXIST;           break;
-      case DOSERR_DirNotFound:                  err = ENOENT;           break;
-      case DOSERR_ObjectNotFound:               err = ENOENT;           break;
-      case DOSERR_NotImplemented:               err = ENOSYS;           break;
-      case DOSERR_WrongObjectType:              err = ENOTDIR;          break;
-      case DOSERR_DiskNotValidated:             err = EIO;              break;
-      case DOSERR_DiskWriteProtected:           err = EROFS;            break;
-      case DOSERR_RenameAcrossDevices:          err = EXDEV;            break;
-      case DOSERR_DirectoryNotEmpty:            err = ENOTEMPTY;        break;
-      case DOSERR_DeviceNotMounted:             err = ENXIO;            break;
-      case DOSERR_SeekFailure:                  err = ESPIPE;           break;
-      case DOSERR_CommentTooLong:               err = ENAMETOOLONG;     break;
-      case DOSERR_DiskFull:                     err = ENOSPC;           break;
-      case DOSERR_DeleteProtected:              err = EACCES;           break;
-      case DOSERR_WriteProtected:               err = EACCES;           break;
-      case DOSERR_ReadProtected:                err = EACCES;           break;
-      case DOSERR_NotDosDisk:                   err = ENXIO;            break;
-      case DOSERR_NoDiskInDrive:                err = ENXIO;            break;
-      case DOSERR_NoMoreEntries:                err = ENOENT;           break;
-      case DOSERR_ReadWriteError:               err = EIO;              break;
-      case DOSERR_ProgAborted:                  err = EINTR;            break;
-      case DOSERR_NoFileSystem:                 err = ENXIO;            break;
-      case DOSERR_NoProcessNum:                 err = EPROCLIM;         break;
-      case DOSERR_SyntaxError:                  err = EINVAL;           break;
-      case DOSERR_TwiceIOE:                     err = EMFILE;           break;
-      case DOSERR_ArgLineTooLong:               err = ENAMETOOLONG;     break;
-      case DOSERR_NoDupFHWithBuffer:            err = EIO;              break;
-      case DOSERR_UnknownHunk:                  err = EFTYPE;           break;
-      case DOSERR_TwiceMounted:                 err = EMFILE;           break;
-      case DOSERR_Timeout:                      err = EINTR;            break;
-      case DOSERR_NoChips:                      err = ENXIO;            break;
-      case DOSERR_NoGfxMem:                     err = ENXIO;            break;
-      case DOSERR_UnknownMode:                  err = ENXIO;            break;
-      case DOSERR_NotAvailable:                 err = ENXIO;            break;
-      case DOSERR_NoScreen:                     err = ENXIO;            break;
-      case DOSERR_NoDisplay:                    err = ENXIO;            break;
-      case DOSERR_FalseWH:                      err = EINVAL;           break;
-      case DOSERR_NoAccess:                     err = EACCES;           break;
-#else
       case ERROR_NO_FREE_STORE:                 err = ENOMEM;           break;
       case ERROR_TASK_TABLE_FULL:               err = EAGAIN;           break;
       case ERROR_LINE_TOO_LONG:                 err = E2BIG;            break;
@@ -124,7 +70,6 @@ int __ioerr_to_errno(int ioerr)
       case ERROR_NOT_A_DOS_DISK:                err = ENXIO;            break;
       case ERROR_NO_DISK:                       err = ENXIO;            break;
       case ERROR_NO_MORE_ENTRIES:               err = ENOENT;           break;
-#endif
       /* catch-all for illegal accesses to NIL: */
       case 4242:                                err = EPERM;            break;
       /* catch-all for illegal accesses to /dev/[pt]tyXX */

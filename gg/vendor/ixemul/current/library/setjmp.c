@@ -55,7 +55,7 @@
 #include "defs.h"
 #include "ix_internals.h"
 
-#include <sys/ixemul_syscall.h>
+#include <sys/syscall.h>
 
 #ifdef NATIVE_MORPHOS
 
@@ -179,7 +179,7 @@ __obsolete_setup_setjmp:
 	/* r3 = save area, r6 = onstack, r7 = sigmask */
 	stwu    1,-80(1)
 	mflr    0
-	stmw    18,16(1) 	/* save d2-a6, which are clobbered */
+	stmw    18,16(1)	/* save d2-a6, which are clobbered */
 	stw     0,84(1)		/* by a call to EmulCallOS() in malloc() */
 	stw     3,8(1)
 	stw     6,0(3)
@@ -246,9 +246,11 @@ asm("
 get_onstack_sigmask:
 	stwu    1,-32(1)        /* space for sigstack args/rvals */
 	mflr    0
+	lwz	5,56(2)		/* save a6, changed by the Forbid() call in sigblock */
 	stw     3,16(1)
 	stw     4,20(1)
 	stw     0,36(1)
+	stw	5,24(1)
 	li      3,0             /* don't change it */
 	addi    4,1,8           /* ...but return the current val */
 	bl      sigstack        /* note: onstack returned in 12(1) */
@@ -258,8 +260,10 @@ get_onstack_sigmask:
 	lwz     6,12(1)         /* old onstack value */
 	mr      7,3             /* sigmask */
 	mtlr    0
+	lwz	5,24(1)
 	lwz     4,20(1)         /* r4 unchanged */
 	lwz     3,16(1)         /* r3 unchanged */
+	stw	5,56(2)		/* restore a6 */
 	addi    1,1,32
 	blr                     /* r7 = sigmask, r6 = onstack */
 ");
@@ -540,16 +544,8 @@ setup_setjmp:
 	lea     sp@(4),a1       /* adjust saved SP since we won't rts */
 	movl    a1,a0@+         /* save old SP */
 	movl    a5,a0@+         /* save old FP */
-#ifdef __pos__
-	movel   a0,sp@-
-	jbsr    _get_current_task       | get current task
-	movel   sp@+,a0
-	movel   d0,a1
-	movew   a1@(" MAKESTR(IDNESTPTR_OFFSET) "),a0@(2)       | store IDNestCnt,TDNestCnt
-#else        
 	movel   4:w,a1
 	movew   a1@(0x126),a0@(2) /* use TDNestCnt and IDNestCnt from Sysbase ! */
-#endif
 	lea     a0@(4),a0       /* skip 4 bytes (the first two bytes used to */
 				/*      contain task specific flags) */
 	movl    sp@,a0@+        /* save old PC */
