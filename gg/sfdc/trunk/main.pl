@@ -62,7 +62,7 @@ my %targets = (
 	       { target    => 'morphos',
 		 macros    => 'MacroMOS',
 		 stubs     => 'StubMOS',
-		 gatestubs => 'Gate'
+		 gatestubs => 'GateMOS'
 	       },
 	      );
 

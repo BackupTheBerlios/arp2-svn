@@ -1,5 +1,5 @@
 
-### Class StubAmithlon: Create a Amithlon stub file ##############################
+### Class StubAmithlon: Create a Amithlon stub file ###########################
 
 BEGIN {
     package StubAmithlon;
