@@ -1,0 +1,133 @@
+Microsoft
+
+e0 05 	Messenger or Files
+e0 07 	Redo (on F3 or not)
+e0 08 	Undo (on F2 or not)
+e0 09 	Application Left
+e0 0a 	Paste
+e0 0b   Scroll Up Normal
+e0 10 	Media Prev Track, |<<
+e0 11 	Scroll Up Fast
+e0 12 	Scroll Up Faster
+e0 13 	Word
+e0 14 	Excel
+e0 15 	Calendar
+e0 16 	Log Off
+e0 17 	Cut
+e0 18 	Copy
+e0 19 	Media Next Track, >>|
+e0 1e 	Application Right
+e0 1f 	Scroll Up Fastest
+e0 20 	Volume Mute
+e0 21 	Calculator
+e0 22 	Media Play/Pause
+e0 23 	Spell (on F10)
+e0 24 	Media Stop (cf e0 68)
+e0 2e 	Volume -
+e0 30 	Volume +
+e0 32 	Web/Home
+e0 3b 	Help (on F1)
+e0 3c 	My Music or Office Home (on F2)
+e0 3d 	Task Pane (on F3)
+e0 3e 	New (on F4)
+e0 3f 	Open (on F5)
+e0 40 	Close (on F6)
+e0 41 	Reply (on F7)
+e0 42 	Fwd (on F8)
+e0 43 	Send (on F9)
+e0 57 	Save (on F11)
+e0 58 	Print (on F12)
+e0 5b 	LeftWindows
+e0 5c 	RightWindows
+e0 5d 	Application (Menu)
+e0 5e 	Power
+e0 5f 	Sleep
+e0 63 	Wake
+e0 64 	My Pictures
+e0 65 	Web Search
+e0 66 	Web Favorites
+e0 67 	Web Refresh
+e0 68 	Web Stop (cf e0 24)
+e0 69 	Web Forward
+e0 6a 	Web Back
+e0 6b 	My Computer
+e0 6c 	Mail
+e0 6d 	Media
+e0 8b 	Scroll Down Normal
+e0 91 	Scroll Down Fast
+e0 92 	Scroll Down Faster
+e0 9f 	Scroll Down Fastest
+
+
+Logitech mess
+
+6a Zoom in
+6b %
+6d Cancel
+e0 01 Media/Switch frame
+e0 02 Homepage/Down
+e0 03 Up
+e0 04 Zoom out
+e0 10 Back/Rewind
+e0 11 Messenger/SMS
+e0 12 Find/Webcam
+e0 13 Music
+e0 14 Camera
+e0 15 Photos
+e0 17 Print/Stop
+e0 18 Open Favourites
+e0 19 Refresh/fast forward [F6]
+e0 1e Search/VolUp
+e0 1f PlayPause
+e0 20 Hot Links/Mute crossed speaker
+e0 21 Logitech/Open URL
+e0 22 Forward
+e0 22 Play/Pause
+e0 22 SeekForward
+e0 22 play/pause [F7]
+e0 23 Home
+e0 24 SeekBack
+e0 24 Stop
+e0 25 Audio Preset 2/Logitech/VolDown
+e0 26 Add Favourite/Audio Preset 3
+e0 26 Mute
+e0 2c Audio Preset 1
+e0 2d Remote control
+e0 2e Scroll Down
+e0 2e VolDown triangle down with - sign in it
+e0 2e VolDown
+e0 2f Eject
+e0 30 Scroll Up
+e0 30 VolUp triangle up with + sign in it
+e0 30 VolUp
+e0 31 Flame
+e0 32 History
+e0 32 Homepage
+e0 32 My Home
+e0 3b new [F1]
+e0 3c reply [F2]
+e0 3d forward [F3]
+e0 3e send [F4]
+e0 43 my com [F9]
+e0 44 my doc [F10]
+e0 55 My Documents
+e0 57 my pic [F11]
+e0 58 my music [F12]
+e0 5f Moon sleep
+e0 5f Sleep
+e0 5f User moon
+e0 65 Search
+e0 65 Search
+e0 65 Search
+e0 66 Favorites
+e0 66 runningguuy
+e0 69 Go
+e0 6a Back
+e0 6c E-mail
+e0 6c Email
+e0 6c Mail
+e0 6d Media
+e0 74 Webcam
+e0 75 Status
+e0 78 Rec
+e0 7a WWW
