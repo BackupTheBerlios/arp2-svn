@@ -170,7 +170,7 @@ struct group *getgrgid(gid_t gid)
   if (lss->lx_network_type == LX_AMITCP) {
     struct group *grp = UG_getgrgid(gid);
     if (!grp)
-      errno = ug_GetErr();
+      errno = UG_GetErr();
     return grp;
   }
   else if (gr_start(lss)) {
@@ -204,7 +204,7 @@ struct group *getgrnam(const char *name)
   if (lss->lx_network_type == LX_AMITCP) {
     struct group *grp = UG_getgrnam(name);
     if (!grp)
-      errno = ug_GetErr();
+      errno = UG_GetErr();
     return grp;
   }
   else if (gr_start(lss)) {

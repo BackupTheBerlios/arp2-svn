@@ -35,5 +35,5 @@ __mulsi3:
 ");
 
 #else
-# error Unsupported CPU
+# warning Unsupported CPU
 #endif

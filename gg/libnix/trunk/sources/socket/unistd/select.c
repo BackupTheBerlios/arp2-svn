@@ -24,12 +24,15 @@ void __setupselect(void)
   if (((_tport=CreateMsgPort())==NULL) ||
       ((_treq=CreateIORequest(_tport,sizeof(*_treq)))==NULL))
     exit(20);
+  if (OpenDevice(TIMERNAME,UNIT_MICROHZ,(struct IORequest*)_treq,0))
+    exit(20);
 }
 ADD2INIT(__setupselect,-10);
 
 void __cleanupselect(void)
 {
   if (_treq) {
+    CloseDevice((struct IORequest*)_treq);
     DeleteIORequest(_treq); _treq=NULL;
   }
 
@@ -158,10 +161,10 @@ int lx_select(int nfd, fd_set *ifd, fd_set *ofd, fd_set *efd, struct timeval *ti
         _treq->tr_node.io_Command = TR_ADDREQUEST;
         _treq->tr_time.tv_sec     = timeout->tv_sec;
         _treq->tr_time.tv_usec    = timeout->tv_usec;
-        SendIO(&_treq->tr_node);
         /* clear the bit, it's used for sync packets too, and might be set */
         SetSignal (0, 1 << _tport->mp_SigBit);
         wait_sigs |= 1 << _tport->mp_SigBit;
+        SendIO(&_treq->tr_node);
       }
 
       /* have all watched files get prepared for selecting */
@@ -217,6 +220,7 @@ int lx_select(int nfd, fd_set *ifd, fd_set *ofd, fd_set *efd, struct timeval *ti
           && f->lx_select (f, cmd, SELMODE_IN, &netin, NULL)) {
         DB( BUG("Select: fd %ld, has data ready for reading\n", i); )
         FD_SET (i, &readyin);
+
         ++readydesc;
       }
 
@@ -260,6 +264,12 @@ int lx_select(int nfd, fd_set *ifd, fd_set *ofd, fd_set *efd, struct timeval *ti
       /* clear it and resend it so the outer stuff can catch it */
       SetSignal(0, SIGBREAKF_CTRL_C);
       Signal(FindTask(NULL), SIGBREAKF_CTRL_C);
+      result = -1;
+      break;
+    }
+
+    if (recv_wait_sigs & origmask) {
+      DB( BUG("Found user signals\n"); )
       result = -1;
       break;
     }

@@ -437,3 +437,35 @@ F 2004-03-21: Enabled UserFilter in libamiga.a, since it seems to be
   present in the NDK 3.9 version of amiga.lib. (Martin Blom)
 
 B 2004-06-14: SetSuperAttrs was broken. (Martin Blom)
+
+B 2004-12-09: setjmp/longjmp was completly broken for
+  Amithlon. (Steffen Gutmann)
+
+F 2004-12-16: Ported to ppc/MorphOS. No baserel version yet. [I just
+  needed it for RDesktop debugging ...] (Martin Blom)
+
+B 2004-12-18: Internal _sock_select() did not set nfds
+  correctly. (Martin Blom)
+
+B 2004-12-18: lx_select() sent timer I/O requests without opening
+  timer.device first. (Martin Blom)
+
+B 2004-12-19: lx_select() did not terminate correctly when a user signal
+  was detected. (Martin Blom)
+
+B 2005-01-05: Removed compiler warnings from AddTOF(), CreateExtIO(),
+  __setupselect(), __cleanupselect(), accept(), getgroups(),
+  setgroups(), getsockopt(), setsockopt(), getsockname(),
+  getpeername() and recvfrom().
+
+B 2005-01-05: _lx_fhfromfd(): Set errno to EBADF if bad FD is
+  is detected.
+
+B 2005-01-05: connect(), fdtofh(), getpeername(), getsockname(),
+  getsockopt(), ioctl(), recv(), recvfrom(), recvmsg(), send(),
+  sendmsg(), sendto(), setsockopt(), shutdown(), : Handle bad FDs
+  without enforcer hits.
+
+B 2005-01-09: asinh() does not need a weak alias to
+  __ieee754_asinh. That fixed the Amithlon and MorphOS build of
+  libm.a.

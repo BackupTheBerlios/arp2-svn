@@ -111,7 +111,7 @@ int getgroups(int gidsetlen, int *gidset)
 { struct SocketSettings *lss = _lx_get_socket_settings();
 
   if (lss->lx_network_type == LX_AMITCP)
-    return UG_getgroups(gidsetlen,gidset);
+    return UG_getgroups(gidsetlen,(gid_t*)gidset);
 
   /* parameter check */
   if (!gidset || gidsetlen < 0)  {
@@ -134,7 +134,7 @@ int setgroups(int gidsetlen, const int *gidset)
 { struct SocketSettings *lss = _lx_get_socket_settings();
 
   if (lss->lx_network_type == LX_AMITCP)
-    return UG_setgroups(gidsetlen,gidset);
+    return UG_setgroups(gidsetlen,(gid_t*)gidset);
 
   /* parameter check */
   if (!gidset || gidsetlen < 0) {

@@ -19,11 +19,16 @@ void BeginIO(struct IORequest *iorequest)
 void
 BeginIO( struct IORequest *iorequest )
 {
+#if defined(__MORPHOS__)
+  LP1NR( 30, BeginIO, struct IORequest *, iorequest, a1, ,iorequest->io_Device,
+	 IF_CACHEFLUSHALL, NULL, 0, IF_CACHEFLUSHALL, NULL, 0);
+#else
   LP1NR( 30, BeginIO, struct IORequest *, iorequest, a1, ,iorequest->io_Device );
+#endif
 }
 
 #else
-# warning No BeginIO implementation
+# error No BeginIO implementation
 #endif 
 
 #endif

@@ -29,7 +29,13 @@ L_Invoke:	movel	a0@(8:W),sp@-
 #else
 
 #include <intuition/classes.h>
+#include <intuition/classusr.h>
 #include <clib/alib_protos.h>
+
+#if defined(__MORPHOS__)
+# include <emul/emulregs.h>
+# undef CoerceMethodA
+#endif
 
 ULONG
 CoerceMethodA( Class *cl, Object *obj, Msg message )
@@ -44,10 +50,14 @@ CoerceMethodA( Class *cl, Object *obj, Msg message )
   }
 }
 
+#if !defined(__MORPHOS__)
+
 ULONG
 CoerceMethod( Class *cl, Object *obj, ULONG methodID, ... )
 {
   return CoerceMethodA( cl, obj, (APTR) &methodID );
 };
+
+#endif
 
 #endif

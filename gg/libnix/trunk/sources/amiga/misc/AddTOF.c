@@ -12,6 +12,26 @@ STATIC int stub(struct Isrvstr *intr asm("a1"))
   (*intr->ccode)(intr->Carg); return 0;
 }
 
+#elif defined( __MORPHOS__ )
+
+# include <emul/emulregs.h>
+
+STATIC int _stub(void)
+{
+  struct Isrvstr* intr = (struct Isrvstr*) REG_A1;
+
+  (*intr->ccode)(intr->Carg); return 0;
+}
+
+static struct EmulLibEntry __stub =
+{
+  TRAP_LIB, 0, (void (*)(void)) _stub
+};
+
+__asm__("stub=__stub");
+
+int stub();
+
 #elif defined( __i386__ ) && defined( __amithlon__ )
 
 __asm__( "

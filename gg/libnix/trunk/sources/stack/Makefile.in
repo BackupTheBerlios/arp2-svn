@@ -17,7 +17,7 @@ ifneq ($(TARGET),clean)
 include ../../sources/stack/filelist
 endif
 
-OPTIONS=-I$(srcdir)/../headers $(CFLAGS)
+OPTIONS=-I$(srcdir)/../headers @CPPFLAGS@ $(CFLAGS)
 
 REDEF=-D_DOSBase=___DOSBase
 

@@ -8,6 +8,10 @@ int connect(int s, const struct sockaddr *name, int namelen)
   StdFileDes *fp = _lx_fhfromfd(s);
   int oldlen,rc;
 
+  if (fp == NULL) {
+    return -1;
+  }
+
   switch (lss=_lx_get_socket_settings(),lss->lx_network_type) {
     case LX_AS225:
       oldlen = name->sa_len;

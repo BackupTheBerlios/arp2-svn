@@ -19,7 +19,7 @@ endif
 
 CURDIR = $(shell pwd)
 
-OPTIONS=-I$(srcdir)/../headers -DFULL_SPECIFIERS $(CFLAGS)
+OPTIONS=-I$(srcdir)/../headers @CPPFLAGS@ -DFULL_SPECIFIERS $(CFLAGS)
 
 OBJECTS2=$(OBJECTS) \
          ../nix/assert/__eprintf.o \

@@ -19,7 +19,7 @@ endif
 
 CURDIR = $(shell pwd)
 
-OPTIONS=-I$(srcdir)/../headers $(CFLAGS)
+OPTIONS=-I$(srcdir)/../headers @CPPFLAGS@ $(CFLAGS)
 
 OBJECTS2=$(OBJECTS) ../nix/misc/__request.o
 

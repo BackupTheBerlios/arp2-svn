@@ -21,7 +21,7 @@ include ../../sources/amiga/filelist
 
 CURDIR = $(shell pwd)
 
-OPTIONS=-I$(srcdir)/../headers $(CFLAGS)
+OPTIONS=-I$(srcdir)/../headers @CPPFLAGS@ $(CFLAGS)
 
 FDFILES		= $(wildcard $(FDPATH)*.fd)
 CLIB		= $(addprefix $(CLIBPATH),$(subst _lib.fd,_protos.h,$(notdir $(fd))))

@@ -15,7 +15,7 @@ AWK =		@AWK@
 
 OBJECTS=__nocommandline.o _main.o
 
-OPTIONS=-I$(srcdir)/../headers $(CFLAGS)
+OPTIONS=-I$(srcdir)/../headers @CPPFLAGS@ $(CFLAGS)
 
 REDEF=-D_DOSBase=___DOSBase \
       -D_UtilityBase=___UtilityBase \

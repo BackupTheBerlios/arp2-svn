@@ -65,5 +65,5 @@ huge=  1.00000000000000000000e+300;
 	if(hx>0) return w; else return -w;
 }
 
-#include "stabs.h"
-WEAK_ALIAS(asinh,__ieee754_asinh);
+//#include "stabs.h"
+//WEAK_ALIAS(asinh,__ieee754_asinh);

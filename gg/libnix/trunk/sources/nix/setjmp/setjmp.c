@@ -23,7 +23,8 @@ asm("
 	.type	setjmp,@function
 setjmp:
 	movl	4(%esp),%eax
-	movl	%eax,0(%eax)		/* Save caller's SP  */
+	bswap   %eax
+	movl	%esp,0(%eax)		/* Save caller's SP  */
 	movl	%ebp,4(%eax)		/* Save caller's BP */
 	movl	0(%esp),%ecx
 	movl	%ecx,8(%eax)		/* Save caller's PC */
@@ -31,8 +32,26 @@ setjmp:
 	movl	%ebx,12(%eax)
 	movl	%edi,16(%eax)
 	movl	%esi,20(%eax)
+	movl	$0,%eax
 	ret
 ");
+
+#elif defined( __powerpc__ )
+
+#include <setjmp.h>
+
+int setjmp(jmp_buf b)
+{
+asm("
+	mflr	11
+	mfcr	12
+	mr	10,1
+	mr	9,2
+	stmw	9,0(3)
+	li	3,0
+	blr
+	");
+}
 
 #else
 # error Unsupported CPU

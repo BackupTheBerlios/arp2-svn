@@ -3,9 +3,11 @@
 #include <clib/alib_protos.h>
 #include <proto/exec.h>
 
+#ifndef NEWLIST
 #define NEWLIST(l) ((l)->lh_Head = (struct Node *)&(l)->lh_Tail, \
                     /*(l)->lh_Tail = NULL,*/ \
                     (l)->lh_TailPred = (struct Node *)&(l)->lh_Head)
+#endif
 
 struct MsgPort *CreatePort(CONST_STRPTR name,LONG pri)
 { APTR SysBase = *(APTR *)4L;

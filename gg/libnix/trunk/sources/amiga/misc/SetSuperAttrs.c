@@ -31,6 +31,8 @@ L_Invoke:	movel	a0@(8:W),sp@-
 #include <intuition/classes.h>
 #include <clib/alib_protos.h>
 
+#if !defined(__MORPHOS__)
+
 ULONG
 SetSuperAttrs( Class *cl, Object *obj, ULONG tag1, ... )
 {
@@ -46,5 +48,6 @@ SetSuperAttrs( Class *cl, Object *obj, ULONG tag1, ... )
   }
 };
 
+#endif
 
 #endif

@@ -153,8 +153,8 @@ static int _sock_select(StdFileDes *fp,int select_cmd,int io_mode,fd_set *set,u_
   
   if (select_cmd == SELCMD_PREPARE) {
     FD_SET(fp->lx_sock, set);
-    if (fp->lx_sock > *nfds)
-      *nfds = fp->lx_sock;
+    if (fp->lx_sock >= *nfds)
+      *nfds = fp->lx_sock+1;
     return (1L << lss->lx_sigurg | 1L << lss->lx_sigio);
   }
 
@@ -405,7 +405,7 @@ void __initsocket(void)
         { UGT_INTRMASK,              SIGBREAKB_CTRL_C },
         { TAG_END,TAG_END }
       };
-      ug_SetupContextTagList(progname, ug_list);
+      UG_SetupContextTagList(progname, ug_list);
 
       sock = init_inet_daemon(&__argc, &__argv, lss);
       if (sock >= 0) {

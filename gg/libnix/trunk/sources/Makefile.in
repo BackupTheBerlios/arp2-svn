@@ -3,7 +3,7 @@
 #
 # Combine
 #
-# CFLAGS=-Wall -O3
+# CFLAGS=-g -Wall -O2
 #
 #   -fbaserel -DSMALL_DATA	for small data model
 #   -fbaserel32			for large baserel model

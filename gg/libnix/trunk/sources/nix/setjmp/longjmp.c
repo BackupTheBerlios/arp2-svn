@@ -28,7 +28,9 @@ asm("
 longjmp:
 	popl	%eax			/* Ignore return address */
 	popl	%ecx			/* Get jmp_buf */
+	bswap   %ecx
 	popl	%eax			/* Get value */
+	bswap   %eax
 	test	%eax,%eax
 	jz	1
 	movl	$1,%eax
@@ -42,6 +44,25 @@ longjmp:
 	movl	8(%ecx),%ecx		/* New PC */
 	jmp	*%ecx
 ");
+
+#elif defined( __powerpc__ )
+
+#include <setjmp.h>
+
+void longjmp(jmp_buf b,int r)
+{
+asm("
+	lmw	9,0(3)
+	mtlr	11
+	mtcr	12
+	mr	1,10
+	mr	2,9
+	mr.	3,4
+	bnelr
+	li	3,1
+	blr
+	");
+}
 
 #else
 # error Unsupported CPU

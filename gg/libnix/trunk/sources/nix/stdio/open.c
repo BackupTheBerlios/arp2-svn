@@ -186,6 +186,7 @@ StdFileDes *_lx_fhfromfd(int d)
   { StdFileDes *sfd=stdfiledes[d];
     if(sfd&&sfd->lx_inuse)
       return sfd; }
+  errno=EBADF; 
   return NULL;
 }
 

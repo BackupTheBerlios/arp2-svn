@@ -14,6 +14,27 @@ AC_PROG_CPP
 AC_PROG_AWK
 AC_PROG_RANLIB
 AC_PROG_INSTALL
+AC_CHECK_PROGS( SFDC, SFDC sfdc )
+
+CPPFLAGS="${CPPFLAGS} -I`pwd`/sources/headers"
+
+AC_CONFIG_COMMANDS([sources/headers/inline],
+	           [mkdir -p sources/headers/inline])
+AC_CONFIG_COMMANDS([sources/headers/inline/amitcp.h],
+	           [${SFDC} --target=$host --mode=macros \
+		    ${srcdir}/sources/headers/sfd/amitcp.sfd \
+		    -o sources/headers/inline/amitcp.h],
+		   [SFDC=${SFDC} host=${host}])
+AC_CONFIG_COMMANDS([sources/headers/inline/as225.h],
+	           [${SFDC} --target=$host --mode=macros \
+		    ${srcdir}/sources/headers/sfd/as225.sfd \
+		    -o sources/headers/inline/as225.h],
+		   [SFDC=${SFDC} host=${host}])
+AC_CONFIG_COMMANDS([sources/headers/inline/usergroup.h],
+	           [${SFDC} --target=$host --mode=macros \
+		    ${srcdir}/sources/headers/sfd/usergroup.sfd \
+		    -o sources/headers/inline/usergroup.h],
+		   [SFDC=${SFDC} host=${host}])
 
 AC_OUTPUT(Makefile
           sources/Makefile

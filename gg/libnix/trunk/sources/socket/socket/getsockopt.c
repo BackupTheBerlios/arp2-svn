@@ -8,13 +8,17 @@ int getsockopt(int s, int level, int name, void *val, int *valsize)
   StdFileDes *fp = _lx_fhfromfd(s);
   int rc;
 
+  if (fp == NULL) {
+    return -1;
+  }
+
   switch (lss=_lx_get_socket_settings(),lss->lx_network_type) {
     case LX_AS225:
       rc = SOCK_getsockopt(fp->lx_sock,level,name,val, valsize);
     break;
 
     case LX_AMITCP:
-      rc = TCP_GetSockOpt(fp->lx_sock,level,name,val, valsize);
+      rc = TCP_GetSockOpt(fp->lx_sock,level,name,val, (LONG*) valsize);
     break;
 
     default:

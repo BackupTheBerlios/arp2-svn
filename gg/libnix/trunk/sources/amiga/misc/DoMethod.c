@@ -28,7 +28,13 @@ L_Invoke:	movel	a0@(8:W),sp@-
 #else
 
 #include <intuition/classes.h>
+#include <intuition/classusr.h>
 #include <clib/alib_protos.h>
+
+#if defined(__MORPHOS__)
+# include <emul/emulregs.h>
+# undef DoMethodA
+#endif
 
 ULONG
 DoMethodA( Object *obj, Msg message )
@@ -43,10 +49,14 @@ DoMethodA( Object *obj, Msg message )
   }
 }
 
+#if !defined(__MORPHOS__)
+
 ULONG
 DoMethod( Object *obj, ULONG methodID, ... )
 {
   return DoMethodA( obj, (APTR) &methodID );
 };
+
+#endif
 
 #endif

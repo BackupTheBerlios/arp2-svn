@@ -10,9 +10,11 @@ struct newMemList {
   struct MemEntry nml_ME[2];
 };
 
+#ifndef NEWLIST
 #define NEWLIST(l) ((l)->lh_Head = (struct Node *)&(l)->lh_Tail, \
                     /*(l)->lh_Tail = NULL,*/ \
                     (l)->lh_TailPred = (struct Node *)&(l)->lh_Head)
+#endif
 
 struct Task *CreateTask(STRPTR name, LONG pri, APTR initpc, ULONG stacksize)
 { struct Library *SysBase = *(struct Library **)4L;

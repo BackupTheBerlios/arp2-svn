@@ -15,7 +15,7 @@ AWK =		@AWK@
 
 OBJECTS=detach.o swapstack.o
 
-OPTIONS=-I$(srcdir)/../headers $(CFLAGS)
+OPTIONS=-I$(srcdir)/../headers @CPPFLAGS@ $(CFLAGS)
 
 vpath %.c $(SOURCEDIR)
 

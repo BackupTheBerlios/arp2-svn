@@ -20,7 +20,7 @@ int accept(int s, struct sockaddr *name, int *namelen)
     break;
 
     case LX_AMITCP:
-      rc = TCP_Accept(fp->lx_sock, name, namelen);
+      rc = TCP_Accept(fp->lx_sock, name, (LONG*) namelen);
     break;
 
     default:

@@ -10,4 +10,8 @@
 #include "stdio.h"
 
 long fdtofh(int filedescriptor)
-{ return _lx_fhfromfd(filedescriptor)->lx_fh; }
+{
+  StdFileDes *fp = _lx_fhfromfd(filedescriptor);
+
+  return fp != NULL ? fp->lx_fh : 0;
+}

@@ -2,9 +2,11 @@
 #include <devices/timer.h>
 #include <proto/exec.h>
 
+#ifndef NEWLIST
 #define NEWLIST(l) ((l)->lh_Head = (struct Node *)&(l)->lh_Tail, \
                     /*(l)->lh_Tail = NULL,*/ \
                     (l)->lh_TailPred = (struct Node *)&(l)->lh_Head)
+#endif
 
 LONG TimeDelay(LONG unit,ULONG secs,ULONG microsecs)
 { APTR SysBase = *(APTR *)4L;

@@ -202,7 +202,7 @@ struct passwd *getpwent(void)
 
     case LX_AMITCP:
       if ((pwd=__TCP2InetPwd(UG_getpwent(),lss)) == NULL)
-        errno = ug_GetErr();
+        errno = UG_GetErr();
       return pwd;
     break;
 
@@ -244,7 +244,7 @@ struct passwd *getpwuid(uid_t uid)
       /* This happens when someone doesn't use AmiTCP's login */
       if (uid != (uid_t)-2) {
         if ((pwd=__TCP2InetPwd(UG_getpwuid(uid),lss)) == NULL)
-          errno = ug_GetErr();
+          errno = UG_GetErr();
         return pwd;
       }
       else {
@@ -292,7 +292,7 @@ struct passwd *getpwnam(const char *name)
 
     case LX_AMITCP:
       if ((pwd=__TCP2InetPwd(UG_getpwnam(name),lss)) == NULL)
-        errno = ug_GetErr();
+        errno = UG_GetErr();
       return pwd;
     break;
 

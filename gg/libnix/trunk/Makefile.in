@@ -1,6 +1,6 @@
 # Build all models of the libnix libraries.
 #
-# CFLAGS=-Wall -O2
+# CFLAGS=-g -Wall -O2
 #
 #   -fbaserel -DSMALL_DATA	for small data model
 #   -fbaserel32			for large baserel model
@@ -34,7 +34,7 @@ INSTALL_DATA =	@INSTALL_DATA@
 
 #### End system configuration section ####
 
-V=VER: libnix/lcs 2.1 (15.06.2004)
+V=VER: libnix/lcs 2.0 (09.01.2005)
 
 CURDIR := $(shell pwd)
 
@@ -49,19 +49,19 @@ endif
 all: libnix.guide libnix.info $(SUBDIRS)
 	cd sources;	$(MAKE) filelists
 	cd startup;	$(MAKE) -f $(CURDIR)/sources/startup/Makefile V="$(V)"
-	cd lib; 	$(MAK2) V="$(V)" CFLAGS="-Wall -O2 -fomit-frame-pointer"
+	cd lib; 	$(MAK2) V="$(V)" CFLAGS="-g -Wall -O2 -fomit-frame-pointer"
 ifeq ($(host_cpu),m68k)
-	cd libb;	$(MAK2) V="$(V)" CFLAGS="-Wall -O2 -fomit-frame-pointer -fbaserel -DSMALL_DATA"
-	cd lib020;	$(MAK2) V="$(V)" CFLAGS="-Wall -O2 -fomit-frame-pointer -m68020"
-	cd libb020;	$(MAK2) V="$(V)" CFLAGS="-Wall -O2 -fomit-frame-pointer -fbaserel -DSMALL_DATA -m68020"
-	cd lib881;	$(MAK2) V="$(V)" CFLAGS="-Wall -O2 -fomit-frame-pointer -m68020 -m68881"
-	cd libb881;	$(MAK2) V="$(V)" CFLAGS="-Wall -O2 -fomit-frame-pointer -fbaserel -DSMALL_DATA -m68020 -m68881"
-#	cd lib060;	$(MAK2) V="$(V)" CFLAGS="-Wall -O2 -fomit-frame-pointer -m68060 -m68881"
-#	cd libb060;	$(MAK2) V="$(V)" CFLAGS="-Wall -O2 -fomit-frame-pointer -fbaserel -DSMALL_DATA -m68060 -m68881"
-#	cd libb32;	$(MAK2) V="$(V)" CFLAGS="-Wall -O2 -fomit-frame-pointer -fbaserel32 -DSMALL_DATA -m68020"
-#	cd libb32881;	$(MAK2) V="$(V)" CFLAGS="-Wall -O2 -fomit-frame-pointer -fbaserel32 -DSMALL_DATA -m68020 -m68881"
-#	cd libb32060;	$(MAK2) V="$(V)" CFLAGS="-Wall -O2 -fomit-frame-pointer -fbaserel32 -DSMALL_DATA -m68060 -m68881"
-#	cd libix;	$(MAK2) V="$(V)" CFLAGS="-Wall -O2 -fomit-frame-pointer -DIXPATHS"
+	cd libb;	$(MAK2) V="$(V)" CFLAGS="-g -Wall -O2 -fomit-frame-pointer -fbaserel -DSMALL_DATA"
+	cd lib020;	$(MAK2) V="$(V)" CFLAGS="-g -Wall -O2 -fomit-frame-pointer -m68020"
+	cd libb020;	$(MAK2) V="$(V)" CFLAGS="-g -Wall -O2 -fomit-frame-pointer -fbaserel -DSMALL_DATA -m68020"
+	cd lib881;	$(MAK2) V="$(V)" CFLAGS="-g -Wall -O2 -fomit-frame-pointer -m68020 -m68881"
+	cd libb881;	$(MAK2) V="$(V)" CFLAGS="-g -Wall -O2 -fomit-frame-pointer -fbaserel -DSMALL_DATA -m68020 -m68881"
+#	cd lib060;	$(MAK2) V="$(V)" CFLAGS="-g -Wall -O2 -fomit-frame-pointer -m68060 -m68881"
+#	cd libb060;	$(MAK2) V="$(V)" CFLAGS="-g -Wall -O2 -fomit-frame-pointer -fbaserel -DSMALL_DATA -m68060 -m68881"
+#	cd libb32;	$(MAK2) V="$(V)" CFLAGS="-g -Wall -O2 -fomit-frame-pointer -fbaserel32 -DSMALL_DATA -m68020"
+#	cd libb32881;	$(MAK2) V="$(V)" CFLAGS="-g -Wall -O2 -fomit-frame-pointer -fbaserel32 -DSMALL_DATA -m68020 -m68881"
+#	cd libb32060;	$(MAK2) V="$(V)" CFLAGS="-g -Wall -O2 -fomit-frame-pointer -fbaserel32 -DSMALL_DATA -m68060 -m68881"
+#	cd libix;	$(MAK2) V="$(V)" CFLAGS="-g -Wall -O2 -fomit-frame-pointer -DIXPATHS"
 endif
 
 $(SUBDIRS):

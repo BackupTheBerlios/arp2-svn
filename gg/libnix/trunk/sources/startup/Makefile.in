@@ -19,7 +19,7 @@ AWK =		@AWK@
 
 #### End system configuration section ####
 
-OPTIONS=-I$(srcdir)/../headers -O2 -fomit-frame-pointer
+OPTIONS=-I$(srcdir)/../headers @CPPFLAGS@ -g -Wall -O2 -fomit-frame-pointer
 
 %.o: %.c
 	$(CC) $(OPTIONS) -c $^ 2>&1|tee $*.err
@@ -63,7 +63,7 @@ ncrt0.o: ncrt0.S
 	echo "\$$$(V)" >>$@
 else
 
-ncrt0.o: crt0-ix86be.c
+ncrt0.o: crt0.c
 	$(CC) $(OPTIONS) -c $^ -o $@
 	echo "\$$$(V)" >>$@
 endif

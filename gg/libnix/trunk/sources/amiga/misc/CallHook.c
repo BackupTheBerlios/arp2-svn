@@ -58,6 +58,27 @@ CallHook( struct Hook *hookPtr, Object *obj, ... )
   return CallHookA( hookPtr, obj, (APTR) ( &obj + 1 ) );
 };
 
+#elif defined(__MORPHOS__)
+
+#include <intuition/classes.h>
+#include <intuition/classusr.h>
+
+#define __MORPHOS_NODIRECTCALL
+#include <emul/emulregs.h>
+
+#undef CallHookA    // Just in case ...
+
+ULONG
+CallHookA(struct Hook *hookPtr, Object *obj, Msg msg)
+{
+  REG_A0 = (ULONG) hookPtr;
+  REG_A1 = (ULONG) msg;
+  REG_A2 = (ULONG) obj;
+
+  return (*MyEmulHandle->EmulCallDirect68k)((void *) hookPtr->h_Entry);
+}
+
+
 #else
-# warning No CallHook implementation
+# error No CallHook implementation
 #endif

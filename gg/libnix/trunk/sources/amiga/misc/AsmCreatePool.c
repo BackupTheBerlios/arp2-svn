@@ -1,8 +1,10 @@
 #include "pool.h"
 
+#ifndef NEWLIST
 #define NEWLIST(l) ((l)->mlh_Head = (struct MinNode *)&(l)->mlh_Tail, \
                     (l)->mlh_Tail = NULL, \
                     (l)->mlh_TailPred = (struct MinNode *)&(l)->mlh_Head)
+#endif
 
 APTR _AsmCreatePool(ULONG requirements,ULONG puddleSize,ULONG threshSize,APTR SysBase)
 {

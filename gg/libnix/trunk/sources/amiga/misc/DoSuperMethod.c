@@ -33,7 +33,13 @@ L_Invoke:	movel	a0@(8:W),sp@-
 #else
 
 #include <intuition/classes.h>
+#include <intuition/classusr.h>
 #include <clib/alib_protos.h>
+
+#if defined(__MORPHOS__)
+# include <emul/emulregs.h>
+# undef DoSuperMethodA
+#endif
 
 ULONG
 DoSuperMethodA( Class *cl, Object *obj, Msg message )
@@ -48,10 +54,14 @@ DoSuperMethodA( Class *cl, Object *obj, Msg message )
   }
 }
 
+#if !defined(__MORPHOS__)
+
 ULONG
 DoSuperMethod( Class *cl, Object *obj, ULONG methodID, ... )
 {
   return DoSuperMethodA( cl, obj, (APTR) &methodID );
 };
+
+#endif
 
 #endif
