@@ -91,7 +91,7 @@ static const char version[] = "$VER: RDesktop 1.3.1cvs-"
 #else
                               "AmigaOS"
 #endif
-                              " (19.12.2004)"
+                              " (30.12.2004)"
                               "©2001-2004 Martin Blom; "
                               "©1999-2004 Matthew Chapman et al.";
 

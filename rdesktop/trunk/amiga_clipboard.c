@@ -137,6 +137,7 @@ amiga_clip_handle_signals() {
 void
 ui_clip_format_announce(uint8 * data, uint32 length)
 {
+#ifndef __MORPHOS__
   amiga_clip_handle->cbh_Req.io_Command = CBD_POST;
   amiga_clip_handle->cbh_Req.io_Data    = (char*) &amiga_clip_handle->cbh_SatisfyPort;
   amiga_clip_handle->cbh_Req.io_ClipID  = 0;
@@ -149,12 +150,18 @@ ui_clip_format_announce(uint8 * data, uint32 length)
   else {
     amiga_clip_clipid = 0;
   }
+#else
+  amiga_clip_clipid = 0;
+#endif
 }
 
 void ui_clip_handle_data(uint8 * data, uint32 length)
 {
   if (amiga_clip_format == CF_TEXT) {
     if (OpenIFF(amiga_clip_iffhandle, IFFF_WRITE) == 0) {
+
+      amiga_clip_handle->cbh_Req.io_ClipID = amiga_clip_clipid;
+      
       if (PushChunk(amiga_clip_iffhandle, ID_FTXT, ID_FORM,
 		    IFFSIZE_UNKNOWN) == 0) {
 	if (PushChunk(amiga_clip_iffhandle, 0, ID_CHRS,
