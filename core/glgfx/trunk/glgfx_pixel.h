@@ -48,7 +48,7 @@ enum glgfx_pixel_format glgfx_pixel_getformat(struct glgfx_tagitem* tags);
 
 bool glgfx_pixel_getattr(enum glgfx_pixel_format format,
 			 enum glgfx_pixel_attr attr,
-			 uint32_t* storage);
+			 uintptr_t* storage);
 
 
 #endif /* ARP2_glgfx_glgfx_pixel_h */

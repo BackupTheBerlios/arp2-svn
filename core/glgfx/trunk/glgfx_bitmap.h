@@ -3,6 +3,7 @@
 
 #include <glgfx.h>
 #include <glgfx_monitor.h>
+#include <glgfx_pixel.h>
 #include <inttypes.h>
 
 struct glgfx_bitmap;
@@ -32,7 +33,7 @@ bool glgfx_bitmap_update(struct glgfx_bitmap* bitmap,
 
 bool glgfx_bitmap_getattr(struct glgfx_bitmap* bm,
 			  enum glgfx_bitmap_attr attr,
-			  uint32_t* storage);
+			  uintptr_t* storage);
 
 bool glgfx_bitmap_select(struct glgfx_bitmap* bitmap);
 bool glgfx_bitmap_waitblit(struct glgfx_bitmap* bitmap);

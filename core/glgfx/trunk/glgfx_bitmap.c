@@ -8,6 +8,10 @@
 #include "glgfx_bitmap.h"
 #include "glgfx_intern.h"
 
+#ifndef GL_TEXTURE_RECTANGLE_ARB
+# define GL_TEXTURE_RECTANGLE_ARB GL_TEXTURE_RECTANGLE_EXT
+#endif
+
 static enum glgfx_pixel_format select_format(int bits __attribute__((unused)),
 					     struct glgfx_bitmap* friend,
 					     enum glgfx_pixel_format format) {
@@ -61,10 +65,10 @@ struct glgfx_bitmap* glgfx_bitmap_create(int width, int height, int bits,
   glGenTextures(1, &bitmap->texture);
   check_error();
 
-  glBindTexture(GL_TEXTURE_RECTANGLE_EXT, bitmap->texture);
+  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, bitmap->texture);
   check_error();
 
-  glTexImage2D(GL_TEXTURE_RECTANGLE_EXT, 0,
+  glTexImage2D(GL_TEXTURE_RECTANGLE_ARB, 0,
 	       formats[bitmap->format].internal_format,
 	       width, height, 0,
 	       formats[bitmap->format].format,
@@ -72,17 +76,17 @@ struct glgfx_bitmap* glgfx_bitmap_create(int width, int height, int bits,
 	       NULL);
   check_error();
 
-/*   glTexParameteri(GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); */
-/*   glTexParameteri(GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); */
-/*   glTexParameteri(GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MIN_FILTER, GL_NEAREST); */
-/*   glTexParameteri(GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MAG_FILTER, GL_NEAREST); */
-  glTexParameteri(GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-  glTexParameteri(GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-  glTexParameteri(GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+/*   glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); */
+/*   glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); */
+/*   glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MIN_FILTER, GL_NEAREST); */
+/*   glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, GL_NEAREST); */
+  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 //  glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
   
-  glEnable(GL_TEXTURE_RECTANGLE_EXT);
+  glEnable(GL_TEXTURE_RECTANGLE_ARB);
   check_error();
 
   D(BUG("Returning bitmap %p\n", bitmap));
@@ -97,18 +101,18 @@ void glgfx_bitmap_destroy(struct glgfx_bitmap* bitmap) {
   }
 
   pthread_mutex_lock(&glgfx_mutex);
-  glgfx_bitmap_unlock(bitmap);
+  glgfx_bitmap_unlock(bitmap, 0, 0, 0, 0);
   glDeleteBuffers(1, &bitmap->pbo);
   glDeleteTextures(1, &bitmap->texture);
   free(bitmap);
   pthread_mutex_unlock(&glgfx_mutex);
 }
 
-void* glgfx_bitmap_lock(struct glgfx_bitmap* bitmap, bool read, bool write) {
+bool glgfx_bitmap_lock(struct glgfx_bitmap* bitmap, bool read, bool write) {
   void* res;
 
   if (bitmap == NULL || (!read && !write)) {
-    return NULL;
+    return false;
   }
 
   pthread_mutex_lock(&glgfx_mutex);
@@ -140,11 +144,11 @@ void* glgfx_bitmap_lock(struct glgfx_bitmap* bitmap, bool read, bool write) {
 
   if (bitmap->locked_access == GL_READ_WRITE_ARB ||
       bitmap->locked_access == GL_READ_ONLY_ARB) {
-    glBindTexture(GL_TEXTURE_RECTANGLE_EXT, bitmap->texture);
+    glBindTexture(GL_TEXTURE_RECTANGLE_ARB, bitmap->texture);
     check_error();
     glBindBuffer(GL_PIXEL_PACK_BUFFER_EXT, bitmap->pbo);
     check_error();
-    glGetTexImage(GL_TEXTURE_RECTANGLE_EXT, 0,
+    glGetTexImage(GL_TEXTURE_RECTANGLE_ARB, 0,
 		  formats[bitmap->format].format,
 		  formats[bitmap->format].type,
 		  NULL);
@@ -158,7 +162,7 @@ void* glgfx_bitmap_lock(struct glgfx_bitmap* bitmap, bool read, bool write) {
   res = bitmap->locked_memory;
 
   pthread_mutex_unlock(&glgfx_mutex);
-  return res;
+  return res != NULL;
 }
 
 
@@ -180,11 +184,11 @@ bool glgfx_bitmap_unlock(struct glgfx_bitmap* bitmap, int x, int y, int width, i
     if (width != 0 && height != 0 &&
 	(bitmap->locked_access == GL_READ_WRITE_ARB ||
 	 bitmap->locked_access == GL_WRITE_ONLY_ARB)) {
-      glBindTexture(GL_TEXTURE_RECTANGLE_EXT, bitmap->texture);
+      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, bitmap->texture);
       check_error();
 
       glPixelStorei(GL_PACK_ROW_LENGTH, bitmap->width);
-      glTexSubImage2D(GL_TEXTURE_RECTANGLE_EXT, 0,
+      glTexSubImage2D(GL_TEXTURE_RECTANGLE_ARB, 0,
 		      0, 0, width, height,
 		      formats[bitmap->format].format,
 		      formats[bitmap->format].type,
@@ -216,11 +220,11 @@ bool glgfx_bitmap_update(struct glgfx_bitmap* bitmap,
 
   pthread_mutex_lock(&glgfx_mutex);
 
-  glBindTexture(GL_TEXTURE_RECTANGLE_EXT, bitmap->texture);
+  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, bitmap->texture);
   check_error();
    
   glPixelStorei(GL_PACK_ROW_LENGTH, bytes_per_row / formats[format].size);
-  glTexSubImage2D(GL_TEXTURE_RECTANGLE_EXT, 0,
+  glTexSubImage2D(GL_TEXTURE_RECTANGLE_ARB, 0,
 		  0, 0, width, height,
 		  formats[format].format,
 		  formats[format].type,
@@ -234,7 +238,7 @@ bool glgfx_bitmap_update(struct glgfx_bitmap* bitmap,
 
 bool glgfx_bitmap_getattr(struct glgfx_bitmap* bm,
 			  enum glgfx_bitmap_attr attr,
-			  uint32_t* storage) {
+			  uintptr_t* storage) {
   if (bm == NULL || storage == NULL ||
       attr <= glgfx_bitmap_attr_unknown || attr >= glgfx_bitmap_attr_max) {
     return false;
@@ -264,7 +268,7 @@ bool glgfx_bitmap_getattr(struct glgfx_bitmap* bm,
       break;
       
     case glgfx_bitmap_attr_mapaddr:
-      *storage = (uint32_t) bm->locked_memory;
+      *storage = (uintptr_t) bm->locked_memory;
       break;
       
     default:

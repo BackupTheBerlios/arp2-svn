@@ -36,7 +36,7 @@ bool glgfx_monitor_swapbuffers(struct glgfx_monitor* monitor);
 
 bool glgfx_monitor_getattr(struct glgfx_monitor* bm,
 			   enum glgfx_monitor_attr attr,
-			   uint32_t* storage);
+			   uintptr_t* storage);
 
 
 

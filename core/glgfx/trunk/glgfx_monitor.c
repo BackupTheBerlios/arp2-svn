@@ -367,7 +367,7 @@ bool glgfx_monitor_selectcontext(struct glgfx_monitor* monitor, struct glgfx_con
 
 bool glgfx_monitor_getattr(struct glgfx_monitor* monitor,
 			   enum glgfx_monitor_attr attr,
-			   uint32_t* storage) {
+			   uintptr_t* storage) {
   if (monitor == NULL || storage == NULL ||
       attr <= glgfx_monitor_attr_unknown || attr >= glgfx_monitor_attr_max) {
     return false;

@@ -162,7 +162,7 @@ enum glgfx_pixel_format glgfx_pixel_getformat(struct glgfx_tagitem* tags) {
 
 bool glgfx_pixel_getattr(enum glgfx_pixel_format format,
 			 enum glgfx_pixel_attr attr,
-			 uint32_t* storage) {
+			 uintptr_t* storage) {
   if (format <= glgfx_pixel_format_unknown || format >= glgfx_pixel_format_max ||
       storage == NULL ||
       attr <= glgfx_pixel_attr_unknown || attr >= glgfx_pixel_attr_max) {

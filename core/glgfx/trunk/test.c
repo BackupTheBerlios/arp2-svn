@@ -9,7 +9,7 @@
 #include "glgfx_viewport.h"
 #include "glgfx_input.h"
 
-#define UPLOAD_MODE 2
+#define UPLOAD_MODE 1
 
 int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) {
   // If unset, sync to vblank as default (nvidia driver)
@@ -29,7 +29,7 @@ int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) 
     int height = 800;
     unsigned short* data;
 
-#if UPLOAD_MODE < 2
+#if UPLOAD_MODE == 0
     data = calloc(sizeof (*data), width * height);
 #endif
     
@@ -37,25 +37,25 @@ int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) 
 						  glgfx_pixel_format_r5g6b5, glgfx_monitors[0]);
     
     if (bm != NULL) {
-#if UPLOAD_MODE > 0
+#if UPLOAD_MODE == 1
       if (glgfx_bitmap_lock(bm, false, true)) {
 #endif
 	int x, y;
       
-#if UPLOAD_MODE > 1
-	data = glgfx_bitmap_map(bm);
+#if UPLOAD_MODE == 1
+	glgfx_bitmap_getattr(bm, glgfx_bitmap_attr_mapaddr, (uintptr_t*) &data);
 #endif
 	for (y = 0; y < height; y+=1) {
 	  for (x = 0; x < width; x+=1) {
-//	    data[x+y*width] = (255 << 24) | ((255*x/width) << 16) | ((255*y/height) << 8) | 0;
-	    data[x+y*width] = 0x8ff8;
+	    data[x+y*width] = (255 << 24) | ((255*x/width) << 16) | ((255*y/height) << 8) | 0;
+//	    data[x+y*width] = 0x8ff8;
 	  }
 	}
-#if UPLOAD_MODE < 2
-	  glgfx_bitmap_update(bm, data, width*height*sizeof (*data));
+#if UPLOAD_MODE == 0
+	glgfx_bitmap_update(bm, 0, 0, width, height, data, glgfx_pixel_format_r5g6b5, 2 * width);
 #endif
-#if UPLOAD_MODE > 0
-	glgfx_bitmap_unlock(bm);
+#if UPLOAD_MODE == 1
+	glgfx_bitmap_unlock(bm, 0, 0, width, height);
       }
 #endif
 
@@ -71,24 +71,24 @@ int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) 
 
       gettimeofday(&s, NULL);
       for (i = 0; i < 256; i+=1) {
-#if UPLOAD_MODE > 0
+#if UPLOAD_MODE == 1
 	if (glgfx_bitmap_lock(bm, false, true)) {
 #endif
 	  int x, y;
 
-#if UPLOAD_MODE > 1
-	  data = glgfx_bitmap_map(bm);
+#if UPLOAD_MODE == 1
+	  glgfx_bitmap_getattr(bm, glgfx_bitmap_attr_mapaddr, (uintptr_t*) &data);
 #endif
 	  for (y = 0; y < height; y+=10) {
 	    for (x = 0; x < width; x+=10) {
 	      data[x+y*width] = 0;
 	    }
 	  }
-#if UPLOAD_MODE < 2
-	  glgfx_bitmap_update(bm, data, width*height*sizeof (*data));
+#if UPLOAD_MODE == 0
+	  glgfx_bitmap_update(bm, 0, 0, width, height, data, glgfx_pixel_format_r5g6b5, 2 * width);
 #endif
-#if UPLOAD_MODE > 0
-	  glgfx_bitmap_unlock(bm);
+#if UPLOAD_MODE == 1
+	  glgfx_bitmap_unlock(bm, 0, 0, width, height);
 	}
 #endif
 
