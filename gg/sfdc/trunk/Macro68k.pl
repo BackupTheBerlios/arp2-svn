@@ -30,6 +30,11 @@ BEGIN {
 	    my $a5        = $regs =~ /a5/;
 	    my $fp        = $argtypes =~ /\(\*\)/;
 
+	    if ($a4 && $a5 && !$quiet) {
+		print STDERR "$$prototype{'funcname'} uses both a4 and a5 " .
+		    "for arguments. This is not going to work.\n";
+	    }
+	    
 	    $self->{FUNCARGTYPE} = '';
 	    for my $argtype (@{$$prototype{'argtypes'}}) {
 		if ($argtype =~ /\(\*\)/) {
@@ -39,9 +44,10 @@ BEGIN {
 	    }
 	
 	    printf "	LP%d%s%s%s%s%s(0x%x, ", $#{$$prototype{'args'}} + 1,
+	    $nr ? "NR" : "", $nb ? "NB" : "",
 	    $a4 ? "A4" : "", $a5 ? "A5" : "",
 	    $self->{FUNCARGTYPE} ne '' ? "FP" : "",
-	    $nr ? "NR" : "", $nb ? "NB" : "", $$prototype{'bias'};
+	    $$prototype{'bias'};
 
 	    if (!$nr) {
 		print "$$prototype{'return'}, ";
@@ -59,15 +65,22 @@ BEGIN {
 	my $self      = shift;
 	my %params    = @_;
 	my $prototype = $params{'prototype'};
-	my $argtype   = $params{'argtype'};
-	my $argname   = $params{'argname'};
-	my $argreg    = $params{'argreg'};
-	my $sfd       = $self->{SFD};
 
-	if ($$prototype{'type'} !~ /^(varargs|stdarg)$/ &&
-	    $argtype =~ /\(\*\)/) {
+	if ($$prototype{'type'} !~ /^(varargs|stdarg)$/) {
+	    my $argtype   = $params{'argtype'};
+	    my $argname   = $params{'argname'};
+	    my $argreg    = $params{'argreg'};
 	    
-	    print "__fpt, $argname, $argreg, ";
+	    if ($argreg eq 'a4' || $argreg eq 'a5') {
+		$argreg = 'd7';
+	    }
+	    
+	    if ($argtype =~ /\(\*\)/) {
+		print "__fpt, $argname, $argreg, ";
+	    }
+	    else {
+		print "$argtype, $argname, $argreg, ";
+	    }
 	}
         else {
 	    $self->SUPER::function_arg (@_);
