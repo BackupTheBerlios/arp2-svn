@@ -259,10 +259,8 @@ for gcc in ${bindir}/*-*-gcc; do
 
           echo -ne "${NORMAL}[${base}] ${ERROR}"
 	    
-          ${CC} -S ${source} \
-	    -o ${build_dir}/-stubs-${base}.s || exit 10
-
-          ${SPLITASM} -v dest=${build_dir} ${build_dir}/-stubs-${base}.s
+          ${CC} -S ${source} -o ${build_dir}/-stubs-${base}.s && \
+	      ${SPLITASM} -v dest=${build_dir} ${build_dir}/-stubs-${base}.s
 
 	  rm ${build_dir}/-stubs-${base}.c
 	  rm ${build_dir}/-stubs-${base}.s
