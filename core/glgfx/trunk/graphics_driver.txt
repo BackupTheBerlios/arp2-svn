@@ -1,5 +1,0 @@
-
-Monitor
- View <- Collection of dragged screens
-  ViewPort <- Screens
-  Sprite
