@@ -394,7 +394,41 @@ F Added a bunch of functions from NetBSD's libm: acosh() asinh()
 F Added code to handle 'long double' in vfprintf.c. (I just cast it to
   a double.) (Martin Blom)
 
-S Switched from LGPL to Runtime GPL.
+S Switched from LGPL to Runtime GPL. (Martin Blom)
 
 F The Amithlon patch is now relative the release version of libnix 2,
-  not the beta.
+  not the beta. (Martin Blom)
+
+B 2002-04-07: setjmp/longjmp was not correctly declared
+  global. (Martin Blom)
+
+B 2002-04-07: Because of differences in the symbol aliases handling
+  between Amiga hunk and ELF objects, bcmp, unlink and rmdir was
+  changed from symbol aliases to real functions. (Martin Blom)
+
+B 2002-04-13: Added undefs to ignore magic in math.h for 68881 builds.
+  libm.a is now built for m68881. (Martin Blom)
+
+F 2002-05-02: Added rem_pio2() and __kernel_rem_pio2() from NetBSD's
+  libm. (Martin Blom)
+
+B 2002-11-07: Fixed enforcer hit on usage of stderr and
+  __swbuf(). Somehow it wasn`t a wise idea to free the buffer of stderr
+  because __swbuf() and probably other functions would rely on it. Now
+  stderr is just marked a non-buffered and so __swbuf() will immediatly
+  flush the stream. (Jens Langner)
+
+B 2002-11-19: getcwd() could sometimes return the wrong path, since it
+  used GetCurrentDirName(). It now uses Lock()/NameFromLock() instead.
+  (Jens Langner)
+
+F 2002-12-30: Added <libnix.h>, which declares lx_select(). Made
+  lx_select() global and added an ix_select() alias for some ixemul
+  and <ix.h> compatibility. (Martin Blom)
+
+B 20023-01-21: nrcrt0.o was not compiled with -traditional, which made
+  the /**/ trick fail. Changed /**/ to ## in ncrt0.S and nrcrt0.S and
+  removed -traditional. (Martin Blom)
+
+F 20023-01-21: New startup tweak: Use "long __nowbmsg=1" to disable
+  WBenchMsg handling. Useful when writing DOS handlers.

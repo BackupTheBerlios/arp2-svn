@@ -9,8 +9,8 @@
 
 | some feature macros
 
-#define REL(x) a4@(x/**/:W)
-#define SYS(x) jsr a6@(_LVO/**/x/**/:W)
+#define REL(x) a4@(##x##:W)
+#define SYS(x) jsr a6@(_LVO##x##:W)
 
 | some specific defines
 
@@ -46,6 +46,9 @@ start:		movel	a0,d3
 		movel	d0,a3
 		tstl	a3@(pr_CLI:W)
 		subal	a2,a2
+		bne	fromCLI
+
+		tstl	___nowbmsg
 		bne	fromCLI
 
 | wb start - get our message

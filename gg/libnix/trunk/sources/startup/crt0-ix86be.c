@@ -12,6 +12,8 @@ struct SignalSemaphore;
 #include <dos/dosextens.h>
 #include <proto/exec.h>
 
+extern long __nowbmsg;
+
 struct ExecBase* SysBase       = NULL;
 void*            __SaveSP      = NULL;
 const char*      __commandline = NULL;
@@ -98,7 +100,7 @@ c_start( void )
 
   me = (struct Process*) FindTask( NULL );
 
-  if( me->pr_CLI == NULL )
+  if( me->pr_CLI == NULL && !__nowbmsg )
   {
     WaitPort( &me->pr_MsgPort );
 

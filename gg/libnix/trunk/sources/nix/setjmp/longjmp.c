@@ -23,8 +23,8 @@ l0:	movel	a0@(48:W),sp		| restore sp
 asm("
 	.text
 	.align	4
-	.globl	_longjmp
-	.type	_longjmp,@function
+	.globl	longjmp
+	.type	longjmp,@function
 longjmp:
 	popl	%eax			/* Ignore return address */
 	popl	%ecx			/* Get jmp_buf */

@@ -7,9 +7,9 @@
 #if !defined(SMALL_DATA)
 #define REL(x) x
 #else
-#define REL(x) a4@(x/**/:W)
+#define REL(x) a4@(##x##:W)
 #endif
-#define SYS(x) jsr a6@(_LVO/**/x/**/:W)
+#define SYS(x) jsr a6@(_LVO##x##:W)
 
 | some specific defines
 
@@ -57,6 +57,9 @@ nobss:
 		SYS	(FindTask)
 		movel	d0,a3
 		tstl	a3@(pr_CLI:W)
+		bne	fromCLI
+
+		tstl	___nowbmsg
 		bne	fromCLI
 
 | wb start - get wbmsg

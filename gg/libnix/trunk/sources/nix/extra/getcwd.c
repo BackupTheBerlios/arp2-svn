@@ -9,9 +9,16 @@ char *getcwd(char *buf,size_t size)
 {
   if (buf!=NULL || (buf=(char *)malloc(size))!=NULL)
   {
-    if (GetCurrentDirName(buf,(ULONG)size)==DOSFALSE)
+    BPTR dir_lock;
+
+    if((dir_lock = Lock("", SHARED_LOCK)))
     {
-       __seterrno(); buf=NULL;
+      NameFromLock(dir_lock, buf, size);
+      UnLock(dir_lock);
+    }
+    else
+    {
+      __seterrno(); buf=NULL;
     }
   }
   else

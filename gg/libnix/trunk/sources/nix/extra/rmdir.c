@@ -1,3 +1,7 @@
-#include "stabs.h"
+#include <stdio.h>
 
-ALIAS(rmdir,remove);
+int
+rmdir(const char *path)
+{
+  return remove( path );
+}

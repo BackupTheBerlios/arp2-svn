@@ -19,8 +19,8 @@ _setjmp:
 asm("
 	.text
 	.align	4
-	.globl	_setjmp
-	.type	_setjmp,@function
+	.globl	setjmp
+	.type	setjmp,@function
 setjmp:
 	movl	4(%esp),%eax
 	movl	%eax,0(%eax)		/* Save caller's SP  */

@@ -1,3 +1,7 @@
-#include "stabs.h"
+#include <stdio.h>
 
-ALIAS(unlink,remove);
+int
+unlink(const char *path)
+{
+  return remove( path );
+}
