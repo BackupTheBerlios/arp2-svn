@@ -52,7 +52,7 @@ BEGIN {
 	my $prototype = $params{'prototype'};
 	my $sfd       = $self->{SFD};
 
-	if ($prototype->{type} ne 'varargs') {
+	if ($prototype->{type} eq 'function') {
 	    print "\n";
 	    print "{\n";
 
@@ -159,10 +159,11 @@ BEGIN {
 	my $argnum    = $params{'argnum'};
 	my $sfd       = $self->{SFD};
 
-	if ($$prototype{'type'} ne 'varargs') {
+	if ($$prototype{'type'} eq 'function') {
 	    print "  REG_" . (uc $argreg) . " = (ULONG) $argname;\n";
 	}
-	elsif ($prototype->{subtype} eq 'tagcall') {
+	elsif ($prototype->{type} eq 'varargs') {
+	    if ($prototype->{subtype} eq 'tagcall') {
 #	    if ($argnum < $prototype->{numargs} - 2) {
 #		my $regoffset;
 #
@@ -183,14 +184,18 @@ BEGIN {
 #
 #		printf "	stw	%d,%d(2)\n", $argnum + 3, $regoffset;
 #	    }
-	}
-	elsif ($prototype->{subtype} eq 'methodcall' &&
-	       $argnum == $prototype->{numargs} - 2) {
-	    # Nuke it!
-	}
-	elsif ($argnum == $prototype->{numargs} - 1) {
-	    my $vartype  = $$prototype{'argtypes'}[$$prototype{'numargs'} - 1];
-	    print ", ($vartype) _va->overflow_arg_area";
+	    }
+	    elsif ($prototype->{subtype} eq 'methodcall' &&
+		   $argnum == $prototype->{numargs} - 2) {
+		# Nuke it!
+	    }
+	    elsif ($argnum == $prototype->{numargs} - 1) {
+		my $vt  = $$prototype{'argtypes'}[$$prototype{'numargs'} - 1];
+		print ", ($vt) _va->overflow_arg_area";
+	    }
+	    else {
+		$self->SUPER::function_arg (@_);
+	    }
 	}
 	else {
 	    $self->SUPER::function_arg (@_);
@@ -204,7 +209,7 @@ BEGIN {
 	my $sfd       = $self->{SFD};
 
 	
-	if ($$prototype{'type'} ne 'varargs') {
+	if ($$prototype{'type'} eq 'function') {
 	    if (!$prototype->{nb}) {
 		print "  REG_A6 = (ULONG) BASE_NAME;\n";
 	    }
@@ -218,29 +223,35 @@ BEGIN {
 	    print "(*MyEmulHandle->EmulCallDirectOS)(-$prototype->{bias});\n";
 	    print "}\n";
 	}
-	elsif ($prototype->{subtype} eq 'tagcall') {
-	    # number of regs that contain varargs
-	    my $n = 9 - $prototype->{numregs};
+	elsif ($prototype->{type} eq 'varargs') {
+	    if ($prototype->{subtype} eq 'tagcall') {
+		# number of regs that contain varargs
+		my $n = 9 - $prototype->{numregs};
 
-	    # add 4 bytes if that's an odd number, to avoid splitting a tag
-	    my $d = $n & 1 ? 4 : 0;
+		# add 4 bytes if that's an odd number, to avoid splitting a tag
+		my $d = $n & 1 ? 4 : 0;
 
-	    # offset of the start of the taglist
-	    my $taglist = 8;
+		# offset of the start of the taglist
+		my $taglist = 8;
 
-	    # size of the stack frame
-	    my $local = ($taglist + $n * 4 + $d + 8 + 15) & ~15;
+		# size of the stack frame
+		my $local = ($taglist + $n * 4 + $d + 8 + 15) & ~15;
 
-	    # clear stack frame & return
-	    printf "	lwz	0,%d(1)\n", $local + 4;
-	    print  "	mtlr	0\n";
-	    printf "	addi	1,1,%d\n", $local;
-	    print  "	blr\n";
-	    print  ".L$prototype->{funcname}e1:\n";
-	    print  "	.size	$prototype->{funcname}," .
-		".L$prototype->{funcname}e1-$prototype->{funcname}\n";
+		# clear stack frame & return
+		printf "	lwz	0,%d(1)\n", $local + 4;
+		print  "	mtlr	0\n";
+		printf "	addi	1,1,%d\n", $local;
+		print  "	blr\n";
+		print  ".L$prototype->{funcname}e1:\n";
+		print  "	.size	$prototype->{funcname}," .
+		    ".L$prototype->{funcname}e1-$prototype->{funcname}\n";
 
-	    print "\");\n";
+		print "\");\n";
+	    }
+	    else {
+		print ");\n";
+		print "}\n";
+	    }
 	}
 	else {
 	    $self->SUPER::function_end (@_);

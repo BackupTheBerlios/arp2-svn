@@ -35,7 +35,8 @@ BEGIN {
 	my $prototype = $params{'prototype'};
 	my $sfd       = $self->{SFD};
 
-	if ($$prototype{'type'} eq 'function') {
+	if ($prototype->{type} eq 'function' ||
+	    $prototype->{type} eq 'cfunction') {
 	    if ($self->{BIAS} != $$prototype{'bias'}) {
 		$self->{BIAS} = $$prototype{'bias'};
 		print "##bias $self->{BIAS}\n";
@@ -63,7 +64,18 @@ BEGIN {
 	    print "$$prototype{'funcname'}(";
 	    print join (',', @{$$prototype{'argnames'}});
 	    print ")(";
-	    print join (',', @{$$prototype{'regs'}});
+
+	    if ($prototype->{type} eq 'function') {
+		print join (',', @{$$prototype{'regs'}});
+	    }
+	    elsif ($prototype->{type} eq 'cfunction') {
+		print "base," unless $prototype->{nb};
+		print "$prototype->{subtype}";
+	    }
+	    else {
+		die;
+	    }
+	    
 	    print ")\n";
 	
 	    $self->{BIAS} += 6;

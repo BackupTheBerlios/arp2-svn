@@ -20,7 +20,7 @@ BEGIN {
 	my $prototype = $params{'prototype'};
 	my $sfd       = $self->{SFD};
 
-	if ($$prototype{'type'} ne 'varargs') {
+	if ($$prototype{'type'} eq 'function') {
 
 	    my $regs      = join(',', @{$$prototype{'regs'}});
 	    my $argtypes  = join(',', @{$$prototype{'argtypes'}});
@@ -65,7 +65,7 @@ BEGIN {
 	my %params    = @_;
 	my $prototype = $params{'prototype'};
 
-	if ($$prototype{'type'} ne 'varargs') {
+	if ($$prototype{'type'} eq 'function') {
 	    my $argtype   = $params{'argtype'};
 	    my $argname   = $params{'argname'};
 	    my $argreg    = $params{'argreg'};
@@ -92,7 +92,7 @@ BEGIN {
 	my $prototype = $params{'prototype'};
 	my $sfd       = $self->{SFD};
 
-	if ($$prototype{'type'} ne 'varargs') {
+	if ($$prototype{'type'} eq 'function') {
 	    if (!$prototype->{nb}) {
 		print ",\\\n	, $self->{BASE}";
 	    }

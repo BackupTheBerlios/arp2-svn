@@ -291,13 +291,18 @@ cross-compiiled for any of the mentioned architectures.
 Returns 0 on success and 10 on errors.
 
 
+=head1 NOTES
+
+Had I seen F<cvinclude.pl> before I started writing this program, I
+might still have been using fd/clib files. Or maybe not.
+
 =head1 AUTHOR
 
 Martin Blom <martin@blom.org>
 
 =head1 HISTORY
 
-=item B<1.0 (2003-07-23)>
+=item B<1.0 (2003-07-27)>
 
 Initial release.
 

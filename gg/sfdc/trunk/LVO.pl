@@ -33,10 +33,8 @@ BEGIN {
 	if ($prototype->{private}) {
 	    return;
 	}
-	
-	if ($prototype->{type} eq 'function' ||
-	    $prototype->{type} eq 'alias' ) {
 
+	if ($prototype->{type} eq 'function') {
 	    print "_LVO$prototype->{funcname}	EQU	-$prototype->{bias}\n";
 	}
     }

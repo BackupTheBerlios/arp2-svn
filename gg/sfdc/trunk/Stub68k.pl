@@ -20,7 +20,7 @@ BEGIN {
 	my $prototype = $params{'prototype'};
 	my $sfd       = $self->{SFD};
 
-	if ($prototype->{type} ne 'varargs') {
+	if ($prototype->{type} eq 'function') {
 	    print "\n";
 	    print "{\n";
 
@@ -50,7 +50,7 @@ BEGIN {
 	my $argnum    = $params{'argnum'};
 	my $sfd       = $self->{SFD};
 
-	if ($$prototype{'type'} ne 'varargs') {
+	if ($$prototype{'type'} eq 'function') {
 	    if ($argreg eq 'a4' || $argreg eq 'a5') {
 		$argreg = 'd7';
 	    }
@@ -70,7 +70,7 @@ BEGIN {
 	my $sfd       = $self->{SFD};
 
 	
-	if ($$prototype{'type'} ne 'varargs') {
+	if ($$prototype{'type'} eq 'function') {
 	    my $regs      = join(',', @{$$prototype{'regs'}});
 	    my $a4        = $regs =~ /a4/;
 	    my $a5        = $regs =~ /a5/;

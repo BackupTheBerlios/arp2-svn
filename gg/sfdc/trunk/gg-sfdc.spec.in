@@ -73,5 +73,5 @@ rm -rf ${RPM_BUILD_ROOT}
 %{_mandir}/man1/*
 
 %changelog
-* Thu Jul 24 2003 Martin Blom <martin@blom.org>
+* Thu Jul 27 2003 Martin Blom <martin@blom.org>
 - Initial rpm.

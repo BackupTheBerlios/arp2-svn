@@ -30,8 +30,11 @@ BEGIN {
 	print "\n";
 	print "Include files:		";
 	print join ("\n			", @{$$sfd{'includes'}});
+	print "\n";
 	print "Type definitions:		";
-	print join ("\n			", @{$$sfd{'typedefs'}});
+	if ($#{@{$sfd->{typedefs}}} != -1) {
+	    print join ("\n			", @{$$sfd{'typedefs'}});
+	}
 	print "\n";
 	print "\n";
     }
@@ -44,7 +47,8 @@ BEGIN {
 
 	print "* Line $$prototype{'line'}: $$prototype{'funcname'}()\n";
 	print "	Type:			" . ucfirst $$prototype{'type'} . "\n";
-	if ($$prototype{'type'} ne 'function') {
+	print "	Subtype:		$prototype->{subtype}\n";
+	if ($prototype->{real_funcname} ne '') {
 	    print "	Real function name:\t$$prototype{'real_funcname'}\n";
 	}
 	print "	Visibility:		";

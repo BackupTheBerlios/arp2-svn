@@ -61,7 +61,7 @@ BEGIN {
 	my $sfd  = $self->{SFD};
 
 	if ($self->{WARNS} != 0 || $self->{ERRORS} != 0) {
-	    print "\n$self->{WARNS} warning(s), $self->{ERRORS} error(s)\n";
+	    print "\n$self->{WARNS} warning(s), $self->{ERRORS} error(s); ";
 
 	    die if $self->{ERRORS};
 	}

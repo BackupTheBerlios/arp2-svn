@@ -917,7 +917,7 @@ PATH_SEPARATOR="$ac_path_separator"
 rm -f conftest.sh
 
 VERSION=1.0
-DATE=2003-07-23
+DATE=2003-07-27
 
 # Checks for programs.
 for ac_prog in perl

@@ -90,9 +90,7 @@ BEGIN {
 	$regs .= '0'; #Result in d0
 	$regs .= $prototype->{numregs};
 	
-	if ($prototype->{type} eq 'function' ||
-	    $prototype->{type} eq 'alias' ) {
-
+	if ($prototype->{type} eq 'function') {
 	    # Always use libcall, since access to 4 is very expensive
 
 	    print "#ifdef __CLIB_PRAGMA_LIBCALL\n";
@@ -105,7 +103,7 @@ BEGIN {
 	    print join (',', @{$prototype->{regs}}) . "))\n";
 	    print "#endif /* __CLIB_PRAGMA_AMICALL */\n";
 	}
-	else {
+	elsif ($prototype->{type} eq 'varargs') {
 	    print "#ifdef __CLIB_PRAGMA_TAGCALL\n";
 	    print " #ifdef __CLIB_PRAGMA_LIBCALL\n";
 	    print "  #pragma tagcall $sfd->{base} $prototype->{funcname} ";
@@ -117,6 +115,14 @@ BEGIN {
 	    print join (',', @{$prototype->{regs}}) . "))\n";
 	    print " #endif /* __CLIB_PRAGMA_AMICALL */\n";
 	    print "#endif /* __CLIB_PRAGMA_TAGCALL */\n";
+	}
+	elsif ($prototype->{type} eq 'cfunction') {
+	    # Do nothing
+	}
+	else {
+	    print STDERR "$prototype->{funcname}: Unsupported function " .
+		"type.\n";
+	    die;
 	}
     }
     

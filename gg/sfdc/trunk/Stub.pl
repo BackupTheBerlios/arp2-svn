@@ -130,6 +130,12 @@ BEGIN {
 	    print ");\n";
 	    print "\n";
 	}
+
+	if ($prototype->{type} eq 'cfunction' &&
+	    $prototype->{argnames}[$#{@{$prototype->{argnames}}}] eq '...') {
+	    print "#if 0\n";
+	    print "/* Unsupported */\n";
+	}
 	
 	print "__inline $$prototype{'return'}\n";
 	print "$$prototype{'funcname'}(";
@@ -158,7 +164,7 @@ BEGIN {
 	if ($$prototype{'type'} eq 'varargs') {
 	    print "  return $$prototype{'real_funcname'}(BASE_PAR_NAME ";
 	}
-	else {
+	elsif ($prototype->{type} eq 'cfunction') {
 	    if (!$prototype->{nb}) {
 		print "  BASE_EXT_DECL\n";
 	    }
@@ -166,8 +172,16 @@ BEGIN {
 	    my $argtypes = join (', ',@{$$prototype{'argtypes'}});
 
 	    if ($argtypes eq '') {
-		$argtypes = "void";
+		if ($prototype->{nb}) {
+		    $argtypes = "void";
+		}
 	    }
+	    else {
+		if (!$prototype->{nb}) {
+		    $argtypes = "$sfd->{basetype}, $argtypes";
+		}
+	    }
+
 
 	    # Skip jmp instruction (is m68k ILLEGAL in MOS)
 	    my $offs = $$prototype{'bias'} - 2;
@@ -176,6 +190,15 @@ BEGIN {
 	    print "    ($$prototype{'return'} (*) ($argtypes))\n";
 	    print "    *((ULONG*) (((char*) BASE_NAME) - $offs));\n";
 	    print "  return (*_func)(";
+
+	    if (!$prototype->{nb}) {
+		print "BASE_NAME";
+		print ", " unless $prototype->{numargs} == 0;
+	    }
+	}
+	else {
+	    print STDERR "$prototype->{funcname}: Unhandled.\n";
+	    die;
 	}
     }
 
@@ -222,8 +245,12 @@ BEGIN {
 		}
 	    }
 	}
-	else {
+	elsif ($prototype->{type} eq 'cfunction') {
 	    $argstr = $argname;
+	}
+	else {
+	    print STDERR "$prototype->{funcname}: Unhandled.\n";
+	    die;
 	}
 
 	if ($argstr ne '') {
@@ -239,5 +266,11 @@ BEGIN {
 	
 	print ");\n";
 	print "}\n";
+
+	if ($prototype->{type} eq 'cfunction' &&
+	    $prototype->{argnames}[$#{@{$prototype->{argnames}}}] eq '...') {
+	    print "/* Unsupported */\n";
+	    print "#endif\n";
+	}
     }
 }

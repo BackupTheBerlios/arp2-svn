@@ -327,11 +327,12 @@ sub parse_sfd ( $ ) {
     my $file = shift;
     local *SFD;
 
-    my $type    = 'function';
-    my $private = 0;
-    my $bias    = 0;
-    my $version = 1;
-    my $comment = '';
+    my $type      = 'function';
+    my $last_type = $type;
+    my $private   = 0;
+    my $bias      = 0;
+    my $version   = 1;
+    my $comment   = '';
 
     my $result = {
 	copyright  => 'Copyright © 2001 Amiga, Inc.',
@@ -426,8 +427,8 @@ sub parse_sfd ( $ ) {
 	    };
 
 	    /==alias\s*$/ && do {
-		$type = 'alias';
 		# Move back again
+		$type = $last_type;
 		$bias -= 6;
 		last;
 	    };
@@ -484,7 +485,8 @@ sub parse_sfd ( $ ) {
 	};
 	
 	if ( $proto_line =~
-	     /.*[A-Za-z0-9_]+\(.*\).*\(([\saAdD][0-7]-?,?)*\)\s*$/ ) {
+	     /.*[A-Za-z0-9_]+\(.*\).*\(((base|sysv|[\saAdD][0-7]-?),?)*\)\s*$/
+	     ) {
 
 	    if ($proto_line =~ /.*\(.*[0-7]-.*\)\s*$/) {
 		print STDERR "Warning: Multiregister function ignored.\n";
@@ -503,6 +505,7 @@ sub parse_sfd ( $ ) {
 		$comment    = '';
 	    }
 
+	    $last_type  = $type;
 	    $type       = 'function';
 	    $proto_line = '';
 	    $bias += 6;
@@ -524,14 +527,18 @@ sub parse_sfd ( $ ) {
     for my $i ( 0 .. $#{$$result{'prototypes'}} ) {
 	my $prototype = $$result{'prototypes'}[$i];
 
-	if ($$prototype{'type'} ne 'function') {
+	if ($$prototype{'type'} eq 'varargs') {
 	    $$prototype{'real_funcname'}  = $real_funcname;
 	    $$prototype{'real_prototype'} = $real_prototype;
+	}
+	else {
+	    $$prototype{'real_funcname'}  = '';
+	    $$prototype{'real_prototype'} = '';
 	}
 	
 	parse_proto ($result, $prototype, $varargs_type);
 
-	if ($$prototype{'type'} ne 'varargs') {
+	if ($$prototype{'type'} eq 'function') {
 	    $varargs_type = $$prototype{'argtypes'}[$#{$$prototype{'argtypes'}}];
 	}
 
@@ -597,14 +604,13 @@ sub parse_proto ( $$$ ) {
     $$prototype{'numargs'}  = 0;
     $$prototype{'numregs'}  = 0;
     
-    @{$$prototype{'regs'}}  = split(/,/,lc $registers);  # Make regs lower case
-    
+    @{$$prototype{'regs'}}        = ();
     @{$$prototype{'args'}}        = ();
     @{$$prototype{'___args'}}     = ();
     @{$$prototype{'argnames'}}    = ();
     @{$$prototype{'___argnames'}} = ();
     @{$$prototype{'argtypes'}}    = ();
-    
+
     my @args = split(/,/,$arguments);
 
     # Fix function pointer arguments and build $$prototype{'args'} 
@@ -630,11 +636,20 @@ sub parse_proto ( $$$ ) {
     }
 
     $$prototype{'numargs'} = $#{$$prototype{'args'}} + 1;
-    $$prototype{'numregs'} = $#{$$prototype{'regs'}} + 1;
-    
-    $$prototype{'nr'}      = $$prototype{'return'} =~ /^(VOID|void)$/;
-    $$prototype{'nb'}      = $$sfd{'base'} eq '' || $registers =~ /a6/;
 
+    if ($registers =~ /sysv/) {
+	$prototype->{type} = 'cfunction';
+	$prototype->{nb}   = 1;
+    }
+    else {
+	# Split regs and make them lower case
+	@{$$prototype{'regs'}} = split(/,/,lc $registers);
+	$prototype->{numregs} = $#{$$prototype{'regs'}} + 1;
+	$prototype->{nb}      = $sfd->{base} eq '' || $registers =~ /a6/;
+    }
+
+    $$prototype{'nr'} = $$prototype{'return'} =~ /^(VOID|void)$/;
+    
     $prototype->{subtype}  = '';
 
     # varargs sub types:
@@ -646,7 +661,8 @@ sub parse_proto ( $$$ ) {
     #     First vararg is required.
 
     if ($prototype->{type} eq 'varargs') {
-	if ($varargs_type =~ /^\s*(const|CONST)?\s*struct\s+TagItem\s*\*\s*$/ ) {
+	if ($varargs_type =~
+	    /^\s*(const|CONST)?\s*struct\s+TagItem\s*\*\s*$/ ) {
 	    $prototype->{subtype} = 'tagcall';
 
 	    if ($prototype->{numargs} == $prototype->{numregs}) {
@@ -671,6 +687,27 @@ sub parse_proto ( $$$ ) {
 	    }
 	}
     }
+    elsif ($prototype->{type} eq 'cfunction') {
+	foreach (split(/,/,lc $registers)) {
+	    /^sysv$/ && do {
+		$prototype->{subtype} = 'sysv';
+		next;
+	    };
+
+	    /^base$/ && do {
+		if ($sfd->{base} eq '') {
+		    printf STDERR "$prototype->{funcname}: " .
+			"Library has no base!\n";
+		    die;
+		}
+		
+		$prototype->{nb} = 0;
+		next;
+	    };
+	}
+    }
+
+
 
     # Make sure we have the same number of arguments as registers, or,
     # if this is a varargs function, possible one extra, á la "MethodID, ...".
@@ -688,7 +725,7 @@ sub parse_proto ( $$$ ) {
 	 $prototype->{subtype} eq 'methodcall' &&
 	 $prototype->{numargs} != $prototype->{numregs} + 1) ||
 
-	($prototype->{type} ne 'varargs' &&
+	($prototype->{type} eq 'function' &&
 	 $prototype->{numargs} != $prototype->{numregs})) {
 	
 	print STDERR "Failed to parse arguments/registers on SFD " .
@@ -705,15 +742,16 @@ sub parse_proto ( $$$ ) {
 	my $___name = '';
 	my $___arg  = '';
 
-	if ($arg =~ /.*\(.*?\)\s*\(.*\)/) {
+	# MorhOS includes use __CLIB_PROTOTYPE for some reason ...
+	if ($arg =~ /.*\(.*?\)\s*(__CLIB_PROTOTYPE)?\(.*\)/) {
 	    my $type1;
 	    my $type2;
 	    
 	    ($type1, $name, $type2) =
-		( $arg =~ /^\s*(.*)\(\s*\*\s*(\w+)\s*\)\s*(\(.*\))\s*/ );
+		( $arg =~ /^\s*(.*)\(\s*\*\s*(\w+)\s*\)\s*(\w*\(.*\))\s*/ );
 	    $type = "$type1(*)$type2";
 	    $___name = "___$name";
-	    $___arg = "$type1(*___$name)$type2";
+	    $___arg = "$type1(*___$name) $type2";
 	}
 	elsif ($arg !~ /^\.\.\.$/) {
 	    ($type, $name) = ( $arg =~ /^\s*(.*?)\s+(\w+)\s*$/ );
@@ -721,7 +759,13 @@ sub parse_proto ( $$$ ) {
 	    $___arg = "$type ___$name";
 	}
 	else {
-	    $type = $varargs_type;
+	    if ($prototype->{type} eq 'varargs') {
+		$type = $varargs_type;
+	    }
+	    else {
+		# Unknown type
+		$type = "void*";
+	    }
 	    $name = '...';
 	    $___name = '...';
 	    $___arg = '...';

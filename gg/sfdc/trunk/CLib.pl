@@ -79,7 +79,7 @@ BEGIN {
 	if ($$prototype{'comment'} ne '') {
 	    my $comment = $$prototype{'comment'};
 
-	    $comment =~ s,^(\s?)(.*),/*$1$2$1*/,m;
+	    $comment =~ s,^(\s?)(.*)$,/*$1$2$1*/,mg;
 		
 	    print "\n";
 	    print "$comment\n";
