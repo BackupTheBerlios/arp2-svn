@@ -11,8 +11,8 @@ SFDCompile - Compile SFD files into someting useful
 SFDCompile [options] file1.sfd [file2.sfd ...]
 
   Options:
-    --help -h               Show brief help message and exit
-    --man                   Show a manual page
+    --help -h               Show full help message and exit
+    --man                   Show full manual page and exit
     --mode=MODE             What to do
     --output=FILE -o FILE   Where to store the output
     --quiet -q              Be quiet
