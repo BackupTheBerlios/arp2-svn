@@ -14,6 +14,10 @@ OBJECTS	= Nalle.o PUH.o NallePUHstr.o
 
 all:	$(TARGET)
 
+
+mostly-clean:
+	$(RM) $(OBJECTS)
+
 clean:
 	$(RM) $(TARGET) $(OBJECTS)
 

@@ -1,7 +1,9 @@
-Short: Redirects any (hw-banging) sound program to AHI
+Short:    Redirects any (hw-banging) sound program to AHI
 Uploader: Martin Blom <martin@blom.org>
-Author: Martin Blom <martin@blom.org>
-Type: mus/misc
+Author:   Martin Blom <martin@blom.org>
+Type:     mus/misc
+Requires: MMULib.lha (dev/c), OS 3.5 for GUI mode
+Version:  0.1
 
 Q: What is "Nalle Puh"?
 A: It's the Swedish name for Winnie the Pooh.
