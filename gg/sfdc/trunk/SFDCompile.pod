@@ -1,0 +1,173 @@
+### Help message and manual page ###############################################
+
+__END__
+
+=head1 NAME
+
+SFDCompile - Compile SFD files into someting useful
+
+=head1 SYNOPSIS
+
+SFDCompile [options] file1.sfd [file2.sfd ...]
+
+  Options:
+    --help -h               Show brief help message and exit
+    --man                   Show a manual page
+    --mode=MODE             What to do
+    --output=FILE -o FILE   Where to store the output
+    --quiet -q              Be quiet
+    --target=TARGET         Specifies the machine target
+    --version -v            Show version and exit
+
+=head1 OPTIONS
+
+=over 8
+
+
+=item B<--help>
+
+Show a brief help message and then exit.
+
+    
+=item B<--man>
+
+Show the complete manual page.
+
+
+=item B<--mode>
+
+Instructs F<SFDCompile> what to do. F<SFDCompile> can handle B<clib>,
+B<dump>, B<fd>, B<macro> and B<proto> arguments.
+
+=over 8
+
+=item B<clib>
+
+Generate C prototypes to be placed in F<Include/clib>.
+
+
+=item B<dump>
+
+Dumps all information gathered from a SFD file. This is the default.
+
+
+=item B<fd>
+
+Generate an old-style FD file.
+
+    
+=item B<macro>
+
+Generate a headerfile containing F<gcc> specific preprocessor macros,
+similar to F<fd2inline>'s B<--new> switch. For targets, it generates a
+file suitable to be placed in the F<Include/defines> directory.
+
+    
+=item B<proto>
+
+Generate header file to be placed in F<Include/proto> that includes
+the C prototypes as well as compiler-specific inlines or pragma files.
+
+=back
+
+
+=item B<--output> 
+
+Specifies where the result will be stored. The followign escape
+sequencies are allowed in the file name. If the sequence B<%f> is
+present in the name, a new file will be created for each function
+processed.
+
+=over 8
+
+=item B<%b>
+
+The library base variable name (C<_DOSBase>, for example).
+
+=item B<%f>
+
+The current funcion name (C<Open>, for example).
+
+=item B<%l>
+
+The name of the library or device (F<dos.library>, for example).
+
+=item B<%n>
+
+The base name of the library or device (C<dos>, for example).
+
+=back
+
+If omitted, the result will be sent to the standard output instead of
+a file.
+
+=item B<--quiet>
+
+Be quiet.
+
+
+=item B<--target>
+
+Specifies the target when generating macros etc. The target names
+follow the GNU autoconf standard. Some possible values are listed
+below. The default is B<m68k-unknown-amigaos>.
+
+=over 8
+
+=item B<i?86-pc-aros>, B<i?86-linux-aros>, B<ppc-aros> ...
+
+AROS. Anything goes, as long as it ends in C<-aros>.
+
+
+=item B<i?86be-pc-amithlon>, B<i?86be-amithlon>
+
+Amithlon/big endian IA32.
+
+
+=item B<m68k-unknown-amigaos>, B<m68k-amigaos>
+
+Traditional AmigaOS/m68k.
+
+
+=item B<powerpc-unknown-morphos>, B<ppc-morphos>
+
+MorphOS/PowerPC.
+
+
+=back
+
+
+
+=item B<--version>
+
+Prints the version and exits.
+
+
+=back
+
+=head1 DESCRIPTION
+
+F<SFDCompile> is an open source replacement for Amiga, Inc.'s F<sfd>
+tool, distributed with B<NDK 3.9>. It is also an replacement for
+F<fd2inline> from GeekGadgets and the MorphOS team, later improved to
+death by Martin Blom. It's now a complete mess and needs a
+replacement. SFD files and F<SFDCompile> might to be a good start.
+
+
+=head1 RETURN VALUE
+
+Returns 0 on success and 10 on errors.
+
+
+=head1 AUTHOR
+
+Martin Blom <martin@blom.org>
+
+=head1 HISTORY
+
+=item B<1.0 (2003-07-16)>
+
+Initial release.
+
+
+=out
