@@ -12,6 +12,8 @@ struct glgfx_rasinfo {
     struct glgfx_bitmap* bitmap;
     int                  xoffset;
     int                  yoffset;
+    int                  width;
+    int                  height;
 };
 
 struct glgfx_viewport {
@@ -34,7 +36,8 @@ bool glgfx_viewport_move(struct glgfx_viewport* viewport,
 
 struct glgfx_rasinfo* glgfx_viewport_addbitmap(struct glgfx_viewport* viewport,
 					       struct glgfx_bitmap* bitmap,
-					       int xoffset, int yoffset);
+					       int xoffset, int yoffset,
+					       int width, int height);
 
 bool glgfx_viewport_rembitmap(struct glgfx_viewport* viewport,
 			      struct glgfx_rasinfo* rasinfo);
@@ -42,7 +45,8 @@ bool glgfx_viewport_rembitmap(struct glgfx_viewport* viewport,
 bool glgfx_viewport_setbitmap(struct glgfx_viewport* viewport,
 			      struct glgfx_rasinfo* rasinfo,
 			      struct glgfx_bitmap* bitmap,
-			      int xoffset, int yoffset);
+			      int xoffset, int yoffset,
+			      int width, int height);
 
 int glgfx_viewport_numbitmaps(struct glgfx_viewport* viewport);
 

@@ -58,7 +58,8 @@ void glgfx_viewport_destroy(struct glgfx_viewport* viewport) {
 
 struct glgfx_rasinfo* glgfx_viewport_addbitmap(struct glgfx_viewport* viewport,
 					       struct glgfx_bitmap* bitmap,
-					       int xoffset, int yoffset) {
+					       int xoffset, int yoffset,
+					       int width, int height) {
   struct glgfx_rasinfo* rasinfo;
   
   if (viewport == NULL || bitmap == NULL) {
@@ -71,7 +72,8 @@ struct glgfx_rasinfo* glgfx_viewport_addbitmap(struct glgfx_viewport* viewport,
     return NULL;
   }
 
-  if (!glgfx_viewport_setbitmap(viewport, rasinfo, bitmap, xoffset, yoffset)) {
+  if (!glgfx_viewport_setbitmap(viewport, rasinfo, bitmap,
+				xoffset, yoffset, width, height)) {
     free(rasinfo);
     return NULL;
   }
@@ -94,7 +96,8 @@ bool glgfx_viewport_rembitmap(struct glgfx_viewport* viewport,
 bool glgfx_viewport_setbitmap(struct glgfx_viewport* viewport,
 			      struct glgfx_rasinfo* rasinfo,
 			      struct glgfx_bitmap* bitmap,
-			      int xoffset, int yoffset) {
+			      int xoffset, int yoffset,
+			      int width, int height) {
   if (viewport == NULL || rasinfo == NULL || bitmap == NULL) {
     return false;
   }
@@ -102,6 +105,8 @@ bool glgfx_viewport_setbitmap(struct glgfx_viewport* viewport,
   rasinfo->bitmap = bitmap;
   rasinfo->xoffset = xoffset;
   rasinfo->yoffset = yoffset;
+  rasinfo->width = width;
+  rasinfo->height = height;
   return true;
 }
 
@@ -122,14 +127,22 @@ bool glgfx_viewport_render(struct glgfx_viewport* viewport) {
     glBindTexture(GL_TEXTURE_RECTANGLE_ARB, rasinfo->bitmap->texture);
     glColor4f(1,1,1,1);
     glBegin(GL_QUADS);
-    glTexCoord2i(rasinfo->xoffset, rasinfo->yoffset);
-    glVertex3f(viewport->xoffset, viewport->yoffset, 0);
-    glTexCoord2i(rasinfo->xoffset + viewport->width, rasinfo->yoffset);
-    glVertex3f(viewport->xoffset + viewport->width, viewport->yoffset, 0);
-    glTexCoord2i(rasinfo->xoffset + viewport->width, rasinfo->yoffset + viewport->height);
-    glVertex3f(viewport->xoffset + viewport->width, viewport->yoffset + viewport->height, 0);
-    glTexCoord2i(rasinfo->xoffset, rasinfo->yoffset + viewport->height);
-    glVertex3f(viewport->xoffset, viewport->yoffset + viewport->height, 0);
+    glTexCoord2i(rasinfo->xoffset,
+		 rasinfo->yoffset);
+    glVertex3f(viewport->xoffset,
+	       viewport->yoffset, 0);
+    glTexCoord2i(rasinfo->xoffset + rasinfo->width,
+		 rasinfo->yoffset);
+    glVertex3f(viewport->xoffset + viewport->width,
+	       viewport->yoffset, 0);
+    glTexCoord2i(rasinfo->xoffset + rasinfo->width,
+		 rasinfo->yoffset + rasinfo->height);
+    glVertex3f(viewport->xoffset + viewport->width,
+	       viewport->yoffset + viewport->height, 0);
+    glTexCoord2i(rasinfo->xoffset,
+		 rasinfo->yoffset + rasinfo->height);
+    glVertex3f(viewport->xoffset,
+	       viewport->yoffset + viewport->height, 0);
     glEnd();
   }
 

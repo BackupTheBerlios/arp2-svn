@@ -41,7 +41,7 @@ int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) 
       glgfx_monitor_select(monitors[0]);
 
       struct glgfx_viewport* vp = glgfx_viewport_create(320, 256, 100, 200);
-      struct glgfx_rasinfo*  ri = glgfx_viewport_addbitmap(vp, bm, 0, 0);
+      struct glgfx_rasinfo*  ri = glgfx_viewport_addbitmap(vp, bm, 0, 0, 320, 256);
       struct glgfx_view*     v  = glgfx_view_create(monitors[0]);
 
       glgfx_view_addviewport(v, vp);
@@ -61,7 +61,7 @@ int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) 
 	}
 
 	glgfx_viewport_move(vp, 320 + i, 256, 100, 200+i);
-//	glgfx_viewport_setbitmap(vp, ri, bm, i*5, i*4);
+//	glgfx_viewport_setbitmap(vp, ri, bm, 0, 0, 320, 256);
 	
 	glgfx_view_render(v);
 	glgfx_monitor_waittof(monitors[0]);
