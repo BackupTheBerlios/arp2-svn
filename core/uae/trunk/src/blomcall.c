@@ -136,6 +136,10 @@ static void blomcall_exitnr(void)
   siglongjmp(blomcall_context->emuljmp, 1);
 }
 
+int mycode(int r1, int r2, int r3) {
+  printf("r1: %08lx; r2: %08lx; r3: %08lx\n", r1, r2, r3);
+  return r1;
+}
 
 unsigned long blomcall_ops (uae_u32 opcode) {
   static unsigned long remaining_cycles = 0;
@@ -175,10 +179,16 @@ unsigned long blomcall_ops (uae_u32 opcode) {
     blomcall_context->a7         = m68k_areg (regs, 7);
     blomcall_context->real_a7    = (uae_u32*)
       get_real_address (blomcall_context->a7);
+    printf("call stack dump: %08lx %08lx %08lx %08lx\n",
+	   blomcall_context->real_a7[0],
+	   blomcall_context->real_a7[1],
+	   blomcall_context->real_a7[2],
+	   blomcall_context->real_a7[3]);
     blomcall_context->rts_pc     = blomcall_context->real_a7[0];
     blomcall_context->real_a7[0] = (opcode == OP_BCALL ?
 				    (uae_u32) blomcall_exit :
 				    (uae_u32) blomcall_exitnr);
+
   }
   else {
     struct blomcall_stack* blomcall_stack;
@@ -211,7 +221,8 @@ unsigned long blomcall_ops (uae_u32 opcode) {
 			      "i" (&blomcall_usr1sigset),
 			      "i" (SIG_UNBLOCK),
 			      "i" (&regs.regs),
-			      "r" (ix86addr) :
+			      "r" (mycode) :
+//			      "r" (ix86addr) :
 			      "memory", "eax");
       }
       else {
@@ -226,13 +237,14 @@ unsigned long blomcall_ops (uae_u32 opcode) {
     case 1: {
       printf("blomcall returned\n");
 
-      m68k_setpc (blomcall_context->pc);
-      m68k_areg (regs, 7) = blomcall_context->a7;
+//      m68k_setpc (blomcall_context->pc);
       blomcall_context->real_a7[0] = blomcall_context->rts_pc;
+      m68k_setpc (get_long (blomcall_context->a7));
+      m68k_areg (regs, 7) = blomcall_context->a7 + 4;
       
       printf("restored pc: %08x, a7: %08x\n",
 	     blomcall_context->pc, blomcall_context->a7);
-      m68k_incpc(6);
+//      m68k_incpc(6);
       free(blomcall_context);
       break;
     }
