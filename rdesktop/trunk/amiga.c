@@ -1,6 +1,7 @@
 /*
   rdesktop: A Remote Desktop Protocol client.
   User interface services - Amiga
+  Copyright (C) Martin Blom 2001-2004
   Copyright (C) Matthew Chapman 1999-2000
    
   This program is free software; you can redistribute it and/or modify
@@ -84,21 +85,22 @@ struct DiskObject* amiga_icon = NULL;
 static struct MsgPort* amiga_wb_port  = NULL;
 static struct AppIcon* amiga_app_icon = NULL;
 
-static UWORD          amiga_last_qualifier = 0;
-static HCURSOR        amiga_last_cursor    = NULL;
-static HCURSOR        amiga_null_cursor    = NULL;
-static struct Screen* amiga_pubscreen      = NULL;
-static ULONG          amiga_bpp            = 8;
-static struct Screen* amiga_screen         = NULL;
-static UBYTE*         amiga_backup         = NULL;
-static struct Window* amiga_window         = NULL;
-static struct Region* amiga_old_region     = NULL;
+static UWORD          amiga_last_qualifier     = 0;
+static HCURSOR        amiga_last_cursor        = NULL;
+static HCURSOR        amiga_null_cursor        = NULL;
+static struct Screen* amiga_pubscreen          = NULL;
+static ULONG          amiga_bpp                = 8;
+static struct Screen* amiga_screen             = NULL;
+static UBYTE*         amiga_backup             = NULL;
+static struct Window* amiga_window             = NULL;
+static struct Region* amiga_old_region         = NULL;
 static ULONG          amiga_cursor_colors[ 3 * 3 ];
 static LONG           amiga_pens[ 256 ];
-static LONG           amiga_broken_blitter = FALSE;
-static APTR           amiga_blt_buffer     = NULL;
-static ULONG          amiga_blt_length     = 0;
-static int            amiga_clipping       = FALSE;
+static LONG           amiga_broken_blitter     = FALSE;
+static APTR           amiga_tmp_buffer         = NULL;
+static ULONG          amiga_tmp_buffer_length  = 0;
+static struct BitMap* amiga_tmp_bitmap         = NULL;
+static int            amiga_clipping           = FALSE;
 
 struct Glyph
 {
@@ -109,7 +111,7 @@ struct Glyph
 struct Cursor
 {
     uint8*        Planes;
-    struct BitMap Bitmap;
+    struct BitMap BitMap;
     Object*       Pointer;
 };
 
@@ -130,26 +132,51 @@ amiga_remap_pens( UBYTE* from, UBYTE* to, size_t length )
 
 
 static APTR
-amiga_get_blt_buffer( ULONG length )
+amiga_get_tmp_buffer( ULONG length )
 {
-  if( length > amiga_blt_length )
+  if( length > amiga_tmp_buffer_length )
   {
-    FreeVec( amiga_blt_buffer );
-    amiga_blt_buffer = AllocVec( length, MEMF_ANY );
+    FreeVec( amiga_tmp_buffer );
+    amiga_tmp_buffer = AllocVec( length, MEMF_ANY );
 
-    if( amiga_blt_buffer == NULL )
+    if( amiga_tmp_buffer == NULL )
     {
-      error( "amiga_get_blt_buffer: Unable to allocate %d bytes.\n", length );
-      amiga_blt_length = 0;
+      error( "amiga_get_tmp_buffer: Unable to allocate %d bytes.\n", length );
+      amiga_tmp_buffer_length = 0;
     }
     else
     {
-      amiga_blt_length = length;
+      amiga_tmp_buffer_length = length;
     }
   }
 
-  return amiga_blt_buffer;
+  return amiga_tmp_buffer;
 }
+
+
+static struct BitMap*
+amiga_get_tmp_bitmap( int width, int height )
+{
+  if( amiga_tmp_bitmap == NULL ||
+      GetBitMapAttr( amiga_tmp_bitmap, BMA_WIDTH ) < width ||
+      GetBitMapAttr( amiga_tmp_bitmap, BMA_HEIGHT ) < height )
+  {
+    WaitBlit();
+    FreeBitMap( amiga_tmp_bitmap );
+
+    amiga_tmp_bitmap = AllocBitMap( width, height, amiga_bpp,
+				    BMF_MINPLANES, amiga_window->BitMap );
+
+    if( amiga_tmp_bitmap == NULL )
+    {
+      error( "amiga_get_tmp_bitmap: Unable to allocate a %dx%d bitmap.\n",
+	     width, height );
+    }
+  }
+
+  return amiga_tmp_bitmap;
+}
+
 
 LONG
 RemappedWriteChunkyPixels(struct RastPort *rp,LONG xstart,LONG ystart,
@@ -170,7 +197,7 @@ RemappedWriteChunkyPixels(struct RastPort *rp,LONG xstart,LONG ystart,
   {
     modulo = (width + 15) & ~15;
 
-    temparray = amiga_get_blt_buffer( modulo * height );
+    temparray = amiga_get_tmp_buffer( modulo * height );
 
     if( temparray != NULL )
     {
@@ -222,7 +249,7 @@ SafeWriteChunkyPixels(struct RastPort *rp,LONG xstart,LONG ystart,
   {
     modulo = (width + 15) & ~15;
 
-    temparray = amiga_get_blt_buffer( modulo * height );
+    temparray = amiga_get_tmp_buffer( modulo * height );
 
     if( temparray != NULL )
     {
@@ -270,7 +297,7 @@ SoftClipBlit( struct RastPort *srcRP, LONG xSrc, LONG ySrc,
   ULONG* src;
   ULONG* dst;
 
-  src = amiga_get_blt_buffer( sizeof( ULONG ) * xSize * ySize * 2 );
+  src = amiga_get_tmp_buffer( sizeof( ULONG ) * xSize * ySize * 2 );
 
   if( src == NULL )
   {
@@ -404,8 +431,7 @@ amiga_blt_rastport( struct RastPort *srcRP, LONG xSrc, LONG ySrc,
     
       InitRastPort( &temprp );
 
-      temprp.BitMap = AllocBitMap( xSize, ySize, amiga_bpp,
-				   BMF_MINPLANES, amiga_window->RPort->BitMap );
+      temprp.BitMap = amiga_get_tmp_bitmap( xSize, ySize );
 
       if( temprp.BitMap != NULL )
       {
@@ -422,9 +448,6 @@ amiga_blt_rastport( struct RastPort *srcRP, LONG xSrc, LONG ySrc,
 			   destRP, xDest, yDest,
 			   xSize, ySize,
 			   minterm );
-
-	WaitBlit();
-	FreeBitMap( temprp.BitMap );
       }
     }
   }
@@ -498,7 +521,7 @@ amiga_write_pixels( struct RastPort* rp,
   }
   else
   {
-    ULONG* argb_data = amiga_get_blt_buffer( width * height * 4 );
+    ULONG* argb_data = amiga_get_tmp_buffer( width * height * 4 );
     int xx, yy;
     int i = 0;
     
@@ -1209,7 +1232,7 @@ ui_deinit(void)
   ui_destroy_cursor( amiga_null_cursor );
   amiga_null_cursor = 0;
 
-  FreeVec( amiga_blt_buffer );
+  FreeVec( amiga_tmp_buffer );
 }
 
 
@@ -1383,6 +1406,9 @@ ui_destroy_window()
     CloseScreen( amiga_screen );
     amiga_screen = NULL;
   }
+
+  WaitBlit();
+  FreeBitMap( amiga_tmp_bitmap );
 }
 
 
@@ -1877,13 +1903,13 @@ ui_create_cursor(unsigned int x, unsigned int y, int width,
 /* 	printf("\n"); */
       }
 
-      InitBitMap( &c->Bitmap, 2, width, height );
+      InitBitMap( &c->BitMap, 2, width, height );
 
-      c->Bitmap.Planes[0] = c->Planes;
-      c->Bitmap.Planes[1] = c->Planes + wordsperrow * 2 * height;
+      c->BitMap.Planes[0] = c->Planes;
+      c->BitMap.Planes[1] = c->Planes + wordsperrow * 2 * height;
 
       c->Pointer = NewObject( NULL, POINTERCLASS,
-                              POINTERA_BitMap,    (ULONG) &c->Bitmap,
+                              POINTERA_BitMap,    (ULONG) &c->BitMap,
                               POINTERA_XOffset,   -x,
                               POINTERA_YOffset,   -y,
                               POINTERA_WordWidth, wordsperrow,
@@ -2059,7 +2085,7 @@ ui_set_colourmap(HCOLOURMAP map)
 
     // Pen for LUT may have changed: Fix screen!
 
-    buffer = amiga_get_blt_buffer( g_width );
+    buffer = amiga_get_tmp_buffer( g_width );
 
     if( buffer != NULL )
     {
@@ -2197,8 +2223,7 @@ ui_patblt(uint8 opcode,
 
       InitRastPort( &rp );
     
-      rp.BitMap = AllocBitMap( cx, cy, amiga_bpp,
-			       BMF_MINPLANES, amiga_window->RPort->BitMap );
+      rp.BitMap = amiga_get_tmp_bitmap( cx, cy );
     
       if( rp.BitMap != NULL )
       {
@@ -2235,10 +2260,6 @@ ui_patblt(uint8 opcode,
 				  amiga_window->RPort, x, y,
 				  cx, cy,
 				  opcode << 4 );
- 
-	WaitBlit();
-        FreeBitMap( rp.BitMap );
-
       }
 
       break;
@@ -2523,7 +2544,7 @@ ui_desktop_save(uint32 offset, int x, int y, int cx, int cy)
 
   bytesperrow = ( (cx + 15) & ~15 ) * bytesperpixel;
 
-  buffer = amiga_get_blt_buffer( bytesperrow * cy );
+  buffer = amiga_get_tmp_buffer( bytesperrow * cy );
 
   if( buffer != NULL )
   {

@@ -1,3 +1,8 @@
+2004-05-27  Martin Blom  <martin@blom.org>
+
+	* Now keeps some temporary bitmaps allocated unto program exit
+	too.
+
 2004-05-26  Martin Blom  <martin@blom.org>
 
 	* Use BltBitMapRastPort() instead of ClipBlit() for fullscreen
