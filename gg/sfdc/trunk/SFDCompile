@@ -58,7 +58,7 @@ GetOptions ('help|h|?'   => \$help,
 	    'version|v'  => \$version) or exit 10;
 
 if ($version) {
-    print STDERR "SFDCompile $Version: ($Date:)\n";
+    print STDERR "$Id:\n";
     print STDERR "Copyright (C) 2003 Martin Blom <martin\@blom.org>\n";
     print STDERR "This is free software; " .
 	"see the source for copying conditions.\n";
