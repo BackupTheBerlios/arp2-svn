@@ -1,0 +1,58 @@
+
+VERSION		= 1.0
+DATE		= 25.07.2003
+
+srcdir		= @srcdir@
+
+prefix		= @prefix@
+exec_prefix	= @exec_prefix@
+bindir		= @bindir@
+datadir		= @datadir@
+fd2sfddir	= ${datadir}/fd2sfd
+
+CC		= @CC@
+CPPFLAGS	= @CPPFLAGS@ -DVERSION=\"$(VERSION)\" -DDATE=\"$(DATE)\" \
+		  -W -Wall
+
+INSTALL		= @INSTALL@
+INSTALL_PROGRAM	= @INSTALL_PROGRAM@ -s
+INSTALL_DATA	= @INSTALL_DATA@
+
+VPATH		= $(srcdir)
+
+
+all:		fd2sfd
+
+fd2sfd:		fd2inline.c
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $^ $(OUTPUT_OPTION)
+
+install:	all
+	$(INSTALL) -d $(bindir) $(fd2sfddir)
+
+	# Install tools
+	$(INSTALL_PROGRAM) fd2sfs $(bindir)
+	$(INSTALL_PROGRAM) cross/bin/gg-fix-includes $(bindir)
+	for f in `cd $(srcdir)/cross/share/ && find * -type f`; do \
+	  $(INSTALL_DATA) -D $(srcdir)/cross/share/$${f} $(fd2sfddir)/$${f}; \
+	done
+
+	# Install example file structure for fds
+	$(INSTALL) -d $(prefix)/os-lib/fd/3rd
+	$(INSTALL) -d $(prefix)/os-lib/fd/amigaos
+	$(INSTALL) -d $(prefix)/os-lib/fd/morphos
+	$(INSTALL_DATA) $(srcdir)/README.os-lib $(prefix)/os-lib/fd/README
+
+	# Install example file structure for includes
+	$(INSTALL) -d $(prefix)/os-include/3rd
+	for dir in classes clib datatypes devices diskfont dos exec \
+		   gadgets graphics hardware images intuition libraries \
+		   pragma pragmas prefs proto reaction resources rexx \
+		   utility workbench; do \
+	  $(INSTALL) -d $(prefix)/os-include/amigaos/$${dir}; \
+	done
+	for dir in clib cybergraphics cybergraphx datatypes devices \
+		   emul exec powerup ppcdisslib resources; do \
+	  $(INSTALL) -d $(prefix)/os-include/morphos/$${dir}; \
+	done
+	$(INSTALL_DATA) $(srcdir)/README.os-include $(prefix)/os-include/README
+
