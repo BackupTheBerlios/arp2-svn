@@ -17,6 +17,7 @@
 #include <glgfx_viewport.h>
 
 #include <ctype.h>
+#include <inttypes.h>
 
 #include "config.h"
 #include "options.h"
@@ -33,6 +34,17 @@
 #include "picasso96.h"
 #include "inputdevice.h"
 #include "hotkeys.h"
+
+static void dump_picasso_vidinfo(void) {
+#define DUMP_FIELD(x) printf(#x ": %08lx\n", picasso_vidinfo.x);
+  DUMP_FIELD(width);
+  DUMP_FIELD(height);
+  DUMP_FIELD(depth);
+  DUMP_FIELD(rowbytes);
+  DUMP_FIELD(pixbytes);
+  DUMP_FIELD(extra_mem);
+  DUMP_FIELD(rgbformat);
+}
 
 /*
  * Default hotkeys
@@ -66,22 +78,61 @@ static struct uae_hotkeyseq default_hotkeys[] =
     { HOTKEYS_END }
 };
 
+static void* p96_buffer;
+static size_t p96_size;
+
 static int screen_is_picasso;
 static char picasso_invalid_lines[1201];
 static int picasso_has_invalid_lines;
 static int picasso_invalid_start, picasso_invalid_stop;
-static int picasso_maxw = 0, picasso_maxh = 0;
+static uint32_t picasso_maxw = 0, picasso_maxh = 0;
 
-static int bitmap_locked = 0;
-static struct glgfx_bitmap*   bitmap = NULL;
-static struct glgfx_rasinfo*  rasinfo = NULL;
-static struct glgfx_viewport* viewport = NULL;
-static struct glgfx_view*     view = NULL;
-static bool                   fullscreen = true;
-static uint32_t               real_width;
-static uint32_t               real_height;
-static uint32_t               bm_width;
-static uint32_t               bm_height;
+struct p96_format {
+    int                     pixbytes;
+    int                     rgbformat;
+    enum glgfx_pixel_format format;
+};
+
+static struct p96_format p96_formats[] = {
+//  { 1, RGBFB_CHUNKY,   glgfx_pixel_format_a4r4g4b4 },
+  { 2, RGBFB_R5G6B5PC, glgfx_pixel_format_r5g6b5   },
+  { 4, RGBFB_B8G8R8A8, glgfx_pixel_format_a8b8g8r8 },
+};
+
+static int pixel_glgfx_to_p96(enum glgfx_pixel_format format) {
+  size_t f;
+
+  for (f = 0; f < sizeof (p96_formats) / sizeof (p96_formats[0]); ++f) {
+    if (p96_formats[f].format == format) {
+      return p96_formats[f].rgbformat;
+    }
+  }
+
+  return 0;
+}
+
+static enum glgfx_pixel_format pixel_p96_to_glgfx(int rgbformat) {
+  size_t f;
+
+  for (f = 0; f < sizeof (p96_formats) / sizeof (p96_formats[0]); ++f) {
+    if (p96_formats[f].rgbformat == rgbformat) {
+      return p96_formats[f].format;
+    }
+  }
+
+  return glgfx_pixel_format_unknown;
+}
+
+static struct glgfx_bitmap*    bitmap = NULL;
+static struct glgfx_rasinfo*   rasinfo = NULL;
+static struct glgfx_viewport*  viewport = NULL;
+static struct glgfx_view*      view = NULL;
+static bool                    fullscreen = true;
+static uint32_t                real_width;
+static uint32_t                real_height;
+static uint32_t                bm_width;
+static uint32_t                bm_height;
+static enum glgfx_pixel_format bm_format;
 
 void toggle_mousegrab(void);
 void framerate_up(void);
@@ -102,6 +153,7 @@ void flush_screen(int ystart, int ystop) {
 //  printf("flush_screen(%d, %d)\n", ystart, ystop);
   glgfx_view_render(view);
   glgfx_monitor_waittof(glgfx_monitors[0]);
+  glgfx_monitor_swapbuffers(glgfx_monitors[0]);
 }
 
 void flush_clear_screen(void) {
@@ -136,63 +188,94 @@ int graphics_setup(void) {
 }
 
 static int viewport_setup(void) {
-  int32_t res;
+  uint32_t width, height, format, rowbytes, pixbytes;
+  uint32_t rb = 0, gb = 0, bb = 0, ab = 0;
+  uint32_t rs = 0, gs = 0, bs = 0, as = 0;
 
-/*   bitmap = glgfx_bitmap_create(currprefs.gfx_width_win, */
-/* 			       currprefs.gfx_height_win, */
-/* 			       16, 0, NULL, glgfx_pixel_format_r5g6b5, */
-/* 			       glgfx_monitors[0]); */
-
-  printf("create %d %d\n", bm_width, bm_height);
   bitmap = glgfx_bitmap_create(bm_width, bm_height,
-			       16, 0, NULL, glgfx_pixel_format_a4r4g4b4,
+			       16, 0, NULL, bm_format,
 			       glgfx_monitors[0]);
 
   if (bitmap == NULL) {
     return 0;
   }
 
-//  alloc_colors64k(5, 6, 5, 11, 5, 0, 0, 0, 0); 
-  alloc_colors64k(4, 4, 4, 8, 4, 0, 4, 12, 0xf);
- 
-  if (glgfx_bitmap_getattr(bitmap, glgfx_bitmap_attr_width, &res)) {
-    gfxvidinfo.width = res;
-  }
+  printf("created bitmap %d %d format %08lx\n", bm_width, bm_height, bm_format);
 
-  if (glgfx_bitmap_getattr(bitmap, glgfx_bitmap_attr_height, &res)) {
-    gfxvidinfo.height = res;
-//    gfxvidinfo.maxblocklines = 1000;
-    gfxvidinfo.maxblocklines = res + 1;
-  }
+  glgfx_bitmap_getattr(bitmap, glgfx_bitmap_attr_width,       &width);
+  glgfx_bitmap_getattr(bitmap, glgfx_bitmap_attr_height,      &height);
+  glgfx_bitmap_getattr(bitmap, glgfx_bitmap_attr_format,      &format);
+  glgfx_bitmap_getattr(bitmap, glgfx_bitmap_attr_bytesperrow, &rowbytes);
 
-  if (glgfx_bitmap_getattr(bitmap, glgfx_bitmap_attr_format, &res)) {
-    if (glgfx_pixel_getattr(res, glgfx_pixel_attr_bytesperpixel, &res)) {
-      gfxvidinfo.pixbytes = res;
-    }
-  }
+  glgfx_pixel_getattr(format, glgfx_pixel_attr_bytesperpixel, &pixbytes);
+  
+  glgfx_pixel_getattr(format, glgfx_pixel_attr_redbits,       &rb);
+  glgfx_pixel_getattr(format, glgfx_pixel_attr_greenbits,     &gb);
+  glgfx_pixel_getattr(format, glgfx_pixel_attr_bluebits,      &bb);
+  glgfx_pixel_getattr(format, glgfx_pixel_attr_alphabits,     &ab);
+  glgfx_pixel_getattr(format, glgfx_pixel_attr_redshift,      &rs);
+  glgfx_pixel_getattr(format, glgfx_pixel_attr_greenshift,    &gs);
+  glgfx_pixel_getattr(format, glgfx_pixel_attr_blueshift,     &bs);
+  glgfx_pixel_getattr(format, glgfx_pixel_attr_alphashift,    &as);
+  
+  alloc_colors64k(rb, gb, bb, rs, gs, bs, ab, as, ((1 << ab) - 1));
 
-  if (glgfx_bitmap_getattr(bitmap, glgfx_bitmap_attr_bytesperrow, &res)) {
-    gfxvidinfo.rowbytes = res;
-  }
+#ifdef PICASSO96
+  if (!screen_is_picasso) {
+#endif
+    gfxvidinfo.width         = width;
+    gfxvidinfo.height        = height;
+    gfxvidinfo.maxblocklines = height + 1;
+    gfxvidinfo.pixbytes      = pixbytes;
+    gfxvidinfo.rowbytes      = rowbytes;
+    gfxvidinfo.emergmem      = malloc(rowbytes);
+    gfxvidinfo.linemem       = NULL;
 
-  rasinfo = glgfx_viewport_addbitmap(viewport, bitmap, 0, 0,
-				     gfxvidinfo.width, gfxvidinfo.height);
+    reset_drawing ();
+    
+#ifdef PICASSO96
+  }
+  else {
+    picasso_has_invalid_lines	= 0;
+    picasso_invalid_start	= height + 1;
+    picasso_invalid_stop	= -1;
+    
+    picasso_vidinfo.width       = width;
+    picasso_vidinfo.height      = height;
+    picasso_vidinfo.depth       = rb + gb + bb + ab;
+    picasso_vidinfo.pixbytes    = pixbytes;
+    picasso_vidinfo.rowbytes    = rowbytes;
+    picasso_vidinfo.extra_mem	= 1;
+
+    p96_buffer = malloc(width*height*pixbytes);
+    p96_size = width*height*pixbytes;
+    
+    memset (picasso_invalid_lines, 0, sizeof picasso_invalid_lines);
+  }
+#endif
+
+  rasinfo = glgfx_viewport_addbitmap(viewport, bitmap, 0, 0, width, height);
 
   if (rasinfo == NULL) {
     return 0;
   }
-
-  gfxvidinfo.emergmem = malloc(gfxvidinfo.rowbytes);
-  gfxvidinfo.linemem = NULL;
-
+  
   inputdevice_release_all_keys();
   reset_hotkeys();
-  
+
+  printf("viewport_setup -> 1\n");
   return 1;
 }
 
 
 static void viewport_shutdown(void) {
+
+  if (p96_buffer == NULL) {
+    free(p96_buffer);
+    p96_buffer = NULL;
+    p96_size = 0;
+  }
+  
   if (gfxvidinfo.emergmem != NULL) {
     free(gfxvidinfo.emergmem);
   }
@@ -219,6 +302,7 @@ int graphics_init(void)
 {
   printf("graphics_init()\n");
 
+  bm_format = glgfx_pixel_format_a4r4g4b4;
   bm_width  = currprefs.gfx_width_fs;
   bm_height = currprefs.gfx_height_fs;
   
@@ -254,7 +338,6 @@ void handle_events(void)
 {
   enum glgfx_input_code code;
   
-//  printf("handle_events()\n");
   gui_handle_events ();
 
   while ((code = glgfx_input_getcode()) != glgfx_input_none) {
@@ -299,6 +382,16 @@ void handle_events(void)
 	break;
     }
   }
+  
+  if (screen_is_picasso && picasso_has_invalid_lines) {
+    glgfx_bitmap_update(bitmap, p96_buffer, p96_size);
+    glgfx_view_render(view);
+    glgfx_monitor_swapbuffers(glgfx_monitors[0]);
+  }
+
+  picasso_has_invalid_lines = 0;
+  picasso_invalid_start = picasso_vidinfo.height + 1;
+  picasso_invalid_stop = -1;
 }
 
 int check_prefs_changed_gfx(void)
@@ -307,14 +400,12 @@ int check_prefs_changed_gfx(void)
 //  printf("check_prefs_changed_gfx ()\n");
   gui_update_gfx ();
 
-  if (!bitmap_locked) {
-    if (bm_height != NUMSCRLINES * 2|| bm_width != w) {
-      printf("new: %d %d \n", w, NUMSCRLINES*2);
-      viewport_shutdown();
-      bm_width= w;
-      bm_height = NUMSCRLINES*2;
-      viewport_setup();
-    }
+  if (!screen_is_picasso && (bm_height != NUMSCRLINES * 2 || bm_width != w)) {
+    viewport_shutdown();
+    bm_format = glgfx_pixel_format_a4r4g4b4;
+    bm_width  = w;
+    bm_height = NUMSCRLINES*2;
+    viewport_setup();
   }
 
   notice_screen_contents_lost();
@@ -337,7 +428,11 @@ void LED(int on) {
 #ifdef PICASSO96
 
 void DX_Invalidate(int first, int last) {
-  return;
+  if (first > last) {
+    return;
+  }
+
+  picasso_has_invalid_lines = 1;
 }
 
 int DX_BitsPerCannon(void) {
@@ -347,218 +442,169 @@ int DX_BitsPerCannon(void) {
 static int palette_update_start=256;
 static int palette_update_end=0;
 
-static void DX_SetPalette_real (int start, int count)
+void DX_SetPalette(int start, int count)
 {
-    if (! screen_is_picasso || picasso96_state.RGBFormat != RGBFB_CHUNKY)
-	return;
+  if (!screen_is_picasso || picasso96_state.RGBFormat != RGBFB_CHUNKY)
+    return;
 
-    if (picasso_vidinfo.pixbytes != 1) {
-	/* This is the case when we're emulating a 256 color display.  */
-	while (count-- > 0) {
-	    int r = picasso96_state.CLUT[start].Red;
-	    int g = picasso96_state.CLUT[start].Green;
-	    int b = picasso96_state.CLUT[start].Blue;
-	    picasso_vidinfo.clut[start++] = (doMask256 (r, red_bits, red_shift)
-					     | doMask256 (g, green_bits, green_shift)
-					     | doMask256 (b, blue_bits, blue_shift));
-	}
-	return;
-    }
-
+  if (picasso_vidinfo.pixbytes != 1) {
+    /* This is the case when we're emulating a 256 color display. */
     while (count-- > 0) {
-	XColor col = parsed_xcolors[start];
-	col.red = picasso96_state.CLUT[start].Red * 0x0101;
-	col.green = picasso96_state.CLUT[start].Green * 0x0101;
-	col.blue = picasso96_state.CLUT[start].Blue * 0x0101;
-	XStoreColor (display, cmap, &col);
-	XStoreColor (display, cmap2, &col);
-	start++;
+      int r = picasso96_state.CLUT[start].Red;
+      int g = picasso96_state.CLUT[start].Green;
+      int b = picasso96_state.CLUT[start].Blue;
+      picasso_vidinfo.clut[start++] = (doMask256 (r, 4, 12)
+				       | doMask256 (g, 4, 8)
+				       | doMask256 (b, 4, 0));
+/*       picasso_vidinfo.clut[start++] = (doMask256 (r, red_bits, red_shift) */
+/* 				       | doMask256 (g, green_bits, green_shift) */
+/* 				       | doMask256 (b, blue_bits, blue_shift)); */
     }
-#ifdef USE_DGA_EXTENSION
-    if (dgamode) {
-	dga_colormap_installed ^= 1;
-	if (dga_colormap_installed == 1)
-	    XF86DGAInstallColormap (display, screen, cmap2);
-	else
-	    XF86DGAInstallColormap (display, screen, cmap);
-    }
-#endif
-}
-void DX_SetPalette (int start, int count)
-{
-   DX_SetPalette_real (start, count);
+  }
+  else {
+    // TODO: Add chunky emulation pixel shaders in libglgfx to handle this
+    abort();
+  }
 }
 
-static void DX_SetPalette_delayed (int start, int count)
-{
-    if (bit_unit!=8) {
-	DX_SetPalette_real(start,count);
-	return;
-    }
-    if (start<palette_update_start)
-	palette_update_start=start;
-    if (start+count>palette_update_end)
-	palette_update_end=start+count;
-}
 
-void DX_SetPalette_vsync(void)
-{
+void DX_SetPalette_vsync(void) {
+/*   printf("DX_SetPalette_vsync\n"); */
   if (palette_update_end>palette_update_start) {
-    DX_SetPalette_real(palette_update_start,
-		       palette_update_end-palette_update_start);
+    DX_SetPalette(palette_update_start,
+		  palette_update_end-palette_update_start);
     palette_update_end=0;
     palette_update_start=256;
   }
 }
 
-int DX_Fill (int dstx, int dsty, int width, int height, uae_u32 color, RGBFTYPE rgbtype)
-{
-    /* not implemented yet */
-    return 0;
+int DX_Fill (int dstx, int dsty, int width, int height, uae_u32 color, RGBFTYPE rgbtype) {
+//  printf("DX_Fill\n");
+  /* not implemented yet */
+  return 0;
 }
 
-int DX_Blit (int srcx, int srcy, int dstx, int dsty, int width, int height, BLIT_OPCODE opcode)
-{
-    /* not implemented yet */
-    return 0;
+int DX_Blit (int srcx, int srcy, int dstx, int dsty, int width, int height, BLIT_OPCODE opcode) {
+//  printf("DX_Blit\n");
+  /* not implemented yet */
+  return 0;//opcode == BLIT_SRC;
 }
 
-#define MAX_SCREEN_MODES 12
+#define MAX_SCREEN_MODES 19
 
-static int x_size_table[MAX_SCREEN_MODES] = { 320, 320, 320, 320, 640, 640, 640, 800, 1024, 1152, 1280, 1280 };
-static int y_size_table[MAX_SCREEN_MODES] = { 200, 240, 256, 400, 350, 480, 512, 600, 768,  864,  960,  1024 };
+static uint32_t x_size_table[MAX_SCREEN_MODES] = { 320, 320, 320, 320, 640, 640, 640, 800, 1024, 1024, 1152, 1280, 1280, 1280, 1680, 1600, 1920, 2048, 2560 };
+static uint32_t y_size_table[MAX_SCREEN_MODES] = { 200, 240, 256, 400, 400, 480, 512, 600,  640,  768,  864,  800,  960, 1024, 1050, 1200, 1200, 1280, 1600 };
 
-int DX_FillResolutions (uae_u16 *ppixel_format)
-{
-    Screen *scr = ScreenOfDisplay (display, screen);
-    int i, count = 0;
-    int w = WidthOfScreen (scr);
-    int h = HeightOfScreen (scr);
-    int emulate_chunky = 0;
+int DX_FillResolutions(uae_u16 *ppixel_format) {
+  int i;
+  int count;
 
-    /* we now need to find display depth first */
-    XVisualInfo vi;
-    if (!get_best_visual (&vi)) return 0;
-    bitdepth = vi.depth;
-    bit_unit = get_visual_bit_unit (&vi, bitdepth);
+  picasso_vidinfo.rgbformat = RGBFB_B8G8R8A8;
+    
+  *ppixel_format = RGBFF_B8G8R8A8 | RGBFF_R5G6B5PC | RGBFF_CHUNKY;
 
-    if (ImageByteOrder (display) == LSBFirst) {
-    picasso_vidinfo.rgbformat = (bit_unit == 8 ? RGBFB_CHUNKY
-				 : bitdepth == 15 && bit_unit == 16 ? RGBFB_R5G5B5PC
-				 : bitdepth == 16 && bit_unit == 16 ? RGBFB_R5G6B5PC
-				 : bit_unit == 24 ? RGBFB_B8G8R8
-				 : bit_unit == 32 ? RGBFB_B8G8R8A8
-				 : RGBFB_NONE);
-    } else {
-    picasso_vidinfo.rgbformat = (bit_unit == 8 ? RGBFB_CHUNKY
-				 : bitdepth == 15 && bit_unit == 16 ? RGBFB_R5G5B5
-				 : bitdepth == 16 && bit_unit == 16 ? RGBFB_R5G6B5
-				 : bit_unit == 24 ? RGBFB_R8G8B8
-				 : bit_unit == 32 ? RGBFB_A8R8G8B8
-				 : RGBFB_NONE);
+  for (i = 0, count = 0; i < MAX_SCREEN_MODES && count < MAX_PICASSO_MODES; ++i) {
+    if (x_size_table[i] <= real_width &&
+	y_size_table[i] <= real_height) {
+      unsigned int f;
+      
+      if (x_size_table[i] > picasso_maxw) {
+	picasso_maxw = x_size_table[i];
+      }
+
+      if (y_size_table[i] > picasso_maxh) {
+	picasso_maxh = y_size_table[i];
+      }
+
+      for (f = 0; f < sizeof (p96_formats) / sizeof (p96_formats[0]) && count < MAX_PICASSO_MODES; ++f) {
+	uint32_t vsync = 60;
+
+	glgfx_monitor_getattr(glgfx_monitors[0], glgfx_monitor_attr_vsync, &vsync);
+	DisplayModes[count].res.width  = x_size_table[i];
+	DisplayModes[count].res.height = y_size_table[i];
+	DisplayModes[count].depth      = p96_formats[f].pixbytes;
+	DisplayModes[count].refresh    = vsync;
+
+	printf ("Picasso resolution %d x %d @ %d allowed\n",
+		   DisplayModes[count].res.width,
+		   DisplayModes[count].res.height,
+		   DisplayModes[count].depth);
+
+	count++;
+      }
     }
+  }
 
-    *ppixel_format = 1 << picasso_vidinfo.rgbformat;
-    if (vi.VI_CLASS == TrueColor && (bit_unit == 16 || bit_unit == 32))
-	*ppixel_format |= RGBFF_CHUNKY, emulate_chunky = 1;
+  printf("Max. Picasso screen size: %d x %d\n", picasso_maxw, picasso_maxh);
 
-#if defined USE_DGA_EXTENSION && defined USE_VIDMODE_EXTENSION
-    if (dgaavail && vidmodeavail) {
-	for (i = 0; i < vidmodecount && count < MAX_PICASSO_MODES; i++) {
-	    int j;
-	    for (j = 0; j <= emulate_chunky && count < MAX_PICASSO_MODES; j++) {
-		DisplayModes[count].res.width = allmodes[i]->hdisplay;
-		DisplayModes[count].res.height = allmodes[i]->vdisplay;
-		DisplayModes[count].depth = j == 1 ? 1 : bit_unit >> 3;
-		DisplayModes[count].refresh = 75;
-		count++;
-	    }
-	}
-    } else
-#endif
-    {
-	for (i = 0; i < MAX_SCREEN_MODES && count < MAX_PICASSO_MODES; i++) {
-	    int j;
-	    for (j = 0; j <= emulate_chunky && count < MAX_PICASSO_MODES; j++) {
-		if (x_size_table[i] <= w && y_size_table[i] <= h) {
-		    if (x_size_table[i] > picasso_maxw)
-			picasso_maxw = x_size_table[i];
-		    if (y_size_table[i] > picasso_maxh)
-			picasso_maxh = y_size_table[i];
-		    DisplayModes[count].res.width = x_size_table[i];
-		    DisplayModes[count].res.height = y_size_table[i];
-		    DisplayModes[count].depth = j == 1 ? 1 : bit_unit >> 3;
-		    DisplayModes[count].refresh = 75;
-		    count++;
-		}
-	    }
-	}
-    }
-
-    return count;
+  return count;
 }
 
-static void set_window_for_picasso (void)
-{
-    if (current_width == picasso_vidinfo.width && current_height == picasso_vidinfo.height)
-	return;
+void gfx_set_picasso_modeinfo (int w, int h, int depth, int rgbfmt) {
+  printf("gfx_set_picasso_modeinfo %d %d %d %08lx\n", w, h, depth, rgbfmt);
 
-    current_width = picasso_vidinfo.width;
-    current_height = picasso_vidinfo.height;
-    XResizeWindow (display, mywin, current_width, current_height);
-#if defined USE_DGA_EXTENSION && defined USE_VIDMODE_EXTENSION
-    if (dgamode && vidmodeavail)
-	switch_to_best_mode ();
-#endif
-}
+  picasso_vidinfo.width     = w;
+  picasso_vidinfo.height    = h;
+  picasso_vidinfo.rgbformat = rgbfmt;
+/*   picasso_vidinfo.depth = depth; */
+/*   picasso_vidinfo.pixbytes = 2; */
 
-void gfx_set_picasso_modeinfo (int w, int h, int depth, int rgbfmt)
-{
-    picasso_vidinfo.width = w;
-    picasso_vidinfo.height = h;
-    picasso_vidinfo.depth = depth;
-    picasso_vidinfo.pixbytes = bit_unit >> 3;
-
-    if (screen_is_picasso)
-	set_window_for_picasso ();
-}
-
-void gfx_set_picasso_baseaddr (uaecptr a)
-{
+  if (screen_is_picasso) {
+    viewport_shutdown();
+    bm_format = pixel_p96_to_glgfx(picasso_vidinfo.rgbformat);
+    bm_width  = picasso_vidinfo.width;
+    bm_height = picasso_vidinfo.height;
+    viewport_setup();
+  }
 }
 
 void gfx_set_picasso_state (int on)
 {
-    if (on == screen_is_picasso)
-	return;
-    graphics_subshutdown ();
-    screen_is_picasso = on;
-    if (on) {
-	current_width = picasso_vidinfo.width;
-	current_height = picasso_vidinfo.height;
-        graphics_subinit ();
-    } else {
-	current_width = gfxvidinfo.width;
-	current_height = gfxvidinfo.height;
-        graphics_subinit ();
-        reset_drawing ();
-    }
-    if (on)
-	DX_SetPalette_real (0, 256);
+  printf("gfx_set_picasso_state %d\n", on);
+  
+  if (on == screen_is_picasso)
+    return;
+    
+  viewport_shutdown();
+  screen_is_picasso = on;
+  if (on) {
+    bm_format = pixel_p96_to_glgfx(picasso_vidinfo.rgbformat);
+    bm_width  = picasso_vidinfo.width;
+    bm_height = picasso_vidinfo.height;
+    viewport_setup();
+  } else {
+    bm_format = glgfx_pixel_format_a4r4g4b4;
+    bm_width  = gfxvidinfo.width;
+    bm_height = gfxvidinfo.height;
+    viewport_setup();
+    reset_drawing();
+  }
+
+  if (on) {
+    DX_SetPalette(0, 256);
+  }
 }
 
-uae_u8 *gfx_lock_picasso (void)
-{
-#ifdef USE_DGA_EXTENSION
-    if (dgamode)
-	return fb_addr;
-    else
-#endif
-	return pic_dinfo.ximg->data;
+uae_u8* gfx_lock_picasso(void) {
+  return p96_buffer;
+  
+  uae_u8* base = NULL;
+  
+  if (glgfx_bitmap_lock(bitmap, false, true)) {
+    base = glgfx_bitmap_map(bitmap);
+  }
+
+//  printf("gfx_lock_picasso -> %p\n", base);
+  return base;
 }
 
-void gfx_unlock_picasso (void) {
+void gfx_unlock_picasso(void) {
+  return;
+  glgfx_bitmap_unmap(bitmap);
+  glgfx_bitmap_unlock(bitmap);
+//  printf("gfx_unlock_picasso\n");
 }
+
 #endif
 
 int lockscr (void) {
@@ -573,7 +619,6 @@ int lockscr (void) {
 	init_row_map();
       }
 
-      bitmap_locked = 1;
       return 1;
     }
   }
@@ -587,7 +632,6 @@ void unlockscr (void) {
   }
 
   glgfx_bitmap_unlock(bitmap);
-  bitmap_locked = 0;
 }
 
 

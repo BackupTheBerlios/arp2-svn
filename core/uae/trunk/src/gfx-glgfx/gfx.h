@@ -1,11 +1,11 @@
  /*
   * UAE - The Un*x Amiga Emulator
   *
-  * Target specific stuff, X version
+  * Target specific stuff, glgfx version
   *
-  * Copyright 2004 Richard Drummond
+  * Copyright 2005 Martin Blom
   */
 
 #define GFX_NAME "glgfx"
-#undef USE_X11_GFX
-#undef PICASSO96_SUPPORTED
+#define USE_GLGFX_GFX
+#define PICASSO96_SUPPORTED
