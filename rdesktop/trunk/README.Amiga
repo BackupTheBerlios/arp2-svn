@@ -1,0 +1,318 @@
+Short:    A Windows Terminal Server client
+Uploader: Martin Blom <martin@blom.org>
+Author:   Matt Chapman, Martin Blom <martin@blom.org>
+Type:     comm/tcp
+Requires: 68020+, ixemul 48
+Version:  2001-10-28
+
+From <URL:http://www.rdesktop.org/>:
+
+rdesktop: A Remote Desktop Protocol Client
+          for accessing Windows NT Terminal Server 
+
+rdesktop is an open source client for Windows NT Terminal Server and
+Windows 2000 Terminal Services, capable of natively speaking Remote Desktop
+Protocol (RDP) in order to present the user's NT desktop.  Unlike Citrix
+ICA, no server extensions are required.
+
+rdesktop currently runs on most UNIX based platforms with the X Window
+System, and other ports should be fairly straightforward.
+
+rdesktop was written by Matt Chapman (matthewc@cse.unsw.edu.au) based on
+various scarce documentation, wire sniffs, and trial-and-error.  It is
+released under the GNU Public Licence (GPL).  Please send feedback, bug
+reports and patches to the author.
+
+
+*******************************************************************************
+
+This is a quick port of rdesktop 1.0.0 with the unified 19-7-4 patch 
+applied. For some reason, rdesktop 1.1.0 didn't work correctly for me.
+The experimental patches are better anyway, so you're not missing much.
+
+Even though the Unix version of rdesktop is pretty stable, the Amiga
+version should be considered beta for now. Nevertheless, it works for me.
+
+I've only tested it against a Windows 2000 Server, but it should work fine
+against Windows NT 4.0 Terminal Server and Windows XP as well.
+
+The following comand line switches were removed in the Amiga version:
+
+ -K --vmkeys
+ -T --bs
+ -v --privcolmap
+ -N --new-kbcode
+ -V --VNC
+
+Things to do:
+
+ · Add ReadArgs style command line handling.
+ · Make it run from WB 
+ · Add a GUI.
+
+/Martin Blom <martin@blom.org>
+
+*******************************************************************************
+
+
+RDESKTOP(1)                                           RDESKTOP(1)
+
+
+NAME
+       rdesktop - terminal server client for Windows NT4 and Win-
+       dows 2000
+
+SYNOPSIS
+       rdesktop -n <hostname> [options] server
+
+DESCRIPTION
+       rdesktop acts as a window  terminal  services  client  for
+       Windows NT terminal servers and Windows 2000 terminal ser-
+       vices either in administration or licenced mode.  rdesktop
+       implements  the  RDP  version 4 protcol as used by Windows
+       NT4  Terminalserver.  Various  mailinglist  members  wrote
+       patches  for rdesktop which implement RDP version 5. RDP 5
+       is used by Windows 2000 Terminal Services.  At  this  time
+       the  patches  are not merged in the main codebase but dis-
+       tributed seperately. See the links section for URLS.
+
+OPTIONS
+       -u --user
+              The username for  authentication  on  the  terminal
+              server,  together  with  -p  this  can  be used for
+              autologon. On win2k the username  is  prefilled  on
+              the username box.
+
+       -d --domain
+              The  domain  to  to  which the user belongs. Use -u
+              user@domain for win2k servers.
+
+       -s --shell
+              The startup shell for the user. Use this  to  force
+              the user to start a specific shell of program after
+              startup.
+
+       -c --workingdir
+              The current working directory for the  user.  Often
+              used  in combination with -s to setup a fixed envi-
+              ronment for the user after logon.
+
+       -p --password
+              The password to authenticate with, used in combina-
+              tion  with -u for autologon. WARNING: the -p <pass-
+              word> option will be visible to all users when then
+              use  tools  like  ps.  Use  -p  -  to make rdesktop
+              request a password at startup.
+
+       -n --clientname
+              The name of the current machine rdesktop is running
+              on. Usually the hostname (without the domain).
+
+       -k --keycode
+              The  keyboard layout for the rdesktop session. i.e.
+              us, is or nl
+
+
+
+
+Manual page for rdesktop   Januari 2001                         1
+
+
+
+
+
+RDESKTOP(1)                                           RDESKTOP(1)
+
+
+       -K --vmkeys
+              By default the  keybindings  of  the  windowmanager
+              will  be  ignored  when  the  rdesktop window is in
+              focus. Use this setting to keep  the  windowmanager
+              keybindings.
+
+       -F --fullscreen
+              Enable  fullscreen mode. The -w and -h flag will be
+              ignored when using -f, rdesktop will get  the  cur-
+              rent height and width from the current desktop.
+
+       -D --bpp
+              Rdesktop  should  detect  the default screen depth,
+              and try and run on that.  The  -D  switch  is  only
+              there  so  that  the  user can override the default
+              bits-per-pixel setting.
+
+       -t --port
+              This option is used to  make  rdesktop  connect  to
+              another rdp port on the remote machine. The default
+              is 3389 as used by W2K and NT4 Terminal Server.
+
+       -T --bs
+              This option selects the backing-store  method.  The
+              options are x,p and n.
+
+         --bs x
+              Use  the  Xservers  backing-store,  but no internal
+              pixmap. If the Xserver does not provide a  backing-
+              store  none  will  be used at all, this acts as the
+              --bs n switch. This method is the fastest since the
+              Xserver can do optimizations in the hardware.
+
+         --bs n
+              No  backingstore.  This is slow but saves some mem-
+              ory.
+
+         --bs p
+              This  is  the  default  setting,  use  an  internal
+              pixmap.
+
+       -e --no-enc
+              Do  not use encryption, this is only for people who
+              are not allowed to use encryption in Windows  prod-
+              ucts.  If you live in France you probably need this
+              switch.
+
+       -l --no-license
+              Do not request license. This flag is not used  when
+              connecting to Windows 2000 Terminal Services.
+
+       -v --privcolmap
+              Use  a  private color map, this is useful when run-
+              ning X in 8bpp mode.
+
+
+
+Manual page for rdesktop   Januari 2001                         2
+
+
+
+
+
+RDESKTOP(1)                                           RDESKTOP(1)
+
+
+       -4 --nt4tsc
+              Enable NT4 compatibility mode, this might be needed
+              to connect to NT4 Terminal Servers.
+
+       -N --new-kbcode
+              If you're not using a pc keyboard this may fix some
+              of your key problems. This option  should  be  used
+              together with the -k option.
+
+       -V --VNC
+              use a VNC viewer.
+
+       --no-bitmapcache
+              Force bitmap updates.
+
+       --no-bitmapcomp
+              Disable bitmap compression.
+
+       --no-desktopcache
+              Disable the use of the desktop cache.
+
+       --no-motionevents
+              Disable the sending of motion events.
+
+       --no-systembeep
+              Do  not  forward  the system beep from the terminal
+              session to the Xserver.
+
+
+       EXAMPLES
+
+       Connect to a Windows 2000 Server called  asp  from  a  box
+       called tux.
+       % rdesktop -n tux asp.mydomain.com
+
+       Connect  to a Windows 2000 Server called asp and automagi-
+       cally start Word. Rdesktop will request a password  before
+       starting the session.
+       %  rdesktop  -n  tux  -u  worduser  -p  -  -s  winword.exe
+       asp.mydomain.com
+
+       Connect to a Windows NT4 Terminal server
+       % rdesktop -n tux -4 terminal.mydomain.com
+
+       % rdesktop -n tux -u aspuser@asp.mydomain.com -p -  -P  90
+       asp.mydomain.com
+
+
+RETURN VALUES
+       None are defined (yet)
+
+LINKS
+       Main website of rdesktop
+       http://www.rdesktop.org
+
+
+
+Manual page for rdesktop   Januari 2001                         3
+
+
+
+
+
+RDESKTOP(1)                                           RDESKTOP(1)
+
+
+       The unified patch can be found here
+       http://bibl4.oru.se/projects/rdesktop
+
+       The mailinglist
+       rdesktop@cifs.org
+
+
+BUGS
+       Probably  too  many to list here. We suggest you visit the
+       website at http://www.rdesktop.org and take a look at  the
+       mailinglist  archives  to  find out about the latest news,
+       bugs and fixes.
+
+VERSION
+       This manual page documents version 1.0.0/patch 19-4-2
+
+AUTHOR
+       rdesktop is written by Matt Chapman
+       <matthewc@cse.unsw.edu.au>
+
+       unified patch by Peter Bystrom
+       <peter.bystrom@ub.oru.se>
+
+       manual page by Hugo Trippaers
+       <spark@ision.nl>
+
+THANKS
+       Thanks to all the mailinglist members for their  contribu-
+       tions to rdesktop.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Manual page for rdesktop   Januari 2001                         4
+
+
