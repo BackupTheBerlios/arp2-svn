@@ -10,11 +10,15 @@ CFLAGS		= @CFLAGS@
 LDFLAGS		= @LDFLAGS@
 LDLIBS		= @LIBS@ -s
 
+LHA		= lha
+LHA_ADD		= -ao5
+LHA_CREATE	= -co5
+
 VPATH		= $(srcdir) $(rdesktop_srcdir)
 
 RDESKTOP	= RDesktop
 
-OBJECTS		= amiga_rdesktop.o amiga.o rdpsnd_ahi.o getopt.o getopt1.o eprintf.o \
+OBJECTS		= amiga_rdesktop.o amiga.o rdpsnd_ahi.o eprintf.o \
 		  rdesktop.o tcp.o iso.o mcs.o secure.o licence.o rdp.o \
 		  orders.o bitmap.o cache.o rdp5.o channels.o rdpdr.o \
 		  printercache.o cliprdr.o rdpsnd.o \
@@ -35,7 +39,8 @@ $(RDESKTOP): 	$(OBJECTS)
 	$(CC) $(LDFLAGS) $^ $(LDLIBS) $(OUTPUT_OPTION)
 
 lha:		$(RDESKTOP)
-	lha -co5 $(RDESKTOP).lha $(RDESKTOP) $(RDESKTOP).readme *.info COPYING
+	$(LHA) $(LHA_CREATE) $(RDESKTOP).lha $(RDESKTOP) $(RDESKTOP).readme COPYING
+	find * -name '*.info' -exec $(LHA) $(LHA_ADD) $(RDESKTOP).lha "{}" \;
 
 %.d:		%.c
 	$(CC) $(CPPFLAGS) -M $< $(OUTPUT_OPTION)
