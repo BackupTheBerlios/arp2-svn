@@ -316,7 +316,7 @@ Martin Blom <martin@blom.org>
 Initial release.
 
 
-=item B<1.1 (2003-XX-XX)>
+=item B<1.1 (2003-12-22)>
 
 Added workaround for workbench.library (base name is "wb").
 Added AmigaOS 4 support.
