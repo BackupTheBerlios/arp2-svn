@@ -2,7 +2,7 @@
 ;#version 2
 ;
 ;
-;   $Id: FlexCat.cd,v 1.2 1999/11/28 03:36:40 carlos Exp $
+;   $Id: FlexCat.cd,v 1.1.1.1 2003/05/05 20:47:40 martin Exp $
 ;
 ;
 ;   FlexCat.cd
@@ -201,7 +201,7 @@ Catalog version declared twice.
 ;   Warning: Wrong Rcs ID
 msgWrongRcsId (//)
 Incorrect rcs ID (must be similar to\n\
-'$Date: 1999/11/28 03:36:40 $ $Revision: 1.2 $')
+'$Date: 2003/05/05 20:47:40 $ $Revision: 1.1.1.1 $')
 ;
 ;
 ; NEW IN 1.9

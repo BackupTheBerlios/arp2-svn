@@ -223,9 +223,9 @@ Catalogusversie dubbel gedeclareerd.
 ;   Warning: Wrong Rcs ID
 msgWrongRcsId
 Incorrecte rcs ID (moet voldoen aan\n\
-'$Date: 1999/08/18 14:32:53 $ $Revision: 1.1.1.1 $')
+'$Date: 2003/05/05 20:47:40 $ $Revision: 1.1.1.1 $')
 ;Incorrect rcs ID (must be similar to\n\
-;'$Date: 1999/08/18 14:32:53 $ $Revision: 1.1.1.1 $')
+;'$Date: 2003/05/05 20:47:40 $ $Revision: 1.1.1.1 $')
 ;
 ;
 ; NEW IN 1.9

@@ -251,9 +251,9 @@ Språkfilens versjon er deklarert dobbelt.
 ;   Warning: Wrong Rcs ID
 msgWrongRcsId
 Ugyldig rcs ID (må ligne på\n\
-'$Date: 1999/08/18 14:32:41 $ $Revision: 1.1.1.1 $')
+'$Date: 2003/05/05 20:47:40 $ $Revision: 1.1.1.1 $')
 ;Incorrect rcs ID (must be similar to\n\
-;'$Date: 1999/08/18 14:32:41 $ $Revision: 1.1.1.1 $')
+;'$Date: 2003/05/05 20:47:40 $ $Revision: 1.1.1.1 $')
 ;
 ;
 ; NEW IN 1.9

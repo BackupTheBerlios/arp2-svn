@@ -258,9 +258,9 @@ n° versione del catalog dichiarato due volte.
 ;   Warning: Wrong Rcs ID
 msgWrongRcsId
 rcs ID non corretto (deve essere nel formato\n\
-$Date: 1999/08/18 14:33:02 $ $Revision: 1.1.1.1 $')
+$Date: 2003/05/05 20:47:40 $ $Revision: 1.1.1.1 $')
 ;Incorrect rcs ID (must be similar to\n\
-;'$Date: 1999/08/18 14:33:02 $ $Revision: 1.1.1.1 $')
+;'$Date: 2003/05/05 20:47:40 $ $Revision: 1.1.1.1 $')
 ;
 ;
 ; NEW IN 1.9

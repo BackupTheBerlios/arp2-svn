@@ -780,8 +780,8 @@ alltid skall vara aktuella, ange alltså:
 @samp{$VER: FlexCat.catalog 3.1 ($TODAY)}
 @end example
 
-@item ##rcsid $Date: 1999/08/18 14:32:40 $ $Revision: 1.1.1.1 $
-@itemx $Id: FlexCat_svenska.texinfo,v 1.1.1.1 1999/08/18 14:32:40 carlos Exp $
+@item ##rcsid $Date: 2003/05/05 20:47:40 $ $Revision: 1.1.1.1 $
+@itemx $Id: FlexCat_svenska.texinfo,v 1.1.1.1 2003/05/05 20:47:40 martin Exp $
 kan användas tillsammans med ett revisionskontrollsystem istället för
 ##version (allt skall givetvis vara på en och samma rad). @samp{<datum>} är
 datumet på formen @samp{åå/mm/dd}, @samp{<tid>} är tiden (ignoreras),

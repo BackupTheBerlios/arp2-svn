@@ -9,9 +9,7 @@
 **                                                              **
 *****************************************************************/
 
-/* $Id: flexcat.c,v 1.21 2002/02/14 19:07:23 carlos Exp $ */
-
-#define __amigados
+/* $Id: flexcat.c,v 1.3 2003/05/05 21:08:10 martin Exp $ */
 
 /// README
 /*
@@ -421,7 +419,7 @@ int strnicmp( char *str1, char *str2, int len )
 	   int a = tolower( (int)*str1 );
 	   int b = tolower( (int)*str2 );
 
-	   if( !a || !b )
+	   if( !a && !b )
 		   break;
 
 	   if( a != b )

@@ -567,7 +567,7 @@ Beispiel:
 Die Versionsnummer dieses Kataloges ist 8. Um ihn zu eröffnen, müssten also
 in der Katalogbeschreibung die Versionsnummern 0 oder 8 angegeben werden.
 
-@item ##rcsid $Date: 1999/08/18 14:32:47 $ $Revision: 1.1.1.1 $ $Id: FlexCat_deutsch.texinfo,v 1.1.1.1 1999/08/18 14:32:47 carlos Exp $
+@item ##rcsid $Date: 2003/05/05 20:47:40 $ $Revision: 1.1.1.1 $ $Id: FlexCat_deutsch.texinfo,v 1.1.1.1 2003/05/05 20:47:40 martin Exp $
 Das Kommando @code{##version} ist etwas ungeeignet im Zusammenhang
 mit rcs, dem Revision-Control-System. Aus diesem Grund kann man
 statt @code{##version} auch dieses Kommando verwenden. Dabei ist

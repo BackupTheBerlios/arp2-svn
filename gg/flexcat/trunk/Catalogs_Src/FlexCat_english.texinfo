@@ -1,9 +1,14 @@
 \input amigatexinfo
 \input texinfo
 @c %**start of header
-@setfilename FlexCat_english.guide
+@c @setfilename FlexCat_english.guide
 @settitle FlexCat @value{VERSION}    Documentation
 @setchapternewpage off
+
+@dircategory GeekGadgets programming tools
+@direntry
+* FlexCat: (flexcat).            The flexible catalog generator.
+@end direntry
 
 @c  $VER: FlexCat_english.texinfo 2.6
 @c
@@ -793,6 +798,7 @@ If you want your version strings to always be recent type i.e.:
     @samp{$VER: FlexCat.ct 2.2 ($TODAY)}
 @end example
 
+@item ##rcsid $Date: 2003/05/05 21:08:13 $ $Revision: 1.3 $ $Id: FlexCat_english.texinfo,v 1.3 2003/05/05 21:08:13 martin Exp $
 Please note, that from FlexCat 2.6 on, the date is automatically updated.
 This way the you know, if the compiled catalog is up-to-date in relation
 to a catalog translation.
@@ -800,7 +806,7 @@ Furthermore you can now have a correct version string in the .ct file,
 denoting that is is a .ct file. FlexCat automatically turns the ".ct"
 into  ".catalog" when creating the catalog file.
 
-@item ##rcsid $Date: 1999/08/18 14:33:00 $ $Revision: 1.1.1.1 $ $Id: FlexCat_english.texinfo,v 1.1.1.1 1999/08/18 14:33:00 carlos Exp $
+@item ##rcsid $Date: 2003/05/05 21:08:13 $ $Revision: 1.3 $ $Id: FlexCat_english.texinfo,v 1.3 2003/05/05 21:08:13 martin Exp $
 can be used in conjunction with a revision control system instead
 of ##version. @samp{<date>} is the date in the form @samp{yy/mm/dd},
 @samp{time} is the time (ignored), @samp{<rev>} the revision and

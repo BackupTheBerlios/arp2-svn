@@ -13,7 +13,7 @@ CFLAGS      =	NoStackCheck NoStackExt UnsignedChars \
 				CommentNest ErrorRexx NoMultipleIncludes \
 				NoIcons GenProtoParameters NoLink \
 				MultipleCharacterConstants \
-				Optimize OptTime OptSched
+				Optimize Opttime OptSched Def=__amigados
 
 MAIN     = FlexCat
 CATALOG  = FlexCat_cat.h

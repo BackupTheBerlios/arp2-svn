@@ -150,8 +150,8 @@ Verzija kataloga navedena dva puta.
 ;#DEF Catalog version declared twice.
 ;#SET (//)
 msgWrongRcsId
-Neispravan rcs ID (mora biti nalik na\n'$Date: 1999/08/18 14:32:33 $ $Revision: 1.1.1.1 $')
-;#DEF Incorrect rcs ID (must be similar to\n'$Date: 1999/08/18 14:32:33 $ $Revision: 1.1.1.1 $')
+Neispravan rcs ID (mora biti nalik na\n'$Date: 2003/05/05 20:47:40 $ $Revision: 1.1.1.1 $')
+;#DEF Incorrect rcs ID (must be similar to\n'$Date: 2003/05/05 20:47:40 $ $Revision: 1.1.1.1 $')
 ;#SET (//)
 msgUsageHead
 Upotreba

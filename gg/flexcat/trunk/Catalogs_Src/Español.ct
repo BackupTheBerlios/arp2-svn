@@ -225,9 +225,9 @@ Versión del catálogo duplicada.
 ;   Warning: Wrong Rcs ID
 msgWrongRcsId
 rcs ID erróneo (ha de ser similar a\n\
-'$Date: 1999/08/18 14:33:02 $ $Revision: 1.1.1.1 $').
+'$Date: 2003/05/05 20:47:40 $ $Revision: 1.1.1.1 $').
 ; Incorrect rcs ID (must be similar to\n\
-; '$Date: 1999/08/18 14:33:02 $ $Revision: 1.1.1.1 $')
+; '$Date: 2003/05/05 20:47:40 $ $Revision: 1.1.1.1 $')
 ;
 ;
 ; NEW IN 1.9

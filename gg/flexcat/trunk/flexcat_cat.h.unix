@@ -74,7 +74,7 @@ char * FlexCat_Strings[47] = {
     (char *)"Catalog language declared twice.",
     (char *)"Catalog version declared twice.",
     (char *)"Incorrect rcs ID (must be similar to\n"\
-	"'$Date: 1999/11/28 03:36:40 $ $Revision: 1.2 $')",
+	"'$Date: 2003/05/05 20:55:13 $ $Revision: 1.1.1.2 $')",
     (char *)"Usage",
     (char *)"Error processing FlexCat.prefs variable, falling back to defaults.\n"\
 	"Preferences template: ",
