@@ -61,6 +61,11 @@ default public screen and connect using RDP5 in 8 bit mode. The window
 will be 80% or the screen size, which is (approximately) 640x480 on an
 800x600 screen, 800x600 on a 1024x768 screen etc.
 
+To quit RDesktop, select "Disconnect" from Windows' start menu, press
+RAmiga-Q (or RWin-Q if you have a PC keyboard; you can still use
+LWin-Q for Windows shortcuts) or simply click on RDesktop's close
+gadget if not using the fullscreen mode (see below).
+
 The dimensions, in pixels, of the window (or screen -- see the
 FULLSCREEN switch below) can be set using the WIDTH and HEIGHT
 arguments. If negative, the percentage of the screen size is used
