@@ -33,7 +33,7 @@ arm*)	targ_archs=bfd_arm_arch ;;
 c30*)	targ_archs=bfd_tic30_arch ;;
 thumb*)	targ_archs=bfd_arm_arch ;;
 hppa*)	targ_archs=bfd_hppa_arch ;;
-i[3456]86) targ_archs=bfd_i386_arch ;;
+i[3456]86*) targ_archs=bfd_i386_arch ;;
 m68*)	targ_archs=bfd_m68k_arch ;;
 m88*)	targ_archs=bfd_m88k_arch ;;
 mips*)	targ_archs=bfd_mips_arch ;;
@@ -236,7 +236,7 @@ case "${targ}" in
     targ_defvec=bfd_elf32_i386_vec
     targ_selvecs="i386msdos_vec i386aout_vec"
     ;;
-  i[3456]86-*-mingw32* | i[3456]86-*-cygwin32* | i[3456]86-*-winnt | i[3456]86-*-pe)
+  i[3456]86-*-mingw32* | i[3456]86-*-cygwin32* | i[3456]86-*-winnt | i[3456]86-*-pe | i[3456]86-*-beos* )
     targ_defvec=i386pe_vec
     targ_selvecs="i386pe_vec i386pei_vec"
     ;;
@@ -245,6 +245,11 @@ case "${targ}" in
     ;;
   i[3456]86-*-aout* | i[3456]86*-*-vsta*)
     targ_defvec=i386aout_vec
+    ;;
+
+  i[3456]86be-*-amithlon*)
+    targ_defvec=bfd_elf32_i386be_vec
+    targ_selvecs="bfd_elf32_i386_vec"
     ;;
 
   i860-*-mach3* | i860-*-osf1* | i860-*-coff*)
@@ -283,6 +288,10 @@ case "${targ}" in
     ;;
   m68*-motorola-sysv*)
     targ_defvec=m68ksysvcoff_vec
+    ;;
+  m68*-*-amigaos*)
+    targ_defvec=amiga_vec
+    targ_selvecs="aout_amiga_vec amiga_vec"
     ;;
   m68*-hp-bsd*)
     targ_defvec=hp300bsd_vec
@@ -341,7 +350,7 @@ case "${targ}" in
     targ_selvecs="m68kcoff_vec versados_vec tekhex_vec"
     targ_underscore=yes
     ;;
-  m68*-cbm-*)
+  m68*-cbm-amix)
     targ_defvec=bfd_elf32_m68k_vec
     targ_selvecs=m68kcoff_vec
     ;;
@@ -463,6 +472,18 @@ case "${targ}" in
 
   powerpc-*-aix* | powerpc-*-beos*)
     targ_defvec=rs6000coff_vec
+    ;;
+  powerpc-*-amigaoshunk*)
+    targ_defvec=amiga_vec
+    targ_selvecs="bfd_elf32_powerpc_vec bfd_elf32_powerpcle_vec aout_amiga_vec"
+    ;;
+  powerpc-*-amigaos*)
+    targ_defvec=bfd_elf32_powerpc_vec
+    targ_selvecs="bfd_elf32_powerpcle_vec"
+    ;;
+  powerpc-*-morphos*)
+    targ_defvec=bfd_elf32_morphos_vec
+    targ_selvecs="bfd_elf32_morphos_vec"
     ;;
   powerpc-*-*bsd* | powerpc-*-elf* | powerpc-*-sysv4* | powerpc-*-eabi* | \
   powerpc-*-solaris2* | powerpc-*-linux-gnu* | powerpc-*-rtems*)

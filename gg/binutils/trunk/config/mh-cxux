@@ -8,7 +8,7 @@ RANLIB = true
 CXXFLAGS=-O
 
 # The l flag generates a warning from the SVR4 archiver, remove it.
-AR_FLAGS = cq
+ARFLAGS = cq
 
 # Under CX/UX, we want to tell the compiler to use ANSI mode.
 CC=cc -Xa

@@ -37,7 +37,9 @@ ${RELOCATING-OUTPUT_FORMAT(${RELOCATEABLE_OUTPUT_FORMAT})}
 ${LIB_SEARCH_DIRS}
 
 ENTRY(_mainCRTStartup)
-
+${RELOCATING+header = .;}
+${RELOCATING+__fltused = .; /* set up floating pt for MS .obj\'s */}
+${RELOCATING+__ldused = .;}
 SECTIONS
 {
   .text ${RELOCATING+ __image_base__ + __section_alignment__ } : 
@@ -79,6 +81,12 @@ SECTIONS
     ${RELOCATING+__bss_start__ = . ;}
     *(.bss)
     *(COMMON)
+    /* link.exe apparently pulls in .obj's because of UNDEF common
+	symbols, which is not the coff way, but that's MS for you. */
+    *(.CRT\$XCA)
+    *(.CRT\$XCZ)
+    *(.CRT\$XIA)
+    *(.CRT\$XIZ)
     ${RELOCATING+__bss_end__ = . ;}
   }
 
@@ -123,6 +131,8 @@ SECTIONS
   .reloc ${RELOCATING+BLOCK(__section_alignment__)} :
   { 					
     *(.reloc)
+    ${RELOCATING+ /* These zeroes mark the end of the reloc section.  */}
+    ${RELOCATING+ LONG (0); LONG (0); LONG (0); LONG (0); LONG (0);}
   }
 
   .rsrc ${RELOCATING+BLOCK(__section_alignment__)} :
@@ -140,6 +150,6 @@ SECTIONS
   {
     [ .stabstr ]
   }
-
+${RELOCATING+end = .; /* MS startup code needs this */}
 }
 EOF

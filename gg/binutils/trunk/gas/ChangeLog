@@ -1,3 +1,24 @@
+Sat Jun  6 23:06:18 1998  Fred Fish  <fnf@ninemoons.com>
+
+	* config/tc-i386.c (md_section_align): Re-enable use of forced
+	section alignment based only on BFD_ASSEMBLER being defined.
+	* write.c (write_contents): Work around bug in BeOS memset.
+
+Thu Jun  4 22:18:50 1998  Fred Fish  <fnf@ninemoons.com>
+
+	* configure.in (i386-*-beos8): Set bfd_gas to yes.
+	* configure: Regenerated.
+	* read.c (output_leb128): Do not inline as it is used externally
+	for some configuration.s
+
+1998-06-02  David Zaroski  <zaroski@firewall.ninemoons.com>
+
+	* config/tc-m68k.c: Add missing param to add_fix in "case '_'"
+
+Thu Apr 30 13:09:39 1998  Fred Fish  <fnf@ninemoons.com>
+
+	* read.c (sizeof_leb128): Referenced in write.c, so cannot be inlined.
+
 Mon Apr 27 13:45:04 1998  Ian Lance Taylor  <ian@cygnus.com>
 
 	* configure.in: Set version number to 2.9.1.
@@ -230,10 +251,20 @@ Sat Feb 21 22:36:52 1998  Richard Henderson  <rth@cygnus.com>
 	* read.c (s_set): Record file and line info for symbols when -as.
 	(pseudo_set): Don't overwrite that dummy fragment.
 
+Sat Feb 21 16:11:31 1998  Fred Fish  <fnf@ninemoons.com>
+
+	* itbl-parse.c: Only use gcc's builtin alloca if C_ALLOCA
+	is not defined.  Only include <alloca.h> if C_ALLOCA is
+	not defined.
+
 Fri Feb 20 15:03:13 1998  Ian Lance Taylor  <ian@cygnus.com>
 
 	* config/tc-ppc.c (md_pseudo_table): Add "section".
 	(ppc_named_section): New static function.
+
+Fri Feb 20 07:48:52 1998  Fred Fish  <fnf@ninemoons.com>
+
+	* as.h (alloca.h): Only include if C_ALLOCA is not defined.
 
 Thu Feb 19 22:25:42 1998  Richard Henderson  <rth@cygnus.com>
 
@@ -781,6 +812,11 @@ Sun Nov 16 10:05:07 1997  Fred Fish  <fnf@cygnus.com>
 	* config/obj-coff.c (fixup_segment): Cast second arg of
 	md_apply_fix3 call to type "valueT *".
 
+Sat Nov 15 09:19:21 1997  Fred Fish  <fnf@ninemoons.com>
+
+	* configure.in (i386-*-beos*): Add x86 BeOS config.
+	* configure: Regenerated.
+
 Thu Nov 13 13:53:10 1997  Andrew Cagney  <cagney@b1.cygnus.com>
 
 	* configure.in (emulations): Make FreeBSD an aout / i386bsd
@@ -910,6 +946,14 @@ Thu Oct 30 13:46:20 1997  Nick Clifton  <nickc@cygnus.com>
 	* config/tc-arm.c (md_apply_fix3): Fix thumb ADR pseudo op.  Patch
 	from Tony Thompson at ARM: athompso@arm.com
 
+Tue Oct 28 09:05:21 1997  Fred Fish  <fnf@ninemoons.com>
+
+	* configure.in (BFDLIB,OPCODES_LIB): For BeOS hosts, directly
+ 	include libraries rather than using -L search paths.
+	* configure: Regenerated.
+	* config/tc-sh.c (sh_do_align): Cast second arg of frag_align_pattern
+	calls from "char *" to "const char *".
+
 Fri Oct 24 15:56:47 1997  Ian Lance Taylor  <ian@cygnus.com>
 
 	* config/tc-ppc.c (md_assemble): When handling @l, always sign
@@ -961,6 +1005,17 @@ Tue Oct 21 10:20:11 1997  Doug Evans  <devans@canuck.cygnus.com>
 	* config/tc-sparc.c (md_apply_fix3, cases ..._H44, ..._HIX22): Leave
 	overflow signalling to linker.
 
+Mon Oct 20 21:42:55 1997  Fred Fish  <fnf@ninemoons.com>
+
+	* config/tc-sh.c (insert): Add extra 0 arg for fix_new_exp call.
+	(md_assemble): Add extra 0 arg for fix_new call.
+	(sh_frob_label): Add extra 0 arg for fix_new call.
+	(sh_flush_pending_output): Add extra 0 arg for fix_new call.
+	(s_uses): Add extra 0 arg for fix_new_exp call.
+	(sh_frob_section): Add extra 0 arg for fix_new call.
+	(md_convert_frag): Add extra 0 arg for fix_new calls.
+	(sh_handle_align): Add extra 0 arg for fix_new call.
+
 Mon Oct 20 14:54:06 1997  Klaus K"ampf  <kkaempf@progis.de>
 
 	* makefile.vms: Fix for dec c.
@@ -973,6 +1028,12 @@ Mon Oct 20 14:54:06 1997  Klaus K"ampf  <kkaempf@progis.de>
 
 	* config/obj-evax.c: support .weak pseudo-op
 
+Mon Oct 20 11:12:29 1997  Fred Fish  <fnf@ninemoons.com>
+
+	* doc/Makefile.in (AR, ARFLAGS): Remove, not used.
+	* Makefile (AR, ARFLAGS): Remove, not used.
+	(FLAGS_TO_PASS): Don't need to pass AR or ARFLAGS.
+	
 Mon Oct 20 10:13:32 1997  Doug Evans  <devans@canuck.cygnus.com>
 
 	* config/tc-sparc.c (default_arch_size): New static local.
@@ -1114,6 +1175,12 @@ Wed Oct  8 12:33:32 1997  Richard Henderson  <rth@cygnus.com>
 	* configure.in: Change alpha-*-* to alpha*-*-*; config.guess now
 	recognizes alphaev5 etc.
 	* configure: Rebuild.
+
+Wed Oct  8 10:40:55 1997  Fred Fish  <fnf@ninemoons.com>
+
+	* config/tc-i386.c (md_assemble): Add extra 0 arg for fix_new_exp calls.
+	(md_create_long_jump): Add extra 0 arg for fix_new calls.
+	(md_estimate_size_before_relax): Ditto.
 
 Wed Oct  8 00:04:05 1997  Gavin Koch  <gavin@cygnus.com>
 
@@ -1397,6 +1464,12 @@ Tue Aug 26 12:23:25 1997  Ian Lance Taylor  <ian@cygnus.com>
 	* config/tc-i386.c (md_assemble): In JumpByte case, when looking
 	for a WORD_PREFIX_OPCODE, change it to ADDR_PREFIX_OPCODE if this
 	is jcxz or a loop instruction.
+
+Mon Aug 25 16:32:00 1997  Steffen Opel  <opel@rumms.uni-mannheim.de>
+
+	* Makefile.in (guide, install-guide, clean-guide): New targets 
+	for AmigaGuide documentation.
+	(install): Add install-info and install-guide.
 
 Mon Aug 25 16:04:14 1997  Nick Clifton  <nickc@cygnus.com>
 
@@ -3396,6 +3469,13 @@ Fri Dec 27 11:42:29 1996  Ian Lance Taylor  <ian@cygnus.com>
 	* doc/as.texinfo (M): Mention explicitly that -M changes macro
 	handling.
 
+Sun Dec 22 10:45:58 1996  Fred Fish  <fnf@ninemoons.com>
+
+	* configure.in: Add support for BeOS target.
+	* configure: Regenerate.
+	* config/tc-ppc.c (ppc_set_cpu): For BeOS set ppc_cpu
+	to PPC_OPCODE_PPC.
+
 Thu Dec 19 12:06:08 1996  Ian Lance Taylor  <ian@cygnus.com>
 
 	* write.c (adjust_reloc_syms): If the fixup symbol has been
@@ -3748,6 +3828,12 @@ Mon Nov 18 15:22:28 1996  Michael Meissner  <meissner@tiktok.cygnus.com>
 	(write_2_short): Call parallel_ok to check whether two short
 	instructions the user requested execute in parallel, can be
 	executed that way.
+
+Sun Nov 17 21:09:55 1996  Kamil Iskra  <iskra@student.uci.agh.edu.pl>
+
+	* config/tc-m68k.c (md_estimate_size_before_relax): Do not
+	output 'bsrl' instructions for external function calls when
+	compiling with '-m68020' or higher.
 
 Thu Nov 14 11:17:49 1996  Martin M. Hunt  <hunt@pizza.cygnus.com>
 

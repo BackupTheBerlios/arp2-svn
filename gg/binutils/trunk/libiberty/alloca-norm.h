@@ -1,6 +1,6 @@
 /* "Normal" configuration for alloca.  */
 
-#ifdef __GNUC__
+#if defined (__GNUC__) && !defined (C_ALLOCA)
 #ifndef alloca
 #define alloca __builtin_alloca
 #endif

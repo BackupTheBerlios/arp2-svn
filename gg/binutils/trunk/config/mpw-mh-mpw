@@ -55,7 +55,7 @@ AR_MWLINKPPC = MWLinkPPC -xm library
 
 AR_AR = ar
 
-AR_FLAGS = -o
+ARFLAGS = -o
 
 RANLIB_NULL = null-command
 

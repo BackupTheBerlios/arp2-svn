@@ -1272,10 +1272,10 @@ elf_slurp_reloc_table (abfd, asect, symbols, dynamic)
 	  s = *ps;
 
 	  /* Canonicalize ELF section symbols.  FIXME: Why?  */
-	  if ((s->flags & BSF_SECTION_SYM) == 0)
+	  /*if ((s->flags & BSF_SECTION_SYM) == 0)*/
 	    relent->sym_ptr_ptr = ps;
-	  else
-	    relent->sym_ptr_ptr = s->section->symbol_ptr_ptr;
+	    /*else
+	      relent->sym_ptr_ptr = s->section->symbol_ptr_ptr;*/
 	}
 
       relent->addend = rela.r_addend;

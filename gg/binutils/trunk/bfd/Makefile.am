@@ -98,7 +98,10 @@ ALL_MACHINES_CFILES = \
 # The .o files needed by all of the 32 bit vectors that are configured into
 # target_vector in targets.c if configured with --enable-targets=all.
 BFD32_BACKENDS = \
+	amigaos.lo \
+	amigaoslink.lo \
 	aout-adobe.lo \
+	aout-amiga.lo \
 	aout-arm.lo \
 	aout-ns32k.lo \
 	aout-sparcle.lo \
@@ -150,6 +153,7 @@ BFD32_BACKENDS = \
 	elf32-mips.lo \
 	elf-m10200.lo \
 	elf-m10300.lo \
+	elf32-morphos.lo \
 	elf32-ppc.lo \
 	elf32-sh.lo \
 	elf32-sparc.lo \
@@ -203,7 +207,10 @@ BFD32_BACKENDS = \
 	xcofflink.lo
 
 BFD32_BACKENDS_CFILES = \
+	amigaos.c \
+	amigaoslink.c \
 	aout-adobe.c \
+	aout-amiga.c \
 	aout-arm.c \
 	aout-ns32k.c \
 	aout-sparcle.c \
@@ -255,6 +262,7 @@ BFD32_BACKENDS_CFILES = \
 	elf32-mips.c \
 	elf-m10200.c \
 	elf-m10300.c \
+	elf32-morphos.c \
 	elf32-ppc.c \
 	elf32-sh.c \
 	elf32-sparc.c \
@@ -382,7 +390,7 @@ CFILES = \
 HFILES = \
 	aout-target.h aoutf1.h aoutx.h coffcode.h coffswap.h \
 	ecoffswap.h elf32-hppa.h elf32-target.h elf64-target.h \
-	elfcode.h evax.h genlink.h go32stub.h hppa_stubs.h libaout.h \
+	elfcode.h evax.h genlink.h go32stub.h hppa_stubs.h libamiga.h libaout.h \
 	libbfd.h libcoff.h libecoff.h elf-bfd.h libhppa.h libieee.h \
 	libnlm.h liboasys.h netbsd.h nlm-target.h nlmcode.h ns32k.h som.h \
 	targmatch.h
@@ -637,6 +645,9 @@ cpu-vax.lo: cpu-vax.c
 cpu-we32k.lo: cpu-we32k.c
 cpu-w65.lo: cpu-w65.c
 cpu-z8k.lo: cpu-z8k.c
+amigaos.lo: amigaos.c libamiga.h bfd.h
+amigaoslink.lo: bfd.h libamiga.h amigaoslink.c
+aout-amiga.lo: aout-amiga.c aoutf1.h bfd.h
 aout-adobe.lo: aout-adobe.c $(INCDIR)/aout/adobe.h \
   $(INCDIR)/aout/stab_gnu.h $(INCDIR)/aout/stab.def libaout.h \
   $(INCDIR)/bfdlink.h
@@ -787,6 +798,9 @@ elf-m10200.lo: elf-m10200.c elf-bfd.h $(INCDIR)/elf/common.h \
 elf-m10300.lo: elf-m10300.c elf-bfd.h $(INCDIR)/elf/common.h \
   $(INCDIR)/elf/internal.h $(INCDIR)/elf/external.h $(INCDIR)/bfdlink.h \
   elf32-target.h
+elf32-morphos.lo: elf32-morphos.c $(INCDIR)/bfdlink.h elf-bfd.h \
+  $(INCDIR)/elf/common.h $(INCDIR)/elf/internal.h $(INCDIR)/elf/external.h \
+  $(INCDIR)/elf/ppc.h elf32-target.h
 elf32-ppc.lo: elf32-ppc.c $(INCDIR)/bfdlink.h elf-bfd.h \
   $(INCDIR)/elf/common.h $(INCDIR)/elf/internal.h $(INCDIR)/elf/external.h \
   $(INCDIR)/elf/ppc.h elf32-target.h

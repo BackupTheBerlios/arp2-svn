@@ -147,8 +147,10 @@ remove_output ()
 {
   if (output_filename) 
     {
-      if (output_bfd && output_bfd->iostream)
+      if (output_bfd && output_bfd->iostream) {
 	fclose((FILE *)(output_bfd->iostream));
+	output_bfd->iostream = NULL;
+      }
       if (delete_output_file_on_failure)
 	unlink (output_filename);
     }
@@ -328,10 +330,10 @@ main (argc, argv)
 	}
     }
 
-  if (link_info.relocateable)
+  /*if (link_info.relocateable)*/
     output_bfd->flags &= ~EXEC_P;
-  else
-    output_bfd->flags |= EXEC_P;
+    /*else
+      output_bfd->flags |= EXEC_P;*/
 
   ldwrite ();
 
@@ -362,6 +364,19 @@ main (argc, argv)
     {
       if (! bfd_close (output_bfd))
 	einfo ("%F%B: final close failed: %E\n", output_bfd);
+      
+      {
+	struct stat buf;
+
+	if (stat (output_filename, &buf) == 0)
+	  {
+	    int mask = umask (0);
+	    umask (mask);
+	    chmod (output_filename,
+		   (0777
+		    & (buf.st_mode | ((S_IXUSR | S_IXGRP | S_IXOTH) &~ mask))));
+	  }
+      }
 
       /* If the --force-exe-suffix is enabled, and we're making an
 	 executable file and it doesn't end in .exe, copy it to one which does. */

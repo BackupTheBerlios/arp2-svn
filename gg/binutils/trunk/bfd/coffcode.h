@@ -577,7 +577,7 @@ styp_to_sec_flags (abfd, hdr, name)
   if (styp_flags & IMAGE_SCN_LNK_REMOVE)
     sec_flags |= SEC_EXCLUDE;
 
-  if (styp_flags & IMAGE_SCN_LNK_COMDAT)
+  if (styp_flags & IMAGE_SCN_LNK_COMDAT & 0 /* fnf hack for mwcc hijacking this bit */)
     {
       sec_flags |= SEC_LINK_ONCE;
 

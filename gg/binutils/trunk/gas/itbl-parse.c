@@ -455,10 +455,10 @@ static const short yycheck[] = {     0,
    in version 1.24 of Bison.  */
 
 #ifndef alloca
-#ifdef __GNUC__
+#if defined (__GNUC__) && !defined (C_ALLOCA)
 #define alloca __builtin_alloca
 #else /* not GNU C.  */
-#if (!defined (__STDC__) && defined (sparc)) || defined (__sparc__) || defined (__sparc) || defined (__sgi)
+#if defined (HAVE_ALLOCA_H) && !defined (C_ALLOCA)
 #include <alloca.h>
 #else /* not sparc */
 #if defined (MSDOS) && !defined (__TURBOC__)

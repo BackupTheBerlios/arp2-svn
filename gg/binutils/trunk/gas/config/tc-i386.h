@@ -25,7 +25,14 @@
 struct fix;
 #endif
 
-#define TARGET_BYTES_BIG_ENDIAN	0
+/* Set the endianness we are using.  Default to little endian.  */
+#ifndef TARGET_BYTES_BIG_ENDIAN
+#define TARGET_BYTES_BIG_ENDIAN 0
+#endif
+
+#if !defined(OBJ_ELF) && TARGET_BYTES_BIG_ENDIAN == 1
+ #error Big endian i386 tested only for ELF!
+#endif
 
 #ifdef TE_LYNX
 #define TARGET_FORMAT		"coff-i386-lynx"
@@ -68,6 +75,9 @@ extern int tc_i386_fix_adjustable PARAMS ((struct fix *));
 
 #define TARGET_ARCH		bfd_arch_i386
 
+/* Whether or not the target is big endian */
+extern int target_big_endian;
+
 #ifdef OBJ_AOUT
 #ifdef TE_NetBSD
 #define TARGET_FORMAT		"a.out-i386-netbsd"
@@ -90,7 +100,7 @@ extern int tc_i386_fix_adjustable PARAMS ((struct fix *));
 #endif /* OBJ_AOUT */
 
 #ifdef OBJ_ELF
-#define TARGET_FORMAT		"elf32-i386"
+#define TARGET_FORMAT		(target_big_endian ? "elf32-i386be" : "elf32-i386")
 #endif
 
 #ifdef OBJ_MAYBE_ELF
@@ -433,7 +443,7 @@ if (fragP->fr_type == rs_align_code) 					\
 void i386_print_statistics PARAMS ((FILE *));
 #define tc_print_statistics i386_print_statistics
 
-#define md_number_to_chars number_to_chars_littleendian
+/* #define md_number_to_chars number_to_chars_littleendian */
 
 #ifdef SCO_ELF
 #define tc_init_after_args() sco_id ()

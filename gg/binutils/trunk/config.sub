@@ -212,7 +212,7 @@ case $basic_machine in
 	# We use `pc' rather than `unknown'
 	# because (1) that's what they normally are, and
 	# (2) the word "unknown" tends to confuse beginning users.
-	i[3456]86)
+	i[3456]86 | i[3456]86be)
 	  basic_machine=$basic_machine-pc
 	  ;;
 	# Object if more than one company name word.
@@ -287,11 +287,11 @@ case $basic_machine in
 		os=-sysv
 		;;
 	amiga | amiga-*)
-		basic_machine=m68k-cbm
+		basic_machine=m68k-unknown
 		;;
-	amigados)
-		basic_machine=m68k-cbm
-		os=-amigados
+	amigaos)
+		basic_machine=m68k-unknown
+		os=-amigaos
 		;;
 	amigaunix | amix)
 		basic_machine=m68k-cbm
@@ -558,6 +558,10 @@ case $basic_machine in
 	monitor)					# CYGNUS LOCAL
 		basic_machine=m68k-rom68k
 		os=-coff
+		;;
+	morphos)
+		basic_machine=powerpc-unknown
+		os=-morphos
 		;;
 	msdos)						# CYGNUS LOCAL
 		basic_machine=i386-unknown	
@@ -925,7 +929,8 @@ case $os in
 	-gnu* | -bsd* | -mach* | -minix* | -genix* | -ultrix* | -irix* \
 	      | -*vms* | -sco* | -esix* | -isc* | -aix* | -sunos | -sunos[34]*\
 	      | -hpux* | -unos* | -osf* | -luna* | -dgux* | -solaris* | -sym* \
-	      | -amigados* | -msdos* | -newsos* | -unicos* | -aof* | -aos* \
+	      | -amigaos* | -amithlon* | -morphos* \
+	      | -msdos* | -newsos* | -unicos* | -aof* | -aos* \
 	      | -nindy* | -vxsim* | -vxworks* | -ebmon* | -hms* | -mvs* \
 	      | -clix* | -riscos* | -uniplus* | -iris* | -rtu* | -xenix* \
 	      | -hiux* | -386bsd* | -netbsd* | -openbsd* | -freebsd* | -riscix* \
@@ -1098,7 +1103,7 @@ case $basic_machine in
 		os=-sysv
 		;;
 	*-cbm)
-		os=-amigados
+		os=-amigaos
 		;;
 	*-dg)
 		os=-dgux
@@ -1180,9 +1185,6 @@ case $basic_machine in
 				;;
 			-aix*)
 				vendor=ibm
-				;;
-			-beos*)						# CYGNUS LOCAL
-				vendor=be
 				;;
 			-hpux*)
 				vendor=hp

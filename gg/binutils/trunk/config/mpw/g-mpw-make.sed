@@ -52,7 +52,7 @@
 /CC/s/^CC *=/#CC =/
 /CFLAGS/s/^CFLAGS *=/#CFLAGS =/
 /AR/s/^AR *=/#AR =/
-/AR_FLAGS/s/^AR_FLAGS *=/#AR_FLAGS =/
+/ARFLAGS/s/^ARFLAGS *=/#ARFLAGS =/
 /RANLIB/s/^RANLIB *=/#RANLIB =/
 /CC_LD/s/^CC_LD *=/#CC_LD =/
 /LDFLAGS/s/^LDFLAGS *=/#LDFLAGS =/

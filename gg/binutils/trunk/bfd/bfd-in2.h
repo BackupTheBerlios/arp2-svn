@@ -694,6 +694,11 @@ extern boolean bfd_coff_get_syment
 extern boolean bfd_coff_get_auxent
   PARAMS ((bfd *, struct symbol_cache_entry *, int, union internal_auxent *));
 
+/* Externally visible PEI routines */
+
+extern void pei_get_comdat_info 
+  PARAMS ((struct sec *));
+
 /* And more from the source.  */
 void 
 bfd_init PARAMS ((void));
@@ -796,6 +801,13 @@ bfd_create PARAMS ((CONST char *filename, bfd *templ));
                 BFD_SEND(abfd, bfd_h_getx64,(ptr))
 #define bfd_h_get_signed_64(abfd, ptr) \
                 BFD_SEND(abfd, bfd_h_getx_signed_64, (ptr))
+
+typedef struct _comdat_info
+{
+  int asoc_sec;
+  char name_buf[9];
+  const char * comdat_sym;
+} comdat_info;
 
 typedef struct sec
 {
@@ -1077,6 +1089,8 @@ typedef struct sec
          /* A symbol which points at this section only */
    struct symbol_cache_entry *symbol;
    struct symbol_cache_entry **symbol_ptr_ptr;
+
+   comdat_info *pe_comdat_info;
 
    struct bfd_link_order *link_order_head;
    struct bfd_link_order *link_order_tail;
@@ -1821,6 +1835,10 @@ to compensate for the borrow when the low bits are added. */
   BFD_RELOC_PPC_EMB_RELST_HA,
   BFD_RELOC_PPC_EMB_BIT_FLD,
   BFD_RELOC_PPC_EMB_RELSDA,
+  BFD_RELOC_PPC_MORPHOS_DREL,
+  BFD_RELOC_PPC_MORPHOS_DREL_LO,
+  BFD_RELOC_PPC_MORPHOS_DREL_HI,
+  BFD_RELOC_PPC_MORPHOS_DREL_HA,
 
 /* The type of reloc used to build a contructor table - at the moment
 probably a 32 bit wide absolute relocation, but the target can choose.
@@ -2290,6 +2308,7 @@ struct _bfd
       struct cisco_core_struct *cisco_core_data;
       struct versados_data_struct *versados_data;
       struct netbsd_core_struct *netbsd_core_data;
+      struct amiga_data_struct *amiga_data;
       PTR any;
       } tdata;
   
@@ -2505,6 +2524,7 @@ core_file_matches_executable_p
 #endif
 enum bfd_flavour {
   bfd_target_unknown_flavour,
+  bfd_target_amiga_flavour,
   bfd_target_aout_flavour,
   bfd_target_coff_flavour,
   bfd_target_ecoff_flavour,

@@ -51,7 +51,7 @@
 /* Force void* decl for hpux.  This is what Bison uses.  --KR 1995.08.16 */
 
 /* AIX requires this to be the first thing in the file.  */
-#ifdef __GNUC__
+#if defined __GNUC__ && !defined (C_ALLOCA)
 # ifndef alloca
 #  ifdef __STDC__
 extern void *alloca ();
@@ -60,7 +60,7 @@ extern char *alloca ();
 #  endif
 # endif
 #else
-# if HAVE_ALLOCA_H
+# if defined (HAVE_ALLOCA_H) && !defined (C_ALLOCA)
 #  include <alloca.h>
 # else
 #  ifdef _AIX

@@ -328,6 +328,7 @@ dump_section_header (abfd, section, ignored)
   if ((section->flags & SEC_LINK_ONCE) != 0)
     {
       const char *ls;
+      pei_get_comdat_info(section);
 
       switch (section->flags & SEC_LINK_DUPLICATES)
 	{
@@ -348,6 +349,10 @@ dump_section_header (abfd, section, ignored)
 	}
       printf ("%s%s", comma, ls);
       comma = ", ";
+      if (section->pe_comdat_info->asoc_sec != (int)NULL)
+        printf ("\n		    Associated with section %d", section->pe_comdat_info->asoc_sec -1);
+      else
+        printf ("\n		    Communal; sym=%s", section->pe_comdat_info->comdat_sym);
     }
 
   printf ("\n");
@@ -2466,14 +2471,14 @@ endian_string (endian)
 static void
 display_target_list ()
 {
-  extern bfd_target *bfd_target_vector[];
+  extern const bfd_target * const bfd_target_vector[];
   char *dummy_name;
   int t;
 
   dummy_name = choose_temp_base ();
   for (t = 0; bfd_target_vector[t]; t++)
     {
-      bfd_target *p = bfd_target_vector[t];
+      const bfd_target *p = bfd_target_vector[t];
       bfd *abfd = bfd_openw (dummy_name, p->name);
       int a;
 
@@ -2512,7 +2517,7 @@ display_info_table (first, last)
      int first;
      int last;
 {
-  extern bfd_target *bfd_target_vector[];
+  extern const bfd_target * const bfd_target_vector[];
   int t, a;
   char *dummy_name;
 
@@ -2530,7 +2535,7 @@ display_info_table (first, last)
 		bfd_printable_arch_mach (a, 0));
 	for (t = first; t < last && bfd_target_vector[t]; t++)
 	  {
-	    bfd_target *p = bfd_target_vector[t];
+	    const bfd_target *p = bfd_target_vector[t];
 	    boolean ok = true;
 	    bfd *abfd = bfd_openw (dummy_name, p->name);
 
@@ -2579,7 +2584,7 @@ static void
 display_target_tables ()
 {
   int t, columns;
-  extern bfd_target *bfd_target_vector[];
+  extern const bfd_target * const bfd_target_vector[];
   char *colum;
 
   columns = 0;

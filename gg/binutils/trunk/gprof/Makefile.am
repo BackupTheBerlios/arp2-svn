@@ -25,7 +25,7 @@ EXTRA_DIST = flat_bl.c bsd_callg_bl.c fsf_callg_bl.c bbconv.pl
 
 BUILT_SOURCES = flat_bl.c bsd_callg_bl.c fsf_callg_bl.c
 
-diststuff: $(BUILT_SOURCES) info
+diststuff: $(BUILT_SOURCES) info guide
 
 .m.c:
 	awk -f $(srcdir)/gen-c-prog.awk > ./$*.c \

@@ -1188,6 +1188,10 @@ ppc_elf_suffix (str_p, exp_p)
     MAP ("bitfld",	BFD_RELOC_PPC_EMB_BIT_FLD),
     MAP ("relsda",	BFD_RELOC_PPC_EMB_RELSDA),
     MAP ("xgot",	BFD_RELOC_PPC_TOC16),
+    MAP ("drel",	BFD_RELOC_PPC_MORPHOS_DREL),
+    MAP ("drell",	BFD_RELOC_PPC_MORPHOS_DREL_LO),
+    MAP ("drelh",	BFD_RELOC_PPC_MORPHOS_DREL_HI),
+    MAP ("drelha",	BFD_RELOC_PPC_MORPHOS_DREL_HA),
 
     { (char *)0,	0,	BFD_RELOC_UNUSED }
   };
@@ -1278,7 +1282,7 @@ ppc_elf_cons (nbytes)
 	      register char *p = frag_more ((int) nbytes);
 	      int offset = nbytes - size;
 
-	      fix_new_exp (frag_now, p - frag_now->fr_literal + offset, size, &exp, 0, reloc);
+	      fix_new_exp (frag_now, p - frag_now->fr_literal + offset, size, &exp, 0, reloc, 0);
 	    }
 	}
       else
@@ -1656,7 +1660,7 @@ md_assemble (str)
 	  /* If there are fewer operands in the line then are called
 	     for by the instruction, we want to skip the optional
 	     operand.  */
-	  if (opcount < strlen (opcode->operands))
+	  if (opcount < strlen ((const char *) opcode->operands))
 	    skip_optional = 1;
 
 	  break;
@@ -2000,7 +2004,7 @@ md_assemble (str)
 
 	  fixP = fix_new_exp (frag_now, f - frag_now->fr_literal + offset, size,
 			      &fixups[i].exp, reloc_howto->pc_relative,
-			      fixups[i].reloc);
+			      fixups[i].reloc, 0);
 
 	  /* Turn off complaints that the addend is too large for things like
 	     foo+100000@ha.  */
@@ -2022,7 +2026,7 @@ md_assemble (str)
 		     &fixups[i].exp,
 		     (operand->flags & PPC_OPERAND_RELATIVE) != 0,
 		     ((bfd_reloc_code_real_type)
-		       (fixups[i].opindex + (int) BFD_RELOC_UNUSED)));
+		       (fixups[i].opindex + (int) BFD_RELOC_UNUSED)),0);
     }
 }
 
@@ -4849,6 +4853,10 @@ md_apply_fix3 (fixp, valuep, seg)
 	case BFD_RELOC_PPC_EMB_RELST_HA:
 	case BFD_RELOC_PPC_EMB_RELSDA:
 	case BFD_RELOC_PPC_TOC16:
+	case BFD_RELOC_PPC_MORPHOS_DREL:
+	case BFD_RELOC_PPC_MORPHOS_DREL_LO:
+	case BFD_RELOC_PPC_MORPHOS_DREL_HI:
+	case BFD_RELOC_PPC_MORPHOS_DREL_HA:
 	  if (fixp->fx_pcrel)
 	    as_bad_where (fixp->fx_file, fixp->fx_line,
 			  "cannot emit PC relative %s relocation%s%s",

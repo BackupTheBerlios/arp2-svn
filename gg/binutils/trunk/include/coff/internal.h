@@ -92,6 +92,10 @@ typedef struct _IMAGE_DATA_DIRECTORY
 #define NT_EXE_IMAGE_BASE 0x400000
 #define NT_DLL_IMAGE_BASE 0x10000000
 
+/* default image base for BeOS */
+#define BEOS_EXE_IMAGE_BASE 0x80000000
+#define BEOS_DLL_IMAGE_BASE 0x80000000
+
 /* Extra stuff in a PE aouthdr */
 
 #define PE_DEF_SECTION_ALIGNMENT 0x1000

@@ -41,6 +41,10 @@ Wed Oct  1 14:41:28 1997  Ian Lance Taylor  <ian@cygnus.com>
 	elfcode.h as input files; they don't contribute anything.
 	* Makefile.in: Rebuild.
 
+Mon Aug 25 16:32:00 1997  Steffen Opel  <opel@rumms.uni-mannheim.de>
+
+	* Makefile.in (docs): Add bfd.guide.
+
 Fri Aug 15 04:55:15 1997  Doug Evans  <dje@canuck.cygnus.com>
 
 	* Makefile.am (libbfd.h, libcoff.h): Invoke $(MKDOC) as ./$(MKDOC).

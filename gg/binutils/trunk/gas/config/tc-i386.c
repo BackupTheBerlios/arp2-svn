@@ -38,6 +38,12 @@
 #define TC_RELOC(X,Y) (Y)
 #endif
 
+/* Tell the main code what the endianness is.  */
+extern int target_big_endian;
+
+/* Whether or not, we've set target_big_endian.  */
+static int set_target_endian = 0;
+
 static unsigned long mode_from_disp_size PARAMS ((unsigned long));
 static int fits_in_signed_byte PARAMS ((long));
 static int fits_in_unsigned_byte PARAMS ((long));
@@ -590,6 +596,15 @@ md_begin ()
     for (p = operand_special_chars; *p != '\0'; p++)
       operand_chars[(unsigned char) *p] = *p;
   }
+
+#if defined(OBJ_ELF) && TARGET_BYTES_BIG_ENDIAN == 1
+  /* Tell the main code what the endianness is if it is not overidden by the user.  */
+  if (!set_target_endian)
+    {
+      set_target_endian = 1;
+      target_big_endian = TARGET_BYTES_BIG_ENDIAN;
+    }
+#endif
 
 #if defined (OBJ_ELF) || defined (OBJ_MAYBE_ELF)
   if (OUTPUT_FLAVOR == bfd_target_elf_flavour)
@@ -1807,7 +1822,7 @@ md_assemble (line)
 	else
 	  {
 	    fix_new_exp (frag_now, p - frag_now->fr_literal, size,
-			 i.disps[0], 1, reloc (size, 1, i.disp_reloc[0]));
+			 i.disps[0], 1, reloc (size, 1, i.disp_reloc[0]), 0);
 
 	  }
       }
@@ -1826,7 +1841,7 @@ md_assemble (line)
 	  md_number_to_chars (p + 1, (valueT) i.imms[1]->X_add_number, 4);
 	else
 	  fix_new_exp (frag_now, p + 1 - frag_now->fr_literal, 4,
-		       i.imms[1], 0, BFD_RELOC_32);
+		       i.imms[1], 0, BFD_RELOC_32, 0);
 	if (i.imms[0]->X_op != O_constant)
 	  as_bad ("can't handle non absolute segment in long call/jmp");
 	md_number_to_chars (p + 5, (valueT) i.imms[0]->X_add_number, 2);
@@ -1952,7 +1967,7 @@ md_assemble (line)
 			insn_size += 4;
 			fix_new_exp (frag_now, p - frag_now->fr_literal, 4,
 					    i.disps[n], 0, 
-					    TC_RELOC(i.disp_reloc[n], BFD_RELOC_32));
+					    TC_RELOC(i.disp_reloc[n], BFD_RELOC_32), 0);
 		      }
 		  }
 	      }
@@ -2026,7 +2041,7 @@ md_assemble (line)
 			  }
 #endif
 			fix_new_exp (frag_now, p - frag_now->fr_literal, size,
-				     i.imms[n], pcrel, r_type);
+				     i.imms[n], pcrel, r_type, 0);
 		      }
 		  }
 	      }
@@ -2577,7 +2592,7 @@ md_estimate_size_before_relax (fragP, segment)
 				     think it does not matter that much, as
 				     this will be right most of the time. ERY*/
 		    S_GET_SEGMENT(fragP->fr_symbol) == undefined_section)?
-		   BFD_RELOC_386_PLT32 : BFD_RELOC_32_PCREL);
+		   BFD_RELOC_386_PLT32 : BFD_RELOC_32_PCREL, 0);
 	  break;
 
 	default:
@@ -2593,7 +2608,7 @@ md_estimate_size_before_relax (fragP, segment)
 				     presence of @PLT, but I cannot see how
 				     to get to that from here.  ERY */
 		    S_GET_SEGMENT(fragP->fr_symbol) == undefined_section)?
-		   BFD_RELOC_386_PLT32 : BFD_RELOC_32_PCREL);
+		   BFD_RELOC_386_PLT32 : BFD_RELOC_32_PCREL, 0);
 	  break;
 	}
       frag_wane (fragP);
@@ -2729,7 +2744,7 @@ md_create_long_jump (ptr, from_addr, to_addr, frag, to_symbol)
       md_number_to_chars (ptr, (valueT) 0xe9, 1);/* opcode for long jmp */
       md_number_to_chars (ptr + 1, (valueT) offset, 4);
       fix_new (frag, (ptr + 1) - frag->fr_literal, 4,
-	       to_symbol, (offsetT) 0, 0, BFD_RELOC_32);
+	       to_symbol, (offsetT) 0, 0, BFD_RELOC_32, 0);
     }
   else
     {
@@ -2854,7 +2869,15 @@ md_apply_fix3 (fixP, valp, seg)
 #endif
 
 #endif
-  md_number_to_chars (p, value, fixP->fx_size);
+
+  if ((bfd_get_section_flags (stdoutput, seg) & SEC_CODE) != 0)
+  {
+    number_to_chars_littleendian (p, value, fixP->fx_size);
+  }
+  else
+  {
+    md_number_to_chars (p, value, fixP->fx_size);
+  }
 
   return 1;
 }
@@ -2963,7 +2986,11 @@ parse_register (reg_string)
 }
 
 #ifdef OBJ_ELF
+# if TARGET_BYTES_BIG_ENDIAN == 1
+CONST char *md_shortopts = "km:VQ:";
+# else
 CONST char *md_shortopts = "kmVQ:";
+# endif
 #else
 CONST char *md_shortopts = "m";
 #endif
@@ -2980,6 +3007,26 @@ md_parse_option (c, arg)
   switch (c)
     {
     case 'm':
+#if defined (OBJ_ELF) && TARGET_BYTES_BIG_ENDIAN == 1
+      /* -mlittle/-mbig set the endianess */
+      if (strcmp (arg, "little") == 0 || strcmp (arg, "little-endian") == 0)
+	{
+	  target_big_endian = 0;
+	  set_target_endian = 1;
+	  break;
+	}
+      else if (strcmp (arg, "big") == 0 || strcmp (arg, "big-endian") == 0)
+	{
+	  target_big_endian = 1;
+	  set_target_endian = 1;
+	  break;
+      }
+      else if( *arg != '\0' )
+	{
+	  as_bad ("invalid switch -m%s", arg);
+	  return 0;
+	}
+#endif
       flag_do_long_jump = 1;
       break;
 
@@ -3009,8 +3056,33 @@ void
 md_show_usage (stream)
      FILE *stream;
 {
+#if defined (OBJ_ELF) && TARGET_BYTES_BIG_ENDIAN == 1
+  fprintf(stream, "\
+i386be options:\n\
+-mlittle, -mlittle-endian\n\
+                        generate code for a little endian machine\n\
+-mbig, -mbig-endian     generate code for a big endian machine\n");
+
+#endif
   fprintf (stream, "\
 -m			do long jump\n");
+}
+
+/* Write a value out to the object file, using the appropriate
+   endianness.  */
+
+void
+md_number_to_chars (buf, val, n)
+     char *buf;
+     valueT val;
+     int n;
+{
+  if (target_big_endian && ((bfd_get_section_flags (stdoutput, now_seg) & SEC_CODE) == 0))
+    number_to_chars_bigendian (buf, val, n);
+  else
+    {
+      number_to_chars_littleendian (buf, val, n);
+    }
 }
 
 #ifdef BFD_ASSEMBLER
@@ -3064,7 +3136,11 @@ md_section_align (segment, size)
      segT segment;
      valueT size;
 {
-#ifdef OBJ_AOUT
+/* fnf hack - check to see if BFD really should handle this or not.  It is currently
+   not, at least for the BeOS port, and since stdio does not guarantee that holes
+   in files are zero filled, the holes are ending up with random contents.  This
+   really screws things like gcc's bootstrap success/fail testing. */
+#if 1
 #ifdef BFD_ASSEMBLER
   /* For a.out, force the section size to be aligned.  If we don't do
      this, BFD will align it for us, but it will not write out the

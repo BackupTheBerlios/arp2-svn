@@ -23,6 +23,9 @@ case "${host}" in
   *-*-sysv*)		frag=mh-sysv ;;
   *-*-go32)		frag=mh-go32 ;;
   i[345]86-*-windows*)	frag=mh-windows ;;
+  *-*-amigaos*)		frag=mh-amigaos ;;
+  *-*-morphos*)		frag=mh-morphos ;;
+  *-*-beos*)		frag=mh-beos ;;
 
   *-*-vxworks5* | *-*-vxworks)
     # VxWorks 5 needs special action, because the usual

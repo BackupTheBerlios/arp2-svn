@@ -138,6 +138,7 @@ DESCRIPTION
 
 .enum bfd_flavour {
 .  bfd_target_unknown_flavour,
+.  bfd_target_amiga_flavour,
 .  bfd_target_aout_flavour,
 .  bfd_target_coff_flavour,
 .  bfd_target_ecoff_flavour,
@@ -469,6 +470,8 @@ in this structure.
    we can't intermix extern's and initializers.  */
 extern const bfd_target a29kcoff_big_vec;
 extern const bfd_target a_out_adobe_vec;
+extern const bfd_target amiga_vec;
+extern const bfd_target aout_amiga_vec;
 extern const bfd_target aout_arm_big_vec;
 extern const bfd_target aout_arm_little_vec;
 extern const bfd_target aout_mips_big_vec;
@@ -492,6 +495,7 @@ extern const bfd_target bfd_elf64_bigmips_vec;
 extern const bfd_target bfd_elf32_d10v_vec;
 extern const bfd_target bfd_elf32_hppa_vec;
 extern const bfd_target bfd_elf32_i386_vec;
+extern const bfd_target bfd_elf32_i386be_vec;
 extern const bfd_target bfd_elf32_i860_vec;
 extern const bfd_target bfd_elf32_little_generic_vec;
 extern const bfd_target bfd_elf32_littlemips_vec;
@@ -501,6 +505,7 @@ extern const bfd_target bfd_elf32_m68k_vec;
 extern const bfd_target bfd_elf32_m88k_vec;
 extern const bfd_target bfd_elf32_mn10200_vec;
 extern const bfd_target bfd_elf32_mn10300_vec;
+extern const bfd_target bfd_elf32_morphos_vec;
 extern const bfd_target bfd_elf32_powerpc_vec;
 extern const bfd_target bfd_elf32_powerpcle_vec;
 extern const bfd_target bfd_elf32_sh_vec;
@@ -630,6 +635,8 @@ const bfd_target * const bfd_target_vector[] = {
 	   it wasn't omitted by mistake.  */
 	&a29kcoff_big_vec,
 	&a_out_adobe_vec,
+	&amiga_vec,
+	&aout_amiga_vec,
 #if 0				/* No one seems to use this.  */
 	&aout_mips_big_vec,
 #endif
@@ -653,6 +660,7 @@ const bfd_target * const bfd_target_vector[] = {
 	&bfd_elf32_d10v_vec,
 	&bfd_elf32_hppa_vec,
 	&bfd_elf32_i386_vec,
+	&bfd_elf32_i386be_vec,
 	&bfd_elf32_i860_vec,
 	&bfd_elf32_little_generic_vec,
 	&bfd_elf32_littlearc_vec,
@@ -663,6 +671,7 @@ const bfd_target * const bfd_target_vector[] = {
 	&bfd_elf32_m32r_vec,
 	&bfd_elf32_mn10200_vec,
 	&bfd_elf32_mn10300_vec,
+	&bfd_elf32_morphos_vec,
 	&bfd_elf32_m68k_vec,
 	&bfd_elf32_m88k_vec,
 	&bfd_elf32_sparc_vec,

@@ -529,6 +529,9 @@ filter_symbols (abfd, obfd, osyms, isyms, symcount)
 
       if ((flags & BSF_KEEP) != 0)		/* Used in relocation.  */
 	keep = 1;
+      else if (strcmp( TARGET, "powerpc-unknown-morphos" ) == 0 &&
+	       strip_symbols == strip_all)
+	keep = 0;
       else if ((flags & BSF_GLOBAL) != 0	/* Global symbol.  */
 	       || (flags & BSF_WEAK) != 0
 	       || bfd_is_und_section (bfd_get_section (sym))
@@ -779,12 +782,14 @@ copy_object (ibfd, obfd)
 
   /* Symbol filtering must happen after the output sections have
      been created, but before their contents are set.  */
-  if (strip_symbols == strip_all)
+
+  if (strcmp( TARGET, "powerpc-unknown-morphos" ) != 0 &&
+      strip_symbols == strip_all && !keep_specific_list)
     {
       osympp = isympp = NULL;
       symcount = 0;
     }
-  else
+    else
     {
       long symsize;
       PTR dhandle = NULL;
@@ -805,7 +810,8 @@ copy_object (ibfd, obfd)
       if (convert_debugging)
 	dhandle = read_debugging_info (ibfd, isympp, symcount);
 
-      if (strip_symbols == strip_debug 
+      if (strcmp( TARGET, "powerpc-unknown-morphos" ) == 0 ||
+	  strip_symbols == strip_debug 
 	  || strip_symbols == strip_unneeded
 	  || discard_locals != locals_undef
 	  || strip_specific_list != NULL
@@ -817,7 +823,7 @@ copy_object (ibfd, obfd)
 	  || change_leading_char
 	  || remove_leading_char
 	  || weaken)
-	{
+	  {
 	  /* Mark symbols used in output relocations so that they
 	     are kept, even if they are local labels or static symbols.
 
@@ -831,6 +837,9 @@ copy_object (ibfd, obfd)
 				 (PTR)isympp);
 	  osympp = (asymbol **) xmalloc ((symcount + 1) * sizeof (asymbol *));
 	  symcount = filter_symbols (ibfd, obfd, osympp, isympp, symcount);
+	  if (strcmp( TARGET, "powerpc-unknown-morphos" ) == 0 &&
+	      !symcount)
+	    fatal("no symbols\n");
 	}
 
       if (convert_debugging && dhandle != NULL)
@@ -1242,9 +1251,11 @@ copy_section (ibfd, isection, obfdarg)
   if (size == 0 || osection == 0)
     return;
 
-  if (strip_symbols == strip_all)
+  /* Never, ever, strip reloc data on the Amiga! */
+  if (strcmp( TARGET, "powerpc-unknown-morphos" ) != 0 &&
+      strip_symbols == strip_all && bfd_get_flavour(obfd) != bfd_target_amiga_flavour)
     bfd_set_reloc (obfd, osection, (arelent **) NULL, 0);
-  else
+    else
     {
       long relsize;
 
@@ -1747,6 +1758,8 @@ strip_main (argc, argv)
   if (show_version)
     print_version ("strip");
 
+  add_specific_symbol("__amigappc__", &keep_specific_list);
+
   /* Default is to strip all symbols.  */
   if (strip_symbols == strip_undef
       && discard_locals == locals_undef
@@ -2075,6 +2088,8 @@ copy_main (argc, argv)
 
   if (show_version)
     print_version ("objcopy");
+
+  add_specific_symbol("__amigappc__", &keep_specific_list);
 
   if (copy_byte >= interleave)
     {

@@ -93,6 +93,8 @@ ALL_EMULATIONS = \
 	ea29k.o \
 	eaixppc.o \
 	eaixrs6.o \
+	eamiga.o \
+	eamiga_bss.o \
 	ealpha.o \
 	earcelf.o \
 	earmaoutb.o \
@@ -113,6 +115,7 @@ ALL_EMULATIONS = \
 	eelf32lppc.o \
 	eelf32ppc.o \
 	eelf_i386.o \
+	eelf_i386be.o \
 	egld960.o \
 	egld960coff.o \
 	ego32.o \
@@ -128,6 +131,7 @@ ALL_EMULATIONS = \
 	ehp3hpux.o \
 	ehppaelf.o \
 	ei386aout.o \
+	ei386beos.o \
 	ei386bsd.o \
 	ei386coff.o \
 	ei386go32.o \
@@ -159,6 +163,8 @@ ALL_EMULATIONS = \
 	enews.o \
 	ens32knbsd.o \
 	epc532macha.o \
+	eppcamiga.o \
+	eppcamiga_bss.o \
 	eppcmacos.o \
 	eppcnw.o \
 	eppcpe.o \
@@ -225,10 +231,22 @@ ldemul-list.h: Makefile
 
 # These all start with e so 'make clean' can find them.
 
-GENSCRIPTS = $(SHELL) $(srcdir)/genscripts.sh ${srcdir} ${libdir} @host@ @target@ @target_alias@ ${EMUL} "@NATIVE_LIB_DIRS@"
+GENSCRIPTS = $(SHELL) $(srcdir)/genscripts.sh ${srcdir} ${libdir} @host@ @target@ @target_alias@ ${EMUL} "@NATIVE_LIB_DIRS@" "$(LIB_PATH)"
 GEN_DEPENDS = $(srcdir)/genscripts.sh $(srcdir)/emultempl/stringify.sed
 @TDIRS@
 
+eamiga.c: $(srcdir)/emulparams/amiga.sh\
+   $(srcdir)/emultempl/amiga.em $(srcdir)/scripttempl/amiga.sc ${GEN_DEPENDS} 
+	${GENSCRIPTS} amiga "$(tdir_amiga)"
+eamiga_bss.c: $(srcdir)/emulparams/amiga_bss.sh\
+   $(srcdir)/emultempl/amiga.em $(srcdir)/scripttempl/amiga_bss.sc ${GEN_DEPENDS}
+	${GENSCRIPTS} amiga_bss "$(tdir_amiga_bss)"
+eppcamiga.c: $(srcdir)/emulparams/ppcamiga.sh\
+   $(srcdir)/emultempl/amiga.em $(srcdir)/scripttempl/amiga.sc ${GEN_DEPENDS} 
+	${GENSCRIPTS} ppcamiga "$(tdir_ppcamiga)"
+eppcamiga_bss.c: $(srcdir)/emulparams/ppcamiga_bss.sh\
+   $(srcdir)/emultempl/amiga.em $(srcdir)/scripttempl/amiga_bss.sc ${GEN_DEPENDS}
+	${GENSCRIPTS} ppcamiga_bss "$(tdir_ppcamiga_bss)"
 ea29k.c: $(srcdir)/emulparams/a29k.sh \
   $(srcdir)/emultempl/generic.em $(srcdir)/scripttempl/a29k.sc ${GEN_DEPENDS}
 	${GENSCRIPTS} a29k "$(tdir_a29k)"
@@ -313,6 +331,9 @@ eelf64_sparc.c: $(srcdir)/emulparams/elf64_sparc.sh \
 eelf_i386.c: $(srcdir)/emulparams/elf_i386.sh \
   $(srcdir)/emultempl/elf32.em $(srcdir)/scripttempl/elf.sc ${GEN_DEPENDS}
 	${GENSCRIPTS} elf_i386 "$(tdir_elf_i386)"
+eelf_i386be.c: $(srcdir)/emulparams/elf_i386be.sh \
+  $(srcdir)/emultempl/elf32.em $(srcdir)/scripttempl/elf.sc ${GEN_DEPENDS}
+	${GENSCRIPTS} elf_i386be "$(tdir_elf_i386be)"
 egld960.c: $(srcdir)/emulparams/gld960.sh \
   $(srcdir)/emultempl/gld960.em $(srcdir)/scripttempl/i960.sc ${GEN_DEPENDS}
 	${GENSCRIPTS} gld960 "$(tdir_gld960)"
@@ -358,6 +379,9 @@ ehppaelf.c: $(srcdir)/emulparams/hppaelf.sh \
 ei386aout.c: $(srcdir)/emulparams/i386aout.sh \
   $(srcdir)/emultempl/generic.em $(srcdir)/scripttempl/aout.sc ${GEN_DEPENDS}
 	${GENSCRIPTS} i386aout "$(tdir_i386aout)"
+ei386beos.c: $(srcdir)/emulparams/i386beos.sh \
+  $(srcdir)/emultempl/beos.em $(srcdir)/scripttempl/i386beos.sc ${GEN_DEPENDS}
+	${GENSCRIPTS} i386beos "$(tdir_i386beos)"
 ei386bsd.c: $(srcdir)/emulparams/i386bsd.sh \
   $(srcdir)/emultempl/generic.em $(srcdir)/scripttempl/aout.sc ${GEN_DEPENDS}
 	${GENSCRIPTS} i386bsd "$(tdir_i386bsd)"
@@ -542,6 +566,16 @@ ld_new_LDADD = $(EMULATION_OFILES) $(BFDLIB) $(LIBIBERTY)
 $(EMULATION_OFILES): ../bfd/bfd.h sysdep.h config.h $(INCDIR)/bfdlink.h \
   ld.h ldmain.h ldemul.h ldfile.h ldmisc.h ldexp.h ldlang.h \
   ldctor.h ldexp.h ldlang.h ldgram.h
+
+# GG-local: For BeOS, we use a fake ld that calls GNU ld and then mwld.
+beos-ld: beos-ld.c
+	$(CC) -I. -I$(INCDIR) $(HLDFLAGS) $(CFLAGS) $(LDFLAGS) -DLDNAME='"@LDNAME@"' -DTARGET_ALIAS='"@target_alias@"' -o $@ $(srcdir)/beos-ld.c
+
+install-beos-ld:
+	test -d $(tooldir) || mkdir $(tooldir)
+	test -d $(tooldir)/bin || mkdir $(tooldir)/bin
+	$(INSTALL_XFORM) beos-ld $(bindir)/ld
+	$(INSTALL_PROGRAM) beos-ld $(tooldir)/bin/ld
 
 # This is the real libbfd.a created by libtool.
 TESTBFDLIB = @TESTBFDLIB@

@@ -60,6 +60,11 @@ extern int target_big_endian;
 #endif
 #endif
 
+/* This is used by the Amiga to produce sun3 style a.out objects */
+#if defined(OBJ_AOUT) && defined(TE_SUN3) && 0
+#define TARGET_FORMAT "a.out-amiga"
+#endif
+
 /* PowerMac has a BFD slightly different from AIX's.  */
 #ifdef TE_POWERMAC
 #ifdef TARGET_FORMAT
@@ -69,7 +74,11 @@ extern int target_big_endian;
 #endif
 
 #ifdef OBJ_ELF
+#ifdef TE_MORPHOS
+#define TARGET_FORMAT "elf32-morphos"
+#else
 #define TARGET_FORMAT (target_big_endian ? "elf32-powerpc" : "elf32-powerpcle")
+#endif
 #endif
 
 /* Permit temporary numeric labels.  */

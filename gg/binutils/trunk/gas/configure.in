@@ -75,7 +75,8 @@ changequote([,])dnl
       thumb*)		cpu_type=arm endian=little ;;
       hppa*)		cpu_type=hppa ;;
 changequote(,)dnl
-      i[456]86)		cpu_type=i386 ;;
+      i[456]86)		cpu_type=i386 endian=little;;
+      i[456]86be)	cpu_type=i386 endian=big;;
       m680[012346]0)	cpu_type=m68k ;;
       m68008)		cpu_type=m68k ;;
       m683??)		cpu_type=m68k ;;
@@ -155,6 +156,7 @@ changequote([,])dnl
       i386-*-linux*aout* | i386-*-linuxoldld)   fmt=aout em=linux ;;
       i386-*-linux*coff*)   fmt=coff em=linux ;;
       i386-*-linux-gnu*)    fmt=elf em=linux ;;
+      i386-*-amithlon*)     fmt=elf em=linux ;;
       i386-*-lynxos*)       fmt=coff em=lynx ;;
       i386-*-sysv4* | i386-*-solaris* | i386-*-elf)
 			    fmt=elf ;;
@@ -177,6 +179,7 @@ changequote([,])dnl
 			    fmt=aout em=mach bfd_gas=yes ;;
       i386-*-msdos*)        fmt=aout ;;
       i386-*-moss*)	    fmt=elf ;;
+      i386-*-beos*)         fmt=coff em=pe bfd_gas=yes ;;
       i386-*-pe)            fmt=coff em=pe ;;
       i386-*-cygwin32*)     fmt=coff em=pe bfd_gas=yes ;;
       i386-*-mingw32*)      fmt=coff em=pe bfd_gas=yes ;;
@@ -192,6 +195,8 @@ changequote([,])dnl
 
       m32r-*-*)		    fmt=elf bfd_gas=yes ;;
 
+      m68*-*-amigaoshunk)   fmt=amigahunk em=amiga bfd_gas=yes ;;
+      m68*-*-amigaos*)      fmt=aout em=amiga ;;
       m68k-*-vxworks* | m68k-ericsson-ose | m68k-*-sunos*)
 			    fmt=aout em=sun3 ;;
       m68k-motorola-sysv*)  fmt=coff em=delta ;;
@@ -238,8 +243,10 @@ changequote([,])dnl
 		            fmt=coff em=pe ;;
       ppc-*-aix*)           fmt=coff ;;
       ppc-*-beos*)          fmt=coff ;;
-      ppc-*-*bsd* | ppc-*-elf* | ppc-*-eabi* | ppc-*-sysv4*)
+      ppc-*-*bsd* | ppc-*-elf* | ppc-*-eabi* | ppc-*-sysv4* | ppc-*-amigaos*)
 			    fmt=elf ;;
+      ppc-*-morphos*)
+			    fmt=elf em=morphos ;;
       ppc-*-linux-gnu*)	    fmt=elf
 			    case "$endian" in
 			    big)  ;;
@@ -555,7 +562,7 @@ AC_DEFINE_UNQUOTED(DEFAULT_EMULATION, "$DEFAULT_EMULATION")
 
 case ${primary_bfd_gas}-${target_cpu_type}-${obj_format} in
   yes-*-coff)	need_bfd=yes ;;
-  no-*-coff)	need_bfd=yes
+  no-*-coff | yes-m68k-amigahunk | no-m68k-amigahunk)	need_bfd=yes
 		AC_DEFINE(MANY_SEGMENTS) ;;
 esac
 
@@ -604,6 +611,17 @@ AC_DEFINE_UNQUOTED(TARGET_VENDOR,	"${target_vendor}")
 AC_DEFINE_UNQUOTED(TARGET_OS,		"${target_os}")
 
 AC_PROG_CC
+
+### begin-GG-local
+# Check for additional host specific CFLAGS.
+AC_MSG_CHECKING(for host dependent CFLAGS)
+other_host_cflags=""
+case "${host}" in
+	m68*-*-amigaos*)	other_host_cflags="-mstackextend" ;;
+esac
+test -n "$other_host_cflags" && CFLAGS="$CFLAGS $other_host_cflags"
+AC_MSG_RESULT($other_host_cflags)
+### end-GG-local
 
 AC_PROG_YACC
 AC_PROG_LEX

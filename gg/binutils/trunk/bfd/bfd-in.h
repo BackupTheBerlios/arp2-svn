@@ -694,4 +694,9 @@ extern boolean bfd_coff_get_syment
 extern boolean bfd_coff_get_auxent
   PARAMS ((bfd *, struct symbol_cache_entry *, int, union internal_auxent *));
 
+/* Externally visible PEI routines */
+
+extern void pei_get_comdat_info 
+  PARAMS ((struct sec *));
+
 /* And more from the source.  */

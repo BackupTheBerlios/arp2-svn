@@ -1,3 +1,89 @@
+Thu Jun 18 10:09:36 1998  Mumit Khan  <khan@dhaka.xraylith.wisc.edu>
+
+	pei-i386 changes from Mikey <jeffdb@netzone.com>.
+
+	* emultempl/pe.em (set_pe_subsystem): Add new --subsystem args
+	-wwindows and -wconsole to allow easier use of Unicode objs. 
+	Delete call to ldlang_add_undef() and move undef of entry point to
+	ldlang.c so that it works globally.
+	(sort_by_filename): Terminate HNT and IAT properly for .LIB files.
+	(sort_by_section): Sort .stab and .stabstr to end of output to
+	allow stripping of relocatable execs and DLLs.
+
+	* scripttempl/pe.sc (__fltused, __ldused): New global headers at
+	end to correctly initialize floating point for MSVC and to resolve
+	all undefs in output.
+	(SECTIONS): Add explicit references to .CRT$X{CA,CZ,IA,IZ} to force 
+	linking in .CRT$XXX sections for _initterm.
+	Add explicit .reloc terminator.
+
+	* ldcref.c (output_cref): Cast cref_symcount to get elimiate compiler 
+	warning.
+
+	* ldlang.c (sectin_already_linked): Handle PE comdat.
+	(ldlang_switch_undef_entry): New function to exchange an older
+	undefined entry point for a newer one. 
+	(lang_add_entry): Use when entry_symbol already defined. This avoids 
+	pulling in the wrong startups from msvcrt.lib.
+
+	* ldfile.c (ldfile_open_file): Search for XXX.lib as well on a
+	pei-i386 target.
+
+Wed Jun 17 23:11:36 1998  Fred Fish  <fnf@ninemoons.com>
+
+	* ldlang.c (section_already_linked): Guard against pe_comdat_info
+	being NULL.
+
+Sat Jun 13 10:06:06 1998  Fred Fish  <fnf@ninemoons.com>
+
+	* scripttempl/i386beos.sc: Add symbols __text_start__ and
+	__text_end__ to mark start and end of .text section.
+
+Fri Jun  5 21:41:11 1998  Fred Fish  <fnf@ninemoons.com>
+
+	* ldfile.c (ldfile_open_file): When searching for libraries 
+	specified with -lfoo, prepend "lib" and append ".so.LIB".
+	* configure.host:  Add entry for i[3456]86-*-beos* and set
+	NATIVE_LIB_DIRS to /boot/develop/lib/x86.
+
+Mon Jun  1 17:39:25 1998  Fred Fish  <fnf@ninemoons.com>
+
+	Integrate PE changes from jeffdb@goodnet.com and adapt to use
+	on BeOS:
+	* Makefile.am (ALL_EMULATIONS): Add ei386beos.o.
+	(ei386beos.c): Add rule to build.
+	* Makefile.in: Regenerated.
+	* emulparms/i386beos.sh: New file for x86 BeOS, based on i386pe.sh.
+	* emultempl/beos.em: New file, for x86 BeOS.  Modified version
+	of pe.em, with changes to init array, added code to mark dll's
+	correctly as dll's, changed set_pe_subsystem, added wconsole &
+ 	wwindows to --subsystem arg to allow easier use of UNICODE
+ 	startup obj's, move undef of entry point into ldlang.c, so
+	it works globally, modified sort_by_file_name to sort the tail
+ 	.idata$4/5's to the end of each .lib's idata$4/5 section to
+ 	terminate the HNT and IAT properly for .lib files, modified
+ 	sort_by_section_name to sort .stab and .stabstr to the end of
+ 	the output sections so strip dosen't have to recalc vma for
+ 	.reloc sections in relocatable dll/exe's (FIXME ld.exe needs to
+ 	call res2coff.exe or winres.exe to convert res files to .o files
+ 	directly, otherwise debugging information won't be last and exe's
+	with .rsrc sections won't load/be debugable on NT.
+	* scripttempl/i386beos.sc: New file, for x86 BeOS.  Modified copy
+	of pe.sc, added globals header __fltused __ldused end to correct
+ 	init of floating point for vc++ and resolve all undefs in output
+	sorted sections in output order to make finding them easier,
+	explicit reference to .CRT\$XXX to force linking in .CRT$XXX
+ 	sections for _initterm, added explicit .idata$3 terminator from
+ 	gas-971123 pe.sc, added explicit .reloc terminator.
+	* configure.tgt (i[3456]98-*-beos*): Target emulation is i386beos.
+	* ldfile.c (ldfile_open_file): Look for .lib file on BeOS or
+	CYGWIN32.
+	* ldlang.c (section_already_linked): Use asection->pe_comdat_info
+ 	to determine whether to link in a given section.
+	(ldlang_switch_undef_entry): New function.
+	(lang_add_entry):  Use ldlang_switch_undef_entry when entry_symbol
+ 	already defined, avoids pulling in wrong startups from msvcrt.lib
+
 Mon Apr 27 11:56:21 1998  Ian Lance Taylor  <ian@cygnus.com>
 
 	* configure.in: Set version number to 2.9.1.
@@ -125,6 +211,11 @@ Wed Mar 18 09:42:24 1998  Nick Clifton  <nickc@cygnus.com>
 Sun Mar  8 23:34:14 1998  Stan Cox  <scox@equinox.cygnus.com>
 
 	* configure.tgt (sparclite*-*-elf): Added.
+
+Sun Mar  8 20:25:09 1998  Daniel Verite  <daniel@brainstorm.fr>
+
+	* ldlang.c (new_afile): Remove obsolete references to
+ 	amiga_attribute.
 
 Mon Mar  2 19:24:08 1998  Michael Meissner  <meissner@cygnus.com>
 
@@ -363,6 +454,32 @@ Sat Nov 22 15:23:19 1997  Ian Lance Taylor  <ian@cygnus.com>
 	correctly.  Pass 0 rather than hex_mode to bfd_scan_vma.
 	* ldlex.h (hex_mode): Don't declare.
 
+Wed Nov 19 08:15:36 1997  Fred Fish  <fnf@ninemoons.com>
+
+	* configure.in (CROSS_LINKER): Define this when configuring
+	a cross linker.
+	* configure: Regenerate with autoconf.
+	* acconfig.h (CROSS_LINKER): Add new possible define.
+	* config.in: Regenerate with current autoheader.
+	* beos-ld.c (CROSS_LINKER): Define to 0 if not defined.
+	(RUN_MWLD): Remove and replace with CROSS_LINKER tests.
+	(LD_COFF): Renamed to LDNAME.
+	(TARGET_ALIAS): Define as empty string if not defined.
+	(main): Add ldname, build by concatenating TARGET_ALIAS
+	and LDNAME, and use to set name of GNU linker to exec.
+	(BEOS_STUBS): Rework hack for cross environment configs
+	to use this environment variable.
+	(mapfile): Fix bug in computation of file name length.
+	* Makefile.in (beos-ld): Define LDNAME and TARGET_ALIAS at
+	compile time.
+	(install-beos-ld): Use INSTALL_XFORM to install linker
+	frontend in bindir.  Install linker frontend in tooldir
+	as just "ld".
+
+Sat Nov 15 09:24:13 1997  Fred Fish  <fnf@ninemoons.com>
+
+	* configure.tgt (i[3456]86-*-beos*): New config for x86 BeOS.
+
 Thu Nov 13 13:45:00 1997  Andrew Cagney  <cagney@b1.cygnus.com>
 
 	* configure.tgt (targ_extra_emuls): Make FreeBSD a i386bsd
@@ -382,6 +499,21 @@ Thu Oct 30 12:25:55 1997  Ian Lance Taylor  <ian@cygnus.com>
 	(lang_check): If warn_mismatch is false, don't warn about
 	mismatched input files.
 	* ld.texinfo, ld.1: Document new option.
+
+Tue Oct 28 09:01:02 1997  Fred Fish  <fnf@ninemoons.com>
+
+	* configure.in (BFDLIB): For BeOS hosts, directly include
+ 	libbfd.a rather than using -L search paths.
+	* configure: Regenerated.
+	* Makefile.in (EXTRA_PROGS): Add new macro, set by configure.
+	(EXTRA_INSTALL): Ditto.
+	(LDNAME): Ditto.
+	(all): Depends upon $(EXTRA_PROGS)
+	(install-beos-ld): New target and rules to install the BeOS ld
+	frontend in place of the real GNU ld, which becomes ld-coff.
+	(install): Use LDNAME to set basename of installed GNU ld, to
+	either just "ld" (default) or "ld-coff" (for BeOS).  Other normal
+	name transformations still apply.
 
 Thu Oct 23 14:38:18 1997  Nick Clifton  <nickc@cygnus.com>
 
@@ -405,20 +537,41 @@ Wed Oct 22 11:29:25 1997  Ian Lance Taylor  <ian@cygnus.com>
 
 	* scripttempl/pe.sc: Put .eh_frame in .rdata.
 
+Mon Oct 20 11:15:13 1997  Fred Fish  <fnf@ninemoons.com>
+
+	* Makefile.in (AR, ARFLAGS): Remove, not used.
+
 Fri Oct 17 00:00:13 1997  Richard Henderson  <rth@cygnus.com>
 
 	* ldlang.c (lang_register_vers_node): Only check globals<=>locals,
 	since we need to be able to export different versions of the same
 	symbol.
 
+Thu Oct 16 13:21:14 1997  Fred Fish  <fnf@ninemoons.com>
+
+	* ldlang.c (new_afile): Only reference amiga_attribute when
+	the target is AmigaOS.
+
 Wed Oct 15 14:52:36 1997  Ian Lance Taylor  <ian@cygnus.com>
 
 	* scripttempl/pe.sc: Put .stab and .stabstr sections at end.
 
+Sat Oct 11 17:41:24 1997  Fred Fish  <fnf@ninemoons.com>
+
+	* beos-ld.c (gflag): Add static flag variable.
+	(main): Set gflag if we find -g input arg.
+	(main): Pass -g option on to mwld if gflag set.
+	(main): Add code to create and pass -map arg to
+	mwld if also passing -g arg.
+	
 Wed Oct  8 12:37:05 1997  Richard Henderson  <rth@cygnus.com>
 
 	* configure.tgt, configure.host: Change alpha-*-* to alpha*-*-*;
 	config.guess now recognizes alphaev5 etc.
+
+Mon Oct  6 09:28:18 1997  Fred Fish  <fnf@ninemoons.com>
+
+	* configdoc.texi: Remove file created at build time.
 
 Fri Oct  3 14:23:02 1997  Ian Lance Taylor  <ian@cygnus.com>
 
@@ -1033,6 +1186,10 @@ Mon Dec 30 13:55:57 1996  Michael Meissner  <meissner@tiktok.cygnus.com>
 
 	* scripttempl/v850.sc (.tdata) Add .tbss and .tbyte sections.
 
+Sun Dec 22 10:45:58 1996  Fred Fish  <fnf@ninemoons.com>
+
+	* configure.tgt: Treat BeOS just like AIX.
+
 Wed Dec 18 22:57:35 1996  Stan Shebs  <shebs@andros.cygnus.com>
 
 	* mpw-make.sed: Use NewFolderRecursive for installation.
@@ -1077,6 +1234,11 @@ Mon Dec  2 11:43:50 1996  Ian Lance Taylor  <ian@cygnus.com>
 
 	* emulparams/*.sh: Make sure that each set of parameters which
 	uses the elf.sc script sets MACHINE.
+
+Sat Nov 30 01:33:26 1996  Fred Fish  <fnf@ninemoons.com>
+
+	From KUNISAWA Ryota <kunisawa@is.s.u-tokyo.ac.jp>:
+	* genscripts.sh: Avoid bug with some shells for $10 and up.
 
 Wed Nov 27 03:22:05 1996  Jason Merrill  <jason@yorick.cygnus.com>
 
@@ -1494,6 +1656,12 @@ Mon Aug  5 16:26:14 1996  Ian Lance Taylor  <ian@cygnus.com>
 	* ldcref.c (check_nocrossref): Skip symbols with no output
 	sections.
 
+Sun Aug  4 22:15:56 1996  Fred Fish  <fnf@ninemoons.com>
+
+	* ldfile.c (ldfile_open_file_search): Use alloca to allocate
+	dynamically sized array, rather than using a GNU C extension that
+	is not portable.	
+
 Fri Aug  2 14:57:49 1996  Ian Lance Taylor  <ian@cygnus.com>
 
 	* ldgram.y (LOADADDR): New terminal.
@@ -1719,6 +1887,10 @@ Mon Jun 24 12:00:32 1996  Ian Lance Taylor  <ian@cygnus.com>
 	* configure.in: On alpha*-*-osf*, link against libbfd.a if not
 	using shared libraries.
 	* configure: Rebuild with autoconf 2.10.
+
+Sat Jun 22 21:41:37 1996 Daniel Verite <daniel@brainstorm.eu.org>
+
+	* ldfile.c, lexsup.c: Sort the flavors.
 
 Fri Jun 21 17:40:56 1996  Joel Sherrill  <joel@merlin.gcs.redstone.army.mil>
 

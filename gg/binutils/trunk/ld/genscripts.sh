@@ -16,7 +16,9 @@ target=$4
 target_alias=$5
 DEFAULT_EMULATION=$6
 NATIVE_LIB_DIRS=$7
-EMULATION_NAME=$8
+LIB_PATH=$8
+EMULATION_NAME=$9
+shift
 tool_lib=`echo ${libdir} | sed -e 's|/lib$||'`/${9-$target_alias}/lib
 
 # Include the emulation-specific parameters:

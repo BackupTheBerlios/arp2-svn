@@ -1822,6 +1822,8 @@ elf_i386_finish_dynamic_sections (output_bfd, info)
 
 #define TARGET_LITTLE_SYM		bfd_elf32_i386_vec
 #define TARGET_LITTLE_NAME		"elf32-i386"
+#define TARGET_BIG_SYM			bfd_elf32_i386be_vec
+#define TARGET_BIG_NAME			"elf32-i386be"
 #define ELF_ARCH			bfd_arch_i386
 #define ELF_MACHINE_CODE		EM_386
 #define ELF_MAXPAGESIZE			0x1000

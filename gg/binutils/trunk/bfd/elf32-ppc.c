@@ -3358,7 +3358,11 @@ ppc_elf_relocate_section (output_bfd, info, input_bfd, input_section,
 #define TARGET_BIG_NAME		"elf32-powerpc"
 #define ELF_ARCH		bfd_arch_powerpc
 #define ELF_MACHINE_CODE	EM_PPC
+#if 0	/* HACK - fnf */
 #define ELF_MAXPAGESIZE		0x10000
+#else
+#define ELF_MAXPAGESIZE		0x1000
+#endif
 #define elf_info_to_howto	ppc_elf_info_to_howto
 
 #ifdef  EM_CYGNUS_POWERPC

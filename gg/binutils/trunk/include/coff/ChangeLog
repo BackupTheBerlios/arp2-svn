@@ -1,3 +1,12 @@
+Tue Jun 30 11:43:05 1998  Fred Fish  <fnf@ninemoons.com>
+
+	* internal.h (BEOS_DLL_IMAGE_BASE): Change to 0x80000000.
+
+Mon Jun  1 18:37:34 1998  Fred Fish  <fnf@ninemoons.com>
+
+	* internal.h (BEOS_EXE_IMAGE_BASE, BEOS_DLL_IMAGE_BASE):
+	Define values for BeOS prefered loading addresses.
+
 Fri Mar 27 17:16:57 1998  Ian Lance Taylor  <ian@cygnus.com>
 
 	* internal.h (ISPTR, ISFCN, ISARY): Add casts to unsigned long.

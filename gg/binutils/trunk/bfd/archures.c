@@ -869,3 +869,7 @@ bfd_printable_arch_mach (arch, machine)
       return ap->printable_name;
     return "UNKNOWN!";
 }
+
+#ifndef HAVE_i386pei_vec
+void pei_get_comdat_info(struct sec *pei_comdat_section){}
+#endif
