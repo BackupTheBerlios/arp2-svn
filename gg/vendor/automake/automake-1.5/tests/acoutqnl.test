@@ -1,0 +1,21 @@
+#! /bin/sh
+
+# Test for bug reported by François Pinard.
+
+. $srcdir/defs || exit 1
+
+cat > configure.in << 'END'
+AM_INIT_AUTOMAKE(nonesuch, nonesuch)
+PACKAGE=nonesuch
+VERSION=nonesuch
+AC_ARG_PROGRAM
+AC_PROG_INSTALL
+AC_PROG_MAKE_SET
+AC_OUTPUT([Makefile],
+[echo zardoz has spoken])
+END
+
+: > Makefile.am
+
+$AUTOMAKE
+
