@@ -88,6 +88,8 @@ struct PUHData
 
   struct Hook           m_SoundFunc;
 
+  ULONG                 m_ChipFreq;
+
   UWORD                 m_DMACON;
   UWORD                 m_INTREQ;
   UWORD                 m_INTENA;
@@ -99,7 +101,7 @@ struct PUHData
   UWORD                 m_SoundLength[ 4 ];
 
   void*                 m_Intercepted;
-  volatile void*        m_Custom;
+  void*                 m_Custom;
 
   struct MMUContext*    m_UserContext;
   struct MMUContext*    m_SuperContext;

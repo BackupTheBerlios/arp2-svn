@@ -23,6 +23,7 @@
 #include <exec/memory.h>
 #include <exec/resident.h>
 #include <devices/ahi.h>
+#include <graphics/gfxbase.h>
 #include <hardware/custom.h>
 #include <hardware/dmabits.h>
 #include <hardware/intbits.h>
@@ -42,9 +43,6 @@
 
 #define ROMEND       0x01000000L
 #define MAGIC_ROMEND 0x14L
-
-#define PALFREQ	     3546895
-#define NTSCFREQ     3579545
 
 #define INTF_AUDIO   ( INTF_AUD3 | INTF_AUD2 | INTF_AUD1 | INTF_AUD0 )
 
@@ -199,7 +197,8 @@ WriteLong( void* address, ULONG value )
 struct PUHData*
 AllocPUH( void )
 {
-  struct PUHData* pd = NULL;
+  struct PUHData* pd      = NULL;
+  struct GfxBase* gfxbase = NULL;
 
   if( MMUBase == NULL )
   {
@@ -213,7 +212,8 @@ AllocPUH( void )
     return NULL;
   }
 
-
+  gfxbase = (struct GfxBase*) OpenLibrary( GRAPHICSNAME, 39 );
+  
   if( GetMMUType() == MUTYPE_NONE )
   {
     printf( "This program requires an MMU.\n" );
@@ -277,6 +277,18 @@ AllocPUH( void )
         pd->m_SoundFunc.h_Entry    = (ULONG(*)(void)) PUHSoundFunc;
         pd->m_SoundFunc.h_Data     = pd;
 
+        if( gfxbase != NULL && 
+            ( gfxbase->DisplayFlags & REALLY_PAL ) == 0 )
+        {
+          // NTSC
+          pd->m_ChipFreq = 3579545;
+        }
+        else
+        {
+          // PAL
+          pd->m_ChipFreq = 3546895;
+        }
+
 #ifdef TEST_MODE
         pd->m_Intercepted          = location;
         pd->m_Custom               = (void*) 0xdff000;
@@ -306,6 +318,8 @@ AllocPUH( void )
       }
     }
   }
+
+  CloseLibrary( (struct Library*) gfxbase );
 
   return pd;
 }
@@ -1129,12 +1143,12 @@ PUHHandler( REG( a0, struct ExceptionData* ed ),
       }
     }
 
-#if 0
+#if 1
     if( ! handled )
     {
       // Patch "misses" some so they won't bother us again
-      if( ( ReadLong( (ULONG) ed->exd_ReturnPC + 4 ) & ~0x1ffUL ) ==
-          (ULONG) pd->m_Intercepted )
+//      if( ( ReadLong( (ULONG) ed->exd_ReturnPC + 4 ) & ~0x1ffUL ) ==
+//          (ULONG) pd->m_Intercepted )
       {
         KPrintF( "." );
       }
@@ -1176,7 +1190,7 @@ PUHRead( UWORD            reg,
       result &= ~DMAF_AUDIO;
       result |= ( pd->m_DMACON & DMAF_AUDIO );
 
-      KPrintF( "DMACONR: $%04lx\n", result );
+//      KPrintF( "DMACONR: $%04lx\n", result );
 
       *handled = TRUE;
       break;
@@ -1186,7 +1200,7 @@ PUHRead( UWORD            reg,
       result &= ~INTF_AUDIO;
       result |= ( pd->m_INTENA & INTF_AUDIO );
 
-      KPrintF( "INTENAR: $%04lx\n", result );
+//      KPrintF( "INTENAR: $%04lx\n", result );
 
       *handled = TRUE;
       break;
@@ -1196,7 +1210,7 @@ PUHRead( UWORD            reg,
       result &= ~INTF_AUDIO;
       result |= ( pd->m_INTREQ & INTF_AUDIO );
 
-      KPrintF( "INTREQR: $%04lx\n", result );
+//      KPrintF( "INTREQR: $%04lx\n", result );
 
       *handled = TRUE;
       break;
@@ -1280,12 +1294,19 @@ PUHWrite( UWORD            reg,
         {
           pd->m_SoundOn[ 0 ] = TRUE;
 
-          AHI_SetSound( 0, 0,
-                        pd->m_SoundLocation[ 0 ],
-                        pd->m_SoundLength[ 0 ],
-                        pd->m_AudioCtrl,
-                        AHISF_IMM );
-          
+          if( pd->m_SoundLength[ 0 ] == 2 )
+          {
+            // SoundTracker-style silece
+            AHI_SetSound( 0, AHI_NOSOUND, 0, 0, pd->m_AudioCtrl, AHISF_IMM );
+          }
+          else
+          {
+            AHI_SetSound( 0, 0,
+                          pd->m_SoundLocation[ 0 ],
+                          pd->m_SoundLength[ 0 ],
+                          pd->m_AudioCtrl,
+                          AHISF_IMM );
+          }
         }
         else
         {
@@ -1301,12 +1322,19 @@ PUHWrite( UWORD            reg,
         {
           pd->m_SoundOn[ 1 ] = TRUE;
 
-          AHI_SetSound( 1, 0,
-                        pd->m_SoundLocation[ 1 ],
-                        pd->m_SoundLength[ 1 ],
-                        pd->m_AudioCtrl,
-                        AHISF_IMM );
-          
+          if( pd->m_SoundLength[ 1 ] == 2 )
+          {
+            // SoundTracker-style silece
+            AHI_SetSound( 1, AHI_NOSOUND, 0, 0, pd->m_AudioCtrl, AHISF_IMM );
+          }
+          else
+          {
+            AHI_SetSound( 1, 0,
+                          pd->m_SoundLocation[ 1 ],
+                          pd->m_SoundLength[ 1 ],
+                          pd->m_AudioCtrl,
+                          AHISF_IMM );
+          }
         }
         else
         {
@@ -1322,12 +1350,19 @@ PUHWrite( UWORD            reg,
         {
           pd->m_SoundOn[ 2 ] = TRUE;
 
-          AHI_SetSound( 2, 0,
-                        pd->m_SoundLocation[ 2 ],
-                        pd->m_SoundLength[ 2 ],
-                        pd->m_AudioCtrl,
-                        AHISF_IMM );
-          
+          if( pd->m_SoundLength[ 2 ] == 2 )
+          {
+            // SoundTracker-style silece
+            AHI_SetSound( 2, AHI_NOSOUND, 0, 0, pd->m_AudioCtrl, AHISF_IMM );
+          }
+          else
+          {
+            AHI_SetSound( 2, 0,
+                          pd->m_SoundLocation[ 2 ],
+                          pd->m_SoundLength[ 2 ],
+                          pd->m_AudioCtrl,
+                          AHISF_IMM );
+          }
         }
         else
         {
@@ -1343,12 +1378,19 @@ PUHWrite( UWORD            reg,
         {
           pd->m_SoundOn[ 3 ] = TRUE;
 
-          AHI_SetSound( 3, 0,
-                        pd->m_SoundLocation[ 3 ],
-                        pd->m_SoundLength[ 3 ],
-                        pd->m_AudioCtrl,
-                        AHISF_IMM );
-          
+          if( pd->m_SoundLength[ 3 ] == 2 )
+          {
+            // SoundTracker-style silece
+            AHI_SetSound( 3, AHI_NOSOUND, 0, 0, pd->m_AudioCtrl, AHISF_IMM );
+          }
+          else
+          {
+            AHI_SetSound( 3, 0,
+                          pd->m_SoundLocation[ 3 ],
+                          pd->m_SoundLength[ 3 ],
+                          pd->m_AudioCtrl,
+                          AHISF_IMM );
+          }
         }
         else
         {
@@ -1358,9 +1400,9 @@ PUHWrite( UWORD            reg,
         }
       }
 
-//      WriteWord( address, value & ~DMAF_AUDIO );
+      WriteWord( address, value & ~DMAF_AUDIO );
 
-      WriteWord( address, value );
+//      WriteWord( address, value );
       *handled = TRUE;
       break;
     }
@@ -1382,11 +1424,16 @@ PUHWrite( UWORD            reg,
           ! pd->m_CausePending )
       {
         pd->m_CausePending = TRUE;
-        KPrintF( "Cause\n" );
         Cause( &pd->m_SoftInt );
       }
 
-      *handled = FALSE;
+      if( value & INTF_AUDIO )
+      {
+        *handled = TRUE;
+      else
+      {
+        *handled = FALSE;
+      }
       break;
 
 
@@ -1400,7 +1447,10 @@ PUHWrite( UWORD            reg,
         pd->m_INTREQ &= ~( value & ~INTF_SETCLR );
       }
 
-      KPrintF( "INTREQ: %04lx\n", value );
+      if( value & INTF_AUDIO )
+      {
+        KPrintF( "INTREQ: %04lx\n", value );
+      }
 
       WriteWord( address, value & ~INTF_AUDIO );
 
@@ -1409,11 +1459,16 @@ PUHWrite( UWORD            reg,
           ! pd->m_CausePending )
       {
         pd->m_CausePending = TRUE;
-        KPrintF( "Cause\n" );
         Cause( &pd->m_SoftInt );
       }
 
-      *handled = FALSE;
+      if( value & INTF_AUDIO )
+      {
+        *handled = TRUE;
+      else
+      {
+        *handled = FALSE;
+      }
       break;
 
     case ADKCON:
@@ -1429,7 +1484,7 @@ PUHWrite( UWORD            reg,
       pd->m_SoundLocation[ ( reg - AUD0LCH ) >> 4 ] &= 0x0000ffff;
       pd->m_SoundLocation[ ( reg - AUD0LCH ) >> 4 ] |= value << 16;
 
-      WriteWord( address, value );
+//      WriteWord( address, value );
       *handled = TRUE;
       break;
 
@@ -1446,14 +1501,23 @@ PUHWrite( UWORD            reg,
       if( pd->m_SoundOn[ channel ] )
       {
         // Queue it
-        AHI_SetSound( channel, 0,
-                      pd->m_SoundLocation[ channel ],
-                      pd->m_SoundLength[ channel ],
-                      pd->m_AudioCtrl,
-                      AHISF_NONE );
+        if( pd->m_SoundLength[ channel ] == 2 )
+        {
+          // SoundTracker-style silece
+          AHI_SetSound( channel, AHI_NOSOUND, 
+                        0, 0, pd->m_AudioCtrl, AHISF_NONE );
+        }
+        else
+        {
+          AHI_SetSound( channel, 0,
+                        pd->m_SoundLocation[ channel ],
+                        pd->m_SoundLength[ channel ],
+                        pd->m_AudioCtrl,
+                        AHISF_NONE );
+        }
       }
 
-      WriteWord( address, value );
+//      WriteWord( address, value );
       *handled = TRUE;
       break;
     }
@@ -1470,14 +1534,23 @@ PUHWrite( UWORD            reg,
       if( pd->m_SoundOn[ channel ] )
       {
         // Queue it
-        AHI_SetSound( channel, 0,
-                      pd->m_SoundLocation[ channel ],
-                      pd->m_SoundLength[ channel ],
-                      pd->m_AudioCtrl,
-                      AHISF_NONE );
+        if( pd->m_SoundLength[ channel ] == 2 )
+        {
+          // SoundTracker-style silece
+          AHI_SetSound( channel, AHI_NOSOUND, 
+                        0, 0, pd->m_AudioCtrl, AHISF_NONE );
+        }
+        else
+        {
+          AHI_SetSound( channel, 0,
+                        pd->m_SoundLocation[ channel ],
+                        pd->m_SoundLength[ channel ],
+                        pd->m_AudioCtrl,
+                        AHISF_NONE );
+        }
       }
 
-      WriteWord( address, value );
+//      WriteWord( address, value );
       *handled = TRUE;
       break;
     }
@@ -1490,11 +1563,11 @@ PUHWrite( UWORD            reg,
       int channel = ( reg - AUD0PER ) >> 4;
       
       AHI_SetFreq( channel,
-                   PALFREQ / value, 
+                   pd->m_ChipFreq / value, 
                    pd->m_AudioCtrl,
                    AHISF_IMM );
 
-      WriteWord( address, value );
+//      WriteWord( address, value );
       *handled = TRUE;
       break;
     }
@@ -1506,7 +1579,7 @@ PUHWrite( UWORD            reg,
                   pd->m_AudioCtrl,
                   AHISF_IMM );
 
-      WriteWord( address, value );
+//      WriteWord( address, value );
       *handled = TRUE;
       break;
 
@@ -1517,7 +1590,7 @@ PUHWrite( UWORD            reg,
                   pd->m_AudioCtrl,
                   AHISF_IMM );
 
-      WriteWord( address, value );
+//      WriteWord( address, value );
       *handled = TRUE;
       break;
 
@@ -1528,7 +1601,7 @@ PUHWrite( UWORD            reg,
                   pd->m_AudioCtrl,
                   AHISF_IMM );
 
-      WriteWord( address, value );
+//      WriteWord( address, value );
       *handled = TRUE;
       break;
 
@@ -1539,7 +1612,7 @@ PUHWrite( UWORD            reg,
                   pd->m_AudioCtrl,
                   AHISF_IMM );
 
-      WriteWord( address, value );
+//      WriteWord( address, value );
       *handled = TRUE;
       break;
 
@@ -1556,7 +1629,6 @@ PUHWrite( UWORD            reg,
             ! pd->m_CausePending )
         {
           pd->m_CausePending = TRUE;
-        KPrintF( "Cause\n" );
           Cause( &pd->m_SoftInt );
         }
       }
@@ -1574,7 +1646,6 @@ PUHWrite( UWORD            reg,
             ! pd->m_CausePending )
         {
           pd->m_CausePending = TRUE;
-        KPrintF( "Cause\n" );
           Cause( &pd->m_SoftInt );
         }
       }
@@ -1592,7 +1663,6 @@ PUHWrite( UWORD            reg,
             ! pd->m_CausePending )
         {
           pd->m_CausePending = TRUE;
-        KPrintF( "Cause\n" );
           Cause( &pd->m_SoftInt );
         }
       }
@@ -1610,7 +1680,6 @@ PUHWrite( UWORD            reg,
             ! pd->m_CausePending )
         {
           pd->m_CausePending = TRUE;
-        KPrintF( "Cause\n" );
           Cause( &pd->m_SoftInt );
         }
       }
@@ -1642,7 +1711,7 @@ PUHSoftInt( REG( d1, UWORD           active_ints ),
 {
   pd->m_CausePending = FALSE;
 
-//  KPrintF( "About to call audio interrupt handlers (%08lx)... ", custom );
+  // KPrintF( "About to call audio interrupt handlers (%08lx)... ", custom );
 
   // This is almost the same code as exec's. ExecDis rules.
   // We access m_INTENA/m_INTREQ directly in order to avoid
@@ -1709,9 +1778,31 @@ done:
   ); 
 #endif
 
-//  KPrintF( "Done!\n" );
+  // KPrintF( "Done!\n" );
 }
 
+
+static void 
+PUHSoftIntWrapper( UWORD           active_ints,
+                   struct Custom*  custom,
+                   struct PUHData* pd,
+                   struct ExecBase* SysBase )
+{
+  asm("
+    movem.l   d0-d1/a0-a1/a5-a6,-(sp)
+    move.w    %0,d1
+    move.l    %1,a0
+    move.l    %2,a1
+    lea       _PUHSoftInt,a5
+    move.l    %3,a6
+    jsr       (a5)
+    movem.l   (sp)+,d0-d1/a0-a1/a5-a6
+  "
+  : /* no result */
+  : "r" (active_ints), "r" (custom), "r" (pd), "r" (SysBase)
+  : "d1", "a0", "a1", "a5", "a6"
+  );
+}
 
 
 ASMCALL SAVEDS static void
@@ -1719,5 +1810,23 @@ PUHSoundFunc( REG( a0, struct Hook*            hook ),
               REG( a2, struct AHIAudioCtrl*    actrl ),
               REG( a1, struct AHISoundMessage* msg ) )
 {
+  APTR            stack = NULL;
+  struct PUHData* pd    = (struct PUHData*) hook->h_Data;
 
+  pd->m_INTREQ |= ( 1 << ( INTB_AUD0 + msg->ahism_Channel ) );
+
+  if( ( pd->m_INTENA & INTF_INTEN ) &&
+      ( pd->m_INTENA & pd->m_INTREQ & INTF_AUDIO ) )
+  {
+    // KPrintF( "AHI generated interrupt for channel %ld\n", msg->ahism_Channel );
+  
+    stack = SuperState();
+
+    PUHSoftIntWrapper( 0, pd->m_Custom, pd, SysBase );
+
+    if( stack != NULL )
+    {
+      UserState( stack );
+    }
+  }
 }
