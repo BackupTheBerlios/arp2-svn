@@ -64,8 +64,10 @@ struct ISAPNP_Card
   BOOL                     isapnpc_Disabled;
 
   struct List              isapnpc_Devices;
+  UWORD                    isapnpc_Pad1;
 
   struct SignalSemaphore   isapnpc_Lock;
+  UWORD                    isapnpc_Pad2;
 
   struct ISAPNP_Identifier isapnpc_ID;
   ULONG                    isapnpc_SerialNumber;
@@ -91,7 +93,7 @@ struct ISAPNP_Device
   struct ISAPNP_Card*          isapnpd_Card;
 
   struct SignalSemaphore       isapnpd_Lock;
-  UWORD                        isapnpd_Pad;
+  UWORD                        isapnpd_Pad1;
   
   struct MinList               isapnpd_IDs;
   struct ISAPNP_ResourceGroup* isapnpd_Options;

@@ -28,12 +28,12 @@ TARGET		= ISA-PnP
 
 ### Fake targets ##############################################################
 
-.PHONY:		all clean distclean revup depend 
+.PHONY:		all clean distclean revup depend ddk
 
 all:		$(TARGET)
 
 clean:
-		$(RM) $(OBJECTS) $(TARGET) version.h
+		$(RM) -r $(OBJECTS) $(TARGET) version.h ddk
 
 distclean:	clean
 	$(RM) Makefile.dep
@@ -47,6 +47,22 @@ revup:
 	@date +%d.%m.%y > version.date
 	@echo -n "New revision: "
 	@cat version.rev
+
+ddk:
+	$(INSTALL) --directory $@/include/lvo
+	$(INSTALL) --directory $@/storm/pragma $@/storm/proto
+	$(INSTALL) --directory $@/sas/pragmas $@/sas/proto
+	$(INSTALL) --directory $@/gcc/inline $@/gcc/ppcinline $@/gcc/proto
+	cp -a include $@
+	$(RM) -r `/bin/find $@ -name CVS`
+	fd2pragma $@/include/fd/isapnp_lib.fd 22 TO $@/include/lvo/isapnp_lib.i
+	fd2pragma $@/include/fd/isapnp_lib.fd 5  TO $@/storm/pragma/isapnp_lib.h COMMENT
+	fd2pragma $@/include/fd/isapnp_lib.fd 30 TO $@/storm/proto/isapnp.h
+	fd2pragma $@/include/fd/isapnp_lib.fd 3  TO $@/sas/pragmas/isapnp_pragmas.h COMMENT
+	fd2pragma $@/include/fd/isapnp_lib.fd 33 TO $@/sas/proto/isapnp.h
+	fd2inline --new $@/include/fd/isapnp_lib.fd $@/include/clib/isapnp_protos.h -o $@/gcc/inline/isapnp.h
+	fd2inline --new --morphos $@/include/fd/isapnp_lib.fd $@/include/clib/isapnp_protos.h -o $@/gcc/ppcinline/isapnp.h
+	fd2inline --proto --morphos $@/include/fd/isapnp_lib.fd -o $@/gcc/proto/isapnp.h
 
 version.h:	version.rev version.date
 	@echo Creating $@
