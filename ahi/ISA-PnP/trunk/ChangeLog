@@ -1,3 +1,7 @@
+2001-05-29  Martin Blom  <martin@blom.org>
+
+	* Added functions to handle longwords (register and memory access).
+
 2001-05-14  Martin Blom  <martin@blom.org>
 
 	* Added a "ddk" target that generates include files for gcc, SAS/C
