@@ -49,6 +49,21 @@
 #include <proto/layers.h>
 #include <proto/wb.h>
 
+#ifdef __MORPHOS__
+# include <intuition/extensions.h>
+#else
+#define __MORPHOS__
+#define WA_ExtraGadget_Iconify (WA_Dummy + 153)
+#define ETI_Dummy               (0xFFD0)
+#define ETI_Iconify             (ETI_Dummy)
+#define HideWindow(___win) \
+       LP1NR(0x34e, HideWindow, struct Window *, ___win, a0,\
+       , INTUITION_BASE_NAME)
+#define ShowWindow(___win) \
+       LP1NR(0x348, ShowWindow, struct Window *, ___win, a0,\
+       , INTUITION_BASE_NAME)
+#endif
+
 extern int  g_width;
 extern int  g_height;
 extern Bool g_sendmotion;
@@ -985,17 +1000,6 @@ ui_deinit(void)
   ui_destroy_cursor( amiga_null_cursor );
   amiga_null_cursor = 0;
 }
-
-#define __MORPHOS__
-#define WA_ExtraGadget_Iconify (WA_Dummy + 153)
-#define ETI_Dummy               (0xFFD0)
-#define ETI_Iconify             (ETI_Dummy)
-#define HideWindow(___win) \
-        LP1NR(0x34e, HideWindow, struct Window *, ___win, a0,\
-        , INTUITION_BASE_NAME)
-#define ShowWindow(___win) \
-        LP1NR(0x348, ShowWindow, struct Window *, ___win, a0,\
-        , INTUITION_BASE_NAME)
 
 
 Bool

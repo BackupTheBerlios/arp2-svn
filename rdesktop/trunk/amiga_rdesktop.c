@@ -551,10 +551,12 @@ main(int argc, char *argv[])
       warning( "The AUDIO argument is ignored when REMOTEAUDIO is used.\n");
     }
   }
+#ifdef WITH_RDPSND
   else
   {
     g_rdpsnd = True;
   }
+#endif
 	
   if( a_title != NULL) STRNCPY(g_title, a_title, sizeof(g_title));
 
