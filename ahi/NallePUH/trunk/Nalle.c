@@ -157,7 +157,8 @@ main( int   argc,
 
 
   CloseAHI();
-  CloseLibrary( MMUBase );
+  // We must not close mmu.library if we have pached applications!
+//  CloseLibrary( MMUBase );
   CloseLibrary( (struct Library*) DOSBase );
 
   return rc;

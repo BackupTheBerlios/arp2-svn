@@ -244,9 +244,14 @@ AllocPUH( void )
     size = ( ( 0x200 - 1 ) / page_size + 1 ) * page_size;
 
 
-    // Calculate address for re-mapped registers (page below 0xdff000 )
+    // Set address for direct (non-intercepted) custom register area
     
-    location = (void*) ( ( ( 0xdff000 & ~page_size ) - size ) & ~page_size );
+    // Using a page close to the original is good, since it would allow
+    // patching of relative offset instructions, like $0a0(a5). However
+    // I don't know enough about the memory map to do that yet.
+
+    //location = (void*) ( ( ( 0xdff000 & ~page_size ) - size ) & ~page_size );
+    location = 0x80dff000;
 
     pd = (struct PUHData*) AllocVec( sizeof( struct PUHData ),
                                      MEMF_PUBLIC | MEMF_CLEAR );
@@ -1019,8 +1024,8 @@ PUHHandler( REG( a0, struct ExceptionData* ed ),
                         EXDF_WRITEDATAUNKNOWN | 
                         EXDF_MISALIGNED ) )
   {
-    KPrintF( "Illegal flag(s): %08lx, address $%08lx\n", 
-             ed->exd_Flags, (ULONG) ed->exd_FaultAddress );
+//    KPrintF( "Illegal flag(s): %08lx, address $%08lx\n", 
+//             ed->exd_Flags, (ULONG) ed->exd_FaultAddress );
     rc = 1;
   }
   else
@@ -1063,7 +1068,7 @@ PUHHandler( REG( a0, struct ExceptionData* ed ),
       }
       else
       {
-        KPrintF( "Illegal size: %ld", size );
+//        KPrintF( "Illegal size: %ld", size );
       }
     }
     else
@@ -1094,7 +1099,7 @@ PUHHandler( REG( a0, struct ExceptionData* ed ),
       }
       else
       {
-        KPrintF( "Illegal size: %ld", size );
+//        KPrintF( "Illegal size: %ld", size );
       }
     }
 
@@ -1119,7 +1124,7 @@ PUHHandler( REG( a0, struct ExceptionData* ed ),
 
           if( ( address & ~0x1ffUL ) == (ULONG) pd->m_Intercepted )
           {
-            KPrintF( "***Patched 1: 0x%08lx\n", address );
+//            KPrintF( "***Patched 1: 0x%08lx\n", address );
             WriteLong( ed->exd_ReturnPC + 4, 
                        address - 0xdff000 + (ULONG) pd->m_CustomDirect );
           }
@@ -1132,7 +1137,7 @@ PUHHandler( REG( a0, struct ExceptionData* ed ),
 
           if( ( address & ~0x1ffUL ) == (ULONG) pd->m_Intercepted )
           {
-            KPrintF( "***Patched 2: 0x%08lx\n", address );
+//            KPrintF( "***Patched 2: 0x%08lx\n", address );
             WriteLong( ed->exd_ReturnPC + 6,
                        address - 0xdff000 + (ULONG) pd->m_CustomDirect );
           }
@@ -1146,7 +1151,7 @@ PUHHandler( REG( a0, struct ExceptionData* ed ),
 
           if( ( address & ~0x1ffUL ) == (ULONG) pd->m_Intercepted )
           {
-            KPrintF( "***Patched 3: 0x%08lx\n", address );
+//            KPrintF( "***Patched 3: 0x%08lx\n", address );
             WriteLong( ed->exd_ReturnPC + 2,
                        address - 0xdff000 + (ULONG) pd->m_CustomDirect );
           }
@@ -1162,14 +1167,14 @@ PUHHandler( REG( a0, struct ExceptionData* ed ),
 
           if( ( address & ~0x1ffUL ) == (ULONG) pd->m_Intercepted )
           {
-            KPrintF( "***Patched 4: 0x%08lx\n", address );
+//            KPrintF( "***Patched 4: 0x%08lx\n", address );
             WriteLong( ed->exd_ReturnPC + 2,
                        address - 0xdff000 + (ULONG) pd->m_CustomDirect );
           }
         }
         else
         {
-          KPrintF( "%08lx: %04lx ", ed->exd_ReturnPC, reg );
+//          KPrintF( "%08lx: %04lx ", ed->exd_ReturnPC, reg );
         }
       }
     }
@@ -1209,8 +1214,6 @@ PUHRead( UWORD            reg,
       result &= ~DMAF_AUDIO;
       result |= ( pd->m_DMACON & DMAF_AUDIO );
 
-//      KPrintF( "DMACONR: $%04lx\n", result );
-
       *handled = TRUE;
       break;
 
@@ -1218,8 +1221,6 @@ PUHRead( UWORD            reg,
       result  = ReadWord( address );
       result &= ~INTF_AUDIO;
       result |= ( pd->m_INTENA & INTF_AUDIO );
-
-//      KPrintF( "INTENAR: $%04lx\n", result );
 
       *handled = TRUE;
       break;
@@ -1229,15 +1230,7 @@ PUHRead( UWORD            reg,
       result &= ~INTF_AUDIO;
       result |= ( pd->m_INTREQ & INTF_AUDIO );
 
-//      KPrintF( "INTREQR: $%04lx\n", result );
-
       *handled = TRUE;
-      break;
-
-    case ADKCONR:
-      result = ReadWord( address );
-
-//      KPrintF( "ADKCONR: $%04lx\n", result );
       break;
 
     default:
@@ -1325,7 +1318,7 @@ PUHWrite( UWORD            reg,
         }
         else
         {
-          pd->m_SoundOn[ 0 ] = FALSE;
+          pd->m_SoundOn[ 0 ]   = FALSE;
 
           AHI_SetSound( 0, AHI_NOSOUND, 0, 0, pd->m_AudioCtrl, AHISF_IMM );
         }
@@ -1353,7 +1346,7 @@ PUHWrite( UWORD            reg,
         }
         else
         {
-          pd->m_SoundOn[ 1 ] = FALSE;
+          pd->m_SoundOn[ 1 ]   = FALSE;
 
           AHI_SetSound( 1, AHI_NOSOUND, 0, 0, pd->m_AudioCtrl, AHISF_IMM );
         }
@@ -1381,7 +1374,7 @@ PUHWrite( UWORD            reg,
         }
         else
         {
-          pd->m_SoundOn[ 2 ] = FALSE;
+          pd->m_SoundOn[ 2 ]   = FALSE;
 
           AHI_SetSound( 2, AHI_NOSOUND, 0, 0, pd->m_AudioCtrl, AHISF_IMM );
         }
@@ -1409,7 +1402,7 @@ PUHWrite( UWORD            reg,
         }
         else
         {
-          pd->m_SoundOn[ 3 ] = FALSE;
+          pd->m_SoundOn[ 3 ]   = FALSE;
 
           AHI_SetSound( 3, AHI_NOSOUND, 0, 0, pd->m_AudioCtrl, AHISF_IMM );
         }
@@ -1417,7 +1410,6 @@ PUHWrite( UWORD            reg,
 
       WriteWord( address, value & ~DMAF_AUDIO );
 
-//      WriteWord( address, value );
       *handled = TRUE;
       break;
     }
@@ -1458,11 +1450,6 @@ PUHWrite( UWORD            reg,
         pd->m_INTREQ &= ~( value & ~INTF_SETCLR );
       }
 
-      if( value & INTF_AUDIO )
-      {
-//        KPrintF( "INTREQ: %04lx\n", value );
-      }
-
       WriteWord( address, value & ~INTF_AUDIO );
 
       if( ( pd->m_INTENA & pd->m_INTREQ & INTF_AUDIO ) &&
@@ -1484,29 +1471,26 @@ PUHWrite( UWORD            reg,
       break;
 
     case AUD0LCH:
+//KPrintF( "AUDxLCH: %04lx\n", value );
     case AUD1LCH:
     case AUD2LCH:
     case AUD3LCH:
       pd->m_SoundLocation[ ( reg - AUD0LCH ) >> 4 ] &= 0x0000ffff;
       pd->m_SoundLocation[ ( reg - AUD0LCH ) >> 4 ] |= value << 16;
 
-//KPrintF( "AUDxLCH: %04lx\n", value );
-
-//      WriteWord( address, value );
       *handled = TRUE;
       break;
 
     case AUD0LCL:
+//KPrintF( "AUDxLCL: %04lx\n", value );
     case AUD1LCL:
     case AUD2LCL:
     case AUD3LCL:
     {
-      int channel = ( reg - AUD0LCL ) >> 4;
+      int channel     = ( reg - AUD0LCL ) >> 4;
 
       pd->m_SoundLocation[ channel ] &= 0xffff0000;
       pd->m_SoundLocation[ channel ] |= value;
-      
-//KPrintF( "AUDxLCL: %04lx\n", value );
 
       if( pd->m_SoundOn[ channel ] )
       {
@@ -1527,12 +1511,12 @@ PUHWrite( UWORD            reg,
         }
       }
 
-//      WriteWord( address, value );
       *handled = TRUE;
       break;
     }
 
     case AUD0LEN:
+//KPrintF( "AUDxLEN: %04lx\n", value );
     case AUD1LEN:
     case AUD2LEN:
     case AUD3LEN:
@@ -1540,8 +1524,6 @@ PUHWrite( UWORD            reg,
       int channel = ( reg - AUD0LEN ) >> 4;
       
       pd->m_SoundLength[ channel ] = value * 2;
-      
-//KPrintF( "AUDxLEN: %04lx\n", value );
 
       if( pd->m_SoundOn[ channel ] )
       {
@@ -1562,19 +1544,17 @@ PUHWrite( UWORD            reg,
         }
       }
 
-//      WriteWord( address, value );
       *handled = TRUE;
       break;
     }
 
     case AUD0PER:
+//KPrintF( "AUDxPER: %04lx\n", value );
     case AUD1PER:
     case AUD2PER:
     case AUD3PER:
     {
       int   channel = ( reg - AUD0PER ) >> 4;
-      
-//KPrintF( "AUDxPER: %04lx\n", value );
 
       if( value == 0 )
       {
@@ -1593,7 +1573,6 @@ PUHWrite( UWORD            reg,
                      AHISF_IMM );
       }
 
-//      WriteWord( address, value );
       *handled = TRUE;
       break;
     }
@@ -1607,7 +1586,6 @@ PUHWrite( UWORD            reg,
                   pd->m_AudioCtrl,
                   AHISF_IMM );
 
-//      WriteWord( address, value );
       *handled = TRUE;
       break;
 
@@ -1619,38 +1597,32 @@ PUHWrite( UWORD            reg,
                   pd->m_AudioCtrl,
                   AHISF_IMM );
 
-//      WriteWord( address, value );
       *handled = TRUE;
       break;
 
     case AUD2VOL:
-//KPrintF( "AUD1VOL: %04lx\n", value );
+//KPrintF( "AUD2VOL: %04lx\n", value );
       AHI_SetVol( 2,
                   value << 10,
                   0x0,
                   pd->m_AudioCtrl,
                   AHISF_IMM );
 
-//      WriteWord( address, value );
       *handled = TRUE;
       break;
 
     case AUD3VOL:
-//KPrintF( "AUD1VOL: %04lx\n", value );
+//KPrintF( "AUD3VOL: %04lx\n", value );
       AHI_SetVol( 3,
                   value << 10,
                   0x10000,
                   pd->m_AudioCtrl,
                   AHISF_IMM );
 
-//      WriteWord( address, value );
       *handled = TRUE;
       break;
 
     case AUD0DAT:
-      //KPrintF( "AUD0DAT=%04lx; DMACON: %04lx; INTENA: %04lx\n",
-//      value, pd->m_DMACON, pd->m_INTENA );  
-      
       if( ( pd->m_DMACON & DMAF_AUD0 ) == 0 )
       {
         pd->m_INTREQ |= INTF_AUD0;
