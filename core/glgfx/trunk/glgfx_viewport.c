@@ -124,7 +124,7 @@ bool glgfx_viewport_render(struct glgfx_viewport* viewport) {
     struct glgfx_rasinfo* rasinfo = (struct glgfx_rasinfo*) data;
     struct glgfx_viewport* viewport = (struct glgfx_viewport*) userdata;
 
-    glBindTexture(GL_TEXTURE_RECTANGLE_ARB, rasinfo->bitmap->texture);
+    glBindTexture(GL_TEXTURE_RECTANGLE_EXT, rasinfo->bitmap->texture);
     glColor4f(1,1,1,1);
     glBegin(GL_QUADS);
     glTexCoord2i(rasinfo->xoffset,

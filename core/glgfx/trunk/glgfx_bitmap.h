@@ -2,7 +2,7 @@
 #define arp2_glgfx_glgfx_bitmap_h
 
 #include <glgfx-config.h>
-#include <glgfx.>
+#include <glgfx.h>
 #include <glgfx_monitor.h>
 
 #include <GL/gl.h>

@@ -3,9 +3,9 @@
 
 AC_PREREQ(2.59)
 AC_INIT([glgfx], [0.1], [martin@blom.org])
+AM_CONFIG_HEADER(glgfx-config.h)
 AM_INIT_AUTOMAKE([glgfx], [0.1])
-AC_CONFIG_SRCDIR([glgfx.c])
-AM_CONFIG_HEADER([glgfx-config.h])
+#AC_CONFIG_SRCDIR([glgfx.c])
 
 AC_PROG_MAKE_SET
 
@@ -32,7 +32,10 @@ fi
 CFLAGS="${CFLAGS} ${X_CFLAGS}"
 LIBS="${LIBS} ${X_LIBS} ${X_PRE_LIBS} ${X_EXTRA_LIBS}"
 
-PKG_CHECK_MODULES(, glib-2.0,, 	AC_ERROR([glib is required]))
+PKG_CHECK_MODULES(DEPS, glib-2.0,, 	AC_ERROR([glib is required]))
+AC_SUBST(DEPS_CFLAGS)
+AC_SUBST(DEPS_LIBS)
+			
 # Checks for libraries.
 AC_CHECK_LIB([X11],     [XCreateWindow],,             [AC_MSG_ERROR([libX11 not found])])
 AC_CHECK_LIB([Xxf86vm], [XF86VidModeQueryExtension],, [AC_MSG_ERROR([libXxf86vm not found])])
@@ -53,5 +56,5 @@ AC_TYPE_SIZE_T
 AC_TYPE_SIGNAL
 AC_CHECK_FUNCS([alarm setenv strdup])
 
-AC_CONFIG_FILES([Makefile])
-AC_OUTPUT
+#AC_CONFIG_FILES(
+AC_OUTPUT([Makefile])

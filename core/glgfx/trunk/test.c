@@ -54,7 +54,7 @@ int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) 
       
 	  for (y = 0; y < height; y+=10) {
 	    for (x = 0; x < width; x+=10) {
-//	      data[x+y*width+i*13] = -1;
+	      data[x+y*width+i*13] = -1;
 	    }
 	  }
 	  glgfx_bitmap_unlock(bm);

@@ -67,10 +67,10 @@ struct glgfx_bitmap* glgfx_bitmap_create(int width, int height, int bits,
   glGenTextures(1, &bitmap->texture);
   check_error();
 
-  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, bitmap->texture);
+  glBindTexture(GL_TEXTURE_RECTANGLE_EXT, bitmap->texture);
   check_error();
 
-  glTexImage2D(GL_TEXTURE_RECTANGLE_ARB, 0,
+  glTexImage2D(GL_TEXTURE_RECTANGLE_EXT, 0,
 	       formats[bitmap->format].internal_format,
 	       width, height, 0,
 	       formats[bitmap->format].format,
@@ -79,14 +79,14 @@ struct glgfx_bitmap* glgfx_bitmap_create(int width, int height, int bits,
   check_error();
 
 /*   float rgba[4] = { 0, 1, 0, 0.1 }; */
-/*   glTexParameterfv(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_BORDER_COLOR, rgba); */
-  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+/*   glTexParameterfv(GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_BORDER_COLOR, rgba); */
+  glTexParameteri(GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+  glTexParameteri(GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+  glTexParameteri(GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 //  glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
   
-  glEnable(GL_TEXTURE_RECTANGLE_ARB);
+  glEnable(GL_TEXTURE_RECTANGLE_EXT);
   check_error();
 
   D(BUG("Returning bitmap %p\n", bitmap));
@@ -168,10 +168,10 @@ bool glgfx_bitmap_unlock(struct glgfx_bitmap* bitmap) {
   }
 
   if (bitmap->locked_write) {
-    glBindTexture(GL_TEXTURE_RECTANGLE_ARB, bitmap->texture);
+    glBindTexture(GL_TEXTURE_RECTANGLE_EXT, bitmap->texture);
     check_error();
 
-    glTexImage2D(GL_TEXTURE_RECTANGLE_ARB, 0,
+    glTexImage2D(GL_TEXTURE_RECTANGLE_EXT, 0,
 		 formats[bitmap->format].internal_format,
 		 bitmap->width, bitmap->height, 0,
 		 formats[bitmap->format].format,
