@@ -96,8 +96,10 @@ struct ISAPNP_Device
 
 /* Flags for isapnpd_SupportedCommands */
 
-#define ISAPNP_DEVICE_SCF_BOOTABLE 0x01
-#define ISAPNP_DEVICE_SCB_BOOTABLE 0
+#define ISAPNP_DEVICE_SCF_BOOTABLE    0x01
+#define ISAPNP_DEVICE_SCF_RANGE_CHECK 0x02
+#define ISAPNP_DEVICE_SCB_BOOTABLE    0
+#define ISAPNP_DEVICE_SCB_RANGE_CHECK 1
 
 
 /*** A resource group ********************************************************/

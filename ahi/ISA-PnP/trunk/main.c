@@ -341,6 +341,14 @@ ShowCards( BOOL               show_options,
              card->isapnpc_Node.ln_Name != NULL ? (ULONG) card->isapnpc_Node.ln_Name 
                                                 : (ULONG) "" );
 
+    Printf( "  PnP version: %ld.%ld\n",
+            card->isapnpc_MajorPnPVersion,
+            card->isapnpc_MinorPnPVersion );
+
+    Printf( "  Vendor specific version number: %ld.%ld\n", 
+            card->isapnpc_VendorPnPVersion >> 4, 
+            card->isapnpc_VendorPnPVersion & 0x0f );
+
     for( dev = (struct ISAPNP_Device*) card->isapnpc_Devices.lh_Head;
          dev->isapnpd_Node.ln_Succ != NULL; 
          dev = (struct ISAPNP_Device*) dev->isapnpd_Node.ln_Succ )
@@ -367,6 +375,16 @@ ShowCards( BOOL               show_options,
       }
 
       Printf( "\n" );
+
+      if( dev->isapnpd_SupportedCommands & ISAPNP_DEVICE_SCF_BOOTABLE )
+      {
+        Printf( "    Device is capable of participating in the boot process.\n" );
+      }
+
+      if( dev->isapnpd_SupportedCommands & ISAPNP_DEVICE_SCF_RANGE_CHECK )
+      {
+        Printf( "    Device supports IO range checking.\n" );
+      }
 
       Printf( "    Allocated resources:\n" );
 
