@@ -87,7 +87,7 @@ extern char *g_rdpdr_clientname;
 
 static const char version[] = "$VER: RDesktop 1.3.1cvs-Amiga-beta-1 (22.05.2004)"
                               "©2001-2004 Martin Blom; "
-                              "©1999-2004 Matthew Chapman et al.\r\n";
+                              "©1999-2004 Matthew Chapman et al.";
 
 struct Library*       AslBase       = NULL;
 struct Library*       CyberGfxBase  = NULL;
