@@ -626,7 +626,7 @@ ReadResourceData( struct ISAPNP_Card* card,
     }
   }
 
-  KPrintF( "Check sum: %ld\n", check_sum );
+//  KPrintF( "Check sum: %ld\n", check_sum );
   
   return TRUE;
 }
@@ -946,8 +946,8 @@ ShowCards( struct ISAPNPBase* res )
         KPrintF( "      None.\n" );
       }
 
-      KPrintF( "    Requested resources:\n" );
-      ShowResourceGroup( dev->m_Options, res );
+//      KPrintF( "    Requested resources:\n" );
+//      ShowResourceGroup( dev->m_Options, res );
     }
   }
 }
@@ -984,13 +984,13 @@ ISAPNP_ScanCards( REG( a6, struct ISAPNPBase* res ) )
   }
 
   // Reset all cards
-
+/*
   SetPnPReg( PNPISA_REG_CONFIG_CONTROL,
              PNPISA_CCF_RESET        |
              PNPISA_CCF_WAIT_FOR_KEY |
              PNPISA_CCF_RESET_CSN,
              res );
-
+*/
   return cards != 0;
 }
 
@@ -1017,27 +1017,6 @@ FindConfiguration( struct ISAPNP_Device*   dev,
 
   struct ISAPNP_ResourceGroup* rg;
   struct ResourceIteratorList* ril = NULL;
-
-#if 0
-    struct ISAPNP_Identifier* id;
-
-    KPrintF( "Logical device %ld: ",
-             dev->m_DeviceNumber );
-
-    for( id = (struct ISAPNP_Identifier*) dev->m_IDs.mlh_Head;
-         id->m_MinNode.mln_Succ != NULL;
-         id = (struct ISAPNP_Identifier*) id->m_MinNode.mln_Succ )
-    {
-      KPrintF( "%s%03lx%lx ", id->m_Vendor, id->m_ProductID, id->m_Revision );
-    }
-
-    if( dev->m_Node.ln_Name != NULL )
-    {
-      KPrintF( "('%s')", dev->m_Node.ln_Name );
-    }
-
-    KPrintF( "\n" );
-#endif
 
   if( dev->m_Disabled || dev->m_Card->m_Disabled )
   {
@@ -1115,9 +1094,22 @@ FindConfiguration( struct ISAPNP_Device*   dev,
       {
         // Allocate resources for current iterators
 
-        rc = CreateResouces( ril, 
-                             (struct List*) &dev->m_Resources,
+        // NOTE! These resources muct be FIRST in the resource list
+        // in order to maintain the descriptor order.
+
+        struct MinList tmp;
+        struct Node*   n;
+        
+        NewList( (struct List* ) &tmp );
+
+        rc = CreateResouces( ril, (struct List*) &tmp,
                              res );
+
+        while( ( n = RemTail( (struct List* ) &tmp ) ) != NULL )
+        {
+          AddHead( (struct List*) &dev->m_Resources, n );
+        }
+
         break;
       }
     }
@@ -1160,7 +1152,7 @@ FindNextCardConfiguration( struct ISAPNP_Device*   dev,
     else
     {
       // This was the last device on the last card!
-KPrintF( "End of chain!\n" );
+
       rc = TRUE;
     }
   }
@@ -1169,44 +1161,175 @@ KPrintF( "End of chain!\n" );
 }
 
 
+BOOL
+ProgramConfiguration( struct ISAPNPBase* res )
+{
+  struct ISAPNP_Device* dev = NULL;
+
+  UBYTE csn     = 0;
+
+  while( ( dev = ISAPNP_FindDevice( dev, -1, -1, -1, res ) ) != NULL )
+  {
+    struct ISAPNP_Resource* resource;
+
+    UBYTE mem_reg = PNPISA_REG_MEMORY_BASE_ADDRESS_HIGH_0;
+    UBYTE io_reg  = PNPISA_REG_IO_PORT_BASE_ADDRESS_HIGH_0;
+    UBYTE int_reg = PNPISA_REG_INTERRUPT_REQUEST_LEVEL_SELECT_0;
+    UBYTE dma_reg = PNPISA_REG_DMA_CHANNEL_SELECT_0;
+
+    if( dev->m_Card->m_CSN != csn )
+    {
+      csn = dev->m_Card->m_CSN;
+
+      // Wake the new card
+
+KPrintF( "Woke up card %ld\n", dev->m_Card->m_CSN );
+      SetPnPReg( PNPISA_REG_WAKE, dev->m_Card->m_CSN, res );
+    }
+
+    // Select logical device
+
+KPrintF( "Selected device %ld\n", dev->m_DeviceNumber );
+    SetPnPReg( PNPISA_REG_LOGICAL_DEVICE_NUMBER, dev->m_DeviceNumber, res );
+
+    for( resource = (struct ISAPNP_Resource*) dev->m_Resources.mlh_Head;
+         resource->m_MinNode.mln_Succ != NULL;
+         resource = (struct ISAPNP_Resource*) resource->m_MinNode.mln_Succ )
+    {
+      switch( resource->m_Type )
+      {
+        case ISAPNP_NT_IRQ_RESOURCE:
+        {
+          struct ISAPNP_IRQResource* r = (struct ISAPNP_IRQResource*) resource;
+          int                        b;
+      
+          for( b = 0; b < 16; ++b )
+          {
+            if( r->m_IRQMask & ( 1 << b ) )
+            {
+KPrintF( "Programmed interrupt %ld in %lx\n", b, int_reg );
+              SetPnPReg( int_reg, b, res);
+              break;
+            }
+          }
+
+          b = 0;
+          
+          if( ( r->m_IRQType & ISAPNP_IRQRESOURCE_ITF_HIGH_EDGE ) ||
+              ( r->m_IRQType & ISAPNP_IRQRESOURCE_ITF_HIGH_LEVEL ) )
+          {
+            b |= 2;
+          }
+          
+          if( ( r->m_IRQType & ISAPNP_IRQRESOURCE_ITF_HIGH_LEVEL ) ||
+              ( r->m_IRQType & ISAPNP_IRQRESOURCE_ITF_LOW_LEVEL ) )
+          {
+            b |= 1;
+          }
+
+KPrintF( "Programmed interrupt mode %ld in %lx\n", b, int_reg + 1 );
+          SetPnPReg( int_reg + 1, b, res );
+          
+          int_reg += 2;
+
+          break;
+        }
+
+        case ISAPNP_NT_DMA_RESOURCE:
+        {
+          struct ISAPNP_DMAResource* r = (struct ISAPNP_DMAResource*) resource;
+          int                        b;
+      
+          for( b = 0; b < 8; ++b )
+          {
+            if( r->m_ChannelMask & ( 1 << b ) )
+            {
+KPrintF( "Programmed dma channel %ld in %lx\n", b, dma_reg );
+              SetPnPReg( dma_reg, b, res );
+              break;
+            }
+          }
+
+          dma_reg += 1;
+
+          break;
+        }
+
+        case ISAPNP_NT_IO_RESOURCE:
+        {
+          struct ISAPNP_IOResource* r = (struct ISAPNP_IOResource*) resource;
+
+KPrintF( "Programmed IO base %04lx in %lx\n", r->m_MinBase, io_reg );
+
+          SetPnPReg( io_reg, r->m_MinBase >> 8, res );
+          SetPnPReg( io_reg + 1, r->m_MinBase & 0xff, res );
+
+          io_reg += 2;
+
+          break;
+        }
+        
+        default:
+          KPrintF( "Unsupported resource!\n" );
+          return FALSE;
+      }
+    }
+
+    // Activate the device
+KPrintF( "Activated the device\n" );
+    SetPnPReg( PNPISA_REG_ACTIVATE, 1, res );
+  }
+
+  // Move all cards to the wfk state
+
+KPrintF( "Moved cards to wfk\n" );
+
+  SetPnPReg( PNPISA_REG_CONFIG_CONTROL,
+             PNPISA_CCF_WAIT_FOR_KEY,
+             res );
+
+  return TRUE;
+}
+
+
 BOOL ASMCALL
 ISAPNP_ConfigureCards( REG( a6, struct ISAPNPBase* res ) )
 {
   BOOL rc = FALSE;
 
-  struct ISAPNP_Card* card;
+  struct ISAPNP_Device* dev;
 
-  card = (struct ISAPNP_Card*) res->m_Cards.lh_Head;
+  dev = ISAPNP_FindDevice( NULL, -1, -1, -1, res );
 
-  // Check for non-empty card list and a non-empty device list
-
-  if( card->m_Node.ln_Succ != NULL )
+  if( dev != NULL )
   {
-    struct ISAPNP_Device* dev;
-    
-    dev = (struct ISAPNP_Device*) card->m_Devices.lh_Head;
-    
-    if( dev->m_Node.ln_Succ != NULL )
+    struct ResourceContext* ctx;
+      
+    ctx = AllocResourceIteratorContext();
+      
+    if( ctx != NULL )
     {
-      struct ResourceContext* ctx;
-      
-      ctx = AllocResourceIteratorContext();
-      
-      if( ctx != NULL )
+      if( ! FindConfiguration( dev, ctx, res ) )
       {
-        rc = FindConfiguration( dev, ctx, res );
-
-        KPrintF( "FindConfiguration: %ld\n", rc );
-        
-        FreeResourceIteratorContext( ctx );
+        KPrintF( "Unable to find a usable configuration.\n" );
       }
-
-      // Force success
-      rc = TRUE;
+      else
+      {
+        if( ! ProgramConfiguration( res ) )
+        {
+          KPrintF( "Failed to program configuration!\n" );
+        }
+        else
+        {
+          rc = TRUE;
+        }
+      }
+        
+      FreeResourceIteratorContext( ctx );
     }
   }
 
-//  ShowCards( res );
+  ShowCards( res );
 
   return rc;
 }

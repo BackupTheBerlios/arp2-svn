@@ -44,8 +44,11 @@ struct ResourceIterator
   UWORD                   m_Base;
   UWORD                   m_Length;
   BOOL                    m_HasLock;
+  BOOL                    m_InConflict;
 };
 
+
+#undef DEBUG_ITERATORS
 
 struct ResourceIteratorList
 {
@@ -65,7 +68,6 @@ struct ResourceContext
   struct ResourceIterator* m_IRQ[ 16 ];
   struct ResourceIterator* m_DMA[ 8 ];
   struct MinList           m_IO;
-  struct MinList           m_Conflicts;
 };
 
 
@@ -83,136 +85,6 @@ IncResourceIterator( struct ResourceIterator* iter,
 
 
 /******************************************************************************
-** Helper functions for conflict handling *************************************
-******************************************************************************/
-
-
-static BOOL
-FindConflictIterator( struct ResourceIterator* iter,
-                      struct MinList*          list )
-{
-  struct ResourceIteratorRef* ref;
-  
-  for( ref = (struct ResourceIteratorRef*) list->mlh_Head;
-       ref->m_MinNode.mln_Succ != NULL;
-       ref = (struct ResourceIteratorRef*) ref->m_MinNode.mln_Succ )
-  {
-    if( ref->m_Iterator == iter )
-    {
-      if( list->mlh_Head != (struct MinNode*) ref )
-      {
-        // Move it to the beginning of the list so we can find it fast next
-        // time.
-
-        Remove( (struct Node*) ref );
-        AddHead( (struct List*) list, (struct Node*) ref );
-      }
-
-      return TRUE;
-    }
-  }
-
-  return FALSE;
-}
-
-
-static void
-AddConflictIterator( struct ResourceIterator* iter,
-                     struct MinList*          list )
-{
-  struct ResourceIteratorRef* node;
-
-  if( list == NULL )
-  {
-    return;
-  }
-
-  if( FindConflictIterator( iter, list ) )
-  {
-    return;
-  }
-
-  node = AllocVec( sizeof( *node ), MEMF_PUBLIC );
-
-  if( node != NULL )
-  {
-    node->m_Iterator = iter;
-    AddTail( (struct List*) list, (struct Node*) node );
-//KPrintF( "Added conflict %08lx\n", iter );
-  }
-}
-
-
-static BOOL
-DeleteConflictIterator( struct ResourceIterator* iter,
-                        struct MinList*          list )
-{
-  struct ResourceIteratorRef* ref;
-  
-  for( ref = (struct ResourceIteratorRef*) list->mlh_Head;
-       ref->m_MinNode.mln_Succ != NULL;
-       ref = (struct ResourceIteratorRef*) ref->m_MinNode.mln_Succ )
-  {
-    if( ref->m_Iterator == iter )
-    {
-      Remove( (struct Node*) ref );
-      FreeVec( ref );
-//KPrintF( "Deleted conflict %08lx\n", iter );
-      return TRUE;
-    }
-  }
-
-  return FALSE;
-}
-
-
-static void
-ClearConflictIteratorList( struct MinList* list )
-{
-  struct Node* n;
-
-  if( list == NULL )
-  {
-    return;
-  }
-
-  while( ( n = RemHead( (struct List* ) list ) ) != NULL )
-  {
-//KPrintF( "Deleted conflict %08lx\n", ((struct ResourceIteratorRef*) n )->m_Iterator );
-    FreeVec( n );
-  }  
-}
-
-
-static void
-AddConflictIteratorList( struct MinList* src, 
-                         struct MinList* dst )
-{
-  struct ResourceIteratorRef* ref;
-
-  if( src == NULL || dst== NULL )
-  {
-    return;
-  }
-
-  while( ( ref = (struct ResourceIteratorRef*) 
-                 RemHead( (struct List* ) src ) ) != NULL )
-  {
-
-    if( FindConflictIterator( ref->m_Iterator, dst ) )
-    {
-//KPrintF( "Deleted conflict %08lx\n", ref->m_Iterator );
-      FreeVec( ref );      
-    }
-    else
-    {
-      AddTail( (struct List* ) dst, (struct Node*) ref );
-    }
-  }  
-}
-
-
-/******************************************************************************
 ** Allocate a clean resource iterator context *********************************
 ******************************************************************************/
 
@@ -226,7 +98,6 @@ AllocResourceIteratorContext( void )
   if( ctx != NULL )
   {
     NewList( (struct List*) &ctx->m_IO );
-    NewList( (struct List*) &ctx->m_Conflicts );
   }
   
   return ctx;
@@ -250,14 +121,6 @@ FreeResourceIteratorContext( struct ResourceContext* ctx )
   while( ( ref = (struct ResourceIteratorRef*) 
                  RemHead( (struct List*) &ctx->m_IO ) ) )
   {
-    KPrintF( "Warning: Freeing IO resource!\n" );
-    FreeVec( ref );
-  }
-
-  while( ( ref = (struct ResourceIteratorRef*) 
-                 RemHead( (struct List*) &ctx->m_Conflicts ) ) )
-  {
-    KPrintF( "Warning: Freeing conflict %08lx!\n", ref->m_Iterator );
     FreeVec( ref );
   }
 
@@ -269,24 +132,26 @@ FreeResourceIteratorContext( struct ResourceContext* ctx )
 ** Lock resources from the context ********************************************
 ******************************************************************************/
 
-static struct ResourceIterator*
+static BOOL
 LockResource( struct ResourceIterator* iter,
               struct ResourceContext*  ctx )
 {
-  struct ResourceIterator* result = NULL;
+  struct ResourceIterator* conflict = NULL;
 
   switch( iter->m_Resource->m_Type )
   {
     case ISAPNP_NT_IRQ_RESOURCE:
     {
+#ifdef DEBUG_ITERATORS
 KPrintF( "L IRQ %ld", iter->m_IRQBit );
+#endif
       if( ctx->m_IRQ[ iter->m_IRQBit ] == NULL )
       {
         ctx->m_IRQ[ iter->m_IRQBit ] = iter;
       }
       else
       {
-        result = ctx->m_IRQ[ iter->m_IRQBit ];
+        conflict = ctx->m_IRQ[ iter->m_IRQBit ];
       }
       
       break;
@@ -295,14 +160,16 @@ KPrintF( "L IRQ %ld", iter->m_IRQBit );
 
     case ISAPNP_NT_DMA_RESOURCE:
     {
+#ifdef DEBUG_ITERATORS
 KPrintF( "L DMA %ld", iter->m_ChannelBit );
+#endif
       if( ctx->m_DMA[ iter->m_ChannelBit ] == NULL )
       {
         ctx->m_DMA[ iter->m_ChannelBit ] = iter;
       }
       else
       {
-        result = ctx->m_DMA[ iter->m_ChannelBit ];
+        conflict = ctx->m_DMA[ iter->m_ChannelBit ];
       }
 
       break;
@@ -318,7 +185,9 @@ KPrintF( "L DMA %ld", iter->m_ChannelBit );
       UWORD base   = iter->m_Base;
       UWORD length = iter->m_Length;
 
+#ifdef DEBUG_ITERATORS
 KPrintF( "L IO %lx-%lx", base, base + length );
+#endif
 
       for( io = (struct ResourceIteratorRef*) ctx->m_IO.mlh_Head;
            io->m_MinNode.mln_Succ != NULL;
@@ -332,7 +201,7 @@ KPrintF( "L IO %lx-%lx", base, base + length );
         {
           // Collision!
 
-          result = io->m_Iterator;
+          conflict = io->m_Iterator;
           break;
         }
 
@@ -346,7 +215,7 @@ KPrintF( "L IO %lx-%lx", base, base + length );
         }
       }
 
-      if( result == NULL )
+      if( conflict == NULL )
       {
         // Insert the node
     
@@ -354,7 +223,7 @@ KPrintF( "L IO %lx-%lx", base, base + length );
 
         if( new_io == NULL )
         {
-          result = (struct ResourceIterator*) -1;
+          return FALSE;
         }
         else
         {
@@ -379,11 +248,21 @@ KPrintF( "L IO %lx-%lx", base, base + length );
       break;
   }
 
-  iter->m_HasLock = ( result == NULL );
+  if( conflict != NULL )
+  {
+    conflict->m_InConflict = TRUE;
+    iter->m_HasLock = FALSE;
+  }
+  else
+  {
+    iter->m_HasLock = TRUE;
+  }
 
-  if( result == NULL ) KPrintF( " OK\n" ); else KPrintF( " failed\n" );
+#ifdef DEBUG_ITERATORS
+if( iter->m_HasLock ) KPrintF( " OK\n" ); else KPrintF( " failed\n" );
+#endif
 
-  return result;
+  return iter->m_HasLock;
 }
 
 
@@ -404,7 +283,9 @@ UnlockResource( struct ResourceIterator* iter,
   {
     case ISAPNP_NT_IRQ_RESOURCE:
     {
+#ifdef DEBUG_ITERATORS
 KPrintF( "U IRQ %ld\n", iter->m_IRQBit );
+#endif
       ctx->m_IRQ[ iter->m_IRQBit ] = NULL;
 
       break;
@@ -413,7 +294,9 @@ KPrintF( "U IRQ %ld\n", iter->m_IRQBit );
 
     case ISAPNP_NT_DMA_RESOURCE:
     {
+#ifdef DEBUG_ITERATORS
 KPrintF( "U DMA %ld\n", iter->m_ChannelBit );
+#endif
       ctx->m_DMA[ iter->m_ChannelBit ] = NULL;
 
       break;
@@ -424,8 +307,11 @@ KPrintF( "U DMA %ld\n", iter->m_ChannelBit );
     {
       struct ResourceIteratorRef* io;
 
+#ifdef DEBUG_ITERATORS
 KPrintF( "U IO %lx-%lx\n", iter->m_Base, 
          iter->m_Base + iter->m_Length );
+#endif
+
       for( io = (struct ResourceIteratorRef*) ctx->m_IO.mlh_Head;
            io->m_MinNode.mln_Succ != NULL;
            io = (struct ResourceIteratorRef*) io->m_MinNode.mln_Succ )
@@ -460,10 +346,6 @@ ResetResourceIterator( struct ResourceIterator* iter,
 {
   BOOL rc = FALSE;
 
-//  struct MinList potential_conflicts;
-
-//  NewList( (struct List*) &potential_conflicts );
-
   switch( iter->m_Resource->m_Type )
   {
     case ISAPNP_NT_IRQ_RESOURCE:
@@ -478,18 +360,10 @@ ResetResourceIterator( struct ResourceIterator* iter,
       {
         if( r->m_IRQMask & ( 1 << iter->m_IRQBit ) )
         {
-          struct ResourceIterator* conflict;
-
-          conflict = LockResource( iter, ctx );
-
-          if( conflict == NULL )
+          if( LockResource( iter, ctx ) )
           {
             rc = TRUE;
             break;
-          }
-          else
-          {
-            AddConflictIterator( conflict, &ctx->m_Conflicts );
           }
         }
 
@@ -512,18 +386,10 @@ ResetResourceIterator( struct ResourceIterator* iter,
       {
         if( r->m_ChannelMask & ( 1 << iter->m_ChannelBit ) )
         {
-          struct ResourceIterator* conflict;
-
-          conflict = LockResource( iter, ctx );
-
-          if( conflict == NULL )
+          if( LockResource( iter, ctx ) )
           {
             rc = TRUE;
             break;
-          }
-          else
-          {
-            AddConflictIterator( conflict, &ctx->m_Conflicts );
           }
         }
 
@@ -546,18 +412,10 @@ ResetResourceIterator( struct ResourceIterator* iter,
 
       while( iter->m_Base <= r->m_MaxBase )
       {
-        struct ResourceIterator* conflict;
-
-        conflict = LockResource( iter, ctx );
-
-        if( conflict == NULL )
+        if( LockResource( iter, ctx ) )
         {
           rc = TRUE;
           break;
-        }
-        else
-        {
-          AddConflictIterator( conflict, &ctx->m_Conflicts );
         }
 
         iter->m_Base += r->m_Alignment;
@@ -570,17 +428,6 @@ ResetResourceIterator( struct ResourceIterator* iter,
     default:
       break;
   }
-
-#if 0
-  if( rc )
-  {
-    ClearConflictIteratorList( &potential_conflicts );
-  }
-  else
-  {
-    AddConflictIteratorList( &potential_conflicts, &ctx->m_Conflicts );
-  }
-#endif
 
   return rc;
 }
@@ -630,7 +477,7 @@ FreeResourceIterator( struct ResourceIterator* iter,
 
   UnlockResource( iter, ctx );
 
-  rc = DeleteConflictIterator( iter, &ctx->m_Conflicts );
+  rc = iter->m_InConflict;
 
   FreeVec( iter );
   
@@ -650,7 +497,10 @@ AllocResourceIteratorList( struct MinList*         resource_list,
 {
   struct ResourceIteratorList* result;
   
+#ifdef DEBUG_ITERATORS
 KPrintF( "AllocResourceIteratorList()\n" );
+#endif
+
   result = AllocVec( sizeof( *result ), MEMF_PUBLIC | MEMF_CLEAR );
   
   if( result != NULL )
@@ -681,14 +531,11 @@ KPrintF( "AllocResourceIteratorList()\n" );
     }
   }
 
-if( result )
-{
-  KPrintF( "AllocResourceIteratorList() succeeded\n" );
-}
-else
-{
-  KPrintF( "AllocResourceIteratorList() failed\n" );
-}
+#ifdef DEBUG_ITERATORS
+if( result ) KPrintF( "AllocResourceIteratorList() succeeded\n" );
+else KPrintF( "AllocResourceIteratorList() failed\n" );
+#endif
+
   return result;
 }
 
@@ -705,7 +552,10 @@ FreeResourceIteratorList( struct ResourceIteratorList* list,
 
   struct ResourceIterator* iter;
 
+#ifdef DEBUG_ITERATORS
 KPrintF( "FreeResourceIteratorList()\n" );
+#endif
+
   if( list == NULL )
   {
     return FALSE;
@@ -722,7 +572,10 @@ KPrintF( "FreeResourceIteratorList()\n" );
 
   FreeVec( list );
 
-  if( rc ) KPrintF( "FreeResourceIteratorList() T\n" ); else KPrintF( "FreeResourceIteratorList() F\n" );
+#ifdef DEBUG_ITERATORS
+if( rc ) KPrintF( "FreeResourceIteratorList() T\n" ); 
+else KPrintF( "FreeResourceIteratorList() F\n" );
+#endif
 
   return rc;
 }
@@ -754,18 +607,7 @@ IncResourceIterator( struct ResourceIterator* iter,
 
         if( r->m_IRQMask & ( 1 << iter->m_IRQBit ) )
         {
-          struct ResourceIterator* conflict;
-
-          conflict = LockResource( iter, ctx );
-
-          if( conflict == NULL )
-          {
-            rc = TRUE;
-          }
-          else
-          {
-            AddConflictIterator( conflict, &ctx->m_Conflicts );
-          }
+          rc = LockResource( iter, ctx );
         }
       }
 
@@ -784,18 +626,7 @@ IncResourceIterator( struct ResourceIterator* iter,
 
         if( r->m_ChannelMask & ( 1 << iter->m_ChannelBit ) )
         {
-          struct ResourceIterator* conflict;
-
-          conflict = LockResource( iter, ctx );
-
-          if( conflict == NULL )
-          {
-            rc = TRUE;
-          }
-          else
-          {
-            AddConflictIterator( conflict, &ctx->m_Conflicts );
-          }
+          rc = LockResource( iter, ctx );
         }
       }
 
@@ -814,18 +645,7 @@ IncResourceIterator( struct ResourceIterator* iter,
 
         if( iter->m_Base <= r->m_MaxBase )
         {
-          struct ResourceIterator* conflict;
-
-          conflict = LockResource( iter, ctx );
-
-          if( conflict == NULL )
-          {
-            rc = TRUE;
-          }
-          else
-          {
-            AddConflictIterator( conflict, &ctx->m_Conflicts );
-          }
+          rc = LockResource( iter, ctx );
         }
       }
 
@@ -852,12 +672,15 @@ IncResourceIteratorList( struct ResourceIteratorList* iter_list,
   BOOL                     rc = FALSE;
   struct ResourceIterator* current;
 
+#ifdef DEBUG_ITERATORS
 KPrintF( "IncResourceIteratorList()\n" );
+#endif
+
   current = (struct ResourceIterator*) iter_list->m_ResourceIterators.mlh_Head;
 
   while( ! rc && current->m_MinNode.mln_Succ != NULL )
   {
-    if( FindConflictIterator( current, &ctx->m_Conflicts ) )
+    if( current->m_InConflict )
     {
       rc = IncResourceIterator( current, ctx );
     }    
@@ -871,18 +694,16 @@ KPrintF( "IncResourceIteratorList()\n" );
 
     if( ! rc )
     {
-      if( ! ResetResourceIterator( current, ctx ) )
-      {
-        KPrintF( "*** WARNING: ResetResourceIterator() returned FALSE!\n" );
-        // This should never happen, but better safe than sorry...
-        break;
-      }
+      ResetResourceIterator( current, ctx );
 
       current = (struct ResourceIterator*) current->m_MinNode.mln_Succ;
     }
   }
   
+#ifdef DEBUG_ITERATORS
 KPrintF( "IncResourceIteratorList(): %ld\n", rc );
+#endif
+
   return rc;
 }
 

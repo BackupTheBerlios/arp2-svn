@@ -142,8 +142,6 @@ KPrintF( "No libraries?.\n" );
     ULONG                 actual;
     struct CurrentBinding current_binding;
 
-KPrintF( "Getting binding.\n" );
-    
     actual = GetCurrentBinding( &current_binding, 
                                 sizeof( current_binding ) );
 
@@ -184,8 +182,6 @@ KPrintF( "No board address?\n" );
           }
           else
           {
-KPrintF( "Congiguring.\n" );
-
             // Set up the ISAPNPBase structure
 
             res->m_Library.lib_Node.ln_Type = NT_RESOURCE;

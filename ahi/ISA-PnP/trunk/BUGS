@@ -1,0 +1,11 @@
+$Id$
+
+Known bugs:
+
+* Memory resources not handled at all.
+
+* If an independent descriptor follows after dependent functions, 
+  the descriptor numbers will be wrong.
+
+* Cards with only 10 bit IO decoding will not reserve IO areas where
+  a15-a10 != 0.
