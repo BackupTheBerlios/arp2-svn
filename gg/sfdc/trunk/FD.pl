@@ -1,5 +1,5 @@
 
-### Class FD: Create an old-style FD file ######################################
+### Class FD: Create an old-style FD file #####################################
 
 BEGIN {
     package FD;

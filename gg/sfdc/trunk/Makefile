@@ -1,6 +1,6 @@
 
 VERSION		= 1.0
-DATE		= 2003-07-22
+DATE		= 2003-07-23
 
 MAIN		= main.pl
 CLASSES		= $(wildcard [A-Z]*.pl)

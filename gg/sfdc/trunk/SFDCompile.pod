@@ -89,6 +89,11 @@ library and device developers.
 Generate library gate stubs. Useful for library and device developers.
 
 
+=item B<lvo>
+
+Generate an assembler LVO include file.
+
+
 =item B<macros>
 
 Generate a header file containing F<gcc> specific preprocessor macros,
@@ -208,7 +213,7 @@ Martin Blom <martin@blom.org>
 
 =head1 HISTORY
 
-=item B<1.0 (2003-07-16)>
+=item B<1.0 (2003-07-23)>
 
 Initial release.
 
