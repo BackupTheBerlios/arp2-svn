@@ -1018,10 +1018,15 @@ amiga_translate_key( int code, ULONG qualifier )
       return 0x46;                    // Map to Scroll Lock key
 
     case 0x5c:    // kp /
-      return 0x35 | 0x80;;
+	return 0x35 | 0x80;
 
     case 0x5d:    // kp *
-      return 0x37;
+      if (qualifier & IEQUALIFIER_CONTROL) {
+	return 0x37 | 0x80;	      // Map to Print Screen
+      }
+      else {
+	return 0x37;
+      }
       
     case 0x5e:    // kp +
       return 0x4e;

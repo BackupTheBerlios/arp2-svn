@@ -1,6 +1,11 @@
 2005-01-28  Martin Blom  <martin@blom.org>
 
-	* Ctrl-Pause now sends Break.
+	* Tweaked numeric keypad '*'. On its own, it sends 'keypad
+	*'. Used with Control, it now sends Print Screen. This should make
+	Print Screen available on classic keyboards too.
+
+	* Ctrl-Pause now sends Break. Unfortunately, this key combination
+	does not generate a keycode in MorphOS. In OS4 perhaps?
 
 	* Added NumLock support in OS4, thanks to info from Jörg
 	Strohmayer.
