@@ -25,6 +25,7 @@
 #include <devices/ahi.h>
 #include <hardware/custom.h>
 #include <hardware/dmabits.h>
+#include <hardware/intbits.h>
 #include <mmu/context.h>
 #include <mmu/descriptor.h>
 #include <mmu/exceptions.h>
@@ -45,6 +46,10 @@
 #define PALFREQ	     3546895
 #define NTSCFREQ     3579545
 
+#define INTF_AUDIO   ( INTF_AUD3 | INTF_AUD2 | INTF_AUD1 | INTF_AUD0 )
+
+#define static
+
 
 static BOOL
 RemapMemory( struct PUHData* pd );
@@ -60,12 +65,13 @@ PatchROMShadowBuffer( struct PUHData* pd );
 
 ASMCALL INTERRUPT static ULONG
 PUHHandler( REG( a0, struct ExceptionData* ed ),
-            REG( a1, struct PUHData*       d ),
+            REG( a1, struct PUHData*       pd ),
             REG( a6, struct Library*       MMUBase ) );
 
 
 static UWORD
 PUHRead( UWORD            reg, 
+         BOOL*            handled,
          struct PUHData*  pd,
          struct ExecBase* SysBase );
 
@@ -73,6 +79,7 @@ PUHRead( UWORD            reg,
 static void
 PUHWrite( UWORD            reg, 
           UWORD            value,
+          BOOL*            handled,
           struct PUHData*  pd,
           struct ExecBase* SysBase );
 
@@ -81,6 +88,14 @@ ASMCALL SAVEDS static void
 PUHSoundFunc( REG( a0, struct Hook*            hook ),
               REG( a2, struct AHIAudioCtrl*    actrl ),
               REG( a1, struct AHISoundMessage* msg ) );
+
+
+ASMCALL SAVEDS static void
+PUHSoftInt( REG( d1, UWORD           active_ints ),
+            REG( a0, struct Custom*  custom ),
+            REG( a1, struct PUHData* pd ),
+            REG( a5, void*           me ),
+            REG( a6, struct ExecBase* SysBase ) );
 
 
 /******************************************************************************
@@ -256,12 +271,8 @@ AllocPUH( void )
         rom_start = ( (UBYTE*) ROMEND ) - rom_size;
 
         pd->m_Active               = FALSE;
-        pd->m_Pad                  = 0;
-
-        pd->m_Flags                = 0L;
 
         pd->m_AudioMode            = AHI_INVALID_ID;
-        pd->m_AudioCtrl            = NULL;
 
         pd->m_SoundFunc.h_Entry    = (ULONG(*)(void)) PUHSoundFunc;
         pd->m_SoundFunc.h_Data     = pd;
@@ -287,14 +298,11 @@ AllocPUH( void )
         pd->m_ROMSize              = rom_size;
         pd->m_CustomSize           = size;
 
-        pd->m_Properties.m_UserROMShadow     = NULL;
-        pd->m_Properties.m_UserROM           = NULL;
-        pd->m_Properties.m_UserCustomShadow  = NULL;
-        pd->m_Properties.m_UserCustom        = NULL;
-        pd->m_Properties.m_SuperROMShadow    = NULL;
-        pd->m_Properties.m_SuperROM          = NULL;
-        pd->m_Properties.m_SuperCustomShadow = NULL;
-        pd->m_Properties.m_SuperCustom       = NULL;
+        pd->m_SoftInt.is_Node.ln_Type = NT_INTERRUPT;
+        pd->m_SoftInt.is_Node.ln_Pri  = 32;
+        pd->m_SoftInt.is_Node.ln_Name = "NallePUH Level 4 emulation";
+        pd->m_SoftInt.is_Data         = pd;
+        pd->m_SoftInt.is_Code         = (void(*)(void)) PUHSoftInt;
       }
     }
   }
@@ -1006,6 +1014,7 @@ PatchROMShadowBuffer( struct PUHData* pd )
   }
 }
 
+int cp = 0;
 
 /******************************************************************************
 ** MMU exception handler ******************************************************
@@ -1050,9 +1059,12 @@ PUHHandler( REG( a0, struct ExceptionData* ed ),
   { 
     int    size;
     ULONG  reg;
+    BOOL   handled;
 
     size = (ULONG) ed->exd_NextFaultAddress - (ULONG) ed->exd_FaultAddress;
     reg  = (ULONG) ed->exd_FaultAddress - (ULONG) pd->m_Intercepted;
+
+    handled = FALSE;
 
     if( ed->exd_Flags & EXDF_WRITE )
     {
@@ -1064,21 +1076,21 @@ PUHHandler( REG( a0, struct ExceptionData* ed ),
 
         if( reg & 1 )
         {
-          PUHWrite( reg & ~1UL, ed->exd_Data & 0x00ffUL, pd, SysBase );
+          PUHWrite( reg & ~1UL, ed->exd_Data & 0x00ffUL, &handled, pd, SysBase );
         }
         else
         {
-          PUHWrite( reg, ( ed->exd_Data << 8 ) & 0xff00UL, pd, SysBase );
+          PUHWrite( reg, ( ed->exd_Data << 8 ) & 0xff00UL, &handled, pd, SysBase );
         }
       }
       else if( size == 1 )
       {
-        PUHWrite( reg, ed->exd_Data & 0xffffUL, pd, SysBase );
+        PUHWrite( reg, ed->exd_Data & 0xffffUL, &handled, pd, SysBase );
       }
       else if( size == 3 )
       {
-        PUHWrite( reg, ( ed->exd_Data >> 16 ) & 0xffffUL, pd, SysBase );
-        PUHWrite( reg + 2, ed->exd_Data & 0xffffUL, pd, SysBase );
+        PUHWrite( reg, ( ed->exd_Data >> 16 ) & 0xffffUL, &handled, pd, SysBase );
+        PUHWrite( reg + 2, ed->exd_Data & 0xffffUL, &handled, pd, SysBase );
       }
       else
       {
@@ -1095,21 +1107,21 @@ PUHHandler( REG( a0, struct ExceptionData* ed ),
         
         if( reg & 1 )
         {
-          ed->exd_Data = PUHRead( reg & ~1UL, pd, SysBase ) & 0xffUL;
+          ed->exd_Data = PUHRead( reg & ~1UL, &handled, pd, SysBase ) & 0xffUL;
         }
         else
         {
-          ed->exd_Data = PUHRead( reg, pd, SysBase ) >> 8;
+          ed->exd_Data = PUHRead( reg, &handled, pd, SysBase ) >> 8;
         }
       }
       else if( size == 1 )
       {
-        ed->exd_Data = PUHRead( reg, pd, SysBase );
+        ed->exd_Data = PUHRead( reg, &handled, pd, SysBase );
       }
       else if( size == 3 )
       {
-        ed->exd_Data =  PUHRead( reg, pd, SysBase ) << 16;
-        ed->exd_Data |= PUHRead( reg + 2, pd, SysBase );
+        ed->exd_Data =  PUHRead( reg, &handled, pd, SysBase ) << 16;
+        ed->exd_Data |= PUHRead( reg + 2, &handled, pd, SysBase );
       }
       else
       {
@@ -1117,7 +1129,19 @@ PUHHandler( REG( a0, struct ExceptionData* ed ),
       }
     }
 
-    // Ok, we handled it
+#if 0
+    if( ! handled )
+    {
+      // Patch "misses" some so they won't bother us again
+      if( ( ReadLong( (ULONG) ed->exd_ReturnPC + 4 ) & ~0x1ffUL ) ==
+          (ULONG) pd->m_Intercepted )
+      {
+        KPrintF( "." );
+      }
+    }
+#endif
+
+    // Ok, we either emulated or simulated it;
     rc = 0;
   }
 
@@ -1137,7 +1161,8 @@ PUHHandler( REG( a0, struct ExceptionData* ed ),
 ******************************************************************************/
 
 static UWORD
-PUHRead( UWORD            reg, 
+PUHRead( UWORD            reg,
+         BOOL*            handled,
          struct PUHData*  pd,
          struct ExecBase* SysBase )
 {
@@ -1150,14 +1175,38 @@ PUHRead( UWORD            reg,
       result  = ReadWord( address ); 
       result &= ~DMAF_AUDIO;
       result |= ( pd->m_DMACON & DMAF_AUDIO );
+
+      KPrintF( "DMACONR: $%04lx\n", result );
+
+      *handled = TRUE;
       break;
 
     case INTENAR:
+      result  = ReadWord( address );
+      result &= ~INTF_AUDIO;
+      result |= ( pd->m_INTENA & INTF_AUDIO );
+
+      KPrintF( "INTENAR: $%04lx\n", result );
+
+      *handled = TRUE;
+      break;
+
     case INTREQR:
+      result  = ReadWord( address );
+      result &= ~INTF_AUDIO;
+      result |= ( pd->m_INTREQ & INTF_AUDIO );
+
+      KPrintF( "INTREQR: $%04lx\n", result );
+
+      *handled = TRUE;
+      break;
+
     case ADKCONR:
       result = ReadWord( address );
 
-//      KPrintF( "Read $%04lx from $%08lx.\n", result, (ULONG) pd->m_Intercepted + reg );
+      KPrintF( "ADKCONR: $%04lx\n", result );
+
+      *handled = FALSE;
       break;
 
     default:
@@ -1165,6 +1214,7 @@ PUHRead( UWORD            reg,
 
       result = ReadWord( address );
 
+      *handled = FALSE;
       break;
   }
 
@@ -1179,6 +1229,7 @@ PUHRead( UWORD            reg,
 static void
 PUHWrite( UWORD            reg, 
           UWORD            value,
+          BOOL*            handled,
           struct PUHData*  pd,
           struct ExecBase* SysBase )
 {
@@ -1188,9 +1239,18 @@ PUHWrite( UWORD            reg,
   {
     case DMACON:
     {
-      UWORD old_dmacon = pd->m_DMACON;
+      UWORD old_dmacon;
       UWORD new_dmacon;
       UWORD xor_dmacon;
+
+      if( pd->m_DMACON & DMAF_MASTER )
+      {
+        old_dmacon = pd->m_DMACON;
+      }
+      else
+      {
+        old_dmacon = 0;
+      }
 
       if( value & DMAF_SETCLR )
       {
@@ -1198,7 +1258,7 @@ PUHWrite( UWORD            reg,
       }
       else
       {
-        pd->m_DMACON &= ( value & ~DMAF_SETCLR );
+        pd->m_DMACON &= ~( value & ~DMAF_SETCLR );
       }
 
       if( pd->m_DMACON & DMAF_MASTER )
@@ -1211,6 +1271,8 @@ PUHWrite( UWORD            reg,
       }
 
       xor_dmacon = old_dmacon ^ new_dmacon;
+
+      KPrintF( "DMACON: %04lx => %04lx->%04lx\n", value, old_dmacon, new_dmacon );
 
       if( xor_dmacon & DMAF_AUD0 )
       {
@@ -1296,14 +1358,68 @@ PUHWrite( UWORD            reg,
         }
       }
 
-      WriteWord( address, value & ~DMAF_AUDIO );
+//      WriteWord( address, value & ~DMAF_AUDIO );
+
+      WriteWord( address, value );
+      *handled = TRUE;
       break;
     }
       
     case INTENA:
+      if( value & INTF_SETCLR )
+      {
+        pd->m_INTENA |= ( value & ~INTF_SETCLR );
+      }
+      else
+      {
+        pd->m_INTENA &= ~( value & ~INTF_SETCLR );
+      }
+
+      WriteWord( address, value & ~INTF_AUDIO );
+
+      if( ( pd->m_INTENA & INTF_INTEN ) &&
+          ( pd->m_INTENA & pd->m_INTREQ & INTF_AUDIO ) &&
+          ! pd->m_CausePending )
+      {
+        pd->m_CausePending = TRUE;
+        KPrintF( "Cause\n" );
+        Cause( &pd->m_SoftInt );
+      }
+
+      *handled = FALSE;
+      break;
+
+
     case INTREQ:
+      if( value & INTF_SETCLR )
+      {
+        pd->m_INTREQ |= ( value & ~INTF_SETCLR );
+      }
+      else
+      {
+        pd->m_INTREQ &= ~( value & ~INTF_SETCLR );
+      }
+
+      KPrintF( "INTREQ: %04lx\n", value );
+
+      WriteWord( address, value & ~INTF_AUDIO );
+
+      if( ( pd->m_INTENA & INTF_INTEN ) &&
+          ( pd->m_INTENA & pd->m_INTREQ & INTF_AUDIO ) &&
+          ! pd->m_CausePending )
+      {
+        pd->m_CausePending = TRUE;
+        KPrintF( "Cause\n" );
+        Cause( &pd->m_SoftInt );
+      }
+
+      *handled = FALSE;
+      break;
+
     case ADKCON:
       WriteWord( address, value );
+
+      *handled = FALSE;
       break;
 
     case AUD0LCH:
@@ -1312,6 +1428,9 @@ PUHWrite( UWORD            reg,
     case AUD3LCH:
       pd->m_SoundLocation[ ( reg - AUD0LCH ) >> 4 ] &= 0x0000ffff;
       pd->m_SoundLocation[ ( reg - AUD0LCH ) >> 4 ] |= value << 16;
+
+      WriteWord( address, value );
+      *handled = TRUE;
       break;
 
     case AUD0LCL:
@@ -1334,6 +1453,8 @@ PUHWrite( UWORD            reg,
                       AHISF_NONE );
       }
 
+      WriteWord( address, value );
+      *handled = TRUE;
       break;
     }
 
@@ -1356,6 +1477,8 @@ PUHWrite( UWORD            reg,
                       AHISF_NONE );
       }
 
+      WriteWord( address, value );
+      *handled = TRUE;
       break;
     }
 
@@ -1370,6 +1493,9 @@ PUHWrite( UWORD            reg,
                    PALFREQ / value, 
                    pd->m_AudioCtrl,
                    AHISF_IMM );
+
+      WriteWord( address, value );
+      *handled = TRUE;
       break;
     }
 
@@ -1379,6 +1505,9 @@ PUHWrite( UWORD            reg,
                   0x10000,
                   pd->m_AudioCtrl,
                   AHISF_IMM );
+
+      WriteWord( address, value );
+      *handled = TRUE;
       break;
 
     case AUD1VOL:
@@ -1387,6 +1516,9 @@ PUHWrite( UWORD            reg,
                   0x0,
                   pd->m_AudioCtrl,
                   AHISF_IMM );
+
+      WriteWord( address, value );
+      *handled = TRUE;
       break;
 
     case AUD2VOL:
@@ -1395,6 +1527,9 @@ PUHWrite( UWORD            reg,
                   0x0,
                   pd->m_AudioCtrl,
                   AHISF_IMM );
+
+      WriteWord( address, value );
+      *handled = TRUE;
       break;
 
     case AUD3VOL:
@@ -1403,13 +1538,84 @@ PUHWrite( UWORD            reg,
                   0x10000,
                   pd->m_AudioCtrl,
                   AHISF_IMM );
+
+      WriteWord( address, value );
+      *handled = TRUE;
       break;
 
     case AUD0DAT:
+      KPrintF( "AUD0DAT=%04lx; DMACON: %04lx; INTENA: %04lx\n",
+      value, pd->m_DMACON, pd->m_INTENA );  
+      
+      if( ( pd->m_DMACON & DMAF_AUD0 ) == 0 )
+      {
+        pd->m_INTREQ |= INTF_AUD0;
+        
+        if( ( pd->m_INTENA & INTF_INTEN ) &&
+            ( pd->m_INTENA & INTF_AUD0 ) &&
+            ! pd->m_CausePending )
+        {
+          pd->m_CausePending = TRUE;
+        KPrintF( "Cause\n" );
+          Cause( &pd->m_SoftInt );
+        }
+      }
+
+      *handled = TRUE;
+      break;
+
     case AUD1DAT:
+      if( ( pd->m_DMACON & DMAF_AUD1 ) == 0 )
+      {
+        pd->m_INTREQ |= INTF_AUD1;
+        
+        if( ( pd->m_INTENA & INTF_INTEN ) &&
+            ( pd->m_INTENA & INTF_AUD1 ) &&
+            ! pd->m_CausePending )
+        {
+          pd->m_CausePending = TRUE;
+        KPrintF( "Cause\n" );
+          Cause( &pd->m_SoftInt );
+        }
+      }
+
+      *handled = TRUE;
+      break;
+
     case AUD2DAT:
+      if( ( pd->m_DMACON & DMAF_AUD2 ) == 0 )
+      {
+        pd->m_INTREQ |= INTF_AUD2;
+        
+        if( ( pd->m_INTENA & INTF_INTEN ) &&
+            ( pd->m_INTENA & INTF_AUD2 ) &&
+            ! pd->m_CausePending )
+        {
+          pd->m_CausePending = TRUE;
+        KPrintF( "Cause\n" );
+          Cause( &pd->m_SoftInt );
+        }
+      }
+
+      *handled = TRUE;
+      break;
+
     case AUD3DAT:
-      // TODO: For now, just ignore this
+      if( ( pd->m_DMACON & DMAF_AUD3 ) == 0 )
+      {
+        pd->m_INTREQ |= INTF_AUD3;
+        
+        if( ( pd->m_INTENA & INTF_INTEN ) &&
+            ( pd->m_INTENA & INTF_AUD3 ) &&
+            ! pd->m_CausePending )
+        {
+          pd->m_CausePending = TRUE;
+        KPrintF( "Cause\n" );
+          Cause( &pd->m_SoftInt );
+        }
+      }
+
+      *handled = TRUE;
       break;
 
     default:
@@ -1417,6 +1623,7 @@ PUHWrite( UWORD            reg,
 
       WriteWord( address, value );
 
+      *handled = FALSE;
       break;
   }
 }
@@ -1425,6 +1632,87 @@ PUHWrite( UWORD            reg,
 /******************************************************************************
 ** Audio interrupt simulation *************************************************
 ******************************************************************************/
+
+ASMCALL SAVEDS static void
+PUHSoftInt( REG( d1, UWORD           active_ints ),
+            REG( a0, struct Custom*  custom ),
+            REG( a1, struct PUHData* pd ),
+            REG( a5, void*           me ),
+            REG( a6, struct ExecBase* SysBase ) )
+{
+  pd->m_CausePending = FALSE;
+
+//  KPrintF( "About to call audio interrupt handlers (%08lx)... ", custom );
+
+  // This is almost the same code as exec's. ExecDis rules.
+  // We access m_INTENA/m_INTREQ directly in order to avoid
+  // the overhead of the exception handler.
+#if 1
+  asm( "
+    movem.l   d0-d1/a0-a1/a5-a6,-(sp) /* Make sure we don't kill the C code */
+
+    move      #0x2400,sr        /* Fake a level 4 interrupt */
+
+    move.l    %1,a0
+    move.l    %0,a6
+    move.w    (%2),d1
+    and.w     (%3),d1
+
+test_channel_1:
+    btst      #8,d1             /* Audio channel 1? */
+    beq.s     test_channel_3
+    movem.l   180(a6),a1/a5     /* Get IntVects[8] handler data. */
+    pea       int_exit          /* Use special ExitIntr() below. */
+    jmp       (a5)
+
+test_channel_3:
+    btst      #10,d1            /* Audio channel 3? */
+    beq.s     test_channel_0
+    movem.l   204(a6),a1/a5     /* Get IntVects[10] handler data. */
+    pea       int_exit          /* Use special ExitIntr() below. */
+    jmp       (a5)
+
+test_channel_0:
+    btst      #7,d1             /* Audio channel 0? */
+    beq.s     test_channel_2
+    movem.l   168(a6),a1/a5     /* Get IntVects[7] handler data. */
+    pea       int_exit          /* Use special ExitIntr() below. */
+    jmp       (a5)
+
+test_channel_2:
+    btst      #9,d1             /* Audio channel 2? */
+    beq.s     done
+    movem.l   192(a6),a1/a5     /* Get IntVects[9] handler data. */
+    pea       int_exit          /* Use special ExitIntr() below. */
+    jmp       (a5)
+
+    * This routine allows a single invocation of the level 4 interrupt
+    * handler to service all level 4 interrupts which are pending or
+    * become pending while one is serviced.
+int_exit:
+    move.l    %1,a0             /* Point at custom chip register area. */
+    move.l    %0,a6             /* Get ExecBase */
+    move.w    #0x0780,d1        /* Mask for all level 4 interrupt bits. */
+    and.w     (%2),d1
+    and.w     (%3),d1           /* Find enabled and pending level 4 ints. */
+    bne       test_channel_1
+
+done:
+    movem.l   (sp)+,d0-d1/a0-a1/a5-a6
+  "
+  : /* no result */
+  : "a" (SysBase), 
+    "d" (pd->m_Intercepted),
+    "a" (&pd->m_INTENA),
+    "a" (&pd->m_INTREQ)
+  : "cc", "memory", "d0", "d1", "a0", "a1", "a5", "a6" /* trashed registers */
+  ); 
+#endif
+
+//  KPrintF( "Done!\n" );
+}
+
+
 
 ASMCALL SAVEDS static void
 PUHSoundFunc( REG( a0, struct Hook*            hook ),

@@ -24,6 +24,7 @@
 
 #include "CompilerSpecific.h"
 
+#include <exec/interrupts.h>
 #include <utility/hooks.h>
 
 struct ExceptionData;
@@ -87,8 +88,10 @@ struct PUHData
 
   struct Hook           m_SoundFunc;
 
-  BOOL                  m_DMACON;
-  UWORD                 m_Pad2;
+  UWORD                 m_DMACON;
+  UWORD                 m_INTREQ;
+  UWORD                 m_INTENA;
+  BOOL                  m_CausePending;
 
   BOOL                  m_SoundOn[ 4 ];
 
@@ -113,15 +116,17 @@ struct PUHData
 
   struct
   {  
-    ULONG                 m_UserROM;
-    ULONG                 m_UserROMShadow;
-    ULONG                 m_UserCustom;
-    ULONG                 m_UserCustomShadow;
-    ULONG                 m_SuperROM;
-    ULONG                 m_SuperROMShadow;
-    ULONG                 m_SuperCustom;
-    ULONG                 m_SuperCustomShadow;
+    ULONG               m_UserROM;
+    ULONG               m_UserROMShadow;
+    ULONG               m_UserCustom;
+    ULONG               m_UserCustomShadow;
+    ULONG               m_SuperROM;
+    ULONG               m_SuperROMShadow;
+    ULONG               m_SuperCustom;
+    ULONG               m_SuperCustomShadow;
   } m_Properties;
+
+  struct Interrupt     m_SoftInt;
 
 };
 
