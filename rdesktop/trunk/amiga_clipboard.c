@@ -39,11 +39,12 @@
 
 ULONG amiga_clip_signals = 0;
 
-static struct ClipboardHandle* amiga_clip_handle    = NULL;
-static struct IFFHandle*       amiga_clip_iffhandle = NULL;
-static LONG                    amiga_clip_announce  = 0;
-static LONG                    amiga_clip_clipid    = 0;
-static ULONG                   amiga_clip_format    = CF_TEXT;
+static BYTE                    amiga_clip_hooksignal = -1;
+static struct ClipboardHandle* amiga_clip_handle     = NULL;
+static struct IFFHandle*       amiga_clip_iffhandle  = NULL;
+static LONG                    amiga_clip_announce   = 0;
+static LONG                    amiga_clip_clipid     = 0;
+static ULONG                   amiga_clip_format     = CF_TEXT;
 
 static ULONG amiga_clip_hookfunc(struct Hook*        hook,
 				 APTR                object,
@@ -51,8 +52,7 @@ static ULONG amiga_clip_hookfunc(struct Hook*        hook,
   if (msg->chm_Type == 0) {
     // Ask main processing loop to call amiga_clip_handle_signals()
     amiga_clip_announce = msg->chm_ClipID;
-    Signal((struct Task*) hook->h_Data,
-	   1UL << amiga_clip_handle->cbh_SatisfyPort.mp_SigBit);
+    Signal((struct Task*) hook->h_Data, 1UL << amiga_clip_hooksignal);
   }
 
   return 0;
@@ -68,31 +68,40 @@ static struct Hook amiga_clip_hook = {
 
 BOOL
 amiga_clip_init(void) {
-  amiga_clip_iffhandle = AllocIFF();
-
-  if (amiga_clip_iffhandle != NULL) {
-    amiga_clip_handle = OpenClipboard(PRIMARY_CLIP);
-
-    if (amiga_clip_handle != NULL) {
-      amiga_clip_iffhandle->iff_Stream = (ULONG) amiga_clip_handle;
-      InitIFFasClip(amiga_clip_iffhandle);
-      
-      amiga_clip_signals = ((1UL << amiga_clip_handle->cbh_CBport.mp_SigBit) |
-			    (1UL << amiga_clip_handle->cbh_SatisfyPort.mp_SigBit));
-      
-      // Add clipboard hook
-      amiga_clip_hook.h_Data = FindTask(NULL);
-
-      amiga_clip_handle->cbh_Req.io_Command = CBD_CHANGEHOOK;
-      amiga_clip_handle->cbh_Req.io_Data    = (char*) &amiga_clip_hook;
-      amiga_clip_handle->cbh_Req.io_Length  = 1;
-      DoIO((struct IORequest*) &amiga_clip_handle->cbh_Req);
-
-      return TRUE;
-    }
+  amiga_clip_hooksignal = AllocSignal(-1);
+  
+  if (amiga_clip_hooksignal == -1) {
+    return FALSE;
   }
 
-  return FALSE;
+  amiga_clip_iffhandle = AllocIFF();
+
+  if (amiga_clip_iffhandle == NULL) {
+    return FALSE;
+  }
+  
+  amiga_clip_handle = OpenClipboard(PRIMARY_CLIP);
+
+  if (amiga_clip_handle == NULL) {
+    return FALSE;
+  }
+
+  amiga_clip_iffhandle->iff_Stream = (ULONG) amiga_clip_handle;
+  InitIFFasClip(amiga_clip_iffhandle);
+      
+  amiga_clip_signals = (//(1UL << amiga_clip_handle->cbh_CBport.mp_SigBit) |
+			(1UL << amiga_clip_handle->cbh_SatisfyPort.mp_SigBit) |
+			(1UL << amiga_clip_hooksignal));
+      
+  // Add clipboard hook
+  amiga_clip_hook.h_Data = FindTask(NULL);
+  
+  amiga_clip_handle->cbh_Req.io_Command = CBD_CHANGEHOOK;
+  amiga_clip_handle->cbh_Req.io_Data    = (char*) &amiga_clip_hook;
+  amiga_clip_handle->cbh_Req.io_Length  = 1;
+  DoIO((struct IORequest*) &amiga_clip_handle->cbh_Req);
+  
+  return TRUE;
 }
 
 void
@@ -114,6 +123,8 @@ amiga_clip_deinit(void) {
     amiga_clip_handle  = NULL;
     amiga_clip_signals = 0;
   }
+
+  FreeSignal(amiga_clip_hooksignal);
 }
 
 
@@ -137,7 +148,6 @@ amiga_clip_handle_signals() {
 void
 ui_clip_format_announce(uint8 * data, uint32 length)
 {
-#ifndef __MORPHOS__
   amiga_clip_handle->cbh_Req.io_Command = CBD_POST;
   amiga_clip_handle->cbh_Req.io_Data    = (char*) &amiga_clip_handle->cbh_SatisfyPort;
   amiga_clip_handle->cbh_Req.io_ClipID  = 0;
@@ -150,9 +160,6 @@ ui_clip_format_announce(uint8 * data, uint32 length)
   else {
     amiga_clip_clipid = 0;
   }
-#else
-  amiga_clip_clipid = 0;
-#endif
 }
 
 void ui_clip_handle_data(uint8 * data, uint32 length)
@@ -226,8 +233,7 @@ void ui_clip_request_data(uint32 format)
 	  if (error == IFFERR_EOF) {
 	    break;
 	  }
-	  
-	  if (error == IFFERR_EOC) {
+	  else if (error == IFFERR_EOC) {
 	    struct CollectionItem* ci;
 	    struct CollectionItem* first_ci;
 
@@ -255,6 +261,10 @@ void ui_clip_request_data(uint32 format)
 	      extract_collection(first_ci, str);
 	    }
  	  }
+	  else {
+	    // Something is wrong!
+	    break;
+	  }
 	}
       }
       
