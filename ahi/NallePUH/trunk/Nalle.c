@@ -25,6 +25,7 @@
 #include <devices/ahi.h>
 #include <exec/errors.h>
 #include <exec/memory.h>
+#include <intuition/gadgetclass.h>
 #include <libraries/resource.h>
 
 #include <clib/alib_protos.h>
@@ -52,7 +53,7 @@ struct Library*       AHIBase       = NULL;
 struct Library*       MMUBase       = NULL;
 struct IntuitionBase* IntuitionBase = NULL;
 struct LocaleBase*    LocaleBase    = NULL;
-struct Library* 		  ResourceBase  = NULL;
+struct Library*       ResourceBase  = NULL;
 
 static BOOL
 OpenLibs( void );
@@ -67,10 +68,13 @@ static void
 CloseAHI( void );
 
 static BOOL
-ShowGUI( void );
+ShowGUI( struct PUHData* pd );
 
 static BOOL
-HandleGUI( Object* window );
+HandleGUI( Object* window,
+           struct Gadget** gadgets,
+           struct PUHData* pd );
+
 
 static void
 Test( struct Custom* custom );
@@ -110,28 +114,28 @@ main( int   argc,
     return 10;
   }
 
-	if( ! gui_mode )
-	{
-	  char* mode_ptr;
-  	char* freq_ptr;
-	  char* levl_ptr;
+  if( ! gui_mode )
+  {
+    char* mode_ptr;
+    char* freq_ptr;
+    char* levl_ptr;
 
-	  mode_id   = strtol( argv[ 1 ], &mode_ptr, 0 );
-  	frequency = strtol( argv[ 2 ], &freq_ptr, 0 );
-	  level     = strtol( argv[ 3 ], &levl_ptr, 0 );
+    mode_id   = strtol( argv[ 1 ], &mode_ptr, 0 );
+    frequency = strtol( argv[ 2 ], &freq_ptr, 0 );
+    level     = strtol( argv[ 3 ], &levl_ptr, 0 );
 
-	  if( *mode_ptr != 0 || *freq_ptr != 0 || *levl_ptr != 0 )
-  	{
-    	printf( "All arguments must be numbers.\n" );
-	    return 10;
-  	}
+    if( *mode_ptr != 0 || *freq_ptr != 0 || *levl_ptr != 0 )
+    {
+      printf( "All arguments must be numbers.\n" );
+      return 10;
+    }
 
-	  if( level > 2 )
-  	{
-    	printf( "Invalid value for Level.\n" );
-	    return 10;
-  	}
- 	}
+    if( level > 2 )
+    {
+      printf( "Invalid value for Level.\n" );
+      return 10;
+    }
+  }
 
   if( ! OpenAHI() )
   {
@@ -153,10 +157,10 @@ main( int   argc,
     {
       if( gui_mode )
       {
-        if( ! ShowGUI() )
+        if( ! ShowGUI( pd ) )
         {
-        	printf( "Failed to create GUI.\n" );
-        	rc = 20;
+          printf( "Failed to create GUI.\n" );
+          rc = 20;
         }
       }
       else
@@ -435,7 +439,7 @@ CloseAHI( void )
 ******************************************************************************/
 
 static BOOL
-ShowGUI( void )
+ShowGUI( struct PUHData* pd )
 {
   BOOL            rc = FALSE;
 
@@ -479,7 +483,7 @@ ShowGUI( void )
             {
               DoMethod( window, WM_OPEN );
               
-              rc = HandleGUI( window );
+              rc = HandleGUI( window, gadgets, pd );
               
               DoMethod( window, WM_CLOSE);
             }
@@ -506,67 +510,297 @@ ShowGUI( void )
 ** HandleGUI ********************************************************************
 ******************************************************************************/
 
-static BOOL
-HandleGUI( Object* window )
+ASMCALL SAVEDS static ULONG
+FilterFunc( REG( a0, struct Hook*                  hook ),
+            REG( a1, ULONG                         mode_id ),
+            REG( a2, struct AHIAudioModeRequester* req ) )
 {
-	BOOL  rc             = FALSE;
-	BOOL  quit           = FALSE;
-	ULONG window_signals = 0;
+  // Remove all Paula modes (hardcoded mode IDs suck.)
 
-	GetAttr( WINDOW_SigMask, window, &window_signals );
-	
-	while( ! quit )
-	{
-		ULONG mask;
-		
-		mask = Wait( window_signals | SIGBREAKF_CTRL_C );
-		
-		if( mask & SIGBREAKF_CTRL_C )
-		{
-			quit = TRUE;
-			rc   = TRUE;
-			break;
-		}
+  if( ( mode_id & 0xffff0000  ) == 0x00020000 )
+  {
+    return FALSE;
+  }
+  else
+  {
+    return TRUE;
+  }
+}
 
-		if( mask & window_signals )
-		{
-			ULONG input_flags = 0;
-			ULONG code        = 0;
-			
-			while( ( input_flags = DoMethod( window, WM_HANDLEINPUT, &code ) ) 
-						 != WMHI_LASTMSG )
-			{
-				switch( input_flags & WMHI_CLASSMASK)
-				{
-					case WMHI_CLOSEWINDOW:
-						quit = TRUE;
-						rc   = TRUE;
-						break;
 
-					case WMHI_ICONIFY:
-						DoMethod( window, WM_ICONIFY );
-						break;
-						
-				  case WMHI_UNICONIFY:
-				  	DoMethod( window, WM_OPEN );
-				  	break;
+static struct Hook FilterHook =
+{
+  { NULL, NULL },
+  (HOOKFUNC) FilterFunc,
+  NULL,
+  NULL
+};
 
-					case WMHI_GADGETUP:
-						switch( input_flags & RL_GADGETMASK )
-						{
-							printf( "Gadget %ld\n", input_flags & RL_GADGETMASK );
-							break;
-						}
-						break;
 
-					default:
-						printf( "input_flags: %08lx, code: %ld\n", input_flags, code );
-						break;
-				}
-			}
-		}
-		
-	}
+static BOOL
+HandleGUI( Object*         window,
+           struct Gadget** gadgets,
+           struct PUHData* pd )
+{
+  BOOL           rc             = FALSE;
+  BOOL           quit           = FALSE;
 
-	return rc;
+  struct Window* win_ptr        = NULL;
+  ULONG          window_signals = 0;
+
+  ULONG          audio_mode     = 0;
+  ULONG          frequency      = 0;
+
+  GetAttr( WINDOW_SigMask, window, &window_signals );
+  GetAttr( WINDOW_Window,  window, (ULONG *) &win_ptr );
+  
+  while( ! quit )
+  {
+    ULONG mask;
+    
+    mask = Wait( window_signals | SIGBREAKF_CTRL_C );
+    
+    if( mask & SIGBREAKF_CTRL_C )
+    {
+      quit = TRUE;
+      rc   = TRUE;
+      break;
+    }
+
+    if( mask & window_signals )
+    {
+      ULONG input_flags = 0;
+      ULONG code        = 0;
+      
+      while( ( input_flags = DoMethod( window, WM_HANDLEINPUT, &code ) ) 
+             != WMHI_LASTMSG )
+      {
+        switch( input_flags & WMHI_CLASSMASK)
+        {
+          case WMHI_CLOSEWINDOW:
+            quit = TRUE;
+            rc   = TRUE;
+            break;
+
+          case WMHI_ICONIFY:
+            DoMethod( window, WM_ICONIFY );
+            GetAttr( WINDOW_Window,  window, (ULONG *) &win_ptr );
+            break;
+            
+          case WMHI_UNICONIFY:
+            DoMethod( window, WM_OPEN );
+            GetAttr( WINDOW_Window,  window, (ULONG *) &win_ptr );
+            break;
+
+          case WMHI_GADGETUP:
+          {
+            switch( input_flags & RL_GADGETMASK )
+            {
+              case GAD_MODE_SELECT:
+              {
+                struct AHIAudioModeRequester* req = NULL;
+                
+                struct TagItem                filter_tags[] =
+                {
+                  { AHIDB_Realtime,    TRUE },
+                  { AHIDB_MaxChannels, 4    },
+                  { TAG_DONE,          0    }
+                };
+
+
+                req = AHI_AllocAudioRequest( 
+                    AHIR_Window,         (ULONG) win_ptr,
+                    AHIR_SleepWindow,    TRUE,
+                    AHIR_InitialAudioID, audio_mode,
+                    AHIR_InitialMixFreq, frequency,
+                    AHIR_DoMixFreq,      TRUE,
+                    AHIR_DoDefaultMode,  TRUE,
+                    AHIR_FilterFunc,     (ULONG) &FilterHook,
+                    AHIR_FilterTags,     (ULONG) filter_tags,
+                    TAG_DONE );
+
+                if( req == NULL )
+                {
+                  quit = TRUE;
+                  rc   = FALSE;
+                }
+                else
+                {
+                  if( AHI_AudioRequest( req, TAG_DONE ) )
+                  {
+                    char buffer[ 256 ];
+
+                    audio_mode = req->ahiam_AudioID;
+                    frequency  = req->ahiam_MixFreq;
+                    
+                    if( AHI_GetAudioAttrs( audio_mode, NULL,
+                                           AHIDB_BufferLen, 255,
+                                           AHIDB_Name,      (ULONG) buffer,
+                                           TAG_DONE ) )
+                    {
+                      SetGadgetAttrs( gadgets[ GAD_MODE_INFO ], win_ptr, NULL,
+                                      STRINGA_TextVal, (ULONG) buffer,
+                                      TAG_DONE );
+
+                      SetGadgetAttrs( gadgets[ GAD_INSTALL ], win_ptr, NULL,
+                                      GA_Disabled, FALSE,
+                                      TAG_DONE );
+                    }
+                  }
+
+                  AHI_FreeAudioRequest( req );
+                }
+
+                break;
+              }
+
+              case GAD_INSTALL:
+              {
+                ULONG flags      = 0;
+                ULONG patch_rom  = 0;
+                ULONG patch_apps = 0;
+                ULONG toggle_led = 0;
+
+                GetAttr( GA_Selected, gadgets[ GAD_PATCH_ROM  ], &patch_rom );
+                GetAttr( GA_Selected, gadgets[ GAD_PATCH_APPS ], &patch_apps );
+
+                if( patch_rom )
+                {
+                  flags |= PUHF_PATCH_ROM;
+                }
+
+                if( patch_apps )
+                {
+                  flags |= PUHF_PATCH_APPS;
+                }
+
+                if( toggle_led )
+                {
+                  flags |= PUHF_TOGGLE_LED;
+                }
+                
+                if( ! InstallPUH( flags,
+                          audio_mode, frequency,
+                          pd ) )
+                {
+                  printf( "Unable to install PUH.\n" );
+                }
+                else
+                {
+                  SetGadgetAttrs( gadgets[ GAD_PATCH_ROM ], win_ptr, NULL,
+                                  GA_Disabled, TRUE,
+                                  TAG_DONE );
+
+                  SetGadgetAttrs( gadgets[ GAD_PATCH_APPS ], win_ptr, NULL,
+                                  GA_Disabled, TRUE,
+                                  TAG_DONE );
+
+                  SetGadgetAttrs( gadgets[ GAD_MODE_SELECT ], win_ptr, NULL,
+                                  GA_Disabled, TRUE,
+                                  TAG_DONE );
+
+                  SetGadgetAttrs( gadgets[ GAD_INSTALL ], win_ptr, NULL,
+                                  GA_Disabled, TRUE,
+                                  TAG_DONE );
+
+                  SetGadgetAttrs( gadgets[ GAD_UNINSTALL ], win_ptr, NULL,
+                                  GA_Disabled, FALSE,
+                                  TAG_DONE );
+
+                  SetGadgetAttrs( gadgets[ GAD_ACTIVATE ], win_ptr, NULL,
+                                  GA_Disabled, FALSE,
+                                  TAG_DONE );
+
+                  SetGadgetAttrs( gadgets[ GAD_DEACTIVATE ], win_ptr, NULL,
+                                  GA_Disabled, TRUE,
+                                  TAG_DONE );
+                }
+
+                break;
+              }
+
+
+              case GAD_UNINSTALL:
+              {
+                UninstallPUH( pd );
+                
+                SetGadgetAttrs( gadgets[ GAD_PATCH_ROM ], win_ptr, NULL,
+                                GA_Disabled, FALSE,
+                                TAG_DONE );
+
+                SetGadgetAttrs( gadgets[ GAD_PATCH_APPS ], win_ptr, NULL,
+                                GA_Disabled, FALSE,
+                                TAG_DONE );
+
+                SetGadgetAttrs( gadgets[ GAD_MODE_SELECT ], win_ptr, NULL,
+                                GA_Disabled, FALSE,
+                                TAG_DONE );
+
+                SetGadgetAttrs( gadgets[ GAD_INSTALL ], win_ptr, NULL,
+                                GA_Disabled, FALSE,
+                                TAG_DONE );
+
+                SetGadgetAttrs( gadgets[ GAD_UNINSTALL ], win_ptr, NULL,
+                                GA_Disabled, TRUE,
+                                TAG_DONE );
+
+                SetGadgetAttrs( gadgets[ GAD_ACTIVATE ], win_ptr, NULL,
+                                GA_Disabled, TRUE,
+                                TAG_DONE );
+
+                SetGadgetAttrs( gadgets[ GAD_DEACTIVATE ], win_ptr, NULL,
+                                GA_Disabled, TRUE,
+                                TAG_DONE );
+                break;
+              }
+              
+
+              case GAD_ACTIVATE:
+              {
+                if( ! ActivatePUH( pd ) )
+                {
+                  printf( "Unable to activate PUH\n" );
+                }
+                else
+                {
+                  SetGadgetAttrs( gadgets[ GAD_ACTIVATE ], win_ptr, NULL,
+                                  GA_Disabled, TRUE,
+                                  TAG_DONE );
+
+                  SetGadgetAttrs( gadgets[ GAD_DEACTIVATE ], win_ptr, NULL,
+                                  GA_Disabled, FALSE,
+                                  TAG_DONE );
+                }
+
+                break;
+              }
+
+
+              case GAD_DEACTIVATE:
+              {
+                DeactivatePUH( pd );
+
+                SetGadgetAttrs( gadgets[ GAD_ACTIVATE ], win_ptr, NULL,
+                                GA_Disabled, FALSE,
+                                TAG_DONE );
+
+                SetGadgetAttrs( gadgets[ GAD_DEACTIVATE ], win_ptr, NULL,
+                                GA_Disabled, TRUE,
+                                TAG_DONE );
+
+                break;
+              }
+            }
+            
+            break;
+          }
+
+          default:
+            break;
+        }
+      }
+    }
+  }
+
+  return rc;
 }

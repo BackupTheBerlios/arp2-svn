@@ -1,5 +1,5 @@
-	IFND GUICAT_I
-GUICAT_I	SET	1
+	IFND NALLEPUHSTR_I
+NALLEPUHSTR_I	SET	1
 
 
 ;-----------------------------------------------------------------------------
@@ -187,4 +187,4 @@ _GetString:
 ;-----------------------------------------------------------------------------
 
 
-	ENDC ; GUICAT_I
+	ENDC ; NALLEPUHSTR_I

@@ -72,9 +72,11 @@ WriteLong( void* address, ULONG value );
 #define PUHF_NONE       0L
 #define PUHF_PATCH_ROM	(1L << 0)
 #define PUHF_PATCH_APPS	(1L << 1)
+#define PUHF_TOGGLE_LED (1L << 2)
 
 #define PUHB_PATCH_ROM	0
 #define PUHB_PATCH_APPS	1
+#define PUHB_TOGGLE_LED 2
 
 
 

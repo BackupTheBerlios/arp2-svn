@@ -23,7 +23,7 @@ $(TARGET): 	$(OBJECTS) NallePUH.o
 NallePUHstr.s:	NallePUH.cd
 	CatComp $< asmfile $@ XDEF
 
-Nalle.o:	Nalle.c PUH.h
+Nalle.o:	Nalle.c PUH.h NallePUH.h
 PUH.o:		PUH.c PUH.h
 
 NallePUHstr.o:	NallePUHstr.s
