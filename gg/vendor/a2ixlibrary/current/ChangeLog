@@ -1,0 +1,18 @@
+Sun Mar 23 08:45:34 1997  Fred Fish  <fnf@ninemoons.com>
+
+	* postlink.c (main): Apply patch from Hans to use dynamically
+	sized buf.
+
+Sat Dec 14 02:38:01 1996  Fred Fish  <fnf@ninemoons.com>
+
+	* auto_init.c: Handle names with non-alpha characters in them.
+
+Thu Dec 12 00:44:59 1996  Fred Fish  <fnf@ninemoons.com>
+
+	* a2ixlibrary: Use -m68020 with -resident32.
+
+Wed Dec  4 19:32:11 1996  Fred Fish (fnf@ninemoons.com)
+
+	* ChangeLog: New file.
+	* manifests/src: Update to add ChangeLog
+	* Makefile.in (DATAFILES): Add relocate.c to list of files.
