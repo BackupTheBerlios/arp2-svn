@@ -34,6 +34,7 @@
 #include "pnpisa.h"
 
 #include "controller.h"
+#include "devices.h"
 #include "init.h"
 #include "pnp.h"
 #include "pnp_iterators.h"
@@ -1076,114 +1077,4 @@ ISAPNP_ConfigureCards( REG( a6, struct ISAPNPBase* res ) )
   }
 
   return rc;
-}
-
-
-/******************************************************************************
-** Find a PNP ISA card  *******************************************************
-******************************************************************************/
-
-struct ISAPNP_Card* ASMCALL
-ISAPNP_FindCard( REG( a0, struct ISAPNP_Card* last_card ), 
-                 REG( d0, LONG                manufacturer ),
-                 REG( d1, WORD                product ),
-                 REG( d2, BYTE                revision ),
-                 REG( d3, LONG                serial ),
-                 REG( a6, struct ISAPNPBase*  res ) )
-{
-  struct ISAPNP_Card* card;
-
-  if( last_card == NULL )
-  {
-    card = (struct ISAPNP_Card*) res->m_Cards.lh_Head;
-  }
-  else
-  {
-    card = (struct ISAPNP_Card*) last_card->isapnpc_Node.ln_Succ;
-  }
-
-  while( card->isapnpc_Node.ln_Succ != NULL )
-  {
-    if( manufacturer == -1 || 
-        ISAPNP_MAKE_ID( card->isapnpc_ID.isapnpid_Vendor[ 0 ],
-                        card->isapnpc_ID.isapnpid_Vendor[ 1 ],
-                        card->isapnpc_ID.isapnpid_Vendor[ 2 ] ) == manufacturer )
-    {
-      if( product == -1 || card->isapnpc_ID.isapnpid_ProductID == product )
-      {
-        if( revision == -1 || card->isapnpc_ID.isapnpid_Revision == revision )
-        {
-          if( serial == -1 || (LONG) card->isapnpc_SerialNumber == serial )
-          {
-            return card;
-          }
-        }
-      }
-    }
-
-    card = (struct ISAPNP_Card*) card->isapnpc_Node.ln_Succ;
-  }
-
-  return NULL;
-}
-
-
-/******************************************************************************
-** Find a PNP ISA device  *****************************************************
-******************************************************************************/
-
-struct ISAPNP_Device* ASMCALL
-ISAPNP_FindDevice( REG( a0, struct ISAPNP_Device* last_device ), 
-                   REG( d0, LONG                  manufacturer ),
-                   REG( d1, WORD                  product ),
-                   REG( d2, BYTE                  revision ),
-                   REG( a6, struct ISAPNPBase*    res ) )
-{
-  struct ISAPNP_Card*   card;
-  struct ISAPNP_Device* dev;
-
-  if( last_device == NULL )
-  {
-    card = (struct ISAPNP_Card*) res->m_Cards.lh_Head;
-    dev  = (struct ISAPNP_Device*) card->isapnpc_Devices.lh_Head;
-  }
-  else
-  {
-    card = (struct ISAPNP_Card*) last_device->isapnpd_Card;
-    dev  = (struct ISAPNP_Device*) last_device->isapnpd_Node.ln_Succ;
-  }
-
-  while( card->isapnpc_Node.ln_Succ != NULL )
-  {
-    while( dev->isapnpd_Node.ln_Succ != NULL )
-    {
-      struct ISAPNP_Identifier* id;
-
-      for( id = (struct ISAPNP_Identifier*) dev->isapnpd_IDs.mlh_Head;
-           id->isapnpid_MinNode.mln_Succ != NULL;
-           id = (struct ISAPNP_Identifier*) id->isapnpid_MinNode.mln_Succ )
-      {
-        if( manufacturer == -1 || 
-            ISAPNP_MAKE_ID( id->isapnpid_Vendor[ 0 ],
-                            id->isapnpid_Vendor[ 1 ],
-                            id->isapnpid_Vendor[ 2 ] ) == manufacturer )
-        {
-          if( product == -1 || id->isapnpid_ProductID == product )
-          {
-            if( revision == -1 || id->isapnpid_Revision == revision )
-            {
-              return dev;
-            }
-          }
-        }
-      }
-
-      dev = (struct ISAPNP_Device*) dev->isapnpd_Node.ln_Succ;
-    }
-
-    card = (struct ISAPNP_Card*) card->isapnpc_Node.ln_Succ;
-    dev  = (struct ISAPNP_Device*) card->isapnpc_Devices.lh_Head;
-  }
-
-  return NULL;
 }

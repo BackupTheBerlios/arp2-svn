@@ -44,6 +44,7 @@
 #include "version.h"
 
 #include "controller.h"
+#include "devices.h"
 #include "init.h"
 #include "pnp.h"
 #include "pnp_structs.h"
@@ -347,8 +348,14 @@ static const APTR funcTable[] =
 
   ISAPNP_ScanCards,
   ISAPNP_ConfigureCards,
+
   ISAPNP_FindCard,
   ISAPNP_FindDevice,
+
+  ISAPNP_LockCardsA,
+  ISAPNP_UnlockCards,
+  ISAPNP_LockDevicesA,
+  ISAPNP_UnlockDevices,
 
   (APTR) -1
 };
@@ -983,7 +990,7 @@ PatchBrokenCards( struct ISAPNPBase* res )
     r1->isapnpior_Length = 4;
     r2->isapnpior_Length = 4;
     r3->isapnpior_Length = 4;
-    
+
     r1->isapnpior_MinBase = 0x620;
     r2->isapnpior_MinBase = 0xa20;
     r3->isapnpior_MinBase = 0xe20;
@@ -991,12 +998,13 @@ PatchBrokenCards( struct ISAPNPBase* res )
     r1->isapnpior_MaxBase = 0x620;
     r2->isapnpior_MaxBase = 0xa20;
     r3->isapnpior_MaxBase = 0xe20;
-    
+
     AddTail( (struct List*) &rg->isapnprg_Resources, (struct Node*) r1 );
     AddTail( (struct List*) &rg->isapnprg_Resources, (struct Node*) r2 );
     AddTail( (struct List*) &rg->isapnprg_Resources, (struct Node*) r3 );
     
-    AddTail( (struct List*) &dev->isapnpd_Options->isapnprg_ResourceGroups, rg );
+    AddTail( (struct List*) &dev->isapnpd_Options->isapnprg_ResourceGroups, 
+             (struct Node*) rg );
   }
   
   return TRUE;

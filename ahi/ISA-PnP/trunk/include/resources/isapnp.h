@@ -2,7 +2,7 @@
 #define RESOURCES_ISAPNP_H
 
 /*
-**	$VER: isapnp.h 1.0 (7.5.2001)
+**	$VER: isapnp.h 1.1 (10.5.2001)
 **
 **	isapnp.resource definitions.
 **
@@ -25,6 +25,13 @@
 #define ISAPNP_MAKE_ID(a,b,c) \
  ( (LONG) (a) << 24 | (LONG) (b) << 16 | (LONG) (c) << 8 )
 
+
+/*** Flags for ISAPNP_LockCardsA() and ISAPNP_LockDevicesA() *****************/
+
+#define ISAPNP_LOCKF_NONE           0x00
+
+#define ISAPNP_LOCKF_NONBLOCKING    0x01
+#define ISAPNP_LOCKB_NONBLOCKING    0
 
 /*** Node types **************************************************************/
 

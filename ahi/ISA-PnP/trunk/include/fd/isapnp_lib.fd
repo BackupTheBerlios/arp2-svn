@@ -3,7 +3,7 @@
 ##bias 6
 ##public
 *
-* Controller functions
+* ISA functions
 *
 ISAC_SetMasterInt(on)(d0)
 ISAC_GetMasterInt()()
@@ -19,7 +19,7 @@ ISAC_WriteByte(address,value)(d0,d1)
 ISAC_ReadWord(address)(d0)
 ISAC_WriteWord(address,value)(d0,d1)
 *
-* Structure allocation and deallocation
+* Structure allocation and deallocation (private)
 *
 ##private
 ISAPNP_AllocCard()()
@@ -31,12 +31,18 @@ ISAPNP_FreeResourceGroup(rg)(a0)
 ISAPNP_AllocResource(type)(d0)
 ISAPNP_FreeResource(r)(a0)
 *
-* Card and device handling
+* PnP activation (private)
 *
 ISAPNP_ScanCards()()
 ISAPNP_ConfigureCards()()
+*
+* Card and device handling
+*
 ##public
 ISAPNP_FindCard(last_card,manufacturer,product,revision,serial)(a0,d0,d1,d2,d3)
 ISAPNP_FindDevice(last_device,manufacturer,product,revision)(a0,d0,d1,d2)
-
+ISAPNP_LockCardsA(flags,cards)(d0,a0)
+ISAPNP_UnlockCards(card_lock_handle)(a0)
+ISAPNP_LockDevicesA(flags,devices)(d0,a0)
+ISAPNP_UnlockDevices(device_lock_handle)(a0)
 ##end

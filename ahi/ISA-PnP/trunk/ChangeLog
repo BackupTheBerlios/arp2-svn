@@ -1,4 +1,8 @@
-2001-04-22  Martin Blom  <martin@blom.org>
+2001-05-10  Martin Blom  <martin@blom.org>
+
+	* Added functions to lock and unlock cards and devices.
+
+2001-05-09  Martin Blom  <martin@blom.org>
 
 	* Added patch to correct the wavetable device on SB AWE32.
 
