@@ -3667,7 +3667,7 @@ else
   fi"
 	else
 	  echo >> $output "\
-  program='$outputname'
+  program='$outputname$exeext'
   progdir=\"\$thisdir/$objdir\"
 "
 	fi

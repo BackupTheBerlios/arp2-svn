@@ -1,3 +1,7 @@
+2001-09-16  David Zaroski  <dez@gg.geekgadgets.org>
+
+	* All tests passed for i686-linux host
+
 2001-09-11  Gary V. Vaughan  <gary@gnu.org>
 
 	GNU libtool 1.4.2 was released.
@@ -98,6 +102,13 @@
 	* libltdl/ltdl.c (find_module): `0' valued arguments to
 	tryall_dlopen_module() must be explicitly cast to avoid compiler
 	warnings on some environments.
+
+2001-09-04  David Zaroski  <dez@gg.geekgadgets.org>
+
+	* Makefile.in(s): Regenerated with current automake (1.5)
+	* missing: Updated to current (automake 1.5)
+	* demo/Makefile.am: Fixed deprecated target
+	* All tests passed for i686-linux host
 
 2001-09-03  Gary V. Vaughan  <gary@gnu.org>
 
@@ -222,6 +233,13 @@
 	(lt_dladdsearchdir): Rewritten to use lt_dlpath_insertdir.
 	* libltdl/ltdl.h (lt_dlinsertsearchdir): Prototype for export.
 	* doc/libtool.texi (Libltdl interface): Document it.
+
+2001-08-23  David Zaroski  <dez@gg.geekgadgets.org>
+
+	* config.sub: Updated to current version
+	* config.guess: Update to current version
+	* configure: Regenerated
+	* ltconfig: Removed
 
 2001-08-18  Brad  <brad@comstyle.com>
 

@@ -26,4 +26,4 @@ AC_CHECK_LIBM
 AC_SUBST(LIBM)
 
 dnl Output the makefile
-AC_OUTPUT(Makefile)
+AC_OUTPUT(Makefile a2ixlibrary.data)
