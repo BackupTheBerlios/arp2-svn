@@ -535,6 +535,14 @@ sub parse_sfd ( $ ) {
 	    print STDERR "Please add \"==libname module_name\" to SFD file.\n";
 	    die;
 	};
+
+	# Fake the libname
+	if ($$result{'basename'} eq "cia") {
+	    $$result{'libname'} = "ciaX.resource";
+	}
+	else {
+	    $$result{'libname'} = $$result{'basename'} . ".library";
+	}
     }
 
     $$result{'basename'} = lc $$result{'basename'};
