@@ -1,3 +1,18 @@
+2005-02-24  Martin Blom  <martin@blom.org>
+
+	* configure, configure.in, src/Makefile.am, src/gencomp.c,
+	src/gencpu.c, src/newcpu.c, src/readcpu.c, src/sysconfig.h.in,
+	src/table68k, src/include/readcpu.h, src/blomcall.c,
+	src/include/blomcall.h: Added new op-codes for multitasking x86
+	calls: BCALL, BCALLNR and BRESUME.
+
+	* src/od-generic/memory.c: Made it work even on NX-enabled CPUs
+	like Athlon64.
+
+	* src/hardfile_unix.c: Made it work with > 2 GB hardfiles.
+
+	* Imported E-UAE 0.8.27 into local CVS.
+
 2005-01-07 00:45  evi1rich
 
 	* configure.in: Enough! Enough! This is E-UAE 0.8.27 final.

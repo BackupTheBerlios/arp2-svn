@@ -24,6 +24,7 @@
 #include "savestate.h"
 #include "blitter.h"
 #include "ar.h"
+#include "blomcall.h"
 
 #ifdef JIT
 extern uae_u8* compiled_code;
@@ -351,6 +352,11 @@ void init_m68k (void)
     /* We need to check whether NATMEM settings have changed
      * before starting the CPU */
     check_prefs_changed_comp ();
+
+    // Set up blomcalls
+    if (blomcall_init()) {
+      write_log ("blomcalls enabled\n");
+    }
 }
 
 struct regstruct regs, lastint_regs;

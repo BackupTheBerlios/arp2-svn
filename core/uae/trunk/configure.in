@@ -63,6 +63,7 @@ AC_CHECK_LIB(ossaudio,_oss_ioctl, HAVE_LIBOSSAUDIO=yes, HAVE_LIBOSSAUDIO=no)
 AC_CHECK_LIB(AF, AFOpenAudioConn, HAVE_AF_LIB=yes, HAVE_AF_LIB=no)
 AC_CHECK_LIB(mme, waveOutGetNumDevs, HAVE_MME_LIB=yes, HAVE_MME_LIB=no)
 AC_CHECK_LIB(audio, alOpenPort, HAVE_SGIAUDIO_LIB=yes, HAVE_SGIAUDIO_LIB=no)
+AC_CHECK_LIB(rt, timer_create)
 
 AC_PATH_XTRA
 
@@ -434,6 +435,7 @@ if [[ "$HOST_OS" = "linux" ]]; then
   if [[ "$HOST_CPU" = "i386" ]]; then
     NATMEM="0x50000000"
   fi
+  WANT_BLOMCALL=${WANT_X86ASSEMBLY}
 else if [[ "$OSDEP" = "od-beos" ]]; then
   TARGET=beos
   TARGETDEP=t-beos.h
@@ -504,6 +506,7 @@ AC_ARG_ENABLE(jit,             AS_HELP_STRING([--enable-jit],             [Enabl
 AC_ARG_ENABLE(natmem,          AS_HELP_STRING([--enable-natmem],          [Enable JIT direct memory support (default auto)]),         [NATMEM=$enableval],[])
 AC_ARG_ENABLE(noflags,	       AS_HELP_STRING([--enable-noflags],         [Enable noflags support in JIT (default no)]),              [NOFLAGS=$enableval],[])
 AC_ARG_ENABLE(x86assembly,     AS_HELP_STRING([--enable-x86assembly],     [Enable x86 assembly optimizations (default auto)]),        [WANT_X86ASSEMBLY=$enableval],[])
+AC_ARG_ENABLE(blomcall,        AS_HELP_STRING([--enable-blomcall],        [Enable multitasking x86 code (default auto)]),             [WANT_BLOMCALL=$enableval],[])
 AC_ARG_ENABLE(threads,         AS_HELP_STRING([--enable-threads],         [Enable thread support (default auto)]),                    [WANT_THREADS=$enableval],[])
 AC_ARG_ENABLE(autoconfig,      AS_HELP_STRING([--enable-autoconfig],      [Enable emulaton of autoconfig devices (default auto)]),    [WANT_AUTOCONFIG=$enableval],[])
 AC_ARG_ENABLE(scsi-device,     AS_HELP_STRING([--enable-scsi-device],     [Enable emulaton of SCSI devices (default no)]),            [WANT_SCSIEMU=$enableval],[])
@@ -670,6 +673,20 @@ if [[ "x$WANT_X86ASSEMBLY" != "xno" -a "x$HAVE_GCC27" = "xyes" -a "$HOST_CPU" = 
 else
   AC_MSG_RESULT(no)
 fi
+
+dnl
+dnl  Check whether to build support for multitasking x86 code
+dnl
+AC_MSG_CHECKING([whether to add blomcall suppport])
+
+if [[ "x$WANT_BLOMCALL" != "xno" -a "x$WANT_X86ASSEMBLY" != "xno" -a "x$HAVE_GCC27" = "xyes" -a "$HOST_CPU" = "i386" ]]; then
+  UAE_DEFINES="$UAE_DEFINES -DBLOMCALL"
+  BLOMCALLOBJS=blomcall.o
+  AC_MSG_RESULT(yes)
+else
+  AC_MSG_RESULT(no)
+fi
+
 
 dnl X86.S needs to know whether it needs to add underscores to symbols.
 dnl This might break some obscure systems which don't have ELF but don't
@@ -1359,6 +1376,7 @@ AC_SUBST(SCSIOBJS)
 AC_SUBST(CDOBJS)
 AC_SUBST(DEBUGOBJS)
 AC_SUBST(FILESYSOBJS)
+AC_SUBST(BLOMCALLOBJS)
 AC_SUBST(BSDSOCKOBJS)
 AC_SUBST(UAE_RSRCFILE)
 AC_SUBST(SET_MAKE)
