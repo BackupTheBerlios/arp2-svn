@@ -33,6 +33,8 @@ struct Context
 
   ULONG                     Mode;
   ULONG                     Frequency;
+  ULONG                     CanRecord;
+  ULONG                     FullDuplex;
   ULONG                     RecordSamples;
   struct AHIAudioCtrl*      AudioCtrl;
   struct AHIEffMasterVolume MasterVol;
@@ -167,7 +169,6 @@ kprintf( "Got message!\n" );
                  a name for your driver. */
               strncpy(pEIOsg->mpchDrvName,"AHI I/O 1.0",12);
               pEIOsg->lError = EIO_ERR_NOERROR;
-              ReplyMsg((struct Message *)pEIOsg);
 
 kprintf("EIO_CMD_INFO received\n");
  
@@ -212,7 +213,7 @@ kprintf( "EIO_CMD_PLAY\n" );
               if( pEIOsg->lError == EIO_ERR_NOERROR 
                   && context.Frequency != sample_freq )
               {
-                if( !AllocAudio( AHI_DEFAULT_ID, 
+                if( !AllocAudio( context.Mode,
                                  sample_freq, 
                                  &context ) )
                 {
@@ -319,7 +320,6 @@ kprintf( "AHI_ControlAudio(play)\n" );
                 }
               }
 
-              ReplyMsg( (struct Message *) pEIOsg );
               break;
             }
 
@@ -362,7 +362,7 @@ kprintf( "EIO_CMD_REC\n" );
               if( pEIOsg->lError == EIO_ERR_NOERROR 
                   && context.Frequency != sample_freq )
               {
-                if( !AllocAudio( AHI_DEFAULT_ID, 
+                if( !AllocAudio( context.Mode, 
                                  sample_freq, 
                                  &context ) )
                 {
@@ -370,36 +370,43 @@ kprintf( "EIO_CMD_REC\n" );
                 }
               }
 
-              context.RecordBuffer1      = (WORD*) pEIOsg->pbBuffer3;
-              context.RecordBuffer2      = (WORD*) pEIOsg->pbBuffer4;
-              context.RecordBufferType   = sample_type;
-              context.RecordBufferLength = pEIOsg->lBufferSize
+              /* Make sure the mode is fit for recording */
+
+              if( pEIOsg->lError == EIO_ERR_NOERROR && !context.CanRecord )
+              {
+                pEIOsg->lError = EIO_ERR_HARDFAIL;
+              }
+
+              if( pEIOsg->lError == EIO_ERR_NOERROR )
+              {
+                context.RecordBuffer1      = (WORD*) pEIOsg->pbBuffer3;
+                context.RecordBuffer2      = (WORD*) pEIOsg->pbBuffer4;
+                context.RecordBufferType   = sample_type;
+                context.RecordBufferLength = pEIOsg->lBufferSize
                                            / AHI_SampleFrameSize( sample_type );
-              context.RecordBufferOffset = 0;
+                context.RecordBufferOffset = 0;
 
-              if( context.RecordSamples > context.RecordBufferLength )
-              {
-                pEIOsg->lError = EIO_ERR_BUFFERSIZE;
+                if( context.RecordSamples > context.RecordBufferLength )
+                {
+                  pEIOsg->lError = EIO_ERR_BUFFERSIZE;
+                }
+
+                context.Recording = TRUE;
+
+                if( AHI_ControlAudio( context.AudioCtrl,
+                                      AHIC_Record, TRUE,
+                                      TAG_DONE ) != AHIE_OK )
+                {
+                  context.Recording = FALSE;
+                  pEIOsg->lError    = EIO_ERR_HARDFAIL;
+                }
               }
-
-              context.Recording = TRUE;
-
-              if( AHI_ControlAudio( context.AudioCtrl,
-                                    AHIC_Record, TRUE,
-                                    TAG_DONE ) != AHIE_OK )
-              {
-                context.Recording = FALSE;
-                pEIOsg->lError    = EIO_ERR_HARDFAIL;
-              }
-
-              ReplyMsg((struct Message *)pEIOsg);
 
               break;
             }
 
             case EIO_CMD_STOP:
               pEIOsg->lError = EIO_ERR_NOERROR;
-              ReplyMsg((struct Message *)pEIOsg);
 kprintf("EIO_CMD_STOP  received\n");
 
               AHI_ControlAudio( context.AudioCtrl,
@@ -420,7 +427,6 @@ kprintf("EIO_CMD_STOP  received\n");
 
             case EIO_CMD_SETPARAMS:
               pEIOsg->lError = EIO_ERR_NOERROR;
-              ReplyMsg((struct Message *)pEIOsg);
 
               /* Parameters passing removed. Doesn't
                  apply to generic boards and AHI as
@@ -431,17 +437,16 @@ kprintf("EIO_CMD_STOP  received\n");
 
             case EIO_CMD_QUIT:
               pEIOsg->lError = EIO_ERR_NOERROR;
-              ReplyMsg((struct Message *)pEIOsg);
-
               fQuit = TRUE;
-
               break;
 
             default:
               pEIOsg->lError = EIO_ERR_UNKNOWNCMD;
-              ReplyMsg((struct Message *)pEIOsg);
               break;
           }
+
+kprintf( "Replying message (%ld)\n", pEIOsg->lError );
+          ReplyMsg((struct Message *)pEIOsg);
         }
       }
     }
@@ -607,6 +612,7 @@ AllocAudio( ULONG mode,
                                     AHIA_Channels,  1,
                                     AHIA_Sounds,    2,
                                     AHIA_SoundFunc, (ULONG) &this->SoundHook,
+                                    AHIA_RecordFunc, (ULONG) &this->RecordHook,
                                     TAG_DONE );
 
   if( this->AudioCtrl != NULL )
@@ -616,6 +622,8 @@ AllocAudio( ULONG mode,
     if( AHI_GetAudioAttrs( AHI_INVALID_ID, this->AudioCtrl,
                            AHIDB_AudioID,          (ULONG) &this->Mode,
                            AHIDB_MaxRecordSamples, (ULONG) &this->RecordSamples,
+                           AHIDB_Record,           (ULONG) &this->CanRecord,
+                           AHIDB_FullDuplex,       (ULONG) &this->FullDuplex,
                            TAG_DONE ) )
     {
       /* Raise volume to use the full dynamic range */
@@ -699,7 +707,8 @@ RecordFunc( REG( a0, struct Hook*             hook ),
     int   len;
     WORD* src;
     WORD* dst;
-kprintf( "Recording hook\n" );
+kprintf( ". " );
+//kprintf( "Recording hook\n" );
     src = msg->ahirm_Buffer;
 
     len = min( this->RecordBufferLength - this->RecordBufferOffset,
@@ -707,7 +716,7 @@ kprintf( "Recording hook\n" );
 
     while( len > 0 )
     {
-kprintf( "Copying %ld samples\n", len );
+//kprintf( "Copying %ld samples\n", len );
       switch( this->RecordBufferType )
       {
         case AHIST_M16S:
@@ -747,7 +756,7 @@ kprintf( "Copying %ld samples\n", len );
         this->RecordBufferOffset = 0;
 
         Signal( this->RecordTask, this->RecordSignalMask );
-kprintf( "Swapped to buffer %lx\n", buf );
+//kprintf( "Swapped to buffer %lx\n", buf );
 
         len = min( this->RecordBufferLength,
                    msg->ahirm_Length - len );

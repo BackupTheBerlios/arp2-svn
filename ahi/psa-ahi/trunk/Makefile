@@ -1,6 +1,6 @@
 
 CPPFLAGS	=
-CFLAGS		= -O2 -W -Wall
+CFLAGS		= -O2 -W -Wall -m68000
 LDFLAGS		= -noixemul
 
 all:	AHIInOut
