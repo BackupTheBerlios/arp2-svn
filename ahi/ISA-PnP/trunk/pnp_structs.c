@@ -46,9 +46,12 @@ PNPISA_AllocCard( REG( a6, struct ISAPNPBase* res ) )
 
   card = AllocVec( sizeof( *card ), MEMF_PUBLIC | MEMF_CLEAR );
 
-  card->m_Node.ln_Type = ISAPNP_NT_CARD;
+  if( card != NULL )
+  {
+    card->m_Node.ln_Type = ISAPNP_NT_CARD;
 
-  NewList( &card->m_Devices );
+    NewList( &card->m_Devices );
+  }
 
   return card;
 }
@@ -99,9 +102,20 @@ PNPISA_AllocDevice( REG( a6, struct ISAPNPBase* res ) )
 
   dev = AllocVec( sizeof( *dev ), MEMF_PUBLIC | MEMF_CLEAR );
 
-  dev->m_Node.ln_Type = ISAPNP_NT_DEVICE;
+  if( dev != NULL )
+  {
+    dev->m_Node.ln_Type = ISAPNP_NT_DEVICE;
 
-  NewList( (struct List*) &dev->m_IDs );
+    NewList( (struct List*) &dev->m_IDs );
+    
+    dev->m_Resources = PNPISA_AllocResourceGroup( ISAPNP_RG_PRI_GOOD, res );
+    
+    if( dev->m_Resources == NULL )
+    {
+      PNPISA_FreeDevice( dev, res );
+      dev = NULL;
+    }
+  }
 
   return dev;
 }
@@ -135,10 +149,131 @@ PNPISA_FreeDevice( REG( a0, struct ISAPNP_Device* dev ),
     FreeVec( id );
   }
 
+  PNPISA_FreeResourceGroup( dev->m_Resources, res );
+
   if( dev->m_Node.ln_Name != NULL )
   {
     FreeVec( dev->m_Node.ln_Name );
   }
 
   FreeVec( dev );
+}
+
+
+/******************************************************************************
+** Allocate a resource group **************************************************
+******************************************************************************/
+
+struct ISAPNP_ResourceGroup* ASMCALL
+PNPISA_AllocResourceGroup( REG( d0, UBYTE              pri ),
+                           REG( a6, struct ISAPNPBase* res ) )
+{
+  struct ISAPNP_ResourceGroup* rg;
+
+  rg = AllocVec( sizeof( *rg ), MEMF_PUBLIC | MEMF_CLEAR );
+
+  if( rg != NULL )
+  {
+    rg->m_Type = ISAPNP_NT_RESOURCE_GROUP;
+    rg->m_Pri  = pri;
+
+    NewList( (struct List*) &rg->m_Resources );
+    NewList( (struct List*) &rg->m_ResourceGroups );
+  }
+
+  return rg;
+}
+
+
+/******************************************************************************
+** Deallocate a resource group ************************************************
+******************************************************************************/
+
+void ASMCALL
+PNPISA_FreeResourceGroup( REG( a0, struct ISAPNP_ResourceGroup* rg ),
+                          REG( a6, struct ISAPNPBase*           res ) )
+{
+  struct ISAPNP_ResourceGroup* child_rg;
+  struct ISAPNP_Resource*      r;
+
+  if( rg == NULL )
+  {
+    return;
+  }
+
+  KPrintF( "Nuking resource group.\n" );
+
+  while( ( r = (struct ISAPNP_Resource*) 
+               RemHead( (struct List*) &rg->m_Resources ) ) )
+  {
+    PNPISA_FreeResource( r, res );
+  }
+
+  while( ( child_rg = (struct ISAPNP_ResourceGroup*) 
+                      RemHead( (struct List*) &rg->m_ResourceGroups ) ) )
+  {
+    PNPISA_FreeResourceGroup( child_rg, res );
+  }
+
+  FreeVec( rg );
+}
+
+
+/******************************************************************************
+** Allocate a resource ********************************************************
+******************************************************************************/
+
+struct ISAPNP_Resource* ASMCALL
+PNPISA_AllocResource( REG( d0, UBYTE              type ),
+                      REG( a6, struct ISAPNPBase* res ) )
+{
+  struct ISAPNP_Resource* r;
+  ULONG                   size;
+
+  switch( type )
+  {
+    case ISAPNP_NT_IRQ_RESOURCE:
+      size = sizeof( struct ISAPNP_IRQResource );
+      break;
+
+    case ISAPNP_NT_DMA_RESOURCE:
+      size = sizeof( struct ISAPNP_DMAResource );
+      break;
+
+    case ISAPNP_NT_IO_RESOURCE:
+      size = sizeof( struct ISAPNP_IOResource );
+      break;
+
+    case ISAPNP_NT_MEMORY_RESOURCE:
+    default:
+      return NULL;
+  }
+
+  r = AllocVec( size, MEMF_PUBLIC | MEMF_CLEAR );
+
+  if( r != NULL )
+  {
+    r->m_Type = type;
+  }
+
+  return r;
+}
+
+
+/******************************************************************************
+** Deallocate a resource ******************************************************
+******************************************************************************/
+
+void ASMCALL
+PNPISA_FreeResource( REG( a0, struct ISAPNP_Resource* r ),
+                     REG( a6, struct ISAPNPBase*      res ) )
+{
+  if( r == NULL )
+  {
+    return;
+  }
+
+  KPrintF( "Nuking resource %ld.\n", r->m_Type );
+
+  FreeVec( r );
 }

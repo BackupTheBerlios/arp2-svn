@@ -224,8 +224,10 @@ static BOOL
 ReadResourceData( struct ISAPNP_Card* card,
                   struct ISAPNPBase*  res )
 {
-  UBYTE                 check_sum = 0;
-  struct ISAPNP_Device* dev       = NULL;
+  UBYTE                        check_sum       = 0;
+  struct ISAPNP_Device*        dev             = NULL;
+  struct ISAPNP_ResourceGroup* resources       = NULL;
+  struct ISAPNP_ResourceGroup* saved_resources = NULL;
 
   while( TRUE )
   {
@@ -305,6 +307,8 @@ ReadResourceData( struct ISAPNP_Card* card,
         
         AddTail( (struct List*) &dev->m_IDs, (struct Node*) id );
 
+        resources = dev->m_Resources;
+
         dev->m_SupportedCommands = GetNextResourceData( res );
         --length;
         
@@ -352,6 +356,180 @@ ReadResourceData( struct ISAPNP_Card* card,
 
         break;
       }
+
+      case PNPISA_RDN_IRQ_FORMAT:
+      {
+        struct ISAPNP_IRQResource* r;
+        
+        r = (struct ISAPNP_IRQResource*) 
+            PNPISA_AllocResource( ISAPNP_NT_IRQ_RESOURCE, res );
+            
+        if( r == NULL )
+        {
+          break;
+        }
+        
+        r->m_IRQMask  = GetNextResourceData( res );
+        r->m_IRQMask |= GetNextResourceData( res ) << 8;
+        length -= 2;
+        
+        if( length > 0 )
+        {
+          r->m_IRQType = GetNextResourceData( res );
+          --length;
+        }
+        else
+        {
+          r->m_IRQType = ISAPNP_IRQRESOURCE_ITF_HIGH_EDGE;
+        }
+
+        AddTail( (struct List*) &resources->m_Resources, (struct Node*) r );
+
+        break;
+      }
+
+
+      case PNPISA_RDN_DMA_FORMAT:
+      {
+        struct ISAPNP_DMAResource* r;
+        
+        r = (struct ISAPNP_DMAResource*) 
+            PNPISA_AllocResource( ISAPNP_NT_DMA_RESOURCE, res );
+            
+        if( r == NULL )
+        {
+          break;
+        }
+        
+        r->m_ChannelMask = GetNextResourceData( res );
+        r->m_Flags       = GetNextResourceData( res );
+
+        length -= 2;
+
+        AddTail( (struct List*) &resources->m_Resources, (struct Node*) r );
+
+        break;
+      }
+
+      case PNPISA_RDN_START_DF:
+      {
+        struct ISAPNP_ResourceGroup* rg;
+        UBYTE  pri;
+        
+        if( length > 0 )
+        {
+          pri = GetNextResourceData( res );
+          --length;
+        }
+        else
+        {
+          pri = 1;
+        }
+        
+        switch( pri )
+        {
+          case 0:
+            pri = ISAPNP_RG_PRI_GOOD;
+            break;
+            
+          case 1:
+          default:
+            pri = ISAPNP_RG_PRI_ACCEPTABLE;
+            break;
+
+          case 2:
+            pri = ISAPNP_RG_PRI_SUBOPTIMAL;
+            break;
+        }
+        
+        rg = PNPISA_AllocResourceGroup( pri, res );
+        
+        if( rg == NULL )
+        {
+          break;
+        }
+
+        // Insert in priority order
+        
+        Enqueue( (struct List*) &resources->m_ResourceGroups, 
+                 (struct Node*) rg );
+
+        if( saved_resources == NULL )
+        {
+          saved_resources = resources;
+        }
+
+        resources = rg;
+
+        break;
+      }
+      
+
+      case PNPISA_RDN_END_DF:
+      {
+        resources       = saved_resources;
+        saved_resources = NULL;
+        
+        break;
+      }
+
+      case PNPISA_RDN_IO_PORT:
+      {
+        struct ISAPNP_IOResource* r;
+        
+        r = (struct ISAPNP_IOResource*) 
+            PNPISA_AllocResource( ISAPNP_NT_IO_RESOURCE, res );
+            
+        if( r == NULL )
+        {
+          break;
+        }
+        
+        r->m_Flags      = GetNextResourceData( res );
+
+        r->m_MinBase    = GetNextResourceData( res );
+        r->m_MinBase   |= GetNextResourceData( res ) << 8;
+
+        r->m_MaxBase    = GetNextResourceData( res );
+        r->m_MaxBase   |= GetNextResourceData( res ) << 8;
+
+        r->m_Alignment  = GetNextResourceData( res );
+        r->m_Length     = GetNextResourceData( res );
+
+        length -= 7;
+
+        AddTail( (struct List*) &resources->m_Resources, (struct Node*) r );
+
+        break;
+      }
+
+
+      case PNPISA_RDN_FIXED_IO_PORT:
+      {
+        struct ISAPNP_IOResource* r;
+        
+        r = (struct ISAPNP_IOResource*) 
+            PNPISA_AllocResource( ISAPNP_NT_IO_RESOURCE, res );
+            
+        if( r == NULL )
+        {
+          break;
+        }
+        
+        r->m_Flags      = 0;
+        r->m_MinBase    = GetNextResourceData( res );
+        r->m_MinBase   |= GetNextResourceData( res ) << 8;
+        r->m_MaxBase    = r->m_MinBase;
+        r->m_Alignment  = 1;
+        r->m_Length     = GetNextResourceData( res );
+        
+        length -= 3;
+
+        AddTail( (struct List*) &resources->m_Resources, (struct Node*) r );
+
+        break;
+      }
+
 
       case PNPISA_RDN_ANSI_IDENTIFIER:
       {
