@@ -28,12 +28,11 @@ AWK =			@AWK@
 DEFS =			@DEFS@
 LIBS =			@LIBS@
 CFLAGS =		$(DEFS) -Wall -Wstrict-prototypes \
-			'-DVERSION="$(VERSION)"' -resident @CFLAGS@
+			'-DVERSION="$(VERSION)"' @CFLAGS@
 LDFLAGS =		@LDFLAGS@
-PROTECT =		/c/protect
 
 # Used when building fd2inline, fd2inline.guide and the archives.
-VERSION =		1.21
+VERSION =		1.30
 
 AMIGAOS_FD_PATH =	@amigaos_fd_path@
 AMIGAOS_HEADER_PATH =	@amigaos_header_path@
@@ -78,13 +77,9 @@ all:			fd2inline guide $(AMIGAOS_INLINES) $(POS_INLINES)
 
 fd2inline:		fd2inline.c
 			$(CC) $(CFLAGS) $(LDFLAGS) -o fd2inline $(srcdir)/fd2inline.c $(LIBS)
-			if [ -f $(PROTECT) ]; then $(PROTECT) fd2inline +p; else true; fi
 
 install:		all
 			$(INSTALL_PROGRAM) fd2inline $(bindir)/fd2inline
-			if [ -f $(PROTECT) ]; then \
-			  (cd $(bindir); $(PROTECT) fd2inline +p); \
-			else true; fi
 			if [ -d include/inline ]; then \
 			  if [ -d $(includedir)/inline ]; then true; else mkdir $(includedir)/inline; fi; \
 			  $(INSTALL_DATA) $(srcdir)/include-src/inline/*.h $(includedir)/inline; \
@@ -154,9 +149,6 @@ dist:			all
 			if [ -d $(TMP_DIR)/$(TMP_SUBDIR)/bin ]; then true; else mkdir $(TMP_DIR)/$(TMP_SUBDIR)/bin; fi
 			$(CP) fd2inline $(TMP_DIR)/$(TMP_SUBDIR)/bin
 			$(STRIP) $(TMP_DIR)/$(TMP_SUBDIR)/bin/fd2inline
-			if [ -f $(PROTECT) ]; then \
-			  (cd $(TMP_DIR)/$(TMP_SUBDIR)/bin; $(PROTECT) fd2inline +p); \
-			else true; fi
 			$(CP) lib/lib*.a $(TMP_DIR)/$(TMP_SUBDIR)/lib
 			if [ -d $(TMP_DIR)/$(TMP_SUBDIR)/lib/libb ]; then true; else mkdir $(TMP_DIR)/$(TMP_SUBDIR)/lib/libb; fi
 			$(CP) lib/libb/lib*.a $(TMP_DIR)/$(TMP_SUBDIR)/lib/libb
@@ -255,6 +247,12 @@ guide:			fd2inline.guide
 fd2inline.guide:	$(srcdir)/fd2inline.texi
 			if [ -f version.texi ]; then true; else echo "@set version $(VERSION)" >version.texi; fi
 			$(MAKEINFO) --amiga $(srcdir)/fd2inline.texi -o fd2inline.guide
+
+info:			fd2inline.info
+
+fd2inline.info:		$(srcdir)/fd2inline.texi
+			if [ -f version.texi ]; then true; else echo "@set version $(VERSION)" >version.texi; fi
+			$(MAKEINFO) $(srcdir)/fd2inline.texi -o fd2inline.info
 
 # Make a linker library with stubs, if for some reason one can't use
 # inline headers. This requires two arguments on "make" commandline:
