@@ -641,7 +641,7 @@ HandleGUI( Object*         window,
     if( mask & window_signals )
     {
       ULONG input_flags = 0;
-      ULONG code        = 0;
+      UWORD code        = 0;
       
       while( ( input_flags = DoMethod( window, WM_HANDLEINPUT, &code ) ) 
              != WMHI_LASTMSG )
@@ -720,12 +720,12 @@ HandleGUI( Object*         window,
                                            TAG_DONE ) )
                     {
                       RefreshSetGadgetAttrs( gadgets[ GAD_MODE_INFO ], win_ptr, NULL,
-                                      STRINGA_TextVal, (ULONG) buffer,
-                                      TAG_DONE );
+                          STRINGA_TextVal, (ULONG) buffer,
+                          TAG_DONE );
 
                       RefreshSetGadgetAttrs( gadgets[ GAD_INSTALL ], win_ptr, NULL,
-                                      GA_Disabled, FALSE,
-                                      TAG_DONE );
+                          GA_Disabled, FALSE,
+                          TAG_DONE );
                     }
                   }
 
@@ -772,36 +772,36 @@ HandleGUI( Object*         window,
                 else
                 {
                   RefreshSetGadgetAttrs( gadgets[ GAD_PATCH_ROM ], win_ptr, NULL,
-                                  GA_Disabled, TRUE,
-                                  TAG_DONE );
+                      GA_Disabled, TRUE,
+                      TAG_DONE );
 
                   RefreshSetGadgetAttrs( gadgets[ GAD_PATCH_APPS ], win_ptr, NULL,
-                                  GA_Disabled, TRUE,
-                                  TAG_DONE );
+                      GA_Disabled, TRUE,
+                      TAG_DONE );
 
                   RefreshSetGadgetAttrs( gadgets[ GAD_TOGGLE_LED ], win_ptr, NULL,
-                                  GA_Disabled, TRUE,
-                                  TAG_DONE );
+                      GA_Disabled, TRUE,
+                      TAG_DONE );
 
                   RefreshSetGadgetAttrs( gadgets[ GAD_MODE_SELECT ], win_ptr, NULL,
-                                  GA_Disabled, TRUE,
-                                  TAG_DONE );
+                      GA_Disabled, TRUE,
+                      TAG_DONE );
 
                   RefreshSetGadgetAttrs( gadgets[ GAD_INSTALL ], win_ptr, NULL,
-                                  GA_Disabled, TRUE,
-                                  TAG_DONE );
+                      GA_Disabled, TRUE,
+                      TAG_DONE );
 
                   RefreshSetGadgetAttrs( gadgets[ GAD_UNINSTALL ], win_ptr, NULL,
-                                  GA_Disabled, FALSE,
-                                  TAG_DONE );
+                      GA_Disabled, FALSE,
+                      TAG_DONE );
 
                   RefreshSetGadgetAttrs( gadgets[ GAD_ACTIVATE ], win_ptr, NULL,
-                                  GA_Disabled, FALSE,
-                                  TAG_DONE );
+                      GA_Disabled, FALSE,
+                      TAG_DONE );
 
                   RefreshSetGadgetAttrs( gadgets[ GAD_DEACTIVATE ], win_ptr, NULL,
-                                  GA_Disabled, TRUE,
-                                  TAG_DONE );
+                      GA_Disabled, TRUE,
+                      TAG_DONE );
                 }
 
                 break;
@@ -810,44 +810,51 @@ HandleGUI( Object*         window,
 
               case GAD_UNINSTALL:
               {
+                ULONG patch_rom = 0;
+
                 ClearList( &log_data );
 
                 UninstallPUH( pd );
                 
                 RefreshSetGadgetAttrs( gadgets[ GAD_PATCH_ROM ], win_ptr, NULL,
-                                GA_Disabled, FALSE,
-                                TAG_DONE );
+                    GA_Disabled, FALSE,
+                    TAG_DONE );
 
-                RefreshSetGadgetAttrs( gadgets[ GAD_PATCH_APPS ], win_ptr, NULL,
-                                GA_Disabled, FALSE,
-                                TAG_DONE );
+                GetAttr( GA_Selected, gadgets[ GAD_PATCH_ROM  ], &patch_rom );
+                
+                if( patch_rom )
+                {
+                  RefreshSetGadgetAttrs( gadgets[ GAD_PATCH_APPS ], win_ptr, NULL,
+                      GA_Disabled, FALSE,
+                      TAG_DONE );
+                }
 
                 RefreshSetGadgetAttrs( gadgets[ GAD_TOGGLE_LED ], win_ptr, NULL,
-                                GA_Disabled, FALSE,
-                                TAG_DONE );
+                    GA_Disabled, FALSE,
+                    TAG_DONE );
 
                 RefreshSetGadgetAttrs( gadgets[ GAD_MODE_SELECT ], win_ptr, NULL,
-                                GA_Disabled, FALSE,
-                                TAG_DONE );
+                    GA_Disabled, FALSE,
+                    TAG_DONE );
 
                 RefreshSetGadgetAttrs( gadgets[ GAD_INSTALL ], win_ptr, NULL,
-                                GA_Disabled, FALSE,
-                                TAG_DONE );
+                    GA_Disabled, FALSE,
+                    TAG_DONE );
 
                 RefreshSetGadgetAttrs( gadgets[ GAD_UNINSTALL ], win_ptr, NULL,
-                                GA_Disabled, TRUE,
-                                TAG_DONE );
+                    GA_Disabled, TRUE,
+                    TAG_DONE );
 
                 RefreshSetGadgetAttrs( gadgets[ GAD_ACTIVATE ], win_ptr, NULL,
-                                GA_Disabled, TRUE,
-                                TAG_DONE );
+                    GA_Disabled, TRUE,
+                    TAG_DONE );
 
                 RefreshSetGadgetAttrs( gadgets[ GAD_DEACTIVATE ], win_ptr, NULL,
-                                GA_Disabled, TRUE,
-                                TAG_DONE );
+                    GA_Disabled, TRUE,
+                    TAG_DONE );
                 break;
               }
-              
+
 
               case GAD_ACTIVATE:
               {
@@ -857,13 +864,15 @@ HandleGUI( Object*         window,
                 }
                 else
                 {
+                  LogPUH( pd, "Activated PUH." );
+
                   RefreshSetGadgetAttrs( gadgets[ GAD_ACTIVATE ], win_ptr, NULL,
-                                  GA_Disabled, TRUE,
-                                  TAG_DONE );
+                      GA_Disabled, TRUE,
+                      TAG_DONE );
 
                   RefreshSetGadgetAttrs( gadgets[ GAD_DEACTIVATE ], win_ptr, NULL,
-                                  GA_Disabled, FALSE,
-                                  TAG_DONE );
+                      GA_Disabled, FALSE,
+                      TAG_DONE );
                 }
 
                 break;
@@ -874,13 +883,15 @@ HandleGUI( Object*         window,
               {
                 DeactivatePUH( pd );
 
+                LogPUH( pd, "Deactivated PUH." );
+
                 RefreshSetGadgetAttrs( gadgets[ GAD_ACTIVATE ], win_ptr, NULL,
-                                GA_Disabled, FALSE,
-                                TAG_DONE );
+                    GA_Disabled, FALSE,
+                    TAG_DONE );
 
                 RefreshSetGadgetAttrs( gadgets[ GAD_DEACTIVATE ], win_ptr, NULL,
-                                GA_Disabled, TRUE,
-                                TAG_DONE );
+                    GA_Disabled, TRUE,
+                    TAG_DONE );
 
                 break;
               }
@@ -901,6 +912,22 @@ HandleGUI( Object*         window,
                 WriteWord( &custom->aud[ 0 ].ac_len, 1 );
                 break;
               }
+              
+              case GAD_PATCH_ROM:
+                if( code )
+                {
+                  RefreshSetGadgetAttrs( gadgets[ GAD_PATCH_APPS ], win_ptr, NULL,
+                                         GA_Disabled, FALSE,
+                                         TAG_DONE );
+                }
+                else
+                {
+                  RefreshSetGadgetAttrs( gadgets[ GAD_PATCH_APPS ], win_ptr, NULL,
+                                         GA_Disabled, TRUE,
+                                         GA_Selected, FALSE,
+                                         TAG_DONE );
+                }
+                break;
             }
             
             break;

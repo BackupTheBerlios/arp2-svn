@@ -1,6 +1,6 @@
 
-CFLAGS	= -m68000 -mnobitfield -fomit-frame-pointer -O1 \
-	  -W -Wall -Wno-unused -g
+CFLAGS	= -m68020-60 -mnobitfield -fomit-frame-pointer -O2 \
+	  -W -Wall -Wno-unused
 LDFLAGS	= -noixemul
 
 PHXASSFLAGS	= NOEXE QUIET SET "CATCOMP_ARRAY" \

@@ -2,7 +2,7 @@ Short:    Redirects any (hw-banging) sound program to AHI
 Uploader: Martin Blom <martin@blom.org>
 Author:   Martin Blom <martin@blom.org>
 Type:     mus/misc
-Requires: An MMU, AHI v4, OS 3.5 for GUI mode
+Requires: An MMU, 68020+, AHI v4, OS 3.5 for GUI mode
 Version:  0.2
 
 Q: What is "Nalle Puh"?
@@ -74,8 +74,7 @@ A: Too bad.
 Q: Suppose I do fix the program, is there anything else I should do?
 A: You could certanly improve the instruction patching method. And it could
    also be wise to set up a cachable Chip-RAM mirror so AHI won't have to
-   mix the samples from a non-cachable memory area. Oh, and fix that
-   listbrowser! ;-)
+   mix the samples from a non-cachable memory area. 
 
 Q: Hey! I found a memory leak: You don't close mmu.library! And you don't
    clean up the MMU tables fully either.
@@ -87,3 +86,5 @@ A: I know.  The custom chip register mirror must stay if applications were
 Version history:
 
 0.1, 2001-04-23:	Initial release.
+0.2, 2001-04-28:	Redirected logging to the listview in GUI mode.
+			Minor GUI updates.
