@@ -138,7 +138,8 @@ initRoutine( REG( d0, struct ISAPnPResource* res ),
   {
     // No expansion.library
 
-    ISAPnPBase = NULL;
+KPrintF( "No expansion.library.\n" );
+
   }
   else
   {
@@ -151,13 +152,18 @@ initRoutine( REG( d0, struct ISAPnPResource* res ),
     {
       // No legal CurrentBinding structure
 
+KPrintF( "No legal CurrentBinding structure.\n" );
+
     }
     else
     {
       struct ConfigDev* cd = res->m_CurrentBinding.cb_ConfigDev;
+
       if( cd == NULL )
       {
         // No card found
+
+KPrintF( "No card found.\n" );
       }
       else
       {
@@ -166,6 +172,8 @@ initRoutine( REG( d0, struct ISAPnPResource* res ),
         {
           // Unsupported ISA bridge
 
+KPrintF( "Unsupported ISA bridge: %ld/%ld.\n", 
+         cd->cd_Rom.er_Manufacturer, cd->cd_Rom.er_Product );
         }
         else
         {
@@ -175,13 +183,17 @@ initRoutine( REG( d0, struct ISAPnPResource* res ),
           {
             // No board address?
 
+KPrintF( "No board address?\n" );
           }
           else
           {
             cd->cd_Flags  &= ~CDF_CONFIGME;
             cd->cd_Driver  = res;
-          
-KPrintF( "Installed.\n" );
+
+            res->m_RegAddress   = 0x0279;
+            res->m_RegWriteData = 0x0a79;
+            res->m_RegReadData  = 0x0000;
+
             ISAPnPBase = res;
           }
         }

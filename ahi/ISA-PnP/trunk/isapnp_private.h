@@ -28,8 +28,17 @@
 struct ISAPnPResource
 {
   struct Library        m_Library;
-  UWORD                 m_Pad;            /* Align to longword */
+
+  UWORD                 m_RegAddress;
+  UWORD                 m_RegWriteData;
+  UWORD                 m_RegReadData;
+
+//  UWORD                 m_Pad;            /* Align to longword */
+
   APTR                  m_Base;
+
+
+
   struct CurrentBinding m_CurrentBinding;
 };
 
