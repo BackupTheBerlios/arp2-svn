@@ -432,15 +432,7 @@ rdp_out_order_caps(STREAM s)
 
 	memset(order_caps, 0, 32);
 	order_caps[0] = 1;	/* dest blt */
-#ifdef ENABLE_AMIGA
-	// Disable for now (FIXME!!)  Somehow, this makes the icons in
-	// IE or Outlook Express work, although I'm pretty sure it's
-	// just a side-effect. The selection lasso in Explorer does depend
-	// on this flag, however.
-	order_caps[1] = 0;	/* pat blt */
-#else
 	order_caps[1] = 1;	/* pat blt */
-#endif
 	order_caps[2] = 1;	/* screen blt */
 	order_caps[3] = 1;	/* required for memblt? */
 	order_caps[8] = 1;	/* line */
@@ -448,11 +440,7 @@ rdp_out_order_caps(STREAM s)
 	order_caps[10] = 1;	/* rect */
 	order_caps[11] = (g_desktop_save == False ? 0 : 1);	/* desksave */
 	order_caps[13] = 1;	/* memblt */
-#ifdef ENABLE_AMIGA
-	order_caps[14] = 0;	/* triblt */
-#else
 	order_caps[14] = 1;	/* triblt */
-#endif
 	order_caps[22] = 1;	/* polyline */
 	order_caps[27] = 1;	/* text2 */
 	out_uint16_le(s, RDP_CAPSET_ORDER);
