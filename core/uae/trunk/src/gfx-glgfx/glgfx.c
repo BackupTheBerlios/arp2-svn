@@ -269,7 +269,6 @@ void handle_events (void)
 	  inputdevice_do_keyboard(code, down);
 	}
 
-	if (code == glgfx_input_q) uae_quit();
 	break;
       }
 	  
