@@ -1041,7 +1041,7 @@ PUHHandler( REG( a0, struct ExceptionData* ed ),
 
       if( size == 0 )
       {
-        // Fake byte accesses, even though illegal
+        // Fake byte accesses, even though "illegal"
 
         if( reg & 1 )
         {
@@ -1072,7 +1072,7 @@ PUHHandler( REG( a0, struct ExceptionData* ed ),
 
       if( size == 0 )
       {
-        // Fake byte accesses, even though illegal
+        // Fake byte accesses, even though "illegal"
         
         if( reg & 1 )
         {
@@ -1102,13 +1102,12 @@ PUHHandler( REG( a0, struct ExceptionData* ed ),
     {
       if( ed->exd_ReturnPC < pd->m_ROM || 
           ed->exd_ReturnPC >= ( pd->m_ROM + pd->m_ROMSize ) )
-//      if( cp < 10 )
+      if( cp < 100 )
       {
         UWORD op_code;
         ULONG address;
 
         ++cp;
-        KPrintF( "Unhandled hit at $%08lx\n", ed->exd_ReturnPC );
         
         op_code = ReadWord( ed->exd_ReturnPC );
 
@@ -1138,6 +1137,7 @@ PUHHandler( REG( a0, struct ExceptionData* ed ),
                        address - 0xdff000 + (ULONG) pd->m_CustomDirect );
           }
         }
+#if 0 // It's too likely the register content will change...
         else if( ( op_code & 0xcff0 ) == 0x03c0 )
         {
           // move.x xn,$xxxxxxxx
@@ -1151,9 +1151,12 @@ PUHHandler( REG( a0, struct ExceptionData* ed ),
                        address - 0xdff000 + (ULONG) pd->m_CustomDirect );
           }
         }
-        else if( ( op_code & 0xc1bf ) == 0x0039 )
+#endif
+        else if( ( op_code & 0xc1bf ) == 0x0039 ||
+                 ( op_code & 0xf1ff ) == 0xb039 )
         {
           // move.x xn,$xxxxxxxx
+          // cmp.x  dn,$xxxxxxxx
 
           address = ReadLong( ed->exd_ReturnPC + 2 );
 
@@ -1163,6 +1166,10 @@ PUHHandler( REG( a0, struct ExceptionData* ed ),
             WriteLong( ed->exd_ReturnPC + 2,
                        address - 0xdff000 + (ULONG) pd->m_CustomDirect );
           }
+        }
+        else
+        {
+          KPrintF( "%08lx: %04lx ", ed->exd_ReturnPC, reg );
         }
       }
     }
@@ -1230,7 +1237,7 @@ PUHRead( UWORD            reg,
     case ADKCONR:
       result = ReadWord( address );
 
-      KPrintF( "ADKCONR: $%04lx\n", result );
+//      KPrintF( "ADKCONR: $%04lx\n", result );
       break;
 
     default:
@@ -1294,7 +1301,7 @@ PUHWrite( UWORD            reg,
 
       xor_dmacon = old_dmacon ^ new_dmacon;
 
-      KPrintF( "DMACON: %04lx => %04lx->%04lx\n", value, old_dmacon, new_dmacon );
+//      KPrintF( "DMACON: %04lx => %04lx->%04lx\n", value, old_dmacon, new_dmacon );
 
       if( xor_dmacon & DMAF_AUD0 )
       {
@@ -1453,7 +1460,7 @@ PUHWrite( UWORD            reg,
 
       if( value & INTF_AUDIO )
       {
-        KPrintF( "INTREQ: %04lx\n", value );
+//        KPrintF( "INTREQ: %04lx\n", value );
       }
 
       WriteWord( address, value & ~INTF_AUDIO );
@@ -1483,6 +1490,8 @@ PUHWrite( UWORD            reg,
       pd->m_SoundLocation[ ( reg - AUD0LCH ) >> 4 ] &= 0x0000ffff;
       pd->m_SoundLocation[ ( reg - AUD0LCH ) >> 4 ] |= value << 16;
 
+//KPrintF( "AUDxLCH: %04lx\n", value );
+
 //      WriteWord( address, value );
       *handled = TRUE;
       break;
@@ -1497,6 +1506,8 @@ PUHWrite( UWORD            reg,
       pd->m_SoundLocation[ channel ] &= 0xffff0000;
       pd->m_SoundLocation[ channel ] |= value;
       
+//KPrintF( "AUDxLCL: %04lx\n", value );
+
       if( pd->m_SoundOn[ channel ] )
       {
         // Queue it
@@ -1530,6 +1541,8 @@ PUHWrite( UWORD            reg,
       
       pd->m_SoundLength[ channel ] = value * 2;
       
+//KPrintF( "AUDxLEN: %04lx\n", value );
+
       if( pd->m_SoundOn[ channel ] )
       {
         // Queue it
@@ -1559,12 +1572,26 @@ PUHWrite( UWORD            reg,
     case AUD2PER:
     case AUD3PER:
     {
-      int channel = ( reg - AUD0PER ) >> 4;
+      int   channel = ( reg - AUD0PER ) >> 4;
       
-      AHI_SetFreq( channel,
-                   pd->m_ChipFreq / value, 
-                   pd->m_AudioCtrl,
-                   AHISF_IMM );
+//KPrintF( "AUDxPER: %04lx\n", value );
+
+      if( value == 0 )
+      {
+        // What is the correct emulation for this?
+
+        AHI_SetFreq( channel,
+                     pd->m_ChipFreq >> 16, 
+                     pd->m_AudioCtrl,
+                     AHISF_IMM );
+      }
+      else
+      {
+        AHI_SetFreq( channel,
+                     pd->m_ChipFreq / value, 
+                     pd->m_AudioCtrl,
+                     AHISF_IMM );
+      }
 
 //      WriteWord( address, value );
       *handled = TRUE;
@@ -1572,6 +1599,8 @@ PUHWrite( UWORD            reg,
     }
 
     case AUD0VOL:
+//KPrintF( "AUD0VOL: %04lx\n", value );
+
       AHI_SetVol( 0,
                   value << 10,
                   0x10000,
@@ -1583,6 +1612,7 @@ PUHWrite( UWORD            reg,
       break;
 
     case AUD1VOL:
+//KPrintF( "AUD1VOL: %04lx\n", value );
       AHI_SetVol( 1,
                   value << 10,
                   0x0,
@@ -1594,6 +1624,7 @@ PUHWrite( UWORD            reg,
       break;
 
     case AUD2VOL:
+//KPrintF( "AUD1VOL: %04lx\n", value );
       AHI_SetVol( 2,
                   value << 10,
                   0x0,
@@ -1605,6 +1636,7 @@ PUHWrite( UWORD            reg,
       break;
 
     case AUD3VOL:
+//KPrintF( "AUD1VOL: %04lx\n", value );
       AHI_SetVol( 3,
                   value << 10,
                   0x10000,
@@ -1616,8 +1648,8 @@ PUHWrite( UWORD            reg,
       break;
 
     case AUD0DAT:
-      KPrintF( "AUD0DAT=%04lx; DMACON: %04lx; INTENA: %04lx\n",
-      value, pd->m_DMACON, pd->m_INTENA );  
+      //KPrintF( "AUD0DAT=%04lx; DMACON: %04lx; INTENA: %04lx\n",
+//      value, pd->m_DMACON, pd->m_INTENA );  
       
       if( ( pd->m_DMACON & DMAF_AUD0 ) == 0 )
       {
