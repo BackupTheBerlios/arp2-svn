@@ -26,12 +26,12 @@ SFDCompile [options] file1.sfd [file2.sfd ...]
 
 =item B<--help>
 
-Show a brief help message and then exit.
+Show the full help message and exit.
 
     
 =item B<--man>
 
-Show the complete manual page.
+Show the complete manual page and exit.
 
 
 =item B<--mode>
@@ -48,7 +48,7 @@ Generate C prototypes to be placed in F<Include/clib>.
 
 =item B<dump>
 
-Dumps all information gathered from a SFD file. This is the default.
+Dumps all information gathered from the SFD file. This is the default.
 
 
 =item B<fd>
