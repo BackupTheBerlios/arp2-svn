@@ -1,2 +1,0 @@
-./configure --with-debug --with-gui=x11 --without-openssl
-make
