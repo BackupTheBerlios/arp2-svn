@@ -1,5 +1,5 @@
 
-### Class CLib: Create a clib file #############################################
+### Class CLib: Create a clib file ############################################
 
 BEGIN {
     package CLib;

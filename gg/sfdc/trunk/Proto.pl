@@ -1,5 +1,5 @@
 
-### Class Proto: Create a proto file ###########################################
+### Class Proto: Create a proto file ##########################################
 
 BEGIN {
     package Proto;

@@ -1,5 +1,5 @@
 
-### Class MacroMOS: Implements MorphOS-only features for macro files ###########
+### Class MacroMOS: Implements MorphOS-only features for macro files ##########
 
 BEGIN {
     package MacroMOS;

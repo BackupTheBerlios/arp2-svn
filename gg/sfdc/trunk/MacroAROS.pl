@@ -1,5 +1,5 @@
 
-### Class MacroAROS: Implements AROS macro files ###############################
+### Class MacroAROS: Implements AROS macro files ##############################
 
 BEGIN {
     package MacroAROS;

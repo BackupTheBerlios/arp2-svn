@@ -1,5 +1,5 @@
 
-### Class Macro68k: Implements m68k-only features for macro files ##############
+### Class Macro68k: Implements m68k-only features for macro files #############
 
 BEGIN {
     package Macro68k;

@@ -1,5 +1,5 @@
 
-### Class Dump: Dump SFD info ##################################################
+### Class Dump: Dump SFD info #################################################
 
 BEGIN {
     package Dump;
