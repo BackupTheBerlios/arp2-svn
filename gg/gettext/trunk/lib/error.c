@@ -126,13 +126,13 @@ private_strerror (errnum)
 /* VARARGS */
 
 void
-#if defined VA_START && __STDC__
+#if defined VA_START && defined __STDC__ && __STDC__
 error (int status, int errnum, const char *message, ...)
 #else
 error (status, errnum, message, va_alist)
      int status;
      int errnum;
-     char *message;
+     const char *message;
      va_dcl
 #endif
 {

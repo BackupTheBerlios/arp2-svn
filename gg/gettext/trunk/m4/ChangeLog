@@ -233,6 +233,11 @@
 	* gettext.m4 (AM_WITH_NLS): Look for GNU gettext in libc and libintl,
 	ignoring Solaris X/Open gettext. Rename cache variables.
 
+2000-12-31  Fred Fish  <fnf@geekgadgets.org>
+
+	* gettext.m4: Replace serial 5 with serial 107 version, that
+	fixes some bugs.  Cribbed the 107 version from textutils.
+
 2000-12-30  Bruno Haible  <haible@clisp.cons.org>
 
 	* ulonglong.m4: New file, from fileutils-4.0.32.

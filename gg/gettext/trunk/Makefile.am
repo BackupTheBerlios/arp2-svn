@@ -19,7 +19,7 @@
 
 AUTOMAKE_OPTIONS = 1.3 gnits
 MAINT_CHARSET = latin1
-ACLOCAL = ./aclocal.sh @ACLOCAL@
+ACLOCAL = ./aclocal.sh aclocal
 ACLOCAL_AMFLAGS = -I m4
 
 gettextsrcdir = $(datadir)/gettext

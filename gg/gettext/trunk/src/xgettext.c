@@ -1377,7 +1377,7 @@ test_whether_c_format (s)
 
   for (s = find_spec (s); *s != '\0'; s = spec.next_fmt)
     {
-      size_t dummy;
+      size_t dummy = 0;	/* GG: Prevent "used before initialized" warnings from some compilers */
 
       (void) parse_one_spec (s, 0, &spec, &dummy);
       if (strchr ("iduoxXeEfgGcspnm%", spec.info.spec) == NULL)

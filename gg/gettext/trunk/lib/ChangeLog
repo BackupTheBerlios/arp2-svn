@@ -232,10 +232,19 @@
 
 	* xstrdup.c (xstrdup): Change argument type to 'const char *'.
 
+2000-10-03  Fred Fish  <fnf@geekgadgets.org>
+
+	* obstack.h (bcopy): Undef this when we are done with it.
+
 1999-12-27  Geoff Keating  <geoffk@cygnus.com>
 
 	* vasprintf.c (int_vasprintf): Don't re-read the format character
 	as this mishandles strings like '%%s'.
+
+1998-05-01  Fred Fish  <fnf@ninemoons.com>
+
+	* system.h (alloca): Change default return type to void*, to
+	match current bison parser.
 
 1998-01-18  Michael Snyder  <msnyder@cleaver.cygnus.com>
 

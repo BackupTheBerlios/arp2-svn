@@ -606,6 +606,15 @@
 	* msgfmt.c: Fix typo in --help text.
 	Reported by Jan.Djarv@mbox200.swipnet.se.
 
+1998-04-06  Fred Fish  <fnf@ninemoons.com>
+
+	* po-gram.gen.c, po-gram.gen.h, po-hash.gen.c, po-hash.gen.h:  Remove
+	files that are regenerated in build tree at build time.
+	* Makefile.am (INCLUDES): Add -I. to head of include list.
+	* Makefile.in: Regenerated.
+	* po-gram.gen.c, po-hash.gen.c:  Change rules to build files in local
+	build tree.
+
 1998-04-03 01:18 1998  Philippe De Muyter  <phdm@macqel.be>
 
 	* str-list.h (stddef.h): Include that file only if STDC_HEADERS.
@@ -635,6 +644,12 @@
 	* msgcomm.c: Likewise.
 	* msgcmp.c: Likewise.
 	* msgunfmt.c: Likewise.
+
+1997-10-04  Fred Fish  <fnf@ninemoons.com>
+
+	* xgettext.c (test_whether_c_format): Initialize dummy before taking its
+	address, to shut up mwcc.
+	* msgfmt.c (main): Remove BeOS hack no longer needed.
 
 1997-08-31 22:20  Ulrich Drepper  <drepper@cygnus.com>
 

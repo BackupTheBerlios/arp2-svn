@@ -290,6 +290,11 @@
 	* po/Makefile.in.in: Only try to put newly generated .pot in place
 	when the generation succeeded.
 
+1998-04-06 11:20  Fred Fish  <fnf@ninemoons.com>
+
+	* POTFILES.in: Comment out po-gram.gen.c until we figure out how
+	to get it from the build tree instead of the source tree.
+
 1997-09-10 00:30  Ulrich Drepper  <drepper@cygnus.com>
 
 	* Makefile.in.in (install-data-yes): Use mkinstalldirs with

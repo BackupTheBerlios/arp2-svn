@@ -12,6 +12,13 @@ ALL_LINGUAS="cs da de el en@quot en@boldquot es et fr gl id it ja ko nl nn no pl
 dnl Checks for programs.
 AC_PROG_CC
 AC_PROG_INSTALL
+AC_CHECK_TOOL(RANLIB, ranlib, :)
+
+### begin-GG-local
+AC_CHECK_TOOL(AR, ar, :)
+AC_ARFLAGS
+### end-GG-local
+
 AC_PROG_YACC
 
 dnl Check for host type.
@@ -49,6 +56,7 @@ jm_AC_TYPE_UINTMAX_T
 dnl Checks for library functions.
 AC_FUNC_ALLOCA
 AC_FUNC_VPRINTF
+AC_SEARCH_LIBS(uname, socket net)
 AC_CHECK_FUNCS([getcwd mblen memcpy strchr strerror uname])
 AC_REPLACE_FUNCS([memmove memset stpcpy stpncpy strcspn \
 strcasecmp strncasecmp strstr strtoul vasprintf])

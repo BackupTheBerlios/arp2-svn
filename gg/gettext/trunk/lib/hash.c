@@ -51,6 +51,7 @@
 
 #define obstack_chunk_alloc xmalloc
 #define obstack_chunk_free free
+extern void free (void *);
 
 #ifndef BITSPERBYTE
 # define BITSPERBYTE 8

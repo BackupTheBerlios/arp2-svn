@@ -49,8 +49,10 @@ extern size_t parse_printf_format PARAMS ((const char *__fmt, size_t __n,
 					   int *__argtypes));
 extern int asprintf PARAMS ((char **, const char *, ...));
 extern int strcasecmp PARAMS ((const char *__s1, const char *__s2));
+#ifndef __BEOS__
 extern int strncasecmp PARAMS ((const char *__s1, const char *__s2,
 				size_t __n));
+#endif
 extern char *strstr PARAMS ((const char *__str, const char *__sub));
 
 #include <string.h>
@@ -68,29 +70,23 @@ extern char *strstr PARAMS ((const char *__str, const char *__sub));
 # endif
 #endif
 
-#ifdef __GNUC__
-# ifndef alloca
-#  define alloca __builtin_alloca
-# endif
+#if defined (HAVE_ALLOCA_H) && !defined (C_ALLOCA)
+# include <alloca.h>
 #else
-# if HAVE_ALLOCA_H
-#  include <alloca.h>
-# else
-#  ifdef _AIX
+# ifdef _AIX
  #pragma alloca
-#  else
-#   ifdef __hpux /* This section must match that of bison generated files. */
-#    ifdef __cplusplus
+# else
+#  ifdef __hpux /* This section must match that of bison generated files. */
+#   ifdef __cplusplus
 extern "C" void *alloca (unsigned int);
-#    else /* not __cplusplus */
+#   else /* not __cplusplus */
 void *alloca ();
-#    endif /* not __cplusplus */
-#   else /* not __hpux */
-#    ifndef alloca
-char *alloca ();
-#    endif
-#   endif /* __hpux */
-#  endif
+#   endif /* not __cplusplus */
+#  else /* not __hpux */
+#   ifndef alloca
+void *alloca ();
+#   endif
+#  endif /* __hpux */
 # endif
 #endif
 

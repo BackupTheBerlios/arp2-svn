@@ -30,19 +30,14 @@
 #include <stdio.h>
 #include <sys/types.h>
 
-#ifdef __GNUC__
-# define alloca __builtin_alloca
-# define HAVE_ALLOCA 1
+#if (defined HAVE_ALLOCA_H || defined _LIBC) && !defined (C_ALLOCA)
+# include <alloca.h>
 #else
-# if defined HAVE_ALLOCA_H || defined _LIBC
-#  include <alloca.h>
-# else
-#  ifdef _AIX
+# ifdef _AIX
  #pragma alloca
-#  else
-#   ifndef alloca
+# else
+#  ifndef alloca
 char *alloca ();
-#   endif
 #  endif
 # endif
 #endif

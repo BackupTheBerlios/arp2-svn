@@ -18,9 +18,9 @@ src/msgcomm.c
 src/msgfmt.c
 src/msgmerge.c
 src/msgunfmt.c
+#src/po-gram.gen.c	Don't use until we figure out how to get from build directory. -fnf
 src/ngettext.c
 src/open-po.c
-src/po-gram-gen.c
 src/po-lex.h
 src/po-lex.c
 src/po.c

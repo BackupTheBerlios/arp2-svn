@@ -1,0 +1,32 @@
+.name
+gettext
+.type
+Miscellaneous
+.short
+Internationalization library and tools
+.description
+The gettext package provides needed tools and library functions to help with
+internationalizing program.
+
+The goal of this library was to give a unique interface to message handling
+functions.  At least the same level of importance was to give the
+programmer/maintainer the needed tools to maintain the message catalogs.
+The interface is designed after the proposals of the Uniforum group.  So
+systems having this interface implemented in their C library don't need the
+library provided here (and it will automatically not be included).  If your
+systems C library implements the second widely available approach (X/Opens
+catgets) the library will use this and only some stubs will be compiled to
+provide the needed interface.  If neither is locally available a full
+implementation of the library will be compiled.
+.version
+0.10.39
+.author
+Ulrich Drepper
+Jim Meyering
+Francois Pinard
+.requirements
+Amiga binary requires ixemul.library.
+.distribution
+GNU Public License
+.described-by
+Fred Fish (fnf@geekgadgets.org)

@@ -43,7 +43,8 @@ mkinstalldirs = $(SHELL) `case "$(MKINSTALLDIRS)" in /*) echo "$(MKINSTALLDIRS)"
 
 l = @INTL_LIBTOOL_SUFFIX_PREFIX@
 
-AR = ar
+AR = @AR@
+ARFLAGS = @ARFLAGS@
 CC = @CC@
 LIBTOOL = @LIBTOOL@
 RANLIB = @RANLIB@
@@ -111,7 +112,7 @@ all-no-no:
 
 libintl.a libgnuintl.a: $(OBJECTS)
 	rm -f $@
-	$(AR) cru $@ $(OBJECTS)
+	$(AR) $(ARFLAGS) $@ $(OBJECTS)
 	$(RANLIB) $@
 
 libintl.la libgnuintl.la: $(OBJECTS)
