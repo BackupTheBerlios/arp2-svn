@@ -13,6 +13,7 @@ URL         	: http://www.lysator.liu.se/~lcs/files/gg-cross/
 Source0		: http://www.lysator.liu.se/~lcs/files/gg-cross/%{Name}-%{Version}.tar.gz
 BuildRoot   	: /tmp/%{Name}-%{Version}
 
+Requires	: gg-sfdc
 Obsoletes	: gg-fd2inline
 
 %description
