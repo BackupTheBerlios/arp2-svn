@@ -5,6 +5,7 @@ exec_prefix=@exec_prefix@
 bindir=@bindir@
 datadir=@datadir@
 fd2inlinedir=${datadir}/fd2inline
+fd2inline=${bindir}/fd2inline
 
 ERROR="\e[31m"
 INFO="\e[32m"
@@ -90,9 +91,9 @@ for gcc in ${bindir}/*-*-gcc; do
          echo "Warning: ${clib} is missing."
         else
 	 echo -ne "${NORMAL}[${base}] ${ERROR}"
-         fd2inline --quiet --new --target=${FD2INLINE_OS} ${fd} ${clib} \
+         ${fd2inline} --quiet --new --target=${FD2INLINE_OS} ${fd} ${clib} \
 	   -o ${prefix}/${target}/sys-include/inline/${base}.h
-         fd2inline --quiet --proto --target=${FD2INLINE_OS} ${fd} \
+         ${fd2inline} --quiet --proto --target=${FD2INLINE_OS} ${fd} \
 	   -o ${prefix}/${target}/sys-include/proto/${base}.h
         fi
       done
