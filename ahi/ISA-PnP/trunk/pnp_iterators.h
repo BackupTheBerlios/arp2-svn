@@ -33,42 +33,59 @@
 struct ISAPNP_Resource;
 struct ISAPNPBase;
 
-
-struct ResourceIterator
-{
-  struct MinNode          m_MinNode;
-  struct ISAPNP_Resource* m_Resource;
-  UBYTE                   m_IRQBit;
-  UBYTE                   m_ChannelBit;
-  UWORD                   m_Base;
-};
+struct ResourceIterator;
+struct ResourceIteratorList;
+struct ResourceContext;
 
 
-struct ResourceIteratorList
-{
-  struct MinList m_ResourceIterators;
-};
+struct ResourceContext*
+AllocResourceIteratorContext( void );
+
+void
+FreeResourceIteratorContext( struct ResourceContext* ctx );
+
 
 
 struct ResourceIterator*
-AllocResourceIterator( struct ISAPNP_Resource* resource );
+AllocResourceIterator( struct ISAPNP_Resource* resource,
+                       struct ResourceContext* ctx );
 
 void
-FreeResourceIterator( struct ResourceIterator* iter );
+FreeResourceIterator( struct ResourceIterator* iter,
+                       struct ResourceContext* ctx );
+
 
 
 struct ResourceIteratorList*
-AllocResourceIteratorList( struct MinList* resource_list );
+AllocResourceIteratorList( struct MinList* resource_list,
+                           struct ResourceContext* ctx );
+
 
 void
-FreeResourceIteratorList( struct ResourceIteratorList* list );
+FreeResourceIteratorList( struct ResourceIteratorList* list,
+                          struct ResourceContext*      ctx );
+
+
 
 
 BOOL
-IncResourceIterator( struct ResourceIterator* iter );
+IncResourceIterator( struct ResourceIterator* iter,
+                     struct ResourceContext*  ctx );
+
 
 BOOL
-IncResourceIteratorList( struct ResourceIteratorList* iter_list );
+IncResourceIteratorList( struct ResourceIteratorList* iter_list,
+                         struct ResourceContext* ctx );
+
+
+BOOL
+LockResource( struct ResourceIterator* iter,
+              struct ResourceContext*  ctx );
+
+void
+UnlockResource( struct ResourceIterator* iter,
+                struct ResourceContext*  ctx );
+
 
 
 struct ISAPNP_Resource*

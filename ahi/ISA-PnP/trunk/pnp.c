@@ -38,6 +38,7 @@
 #include "pnp_iterators.h"
 #include "pnp_structs.h"
 
+
 /******************************************************************************
 ** PnP ISA helper functions ***************************************************
 ******************************************************************************/
@@ -925,8 +926,8 @@ ShowCards( struct ISAPNPBase* res )
 
       KPrintF( "\n" );
 
-      KPrintF( "    Resources:\n" );
-      ShowResourceGroup( dev->m_Options, res );
+//      KPrintF( "    Resources:\n" );
+//      ShowResourceGroup( dev->m_Options, res );
     }
   }
 }
@@ -989,21 +990,43 @@ ISAPNP_ScanCards( REG( a6, struct ISAPNPBase* res ) )
 
 
 static BOOL
-FindNextCardConfiguration( struct ISAPNP_Device* dev,
-                           struct ISAPNPBase*    res );
+FindNextCardConfiguration( struct ISAPNP_Device*   dev,
+                           struct ResourceContext* ctx,
+                           struct ISAPNPBase*      res );
 
 
 static BOOL
-FindConfiguration( struct ISAPNP_Device* dev,
-                   struct ISAPNPBase*    res )
+FindConfiguration( struct ISAPNP_Device*   dev,
+                   struct ResourceContext* ctx,
+                   struct ISAPNPBase*      res )
 {
   BOOL rc = FALSE;
 
   struct ISAPNP_ResourceGroup* rg;
   struct ResourceIteratorList* ril = NULL;
 
+  {
+    struct ISAPNP_Identifier* id;
 
-  ril = AllocResourceIteratorList( &dev->m_Options->m_Resources );
+    KPrintF( "Logical device %ld: ",
+             dev->m_DeviceNumber );
+
+    for( id = (struct ISAPNP_Identifier*) dev->m_IDs.mlh_Head;
+         id->m_MinNode.mln_Succ != NULL;
+         id = (struct ISAPNP_Identifier*) id->m_MinNode.mln_Succ )
+    {
+      KPrintF( "%s%03lx%lx ", id->m_Vendor, id->m_ProductID, id->m_Revision );
+    }
+
+    if( dev->m_Node.ln_Name != NULL )
+    {
+      KPrintF( "('%s')", dev->m_Node.ln_Name );
+    }
+
+    KPrintF( "\n" );
+  }
+
+  ril = AllocResourceIteratorList( &dev->m_Options->m_Resources, ctx );
 
   if( ril != NULL )
   {
@@ -1022,39 +1045,50 @@ FindConfiguration( struct ISAPNP_Device* dev,
         {
           struct ResourceIteratorList* ril_option = NULL;
 
-          ril_option = AllocResourceIteratorList( &rg->m_Resources );
+          ril_option = AllocResourceIteratorList( &rg->m_Resources, ctx );
 
           if( ril_option != NULL )
           {
+            BOOL ril2_iter_ok = TRUE;
 
-            FreeResourceIteratorList( ril_option );
+            while( ! rc && ril2_iter_ok )
+            {
+              rc = FindNextCardConfiguration( dev, ctx, res );
+              
+              if( ! rc )
+              {
+                ril2_iter_ok = IncResourceIteratorList( ril, ctx );
+              }
+            }
+
+            FreeResourceIteratorList( ril_option, ctx );
           }
-
         }
       }
       else
       {
         // Fixed resources only
         
-        rc = FindNextCardConfiguration( dev, res );
+        rc = FindNextCardConfiguration( dev, ctx, res );
       }
 
       if( ! rc )
       {
-        ril_iter_ok = IncResourceIteratorList( ril );
+        ril_iter_ok = IncResourceIteratorList( ril, ctx );
       }
     }
-  }
 
-  FreeResourceIteratorList( ril );
+    FreeResourceIteratorList( ril, ctx );
+  }
   
   return rc;
 }
 
 
 static BOOL
-FindNextCardConfiguration( struct ISAPNP_Device* dev,
-                           struct ISAPNPBase*    res )
+FindNextCardConfiguration( struct ISAPNP_Device*   dev,
+                           struct ResourceContext* ctx,
+                           struct ISAPNPBase*      res )
 {
   BOOL rc = FALSE;
 
@@ -1063,7 +1097,8 @@ FindNextCardConfiguration( struct ISAPNP_Device* dev,
   if( dev->m_Node.ln_Succ->ln_Succ != NULL )
   {
     // Same card, next device
-    rc = FindConfiguration( (struct ISAPNP_Device*) dev->m_Node.ln_Succ, res );
+    rc = FindConfiguration( (struct ISAPNP_Device*) dev->m_Node.ln_Succ,
+                            ctx, res );
   }
   else 
   {
@@ -1075,13 +1110,13 @@ FindNextCardConfiguration( struct ISAPNP_Device* dev,
         
     {
       rc = FindConfiguration( (struct ISAPNP_Device*)
-                              next_card->m_Devices.lh_Head, res );
+                              next_card->m_Devices.lh_Head, ctx, res );
     }
     else
     {
       // This was the last device on the last card!
-      
-      rc = TRUE;
+KPrintF( "End of chain!\n" );      
+      rc = FALSE;
     }
   }
 
@@ -1108,8 +1143,19 @@ ISAPNP_ConfigureCards( REG( a6, struct ISAPNPBase* res ) )
     
     if( dev->m_Node.ln_Succ != NULL )
     {
-      rc = FindConfiguration( dev, res );
-      KPrintF( "FindConfiguration: %ld\n", rc );
+      struct ResourceContext* ctx;
+      
+      ctx = AllocResourceIteratorContext();
+      
+      if( ctx != NULL )
+      {
+        rc = FindConfiguration( dev, ctx, res );
+        KPrintF( "FindConfiguration: %ld\n", rc );
+        
+        FreeResourceIteratorContext( ctx );
+      }
+
+      // Force success
       rc = TRUE;
     }
   }
