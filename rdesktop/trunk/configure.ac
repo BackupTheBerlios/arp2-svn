@@ -5,6 +5,32 @@ AC_CONFIG_HEADER([config.h])
 
 AC_CANONICAL_HOST
 
+case $host in
+ m68k-unknown-amigaos)
+  OS="AmigaOS"
+  OS_VERSION_AGA="AmigaOS 3.x"
+  OS_VERSION_GFX="AmigaOS 3.x+P96/CGFX"
+  DESKTOP="Workbench"
+  CPU="68020"
+ ;;
+ powerpc-unknown-morphos)
+  OS="MorphOS"
+  OS_VERSION_AGA="MorphOS 0.4 (untested)"
+  OS_VERSION_GFX="MorphOS 0.4/1.4+"
+  DESKTOP="Ambient"
+  CPU="PowerPC 603"
+ ;;
+ *)
+  AC_MSG_ERROR(Unknown architecture!)
+ ;;
+esac
+
+AC_SUBST(OS)
+AC_SUBST(OS_VERSION_AGA)
+AC_SUBST(OS_VERSION_GFX)
+AC_SUBST(DESKTOP)
+AC_SUBST(CPU)
+
 # Checks for programs.
 AC_PROG_CC
 AC_PROG_INSTALL
@@ -43,5 +69,5 @@ AC_HEADER_TIME
 #AC_FUNC_VPRINTF
 #AC_CHECK_FUNCS([bzero gethostbyname gethostname getmntent gettimeofday memset mkdir rmdir select socket strchr strerror strrchr strspn strstr strtol utime])
 
-AC_CONFIG_FILES([Makefile])
+AC_CONFIG_FILES([RDesktop.readme Makefile])
 AC_OUTPUT
