@@ -1452,7 +1452,7 @@ ui_create_window(void)
     amiga_pubscreen = 0;
 
 #ifdef __amigaos4__
-    if (amiga_window)
+    if (amiga_window && amiga_icon)
     {
        uint32 size = (amiga_window->WScreen->Flags & SCREENHIRES ? SYSISIZE_MEDRES : SYSISIZE_LOWRES);
        uint32 height = amiga_window->WScreen->Font->ta_YSize + amiga_window->WScreen->WBorTop + 1;
