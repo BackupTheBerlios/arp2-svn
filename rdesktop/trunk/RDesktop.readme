@@ -43,8 +43,8 @@ It was ported by Martin Blom, who also did the previous Amiga port
 (version 2001-10-28). This port, however, is using a much more recent
 Unix snapshot, which makes it work correctly with Windows XP and adds
 loads of new features. It is also much more "Amigaized" than the last
-verion. Darren Eveland et al made it happen. Thanks to André 'Jobbo'
-Siegel for the gorgeous PNG icons.
+verion. Darren Eveland and BBRV/Genesi made it happen. Thanks to André
+'Jobbo' Siegel for the gorgeous PNG icons.
 
 
 Specification:
