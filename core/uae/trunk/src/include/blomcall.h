@@ -29,3 +29,7 @@ struct blomcall_stack {
 
 int blomcall_init (void);
 unsigned long blomcall_ops(uae_u32 opcode);
+
+#ifndef BLOMCALL
+# define blomcall_ops(opcode) op_illg(opcode)
+#endif
