@@ -1862,7 +1862,9 @@ ui_select(int rdp_socket)
 	      }
 #endif
 
-	      
+	      //printf("code %d %x, qualifier %x\n", msg->Code, msg->Code, msg->Qualifier);
+
+
 	      // RAmiga-Q quits.
 	      ie.ie_Code = msg->Code;
 	      ie.ie_Qualifier = msg->Qualifier;

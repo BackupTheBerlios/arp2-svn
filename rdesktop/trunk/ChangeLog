@@ -1,5 +1,7 @@
 2005-01-26  Martin Blom  <martin@blom.org>
 
+	* NewMouse support was accidentally disabled in the m68k build.
+
 	* OS4 now sends Scroll Lock when the Help key (which is Scroll
 	Lock!) is pressed (untested). Help still sends Windows Menu in
 	Classic and MorphOS.
