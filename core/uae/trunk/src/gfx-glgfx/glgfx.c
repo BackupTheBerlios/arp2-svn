@@ -12,6 +12,7 @@
 #include <glgfx.h>
 #include <glgfx_bitmap.h>
 #include <glgfx_input.h>
+#include <glgfx_pixel.h>
 #include <glgfx_view.h>
 #include <glgfx_viewport.h>
 
@@ -40,31 +41,30 @@
  */
 static struct uae_hotkeyseq default_hotkeys[] =
 {
-    { MAKE_HOTKEYSEQ (glgfx_input_f12, glgfx_input_q, -1, -1,           INPUTEVENT_SPC_QUIT) },
-    { MAKE_HOTKEYSEQ (glgfx_input_f12, glgfx_input_r, -1, -1,           INPUTEVENT_SPC_WARM_RESET) },
-    { MAKE_HOTKEYSEQ (glgfx_input_f12, glgfx_input_lshift, glgfx_input_r, -1,   INPUTEVENT_SPC_COLD_RESET) },
-    { MAKE_HOTKEYSEQ (glgfx_input_f12, glgfx_input_d, -1, -1,           INPUTEVENT_SPC_ENTERDEBUGGER) },
-    { MAKE_HOTKEYSEQ (glgfx_input_f12, glgfx_input_s, -1, -1,           INPUTEVENT_SPC_TOGGLEFULLSCREEN) },
-    { MAKE_HOTKEYSEQ (glgfx_input_f12, glgfx_input_m, -1, -1,           INPUTEVENT_SPC_TOGGLEMOUSEMODE) },
-    { MAKE_HOTKEYSEQ (glgfx_input_f12, glgfx_input_g, -1, -1,           INPUTEVENT_SPC_TOGGLEMOUSEGRAB) },
-    { MAKE_HOTKEYSEQ (glgfx_input_f12, glgfx_input_i, -1, -1,           INPUTEVENT_SPC_INHIBITSCREEN) },
-    { MAKE_HOTKEYSEQ (glgfx_input_f12, glgfx_input_p, -1, -1,           INPUTEVENT_SPC_SCREENSHOT) },
-    { MAKE_HOTKEYSEQ (glgfx_input_f12, glgfx_input_a, -1, -1,           INPUTEVENT_SPC_SWITCHINTERPOL) },
-    { MAKE_HOTKEYSEQ (glgfx_input_f12, glgfx_input_npadd, -1, -1,      INPUTEVENT_SPC_INCRFRAMERATE) },
-    { MAKE_HOTKEYSEQ (glgfx_input_f12, glgfx_input_npsub, -1, -1, INPUTEVENT_SPC_DECRFRAMERATE) },
-    { MAKE_HOTKEYSEQ (glgfx_input_f12, glgfx_input_f1, -1, -1,	      INPUTEVENT_SPC_FLOPPY0) },
-    { MAKE_HOTKEYSEQ (glgfx_input_f12, glgfx_input_f2, -1, -1,	      INPUTEVENT_SPC_FLOPPY1) },
-    { MAKE_HOTKEYSEQ (glgfx_input_f12, glgfx_input_f3, -1, -1,	      INPUTEVENT_SPC_FLOPPY2) },
-    { MAKE_HOTKEYSEQ (glgfx_input_f12, glgfx_input_f4, -1, -1,	      INPUTEVENT_SPC_FLOPPY3) },
-    { MAKE_HOTKEYSEQ (glgfx_input_f12, glgfx_input_lshift, glgfx_input_f1, -1,  INPUTEVENT_SPC_EFLOPPY0) },
-    { MAKE_HOTKEYSEQ (glgfx_input_f12, glgfx_input_lshift, glgfx_input_f2, -1,  INPUTEVENT_SPC_EFLOPPY1) },
-    { MAKE_HOTKEYSEQ (glgfx_input_f12, glgfx_input_lshift, glgfx_input_f3, -1,  INPUTEVENT_SPC_EFLOPPY2) },
-    { MAKE_HOTKEYSEQ (glgfx_input_f12, glgfx_input_lshift, glgfx_input_f4, -1,  INPUTEVENT_SPC_EFLOPPY3) },
-    { MAKE_HOTKEYSEQ (glgfx_input_f12, glgfx_input_return, -1, -1,      INPUTEVENT_SPC_ENTERGUI) },
-    { MAKE_HOTKEYSEQ (glgfx_input_f12, glgfx_input_f, -1, -1,           INPUTEVENT_SPC_FREEZEBUTTON) },
+    { MAKE_HOTKEYSEQ(glgfx_input_f12, glgfx_input_q, -1, -1,           INPUTEVENT_SPC_QUIT) },
+    { MAKE_HOTKEYSEQ(glgfx_input_f12, glgfx_input_r, -1, -1,           INPUTEVENT_SPC_WARM_RESET) },
+    { MAKE_HOTKEYSEQ(glgfx_input_f12, glgfx_input_lshift, glgfx_input_r, -1,   INPUTEVENT_SPC_COLD_RESET) },
+    { MAKE_HOTKEYSEQ(glgfx_input_f12, glgfx_input_d, -1, -1,           INPUTEVENT_SPC_ENTERDEBUGGER) },
+    { MAKE_HOTKEYSEQ(glgfx_input_f12, glgfx_input_s, -1, -1,           INPUTEVENT_SPC_TOGGLEFULLSCREEN) },
+    { MAKE_HOTKEYSEQ(glgfx_input_f12, glgfx_input_m, -1, -1,           INPUTEVENT_SPC_TOGGLEMOUSEMODE) },
+    { MAKE_HOTKEYSEQ(glgfx_input_f12, glgfx_input_g, -1, -1,           INPUTEVENT_SPC_TOGGLEMOUSEGRAB) },
+    { MAKE_HOTKEYSEQ(glgfx_input_f12, glgfx_input_i, -1, -1,           INPUTEVENT_SPC_INHIBITSCREEN) },
+    { MAKE_HOTKEYSEQ(glgfx_input_f12, glgfx_input_p, -1, -1,           INPUTEVENT_SPC_SCREENSHOT) },
+    { MAKE_HOTKEYSEQ(glgfx_input_f12, glgfx_input_a, -1, -1,           INPUTEVENT_SPC_SWITCHINTERPOL) },
+    { MAKE_HOTKEYSEQ(glgfx_input_f12, glgfx_input_npadd, -1, -1,      INPUTEVENT_SPC_INCRFRAMERATE) },
+    { MAKE_HOTKEYSEQ(glgfx_input_f12, glgfx_input_npsub, -1, -1, INPUTEVENT_SPC_DECRFRAMERATE) },
+    { MAKE_HOTKEYSEQ(glgfx_input_f12, glgfx_input_f1, -1, -1,	      INPUTEVENT_SPC_FLOPPY0) },
+    { MAKE_HOTKEYSEQ(glgfx_input_f12, glgfx_input_f2, -1, -1,	      INPUTEVENT_SPC_FLOPPY1) },
+    { MAKE_HOTKEYSEQ(glgfx_input_f12, glgfx_input_f3, -1, -1,	      INPUTEVENT_SPC_FLOPPY2) },
+    { MAKE_HOTKEYSEQ(glgfx_input_f12, glgfx_input_f4, -1, -1,	      INPUTEVENT_SPC_FLOPPY3) },
+    { MAKE_HOTKEYSEQ(glgfx_input_f12, glgfx_input_lshift, glgfx_input_f1, -1,  INPUTEVENT_SPC_EFLOPPY0) },
+    { MAKE_HOTKEYSEQ(glgfx_input_f12, glgfx_input_lshift, glgfx_input_f2, -1,  INPUTEVENT_SPC_EFLOPPY1) },
+    { MAKE_HOTKEYSEQ(glgfx_input_f12, glgfx_input_lshift, glgfx_input_f3, -1,  INPUTEVENT_SPC_EFLOPPY2) },
+    { MAKE_HOTKEYSEQ(glgfx_input_f12, glgfx_input_lshift, glgfx_input_f4, -1,  INPUTEVENT_SPC_EFLOPPY3) },
+    { MAKE_HOTKEYSEQ(glgfx_input_f12, glgfx_input_return, -1, -1,      INPUTEVENT_SPC_ENTERGUI) },
+    { MAKE_HOTKEYSEQ(glgfx_input_f12, glgfx_input_f, -1, -1,           INPUTEVENT_SPC_FREEZEBUTTON) },
     { HOTKEYS_END }
 };
-
 
 static int screen_is_picasso;
 static char picasso_invalid_lines[1201];
@@ -72,49 +72,51 @@ static int picasso_has_invalid_lines;
 static int picasso_invalid_start, picasso_invalid_stop;
 static int picasso_maxw = 0, picasso_maxh = 0;
 
+static int bitmap_locked = 0;
 static struct glgfx_bitmap*   bitmap = NULL;
 static struct glgfx_rasinfo*  rasinfo = NULL;
 static struct glgfx_viewport* viewport = NULL;
 static struct glgfx_view*     view = NULL;
 static bool                   fullscreen = true;
-static uint32_t               width;
-static uint32_t               height;
+static uint32_t               real_width;
+static uint32_t               real_height;
+static uint32_t               bm_width;
+static uint32_t               bm_height;
 
-void toggle_mousegrab (void);
-void framerate_up (void);
-void framerate_down (void);
-int xkeysym2amiga (int);
+void toggle_mousegrab(void);
+void framerate_up(void);
+void framerate_down(void);
 
 int pause_emulation;
 
 
-void flush_line (int y) {
+void flush_line(int y) {
   printf("flush_line(%d)\n", y);
 }
 
-void flush_block (int ystart, int ystop) {
+void flush_block(int ystart, int ystop) {
 //  printf("flush_block(%d, %d)\n", ystart, ystop);
 }
 
-void flush_screen (int ystart, int ystop) {
+void flush_screen(int ystart, int ystop) {
 //  printf("flush_screen(%d, %d)\n", ystart, ystop);
   glgfx_view_render(view);
   glgfx_monitor_waittof(glgfx_monitors[0]);
 }
 
-void flush_clear_screen (void) {
+void flush_clear_screen(void) {
   printf("flush_clear_screen()\n");
 }
 
 
-int graphics_setup (void) {
+int graphics_setup(void) {
   printf("graphics_setup()\n");
 
   if (glgfx_create_monitors()) {
-    if (glgfx_monitor_getattr(glgfx_monitors[0], glgfx_monitor_width, &width) &&
-	glgfx_monitor_getattr(glgfx_monitors[0], glgfx_monitor_height, &height)) {
+    if (glgfx_monitor_getattr(glgfx_monitors[0], glgfx_monitor_attr_width, &real_width) &&
+	glgfx_monitor_getattr(glgfx_monitors[0], glgfx_monitor_attr_height, &real_height)) {
 
-      viewport = glgfx_viewport_create(width, height, 0, 0);
+      viewport = glgfx_viewport_create(real_width, real_height, 0, 0);
 
       if (viewport != NULL) {
 	view = glgfx_view_create(glgfx_monitors[0]);
@@ -136,34 +138,40 @@ int graphics_setup (void) {
 static int viewport_setup(void) {
   int32_t res;
 
-  bitmap = glgfx_bitmap_create(currprefs.gfx_width_win,
-			       currprefs.gfx_height_win,
-//			       16, 0, NULL, glgfx_pixel_r5g6b5,
-			       16, 0, NULL, glgfx_pixel_a4r4g4b4,
+/*   bitmap = glgfx_bitmap_create(currprefs.gfx_width_win, */
+/* 			       currprefs.gfx_height_win, */
+/* 			       16, 0, NULL, glgfx_pixel_format_r5g6b5, */
+/* 			       glgfx_monitors[0]); */
+
+  printf("create %d %d\n", bm_width, bm_height);
+  bitmap = glgfx_bitmap_create(bm_width, bm_height,
+			       16, 0, NULL, glgfx_pixel_format_a4r4g4b4,
 			       glgfx_monitors[0]);
 
   if (bitmap == NULL) {
     return 0;
   }
 
-//  alloc_colors64k (5, 6, 5, 11, 5, 0, 0, 0, 0); 
-  alloc_colors64k (4, 4, 4, 8, 4, 0, 4, 12, 0xf);
+//  alloc_colors64k(5, 6, 5, 11, 5, 0, 0, 0, 0); 
+  alloc_colors64k(4, 4, 4, 8, 4, 0, 4, 12, 0xf);
  
-  if (glgfx_bitmap_getattr(bitmap, glgfx_bitmap_width, &res)) {
+  if (glgfx_bitmap_getattr(bitmap, glgfx_bitmap_attr_width, &res)) {
     gfxvidinfo.width = res;
   }
 
-  if (glgfx_bitmap_getattr(bitmap, glgfx_bitmap_height, &res)) {
+  if (glgfx_bitmap_getattr(bitmap, glgfx_bitmap_attr_height, &res)) {
     gfxvidinfo.height = res;
 //    gfxvidinfo.maxblocklines = 1000;
     gfxvidinfo.maxblocklines = res + 1;
   }
 
-  if (glgfx_bitmap_getattr(bitmap, glgfx_bitmap_bytesperpixel, &res)) {
-    gfxvidinfo.pixbytes = res;
+  if (glgfx_bitmap_getattr(bitmap, glgfx_bitmap_attr_format, &res)) {
+    if (glgfx_pixel_getattr(res, glgfx_pixel_attr_bytesperpixel, &res)) {
+      gfxvidinfo.pixbytes = res;
+    }
   }
 
-  if (glgfx_bitmap_getattr(bitmap, glgfx_bitmap_bytesperrow, &res)) {
+  if (glgfx_bitmap_getattr(bitmap, glgfx_bitmap_attr_bytesperrow, &res)) {
     gfxvidinfo.rowbytes = res;
   }
 
@@ -177,18 +185,8 @@ static int viewport_setup(void) {
   gfxvidinfo.emergmem = malloc(gfxvidinfo.rowbytes);
   gfxvidinfo.linemem = NULL;
 
-  inputdevice_release_all_keys ();
-  reset_hotkeys ();
-
-  printf("bufmem: %x\n", gfxvidinfo.bufmem);
-  printf("linemem: %x\n", gfxvidinfo.linemem);
-  printf("emergmem: %x\n", gfxvidinfo.emergmem);
-  printf("rowbytes: %d\n", gfxvidinfo.rowbytes);
-  printf("pixbytes: %d\n", gfxvidinfo.pixbytes);
-  printf("width: %d\n", gfxvidinfo.width);
-  printf("height: %d\n", gfxvidinfo.height);
-  printf("maxblocklines: %d\n", gfxvidinfo.maxblocklines);
-  printf("can_double: %d\n", gfxvidinfo.can_double);
+  inputdevice_release_all_keys();
+  reset_hotkeys();
   
   return 1;
 }
@@ -217,15 +215,18 @@ static void viewport_shutdown(void) {
   gfxvidinfo.can_double = 0;
 }
 
-int graphics_init (void)
+int graphics_init(void)
 {
   printf("graphics_init()\n");
 
+  bm_width  = currprefs.gfx_width_fs;
+  bm_height = currprefs.gfx_height_fs;
+  
   return viewport_setup();
 }
 
 
-void graphics_leave (void) {
+void graphics_leave(void) {
   printf("graphics_leave()\n");
 
   glgfx_input_release();
@@ -242,14 +243,14 @@ void graphics_leave (void) {
   }
 
   glgfx_destroy_monitors();
-  dumpcustom ();
+  dumpcustom();
 }
 
 static struct timeval lastMotionTime;
 
 static int refresh_necessary = 0;
 
-void handle_events (void)
+void handle_events(void)
 {
   enum glgfx_input_code code;
   
@@ -300,50 +301,47 @@ void handle_events (void)
   }
 }
 
-int check_prefs_changed_gfx (void)
+int check_prefs_changed_gfx(void)
 {
+  uint32_t w = (maxhpos - 46) * 4;
 //  printf("check_prefs_changed_gfx ()\n");
   gui_update_gfx ();
 
-  notice_screen_contents_lost ();
+  if (!bitmap_locked) {
+    if (bm_height != NUMSCRLINES * 2|| bm_width != w) {
+      printf("new: %d %d \n", w, NUMSCRLINES*2);
+      viewport_shutdown();
+      bm_width= w;
+      bm_height = NUMSCRLINES*2;
+      viewport_setup();
+    }
+  }
+
+  notice_screen_contents_lost();
 
   return 0;
 }
 
-int debuggable (void) {
+int debuggable(void) {
     return 1;
 }
 
-int needmousehack (void) {
+int needmousehack(void) {
   return 0;
 }
 
-void LED (int on) {
+void LED(int on) {
   printf("LED(%d)\n", on);
 }
 
 #ifdef PICASSO96
 
-void DX_Invalidate (int first, int last)
-{
-    if (first > last)
-	return;
-
-    picasso_has_invalid_lines = 1;
-    if (first < picasso_invalid_start)
-	picasso_invalid_start = first;
-    if (last > picasso_invalid_stop)
-	picasso_invalid_stop = last;
-
-    while (first <= last) {
-	picasso_invalid_lines[first] = 1;
-	first++;
-    }
+void DX_Invalidate(int first, int last) {
+  return;
 }
 
-int DX_BitsPerCannon (void)
-{
-    return 8;
+int DX_BitsPerCannon(void) {
+  return 8;
 }
 
 static int palette_update_start=256;
@@ -564,19 +562,18 @@ void gfx_unlock_picasso (void) {
 #endif
 
 int lockscr (void) {
-//  printf("lockscr()\n");
-
   if (glgfx_bitmap_lock(bitmap, false, true)) {
     gfxvidinfo.bufmem = glgfx_bitmap_map(bitmap);
-    init_row_map();
 
     if (gfxvidinfo.bufmem != NULL) {
-//      static void* old_addr = NULL;
+      static void* old_addr = NULL;
       
-//      if (gfxvidinfo.bufmem != old_addr) {
-//	old_addr = gfxvidinfo.bufmem;
-//      }
+      if (gfxvidinfo.bufmem != old_addr) {
+	old_addr = gfxvidinfo.bufmem;
+	init_row_map();
+      }
 
+      bitmap_locked = 1;
       return 1;
     }
   }
@@ -585,23 +582,12 @@ int lockscr (void) {
 }
 
 void unlockscr (void) {
-//  printf("unlockscr()\n");
-
   if (gfxvidinfo.bufmem != NULL) {
-      int x,y;
-      for(y = 0; y < 100; ++y) {
-	for(x = 0; x < 100; ++x) {
-	  unsigned short* p = gfxvidinfo.bufmem;
-
-	  p[y*gfxvidinfo.width+x] = -1;
-	}
-      }
     glgfx_bitmap_unmap(bitmap);
-    gfxvidinfo.bufmem = NULL;
-    init_row_map();
   }
 
   glgfx_bitmap_unlock(bitmap);
+  bitmap_locked = 0;
 }
 
 
@@ -630,11 +616,11 @@ void toggle_fullscreen (void) {
   fullscreen = !fullscreen;
 
   if (fullscreen) {
-    glgfx_viewport_move(viewport, width, height, 0, 0);
+    glgfx_viewport_move(viewport, real_width, real_height, 0, 0);
   }
   else {
-    glgfx_viewport_move(viewport, gfxvidinfo.width, gfxvidinfo.height,
-			(width - gfxvidinfo.width) / 2, (height - gfxvidinfo.height) / 2);
+    glgfx_viewport_move(viewport, bm_width, bm_height,
+			(real_width - bm_width) / 2, (real_height - bm_height) / 2);
   }
 
   printf("toggle_fullscreen()\n");
