@@ -54,6 +54,9 @@ HandleToolTypes( UBYTE**             tool_types,
                  struct ISAPNP_Card* card,
                  struct ISAPNPBase*  res );
 
+static BOOL
+PatchBrokenCards( struct ISAPNPBase* res );
+
 void
 ReqA( const char* text, APTR args );
 
@@ -220,62 +223,69 @@ initRoutine( REG( d0, struct ISAPNPBase* res ),
             }
             else
             {
-              struct ISAPNP_Card* card;
-
-              card = ISAPNP_AllocCard( res );
-
-              if( card == NULL )
+              if( ! PatchBrokenCards( res ) )
               {
-                Req( "Out of memory!" );
                 FreeISAPNPBase( res );
               }
               else
               {
-                static const char descr[] = "Non-PnP devices";
-                char*             d;                
-                
-                d = AllocVec( sizeof( descr ), MEMF_PUBLIC );
-                
-                if( d != NULL )
+                struct ISAPNP_Card* card;
+  
+                card = ISAPNP_AllocCard( res );
+  
+                if( card == NULL )
                 {
-                  CopyMem( (void*) descr, d, sizeof( descr ) );
-                  card->isapnpc_Node.ln_Name = d;
-                }
-
-                card->isapnpc_ID.isapnpid_Vendor[ 0 ] = '?';
-                card->isapnpc_ID.isapnpid_Vendor[ 1 ] = '?';
-                card->isapnpc_ID.isapnpid_Vendor[ 2 ] = '?';
-                card->isapnpc_SerialNumber = -1;
-
-                // Add *first*
-                AddHead( &res->m_Cards, (struct Node*) card );
-
-                // Let's see if we're to disable any cards or devices etc
-
-                if( ! HandleToolTypes( current_binding.cb_ToolTypes, 
-                                       card, res ) )
-                {
-                  // Error requester already displayed.
+                  Req( "Out of memory!" );
                   FreeISAPNPBase( res );
                 }
                 else
                 {
-                  if( ! ISAPNP_ConfigureCards( res ) )
+                  static const char descr[] = "Non-PnP devices";
+                  char*             d;                
+                  
+                  d = AllocVec( sizeof( descr ), MEMF_PUBLIC );
+                  
+                  if( d != NULL )
                   {
-                    // Unable to configure cards
-
-                    Req( "Unable to configure the cards. This is most likely\n"
-                         "because of an unresolvable hardware conflict.\n\n"
-                         "Use the DISABLE_DEVICE tool type to disable one of\n"
-                         "the devices in conflict." );
+                    CopyMem( (void*) descr, d, sizeof( descr ) );
+                    card->isapnpc_Node.ln_Name = d;
+                  }
+  
+                  card->isapnpc_ID.isapnpid_Vendor[ 0 ] = '?';
+                  card->isapnpc_ID.isapnpid_Vendor[ 1 ] = '?';
+                  card->isapnpc_ID.isapnpid_Vendor[ 2 ] = '?';
+                  card->isapnpc_SerialNumber = -1;
+  
+                  // Add *first*
+                  AddHead( &res->m_Cards, (struct Node*) card );
+  
+                  // Let's see if we're to disable any cards or devices etc
+  
+                  if( ! HandleToolTypes( current_binding.cb_ToolTypes, 
+                                         card, res ) )
+                  {
+                    // Error requester already displayed.
                     FreeISAPNPBase( res );
                   }
                   else
                   {
-                    cd->cd_Flags  &= ~CDF_CONFIGME;
-                    cd->cd_Driver  = res;
-
-                    ISAPNPBase = res;
+                    if( ! ISAPNP_ConfigureCards( res ) )
+                    {
+                      // Unable to configure cards
+  
+                      Req( "Unable to configure the cards. This is most likely\n"
+                           "because of an unresolvable hardware conflict.\n\n"
+                           "Use the DISABLE_DEVICE tool type to disable one of\n"
+                           "the devices in conflict." );
+                      FreeISAPNPBase( res );
+                    }
+                    else
+                    {
+                      cd->cd_Flags  &= ~CDF_CONFIGME;
+                      cd->cd_Driver  = res;
+  
+                      ISAPNPBase = res;
+                    }
                   }
                 }
               }
@@ -475,7 +485,7 @@ ReqA( const char* text, APTR args )
 
 
 /******************************************************************************
-** Handle the tool typs *******************************************************
+** Handle the tool types ******************************************************
 ******************************************************************************/
 
 static int
@@ -912,5 +922,82 @@ HandleToolTypes( UBYTE**             tool_types,
     ++tool_types;
   }
 
+  return TRUE;
+}
+
+/******************************************************************************
+** Fix cards that have broken PnP ROMs ****************************************
+******************************************************************************/
+
+static BOOL
+PatchBrokenCards( struct ISAPNPBase* res )
+{
+  struct ISAPNP_Device* dev = NULL;
+
+  // Patch the wavetable device on SB AWE32 and AWE64
+
+  while( ( dev = ISAPNP_FindDevice( dev,
+                                    ISAPNP_MAKE_ID('C','T','L'),
+                                    0x002,
+                                    1,
+                                    res ) ) != NULL )
+  {
+    struct ISAPNP_ResourceGroup* rg;
+    struct ISAPNP_IOResource*    r1;
+    struct ISAPNP_IOResource*    r2;
+    struct ISAPNP_IOResource*    r3;
+
+    // Nuke all dependent options
+
+    while( ( rg = (struct ISAPNP_ResourceGroup*) 
+                  RemHead( (struct List*) &dev->isapnpd_Options->isapnprg_ResourceGroups ) )
+           != NULL )
+    {
+      ISAPNP_FreeResourceGroup( rg, res );
+    }
+
+    rg = ISAPNP_AllocResourceGroup( ISAPNP_RG_PRI_ACCEPTABLE, res );
+
+    r1 = (struct ISAPNP_IOResource*) ISAPNP_AllocResource( ISAPNP_NT_IO_RESOURCE, res );
+    r2 = (struct ISAPNP_IOResource*) ISAPNP_AllocResource( ISAPNP_NT_IO_RESOURCE, res );
+    r3 = (struct ISAPNP_IOResource*) ISAPNP_AllocResource( ISAPNP_NT_IO_RESOURCE, res );
+
+    if( rg == NULL || r1 == NULL || r2 == NULL || r3 == NULL )
+    {
+      ISAPNP_FreeResourceGroup( rg, res );
+      ISAPNP_FreeResource( (struct ISAPNP_Resource*) r1, res );
+      ISAPNP_FreeResource( (struct ISAPNP_Resource*) r2, res );
+      ISAPNP_FreeResource( (struct ISAPNP_Resource*) r3, res );
+
+      return FALSE;
+    }
+
+    r1->isapnpior_Flags = ISAPNP_IORESOURCE_FF_FULL_DECODE;    
+    r2->isapnpior_Flags = ISAPNP_IORESOURCE_FF_FULL_DECODE;    
+    r3->isapnpior_Flags = ISAPNP_IORESOURCE_FF_FULL_DECODE;    
+
+    r1->isapnpior_Alignment = 1;
+    r2->isapnpior_Alignment = 1;
+    r3->isapnpior_Alignment = 1;
+
+    r1->isapnpior_Length = 4;
+    r2->isapnpior_Length = 4;
+    r3->isapnpior_Length = 4;
+    
+    r1->isapnpior_MinBase = 0x620;
+    r2->isapnpior_MinBase = 0xa20;
+    r3->isapnpior_MinBase = 0xe20;
+
+    r1->isapnpior_MaxBase = 0x620;
+    r2->isapnpior_MaxBase = 0xa20;
+    r3->isapnpior_MaxBase = 0xe20;
+    
+    AddTail( (struct List*) &rg->isapnprg_Resources, (struct Node*) r1 );
+    AddTail( (struct List*) &rg->isapnprg_Resources, (struct Node*) r2 );
+    AddTail( (struct List*) &rg->isapnprg_Resources, (struct Node*) r3 );
+    
+    AddTail( (struct List*) &dev->isapnpd_Options->isapnprg_ResourceGroups, rg );
+  }
+  
   return TRUE;
 }

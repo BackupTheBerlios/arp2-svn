@@ -78,5 +78,4 @@ helper functions to access registers and memory on the ISA bus.
 
 The API is not final, not finished and probably not working either.
 
-
 $Id$

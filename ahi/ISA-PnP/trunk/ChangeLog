@@ -1,0 +1,12 @@
+2001-04-22  Martin Blom  <martin@blom.org>
+
+	* Added patch to correct the wavetable device on SB AWE32.
+
+	* Added the possibility to select a device (in the tool types)
+	using card id, card serial number and logical device number.
+
+2001-05-08  Martin Blom  <martin@blom.org>
+
+	* Released version 1.1.
+
+	* First beta.
