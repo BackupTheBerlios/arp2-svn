@@ -19,6 +19,13 @@
   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
+#ifdef __amigaos4__
+# include <devices/timer.h>
+# include <intuition/gadgetclass.h>
+# include <intuition/imageclass.h>
+# define ETI_Iconify 1000
+#endif
+
 #include "rdesktop.h"
 
 #undef BOOL
@@ -28,12 +35,18 @@
 #include <errno.h>
 #include <stdlib.h>
 
-#if defined(__libnix__)
-# include <libnix.h>
-#elif defined(__ixemul__)
-# include <ix.h>
+#ifdef __amigaos4__
+# include <unistd.h>
+# include <time.h>
+# include <proto/bsdsocket.h>
 #else
-# error I need ixemul or libnix!
+# if defined(__libnix__)
+#  include <libnix.h>
+# elif defined(__ixemul__)
+#  include <ix.h>
+# else
+#  error I need ixemul or libnix!
+# endif
 #endif
 
 #include <cybergraphx/cybergraphics.h>
@@ -101,6 +114,11 @@ static APTR           amiga_tmp_buffer         = NULL;
 static ULONG          amiga_tmp_buffer_length  = 0;
 static struct BitMap* amiga_tmp_bitmap         = NULL;
 static int            amiga_clipping           = FALSE;
+#ifdef __amigaos4__
+struct DrawInfo      *amiga_DrInfo             = NULL;
+struct Image         *amiga_IconifyImage       = NULL;
+struct Gadget        *amiga_IconifyGadget      = NULL;
+#endif
 
 struct Glyph
 {
@@ -1423,6 +1441,63 @@ ui_create_window(void)
     // We don't need it anymore
     UnlockPubScreen( NULL, amiga_pubscreen );
     amiga_pubscreen = 0;
+
+#ifdef __amigaos4__
+    if (amiga_window)
+    {
+       uint32 size = (amiga_window->WScreen->Flags & SCREENHIRES ? SYSISIZE_MEDRES : SYSISIZE_LOWRES);
+       uint32 height = amiga_window->WScreen->Font->ta_YSize + amiga_window->WScreen->WBorTop + 1;
+       struct Image *idepth, *izoom;
+
+       amiga_DrInfo = GetScreenDrawInfo(amiga_window->WScreen);
+
+       idepth = (struct Image *)NewObject( NULL, "sysiclass",
+                                           SYSIA_Size, size,
+                                           SYSIA_DrawInfo, amiga_DrInfo,
+                                           SYSIA_Which, DEPTHIMAGE,
+                                           IA_Height, height,
+                                           TAG_DONE );
+       izoom = (struct Image *)NewObject( NULL, "sysiclass",
+                                          SYSIA_Size, size,
+                                          SYSIA_DrawInfo, amiga_DrInfo,
+                                          SYSIA_Which, ZOOMIMAGE,
+                                          IA_Height, height,
+                                          TAG_DONE );
+
+       amiga_IconifyImage = (struct Image *)NewObject( NULL, "sysiclass",
+                                                       SYSIA_Size, size,
+                                                       SYSIA_DrawInfo, amiga_DrInfo,
+                                                       SYSIA_Which, ICONIFYIMAGE,
+                                                       IA_Height, height,
+                                                       TAG_DONE );
+       if (amiga_IconifyImage && idepth && izoom)
+       {
+          int32 relright;
+          relright  = - amiga_IconifyImage->Width + 2;
+          relright -= idepth->Width - 1;
+          relright -= izoom->Width - 1;
+
+          amiga_IconifyGadget = (struct Gadget *)NewObject( NULL, "buttongclass",
+                                                            GA_Image, amiga_IconifyImage,
+                                                            GA_TopBorder, TRUE,
+                                                            GA_Titlebar, TRUE,
+                                                            GA_RelRight, relright,
+                                                            GA_Top, 0,
+                                                            GA_ID, ETI_Iconify,
+                                                            GA_RelVerify, TRUE,
+                                                            TAG_DONE );
+       }
+
+       if (idepth) DisposeObject((Object *)idepth);
+       if (izoom)  DisposeObject((Object *)izoom);
+
+       if (amiga_IconifyGadget)
+       {
+          AddGList( amiga_window, amiga_IconifyGadget, 0, 1, NULL);
+          RefreshGList( amiga_IconifyGadget, amiga_window, NULL, 1);
+       }
+    }
+#endif
   }
 
   if( amiga_window == NULL )
@@ -1448,6 +1523,27 @@ ui_destroy_window()
     amiga_app_icon = NULL;
   }
   
+#ifdef __amigaos4__
+   if (amiga_DrInfo)
+   {
+      FreeScreenDrawInfo(amiga_window->WScreen, amiga_DrInfo);
+      amiga_DrInfo = NULL;
+   }
+
+   if (amiga_IconifyGadget)
+   {
+      RemoveGadget(amiga_window, amiga_IconifyGadget);
+      DisposeObject((Object *)amiga_IconifyGadget);
+      amiga_IconifyGadget = NULL;
+   }
+
+   if (amiga_IconifyImage)
+   {
+       DisposeObject((Object *)amiga_IconifyImage);
+       amiga_IconifyImage = NULL;
+   }
+#endif
+
   if( amiga_backup != NULL )
   {
     WaitBlit();
@@ -1547,10 +1643,14 @@ ui_select(int rdp_socket)
     }
 #endif
 
-#ifdef __libnix__
-    res  = lx_select(n, &rfds, &wfds, NULL, &tv, &mask );
+#ifdef __amigaos4__
+    res  = WaitSelect(n, &rfds, &wfds, NULL, &tv, &mask );
 #else
+# ifdef __libnix__
+    res  = lx_select(n, &rfds, &wfds, NULL, &tv, &mask );
+# else
     res  = ix_select(n, &rfds, &wfds, NULL, &tv, &mask );
+# endif
 #endif
 
     if( res == -1 && mask == 0 )
@@ -1585,6 +1685,10 @@ ui_select(int rdp_socket)
 	      amiga_app_icon = NULL;
 #ifdef __MORPHOS__
 	      ShowWindow( amiga_window );
+#endif
+#ifdef __amigaos4__
+	      ShowWindow( amiga_window, WINDOW_FRONTMOST );
+	      ActivateWindow( amiga_window );
 #endif
 	    }
 	  }
@@ -1674,7 +1778,7 @@ ui_select(int rdp_socket)
 	    {
 	      struct Gadget* g = (struct Gadget*) msg->IAddress;
 
-#ifdef __MORPHOS__
+#if defined(__MORPHOS__) || defined(__amigaos4__)
 	      if( g->GadgetID == ETI_Iconify &&
 		  amiga_app_icon == NULL )
 	      {

@@ -22,10 +22,14 @@
 #include <unistd.h>		/* read close getuid getgid getpid getppid gethostname */
 #include <fcntl.h>		/* open */
 #include <pwd.h>		/* getpwuid */
+#ifndef __amigaos4__
 #include <termios.h>		/* tcgetattr tcsetattr */
+#endif
 #include <sys/stat.h>		/* stat */
 #include <sys/time.h>		/* gettimeofday */
+#ifndef __amigaos4__
 #include <sys/times.h>		/* times */
+#endif
 #include <ctype.h>		/* toupper */
 #include <errno.h>
 #include "rdesktop.h"
@@ -39,6 +43,10 @@
 #include <openssl/md5.h>
 #else
 #include "crypto/md5.h"
+#endif
+
+#ifdef __amigaos4__
+# include <proto/usergroup.h>
 #endif
 
 char g_title[64] = "";
@@ -669,11 +677,14 @@ void
 generate_random(uint8 * random)
 {
 	struct stat st;
+#ifndef __amigaos4__
 	struct tms tmsbuf;
+#endif
 	MD5_CTX md5;
 	uint32 *r;
 	int fd, n;
 
+#ifndef __amigos4__
 	/* If we have a kernel random device, try that first */
 	if (((fd = open("/dev/urandom", O_RDONLY)) != -1)
 	    || ((fd = open("/dev/random", O_RDONLY)) != -1))
@@ -683,6 +694,7 @@ generate_random(uint8 * random)
 		if (n == 32)
 			return;
 	}
+#endif
 
 #ifdef EGD_SOCKET
 	/* As a second preference use an EGD */
@@ -692,11 +704,23 @@ generate_random(uint8 * random)
 
 	/* Otherwise use whatever entropy we can gather - ideas welcome. */
 	r = (uint32 *) random;
+#ifdef __amigaos4__
+	r[0] = getpid();
+#else
 	r[0] = (getpid()) | (getppid() << 16);
+#endif
 	r[1] = (getuid()) | (getgid() << 16);
+#ifdef __amigaos4__
+	r[2] = clock();
+#else
 	r[2] = times(&tmsbuf);	/* system uptime (clocks) */
+#endif
 	gettimeofday((struct timeval *) &r[3], NULL);	/* sec and usec */
+#if defined(ENABLE_AMIGA) && !defined(__ixemul__)
+	stat("T:", &st);
+#else
 	stat("/tmp", &st);
+#endif
 	r[5] = st.st_atime;
 	r[6] = st.st_mtime;
 	r[7] = st.st_ctime;

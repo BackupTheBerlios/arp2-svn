@@ -21,11 +21,18 @@
 #include "rdesktop.h"
 
 #ifdef WITH_OPENSSL
-#include <openssl/rc4.h>
-#include <openssl/md5.h>
-#include <openssl/sha.h>
-#include <openssl/bn.h>
-#include <openssl/x509v3.h>
+# ifdef __amigaos4__
+#  include <clib/sha_protos.h>
+#  include <clib/md5_protos.h>
+#  include <clib/rc4_protos.h>
+#  include <proto/amissl.h>
+# else
+#  include <openssl/rc4.h>
+#  include <openssl/md5.h>
+#  include <openssl/sha.h>
+#  include <openssl/bn.h>
+#  include <openssl/x509v3.h>
+# endif
 #else
 #include "crypto/rc4.h"
 #include "crypto/md5.h"
@@ -49,7 +56,9 @@ extern unsigned int g_num_channels;
 static int rc4_key_len;
 static RC4_KEY rc4_decrypt_key;
 static RC4_KEY rc4_encrypt_key;
+#ifdef WITH_OPENSSL
 static RSA *server_public_key;
+#endif
 
 static uint8 sec_sign_key[16];
 static uint8 sec_decrypt_key[16];

@@ -21,7 +21,12 @@
 #include "rdesktop.h"
 
 #ifdef WITH_OPENSSL
-#include <openssl/rc4.h>
+# ifdef __amigaos4__
+#  include <clib/rc4_protos.h>
+#  include <proto/amissl.h>
+# else
+#  include <openssl/rc4.h>
+# endif
 #else
 #include "crypto/rc4.h"
 #endif

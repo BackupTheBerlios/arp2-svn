@@ -39,6 +39,12 @@
 #include <proto/utility.h>
 #include <proto/wb.h>
 
+#ifdef __amigaos4__
+# include <proto/bsdsocket.h>
+# include <proto/usergroup.h>
+# include <proto/amissl.h>
+#endif
+
 #include <ctype.h>		/* isalpha */
 #include <stdarg.h>		/* va_list va_start va_end */
 #include <unistd.h>		/* read close getuid getgid getpid getppid gethostname */
@@ -86,25 +92,34 @@ extern RDPDR_DEVICE g_rdpdr_device[];
 extern uint32 g_num_devices;
 extern char *g_rdpdr_clientname;
 
-static const char version[] = "$VER: RDesktop 1.3.1cvs-"
+const char version[] = "$VER: RDesktop 1.3.1cvs-"
 #ifdef __MORPHOS__
                               "MorphOS"
 #else
                               "AmigaOS"
 #endif
-                              " (08.01.2005)"
+                              " (12.01.2005)"
                               "©2001-2005 Martin Blom; "
                               "©1999-2004 Matthew Chapman et al.";
 
-struct Library*       AslBase       = NULL;
-struct Library*       CyberGfxBase  = NULL;
-struct GfxBase*       GfxBase       = NULL;
-struct Library*       IFFParseBase  = NULL;
-struct Library*       IconBase      = NULL;
-struct IntuitionBase* IntuitionBase = NULL;
-struct Library*       LayersBase    = NULL;
-struct UtilityBase*   UtilityBase   = NULL;
-struct Library*       WorkbenchBase = NULL;
+#ifdef __amigaos4__
+struct LayersIFace    *ILayers       = NULL;
+struct CyberGfxIFace  *ICyberGfx     = NULL;
+struct SocketIFace    *ISocket       = NULL;
+struct UserGroupIFace *IUserGroup    = NULL;
+struct AmiSSLIFace    *IAmiSSL       = NULL;
+uint32 AmiSSL_initialized = FALSE;
+#else
+struct Library*        AslBase       = NULL;
+struct GfxBase*        GfxBase       = NULL;
+struct Library*        IFFParseBase  = NULL;
+struct Library*        IconBase      = NULL;
+struct IntuitionBase*  IntuitionBase = NULL;
+struct UtilityBase*    UtilityBase   = NULL;
+struct Library*        WorkbenchBase = NULL;
+#endif
+struct Library*        CyberGfxBase  = NULL;
+struct Library*        LayersBase    = NULL;
 
 static const char template[] =
 "SERVER/A,USER/K,DOMAIN/K,PASSWORD/K,CLIENT/K,CONSOLE/S,FRENCH/S,"
@@ -113,35 +128,71 @@ static const char template[] =
 "FS=FULLSCREEN/S,SCREENMODE/K/N,AUDIO/K/N,REMOTEAUDIO/S,"
 "BITMAPSONLY/S,NOMOUSE/S,EXP=EXPERIENCE/K,RDP4/S";
 
+static const char wbtemplate[] =
+"SERVER/A/K,USER/K,DOMAIN/K,PASSWORD/K,CLIENT/K,CONSOLE/S,FRENCH/S,"
+"NOENC=NOENCRYPTION/S,SHELL/K,DIR=DIRECTORY/K,LEFT/K/N,TOP/K/N,"
+"W=WIDTH/K/N,H=HEIGHT/K/N,D=DEPTH/K/N,PUBSCREEN/K,TITLE/K,"
+"FS=FULLSCREEN/S,SCREENMODE/K/N,AUDIO/K/N,REMOTEAUDIO/S,"
+"BITMAPSONLY/S,NOMOUSE/S,EXP=EXPERIENCE/K,RDP4/S,IGNORE/F";
+
 static LONG  def_size  = 0;
 static LONG  def_depth = 0;
 
-#define a_first_arg a_server
-static STRPTR a_server     = NULL;
-static STRPTR a_user       = NULL;
-static STRPTR a_domain     = NULL;
-static STRPTR a_password   = NULL;
-static STRPTR a_client     = NULL;
-static ULONG  a_console    = FALSE;
-static ULONG  a_french     = FALSE;
-static ULONG  a_noenc      = FALSE;
-static STRPTR a_shell      = NULL;
-static STRPTR a_dir        = NULL;
-static ULONG* a_left       = NULL;
-static ULONG* a_top        = NULL;
-static LONG*  a_width      = &def_size;
-static LONG*  a_height     = &def_size;
-static ULONG* a_depth      = &def_depth;
-static STRPTR a_pubscreen  = NULL;
-static STRPTR a_title      = NULL;
-static ULONG  a_fullscreen = FALSE;
-static ULONG* a_screenmode = NULL;
-static ULONG* a_audio      = NULL;
-static ULONG  a_remoteaudio = FALSE;
-static ULONG  a_bitmapsonly = FALSE;
-static ULONG  a_nomouse     = FALSE;
-static STRPTR a_experience  = "56K";
-static ULONG  a_rdp4        = FALSE;
+static struct
+{
+   STRPTR a_server;
+   STRPTR a_user;
+   STRPTR a_domain;
+   STRPTR a_password;
+   STRPTR a_client;
+   ULONG  a_console;
+   ULONG  a_french;
+   ULONG  a_noenc;
+   STRPTR a_shell;
+   STRPTR a_dir;
+   ULONG* a_left;
+   ULONG* a_top;
+   LONG*  a_width;
+   LONG*  a_height;
+   ULONG* a_depth;
+   STRPTR a_pubscreen;
+   STRPTR a_title;
+   ULONG  a_fullscreen;
+   ULONG* a_screenmode;
+   ULONG* a_audio;
+   ULONG  a_remoteaudio;
+   ULONG  a_bitmapsonly;
+   ULONG  a_nomouse;
+   STRPTR a_experience;
+   ULONG  a_rdp4;
+} a_args =
+{
+   NULL,
+   NULL,
+   NULL,
+   NULL,
+   NULL,
+   FALSE,
+   FALSE,
+   FALSE,
+   NULL,
+   NULL,
+   NULL,
+   NULL,
+   &def_size,
+   &def_size,
+   &def_depth,
+   NULL,
+   NULL,
+   FALSE,
+   NULL,
+   NULL,
+   FALSE,
+   FALSE,
+   FALSE,
+   "56K",
+   FALSE
+};
 
 static struct WBStartup*  wb_msg = NULL;
 
@@ -217,9 +268,46 @@ cleanup(void)
     ui_deinit();
   }
   
+#ifdef __amigaos4__
+  if (IAmiSSL)
+  {
+    struct Library *LibBase = ((struct Interface *)IAmiSSL)->Data.LibBase;
+
+    if (AmiSSL_initialized)
+    {
+       CleanupAmiSSL(TAG_DONE);
+    }
+    DropInterface((struct Interface *)IAmiSSL);
+    ISocket = NULL;
+    CloseLibrary(LibBase);
+  }
+  if (ISocket)
+  {
+    struct Library *LibBase = ((struct Interface *)ISocket)->Data.LibBase;
+
+    DropInterface((struct Interface *)ISocket);
+    ISocket = NULL;
+    CloseLibrary(LibBase);
+  }
+  if (IUserGroup)
+  {
+    struct Library *LibBase = ((struct Interface *)IUserGroup)->Data.LibBase;
+
+    DropInterface((struct Interface *)IUserGroup);
+    IUserGroup = NULL;
+    CloseLibrary(LibBase);
+  }
+
+  if (ICyberGfx)
+  {
+     DropInterface((struct Interface *)ICyberGfx);
+     ICyberGfx = NULL;
+  }
+#endif
   CloseLibrary( CyberGfxBase );
   CyberGfxBase = NULL;
 
+#ifndef __amigaos4__
   CloseLibrary( AslBase );
   AslBase = NULL;
   
@@ -234,15 +322,21 @@ cleanup(void)
 
   CloseLibrary( IconBase );
   IconBase = NULL;
+#endif
   
+#ifdef __amigaos4__
+  DropInterface((struct Interface *)ILayers);
+#endif
   CloseLibrary( LayersBase );
   LayersBase = NULL;
 
+#ifndef __amigaos4__
   CloseLibrary( (struct Library*) UtilityBase );
   UtilityBase = NULL;
 
   CloseLibrary( WorkbenchBase );
   WorkbenchBase = NULL;
+#endif
 }
 
 
@@ -268,6 +362,7 @@ main(int argc, char *argv[])
 
   atexit(cleanup);
 
+#ifndef __amigaos4__
   AslBase = OpenLibrary( AslName, 39 );
   
   if( AslBase == NULL )
@@ -305,8 +400,72 @@ main(int argc, char *argv[])
     error( "Unable to open '%s'.\n", "intuition.library" );
     return RETURN_FAIL;
   }
+#endif
+#ifdef __amigaos4__
+{
+  struct Library *LibBase;
+
+  LibBase = OpenLibrary("bsdsocket.library", 3L);
+  if (NULL != LibBase)
+  {
+     ISocket = (struct SocketIFace *)GetInterface(LibBase, "main", 1, NULL);
+     if (!ISocket) CloseLibrary(LibBase);
+  }
+  if (!LibBase || !ISocket)
+  {
+     error( "Unable to open '%s'.\n", "bsdsocket.library" );
+     return RETURN_FAIL;
+  }
+
+  LibBase = OpenLibrary("usergroup.library", 0L);
+  if (LibBase)
+  {
+     IUserGroup = (struct UserGroupIFace *)GetInterface(LibBase, "main", 1, NULL);
+     if (!IUserGroup) CloseLibrary(LibBase);
+  }
+  if (!LibBase || !IUserGroup)
+  {
+     error( "Unable to open '%s'.\n", "usergroup.library" );
+     return RETURN_FAIL;
+  }
+
+  LibBase = OpenLibrary("amissl.library", 1);
+  if (LibBase)
+  {
+     IAmiSSL = (struct AmiSSLIFace *)GetInterface(LibBase, "main", 1, NULL);
+     if (!IAmiSSL) CloseLibrary(LibBase);
+  }
+  if (!LibBase || !IAmiSSL)
+  {
+     error( "Unable to open '%s'.\n", "amissl.library" );
+     return RETURN_FAIL;
+  }
+
+  if (!InitAmiSSL(AmiSSL_Version, AmiSSL_CurrentVersion,
+                  AmiSSL_Revision, AmiSSL_CurrentRevision,
+                  /* AmiSSL_VersionOverride, TRUE,*/
+                  AmiSSL_SocketBase, ((struct Interface *)ISocket)->Data.LibBase,
+                  TAG_DONE))
+  {
+     AmiSSL_initialized = TRUE;
+  } else {
+     error( "Unable to initialize AmiSSL\n" );
+     return RETURN_FAIL;
+  }
+
+  SetErrnoPtr(&errno, 4);
+}
+#endif
 
   LayersBase = OpenLibrary( "layers.library", 39 );
+#ifdef __amigaos4__
+  ILayers = (struct LayersIFace *)GetInterface(LayersBase, "main", 1, NULL);
+  if (!ILayers)
+  {
+     CloseLibrary(LayersBase);
+     LayersBase = NULL;
+  }
+#endif
   
   if( LayersBase == NULL )
   {
@@ -315,6 +474,7 @@ main(int argc, char *argv[])
   }
 
 
+#ifndef __amigaos4__
   UtilityBase = (struct UtilityBase*) OpenLibrary( "utility.library", 37 );
   
   if( UtilityBase == NULL )
@@ -330,8 +490,20 @@ main(int argc, char *argv[])
     error( "Unable to open '%s'.\n", "workbench.library" );
     return RETURN_FAIL;
   }
+#endif
   
   CyberGfxBase = OpenLibrary( "cybergraphics.library", 40 );
+#ifdef __amigaos4__
+  if (CyberGfxBase)
+  {
+    ICyberGfx = (struct CyberGfxIFace *)GetInterface(CyberGfxBase, "main", 1, NULL);
+    if (!ICyberGfx)
+    {
+      CloseLibrary(CyberGfxBase);
+      CyberGfxBase = NULL;
+    }
+  }
+#endif
 
   // Don't care if we're unable to open it
 
@@ -347,7 +519,7 @@ main(int argc, char *argv[])
   pw = getpwuid(getuid());
   if ((pw != NULL) && (pw->pw_name != NULL))
   {
-    a_user = pw->pw_name;
+    a_args.a_user = pw->pw_name;
   }
 
   if (gethostname(fullhostname, sizeof(fullhostname)) != -1)
@@ -356,7 +528,7 @@ main(int argc, char *argv[])
     if (p != NULL)
       *p = 0;
 
-    a_client = fullhostname;
+    a_args.a_client = fullhostname;
   }
 
   if (argc == 0)
@@ -495,8 +667,13 @@ main(int argc, char *argv[])
 
     CurrentDir( cd );
   }
-  
-  rdargs = ReadArgs(template, (LONG*) &a_first_arg, rdargs);
+
+  if (0 == argc)
+  {
+     rdargs = ReadArgs(wbtemplate, (LONG*) &a_args, rdargs);
+  } else {
+     rdargs = ReadArgs(template, (LONG*)&a_args, rdargs);
+  }
 
   if (rdargs == NULL)
   {
@@ -508,67 +685,67 @@ main(int argc, char *argv[])
   }
 
   
-  if (a_user == NULL)
+  if (a_args.a_user == NULL)
   {
     error("Could not determine username.\nYou have to specify it manually.\n");
     rc = RETURN_ERROR;
   }
 
-  if (a_client == NULL)
+  if (a_args.a_client == NULL)
   {
     error("Could not determine client name.\nYou have to specify it manually.\n");
     rc = RETURN_ERROR;
   }
 
-  if (a_server != NULL) STRNCPY(server, a_server, sizeof(server));
-  if (a_user != NULL)   STRNCPY(g_username, a_user, sizeof(g_username));	
-  if (a_domain != NULL) STRNCPY(domain, a_domain, sizeof(domain));
-  if (a_shell != NULL)  STRNCPY(shell, a_shell, sizeof(shell));
-  if (a_dir != NULL)    STRNCPY(directory, a_dir, sizeof(directory));
-  if (a_password != NULL)
+  if (a_args.a_server != NULL) STRNCPY(server, a_args.a_server, sizeof(server));
+  if (a_args.a_user != NULL)   STRNCPY(g_username, a_args.a_user, sizeof(g_username));	
+  if (a_args.a_domain != NULL) STRNCPY(domain, a_args.a_domain, sizeof(domain));
+  if (a_args.a_shell != NULL)  STRNCPY(shell, a_args.a_shell, sizeof(shell));
+  if (a_args.a_dir != NULL)    STRNCPY(directory, a_args.a_dir, sizeof(directory));
+  if (a_args.a_password != NULL)
   {
-    STRNCPY(password, a_password, sizeof(password));
+    STRNCPY(password, a_args.a_password, sizeof(password));
     flags |= RDP_LOGON_AUTO;
   }
-  if (a_client != NULL) STRNCPY(hostname, a_client, sizeof(hostname));
+  if (a_args.a_client != NULL) STRNCPY(hostname, a_args.a_client, sizeof(hostname));
 
-  if (a_pubscreen != NULL)
+  if (a_args.a_pubscreen != NULL)
   {
-    STRNCPY(pubscreen, a_pubscreen, sizeof(pubscreen));
+    STRNCPY(pubscreen, a_args.a_pubscreen, sizeof(pubscreen));
     amiga_pubscreen_name = pubscreen;
   }
 
-  if (a_screenmode != NULL)
+  if (a_args.a_screenmode != NULL)
   {
-    amiga_screen_id = *a_screenmode;
-    a_fullscreen = TRUE;
+    amiga_screen_id = *a_args.a_screenmode;
+    a_args.a_fullscreen = TRUE;
   }
 
-  g_fullscreen      = a_fullscreen;
+  g_fullscreen      = a_args.a_fullscreen;
 
-  if (a_left != NULL) amiga_left = *a_left;
-  if (a_top != NULL)  amiga_top  = *a_top;
+  if (a_args.a_left != NULL) amiga_left = *a_args.a_left;
+  if (a_args.a_top != NULL)  amiga_top  = *a_args.a_top;
 
-  if (a_fullscreen && (a_left != NULL || a_top != NULL || a_pubscreen != NULL))
+  if (a_args.a_fullscreen && (a_args.a_left != NULL || a_args.a_top != NULL || a_args.a_pubscreen != NULL))
   {
     warning( "The LEFT, TOP and PUBSCREEN arguments are ignored in fullscreen mode.\n");
   }
 	
-  g_width           = *a_width;
-  g_height          = *a_height;
+  g_width           = *a_args.a_width;
+  g_height          = *a_args.a_height;
 	
-  g_orders          = ! a_bitmapsonly;
-  g_encryption      = ! a_french;
-  packet_encryption = ! a_noenc;
-  g_sendmotion      = ! a_nomouse;
+  g_orders          = ! a_args.a_bitmapsonly;
+  g_encryption      = ! a_args.a_french;
+  packet_encryption = ! a_args.a_noenc;
+  g_sendmotion      = ! a_args.a_nomouse;
 #ifdef WITH_RDPSND
-  if( a_audio != NULL) amiga_audio_unit = *a_audio;
+  if( a_args.a_audio != NULL) amiga_audio_unit = *a_args.a_audio;
 #endif
-  if (a_remoteaudio)
+  if (a_args.a_remoteaudio)
   {
     flags |= RDP_LOGON_LEAVE_AUDIO;
 
-    if (a_audio != NULL)
+    if (a_args.a_audio != NULL)
     {
       warning( "The AUDIO argument is ignored when REMOTEAUDIO is used.\n");
     }
@@ -580,9 +757,9 @@ main(int argc, char *argv[])
   }
 #endif
 	
-  if( a_title != NULL) STRNCPY(g_title, a_title, sizeof(g_title));
+  if( a_args.a_title != NULL) STRNCPY(g_title, a_args.a_title, sizeof(g_title));
 
-  g_server_bpp = *a_depth;
+  g_server_bpp = *a_args.a_depth;
 
   if (g_server_bpp < 0 ||
       (g_server_bpp > 8 && g_server_bpp != 16 && g_server_bpp != 15
@@ -592,39 +769,39 @@ main(int argc, char *argv[])
     rc = RETURN_ERROR;
   }
 
-  if (a_experience != NULL)
+  if (a_args.a_experience != NULL)
   {
-    toupper_str(a_experience);
+    toupper_str(a_args.a_experience);
 		
-    if (strcmp("28K8", a_experience) == 0)
+    if (strcmp("28K8", a_args.a_experience) == 0)
     {
       g_rdp5_performanceflags =
 	RDP5_NO_WALLPAPER | RDP5_NO_FULLWINDOWDRAG |
 	RDP5_NO_MENUANIMATIONS | RDP5_NO_THEMING;
     }
-    else if (strcmp("56K", a_experience) == 0)
+    else if (strcmp("56K", a_args.a_experience) == 0)
     {
       g_rdp5_performanceflags =
 	RDP5_NO_WALLPAPER | RDP5_NO_FULLWINDOWDRAG |
 	RDP5_NO_MENUANIMATIONS;
     }
-    else if (strcmp("DSL", a_experience) == 0)
+    else if (strcmp("DSL", a_args.a_experience) == 0)
     {
       g_rdp5_performanceflags = RDP5_NO_WALLPAPER;
     }
-    else if (strcmp("LAN", a_experience) == 0)
+    else if (strcmp("LAN", a_args.a_experience) == 0)
     {
       g_rdp5_performanceflags = RDP5_DISABLE_NOTHING;
     }
     else
     {
-      error("Illegal EXPERIENCE value: %s\n", a_experience);
+      error("Illegal EXPERIENCE value: %s\n", a_args.a_experience);
       rc = RETURN_ERROR;
     }
   }
 		
-  g_console_session = a_console;
-  g_use_rdp5 = ! a_rdp4;
+  g_console_session = a_args.a_console;
+  g_use_rdp5 = ! a_args.a_rdp4;
 
   if (server[0] == 0)
   {

@@ -60,8 +60,13 @@ static ULONG amiga_clip_hookfunc(struct Hook*        hook,
 
 static struct Hook amiga_clip_hook = {
   { NULL, NULL },
+#ifdef __amigaos4__
+  amiga_clip_hookfunc,
+  NULL,
+#else
   HookEntry,
   amiga_clip_hookfunc,
+#endif
   NULL
 };
 
