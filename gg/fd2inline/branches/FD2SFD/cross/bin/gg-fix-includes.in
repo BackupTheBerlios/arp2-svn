@@ -250,6 +250,9 @@ for gcc in ${bindir}/*-*-gcc; do
 	    -o ${build_dir}/-stubs-${base}.s || exit 10
 
           ${SPLITASM} -v dest=${build_dir} ${build_dir}/-stubs-${base}.s
+
+	  rm ${build_dir}/-stubs-${base}.c
+	  rm ${build_dir}/-stubs-${base}.s
         done
       fi
 
@@ -258,8 +261,6 @@ for gcc in ${bindir}/*-*-gcc; do
    done
 
    if [ ${LIB} ]; then
-     rm ${build_dir}/-stubs.s ${build_dir}/-stubs.c
-
      echo -e "${INFO} *** Assembling files${ERROR}"
  
      for stub in ${build_dir}/*.s; do
