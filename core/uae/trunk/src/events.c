@@ -82,6 +82,8 @@ void events_schedule (void)
     nextevent = currcycle + mintime;
 }
 extern int blomcall_counter;
+extern int blomcall_cycles;
+extern int blomcall_code;
 /*
  * Handle all events pending within the next cycles_to_add cycles
  */
@@ -93,7 +95,7 @@ void do_cycles_slow (unsigned int cycles_to_add)
   static unsigned long currcycle_l;
 
   if ((start_time-last_time) > 2e9/16/10) {
-    printf("currcycle: %08lx (%10d/s) %d\r", currcycle, 10*(currcycle-currcycle_l)/256, blomcall_counter);
+    printf("currcycle: %08lx (%10d/s) %x %x %x\r", currcycle, 10*(currcycle-currcycle_l)/256, blomcall_counter, blomcall_cycles, blomcall_code);
     fflush(stdout);
     last_time = start_time;
     currcycle_l = currcycle;

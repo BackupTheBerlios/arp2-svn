@@ -29,7 +29,9 @@
 #define CONTINUOUS_BLOMCALL_TIMER
 #undef USE_UALARM
 
-int blomcall_counter;
+volatile int blomcall_cycles;
+volatile int blomcall_counter;
+volatile int blomcall_code;
 int in_blomcall = 0;
 
 static int                      blomcall_enable = 0;
@@ -153,7 +155,7 @@ static void REGPARAM2 call_blomcall(struct blomcall_stack* stack)
 /*     usleep(1000); */
 /*   } */
   
-  while(1);// {printf("*");}
+  while(1) ++blomcall_code;// {printf("*");}
 //    ((void (*)(void)) addr)();
   siglongjmp(blomcall_context->emuljmp, 1);
 }
@@ -205,20 +207,6 @@ unsigned long blomcall_ops (uae_u32 opcode) {
   if (!blomcall_enable) {
     return op_illg (opcode);
   }
-
-/*   if (cycles_left != 0) { */
-/*     unsigned long cycles_to_do; */
-    
-/*     if (cycles_left < 3000) { */
-/*       cycles_to_do =  cycles_left; */
-/*     } */
-/*     else { */
-/*       cycles_to_do = 3000; */
-/*     } */
-
-/*     cycles_left -= cycles_to_do; */
-/*     return cycles_to_do; */
-/*   } */
   
   if (opcode != OP_BRESUME) {
     uae_u32 newpc  = get_long (m68k_getpc() + 2);
@@ -348,15 +336,7 @@ unsigned long blomcall_ops (uae_u32 opcode) {
   call_time = read_processor_time () - start_time;
 //  printf("call_time: %lld, syncbase: %ld\n", call_time, syncbase);
 
-  static int cnt;
-
-/*   if (cnt++ > 1000) { */
-/*     printf("call_time: %lld\n", call_time); */
-/*     cnt = 0; */
-/*   } */
-
+  blomcall_cycles += (unsigned long) ((double) call_time / syncbase * 7.09e6 * 0.5);
 //  printf("%10.3g; ",  (double) call_time * 16 / 2e9 * 7.14e6 * 256);
-  cycles_left = (double) call_time * 16 / 2e9 * 7.14e6 * 0.5;
-//  return 3000;
-  return cycles_left;
+  return (unsigned long) ((double) call_time / syncbase * 7.09e6 * 0.5);
 }
