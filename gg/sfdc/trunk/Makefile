@@ -2,9 +2,9 @@
 MAIN		= main.pl
 CLASSES		= $(wildcard [A-Z]*.pl)
 PODS		= SFDCompile.pod
-EXECUTABLE	= SFDCompile
-MAN		= SFDCompile.1
-TXT		= SFDCompile.txt
+EXECUTABLE	= sfdc
+MAN		= sfdc.1
+TXT		= sfdc.txt
 
 all:	$(EXECUTABLE) $(MAN) $(TXT)
 

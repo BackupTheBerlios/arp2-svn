@@ -4,11 +4,11 @@ __END__
 
 =head1 NAME
 
-SFDCompile - Compile SFD files into someting useful
+sfdc - Compile SFD files into someting useful
 
 =head1 SYNOPSIS
 
-SFDCompile [options] file1.sfd [file2.sfd ...]
+sfdc [options] file1.sfd [file2.sfd ...]
 
   Options:
     --help -h               Show full help message and exit
@@ -36,7 +36,7 @@ Show the complete manual page and exit.
 
 =item B<--mode>
 
-Instructs F<SFDCompile> what to do. F<SFDCompile> can handle the
+Instructs F<sfdc> what to do. F<sfdc> can handle the
 following arguments:
 
 =over 8
@@ -155,11 +155,11 @@ Prints the version and exits.
 
 =head1 DESCRIPTION
 
-F<SFDCompile> is an open source replacement for Amiga, Inc.'s F<sfd>
-tool, distributed with B<NDK 3.9>. It is also an replacement for
+F<sfdc> is an open source replacement for Amiga, Inc.'s F<sfd> tool,
+distributed with B<NDK 3.9>. It is also an replacement for
 F<fd2inline> from GeekGadgets and the MorphOS team, later improved to
 death by Martin Blom. It's now a complete mess and needs a
-replacement. SFD files and F<SFDCompile> might to be a good start.
+replacement. SFD files and F<sfdc> might to be a good start.
 
 
 =head1 RETURN VALUE

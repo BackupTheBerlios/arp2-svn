@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w                                      -- # -*- perl -*-
 #
-#     SFDCompile - Compile SFD files into someting useful
+#     sfdc - Compile SFD files into someting useful
 #     Copyright (C) 2003 Martin Blom <martin@blom.org>
 #     
 #     This program is free software; you can redistribute it and/or
@@ -59,7 +59,7 @@ GetOptions ('help|h'     => \$help,
 	    'version|v'  => \$version) or exit 10;
 
 if ($version) {
-    print STDERR "SFDCompile 1.0 (16.07.2003)\n";
+    print STDERR "sfdc 1.0 (16.07.2003)\n";
     print STDERR "Copyright (C) 2003 Martin Blom <martin\@blom.org>\n";
     print STDERR "This is free software; " .
 	"see the source for copying conditions.\n";
