@@ -22,7 +22,7 @@ use Getopt::Long;
 use Pod::Usage;
 
 sub parse_sfd ( $ );
-sub parse_proto ( $ );
+sub parse_proto ( $$ );
 sub open_output ( $$ );
 sub will_close_output ( $$ );
 sub close_output ();
@@ -36,7 +36,7 @@ Getopt::Long::Configure ("bundling");
 
 my $help    = '0';
 my $man     = '0';
-my $mode    = 'fd';
+my $mode    = 'dump';
 my $output  = '-';
 my $quiet   = '0';
 my $target  = 'm68k-unknown-amigaos';
@@ -75,7 +75,7 @@ if ($#ARGV < 0) {
 
 $mode = lc $mode;
 
-if (!($mode =~ /(fd|clib|proto|macro)/)) {
+if (!($mode =~ /^(clib|dump|fd|macro|proto)$/)) {
     pod2usage(1);
     exit 10;
 }
@@ -91,23 +91,28 @@ for my $i ( 0 .. $#ARGV ) {
     my $obj;
 
     for ($mode) {
-	/^fd$/ && do {
-	    $obj = FD->new( sfd => $sfd );
-	    last;
-	};
-    
 	/^clib$/ && do {
 	    $obj = CLib->new( sfd => $sfd );
 	    last;
 	};
 
-	/^proto$/ && do {
-	    $obj = Proto->new( sfd => $sfd );
+	/^fd$/ && do {
+	    $obj = FD->new( sfd => $sfd );
+	    last;
+	};
+    
+	/^dump$/ && do {
+	    $obj = Dump->new( sfd => $sfd );
+	    last;
+	};
+    
+	/^macro$/ && do {
+	    $obj = Macro->new( sfd => $sfd );
 	    last;
 	};
 
-	/^macro$/ && do {
-	    $obj = Macro->new( sfd => $sfd );
+	/^proto$/ && do {
+	    $obj = Proto->new( sfd => $sfd );
 	    last;
 	};
 
@@ -175,7 +180,10 @@ sub parse_sfd ( $ ) {
 	base       => '',
 	basetype   => '',
 	includes   => (),
-	prototypes => ()
+	prototypes => (),
+	basename   => '',
+	BASENAME   => '',
+	Basename   => ''
     };
 
     # Why do I need this????
@@ -332,8 +340,26 @@ sub parse_sfd ( $ ) {
     close (SFD);
 
     # Now parse the prototypes
+    my $real_funcname = '';
+    my $varargs_type   = '';
+
     for my $i ( 0 .. $#{$$result{'prototypes'}} ) {
-	parse_proto ($$result{'prototypes'}[$i]);
+	my $prototype = $$result{'prototypes'}[$i];
+
+	if ($$prototype{'type'} ne 'function') {
+	    $$prototype{'real_funcname'} = $real_funcname;
+	}
+	
+	parse_proto ($prototype, $varargs_type);
+
+	if ($$prototype{'type'} ne 'varargs' &&
+	    $$prototype{'type'} ne 'stdarg') {
+	    $varargs_type = $$prototype{'argtypes'}[$#{$$prototype{'argtypes'}}];
+	}
+
+	if ($$prototype{'type'} eq 'function') {
+	    $real_funcname = $$prototype{'funcname'}
+	}
     };
 
     # Create some other variables
@@ -359,8 +385,9 @@ sub parse_sfd ( $ ) {
 
 ### parse_proto: Parse a single function prototype  ############################
 
-sub parse_proto ( $ ) {
-    my $prototype = shift;
+sub parse_proto ( $$ ) {
+    my $prototype      = shift;
+    my $varargs_type   = shift;
     
     my $return;
     my $struct;     # Just a dummy
@@ -375,18 +402,17 @@ sub parse_proto ( $ ) {
 	die;
     }
 
-    my @args;
-
     # Nuke whitespaces from the register specification
     $registers =~ s/\s//;
-    
-    $$prototype{'return'}    = $return;
-    $$prototype{'funcname'}  = $name;
-    @args = split(/,/,$arguments);
+
+    $$prototype{'return'}     = $return;
+    $$prototype{'funcname'}   = $name;
+    @{$$prototype{'args'}}     = ();
     @{$$prototype{'regs'}} = split(/,/,lc $registers);  # Make regs lower case
     @{$$prototype{'argnames'}} = ();                    # Initialize array
     @{$$prototype{'argtypes'}} = ();                    # Initialize array
 
+    my @args = split(/,/,$arguments);
 
     # Fix function pointer arguments and build $$prototype{'args'} 
 
@@ -410,21 +436,21 @@ sub parse_proto ( $ ) {
 	$par_cnt -= ( $arg =~ tr/\)/\)/ );
     }
 
-    # varags -> stdarg (varargs has N arguments for N registers,
-    # stdarg has N+1 arguments for N registers. Example:
+    # varags -> stdarg (stdarg is a tag list) Example:
     # varargs: LONG Printf( STRPTR format, ... );
     # stdarg: BOOL AslRequestTags( APTR requester, Tag Tag1, ... );
 
     if ($$prototype{'type'} eq 'varargs' &&
-	$#{$$prototype{'args'}} == $#{$$prototype{'regs'}} + 1) {
+	$varargs_type =~ /^\s*(const|CONST)?\s*struct\s+TagItem\s*\*\s*$/ ) {
 	$$prototype{'type'} = 'stdarg';
     }
     
     # Make sure we have the same number of arguments as registers, or,
-    # if this is a varargs function, possible one extra, á la "Tag, ..."
+    # if this is a stdarg function, possible one extra, á la "Tag, ..."
     
     if ( !($#{$$prototype{'args'}} == $#{$$prototype{'regs'}} || 
-	   ($$prototype{'type'} eq 'stdarg' &&
+	   (($$prototype{'type'} eq 'stdarg' ||
+	     $$prototype{'type'} eq 'varargs') &&
 	    $#{$$prototype{'args'}} == $#{$$prototype{'regs'}} + 1)) ) {
 
 	print STDERR "Failed to parse arguments/registers on SFD " .
@@ -432,8 +458,9 @@ sub parse_proto ( $ ) {
 	die;
     }
 
+    my $type = '';
+    
     foreach $arg (@{$$prototype{'args'}}) {
-	my $type = '';
 	my $name  = '';
 
 	if ($arg =~ /.*\(.*?\)\s*\(.*\)/) {
@@ -444,11 +471,15 @@ sub parse_proto ( $ ) {
 		( $arg =~ /^\s*(.*)\(\s*\*\s*(\w+)\s*\)\s*(\(.*\))\s*/ );
 	    $type = $type1 . "(*)" . $type2;
 	}
+	elsif ($arg !~ /^\.\.\.$/) {
+	    ($type, $name) = ( $arg =~ /^\s*(.*?)\s+(\w+)\s*$/ );
+	}
 	else {
-	    ($type, $name) = ( $arg =~ /^\s*(.*\W)(\w*)\s*/ );
+	    $type = $varargs_type;
+	    $name = '...';
 	}
 
-	if ($type eq '' || $name eq '' && !($type =~ /\.\.\./) ) {
+	if ($type eq '' || $name eq '' ) {
 	    print STDERR "Type or name missing from '$arg'.\n";
 	    die;
 	}
@@ -533,85 +564,6 @@ sub BEGIN {
 }
 
 
-### Class FD: Create an old-style FD file ######################################
-
-{
-    package FD;
-    use strict;
-
-    sub new {
-	my $proto  = shift;
-	my %params = @_;
-	my $class  = ref($proto) || $proto;
-	my $self   = {};
-	$self->{SFD}     = $params{'sfd'};
-	$self->{BIAS}    = -1;
-	$self->{PRIVATE} = -1;
-	$self->{VERSION} = 1;
-	bless ($self, $class);
-	return $self;
-    }
-
-    sub header {
-	my $self = shift;
-	my $sfd  = $self->{SFD};
-
-	print "* \"$$sfd{'libname'}\"\n";
-	print "* Automatically generated FD! Do not edit!\n";
-	print "##base _$$sfd{'base'}\n";
-	$self->{BIAS}    = -1;
-	$self->{PRIVATE} = -1;
-	$self->{VERSION} = 1;
-    }
-
-    sub function {
-	my $self      = shift;
-	my %params    = @_;
-	my $prototype = $params{'prototype'};
-	my $sfd       = $self->{SFD};
-
-	if ($$prototype{'type'} eq 'function') {
-	    if ($self->{BIAS} != $$prototype{'bias'}) {
-		$self->{BIAS} = $$prototype{'bias'};
-		print "##bias $self->{BIAS}\n";
-	    }
-
-	    if ($self->{PRIVATE} != $$prototype{'private'}) {
-		$self->{PRIVATE} = $$prototype{'private'};
-		print $self->{PRIVATE} == 1 ? "##private\n" : "##public\n";
-	    }
-
-	    if ($self->{VERSION} != $$prototype{'version'}) {
-		$self->{VERSION} = $$prototype{'version'};
-
-		print "*--- functions in V$self->{VERSION} or higher ---\n";
-	    }
-
-	    if ($$prototype{'comment'} ne '') {
-		my $comment = $$prototype{'comment'};
-
-		$comment =~ s/^/\*/m;
-		
-		print "$comment\n";
-	    }
-	    
-	    print "$$prototype{'funcname'}(";
-	    print join (',', @{$$prototype{'argnames'}});
-	    print ")(";
-	    print join (',', @{$$prototype{'regs'}});
-	    print ")\n";
-	
-	    $self->{BIAS} += 6;
-	}
-    }
-    
-    sub footer {
-	my $self = shift;
-
-	print "##end\n";
-    }
-}
-    
 ### Class CLib: Create a clib file #############################################
 
 {
@@ -713,6 +665,165 @@ sub BEGIN {
 }
 
 
+### Class Dump: Dump SFD info ##################################################
+
+{
+    package Dump;
+    use strict;
+
+    sub new {
+	my $proto    = shift;
+	my %params   = @_;
+	my $class    = ref($proto) || $proto;
+	my $self     = {};
+	$self->{SFD} = $params{'sfd'};
+	bless ($self, $class);
+	return $self;
+    }
+
+    sub header {
+	my $self = shift;
+	my $sfd  = $self->{SFD};
+
+	print "SFD information\n";
+	print "¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯\n";
+	print "Copyright:		$$sfd{'copyright'}\n";
+	print "RCS ID:			$$sfd{'id'}\n";
+	print "Module name:		$$sfd{'libname'}\n";
+	print "Module base:		$$sfd{'base'}\n";
+	print "Module base type:	$$sfd{'basetype'}\n";
+	print "Module base names:	$$sfd{'basename'}, $$sfd{'BASENAME'}, ";
+	print "$$sfd{'Basename'}\n";
+	print "\n";
+	print "Include files:		";
+	print join ("\n			", @{$$sfd{'includes'}});
+	print "\n";
+	print "\n";
+    }
+
+    sub function {
+	my $self      = shift;
+	my %params    = @_;
+	my $prototype = $params{'prototype'};
+	my $sfd       = $self->{SFD};
+
+	print "* Line $$prototype{'line'}: $$prototype{'funcname'}()\n";
+	print "	Type:			" . ucfirst $$prototype{'type'} . "\n";
+	if ($$prototype{'type'} ne 'function') {
+	    print "	Real function name:\t$$prototype{'real_funcname'}\n";
+	}
+	print "	Visibility:		";
+	print $$prototype{'private'} == 0 ? "Public\n" : "Private\n";
+	print "	Library offset/bias:	-$$prototype{'bias'}\n";
+	print "	Available since:	V$$prototype{'version'}\n";
+	print "	Comment:		$$prototype{'comment'}\n";
+	print "\n";
+	print "	Return value:		$$prototype{'return'}\n";
+	print "	Argument names:		";
+	print join (", ", @{$$prototype{'argnames'}});
+	print "\n";
+	print "	Argument types:		";
+	print join (",\n\t\t\t\t", @{$$prototype{'argtypes'}});
+	print "\n";
+
+	print "\n";
+
+#		value   => $proto_line,
+
+#    $$prototype{'return'}     = $return;
+#    $$prototype{'funcname'}   = $name;
+#    @{$$prototype{'args'}}     = ();
+#    @{$$prototype{'regs'}} = split(/,/,lc $registers);  # Make regs lower case
+#    @{$$prototype{'argnames'}} = ();                    # Initialize array
+#    @{$$prototype{'argtypes'}} = ();                    # Initialize array
+    }
+
+    sub footer {
+	print "\n";
+    }
+}
+
+
+### Class FD: Create an old-style FD file ######################################
+
+{
+    package FD;
+    use strict;
+
+    sub new {
+	my $proto  = shift;
+	my %params = @_;
+	my $class  = ref($proto) || $proto;
+	my $self   = {};
+	$self->{SFD}     = $params{'sfd'};
+	$self->{BIAS}    = -1;
+	$self->{PRIVATE} = -1;
+	$self->{VERSION} = 1;
+	bless ($self, $class);
+	return $self;
+    }
+
+    sub header {
+	my $self = shift;
+	my $sfd  = $self->{SFD};
+
+	print "* \"$$sfd{'libname'}\"\n";
+	print "* Automatically generated FD! Do not edit!\n";
+	print "##base _$$sfd{'base'}\n";
+	$self->{BIAS}    = -1;
+	$self->{PRIVATE} = -1;
+	$self->{VERSION} = 1;
+    }
+
+    sub function {
+	my $self      = shift;
+	my %params    = @_;
+	my $prototype = $params{'prototype'};
+	my $sfd       = $self->{SFD};
+
+	if ($$prototype{'type'} eq 'function') {
+	    if ($self->{BIAS} != $$prototype{'bias'}) {
+		$self->{BIAS} = $$prototype{'bias'};
+		print "##bias $self->{BIAS}\n";
+	    }
+
+	    if ($self->{PRIVATE} != $$prototype{'private'}) {
+		$self->{PRIVATE} = $$prototype{'private'};
+		print $self->{PRIVATE} == 1 ? "##private\n" : "##public\n";
+	    }
+
+	    if ($self->{VERSION} != $$prototype{'version'}) {
+		$self->{VERSION} = $$prototype{'version'};
+
+		print "*--- functions in V$self->{VERSION} or higher ---\n";
+	    }
+
+	    if ($$prototype{'comment'} ne '') {
+		my $comment = $$prototype{'comment'};
+
+		$comment =~ s/^/\*/m;
+		
+		print "$comment\n";
+	    }
+	    
+	    print "$$prototype{'funcname'}(";
+	    print join (',', @{$$prototype{'argnames'}});
+	    print ")(";
+	    print join (',', @{$$prototype{'regs'}});
+	    print ")\n";
+	
+	    $self->{BIAS} += 6;
+	}
+    }
+    
+    sub footer {
+	my $self = shift;
+
+	print "##end\n";
+    }
+}
+
+
 ### Class Macro: Create a macro file ###########################################
 
 {
@@ -804,18 +915,6 @@ sub BEGIN {
 	    push @argnames, $arg;
 	}
 
-	if ($$prototype{'type'} eq 'stdarg') {
-	    # Remove the empty argument and the last ("Tag") and add "..."
-	    pop @argnames;
-	    pop @argnames;
-	    push @argnames, "...";
-	}
-	elsif ($$prototype{'type'} eq 'varargs') {
-	    # Remove the empty argument and add "..."
-	    pop @argnames;
-	    push @argnames, "...";
-	}
-
 	print "#define $$prototype{'funcname'}(";
 	print join (',', @argnames);
 	print ") \\\n";
@@ -833,8 +932,9 @@ sub BEGIN {
 	my %params    = @_;
 	my $prototype = $params{'prototype'};
 	my $sfd       = $self->{SFD};
-	
-	if ($$sfd{'base'} ne '') {
+
+	if ($$prototype{'type'} !~ /^(varargs|stdarg)$/ &&
+	    $$sfd{'base'} ne '') {
 	    print "	, $self->{BASE})\n";
 	}
 	else {
@@ -851,11 +951,11 @@ sub BEGIN {
     use strict;
 
     sub new {
-	my $proto  = shift;
-	my %params = @_;
-	my $class  = ref($proto) || $proto;
-	my $self   = {};
-	$self->{SFD}     = $params{'sfd'};
+	my $proto    = shift;
+	my %params   = @_;
+	my $class    = ref($proto) || $proto;
+	my $self     = {};
+	$self->{SFD} = $params{'sfd'};
 	bless ($self, $class);
 	return $self;
     }
@@ -958,31 +1058,37 @@ Show the complete manual page.
 
 =item B<--mode>
 
-Instructs B<SFDCompile> what to do. B<SFDCompile> can handle B<FD>,
-B<CLIB>, B<MACRO> and B<PROTO> arguments.
+Instructs F<SFDCompile> what to do. F<SFDCompile> can handle B<clib>,
+B<dump>, B<fd>, B<macro> and B<proto> arguments.
 
 =over 8
 
-=item FD
+=item B<clib>
+
+Generate C prototypes to be placed in F<Include/clib>.
+
+
+=item B<dump>
+
+Dumps all information gathered from a SFD file. This is the default.
+
+
+=item B<fd>
 
 Generate an old-style FD file.
 
     
-=item CLIB
+=item B<macro>
 
-Generate C prototypes to be placed in Include/clib.
-
-    
-=item MACRO
-
-Generate a headerfile containing B<gcc> specific preprocessor macros,
-similar to B<fd2inline>'s B<--new> switch.
+Generate a headerfile containing F<gcc> specific preprocessor macros,
+similar to F<fd2inline>'s B<--new> switch. For targets, it generates a
+file suitable to be placed in the F<Include/defines> directory.
 
     
-=item PROTO
+=item B<proto>
 
-Generate header file to be placed in Include/proto that includes the C
-prototypes as well as compiler-specific inlines or pragma files.
+Generate header file to be placed in F<Include/proto> that includes
+the C prototypes as well as compiler-specific inlines or pragma files.
 
 =back
 
@@ -998,19 +1104,19 @@ processed.
 
 =item B<%b>
 
-The library base variable name (I<_DOSBase>, for example).
+The library base variable name (C<_DOSBase>, for example).
 
 =item B<%f>
 
-The current funcion name (I<Open>, for example).
+The current funcion name (C<Open>, for example).
 
 =item B<%l>
 
-The name of the library or device (I<dos.library>, for example).
+The name of the library or device (F<dos.library>, for example).
 
 =item B<%n>
 
-The base name of the library or device (I<dos>, for example).
+The base name of the library or device (C<dos>, for example).
 
 =back
 
@@ -1036,11 +1142,11 @@ Prints the version and exits.
 
 =head1 DESCRIPTION
 
-B<SFDCompile> is an open source replacement for Amiga, Inc.'s B<sfd>
+F<SFDCompile> is an open source replacement for Amiga, Inc.'s F<sfd>
 tool, distributed with B<NDK 3.9>. It is also an replacement for
-B<fd2inline> from GeekGadgets and the MorphOS team, later improved to
-death by Martin Blom. It's a complete mess and needs a
-replacement. SFD files and B<SFDCompile> might to be a good start.
+F<fd2inline> from GeekGadgets and the MorphOS team, later improved to
+death by Martin Blom. It's now a complete mess and needs a
+replacement. SFD files and F<SFDCompile> might to be a good start.
 
 
 =head1 RETURN VALUE
