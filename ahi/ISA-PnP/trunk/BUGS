@@ -11,10 +11,6 @@ Known bugs and missing features:
   a15-a10 != 0.  However, since Windows does not allow this either, this
   should really not be an issue.
 
-* Fixed resources, used by non-PnP ISA cards, cannot be reserved yet.  This
-  means that the resource allocation algorithm may assign resources to PnP
-  cards that are already in use by non-PnP cards.
-
 * Some cards, like the Creative SB32 PnP, does not request all resources
   it requires.  ISA-PnP should know about this and add the missing
   resources.
