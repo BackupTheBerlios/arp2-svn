@@ -16,13 +16,45 @@ BEGIN {
 
     sub header {
 	my $self = shift;
+	my $sfd       = $self->{SFD};
 	
 	$self->SUPER::header (@_);
 
 	print "#include <aros/libcall.h>\n";
+	print "#define _sfdc_strarg(a)  _sfdc_strarg2(AROS_SLIB_ENTRY(a,$sfd->{Basename}))\n";
+	print "#define _sfdc_strarg2(a) _sfdc_strarg3(a)\n";
+	print "#define _sfdc_strarg3(a) #a\n";
 	print "\n";
     }
 
+    sub function {
+	my $self     = shift;
+	my %params    = @_;
+	my $prototype = $params{'prototype'};
+	my $sfd       = $self->{SFD};
+
+	if ($prototype->{type} eq 'cfunction' && ! $self->{PROTO}) {
+	    print "__asm(\".globl \" _sfdc_strarg(" .
+		"$gateprefix$prototype->{funcname}) );\n";
+	    print "__asm(\".type  \" _sfdc_strarg(" .
+		"$gateprefix$prototype->{funcname}) \"" .
+		", \@function\");\n";
+	    print "__asm(_sfdc_strarg(".
+		"$gateprefix$prototype->{funcname}) \":\");\n";
+	    print "#if defined(__mc68000__) || defined(__i386__)\n";
+	    print "__asm(\"jmp $libprefix$prototype->{funcname}\");\n";
+	    print "#else\n";
+	    print "# error \"Unknown CPU\"\n";
+	    print "#endif\n";
+	    print "\n";
+		"AROS_SLIB_ENTRY(" .
+		"$gateprefix$prototype->{funcname},$sfd->{Basename})\n";
+	}
+	else {
+	    $self->SUPER::function (@_);
+	}
+    }
+	
     sub function_start {
 	my $self      = shift;
 	my %params    = @_;

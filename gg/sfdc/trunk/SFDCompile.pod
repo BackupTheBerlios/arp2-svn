@@ -354,3 +354,8 @@ Replace C<-> with C<_> in base/library name.
 New special keyword for register specification (in addition to B<sysv>
 and B<base>): B<autoreg>, which automatically allocates m68k registers
 for the arguments.
+
+=item
+
+B<sysv> now works correctly with varargs functions. B<gatestubs> work
+for m68k and i386 only for now.

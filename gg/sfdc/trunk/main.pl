@@ -882,7 +882,8 @@ sub parse_proto ( $$$ ) {
 	    }
 	    else {
 		# Unknown type
-		$type = "void*";
+#		$type = "void*";
+		$type = "...";
 	    }
 	    $name = '...';
 	    $___name = '...';

@@ -72,6 +72,29 @@ BEGIN {
 	    
 	    print "\n";
 	}
+	elsif ($prototype->{type} eq 'cfunction') {
+	    $self->function_proto (prototype => $prototype);
+
+	    if (!$self->{LIBPROTO}) {
+		print_gateproto ($sfd, $prototype);
+	    }
+
+	    if ($self->{PROTO}) {
+		print ";\n";
+	    }
+	    elsif (!$self->{LIBPROTO}) {
+		print "__asm(\".globl $gateprefix$prototype->{funcname});\n";
+		print "__asm(\".type  $gateprefix$prototype->{funcname})" .
+		    ", \@function\");\n";
+		print "__asm($gateprefix$prototype->{funcname}):\");\n";
+		print "#if defined(__mc68000__) || defined(__i386__)\n";
+		print "__asm(\"jmp $libprefix$prototype->{funcname}\");\n";
+		print "#else\n";
+		print "# error \"Unknown CPU\"\n";
+		print "#endif\n";
+		print "\n";
+	    }
+	}
     }
 
     sub footer {
