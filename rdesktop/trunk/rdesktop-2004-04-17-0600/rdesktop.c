@@ -948,8 +948,8 @@ load_licence(unsigned char **data)
 	sprintf(path, "%s/.rdesktop/licence.%s", home, hostname);
 #else
 	home = "ENVARC:";
-	path = (char *) xmalloc(strlen(home) + strlen(hostname) + sizeof("RDesktop/licence."));
-	sprintf(path, "%sRDesktop/licence.%s", home, hostname);
+	path = (char *) xmalloc(strlen(home) + strlen(hostname) + sizeof("RDesktop/license."));
+	sprintf(path, "%sRDesktop/license.%s", home, hostname);
 #endif
 
 	fd = open(path, O_RDONLY);
@@ -981,7 +981,7 @@ save_licence(unsigned char *data, int length)
 	sprintf(path, "%s/.rdesktop", home);
 #else
 	home = "ENVARC:";
-	path = (char *) xmalloc(strlen(home) + strlen(hostname) + sizeof("RDesktop/licence."));
+	path = (char *) xmalloc(strlen(home) + strlen(hostname) + sizeof("RDesktop/license."));
 	sprintf(path, "%sRDesktop", home);
 #endif
 
@@ -996,7 +996,7 @@ save_licence(unsigned char *data, int length)
 #ifndef ENABLE_AMIGA
 	sprintf(path, "%s/.rdesktop/licence.%s", home, hostname);
 #else
-	sprintf(path, "%s/RDesktop/licence.%s", home, hostname);
+	sprintf(path, "%sRDesktop/license.%s", home, hostname);
 #endif
 	tmppath = (char *) xmalloc(strlen(path) + sizeof(".new"));
 	strcpy(tmppath, path);
