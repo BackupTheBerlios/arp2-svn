@@ -202,12 +202,28 @@ BEGIN {
 	    print "$sfd->{basetype} _base";
 	    print $prototype->{numargs} > 0 ? ", " : "";
 	}
-	    
-	print join (', ', @{$prototype->{___args}});
+
+	if ($prototype->{type} ne 'varargs' ) {
+	    print join (', ', @{$prototype->{___args}});
+	}
+	else {
+	    my @args = @{$prototype->{___args}};
+
+	    pop @args;
+	    print join (', ', @args);
+	}
 
 	if ($libarg eq 'last' && !$prototype->{nb}) {
 	    print $prototype->{numargs} > 0 ? ", " : "";
 	    print "$sfd->{basetype} _base";
+	}
+
+	if ($prototype->{type} eq 'varargs' ) {
+	    if ($prototype->{numargs} > 0 ||
+		($libarg ne 'none' && !$prototype->{nb})) {
+		print ", ";
+	    }
+	    print "...";
 	}
 
 	if ($libarg eq 'none' && $prototype->{numargs} == 0) {
