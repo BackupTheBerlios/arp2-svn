@@ -1,0 +1,21 @@
+* "isapnp.resource"
+##base _ISAPnPBase
+##bias 6
+##public
+*
+* Controller functions
+*
+ISAC_SetMasterInt(on)(d0)
+ISAC_GetMasterInt()()
+ISAC_SetWaitState(on)(d0)
+ISAC_GetWaitState()()
+ISAC_GetInterruptStatus(interrupt)(d0)
+ISAC_GetRegByte(reg)(d0)
+ISAC_SetRegByte(reg,value)(d0,d1)
+ISAC_GetRegWord(reg)(d0)
+ISAC_SetRegWord(reg,value)(d0,d1)
+ISAC_ReadByte(address)(d0)
+ISAC_WriteByte(address,value)(d0,d1)
+ISAC_ReadWord(address)(d0)
+ISAC_WriteWord(address,value)(d0,d1)
+##end
