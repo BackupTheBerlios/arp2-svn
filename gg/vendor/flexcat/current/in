@@ -7,3 +7,4 @@ ENDIF
 IF EXISTS Catalogs_Src/FlexCat_english.texinfo THEN
 	ci -l <FLAGS> Catalogs_Src/FlexCat_english.texinfo
 ENDIF
+

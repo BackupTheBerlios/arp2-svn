@@ -1,218 +1,238 @@
-## version $VER: FlexCat.catalog 1.0 (01.01.96)
+## version $VER: FlexCat.catalog 3.0 (XX.XX.2003)
 ## language schwäbisch
 ## codeset 0
 ;
-;
-;   Error message: Out of memory.
-msgMemoryError
-Du bisch an Schwob, was? I han schao wieder koin Schbaicher, kauf welcha!
-;Out of memory!
-;
-;   Warning message; must contain one %s (file), one %d (line number)
-msgWarning
-Zur %s, Zeile %d sag i bloß ois: \
-;
-;%s, Line %d; warning: \
+; $Id: swabian.ct,v 1.1 2003/06/04 09:51:36 tactica Exp $
 ;
 ;
-;   Warning message: Expected hex character.
-msgExpectedHex
+; Warnings
+;
+MSG_WARN_Warning
+Zur %s, Zeile %d sag i bloß ois: 
+; %s, line %d - warning: 
+;
+MSG_WARN_ExpectedHex
 I däd do gern so a hexziffer sehe.
-;Expected hex character (one of [0-9a-fA-F]).
+; expected hex character (one of [0-9a-fA-F])
 ;
-;   Warning message: Expected octal character.
-msgExpectedOctal
+MSG_WARN_ExpectedOctal
 I will a Oktalziffer.
-;Expected octal character (one of [0-7]).
+; expected octal character (one of [0-7])
 ;
-;   Error message: Cannot open catalog description; must contain one %s
-;   (file name)
-msgNoCatalogDescription
-I find koi Katalogbeschreibung wo %s hoißt.
-;Cannot open catalog description %s.
-;
-;   Warning message: Too much Lengthbytes; must contain one %d (maximum).
-msgNoLengthBytes
+MSG_WARN_NoLengthBytes
 Mach Deine LengthBytes kloiner als %d.
-;LengthBytes > %d (sizeof long) not possible.
+; lengthbytes cannot be larger than %d (sizeof long)
 ;
-;   Warning message: Unknown catalog description command.
-msgUnknownCDCommand
+MSG_WARN_UnknownCDCommand
 Was soll des hoißa?
-;Unknown catalog description command
+; unknown catalog description command
 ;
-;   Warning message: Unexpected blank.
-msgUnexpectedBlanks
+MSG_WARN_UnexpectedBlanks
 I will do koine Leerzeicha seha.
-;Unexpected blanks.
+; unexpected blanks
 ;
-;   Warning message: Identifier expected.
-msgNoIdentifier
+MSG_WARN_NoIdentifier
 I wart auf an Bezeichner.
-;Missing identifier.
+; missing identifier
 ;
-;   Warning message: '(' expected.
-msgNoLeadingBracket
+MSG_WARN_NoLeadingBracket
 Wo bleibt des '('?
-;Missing '('.
+; missing '('
 ;
-;   Warning message: Identifier number redeclared.
-msgDoubleID
+MSG_WARN_DoubleID
 Die Nummer han i scho.
-;ID number used twice.
+; ID number used twice
 ;
-;   Warning message: Identifier redeclared.
-msgDoubleIdentifier
+MSG_WARN_DoubleIdentifier
 Den Bezeichner hemmer scho.
-;Identifier redeclared.
+; identifier declared twice
 ;
-;   Warning message: '/' expected (MinLen).
-msgNoMinLen
+MSG_WARN_NoMinLen
 I wart auf a '/'.
-;Expected MinLen (character '/').
+; expected MinLen (character '/')
 ;
-;   Warning message: '/' expected (MaxLen).
-msgNoMaxLen
+MSG_WARN_NoMaxLen
 I wart auf des zwoite '/'.
-;Expected MaxLen (character '/').
+; expected MaxLen (character '/')
 ;
-;   Warning message: ')' expected.
-msgNoTrailingBracket
+MSG_WARN_NoTrailingBracket
 Mir fehlt oifach des ')'.
-;Expected ')'.
+; expected ')'
 ;
-;   Warning message: Extra characters
-msgExtraCharacters
+MSG_WARN_ExtraCharacters
 Do hätt i jetzt nix meh erwartet am End.
-;Extra characters at the end of the line.
+; extra characters at the end of the line
 ;
-;   Warning message: Missing catalog string
-msgNoString
+MSG_WARN_NoString
 Mir sen doch no gar net fertig, aber die Datei?
-;Unexpected end of file (missing catalog string).
+; unexpected end of file (missing catalog strings)
 ;
-;   Warning message: String too short.
-msgShortString
+MSG_WARN_ShortString
 Des isch z'kurz.
-;String too short.
+; string too short
 ;
-;   Warning message: String too long.
-msgLongString
+MSG_WARN_LongString
 Des isch entschieda z'lang.
-;String too long.
+; string too long
 ;
-;   Error message: No catalog translation file; must contain one %s (file
-;   name).
-msgNoCatalogTranslation
-I find die Katalogübersetzung %s net.
-;Cannot open catalog translation file %s.
-;
-;   Warning message: Missing catalog translation command.
-msgNoCTCommand
+MSG_WARN_NoCTCommand
 Was soll i do macha?
-;Missing catalog translation command. (Expected second '#'.)
+; missing command in translation (expected a second '#')
 ;
-;   Warning message: Unknown catalog translation command.
-msgUnknownCTCommand
+MSG_WARN_UnknownCTCommand
 Was soll des hoißa?
-;Unknown catalog translation command.
+; unknown command in translation
 ;
-;   Error message: Missing catalog translation version.
-msgNoCTVersion
-Welche Version isch des?
-;Missing catalog translation version.
-;
-;   Error message: Missing catalog translation language.
-msgNoCTLanguage
-Welche Schbroch isch des?
-;Missing catalog translation language.
-;
-;   Error message: Cannot open catalog file. Must contain one %s (file name).
-msgNoCatalog
-Kann den Katalog %s net aufmacha.
-;Cannot open catalog file %s.
-;
-;   Error message: Cannot create catalog translation file. Must contain
-;   one %s (file name).
-msgNoNewCTFile
-Kann die Katalogübersetzung %s net aufmacha.
-;Cannot create catalog translation file %s.
-;
-;   Warning message: Unknown identifier. Must contain one %s (identifier).
-msgUnknownIdentifier
+MSG_WARN_UnknownIdentifier
 Den Bezeichner %s kenn i net.
-;%s missing in catalog description.
+; '%s' missing in catalog description
 ;
-;   Error message: No source description file. Must contain one %s (file
-;   name).
-msgNoSourceDescription
-I find die Quelltextveschreibung %s net.
-;Cannot open source description file %s.
-;
-;   Error message: No source file. Must contain one %s (file name).
-msgNoSource
-I kann den Quelltext %s net aufmacha.
-;Cannot open source file %s.
-;
-;   Warning message: Unknown string type
-msgUnknownStringType
+MSG_WARN_UnknownStringType
 Den Schtringtyp kenn i net.
-;Unknown string type.
+; unknown string type
 ;
-;   Warning message: Missing trailing ')' in %(..).
-msgNoTerminateBracket
+MSG_WARN_NoTerminateBracket
 Mir fehlt do a ')' am Ende.
-;Unexpected end of line. (Missing ')')
+; unexpected end of line (missing ')')
 ;
-;   Usage message
-msgUsage
-So verwendet mer mi: \
-FlexCat CFFILE/A,CTFILE,CATALOG/K,NEWCTFILE/K,SOURCES/M,WARNCTGAPS/S,NOOPTIM/S,FILL/S,FLUSH/S,QUIET/S\n\n\
-    CDFILE:	Katalogbeschreibung zom Lesa.\n\
-    CTFILE:	Katalogübersetzung zom Lesa.\n\
-    CATALOG:	Katalog zom Macha.\n\
-    NEWCTFILE:	Katalogübersetzung zom Macha. (Dees au no.)\n\
-    SOURCES:	Quelltext zom macha; schreib ohgfähr qfile=sdfile,\n\
-		wenn qfile d'r Quelltext ond sdfile die Beschreibung vom\n\
-		Quelltext isch, no kommt's no.\n\
-    WARNCTGAPS: I mecker über fehlende Bezeichner en d'r Katalogübersetzung.\n\
-    NOOPTIM     So Kruschd wie\n\
-    FILL        Use descriptor texts if translation are missing\n\
-    FLUSH       Flush memory when catalog is written\n\
-    QUIET       Suppress warning messages
-;Usage: FlexCat CDFILE/A,CTFILE,CATALOG/K,NEWCTFILE/K,SOURCES/M,WARNCTGAPS\n\n\
-;    CDFILE:	Catalog description file to scan.\n\
-;    CTFILE:	Catalog translation file to scan.\n\
-;    CATALOG:	Catalog file to create.\n\
-;    NEWCTFILE: Catalog translation file to create.\n\
-;    SOURCES:	Sources to create; must be something like sfile=sdfile,\n\
-;		where sfile is a sourcefile and sdfile is a source\n\
-;		description file.\n\
-;    WARNCTGAPS: Warn symbols missing in CT file.\n\
-;    NOOPTIM     Do not skip unchanged strings (equal in both #?.cd and #?.ct)\n\
-;    QUIET       Suppress warning messages\n
-;
-;   Error message: No catalog translation argument
-msgNoCTArgument
-Koi Name von'ra Katalogübersetzung.
-;Creating a catalog needs a catalog translation file as argument.
-;
-;   Warning message: No binary characters.
-msgNoBinChars
+MSG_WARN_NoBinChars
 Wenn i koin Schtringtyp han, no kann i koine Binärzeicha braucha.
-;Binary characters in stringtype None.
+; binary characters in string type None
 ;
-;   Warning message: Gap in CT file.
-msgCTGap
+MSG_WARN_CTGap
 Dr Bezeichner %s fehlt en dr Katalogübersetzung.
-;ID %s missing in CT file.
+; '%s' missing in catalog translation
 ;
-;   Warning: Catalog language declared twice
-msgDoubleCTLanguage
+MSG_WARN_DoubleCTLanguage
 A Katalogsprache han i scho.
-;Catalog language declared twice.
+; catalog language declared twice
 ;
-;   Warning: Catalog version declared twice
-msgDoubleCTVersion
+MSG_WARN_DoubleCTVersion
 A Katalogversion han i scho.
-;Catalog version declared twice.
+; catalog version declared twice
+;
+MSG_WARN_WrongRcsId
+
+; incorrect RCS Id
+;
+;
+; Errors
+;
+MSG_ERR_MemoryError
+Du bisch an Schwob, was? I han schao wieder koin Schbaicher, kauf welcha!
+; Out of memory!
+;
+MSG_ERR_NoCatalogDescription
+I find koi Katalogbeschreibung wo %s hoißt.
+; Cannot open catalog description '%s'.
+;
+MSG_ERR_NoCatalogTranslation
+I find die Katalogübersetzung %s net.
+; Cannot open catalog translation '%s'.
+;
+MSG_ERR_NoCTVersion
+Welche Version isch des?
+; Missing catalog translation version. Use either\n\
+; '## version' or '## rcsid' and '## name'.
+;
+MSG_ERR_NoCatalog
+Kann den Katalog %s net aufmacha.
+; Cannot open catalog file '%s'.
+;
+MSG_ERR_NoNewCTFile
+Kann die Katalogübersetzung %s net aufmacha.
+; Cannot create catalog translation '%s'.
+;
+MSG_ERR_NoCTLanguage
+Welche Schbroch isch des?
+; Missing catalog translation language.
+;
+MSG_ERR_NoSource
+I kann den Quelltext %s net aufmacha.
+; Cannot open source file '%s'.
+;
+MSG_ERR_NoSourceDescription
+I find die Quelltextveschreibung %s net.
+; Cannot open source description file '%s'.
+;
+MSG_ERR_NoCTArgument
+Koi Name von'ra Katalogübersetzung.
+; Creating a catalog requires a translation file.
+;
+;
+; Misc
+;
+MSG_UpToDate
+
+; File '%s' is up to date
+;
+MSG_CantCheckDate
+
+; Cannot get datestamp of '%s'
+;
+MSG_TrailingEllipsis
+
+; Original string has a trailing ellipsis ('...')
+;
+MSG_TrailingBlanks
+
+; Original string has trailing blanks
+;
+MSG_NoCTFileName
+
+; Catalog translation file name not specified at \
+; command line or as basename in description.
+; 
+MSG_NoCatFileName
+
+; Catalog file name not specified at command line or \
+; as basename in description.
+;
+MSG_PrefsError
+
+; Error processing 'FlexCat.prefs' variable, falling back to defaults.\n\
+; Template: 
+;
+MSG_UsageHead
+
+; Usage
+;
+MSG_Usage
+  CDFILE         Katalogbeschreibung zom Lesa.\n\
+  CTFILE         Katalogübersetzung zom Lesa.\n\
+  CATALOG        Katalog zom Macha.\n\
+  NEWCTFILE      Katalogübersetzung zom Macha. (Dees au no.)\n\
+  SOURCES        Quelltext zom macha; schreib ohgfähr qfile=sdfile,\n\
+                 wenn qfile d'r Quelltext ond sdfile die Beschreibung vom\n\
+                 Quelltext isch, no kommt's no.\n\
+  WARNCTGAPS     I mecker über fehlende Bezeichner en d'r Katalogübersetzung.\n\
+  NOOPTIM        So Kruschd wie\n\
+  FILL           
+  FLUSH          
+  NOBEEP         
+  QUIET          
+  NOLANGTOLOWER  
+  NOBUFFEREDIO   
+  MODIFIED       
+  COPYMSGNEW     
+  OLDMSGNEW      
+  AUTODATE       
+;   CDFILE         Catalog description file to scan\n\
+;   CTFILE         Catalog translation file to scan\n\
+;   CATALOG        Catalog file to create\n\
+;   NEWCTFILE      Catalog translation file to create\n\
+;   SOURCES        Sources to create; must be something like SFILE=SDFILE,\n\
+;                  where SFILE is a source file and SDFILE is a source\n\
+;                  description file\n\
+;   WARNCTGAPS     Warn about identifiers missing in translation\n\
+;   NOOPTIM        Do not skip unchanged strings in translation/description\n\
+;   FILL           Fill missing identifiers with original text\n\
+;   FLUSH          Flush memory after the catalog is created\n\
+;   NOBEEP         No DisplayBeep() on errors and warnings\n\
+;   QUIET          No warnings\n\
+;   NOLANGTOLOWER  Prevent #language name from being lowercased\n\
+;   NOBUFFEREDIO   Disable I/O buffers\n\
+;   MODIFIED       Create catalog only if description/translation have changed\n\
+;   COPYMSGNEW     Copy ***NEW*** markers over from old translation\n\
+;   OLDMSGNEW      Custom marker in old translation\n\
+;   AUTODATE       Use current date when compiling a catalog

@@ -1,215 +1,237 @@
-## version $VER: FlexCat.catalog 1.0 (01.02.95)
+## version $VER: FlexCat.catalog 3.0 (XX.XX.2003)
 ## language dansk
 ## codeset 0
-## chunk AUTH Danish catalog translation by Christian Hoj
 ;
-;   Error message: Out of memory.
-msgMemoryError
-Ikke mere hukommelse!
-;Out of memory!
-;
-;   Warning message; must contain one %s (file), one %d (line number)
-msgWarning
-%s, linie %d; Advarsel: \
-
-;%s, Line %d; warning: \
+; $Id: danish.ct,v 1.1 2003/06/04 09:51:36 tactica Exp $
 ;
 ;
-;   Warning message: Expected hex character.
-msgExpectedHex
+; Warnings
+;
+MSG_WARN_Warning
+%s, linie %d; Advarsel: 
+; %s, line %d - warning: 
+;
+MSG_WARN_ExpectedHex
 Hexadecimalt tal forventet (et af [0-9a-fA-F]).
-;Expected hex character (one of [0-9a-fA-F]).
+; expected hex character (one of [0-9a-fA-F])
 ;
-;   Warning message: Expected octal character.
-msgExpectedOctal
+MSG_WARN_ExpectedOctal
 Oktal tal forventet (et af [0-7]).
-;Expected octal character (one of [0-7]).
+; expected octal character (one of [0-7])
 ;
-;   Error message: Cannot open catalog description; must contain one %s
-;   (file name)
-msgNoCatalogDescription
-Kan ikke åbne catalog beskrivelses fil %s.
-;Cannot open catalog description %s.
-;
-;   Warning message: Too much Lengthbytes; must contain one %d (maximum).
-msgNoLengthBytes
+MSG_WARN_NoLengthBytes
 LengthBytes > %d (sizeof long) ikke mulig.
-;LengthBytes > %d (sizeof long) not possible.
+; lengthbytes cannot be larger than %d (sizeof long)
 ;
-;   Warning message: Unknown catalog description command.
-msgUnknownCDCommand
+MSG_WARN_UnknownCDCommand
 Ukendt catalog beskrivelses kommando.
-;Unknown catalog description command
+; unknown catalog description command
 ;
-;   Warning message: Unexpected blank.
-msgUnexpectedBlanks
+MSG_WARN_UnexpectedBlanks
 Uventede mellemrum.
-;Unexpected blanks.
+; unexpected blanks
 ;
-;   Warning message: Identifier expected.
-msgNoIdentifier
+MSG_WARN_NoIdentifier
 Mangler identifier.
-;Missing identifier.
+; missing identifier
 ;
-;   Warning message: '(' expected.
-msgNoLeadingBracket
+MSG_WARN_NoLeadingBracket
 Mangler '('.
-;Missing '('.
+; missing '('
 ;
-;   Warning message: Identifier number redeclared.
-msgDoubleID
+MSG_WARN_DoubleID
 ID nummer brugt to gange.
-;ID number used twice.
+; ID number used twice
 ;
-;   Warning message: Identifier redeclared.
-msgDoubleIdentifier
+MSG_WARN_DoubleIdentifier
 Ny angivelse af identifier.
-;Identifier redeclared.
+; identifier declared twice
 ;
-;   Warning message: '/' expected (MinLen).
-msgNoMinLen
+MSG_WARN_NoMinLen
 Forventet MinLen ('/' tegn).
-;Expected MinLen (character '/').
+; expected MinLen (character '/')
 ;
-;   Warning message: '/' expected (MaxLen).
-msgNoMaxLen
+MSG_WARN_NoMaxLen
 Forventet MaxLen ('/' tegn).
-;Expected MaxLen (character '/').
+; expected MaxLen (character '/')
 ;
-;   Warning message: ')' expected.
-msgNoTrailingBracket
+MSG_WARN_NoTrailingBracket
 ')' forventet
-;Expected ')'.
+; expected ')'
 ;
-;   Warning message: Extra characters
-msgExtraCharacters
+MSG_WARN_ExtraCharacters
 Ekstra tegn ved liniens slutning.
-;Extra characters at the end of the line.
+; extra characters at the end of the line
 ;
-;   Warning message: Missing catalog string
-msgNoString
+MSG_WARN_NoString
 Uventet afslutning på filen (der mangler nogle catalog strenge).
-;Unexpected end of file (missing catalog string).
+; unexpected end of file (missing catalog strings)
 ;
-;   Warning message: String too short.
-msgShortString
+MSG_WARN_ShortString
 Streng for kort.
-;String too short.
+; string too short
 ;
-;   Warning message: String too long.
-msgLongString
+MSG_WARN_LongString
 Streng for lang.
-;String too long.
+; string too long
 ;
-;   Error message: No catalog translation file; must contain one %s (file
-;   name).
-msgNoCatalogTranslation
-Kan ikke åbne catalog oversættelses filen %s.
-;Cannot open catalog translation file %s.
-;
-;   Warning message: Missing catalog translation command.
-msgNoCTCommand
+MSG_WARN_NoCTCommand
 Mangler catalog oversættelses kommando. (Forventet endnu et '#').
-;Missing catalog translation command. (Expected second '#'.)
+; missing command in translation (expected a second '#')
 ;
-;   Warning message: Unknown catalog translation command.
-msgUnknownCTCommand
+MSG_WARN_UnknownCTCommand
 Ukendt catalog oversættelses kommando.
-;Unknown catalog translation command.
+; unknown command in translation
 ;
-;   Error message: Missing catalog translation version.
-msgNoCTVersion
-Mangler catalog oversættelses version. ('version')
-;Missing catalog translation version.
-;
-;   Error message: Missing catalog translation language.
-msgNoCTLanguage
-Mangler catalog oversættelses sprog. ('language')
-;Missing catalog translation language.
-;
-;   Error message: Cannot open catalog file. Must contain one %s (file name).
-msgNoCatalog
-Kan ikke åbne catalog filen %s.
-;Cannot open catalog file %s.
-;
-;   Error message: Cannot create catalog translation file. Must contain
-;   one %s (file name).
-msgNoNewCTFile
-Kan ikke oprette catalog oversættelses filen %s.
-;Cannot create catalog translation file %s.
-;
-;   Warning message: Unknown identifier. Must contain one %s (identifier).
-msgUnknownIdentifier
+MSG_WARN_UnknownIdentifier
 %s mangler i catalog beskrivelsen.
-;%s missing in catalog description.
+; '%s' missing in catalog description
 ;
-;   Error message: No source description file. Must contain one %s (file
-;   name).
-msgNoSourceDescription
-Kan ikke åbne åbne source beskrivelses filen %s.
-;Cannot open source description file %s.
-;
-;   Error message: No source file. Must contain one %s (file name).
-msgNoSource
-Kan ikke åbne source filen %s.
-;Cannot open source file %s.
-;
-;   Warning message: Unknown string type
-msgUnknownStringType
+MSG_WARN_UnknownStringType
 Ukendt streng type.
-;Unknown string type.
+; unknown string type
 ;
-;   Warning message: Missing trailing ')' in %(..).
-msgNoTerminateBracket
+MSG_WARN_NoTerminateBracket
 Uventet linie slutning. (Mangler ')').
-;Unexpected end of line. (Missing ')')
+; unexpected end of line (missing ')')
 ;
-;   Usage message
-msgUsage
-Brug: FlexCat CDFIL/A, CTFIL, CATALOG/K, NYCTFIL/K, SOURCES/M, WARNCTGAPS/S,NOOPTIM/S,FILL/S,FLUSH/S,QUIET/S\n\n\
-    CDFIL      Catalog beskrivelse, der indlæses\n\
-    CTFIL      Catalog oversættelses fil, der indlæses.\n\
-    CATALOG    Catalog fil, der skal oprettes.\n\
-    NYCTFIL    Catalog oversættelses fil, der skal oprettes.\n\
-    SOURCES    Source filer, der skal oprettes; skal være i retning af\n\
-               sfil=sdfil, hvor sfil er en source fil og sdfil er en\n\
-               source beskrivelses fil.\n\
-    WARNCTGAPS Advar om symboler, der mangler i .ct filen.\n\
-    NOOPTIM    Do not skip unchanged strings (equal in both #?.cd and #?.ct)\n\
-    FILL        Use descriptor texts if translation are missing\n\
-    FLUSH       Flush memory when catalog is written\n\
-    QUIET      Suppress warning messages
-;Usage: FlexCat CDFILE/A,CTFILE,CATALOG/K,NEWCTFILE/K,SOURCES/M,WARNCTGAPS/S\n\n\
-;    CDFILE:	Catalog description file to scan.\n\
-;    CTFILE:	Catalog translation file to scan.\n\
-;    CATALOG:	Catalog file to create.\n\
-;    NEWCTFILE: Catalog translation file to create.\n\
-;    SOURCES:	Sources to create; must be something like sfile=sdfile,\n\
-;		where sfile is a sourcefile and sdfile is a source\n\
-;		description file.\n\
-;    WARNCTGAPS: Warn symbols missing in CT file.
-;
-;   Error message: No catalog translation argument
-msgNoCTArgument
-Oprettelse af et catalog kræver en catalog oversættelses fil som argument.
-;Creating a catalog needs a catalog translation file as argument.
-;
-;   Warning message: No binary characters.
-msgNoBinChars
+MSG_WARN_NoBinChars
 Binære tegn i strengtype 'None'.
-;Binary characters in stringtype None.
+; binary characters in string type None
 ;
-;   Warning message: Gap in CT file.
-msgCTGap
+MSG_WARN_CTGap
 ID %s mangler i .ct filen.
-;ID %s missing in CT file.
+; '%s' missing in catalog translation
 ;
-;   Warning: Catalog language declared twice
-msgDoubleCTLanguage
+MSG_WARN_DoubleCTLanguage
 Catalog sprog angivet to gange. ('language')
-;Catalog language declared twice.
+; catalog language declared twice
 ;
-;   Warning: Catalog version declared twice
-msgDoubleCTVersion
+MSG_WARN_DoubleCTVersion
 Catalog version angivet to gange. ('version')
-;Catalog version declared twice.
+; catalog version declared twice
+;
+MSG_WARN_WrongRcsId
+
+; incorrect RCS Id
+;
+;
+; Errors
+;
+MSG_ERR_MemoryError
+Ikke mere hukommelse!
+; Out of memory!
+;
+MSG_ERR_NoCatalogDescription
+Kan ikke åbne catalog beskrivelses fil %s.
+; Cannot open catalog description '%s'.
+;
+MSG_ERR_NoCatalogTranslation
+Kan ikke åbne catalog oversættelses filen %s.
+; Cannot open catalog translation '%s'.
+;
+MSG_ERR_NoCTVersion
+Mangler catalog oversættelses version. ('version')
+; Missing catalog translation version. Use either\n\
+; '## version' or '## rcsid' and '## name'.
+;
+MSG_ERR_NoCatalog
+Kan ikke åbne catalog filen %s.
+; Cannot open catalog file '%s'.
+;
+MSG_ERR_NoNewCTFile
+Kan ikke oprette catalog oversættelses filen %s.
+; Cannot create catalog translation '%s'.
+;
+MSG_ERR_NoCTLanguage
+Mangler catalog oversættelses sprog. ('language')
+; Missing catalog translation language.
+;
+MSG_ERR_NoSource
+Kan ikke åbne source filen %s.
+; Cannot open source file '%s'.
+;
+MSG_ERR_NoSourceDescription
+Kan ikke åbne åbne source beskrivelses filen %s.
+; Cannot open source description file '%s'.
+;
+MSG_ERR_NoCTArgument
+Oprettelse af et catalog kræver en catalog oversættelses fil som argument.
+; Creating a catalog requires a translation file.
+;
+;
+; Misc
+;
+MSG_UpToDate
+
+; File '%s' is up to date
+;
+MSG_CantCheckDate
+
+; Cannot get datestamp of '%s'
+;
+MSG_TrailingEllipsis
+
+; Original string has a trailing ellipsis ('...')
+;
+MSG_TrailingBlanks
+
+; Original string has trailing blanks
+;
+MSG_NoCTFileName
+
+; Catalog translation file name not specified at \
+; command line or as basename in description.
+; 
+MSG_NoCatFileName
+
+; Catalog file name not specified at command line or \
+; as basename in description.
+;
+MSG_PrefsError
+
+; Error processing 'FlexCat.prefs' variable, falling back to defaults.\n\
+; Template: 
+;
+MSG_UsageHead
+Brug
+; Usage:
+;
+MSG_Usage
+  CDFILE         Catalog beskrivelse, der indlæses\n\
+  CTFILE         Catalog oversættelses fil, der indlæses.\n\
+  CATALOG        Catalog fil, der skal oprettes.\n\
+  NEWCTFILE      Catalog oversættelses fil, der skal oprettes.\n\
+  SOURCES        Source filer, der skal oprettes; skal være i retning af\n\
+                 sfil=sdfil, hvor sfil er en source fil og sdfil er en\n\
+                 source beskrivelses fil.\n\
+  WARNCTGAPS     Advar om symboler, der mangler i .ct filen.\n\
+  NOOPTIM        
+  FILL           
+  FLUSH          
+  QUIET          
+  NOLANGTOLOWER  
+  NOBUFFEREDIO   
+  MODIFIED       
+  COPYMSGNEW     
+  OLDMSGNEW      
+  AUTODATE       
+;   CDFILE         Catalog description file to scan\n\
+;   CTFILE         Catalog translation file to scan\n\
+;   CATALOG        Catalog file to create\n\
+;   NEWCTFILE      Catalog translation file to create\n\
+;   SOURCES        Sources to create; must be something like SFILE=SDFILE,\n\
+;                  where SFILE is a source file and SDFILE is a source\n\
+;                  description file\n\
+;   WARNCTGAPS     Warn about identifiers missing in translation\n\
+;   NOOPTIM        Do not skip unchanged strings in translation/description\n\
+;   FILL           Fill missing identifiers with original text\n\
+;   FLUSH          Flush memory after the catalog is created\n\
+;   NOBEEP         No DisplayBeep() on errors and warnings\n\
+;   QUIET          No warnings\n\
+;   NOLANGTOLOWER  Prevent #language name from being lowercased\n\
+;   NOBUFFEREDIO   Disable I/O buffers\n\
+;   MODIFIED       Create catalog only if description/translation have changed\n\
+;   COPYMSGNEW     Copy ***NEW*** markers over from old translation\n\
+;   OLDMSGNEW      Custom marker in old translation\n\
+;   AUTODATE       Use current date when compiling a catalog

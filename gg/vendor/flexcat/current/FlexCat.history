@@ -5,21 +5,123 @@
 
             The ultimate catalog processor and source generator
 
-                   by Jochen Wiedmann and Marcin Orlowski
-
+              by Jochen Wiedmann and Marcin Orlowski (c)1993
             e-mail: carlos@amiga.com.pl or marcin@orlowski.com
                   WWW: http://amiga.com.pl/flexcat/
-
+                 
+  ========================================================================
+  
+     After 26. November 2002 the FlexCat become the SourceForge project
+         The project maintainer: Ondrej Zima <amiandrew@volny.cz>
+     
+                 WWW: http://flexcat.sourceforge.net/
+         WWW Project Info: http://sourceforge.net/projects/flexcat
+           CVS Info: http://sourceforge.net/cvs/?group_id=68010
+    CVS Browser: http://cvs.sourceforge.net/cgi-bin/viewcvs.cgi/flexcat
+    
   ========================================================================
 
-  NOTE: Since release 2.4, FlexCat comes with some examples (FlexCat_Demos)
-        of how-to-make-localized-stuff. Unfortunately I am unable to 
-        provide examples for any programming language that FlexCat now
-        supports, so if you think you could write some well-commented
-        (english please) HelloWorld examples you would be gladly welcomed.
-        Tutorials and other add-ons are also highly needed!
+  NOTE: Unfortunately I am unable to provide examples for any programming
+        language that FlexCat now supports, so if you think you could
+        write some well-commented (english please) HelloWorld examples you
+        would be gladly welcomed. Tutorials and other add-ons are also
+        highly needed!
 
   ========================================================================
+	* New public release 2.6.6 *
+	============================
+  * v2.6.6 (2003-02-15)
+	* Revised the compatibility for non-Amiga systems.
+	* Cleanup sources and make the sources more sexy.
+	* Removed some obsolete code.
+	* If FlexCat is used to generate any source, the basename is
+	  needed but sometimes is not defined. Now is determined only
+	  for this sort of operation.
+	* More binaries: Amiga m68k, Amiga ppc, Linux i386, linux m68k,
+	  Linux ppc, Windows.
+  
+2003-02-12 Ondrej Zima
+
+	* Changed behaviour of #version in catalog description. Only
+	  version number can be specified, no revision or other numbers
+	  allowed.
+	* Fixed compatibility with GCC on non-Amiga systems. Sources are
+	  compilable now
+	* If language enviroment is not specified (like on Un*x systems),
+	  the "nolanguage" string is taken as language.
+	* Changed compare function (stricmp, strnicmp) to Stricmp and
+	  Strnicmp and implemented from GCC project libiberty.
+	* Changed default localization to macro which is defined in
+	  flexcat.h.
+
+2003-01-27 Ondrej Zima
+
+        * Fixed nasty bug for compatibility to CatComp about this
+          arguments
+          FlexCat test.cd test.ct CATALOG test.catalog
+
+
+        * New public release 2.6.5
+        ==========================
+  * v2.6.5 (23.01.03)
+    - Static definition of string inside the function createct() totaly
+      damage some other strings.
+    - Added support for #version and #basename directives. It means if .cd
+      file conatins the #basename, the .ct file and .catalog can be
+      generated automaticaly. Simply by no definition at command-line.
+      #basename is base name of catalog, if basename is defined as
+      "MyProg1", the translation "MyProg1.ct" can be easly created such as
+      "MyProg1.catalog" as translated catalog.
+      #version is string representing the version number which is inserted
+      to .ct file.
+    - If #basename defined in .cd file, there can be this actions:
+      - FlexCat test.cd newctfile
+        generates the file as <#basename>_<$language>.ct
+        added to this file at ## version tag the name of catalog ("$VER:
+        <#basename>.ct)
+      - FlexCat test.cd test.ct catalog
+        generates the file <#basename>.catalog
+    - If #version defined in .ct file and creating new .ct file, the
+      #version is inserted to ## version tag as version string
+    - Added support for AmigaOS4.0 codeset fetching from locale structure of
+      default locale if locale.library > 47.
+    - Added #header in catalog description as not faulty directive.
+    - Added support for #lenghtbytes directive.
+    - Added support for hexa numbering of stringID
+    - Added two new strings to catalog.
+
+        * New public release 2.6.4
+        ==========================
+  * v2.6.4 (07.01.03)
+                    - Fixed creating all files: all files now not have a execute bit
+                      (on Amiga only)
+                    - If .cd description have some #ifdef/#endif directives, are
+                      inserted to .ct as comment
+
+2003-01-06 Ondrej Zima <amiandrew@volny.cz>
+
+        * Added Magyar translation, thanks to Marton Dosa
+  
+2002-12-03 Ondrej Zima <amiandrew@volny.cz>
+
+        * To all sources and headers are added licence header.
+
+2002-11.28 Ondrej Zima <amiandrew@volny.cz>
+
+        * New public release 2.6.3
+        ==========================
+  * v2.6.3 (28.11.02)
+                    - Now ignoring lines in .cd which starts with #ifdef and #endif
+                      which are used for creating C headers and sources from .cd file.
+
+  * v2.6.2 (20.11.02)
+                    - Added new parameter NOAUTODATE which prevent FlexCat
+                      to use a current date in $VER: for catalog. The date
+                      specified in .ct is used.
+
+  * v2.6.1 (18.11.02)
+                    - FlexCat now recognize the 'codeset' parameter in .ct
+                      which is needed for Amiga OS4 translating process.
 
   * v2.6 (06.08.02) - FlexCat now updates the Date when creating the .catalog
                       file from the .ct, no need for $TODAY anymore
@@ -440,4 +542,4 @@
 
                          ------------------------
 
-        $Id: flexcat.history,v 1.2 1999/11/28 03:36:38 carlos Exp $ 
+        $Id: FlexCat.history,v 1.9 2003/02/19 23:03:24 amiandrew Exp $ 

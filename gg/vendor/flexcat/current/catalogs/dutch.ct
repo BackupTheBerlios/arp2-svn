@@ -1,286 +1,246 @@
-## version $VER: FlexCat.catalog 2.2 (16.03.1998)
+## version $VER: FlexCat.catalog 3.0 (XX.XX.2003)
 ## language nederlands
 ## codeset 0
-;   Error message: Out of memory.
-msgMemoryError
-Onvoldoende geheugen!
-;Out of memory!
 ;
-;   Warning message; must contain one %s (file), one %d (line number)
-;   DON'T EAT THE TRAILING SPACE HERE!
-msgWarning
+; $Id: dutch.ct,v 1.1 2003/06/04 09:51:36 tactica Exp $
+;
+;
+; Warnings
+;
+MSG_WARN_Warning
 %s, regel %d; waarschuwing: 
-;%s, Line %d; warning: \
+; %s, line %d - warning: 
 ;
-;
-;   Warning message: Expected hex character.
-msgExpectedHex
+MSG_WARN_ExpectedHex
 Verwachtte hex karakter (één uit [0-9a-fA-F]).
-;Expected hex character (one of [0-9a-fA-F]).
+; expected hex character (one of [0-9a-fA-F])
 ;
-;   Warning message: Expected octal character.
-msgExpectedOctal
+MSG_WARN_ExpectedOctal
 Verwachtte octaal karakter (één uit [0-7]).
-;Expected octal character (one of [0-7]).
+; expected octal character (one of [0-7])
 ;
-;   Error message: Cannot open catalog description; must contain one %s
-;   (file name)
-msgNoCatalogDescription
-Kan de catalogusbeschrijving %s niet openen.
-;Cannot open catalog description %s.
-;
-;   Warning message: Too much Lengthbytes; must contain one %d (maximum).
-msgNoLengthBytes
+MSG_WARN_NoLengthBytes
 Aantal Bytes > %d (sizeof long) is onmogelijk.
-;LengthBytes > %d (sizeof long) not possible.
+; lengthbytes cannot be larger than %d (sizeof long)
 ;
-;   Warning message: Unknown catalog description command.
-msgUnknownCDCommand
+MSG_WARN_UnknownCDCommand
 Onbekend catalogusbeschrijvingscommando
-;Unknown catalog description command
+; unknown catalog description command
 ;
-;   Warning message: Unexpected blank.
-msgUnexpectedBlanks
+MSG_WARN_UnexpectedBlanks
 Onverwachte spaties.
-;Unexpected blanks.
+; unexpected blanks
 ;
-;   Warning message: Identifier expected.
-msgNoIdentifier
+MSG_WARN_NoIdentifier
 Identifier ontbreekt.
-;Missing identifier.
+; missing identifier
 ;
-;   Warning message: '(' expected.
-msgNoLeadingBracket
+MSG_WARN_NoLeadingBracket
 '(' ontbreekt.
-;Missing '('.
+; missing '('
 ;
-;   Warning message: Identifier number redeclared.
-msgDoubleID
+MSG_WARN_DoubleID
 ID nummer dubbel gebruikt.
-;ID number used twice.
+; ID number used twice
 ;
-;   Warning message: Identifier redeclared.
-msgDoubleIdentifier
+MSG_WARN_DoubleIdentifier
 Identifier opnieuw gedeclareerd.
-;Identifier redeclared.
+; identifier declared twice
 ;
-;   Warning message: '/' expected (MinLen).
-msgNoMinLen
+MSG_WARN_NoMinLen
 Verwachtte MinLen (karakter '/').
-;Expected MinLen (character '/').
+; expected MinLen (character '/')
 ;
-;   Warning message: '/' expected (MaxLen).
-msgNoMaxLen
+MSG_WARN_NoMaxLen
 Verwachtte MaxLen (karakter '/').
-;Expected MaxLen (character '/').
+; expected MaxLen (character '/')
 ;
-;   Warning message: ')' expected.
-msgNoTrailingBracket
+MSG_WARN_NoTrailingBracket
 Verwachtte ')'.
-;Expected ')'.
+; expected ')'
 ;
-;   Warning message: Extra characters
-msgExtraCharacters
+MSG_WARN_ExtraCharacters
 Extra karakters aan het einde van de regel.
-;Extra characters at the end of the line.
+; extra characters at the end of the line
 ;
-;   Warning message: Missing catalog string
-msgNoString
+MSG_WARN_NoString
 Onverwacht eind van het bestand (ontbrekende catalogusregel).
-;Unexpected end of file (missing catalog string).
+; unexpected end of file (missing catalog strings)
 ;
-;   Warning message: String too short.
-msgShortString
+MSG_WARN_ShortString
 Regel te kort.
-;String too short.
+; string too short
 ;
-;   Warning message: String too long.
-msgLongString
+MSG_WARN_LongString
 Regel te lang.
-;String too long.
+; string too long
 ;
-;   Error message: No catalog translation file; must contain one %s (file
-;   name).
-msgNoCatalogTranslation
-Vertalingsbestand %s kan niet geopend worden.
-;Cannot open catalog translation file %s.
+MSG_WARN_NoCTCommand
+Catalogusvertalingscommando ontbreekt. (Verwachtte tweede '#')
+; missing command in translation (expected a second '#')
 ;
-;   Warning message: Missing catalog translation command.
-msgNoCTCommand
-Catalogusvertalingscommando ontbreekt. (Verwachtte tweede '#'.)
-;Missing catalog translation command. (Expected second '#'.)
-;
-;   Warning message: Unknown catalog translation command.
-msgUnknownCTCommand
+MSG_WARN_UnknownCTCommand
 Onbekend catalogusvertalingscommando.
-;Unknown catalog translation command.
+; unknown command in translation
 ;
-;   Error message: Missing catalog translation version.
-msgNoCTVersion
+MSG_WARN_UnknownIdentifier
+%s ontbreekt in catalogusbeschrijving.
+; '%s' missing in catalog description
+;
+MSG_WARN_UnknownStringType
+Onbekend regeltype.
+; unknown string type
+;
+MSG_WARN_NoTerminateBracket
+Onverwacht einde van regel. (')' ontbreekt)
+; unexpected end of line (missing ')')
+;
+MSG_WARN_NoBinChars
+Binaire karakters in regel van onbekend type.
+; binary characters in string type None
+;
+MSG_WARN_CTGap
+ID %s ontbreekt in CT bestand.
+; '%s' missing in catalog translation
+;
+MSG_WARN_DoubleCTLanguage
+Catalogustaal dubbel gedeclareerd.
+; catalog language declared twice
+;
+MSG_WARN_DoubleCTVersion
+Catalogusversie dubbel gedeclareerd.
+; catalog version declared twice
+;
+MSG_WARN_WrongRcsId
+Incorrecte rcs ID
+; incorrect RCS Id
+;
+;
+; Errors
+;
+MSG_ERR_MemoryError
+Onvoldoende geheugen!
+; Out of memory!
+;
+MSG_ERR_NoCatalogDescription
+Kan de catalogusbeschrijving %s niet openen.
+; Cannot open catalog description '%s'.
+;
+MSG_ERR_NoCatalogTranslation
+Vertalingsbestand %s kan niet geopend worden.
+; Cannot open catalog translation '%s'.
+;
+MSG_ERR_NoCTVersion
 Catalogusvertalingsversie ontbreekt; gebruik ofwel ##version\n\
 of ##rcsid en ##name.
-;Missing catalog translation version; use either ##version\n\
-;or ##rcsid and ##name.
+; Missing catalog translation version. Use either\n\
+; '## version' or '## rcsid' and '## name'.
 ;
-;   Error message: Missing catalog translation language.
-msgNoCTLanguage
-Taal catalogusvertaling ontbreekt.
-;Missing catalog translation language.
-;
-;   Error message: Cannot open catalog file. Must contain one %s (file name).
-msgNoCatalog
+MSG_ERR_NoCatalog
 Kan catalogusbestand %s niet openen.
-;Cannot open catalog file %s.
+; Cannot open catalog file '%s'.
 ;
-;   Error message: Cannot create catalog translation file. Must contain
-;   one %s (file name).
-msgNoNewCTFile
+MSG_ERR_NoNewCTFile
 Kan catalogusvertalingsbestand %s niet creëren.
-;Cannot create catalog translation file %s.
+; Cannot create catalog translation '%s'.
 ;
-;   Warning message: Unknown identifier. Must contain one %s (identifier).
-msgUnknownIdentifier
-%s ontbreekt in catalogusbeschrijving.
-;%s missing in catalog description.
+MSG_ERR_NoCTLanguage
+Taal catalogusvertaling ontbreekt.
+; Missing catalog translation language.
 ;
-;   Error message: No source description file. Must contain one %s (file
-;   name).
-msgNoSourceDescription
-Kan bronbeschrijvingsbestand %s niet openen.
-;Cannot open source description file %s.
-;
-;   Error message: No source file. Must contain one %s (file name).
-msgNoSource
+MSG_ERR_NoSource
 Kan bronbestand %s niet openen.
-;Cannot open source file %s.
+; Cannot open source file '%s'.
 ;
-;   Warning message: Unknown string type
-msgUnknownStringType
-Onbekend regeltype.
-;Unknown string type.
+MSG_ERR_NoSourceDescription
+Kan bronbeschrijvingsbestand %s niet openen.
+; Cannot open source description file '%s'.
 ;
-;   Warning message: Missing trailing ')' in %(..).
-msgNoTerminateBracket
-Onverwacht einde van regel. (')' ontbreekt)
-;Unexpected end of line. (Missing ')')
+MSG_ERR_NoCTArgument
+Het creëren van een catalogus benodigt een \
+catalogusvertalingsbestand als argument.
+; Creating a catalog requires a translation file.
 ;
-;   Usage message
-msgUsage
-    CDFILE        Te scannen catalogusbeschrijvingsbestand\n\
-    CTFILE        Te scannen catalogusvertalingsbestand\n\
-    CATALOG       Te creëren catalogusbestand\n\
-    NEWCTFILE     Te creëren catalogusvertalingsbestand\n\
-    SOURCES       Te creëren bronbestanden; moet zoiets zijn als\n\
-                  bron=beschrijving,\n\
-                  waar bron een bronbestand is en beschrijving een\n\
-                  bronbeschrijvingsbestand\n\
-    WARNCTGAPS    Waarschuw voor ontbrekende symbolen in CT bestand\n\
-    NOOPTIM       Sla onveranderde regels (in #?.cd en #?.ct) niet over\n\
-    FILL          Gebruik beschrijvingsteksten indien vertaling afwezig is\n\
-    FLUSH         Spoel geheugen leeg na het schrijven van catalogus\n\
-    NOBEEP        Onderdruk DisplayBeep()'s bij fouten en waarschuwingen\n\
-    QUIET         Onderdruk waarschuwingen
-;  CDFILE        Catalog description file to scan\n\
-;  CTFILE        Catalog translation file to scan\n\
-;  CATALOG       Catalog file to create\n\
-;  NEWCTFILE     Catalog translation file to create\n\
-;  SOURCES       Sources to create; must be something like sfile=sdfile,\n\
-;                where sfile is a sourcefile and sdfile is a source\n\
-;                description file\n\
-;  WARNCTGAPS    Warn symbols missing in CT file\n\
-;  NOOPTIM       Do not skip unchanged strings (equal in both #?.cd and #?.ct)\n\
-;  FILL          Use descriptor texts if translation are missing\n\
-;  FLUSH         Flush memory when catalog is written\n\
-;  NOBEEP        Suppress DisplayBeep()'s on error and warnings\n\
-;  QUIET         Suppress warning messages
 ;
-;   Error message: No catalog translation argument
-msgNoCTArgument
-Het creëren van een catalogus benodigt een catalogusvertalingsbestand als argument.\n\
+; Misc
+;
+MSG_UpToDate
+Bestand %s is up-to-date
+; File '%s' is up to date
+;
+MSG_CantCheckDate
+Kan het datumstempel van %s niet verkrijgen
+; Cannot get datestamp of '%s'
+;
+MSG_TrailingEllipsis
 
-;Creating a catalog needs a catalog translation file as argument.\n
+; Original string has a trailing ellipsis ('...')
 ;
-;   Warning message: No binary characters.
-msgNoBinChars
-Binaire karakters in regel van onbekend type.
-;Binary characters in stringtype None.
+MSG_TrailingBlanks
+
+; Original string has trailing blanks
 ;
-;   Warning message: Gap in CT file.
-msgCTGap
-ID %s ontbreekt in CT bestand.
-;ID %s missing in CT file.
+MSG_NoCTFileName
+
+; Catalog translation file name not specified at \
+; command line or as basename in description.
+; 
+MSG_NoCatFileName
+
+; Catalog file name not specified at command line or \
+; as basename in description.
 ;
-;   Warning: Catalog language declared twice
-msgDoubleCTLanguage
-Catalogustaal dubbel gedeclareerd.
-;Catalog language declared twice.
-;
-;   Warning: Catalog version declared twice
-msgDoubleCTVersion
-Catalogusversie dubbel gedeclareerd.
-;Catalog version declared twice.
-;
-;   Warning: Wrong Rcs ID
-msgWrongRcsId
-Incorrecte rcs ID (moet voldoen aan\n\
-'$Date: 1999/08/18 14:32:53 $ $Revision: 1.1.1.1 $')
-;Incorrect rcs ID (must be similar to\n\
-;'$Date: 1999/08/18 14:32:53 $ $Revision: 1.1.1.1 $')
-;
-;
-; NEW IN 1.9
-;
-msgUsageHead
-Gebruik
-;Usage
-;
-msgPrefsError
+MSG_PrefsError
 Fout bij verwerking FlexCat.prefs variabele, val terug naar standaardwaarden.\n\
 Instellingenstramien: 
-;Error processing FlexCat.prefs variable, falling back to defaults.\n\
-;Preferences template: \
+; Error processing 'FlexCat.prefs' variable, falling back to defaults.\n\
+; Template: 
 ;
+MSG_UsageHead
+Gebruik
+; Usage:
 ;
-;
-; NEW IN 2.0
-;
-; NOTE: This string is concatenated with msgUsage, so make sure you
-;       indented it the same way etc. And DON'T MISS trailing LF here!
-;       Type FLEXCAT and check how it looks.
-;
-msgUsage_2
-    NOLANGTOLOWER Voorkomt dat de #language naam naar kleine letters\n\
-                  wordt omgezet\n\
-    NOBUFFEREDIO  Schakelt IO buffers uit\n\
-    MODIFIED      Creëert de catalogus alleen indien #?.c(d|t) bestanden\n\
-                  veranderd zijn\n\
-
-;  NOLANGTOLOWER Prevents #language name from being lowercased\n\
-;  NOBUFFEREDIO  Disables IO buffers\n\
-;  MODIFIED      Creates the catalog only when #?.c(d|t) files were changed\n
-;
-;
-;
-; NEW IN 2.0
-;
-msgUpToDate
-Bestand %s is up-to-date
-;File %s is up to date
-;
-msgCantCheckDate
-Kan het datumstempel van %s niet verkrijgen
-;Cannot get the datestamp of %s
-;
-;
-; NEW IN 2.2
-;
-msgUsage_3
-    COPYMSGNEW    Zet het kopiëren van **NEW** markeringen aan tijdens\n\
-                  bijwerken van het #?.ct bestand\n\
-    OLDNEWMSG     Indien oud #?.ct bestand een andere markering gebruikt,\n\
-                  specificeer deze hier
-;  COPYMSGNEW    Turns on copying **NEW** markers while updating #?.ct file\n\
-;  OLDNEWMSG     If old #?.ct file is using other marker, specify it here
-;
-; ***NEW***
-;
+MSG_Usage
+  CDFILE         Te scannen catalogusbeschrijvingsbestand\n\
+  CTFILE         Te scannen catalogusvertalingsbestand\n\
+  CATALOG        Te creëren catalogusbestand\n\
+  NEWCTFILE      Te creëren catalogusvertalingsbestand\n\
+  SOURCES        Te creëren bronbestanden; moet zoiets zijn als\n\
+                 bron=beschrijving,\n\
+                 waar bron een bronbestand is en beschrijving een\n\
+                 bronbeschrijvingsbestand\n\
+  WARNCTGAPS     Waarschuw voor ontbrekende symbolen in CT bestand\n\
+  NOOPTIM        Sla onveranderde regels (in #?.cd en #?.ct) niet over\n\
+  FILL           Gebruik beschrijvingsteksten indien vertaling afwezig is\n\
+  FLUSH          Spoel geheugen leeg na het schrijven van catalogus\n\
+  NOBEEP         Onderdruk DisplayBeep()'s bij fouten en waarschuwingen\n\
+  QUIET          Onderdruk waarschuwingen\n\
+  NOLANGTOLOWER  Voorkomt dat de #language naam naar kleine letters\n\
+                 wordt omgezet\n\
+  NOBUFFEREDIO   Schakelt IO buffers uit\n\
+  MODIFIED       Creëert de catalogus alleen indien #?.c(d|t) bestanden\n\
+                 veranderd zijn\n\
+  COPYMSGNEW     Zet het kopiëren van **NEW** markeringen aan tijdens\n\
+                 bijwerken van het #?.ct bestand\n\
+  OLDNEWMSG      Indien oud #?.ct bestand een andere markering gebruikt,\n\
+                 specificeer deze hier\n\
+  AUTODATE       
+;   CDFILE         Catalog description file to scan\n\
+;   CTFILE         Catalog translation file to scan\n\
+;   CATALOG        Catalog file to create\n\
+;   NEWCTFILE      Catalog translation file to create\n\
+;   SOURCES        Sources to create; must be something like SFILE=SDFILE,\n\
+;                  where SFILE is a source file and SDFILE is a source\n\
+;                  description file\n\
+;   WARNCTGAPS     Warn about identifiers missing in translation\n\
+;   NOOPTIM        Do not skip unchanged strings in translation/description\n\
+;   FILL           Fill missing identifiers with original text\n\
+;   FLUSH          Flush memory after the catalog is created\n\
+;   NOBEEP         No DisplayBeep() on errors and warnings\n\
+;   QUIET          No warnings\n\
+;   NOLANGTOLOWER  Prevent #language name from being lowercased\n\
+;   NOBUFFEREDIO   Disable I/O buffers\n\
+;   MODIFIED       Create catalog only if description/translation have changed\n\
+;   COPYMSGNEW     Copy ***NEW*** markers over from old translation\n\
+;   OLDMSGNEW      Custom marker in old translation\n\
+;   AUTODATE       Use current date when compiling a catalog

@@ -1,273 +1,240 @@
-## version $VER: FlexCat.catalog 2.0 ($TODAY)
+## version $VER: FlexCat.catalog 3.0 (XX.XX.2003)
 ## language suomi
 ## codeset 0
-## chunk AUTH Finnish translation up to v2.1 (FlexCat 1.5) by Lauri Aalto. Updated since v2.3 (FlexCat 1.8) by Mika Lundell <c71829@uwasa.fi> / ATO.
 ;
-;   Error message: Out of memory.
-msgMemoryError
-Muisti ei riitä!
-;Out of memory!
-;
-;   Warning message; must contain one %s (file), one %d (line number)
-;   DON'T EAT THE TRAILING SPACE HERE!
-msgWarning
-%s, rivi %d; varoitus: \
-
-;%s, Line %d; warning: \
+; $Id: finnish.ct,v 1.1 2003/06/04 09:51:36 tactica Exp $
 ;
 ;
-;   Warning message: Expected hex character.
-msgExpectedHex
+; Warnings
+;
+MSG_WARN_Warning
+%s, rivi %d; varoitus: 
+; %s, line %d - warning: 
+;
+MSG_WARN_ExpectedHex
 Puuttuva heksamerkki (kuten [0-9a-fA-F]).
-;Expected hex character (one of [0-9a-fA-F]).
+; expected hex character (one of [0-9a-fA-F])
 ;
-;   Warning message: Expected octal character.
-msgExpectedOctal
+MSG_WARN_ExpectedOctal
 Puuttuva oktaalimerkki (väliltä [0-7]).
-;Expected octal character (one of [0-7]).
+; expected octal character (one of [0-7])
 ;
-;   Error message: Cannot open catalog description; must contain one %s
-;   (file name)
-msgNoCatalogDescription
-Catalog-kuvaustiedosto '%s' ei aukea.
-;Cannot open catalog description %s.
-;
-;   Warning message: Too much Lengthbytes; must contain one %d (maximum).
-msgNoLengthBytes
+MSG_WARN_NoLengthBytes
 LengthBytes > %d (pitkä sana), mahdotonta.
-;LengthBytes > %d (sizeof long) not possible.
+; lengthbytes cannot be larger than %d (sizeof long)
 ;
-;   Warning message: Unknown catalog description command.
-msgUnknownCDCommand
+MSG_WARN_UnknownCDCommand
 Tuntematon catalog-kuvauksen komento.
-;Unknown catalog description command
+; unknown catalog description command
 ;
-;   Warning message: Unexpected blank.
-msgUnexpectedBlanks
+MSG_WARN_UnexpectedBlanks
 Odottamattomia välilyöntejä.
-;Unexpected blanks.
+; unexpected blanks
 ;
-;   Warning message: Identifier expected.
-msgNoIdentifier
+MSG_WARN_NoIdentifier
 Puuttuva tunniste.
-;Missing identifier.
+; missing identifier
 ;
-;   Warning message: '(' expected.
-msgNoLeadingBracket
+MSG_WARN_NoLeadingBracket
 Puuttuva '('.
-;Missing '('.
+; missing '('
 ;
-;   Warning message: Identifier number redeclared.
-msgDoubleID
+MSG_WARN_DoubleID
 Tunnistenumeroa käytetty kahdesti.
-;ID number used twice.
+; ID number used twice
 ;
-;   Warning message: Identifier redeclared.
-msgDoubleIdentifier
+MSG_WARN_DoubleIdentifier
 Tunniste määritelty kahdesti.
-;Identifier redeclared.
+; identifier declared twice
 ;
-;   Warning message: '/' expected (MinLen).
-msgNoMinLen
+MSG_WARN_NoMinLen
 Puuttuva minimipituus (kauttaviiva '/').
-;Expected MinLen (character '/').
+; expected MinLen (character '/')
 ;
-;   Warning message: '/' expected (MaxLen).
-msgNoMaxLen
+MSG_WARN_NoMaxLen
 Puuttuva maksimipituus (kauttaviiva '/').
-;Expected MaxLen (character '/').
+; expected MaxLen (character '/')
 ;
-;   Warning message: ')' expected.
-msgNoTrailingBracket
+MSG_WARN_NoTrailingBracket
 Puuttuva ')'.
-;Expected ')'.
+; expected ')'
 ;
-;   Warning message: Extra characters
-msgExtraCharacters
+MSG_WARN_ExtraCharacters
 Ylimääräisiä merkkejä rivin lopussa.
-;Extra characters at the end of the line.
+; extra characters at the end of the line
 ;
-;   Warning message: Missing catalog string
-msgNoString
+MSG_WARN_NoString
 Ennenaikainen tiedoston päättyminen, puuttuva catalog-merkkijono.
-;Unexpected end of file (missing catalog string).
+; unexpected end of file (missing catalog strings)
 ;
-;   Warning message: String too short.
-msgShortString
+MSG_WARN_ShortString
 Merkkijono liian lyhyt.
-;String too short.
+; string too short
 ;
-;   Warning message: String too long.
-msgLongString
+MSG_WARN_LongString
 Merkkijono liian pitkä.
-;String too long.
+; string too long
 ;
-;   Error message: No catalog translation file; must contain one %s (file
-;   name).
-msgNoCatalogTranslation
-Catalog-käännöstiedosto '%s' ei aukea.
-;Cannot open catalog translation file %s.
-;
-;   Warning message: Missing catalog translation command.
-msgNoCTCommand
+MSG_WARN_NoCTCommand
 Catalog-käännöksen komento puuttuu (kaksi '#'-merkkiä vaadittu).
-;Missing catalog translation command. (Expected second '#'.)
+; missing command in translation (expected a second '#')
 ;
-;   Warning message: Unknown catalog translation command.
-msgUnknownCTCommand
+MSG_WARN_UnknownCTCommand
 Tuntematon catalog-käännöksen komento.
-;Unknown catalog translation command.
+; unknown command in translation
 ;
-;   Error message: Missing catalog translation version.
-msgNoCTVersion
+MSG_WARN_UnknownIdentifier
+'%s' puuttuu catalog-kuvauksesta.
+; '%s' missing in catalog description
+;
+MSG_WARN_UnknownStringType
+Tuntematon merkkijonotyyppi.
+; unknown string type
+;
+MSG_WARN_NoTerminateBracket
+Odottamaton rivin loppu (puuttuva ')').
+; unexpected end of line (missing ')')
+;
+MSG_WARN_NoBinChars
+Binaarimerkkejä merkkijonotyypissä 'None'.
+; binary characters in string type None
+;
+MSG_WARN_CTGap
+Tunniste '%s' puuttuu käännöstiedostosta.
+; '%s' missing in catalog translation
+;
+MSG_WARN_DoubleCTLanguage
+Catalog-kieli määritelty kahdesti.
+; catalog language declared twice
+;
+MSG_WARN_DoubleCTVersion
+Catalog-versio määritelty kahdesti.
+; catalog version declared twice
+;
+MSG_WARN_WrongRcsId
+Väärin muotoiltu rcs-tunniste
+; incorrect RCS Id
+;
+;
+; Errors
+;
+MSG_ERR_MemoryError
+Muisti ei riitä!
+; Out of memory!
+;
+MSG_ERR_NoCatalogDescription
+Catalog-kuvaustiedosto '%s' ei aukea.
+; Cannot open catalog description '%s'.
+;
+MSG_ERR_NoCatalogTranslation
+Catalog-käännöstiedosto '%s' ei aukea.
+; Cannot open catalog translation '%s'.
+;
+MSG_ERR_NoCTVersion
 Catalog-käännöksen versio puuttuu; käytä joko komentoa\n\
 ##version tai ##rcsid ja ##name.
-;Missing catalog translation version; use either ##version\n\
-;or ##rcsid and ##name.
+; Missing catalog translation version. Use either\n\
+; '## version' or '## rcsid' and '## name'.
 ;
-;   Error message: Missing catalog translation language.
-msgNoCTLanguage
-Catalog-käännöksen kieli puuttuu (##language).
-;Missing catalog translation language.
-;
-;   Error message: Cannot open catalog file. Must contain one %s (file name).
-msgNoCatalog
+MSG_ERR_NoCatalog
 Catalog-tiedosto '%s' ei aukea.
-;Cannot open catalog file %s.
+; Cannot open catalog file '%s'.
 ;
-;   Error message: Cannot create catalog translation file. Must contain
-;   one %s (file name).
-msgNoNewCTFile
+MSG_ERR_NoNewCTFile
 Catalog-käännöstiedoston '%s' luonti epäonnistui.
-;Cannot create catalog translation file %s.
+; Cannot create catalog translation '%s'.
 ;
-;   Warning message: Unknown identifier. Must contain one %s (identifier).
-msgUnknownIdentifier
-'%s' puuttuu catalog-kuvauksesta.
-;%s missing in catalog description.
+MSG_ERR_NoCTLanguage
+Catalog-käännöksen kieli puuttuu (##language).
+; Missing catalog translation language.
 ;
-;   Error message: No source description file. Must contain one %s (file
-;   name).
-msgNoSourceDescription
-Lähdekuvaustiedosto '%s' ei aukea.
-;Cannot open source description file %s.
-;
-;   Error message: No source file. Must contain one %s (file name).
-msgNoSource
+MSG_ERR_NoSource
 Lähdetiedosto '%s' ei aukea.
-;Cannot open source file %s.
+; Cannot open source file '%s'.
 ;
-;   Warning message: Unknown string type
-msgUnknownStringType
-Tuntematon merkkijonotyyppi.
-;Unknown string type.
+MSG_ERR_NoSourceDescription
+Lähdekuvaustiedosto '%s' ei aukea.
+; Cannot open source description file '%s'.
 ;
-;   Warning message: Missing trailing ')' in %(..).
-msgNoTerminateBracket
-Odottamaton rivin loppu (puuttuva ')').
-;Unexpected end of line. (Missing ')')
-;
-;   Usage message
-msgUsage
- CDFILE        Tutkittavan catalog-kuvaustiedoston nimi (#?.cd).\n\
- CTFILE        Tutkittavan catalog-käännöstiedoston nimi (#?.ct).\n\
- CATALOG       Luotavan catalog-tiedoston nimi.\n\
- NEWCTFILE     Luotavan catalog-käännöstiedoston nimi.\n\
- SOURCES       Luotavat lähdekoodit; tämän täytyy olla muotoa ltied=lktied,\n\
-               jossa ltied on lähdetiedosto ja lktied lähdekuvaustiedosto.\n\
- WARNCTGAPS    Varoita käännöstiedostosta puuttuvista symboleista.\n\
- NOOPTIM       Älä ohita identtisiä merkkijonoja (jotka ovat samat sekä\n\
-               #?.cd- että #?.ct-tiedostossa).\n\
- FILL          Käytä kuvaustiedoston tekstiä, jos käännös puuttuu.\n\
- FLUSH         Tyhjennä muisti, kun catalog tallennetaan.\n\
- NOBEEP        Älä käytä DisplayBeep():iä virhe- ja varoitustilanteissa.\n\
- QUIET         Älä näytä varoitusviestejä.
-;
-;    CDFILE     Catalog description file to scan.\n\
-;    CTFILE     Catalog translation file to scan.\n\
-;    CATALOG    Catalog file to create.\n\
-;    NEWCTFILE  Catalog translation file to create.\n\
-;    SOURCES    Sources to create; must be something like sfile=sdfile,\n\
-;		where sfile is a sourcefile and sdfile is a source\n\
-;		description file.\n\
-;    WARNCTGAPS Warn symbols missing in CT file.\n\
-;    NOOPTIM    Do not skip unchanged strings (equal in both #?.cd and #?.ct).\n\
-;    FILL       Use descriptor texts if translation are missing.\n\
-;    FLUSH      Flush memory when catalog is written.\n\
-;    NOBEEP     Suppress DisplayBeep()'s on error and warnings\n\
-;    QUIET      Suppress warning messages.\n
+MSG_ERR_NoCTArgument
+Catalog-tiedoston luonti vaatii argumenttina catalog-käännöstiedoston.
+; Creating a catalog requires a translation file.
 ;
 ;
-;   Error message: No catalog translation argument
-msgNoCTArgument
-Catalog-tiedoston luonti vaatii argumenttina catalog-käännöstiedoston.\n
-;Creating a catalog needs a catalog translation file as argument.\n
+; Misc
 ;
-;   Warning message: No binary characters.
-msgNoBinChars
-Binaarimerkkejä merkkijonotyypissä 'None'.
-;Binary characters in stringtype None.
-;
-;   Warning message: Gap in CT file.
-msgCTGap
-Tunniste '%s' puuttuu käännöstiedostosta.
-;ID %s missing in CT file.
-;
-;   Warning: Catalog language declared twice
-msgDoubleCTLanguage
-Catalog-kieli määritelty kahdesti.
-;Catalog language declared twice.
-;
-;   Warning: Catalog version declared twice
-msgDoubleCTVersion
-Catalog-versio määritelty kahdesti.
-;Catalog version declared twice.
-;
-;   Warning: Wrong Rcs ID
-msgWrongRcsId
-Väärin muotoiltu rcs-tunniste (täytyy olla muotoa\n\
-'$Date: 1999/08/18 14:32:32 $ $Revision: 1.1.1.1 $').
-;Incorrect rcs ID (must be similar to\n\
-;'$Date: 1999/08/18 14:32:32 $ $Revision: 1.1.1.1 $')
-;
-; NEW IN 1.9
-;
-msgUsageHead
-Käyttö
-;Usage
-;
-msgPrefsError
-Virhe tulkittaessa asetuksia FlexCat.prefs, käytetään oletusarvoja.\n\
-Asetusten malli: \
-
-;Error processing FlexCat.prefs variable, falling back to defauls.\n\
-;Preferences template: \
-;
-;
-;
-; NEW IN 2.0
-;
-; NOTE: This string is concatenated with msgUsage, so make sure you
-;       indented it the same way etc. And DON'T MISS trailing LF here!
-;       Type FLEXCAT and check how it looks.
-;
-msgUsage_2
- NOLANGTOLOWER Älä muuta #language-kieltä pieniksi kirjaimiksi.\n\
- NOBUFFEREDIO  Älä käytä IO-puskureita.\n\
- MODIFIED      Luo catalog vain jos #?.c(d|t)-tiedostoa on muokattu.\n
-;    NOLANGTOLOWER Prevents #language name from being lowercased\n\
-;    NOBUFFEREDIO  Disables IO buffers\n\
-;    MODIFIED      Creates the catalog only when #?.c(d|t) files were changed\n
-;
-;
-;
-; NEW IN 2.0
-;
-msgUpToDate
+MSG_UpToDate
 Tiedosto %s on jo ajan tasalla.
-;File %s is up to date
+; File '%s' is up to date
 ;
-msgCantCheckDate
+MSG_CantCheckDate
 Tiedoston %s päiväys ei selvinnyt.
-;Cannot get the datestamp of %s
+; Cannot get datestamp of '%s'
 ;
+MSG_TrailingEllipsis
+
+; Original string has a trailing ellipsis ('...')
+;
+MSG_TrailingBlanks
+
+; Original string has trailing blanks
+;
+MSG_NoCTFileName
+
+; Catalog translation file name not specified at \
+; command line or as basename in description.
+; 
+MSG_NoCatFileName
+
+; Catalog file name not specified at command line or \
+; as basename in description.
+;
+MSG_PrefsError
+Virhe tulkittaessa asetuksia FlexCat.prefs, käytetään oletusarvoja.\n\
+Asetusten malli: 
+; Error processing 'FlexCat.prefs' variable, falling back to defaults.\n\
+; Template: 
+;
+MSG_UsageHead
+Käyttö
+; Usage:
+;
+MSG_Usage
+  CDFILE         Tutkittavan catalog-kuvaustiedoston nimi (#?.cd).\n\
+  CTFILE         Tutkittavan catalog-käännöstiedoston nimi (#?.ct).\n\
+  CATALOG        Luotavan catalog-tiedoston nimi.\n\
+  NEWCTFILE      Luotavan catalog-käännöstiedoston nimi.\n\
+  SOURCES        Luotavat lähdekoodit; tämän täytyy olla muotoa ltied=lktied,\n\
+                 jossa ltied on lähdetiedosto ja lktied lähdekuvaustiedosto.\n\
+  WARNCTGAPS     Varoita käännöstiedostosta puuttuvista symboleista.\n\
+  NOOPTIM        Älä ohita identtisiä merkkijonoja (jotka ovat samat sekä\n\
+                 #?.cd- että #?.ct-tiedostossa).\n\
+  FILL           Käytä kuvaustiedoston tekstiä, jos käännös puuttuu.\n\
+  FLUSH          Tyhjennä muisti, kun catalog tallennetaan.\n\
+  NOBEEP         Älä käytä DisplayBeep():iä virhe- ja varoitustilanteissa.\n\
+  QUIET          Älä näytä varoitusviestejä.\n\
+  NOLANGTOLOWER  Älä muuta #language-kieltä pieniksi kirjaimiksi.\n\
+  NOBUFFEREDIO   Älä käytä IO-puskureita.\n\
+  MODIFIED       Luo catalog vain jos #?.c(d|t)-tiedostoa on muokattu.\n\
+  COPYMSGNEW     
+  OLDMSGNEW      
+  AUTODATE       
+;   CDFILE         Catalog description file to scan\n\
+;   CTFILE         Catalog translation file to scan\n\
+;   CATALOG        Catalog file to create\n\
+;   NEWCTFILE      Catalog translation file to create\n\
+;   SOURCES        Sources to create; must be something like SFILE=SDFILE,\n\
+;                  where SFILE is a source file and SDFILE is a source\n\
+;                  description file\n\
+;   WARNCTGAPS     Warn about identifiers missing in translation\n\
+;   NOOPTIM        Do not skip unchanged strings in translation/description\n\
+;   FILL           Fill missing identifiers with original text\n\
+;   FLUSH          Flush memory after the catalog is created\n\
+;   NOBEEP         No DisplayBeep() on errors and warnings\n\
+;   QUIET          No warnings\n\
+;   NOLANGTOLOWER  Prevent #language name from being lowercased\n\
+;   NOBUFFEREDIO   Disable I/O buffers\n\
+;   MODIFIED       Create catalog only if description/translation have changed\n\
+;   COPYMSGNEW     Copy ***NEW*** markers over from old translation\n\
+;   OLDMSGNEW      Custom marker in old translation\n\
+;   AUTODATE       Use current date when compiling a catalog
