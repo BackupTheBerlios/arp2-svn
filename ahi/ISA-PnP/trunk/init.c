@@ -29,6 +29,7 @@
 #include <libraries/expansion.h>
 #include <libraries/expansionbase.h>
 
+#include <clib/alib_protos.h>
 #include <proto/exec.h>
 #include <proto/expansion.h>
 
@@ -68,11 +69,11 @@ const struct Resident RomTag =
 ** Globals ********************************************************************
 ******************************************************************************/
 
-struct Device*         TimerBase     = NULL;
-struct ExecBase*       SysBase       = NULL;
-struct ExpansionBase*  ExpansionBase = NULL;
-struct ISAPnPResource* ISAPnPBase    = NULL;
-struct UtilityBase*    UtilityBase   = NULL;
+struct Device*          TimerBase     = NULL;
+struct ExecBase*        SysBase       = NULL;
+struct ExpansionBase*   ExpansionBase = NULL;
+struct ISAPNP_Resource* ISAPNPBase    = NULL;
+struct UtilityBase*     UtilityBase   = NULL;
 
 /* linker can use symbol b for symbol a if a is not defined */
 #define ALIAS(a,b) asm(".stabs \"_" #a "\",11,0,0,0\n.stabs \"_" #b "\",1,0,0,0")
@@ -113,15 +114,13 @@ KPrintFArgs( UBYTE* fmt,
 ** Resource initialization ****************************************************
 ******************************************************************************/
 
-struct ISAPnPResource* ASMCALL
-initRoutine( REG( d0, struct ISAPnPResource* res ),
-             REG( a0, APTR                   seglist ),
-             REG( a6, struct ExecBase*       sysbase ) )
+struct ISAPNP_Resource* ASMCALL
+initRoutine( REG( d0, struct ISAPNP_Resource* res ),
+             REG( a0, APTR                    seglist ),
+             REG( a6, struct ExecBase*        sysbase ) )
 {
   SysBase = sysbase;
 
-  KPrintF( "init routine called %08lx %08lx\n", SysBase, res );
-  
   if( ! OpenLibs() )
   {
     // No libraries?
@@ -131,14 +130,15 @@ KPrintF( "No libraries?.\n" );
   }
   else
   {
-    ULONG actual;
+    ULONG                 actual;
+    struct CurrentBinding current_binding;
 
 KPrintF( "Getting binding.\n" );
     
-    actual = GetCurrentBinding( &res->m_CurrentBinding, 
-                                sizeof( res->m_CurrentBinding ) );
+    actual = GetCurrentBinding( &current_binding, 
+                                sizeof( current_binding ) );
 
-    if( actual < sizeof( res->m_CurrentBinding ) )
+    if( actual < sizeof( current_binding ) )
     {
       // No legal CurrentBinding structure
 
@@ -147,7 +147,7 @@ KPrintF( "No legal CurrentBinding structure.\n" );
     }
     else
     {
-      struct ConfigDev* cd = res->m_CurrentBinding.cb_ConfigDev;
+      struct ConfigDev* cd = current_binding.cb_ConfigDev;
 
       if( cd == NULL )
       {
@@ -167,9 +167,7 @@ KPrintF( "Unsupported ISA bridge: %ld/%ld.\n",
         }
         else
         {
-          res->m_Base = cd->cd_BoardAddr;
-
-          if( res->m_Base == NULL )
+          if( cd->cd_BoardAddr == NULL )
           {
             // No board address?
 
@@ -178,6 +176,23 @@ KPrintF( "No board address?\n" );
           else
           {
 KPrintF( "Congiguring.\n" );
+
+            // Set up the ISAPNP_Resource structure
+
+            res->m_Library.lib_Node.ln_Type = NT_RESOURCE;
+            res->m_Library.lib_Node.ln_Name = (STRPTR) ResName;
+            res->m_Library.lib_Flags        = LIBF_SUMUSED | LIBF_CHANGED;
+            res->m_Library.lib_Version      = VERSION;
+            res->m_Library.lib_Revision     = REVISION;
+            res->m_Library.lib_IdString     = (STRPTR) IDString;
+
+            NewList( &res->m_Cards );
+
+            res->m_Base        = cd->cd_BoardAddr;
+            res->m_RegReadData = 0x0000;
+
+            res->m_ConfigDev   = cd;
+
 
             if( ! PNPISA_ConfigureCards( res ) )
             {
@@ -190,21 +205,7 @@ KPrintF( "Unable to configure cards.\n" );
               cd->cd_Flags  &= ~CDF_CONFIGME;
               cd->cd_Driver  = res;
 
-KPrintF( "0 " );
-              res->m_Library.lib_Node.ln_Type = NT_RESOURCE;
-KPrintF( "1 " );
-              res->m_Library.lib_Node.ln_Name = (STRPTR) ResName;
-KPrintF( "2 " );
-              res->m_Library.lib_Flags        = LIBF_SUMUSED | LIBF_CHANGED;
-KPrintF( "3 " );
-              res->m_Library.lib_Version      = VERSION;
-KPrintF( "4 " );
-              res->m_Library.lib_Revision     = REVISION;
-KPrintF( "5 " );
-              res->m_Library.lib_IdString     = (STRPTR) IDString;
-KPrintF( "6 " );
-
-              ISAPnPBase = res;
+              ISAPNPBase = res;
             }
           }
         }
@@ -212,7 +213,7 @@ KPrintF( "6 " );
     }
   }
 
-  return ISAPnPBase;
+  return ISAPNPBase;
 }
 
 
@@ -242,7 +243,7 @@ static const APTR funcTable[] =
 
 static const APTR InitTable[4] =
 {
-  (APTR) sizeof( struct ISAPnPResource ),
+  (APTR) sizeof( struct ISAPNP_Resource ),
   (APTR) &funcTable,
   0,
   (APTR) initRoutine

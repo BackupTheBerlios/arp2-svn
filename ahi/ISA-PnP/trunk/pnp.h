@@ -27,9 +27,26 @@
 
 #include <exec/types.h>
 
-struct ISAPnPResource;
+struct ISAPNP_Resource;
+struct ISAPNP_Card;
+struct ISAPNP_Device;
+
+struct ISAPNP_Card* ASMCALL
+PNPISA_AllocCard( REG( a6, struct ISAPNP_Resource* res ) );
+
+void ASMCALL
+PNPISA_FreeCard( REG( a0, struct ISAPNP_Card*     card ),
+                 REG( a6, struct ISAPNP_Resource* res ) );
+
+struct ISAPNP_Device* ASMCALL
+PNPISA_AllocDevice( REG( a6, struct ISAPNP_Resource* res ) );
+
+void ASMCALL
+PNPISA_FreeDevice( REG( a0, struct ISAPNP_Device*   dev ),
+                   REG( a6, struct ISAPNP_Resource* res ) );
 
 BOOL ASMCALL
-PNPISA_ConfigureCards( REG( a6, struct ISAPnPResource* res ) );
+PNPISA_ConfigureCards( REG( a6, struct ISAPNP_Resource* res ) );
+
 
 #endif /* ISA_PNP_controller_h */

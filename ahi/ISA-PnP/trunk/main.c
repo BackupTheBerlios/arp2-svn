@@ -26,6 +26,7 @@
 #include "isapnp_private.h"
 
 #include "init.h"
+#include "pnp.h"
 
 extern struct Resident RomTag;
 
@@ -44,22 +45,29 @@ asm( "jmp _ResourceEntry" );
 int 
 ResourceEntry( void )
 {
-  struct ISAPnPResource* ISAPnPBase;
+  struct ISAPNP_Resource* ISAPNPBase;
 
   if( ! OpenLibs() )
   {
     return 20;
   }
 
-  ISAPnPBase = (struct ISAPnPResource* ) OpenResource( ISAPNPNAME );
+  ISAPNPBase = (struct ISAPNP_Resource* ) OpenResource( ISAPNPNAME );
 
-  if( ISAPnPBase != NULL )
+  if( ISAPNPBase != NULL )
   {
-    KPrintF( "Located resource at $%08lx\n", ISAPnPBase );
+    struct ISAPNP_Card* card;
 
-    ISAPnPBase->m_CurrentBinding.cb_ConfigDev->cd_Flags  |= CDF_CONFIGME;
-    ISAPnPBase->m_CurrentBinding.cb_ConfigDev->cd_Driver  = NULL;
-    RemResource( ISAPnPBase );
+    KPrintF( "Located resource at $%08lx\n", ISAPNPBase );
+
+    while( ( card = (struct ISAPNP_Card*) RemHead( &ISAPNPBase->m_Cards ) ) )
+    {
+      PNPISA_FreeCard( card, ISAPNPBase );
+    }
+
+    ISAPNPBase->m_ConfigDev->cd_Flags  |= CDF_CONFIGME;
+    ISAPNPBase->m_ConfigDev->cd_Driver  = NULL;
+    RemResource( ISAPNPBase );
   }
 
   CloseLibs();

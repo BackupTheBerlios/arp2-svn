@@ -26,19 +26,22 @@
 #include <exec/libraries.h>
 #include <libraries/configvars.h>
 
-struct ISAPnPResource
+/* The resource base */
+
+struct ISAPNP_Resource
 {
   struct Library        m_Library;
+  UWORD                 m_Pad1;
 
-  UWORD                 m_RegReadData;
-
-//  UWORD                 m_Pad;            /* Align to longword */
+  struct List           m_Cards;
+  UWORD                 m_Pad2;
 
   APTR                  m_Base;
+  UWORD                 m_RegReadData;
+  UWORD                 m_Pad3;
 
-
-
-  struct CurrentBinding m_CurrentBinding;
+  struct ConfigDev*     m_ConfigDev;
+  
 };
 
 #endif /* ISA_PNP_isapnp_private_h */

@@ -10,7 +10,7 @@ INSTALL_DATA	= ${INSTALL} --mode=644
 CPPFLAGS	= 
 CFLAGS		= -m68020-60 -mnobitfield -fomit-frame-pointer \
                   -fstrict-aliasing -Os \
-		  -W -Wall -Wstrict-prototypes -g
+		  -W -Wall -Wstrict-prototypes -Wno-unused -g
 LDFLAGS		= -noixemul -nostartfiles
 LIBS		= 
 
