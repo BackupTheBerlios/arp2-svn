@@ -2,7 +2,7 @@
 #define RESOURCES_ISAPNP_H
 
 /*
-**	$VER: isapnp.h 1.0 (2.5.2001)
+**	$VER: isapnp.h 1.0 (7.5.2001)
 **
 **	isapnp.resource definitions.
 **
