@@ -102,7 +102,7 @@ struct PUHData
   BOOL                  m_SoundOn[ 4 ];
 
   ULONG                 m_SoundLocation[ 4 ];
-  UWORD                 m_SoundLength[ 4 ];
+  ULONG                 m_SoundLength[ 4 ];
 
   void*                 m_Intercepted;
   void*                 m_CustomDirect;

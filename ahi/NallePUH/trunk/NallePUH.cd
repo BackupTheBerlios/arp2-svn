@@ -22,8 +22,11 @@ msgDeactivate (262//)
 _Deactivate
 ;
 msgNallePUH (263//)
-Nalle PUH
+Nalle PUH version 0.1 ©2001 Martin Blom <martin@blom.org>
 ;
 msgTest (264//)
 _Test
+;
+msgToggleLed (265//)
+Toggle _led on exceptions
 ;

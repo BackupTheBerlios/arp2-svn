@@ -17,7 +17,7 @@ all:	$(TARGET)
 clean:
 	$(RM) $(TARGET) $(OBJECTS)
 
-$(TARGET): 	$(OBJECTS) NallePUH.o
+$(TARGET): 	$(OBJECTS) NallePUH.o pooh11.o
 	$(CC) $(LDFLAGS) $(OUTPUT_OPTION) $^
 
 NallePUHstr.s:	NallePUH.cd

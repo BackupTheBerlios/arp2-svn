@@ -47,6 +47,8 @@ msgDeactivate EQU 262
 msgNallePUH EQU 263
 	XDEF msgTest
 msgTest EQU 264
+	XDEF msgToggleLed
+msgToggleLed EQU 265
 
 	ENDC ; CATCOMP_NUMBERS
 
@@ -71,9 +73,11 @@ msgActivate_STR: DC.B '_Activate',$00
 	XDEF msgDeactivate_STR
 msgDeactivate_STR: DC.B '_Deactivate',$00
 	XDEF msgNallePUH_STR
-msgNallePUH_STR: DC.B 'Nalle PUH',$00
+msgNallePUH_STR: DC.B 'Nalle PUH version 0.1 ©2001 Martin Blom <martin@blom.org>',$00
 	XDEF msgTest_STR
 msgTest_STR: DC.B '_Test',$00
+	XDEF msgToggleLed_STR
+msgToggleLed_STR: DC.B 'Toggle _led on exceptions',$00
 
 	ENDC ; CATCOMP_STRINGS
 
@@ -103,6 +107,7 @@ AS5:	DC.L msgActivate,msgActivate_STR
 AS6:	DC.L msgDeactivate,msgDeactivate_STR
 AS7:	DC.L msgNallePUH,msgNallePUH_STR
 AS8:	DC.L msgTest,msgTest_STR
+AS9:	DC.L msgToggleLed,msgToggleLed_STR
 
 	ENDC ; CATCOMP_ARRAY
 
@@ -138,11 +143,14 @@ _CatCompBlock:
 	DC.W $C
 	DC.B '_Deactivate',$00
 	DC.L $107
-	DC.W $A
-	DC.B 'Nalle PUH',$00
+	DC.W $3A
+	DC.B 'Nalle PUH version 0.1 ©2001 Martin Blom <martin@blom.org>',$00
 	DC.L $108
 	DC.W $6
 	DC.B '_Test',$00
+	DC.L $109
+	DC.W $1A
+	DC.B 'Toggle _led on exceptions',$00
 
 	ENDC ; CATCOMP_BLOCK
 

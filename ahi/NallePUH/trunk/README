@@ -59,22 +59,28 @@ A: I've tried the following programs, and they seem to work:
    (Note that Protracker disables multitasking and cannot be used with AHI
    drivers that are not interrupt based.)
 
-Q: Will you fix Nalle PUH so the all of those program work?
+Q: Will you extend Nalle PUH so the all of those program work?
 A: Unlikely.
 
 Q: Pretty, pretty please!
-A: No. The source code is available. Why don't you give it a try yourself?
+A: No. The source code is available. Why don't you give it a shot yourself?
 
 Q: Because <insert lame excuse here>.
 A: Too bad.
 
-Q: Suppose I will fix the program, is there anything else I should do?
+Q: Suppose I do fix the program, is there anything else I should do?
 A: You could certanly improve the instruction patching method. And it could
    also be wise to set up a cachable Chip-RAM mirror so AHI won't have to
-   mix the samples from a non-cachable memory area.
+   mix the samples from a non-cachable memory area. Oh, and fix that
+   listbrowser! ;-)
 
-Q: Hey! I found a memory leak. And you don't clean up the MMU tables fully
-   either.
+Q: Hey! I found a memory leak: You don't close mmu.library! And you don't
+   clean up the MMU tables fully either.
 A: I know.  The custom chip register mirror must stay if applications were
    patched. mmu.library must not be flushed from memory, or we loose the
    mirror.
+
+
+Version history:
+
+0.1, 2001-04-23:	Initial release.

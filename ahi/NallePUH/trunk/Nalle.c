@@ -24,16 +24,21 @@
 #include <classes/window.h>
 #include <devices/ahi.h>
 #include <exec/errors.h>
+#include <exec/lists.h>
 #include <exec/memory.h>
+#include <gadgets/listbrowser.h>
 #include <intuition/gadgetclass.h>
 #include <libraries/resource.h>
 
 #include <clib/alib_protos.h>
 #include <proto/ahi.h>
+#include <proto/dos.h>
 #include <proto/exec.h>
 #include <proto/intuition.h>
+#include <proto/listbrowser.h>
 #include <proto/locale.h>
 #include <proto/resource.h>
+#include <proto/utility.h>
 
 #include <hardware/custom.h>
 #include <hardware/dmabits.h>
@@ -49,11 +54,15 @@ static struct MsgPort*      AHImp     = NULL;
 static struct AHIRequest*   AHIio     = NULL;
 static BYTE                 AHIDevice = IOERR_OPENFAIL;
 
-struct Library*       AHIBase       = NULL;
-struct Library*       MMUBase       = NULL;
-struct IntuitionBase* IntuitionBase = NULL;
-struct LocaleBase*    LocaleBase    = NULL;
-struct Library*       ResourceBase  = NULL;
+struct Library*       AHIBase         = NULL;
+struct Library*       MMUBase         = NULL;
+struct IntuitionBase* IntuitionBase   = NULL;
+struct LocaleBase*    LocaleBase      = NULL;
+struct Library*       ResourceBase    = NULL;
+struct Library*       ListBrowserBase = NULL;
+
+extern UBYTE pooh11_sb[];
+extern ULONG pooh11_sblen;
 
 static BOOL
 OpenLibs( void );
@@ -77,11 +86,41 @@ HandleGUI( Object* window,
 
 
 static void
-Test( struct Custom* custom );
+Test( void* data, ULONG length );
 
 void __chkabort( void )
 {
   // Disable automatic ctrl-c handling
+}
+
+ULONG
+RefreshSetGadgetAttrsA(struct Gadget *g, struct Window *w, struct Requester *r, struct TagItem *tags)
+{
+	ULONG retval;
+	BOOL changedisabled = FALSE;
+	BOOL disabled = FALSE;
+
+	if (w)
+	{
+		if (FindTagItem(GA_Disabled,tags))
+		{
+			changedisabled = TRUE;
+ 			disabled = g->Flags & GFLG_DISABLED;
+ 		}
+ 	}
+	retval = SetGadgetAttrsA(g,w,r,tags);
+	if (w && (retval || (changedisabled && disabled != (g->Flags & GFLG_DISABLED))))
+	{
+		RefreshGList(g,w,r,1);
+		retval = 1;
+	}
+	return retval;
+}
+
+ULONG
+RefreshSetGadgetAttrs(struct Gadget *g, struct Window *w, struct Requester *r, Tag tag1, ...)
+{
+	return RefreshSetGadgetAttrsA(g,w,r,(struct TagItem *) &tag1);
 }
 
 int
@@ -204,7 +243,7 @@ main( int   argc,
           }
           else
           {
-          //Test( (struct Custom*) 0xdff000 );
+            //Test( (struct Custom*) 0xdff000 );
 
             printf( "Waiting for CTRL-C...\n" );
             Wait( SIGBREAKF_CTRL_C );
@@ -230,6 +269,8 @@ main( int   argc,
 
 
 
+#if 0
+
 BYTE samples[] = 
 {
   0, 90, 127, 90, 0, -90, -127, -90
@@ -237,7 +278,6 @@ BYTE samples[] =
 
 
 
-#if 0
 
 
 /******************************************************************************
@@ -326,22 +366,26 @@ Test( struct Custom* custom )
 static BOOL
 OpenLibs( void )
 {
-  IntuitionBase = (struct IntuitionBase*) OpenLibrary( "intuition.library", 39 );
-  LocaleBase    = (struct LocaleBase*) OpenLibrary( "locale.library", 39 );
-  ResourceBase  = OpenLibrary( "resource.library", 44 );
-  MMUBase       = OpenLibrary( "mmu.library", 41 );
+  IntuitionBase   = (struct IntuitionBase*) OpenLibrary( "intuition.library", 39 );
+  LocaleBase      = (struct LocaleBase*) OpenLibrary( "locale.library", 39 );
+  ResourceBase    = OpenLibrary( "resource.library", 44 );
+  ListBrowserBase = OpenLibrary( "listbrowser.gadget", 44 );
+  MMUBase         = OpenLibrary( "mmu.library", 41 );
 
-  if( IntuitionBase == NULL || 
-      LocaleBase    == NULL ||
-      ResourceBase  == NULL )
+  if( IntuitionBase  == NULL || 
+      LocaleBase     == NULL ||
+      ResourceBase   == NULL ||
+      ListBrowserBase == NULL )
   {
     CloseLibrary( (struct Library*) IntuitionBase );
     CloseLibrary( (struct Library*) LocaleBase );
     CloseLibrary( ResourceBase );
+    CloseLibrary( ListBrowserBase );
     
-    IntuitionBase = NULL;
-    LocaleBase    = NULL;
-    ResourceBase  = NULL;
+    IntuitionBase   = NULL;
+    LocaleBase      = NULL;
+    ResourceBase    = NULL;
+    ListBrowserBase = NULL;
     
     printf( "The GUI requires AmigaOS 3.5.\n" );
   }
@@ -367,6 +411,7 @@ CloseLibs( void )
   CloseLibrary( (struct Library*) IntuitionBase );
   CloseLibrary( (struct Library*) LocaleBase );
   CloseLibrary( ResourceBase );
+  CloseLibrary( ListBrowserBase );
 
   // We must not close mmu.library if we have pached applications running!
   //  CloseLibrary( MMUBase );
@@ -551,9 +596,43 @@ HandleGUI( Object*         window,
   ULONG          audio_mode     = 0;
   ULONG          frequency      = 0;
 
+  void*          chip           = NULL;
+  
+  struct Custom* custom         = 0xdff000;
+
+  chip = AllocVec( pooh11_sblen, MEMF_CHIP );
+
+  if( chip == NULL )
+  {
+    printf( "Failed to alloc chip memory.\n" );
+    return FALSE;
+  }
+
+  CopyMem( pooh11_sb, chip, pooh11_sblen );
+
+
   GetAttr( WINDOW_SigMask, window, &window_signals );
   GetAttr( WINDOW_Window,  window, (ULONG *) &win_ptr );
-  
+
+#if 0
+                struct Node* node;
+                
+                DoGadgetMethod( gadgets[ GAD_MESSAGES ], win_ptr, NULL,
+                                LBM_ADDNODE,
+                                NULL,
+                                LBNA_Column, 0,
+                                LBNCA_Text, "JAG ÄR EN APA!",
+                                LBNCA_CopyText, TRUE,
+                                TAG_DONE );
+
+                node = AllocListBrowserNode( 1,
+                                             LBNCA_Text, "JAG ÄR EN APA!",
+                                             LBNCA_CopyText, TRUE,
+                                             TAG_DONE );
+                                             
+#endif
+
+
   while( ! quit )
   {
     ULONG mask;
@@ -638,11 +717,11 @@ HandleGUI( Object*         window,
                                            AHIDB_Name,      (ULONG) buffer,
                                            TAG_DONE ) )
                     {
-                      SetGadgetAttrs( gadgets[ GAD_MODE_INFO ], win_ptr, NULL,
+                      RefreshSetGadgetAttrs( gadgets[ GAD_MODE_INFO ], win_ptr, NULL,
                                       STRINGA_TextVal, (ULONG) buffer,
                                       TAG_DONE );
 
-                      SetGadgetAttrs( gadgets[ GAD_INSTALL ], win_ptr, NULL,
+                      RefreshSetGadgetAttrs( gadgets[ GAD_INSTALL ], win_ptr, NULL,
                                       GA_Disabled, FALSE,
                                       TAG_DONE );
                     }
@@ -663,6 +742,7 @@ HandleGUI( Object*         window,
 
                 GetAttr( GA_Selected, gadgets[ GAD_PATCH_ROM  ], &patch_rom );
                 GetAttr( GA_Selected, gadgets[ GAD_PATCH_APPS ], &patch_apps );
+                GetAttr( GA_Selected, gadgets[ GAD_TOGGLE_LED ], &toggle_led );
 
                 if( patch_rom )
                 {
@@ -687,31 +767,35 @@ HandleGUI( Object*         window,
                 }
                 else
                 {
-                  SetGadgetAttrs( gadgets[ GAD_PATCH_ROM ], win_ptr, NULL,
+                  RefreshSetGadgetAttrs( gadgets[ GAD_PATCH_ROM ], win_ptr, NULL,
                                   GA_Disabled, TRUE,
                                   TAG_DONE );
 
-                  SetGadgetAttrs( gadgets[ GAD_PATCH_APPS ], win_ptr, NULL,
+                  RefreshSetGadgetAttrs( gadgets[ GAD_PATCH_APPS ], win_ptr, NULL,
                                   GA_Disabled, TRUE,
                                   TAG_DONE );
 
-                  SetGadgetAttrs( gadgets[ GAD_MODE_SELECT ], win_ptr, NULL,
+                  RefreshSetGadgetAttrs( gadgets[ GAD_TOGGLE_LED ], win_ptr, NULL,
                                   GA_Disabled, TRUE,
                                   TAG_DONE );
 
-                  SetGadgetAttrs( gadgets[ GAD_INSTALL ], win_ptr, NULL,
+                  RefreshSetGadgetAttrs( gadgets[ GAD_MODE_SELECT ], win_ptr, NULL,
                                   GA_Disabled, TRUE,
                                   TAG_DONE );
 
-                  SetGadgetAttrs( gadgets[ GAD_UNINSTALL ], win_ptr, NULL,
+                  RefreshSetGadgetAttrs( gadgets[ GAD_INSTALL ], win_ptr, NULL,
+                                  GA_Disabled, TRUE,
+                                  TAG_DONE );
+
+                  RefreshSetGadgetAttrs( gadgets[ GAD_UNINSTALL ], win_ptr, NULL,
                                   GA_Disabled, FALSE,
                                   TAG_DONE );
 
-                  SetGadgetAttrs( gadgets[ GAD_ACTIVATE ], win_ptr, NULL,
+                  RefreshSetGadgetAttrs( gadgets[ GAD_ACTIVATE ], win_ptr, NULL,
                                   GA_Disabled, FALSE,
                                   TAG_DONE );
 
-                  SetGadgetAttrs( gadgets[ GAD_DEACTIVATE ], win_ptr, NULL,
+                  RefreshSetGadgetAttrs( gadgets[ GAD_DEACTIVATE ], win_ptr, NULL,
                                   GA_Disabled, TRUE,
                                   TAG_DONE );
                 }
@@ -724,31 +808,35 @@ HandleGUI( Object*         window,
               {
                 UninstallPUH( pd );
                 
-                SetGadgetAttrs( gadgets[ GAD_PATCH_ROM ], win_ptr, NULL,
+                RefreshSetGadgetAttrs( gadgets[ GAD_PATCH_ROM ], win_ptr, NULL,
                                 GA_Disabled, FALSE,
                                 TAG_DONE );
 
-                SetGadgetAttrs( gadgets[ GAD_PATCH_APPS ], win_ptr, NULL,
+                RefreshSetGadgetAttrs( gadgets[ GAD_PATCH_APPS ], win_ptr, NULL,
                                 GA_Disabled, FALSE,
                                 TAG_DONE );
 
-                SetGadgetAttrs( gadgets[ GAD_MODE_SELECT ], win_ptr, NULL,
+                RefreshSetGadgetAttrs( gadgets[ GAD_TOGGLE_LED ], win_ptr, NULL,
                                 GA_Disabled, FALSE,
                                 TAG_DONE );
 
-                SetGadgetAttrs( gadgets[ GAD_INSTALL ], win_ptr, NULL,
+                RefreshSetGadgetAttrs( gadgets[ GAD_MODE_SELECT ], win_ptr, NULL,
                                 GA_Disabled, FALSE,
                                 TAG_DONE );
 
-                SetGadgetAttrs( gadgets[ GAD_UNINSTALL ], win_ptr, NULL,
+                RefreshSetGadgetAttrs( gadgets[ GAD_INSTALL ], win_ptr, NULL,
+                                GA_Disabled, FALSE,
+                                TAG_DONE );
+
+                RefreshSetGadgetAttrs( gadgets[ GAD_UNINSTALL ], win_ptr, NULL,
                                 GA_Disabled, TRUE,
                                 TAG_DONE );
 
-                SetGadgetAttrs( gadgets[ GAD_ACTIVATE ], win_ptr, NULL,
+                RefreshSetGadgetAttrs( gadgets[ GAD_ACTIVATE ], win_ptr, NULL,
                                 GA_Disabled, TRUE,
                                 TAG_DONE );
 
-                SetGadgetAttrs( gadgets[ GAD_DEACTIVATE ], win_ptr, NULL,
+                RefreshSetGadgetAttrs( gadgets[ GAD_DEACTIVATE ], win_ptr, NULL,
                                 GA_Disabled, TRUE,
                                 TAG_DONE );
                 break;
@@ -763,11 +851,11 @@ HandleGUI( Object*         window,
                 }
                 else
                 {
-                  SetGadgetAttrs( gadgets[ GAD_ACTIVATE ], win_ptr, NULL,
+                  RefreshSetGadgetAttrs( gadgets[ GAD_ACTIVATE ], win_ptr, NULL,
                                   GA_Disabled, TRUE,
                                   TAG_DONE );
 
-                  SetGadgetAttrs( gadgets[ GAD_DEACTIVATE ], win_ptr, NULL,
+                  RefreshSetGadgetAttrs( gadgets[ GAD_DEACTIVATE ], win_ptr, NULL,
                                   GA_Disabled, FALSE,
                                   TAG_DONE );
                 }
@@ -780,14 +868,31 @@ HandleGUI( Object*         window,
               {
                 DeactivatePUH( pd );
 
-                SetGadgetAttrs( gadgets[ GAD_ACTIVATE ], win_ptr, NULL,
+                RefreshSetGadgetAttrs( gadgets[ GAD_ACTIVATE ], win_ptr, NULL,
                                 GA_Disabled, FALSE,
                                 TAG_DONE );
 
-                SetGadgetAttrs( gadgets[ GAD_DEACTIVATE ], win_ptr, NULL,
+                RefreshSetGadgetAttrs( gadgets[ GAD_DEACTIVATE ], win_ptr, NULL,
                                 GA_Disabled, TRUE,
                                 TAG_DONE );
 
+                break;
+              }
+              
+              case GAD_TEST:
+              {
+                WriteWord( &custom->dmacon, DMAF_AUD0 );
+
+                Delay( 1 );  // The infamous DMA-wait! ;-)
+
+                WriteLong( &custom->aud[ 0 ].ac_ptr, (ULONG) chip );
+                WriteWord( &custom->aud[ 0 ].ac_len, pooh11_sblen / 2);
+                WriteWord( &custom->aud[ 0 ].ac_per, 161 );
+                WriteWord( &custom->aud[ 0 ].ac_vol, 64 );
+
+                WriteWord( &custom->dmacon, DMAF_SETCLR | DMAF_AUD0 );
+
+                WriteWord( &custom->aud[ 0 ].ac_len, 1 );
                 break;
               }
             }
@@ -801,6 +906,11 @@ HandleGUI( Object*         window,
       }
     }
   }
+  
+  WriteWord( &custom->dmacon, DMAF_AUD0 );
+  WriteWord( &custom->aud[ 0 ].ac_vol, 0 );
+
+  FreeVec( chip );
 
   return rc;
 }

@@ -288,6 +288,9 @@ AllocPUH( void )
         pd->m_ChipFreq = 3546895;
       }
     
+      pd->m_DMACON               = DMAF_MASTER;
+      pd->m_INTENA               = INTF_INTEN;
+
       pd->m_Intercepted          = (void*) 0xdff000;
       pd->m_CustomDirect         = location;
 
@@ -1021,6 +1024,11 @@ PUHHandler( REG( a0, struct ExceptionData* ed ),
   {
     // What to do?
     return 1;
+  }
+
+  if( pd->m_Flags & PUHF_TOGGLE_LED )
+  {
+    * ((UBYTE*) 0xbfe001) ^= 2;
   }
 
   if( ed->exd_Flags & ( EXDF_INSTRUCTION | 
