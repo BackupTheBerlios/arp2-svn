@@ -1,0 +1,18 @@
+.name
+binutils
+.fullname
+GNU binutils
+.type
+Programmer Tools
+.short
+GNU binary utilities, Amiga source
+.description
+The GNU binary utilities.
+.version
+2.9.1
+.requirements
+Amiga binaries require the ixemul.library.
+.distribution
+GNU Public License
+.described-by
+Fred Fish (fnf@ninemoons.com)
