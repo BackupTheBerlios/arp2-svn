@@ -577,7 +577,9 @@ sub parse_sfd ( $ ) {
 	     ) {
 
 	    if ($proto_line =~ /.*\(.*[0-7]-.*\)\s*$/) {
-		print STDERR "Warning: Multiregister function broken.\n";
+		if ($$classes{'target'} ne 'amigaos') {
+		    print STDERR "Warning: Multiregister functions are m68k only.\n";
+		}
 		$proto_line =~ s/([da][0-7])-[da][0-7]/$1/g;
 	    }
 #	    else {
