@@ -677,7 +677,7 @@ fi
 dnl
 dnl  Check whether to build support for multitasking x86 code
 dnl
-AC_MSG_CHECKING([whether to add BCALL support])
+AC_MSG_CHECKING([whether to add BJMP support])
 
 if [[ "x$WANT_BLOMCALL" != "xno" -a "x$WANT_X86ASSEMBLY" != "xno" -a "x$HAVE_GCC27" = "xyes" -a "$HOST_CPU" = "i386" ]]; then
   UAE_DEFINES="$UAE_DEFINES -DBLOMCALL"

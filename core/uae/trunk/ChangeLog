@@ -1,10 +1,17 @@
+2005-02-28  Martin Blom  <martin@blom.org>
+
+	* src/autoconf.c, src/expansion.c, src/memory.c,
+	src/include/memory.h: Implemented support for NATMEM_OFFSET=0
+	(i.e., the ix86 and m68k see the same address space) using posix
+	shared memory.
+
 2005-02-24  Martin Blom  <martin@blom.org>
 
 	* configure, configure.in, src/Makefile.am, src/gencomp.c,
 	src/gencpu.c, src/newcpu.c, src/readcpu.c, src/sysconfig.h.in,
 	src/table68k, src/include/readcpu.h, src/blomcall.c,
 	src/include/blomcall.h: Added new op-codes for multitasking x86
-	calls: BCALL, BCALLNR and BRESUME.
+	calls: BJMP, BJMPNR and BRESUME.
 
 	* src/od-generic/memory.c: Made it work even on NX-enabled CPUs
 	like Athlon64.

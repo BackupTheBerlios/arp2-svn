@@ -511,8 +511,9 @@ static uae_u32 uae_puts (void)
 
 static void rtarea_init_mem (void)
 {
-    rtarea = mapped_malloc (0x10000, "rtarea");
-    if (!rtarea) {
+    rtarea = mapped_malloc (0x10000, "rtarea", RTAREA_BASE);
+    if (rtarea == MAPPED_MALLOC_FAILED) {
+        rtarea = 0;
 	write_log ("virtual memory exhausted (rtarea)!\n");
 	abort ();
     }

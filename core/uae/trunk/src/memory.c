@@ -22,7 +22,7 @@
 #include "savestate.h"
 #include "ar.h"
 
-#ifdef USE_MAPPED_MEMORY
+#if defined(USE_MAPPED_MEMORY) || (defined(NATMEM_OFFSET) && NATMEM_OFFSET == 0)
 #include <sys/mman.h>
 #endif
 
@@ -1132,11 +1132,17 @@ static int load_extendedkickstart (void)
     switch (extromtype ()) {
 
     case EXTENDED_ROM_CDTV:
-	extendedkickmemory = (uae_u8 *) mapped_malloc (extendedkickmem_size, "rom_f0");
+	extendedkickmemory = (uae_u8 *) mapped_malloc (extendedkickmem_size, "rom_f0", 0xf00000);
+	if (extendedkickmemory == MAPPED_MALLOC_FAILED) {
+	  extendedkickmemory = 0;
+	}
 	extendedkickmem_bank.baseaddr = (uae_u8 *) extendedkickmemory;
 	break;
     case EXTENDED_ROM_CD32:
-	extendedkickmemory = (uae_u8 *) mapped_malloc (extendedkickmem_size, "rom_e0");
+	extendedkickmemory = (uae_u8 *) mapped_malloc (extendedkickmem_size, "rom_e0", 0xe00000);
+	if (extendedkickmemory == MAPPED_MALLOC_FAILED) {
+	  extendedkickmemory = 0;
+	}
 	extendedkickmem_bank.baseaddr = (uae_u8 *) extendedkickmemory;
 	break;
     }
@@ -1227,14 +1233,259 @@ static int load_kickstart (void)
 
 #ifndef NATMEM_OFFSET
 
-uae_u8 *mapped_malloc (size_t s, char *file)
+uae_u8 *mapped_malloc (size_t s, char *file, uae_u32 __address)
 {
-    return malloc (s);
+  uae_u8* addr = malloc (s);
+
+  return addr == 0 ? MAPPED_MALLOC_FAILED : addr;
 }
 
 void mapped_free (uae_u8 *p)
 {
+  if (p != MAPPED_MALLOC_FAILED) {
     free (p);
+  }
+}
+
+#elif NATMEM_OFFSET == 0
+
+static struct memarea {
+    struct memarea* next;
+    struct memarea* prev;
+    struct memarea* real;
+    int     fd;
+    char*   name;
+    void*   addr;
+    size_t  size;
+}* memareas;
+
+static uae_u8* create_memarea(char* name, int fd, struct memarea* real,
+			      uae_u32 address, uae_u32 s) {
+  struct memarea* memarea;
+  uae_u8* mem;
+  int flags = MAP_SHARED | MAP_LOCKED;
+
+  memarea = malloc (sizeof (struct memarea));
+
+  if (memarea == NULL) {
+    perror("memarea");
+    abort();
+  }
+
+  memarea->next = NULL;
+  memarea->prev = NULL;
+  memarea->real = real;
+  memarea->name = name;
+  memarea->fd   = fd;
+
+  if (address == (uae_u32) MAPPED_MALLOC_UNKNOWN) {
+    static uae_u32 temp_address = 0x60000000;
+    address = temp_address;
+    temp_address += s;
+  }
+  else {
+    if (canbang) flags |= MAP_FIXED;
+  }
+
+  mem = mmap((void*) address, s, PROT_EXEC | PROT_READ | PROT_WRITE,
+	     flags, memarea->fd, 0);
+
+  if (mem == MAP_FAILED) {
+    perror("mmap");
+    free (memarea);
+    return MAPPED_MALLOC_FAILED;
+  }
+
+  if (real == NULL || memarea->real->addr != memarea->addr) {
+    memarea->addr = mem;
+    memarea->size = s;
+
+    if (memareas != NULL) {
+      memareas->prev = memarea;
+      memarea->next = memareas;
+    }
+
+    memareas = memarea;
+
+/*     printf("****************************************************************\n"); */
+/*     printf("mapped %08lx bytes at %p using fd %d (name %s) %s\n", */
+/* 	   memarea->size, memarea->addr, memarea->fd, memarea->name, */
+/* 	   memarea->real && memarea->real->addr != memarea->addr ? "(mirror)":""); */
+/*     uae_u32* p = mem; */
+/*     printf("%08lx %08lx %08lx %08lx %08lx %08lx %08lx %08lx\n", */
+/* 	   p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7]); */
+/*   char cmd[128]; */
+/*   sprintf(cmd,"cat /proc/%d/maps", getpid()); */
+/*   system(cmd); */
+  }
+  else {
+    // This is just a re-mmap of the original memory area.
+    // Can happen when chipmem/kickmem is mapped at the same area
+    // on reset, for example.
+    free(memarea);
+  }
+
+  
+  return mem;
+}
+
+static void add_shmmaps (uae_u32 start, addrbank *what) {
+//			 uae_u32 size, uae_u32 realsize) {
+/*   printf("add_shmmaps(%08lx, %p, %08lx, %08lx)\n", */
+/* 	 start, what->baseaddr, size, realsize); */
+
+  if (!canbang) {
+    return;
+  }
+
+  if (what->baseaddr == NULL && ! what->check(0, 1)) {
+//    printf("No real memory!!\n");
+    return; // Nothing to do. There is no actual host memory attached to this bank.
+  }
+  
+//  if (what->baseaddr == (uae_u8*) start) {
+//    printf("already mapped\n");
+//  }
+//  else {
+    struct memarea* mas;
+    uae_u8* mem;
+    
+    for (mas = memareas; mas != NULL; mas = mas->next) {
+      if ((intptr_t) mas->addr <= what->baseaddr &&
+	  (intptr_t) (mas->addr + mas->size) > what->baseaddr) {
+//	printf("found original memory\n");
+	break;
+      }
+    }
+
+    if (mas == NULL) {
+      write_log ("NATMEM: Failed to find real memory at %p\n",
+		 what->baseaddr);
+      canbang = 0;
+    }
+    else if (create_memarea(mas->name, mas->fd, mas, start, mas->size) ==
+	     MAPPED_MALLOC_FAILED) {
+      write_log ("NATMEM: Failed to create mapping to %p at %p\n",
+		 what->baseaddr, (void*) start);
+      canbang = 0;
+    }
+//  }
+}
+
+static void delete_shmmaps (uae_u32 start, uae_u32 size) {
+  struct memarea* mas = memareas;
+    
+  while (mas != NULL) {
+    if ((intptr_t) mas->addr <= start &&
+	(intptr_t) (mas->addr + mas->size) > start &&
+	mas->real != NULL) {
+      uae_u8* tmp;
+      
+/*       printf("found mirror at %p (size %ld)\n", mas->addr, mas->size); */
+
+      if (munmap(mas->addr, mas->size) == -1) {
+	perror("munmap");
+      }
+
+      tmp = mas->next;
+      
+      if (mas->prev == NULL) {
+	mas->next->prev = NULL;
+	memareas = mas->next;
+      }
+      else {
+	mas->prev->next = mas->next;
+	mas->next->prev = mas->prev;
+      }
+
+      free (mas);
+      mas = tmp;
+    }
+    else {
+      mas = mas->next;
+    }
+  }
+}
+
+
+uae_u8 *mapped_malloc (size_t s, char *file, uae_u32 address) {
+  int fd;
+  uae_u8* mem;
+
+/*   printf("mapped_malloc(%lx, %s, %08lx)\n", s, file, address); */
+  
+  fd = shm_open(file, O_RDWR | O_CREAT | O_TRUNC, S_IRWXU);
+
+  if (fd == -1) {
+    perror("shm_open");
+    return MAPPED_MALLOC_FAILED;
+  }
+
+  if (ftruncate(fd, s) == -1) {
+    perror("ftruncate");
+    return MAPPED_MALLOC_FAILED;
+  }
+  
+  mem = create_memarea(file, fd, NULL, address, s);
+ 
+/*   printf("returning %p\n", mem); */
+  return mem;
+}
+
+
+void mapped_free (uae_u8 *p) {
+  struct memarea* mas;
+  struct memarea* memarea = NULL;
+
+/*   printf("mapped_free(%p)\n", p); */
+
+  for (mas = memareas; mas != NULL; mas = mas->next) {
+/*     printf("checking memarea at %08lx, size %08lx, fd %d\n", */
+/* 	   mas->addr, mas->size, mas->fd); */
+
+    if (mas->addr == p) {
+/*       printf("got it\n"); */
+
+      if (mas->real != NULL) {
+	printf("memory to free in mapped_free is a mirror!");
+	abort();
+      }
+
+      memarea = mas;
+      break;
+    }
+  }
+
+  // Clean up all old mappings
+
+  for (mas = memareas; mas != NULL; mas = mas->next) {
+    if (mas->real == memarea) {
+      delete_shmmaps(mas->addr, mas->size);
+    }
+  }
+
+  if (munmap(memarea->addr, memarea->size) == -1) {
+    perror("munmap");
+  }
+
+  if (close(memarea->fd) == -1) {
+    perror("close");
+  }
+
+  if (shm_unlink(memarea->name) == -1) {
+    perror("shm_unlink");
+  }
+
+  if (memarea->prev == NULL) {
+    memarea->next->prev = NULL;
+    memareas = memarea->next;
+  }
+  else {
+    memarea->prev->next = memarea->next;
+    memarea->next->prev = memarea->prev;
+  }
+
+  free (mas);
 }
 
 #else
@@ -1382,14 +1633,17 @@ static void add_shmmaps (uae_u32 start, addrbank *what)
  * direct memory access will be disabled and memory allocated via
  * malloc().
  */
-uae_u8 *mapped_malloc (size_t s, char *file)
+uae_u8 *mapped_malloc (size_t s, char *file, , uae_u32 __address)
 {
     int id;
     void *answer;
     shmpiece *x;
 
-    if (!canbang)
-	return malloc (s);
+    if (!canbang) {
+      uae_u8* addr = malloc (s);
+
+      return addr == 0 ? MAPPED_MALLOC_FAILED : addr;
+    }
 
 #ifdef WIN32
     id = shmget (IPC_PRIVATE, s, 0x1ff, file);
@@ -1401,7 +1655,7 @@ uae_u8 *mapped_malloc (size_t s, char *file)
 	// off direct memory access and fall back on regular malloc()
 	write_log ("NATMEM: shmget() failed with size 0x%08lx. Disabling direct memory access.\n", s);
 	canbang = 0;
-	return mapped_malloc (s, file);
+	return mapped_malloc (s, file, __address);
     }
     answer = shmat (id, 0, 0); // Attach this segment at an arbitrary address - use
                                // add_shmmap() to map it where it needs to be later.
@@ -1420,9 +1674,9 @@ uae_u8 *mapped_malloc (size_t s, char *file)
         // Failed to attach segment - turn off direct memory
 	// access for the VM and fall back on malloc().
         canbang = 0;
-        answer = mapped_malloc (s, file);
+        answer = mapped_malloc (s, file, __address);
     }
-    return answer;
+    return answer == 0 : MAPPED_MALLOC_FAILED ? answer;
 }
 
 #ifndef WIN32
@@ -1475,8 +1729,11 @@ static void allocate_memory (void)
 	allocated_chipmem = currprefs.chipmem_size;
 	chipmem_mask = allocated_chipmem - 1;
 
-	chipmemory = mapped_malloc (allocated_chipmem, "chip");
-	if (chipmemory == 0) {
+	// lcs: it looks like chipmem must be available even
+	// when kickmem is mapped as 0??? TODO FIXME BUG
+	chipmemory = mapped_malloc (allocated_chipmem, "chip", MAPPED_MALLOC_UNKNOWN /*chipmem_start*/);
+	if (chipmemory == MAPPED_MALLOC_FAILED) {
+	    chipmemory = 0;
 	    write_log ("Fatal error: out of memory for chipmem.\n");
 	    allocated_chipmem = 0;
 	} else
@@ -1492,8 +1749,9 @@ static void allocate_memory (void)
 	bogomem_mask = allocated_bogomem - 1;
 
 	if (allocated_bogomem) {
-	    bogomemory = mapped_malloc (allocated_bogomem, "bogo");
-	    if (bogomemory == 0) {
+	    bogomemory = mapped_malloc (allocated_bogomem, "bogo", bogomem_start);
+	    if (bogomemory == MAPPED_MALLOC_FAILED) {
+	        bogomemory = 0;
 		write_log ("Out of memory for bogomem.\n");
 		allocated_bogomem = 0;
 	    }
@@ -1510,8 +1768,9 @@ static void allocate_memory (void)
 	a3000mem_mask = allocated_a3000mem - 1;
 
 	if (allocated_a3000mem) {
-	    a3000memory = mapped_malloc (allocated_a3000mem, "a3000");
-	    if (a3000memory == 0) {
+	    a3000memory = mapped_malloc (allocated_a3000mem, "a3000", a3000mem_start);
+	    if (a3000memory == MAPPED_MALLOC_FAILED) {
+	        a3000memory = 0;
 		write_log ("Out of memory for a3000mem.\n");
 		allocated_a3000mem = 0;
 	    }
@@ -1698,7 +1957,7 @@ void memory_init (void)
 #endif
     bogomemory = 0;
 
-    kickmemory = mapped_malloc (kickmem_size, "kick");
+    kickmemory = mapped_malloc (kickmem_size, "kick", kickmem_start);
     memset (kickmemory, 0, kickmem_size);
     kickmem_bank.baseaddr = kickmemory;
     currprefs.romfile[0] = 0;

@@ -1089,8 +1089,10 @@ static void allocate_expamem (void)
 	fastmem_mask = allocated_fastmem - 1;
 
 	if (allocated_fastmem) {
-	    fastmemory = mapped_malloc (allocated_fastmem, "fast");
-	    if (fastmemory == 0) {
+	    fastmemory = mapped_malloc (allocated_fastmem, "fast",
+					MAPPED_MALLOC_UNKNOWN);
+	    if (fastmemory == MAPPED_MALLOC_FAILED) {
+	        fastmemory = 0;
 		write_log ("Out of memory for fastmem card.\n");
 		allocated_fastmem = 0;
 	    }
@@ -1106,8 +1108,10 @@ static void allocate_expamem (void)
 	z3fastmem_mask = allocated_z3fastmem - 1;
 
 	if (allocated_z3fastmem) {
-	    z3fastmem = mapped_malloc (allocated_z3fastmem, "z3");
-	    if (z3fastmem == 0) {
+	    z3fastmem = mapped_malloc (allocated_z3fastmem, "z3",
+				       0x10000000);
+	    if (z3fastmem == MAPPED_MALLOC_FAILED) {
+	        z3fastmem = 0;
 		write_log ("Out of memory for 32 bit fast memory.\n");
 		allocated_z3fastmem = 0;
 	    }
@@ -1123,8 +1127,10 @@ static void allocate_expamem (void)
 	gfxmem_mask = allocated_gfxmem - 1;
 
 	if (allocated_gfxmem) {
-	    gfxmemory = mapped_malloc (allocated_gfxmem, "gfx");
-	    if (gfxmemory == 0) {
+	    gfxmemory = mapped_malloc (allocated_gfxmem, "gfx",
+				       MAPPED_MALLOC_UNKNOWN);
+	    if (gfxmemory == MAPPED_MALLOC_FAILED) {
+	        gfxmemory = 0;
 		write_log ("Out of memory for graphics card memory\n");
 		allocated_gfxmem = 0;
 	    }
@@ -1247,8 +1253,10 @@ void expansion_init (void)
     allocate_expamem ();
 
 #ifdef FILESYS
-    filesysory = (uae_u8 *) mapped_malloc (0x10000, "filesys");
-    if (!filesysory) {
+    filesysory = (uae_u8 *) mapped_malloc (0x10000, "filesys",
+					   MAPPED_MALLOC_UNKNOWN);
+    if (filesysory == MAPPED_MALLOC_FAILED) {
+        filesysory = 0;
 	write_log ("virtual memory exhausted (filesysory)!\n");
 	exit (0);
     }
