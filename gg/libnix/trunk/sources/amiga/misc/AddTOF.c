@@ -10,13 +10,13 @@ STATIC int stub(struct Isrvstr *intr asm("a1"))
   (*intr->ccode)(intr->Carg); return 0;
 }
 
-VOID AddTOF(struct Isrvstr *intr,LONG (*code)(),LONG arg)
+VOID AddTOF(struct Isrvstr *intr,LONG (*code)(APTR args),APTR a)
 { APTR SysBase = *(APTR *)4L;
 
   intr->Iptr  = intr;
   intr->code  = (int (*)())stub;
   intr->ccode = (int (*)())code;
-  intr->Carg  = (int)arg;
+  intr->Carg  = (int)a;
   AddIntServer(INTB_VERTB,(struct Interrupt *)intr);
 }
 

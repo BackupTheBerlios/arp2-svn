@@ -3,6 +3,11 @@
 @settitle libnix - a static library for GCC on the amiga
 @setchapternewpage odd
 
+@dircategory GeekGadgets programming tools
+@direntry
+* libnix: (libnix).              A static lib. for to Amiga specific devel.
+@end direntry
+
 @ifinfo
 This is libnix.texi the documentation of the libnix library.
 Since this document is part of the libnix package it stands
