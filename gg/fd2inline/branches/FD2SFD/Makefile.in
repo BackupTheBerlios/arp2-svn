@@ -84,21 +84,31 @@ install:	all
 	done
 	$(INSTALL_DATA) $(srcdir)/README.os-include $(prefix)/os-include/README
 
-tgz:		all
-	mv config.status .config.status
-	make distclean
-	mkdir .$(EXECUTABLE)-$(VERSION)
-	cp -a * $(srcdir)/* .$(EXECUTABLE)-$(VERSION)
-#	$(RM) -r .$(EXECUTABLE)-$(VERSION)/CVS
-	mv .$(EXECUTABLE)-$(VERSION) $(EXECUTABLE)-$(VERSION)
-	tar cfvz $(EXECUTABLE)-$(VERSION).tar.gz \
-		`find $(EXECUTABLE)-$(VERSION) -type f -not -path "*CVS*"`
-	$(RM) -r $(EXECUTABLE)-$(VERSION)
-	mv .config.status config.status
-	./config.status
+#tgz:		all gg-fd2sfd.spec
+#	mv config.status .config.status
+#	make distclean
+#	mkdir .$(EXECUTABLE)-$(VERSION)
+#	cp -a * $(srcdir)/* .$(EXECUTABLE)-$(VERSION)
+##	$(RM) -r .$(EXECUTABLE)-$(VERSION)/CVS
+#	mv .$(EXECUTABLE)-$(VERSION) $(EXECUTABLE)-$(VERSION)
+#	tar cfvz $(EXECUTABLE)-$(VERSION).tar.gz \
+#		`find $(EXECUTABLE)-$(VERSION) -type f -not -path "*CVS*"`
+#	$(RM) -r $(EXECUTABLE)-$(VERSION)
+#	mv .config.status config.status
+#	./config.status
 
-lha:		tgz
-	make all
+tgz:		all gg-fd2sfd.spec
+	cvs diff >/dev/null || (echo "Not checked in!"; exit 10)
+	mkdir $(EXECUTABLE)-$(VERSION)
+	cd $(EXECUTABLE)-$(VERSION) && cvs export -Dtoday -r FD2SFD fd2inline
+	mv fd2inline fd2sfd
+	mv $(EXECUTABLE)-$(VERSION)/fd2sfd/* $(EXECUTABLE)-$(VERSION)
+	cp gg-fd2sfd.spec $(EXECUTABLE)-$(VERSION)
+	rmdir $(EXECUTABLE)-$(VERSION)/fd2sfd
+	tar cfvz $(EXECUTABLE)-$(VERSION).tar.gz $(EXECUTABLE)-$(VERSION)
+	$(RM) -r $(EXECUTABLE)-$(VERSION)
+
+lha:		all tgz
 	$(RM) $(EXECUTABLE).lha
 	lha -ao5 $(EXECUTABLE).lha $(EXECUTABLE) $(EXECUTABLE).readme \
 		 $(EXECUTABLE)-$(VERSION).tar.gz
