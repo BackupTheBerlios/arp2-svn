@@ -37,7 +37,7 @@
 ** Allocate a card structure **************************************************
 ******************************************************************************/
 
-// You should set m_Node.ln_Name. Allocate the string with AllocVec()!
+// You should set isapnpc_Node.ln_Name. Allocate the string with AllocVec()!
 
 struct ISAPNP_Card* ASMCALL
 ISAPNP_AllocCard( REG( a6, struct ISAPNPBase* res ) )
@@ -48,9 +48,10 @@ ISAPNP_AllocCard( REG( a6, struct ISAPNPBase* res ) )
 
   if( card != NULL )
   {
-    card->m_Node.ln_Type = ISAPNP_NT_CARD;
+    card->isapnpc_Node.ln_Type = ISAPNP_NT_CARD;
 
-    NewList( &card->m_Devices );
+    NewList( &card->isapnpc_Devices );
+    InitSemaphore( &card->isapnpc_Lock );
   }
 
   return card;
@@ -72,17 +73,17 @@ ISAPNP_FreeCard( REG( a0, struct ISAPNP_Card* card ),
   }
 
 //  KPrintF( "Nuking card %s%03lx%lx ('%s')\n",
-//           card->m_ID.m_Vendor, card->m_ID.m_ProductID, card->m_ID.m_Revision,
-//           card->m_Node.ln_Name != NULL ? card->m_Node.ln_Name : "" );
+//           card->isapnpc_ID.isapnpid_Vendor, card->isapnpc_ID.isapnpid_ProductID, card->isapnpc_ID.isapnpid_Revision,
+//           card->isapnpc_Node.ln_Name != NULL ? card->isapnpc_Node.ln_Name : "" );
 
-  while( ( dev = (struct ISAPNP_Device*) RemHead( &card->m_Devices ) ) )
+  while( ( dev = (struct ISAPNP_Device*) RemHead( &card->isapnpc_Devices ) ) )
   {
     ISAPNP_FreeDevice( dev, res );
   }
 
-  if( card->m_Node.ln_Name != NULL )
+  if( card->isapnpc_Node.ln_Name != NULL )
   {
-    FreeVec( card->m_Node.ln_Name );
+    FreeVec( card->isapnpc_Node.ln_Name );
   }
 
   FreeVec( card );
@@ -93,7 +94,7 @@ ISAPNP_FreeCard( REG( a0, struct ISAPNP_Card* card ),
 ** Allocate a device structure ************************************************
 ******************************************************************************/
 
-// You should set m_Node.ln_Name. Allocate the string with AllocVec()!
+// You should set isapnpiod_Node.ln_Name. Allocate the string with AllocVec()!
 
 struct ISAPNP_Device* ASMCALL
 ISAPNP_AllocDevice( REG( a6, struct ISAPNPBase* res ) )
@@ -104,19 +105,20 @@ ISAPNP_AllocDevice( REG( a6, struct ISAPNPBase* res ) )
 
   if( dev != NULL )
   {
-    dev->m_Node.ln_Type = ISAPNP_NT_DEVICE;
+    dev->isapnpd_Node.ln_Type = ISAPNP_NT_DEVICE;
 
-    NewList( (struct List*) &dev->m_IDs );
+    NewList( (struct List*) &dev->isapnpd_IDs );
     
-    dev->m_Options = ISAPNP_AllocResourceGroup( ISAPNP_RG_PRI_GOOD, res );
+    dev->isapnpd_Options = ISAPNP_AllocResourceGroup( ISAPNP_RG_PRI_GOOD, res );
     
-    if( dev->m_Options == NULL )
+    if( dev->isapnpd_Options == NULL )
     {
       ISAPNP_FreeDevice( dev, res );
       dev = NULL;
     }
     
-    NewList( (struct List*) &dev->m_Resources );
+    NewList( (struct List*) &dev->isapnpd_Resources );
+    InitSemaphore( &dev->isapnpd_Lock );
   }
 
   return dev;
@@ -140,30 +142,30 @@ ISAPNP_FreeDevice( REG( a0, struct ISAPNP_Device* dev ),
   }
 
 //  KPrintF( "Nuking logical device '%s'\n",
-//           dev->m_Node.ln_Name != NULL ? dev->m_Node.ln_Name : "" );
+//           dev->isapnpd_Node.ln_Name != NULL ? dev->isapnpd_Node.ln_Name : "" );
 
 
   while( ( id = (struct ISAPNP_Identifier*) 
-             RemHead( (struct List*) &dev->m_IDs ) ) )
+             RemHead( (struct List*) &dev->isapnpd_IDs ) ) )
   {
 //    KPrintF( "Nuking (compatible) device %s%03lx%lx\n",
-//             id->m_Vendor, id->m_ProductID, id->m_Revision );
+//             id->isapnpid_Vendor, id->isapnpid_ProductID, id->isapnpid_Revision );
 
     FreeVec( id );
   }
 
-  ISAPNP_FreeResourceGroup( dev->m_Options, res );
+  ISAPNP_FreeResourceGroup( dev->isapnpd_Options, res );
 
   while( ( r = (struct ISAPNP_Resource*) 
-               RemHead( (struct List*) &dev->m_Resources ) ) )
+               RemHead( (struct List*) &dev->isapnpd_Resources ) ) )
   {
     ISAPNP_FreeResource( r, res );
   }
 
 
-  if( dev->m_Node.ln_Name != NULL )
+  if( dev->isapnpd_Node.ln_Name != NULL )
   {
-    FreeVec( dev->m_Node.ln_Name );
+    FreeVec( dev->isapnpd_Node.ln_Name );
   }
 
   FreeVec( dev );
@@ -184,11 +186,11 @@ ISAPNP_AllocResourceGroup( REG( d0, UBYTE              pri ),
 
   if( rg != NULL )
   {
-    rg->m_Type = ISAPNP_NT_RESOURCE_GROUP;
-    rg->m_Pri  = pri;
+    rg->isapnprg_Type = ISAPNP_NT_RESOURCE_GROUP;
+    rg->isapnprg_Pri  = pri;
 
-    NewList( (struct List*) &rg->m_Resources );
-    NewList( (struct List*) &rg->m_ResourceGroups );
+    NewList( (struct List*) &rg->isapnprg_Resources );
+    NewList( (struct List*) &rg->isapnprg_ResourceGroups );
   }
 
   return rg;
@@ -214,13 +216,13 @@ ISAPNP_FreeResourceGroup( REG( a0, struct ISAPNP_ResourceGroup* rg ),
 //  KPrintF( "Nuking resource group.\n" );
 
   while( ( r = (struct ISAPNP_Resource*) 
-               RemHead( (struct List*) &rg->m_Resources ) ) )
+               RemHead( (struct List*) &rg->isapnprg_Resources ) ) )
   {
     ISAPNP_FreeResource( r, res );
   }
 
   while( ( child_rg = (struct ISAPNP_ResourceGroup*) 
-                      RemHead( (struct List*) &rg->m_ResourceGroups ) ) )
+                      RemHead( (struct List*) &rg->isapnprg_ResourceGroups ) ) )
   {
     ISAPNP_FreeResourceGroup( child_rg, res );
   }
@@ -263,7 +265,7 @@ ISAPNP_AllocResource( REG( d0, UBYTE              type ),
 
   if( r != NULL )
   {
-    r->m_Type = type;
+    r->isapnpr_Type = type;
   }
 
   return r;
@@ -283,7 +285,7 @@ ISAPNP_FreeResource( REG( a0, struct ISAPNP_Resource* r ),
     return;
   }
 
-//  KPrintF( "Nuking resource %ld.\n", r->m_Type );
+//  KPrintF( "Nuking resource %ld.\n", r->isapnpr_Type );
 
   FreeVec( r );
 }

@@ -13,6 +13,7 @@
 
 #include <exec/lists.h>
 #include <exec/nodes.h>
+#include <exec/semaphores.h>
 
 /*** The name of the exec resource *******************************************/
 
@@ -39,11 +40,11 @@
 
 struct ISAPNP_Identifier
 {
-  struct MinNode m_MinNode;
-  char           m_Vendor[ 4 ];
-  UWORD          m_ProductID;
-  UBYTE	         m_Revision;
-  UBYTE          m_Pad;
+  struct MinNode isapnpid_MinNode;
+  char           isapnpid_Vendor[ 4 ];
+  UWORD          isapnpid_ProductID;
+  UBYTE	         isapnpid_Revision;
+  UBYTE          isapnpid_Pad;
 };
 
 
@@ -51,21 +52,22 @@ struct ISAPNP_Identifier
 
 struct ISAPNP_Card
 {
-  struct Node              m_Node;
+  struct Node              isapnpc_Node;
 
-  BOOL                     m_Disabled;
+  BOOL                     isapnpc_Disabled;
 
-  struct List              m_Devices;
-  UWORD                    m_Pad2;
+  struct List              isapnpc_Devices;
 
-  struct ISAPNP_Identifier m_ID;
-  ULONG                    m_SerialNumber;
+  struct SignalSemaphore   isapnpc_Lock;
 
-  UBYTE                    m_CSN;
+  struct ISAPNP_Identifier isapnpc_ID;
+  ULONG                    isapnpc_SerialNumber;
 
-  UBYTE                    m_MajorPnPVersion;
-  UBYTE                    m_MinorPnPVersion;
-  UBYTE                    m_VendorPnPVersion;
+  UBYTE                    isapnpc_CSN;
+
+  UBYTE                    isapnpc_MajorPnPVersion;
+  UBYTE                    isapnpc_MinorPnPVersion;
+  UBYTE                    isapnpc_VendorPnPVersion;
 };
 
 
@@ -75,21 +77,24 @@ struct ISAPNP_ResourceGroup;
 
 struct ISAPNP_Device
 {
-  struct Node                  m_Node;
+  struct Node                  isapnpd_Node;
 
-  BOOL       	               m_Disabled;
+  BOOL       	               isapnpd_Disabled;
 
-  struct ISAPNP_Card*          m_Card;
+  struct ISAPNP_Card*          isapnpd_Card;
+
+  struct SignalSemaphore       isapnpd_Lock;
+  UWORD                        isapnpd_Pad;
   
-  struct MinList               m_IDs;
-  struct ISAPNP_ResourceGroup* m_Options;
-  struct MinList               m_Resources;
+  struct MinList               isapnpd_IDs;
+  struct ISAPNP_ResourceGroup* isapnpd_Options;
+  struct MinList               isapnpd_Resources;
 
-  UWORD                        m_SupportedCommands;
-  UWORD                        m_DeviceNumber;
+  UWORD                        isapnpd_SupportedCommands;
+  UWORD                        isapnpd_DeviceNumber;
 };
 
-/* Flags for m_SupportedCommands */
+/* Flags for isapnpd_SupportedCommands */
 
 #define ISAPNP_DEVICE_SCF_BOOTABLE 0x01
 #define ISAPNP_DEVICE_SCB_BOOTABLE 0
@@ -99,17 +104,17 @@ struct ISAPNP_Device
 
 struct ISAPNP_ResourceGroup
 {
-  struct MinNode m_MinNode;
-  UBYTE          m_Type;
-  UBYTE          m_Pri;
+  struct MinNode isapnprg_MinNode;
+  UBYTE          isapnprg_Type;
+  UBYTE          isapnprg_Pri;
 
-  UWORD          m_Pad;
+  UWORD          isapnprg_Pad;
 
-  struct MinList m_Resources;
-  struct MinList m_ResourceGroups;
+  struct MinList isapnprg_Resources;
+  struct MinList isapnprg_ResourceGroups;
 };
 
-/* Priorities for m_Pri and PNPISA_AllocResourceGroup() */
+/* Priorities for isapnprg_Pri and PNPISA_AllocResourceGroup() */
 
 #define ISAPNP_RG_PRI_GOOD        64
 #define ISAPNP_RG_PRI_ACCEPTABLE  0
@@ -120,8 +125,8 @@ struct ISAPNP_ResourceGroup
 
 struct ISAPNP_Resource
 {
-  struct MinNode m_MinNode;
-  UBYTE          m_Type;
+  struct MinNode isapnpr_MinNode;
+  UBYTE          isapnpr_Type;
 };
 
 
@@ -129,14 +134,14 @@ struct ISAPNP_Resource
 
 struct ISAPNP_IRQResource
 {
-  struct MinNode m_MinNode;
-  UBYTE          m_Type;
+  struct MinNode isapnpirqr_MinNode;
+  UBYTE          isapnpirqr_Type;
   
-  UBYTE          m_IRQType;
-  UWORD          m_IRQMask;
+  UBYTE          isapnpirqr_IRQType;
+  UWORD          isapnpirqr_IRQMask;
 };
 
-/* Flags for m_IRQType */
+/* Flags for isapnpirqr_IRQType */
 
 #define ISAPNP_IRQRESOURCE_ITF_HIGH_EDGE  0x01
 #define ISAPNP_IRQRESOURCE_ITF_LOW_EDGE   0x02
@@ -152,14 +157,14 @@ struct ISAPNP_IRQResource
 
 struct ISAPNP_DMAResource
 {
-  struct MinNode m_MinNode;
-  UBYTE          m_Type;
+  struct MinNode isapnpdmar_MinNode;
+  UBYTE          isapnpdmar_Type;
 
-  UBYTE          m_ChannelMask;
-  UBYTE          m_Flags;
+  UBYTE          isapnpdmar_ChannelMask;
+  UBYTE          isapnpdmar_Flags;
 };
 
-/* Flags for m_Flags */
+/* Flags for isapnpdmar_Flags */
 
 #define ISAPNP_DMARESOURCE_F_TRANSFER_MASK  0x03
 #define ISAPNP_DMARESOURCE_F_TRANSFER_8BIT  0x00
@@ -184,19 +189,19 @@ struct ISAPNP_DMAResource
 
 struct ISAPNP_IOResource
 {
-  struct MinNode m_MinNode;
-  UBYTE          m_Type;
+  struct MinNode isapnpior_MinNode;
+  UBYTE          isapnpior_Type;
 
-  UBYTE          m_Flags;
+  UBYTE          isapnpior_Flags;
 
-  UBYTE          m_Alignment;
-  UBYTE          m_Length;
+  UBYTE          isapnpior_Alignment;
+  UBYTE          isapnpior_Length;
 
-  UWORD          m_MinBase;
-  UWORD          m_MaxBase;
+  UWORD          isapnpior_MinBase;
+  UWORD          isapnpior_MaxBase;
 };
 
-/* Flags for m_Flags */
+/* Flags for isapnpior_Flags */
 
 #define ISAPNP_IORESOURCE_FF_FULL_DECODE 0x01
 #define ISAPNP_IORESOURCE_FB_FULL_DECODE 0

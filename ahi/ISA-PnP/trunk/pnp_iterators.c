@@ -138,7 +138,7 @@ LockResource( struct ResourceIterator* iter,
 {
   struct ResourceIterator* conflict = NULL;
 
-  switch( iter->m_Resource->m_Type )
+  switch( iter->m_Resource->isapnpr_Type )
   {
     case ISAPNP_NT_IRQ_RESOURCE:
     {
@@ -279,7 +279,7 @@ UnlockResource( struct ResourceIterator* iter,
     return;
   }
 
-  switch( iter->m_Resource->m_Type )
+  switch( iter->m_Resource->isapnpr_Type )
   {
     case ISAPNP_NT_IRQ_RESOURCE:
     {
@@ -346,7 +346,7 @@ ResetResourceIterator( struct ResourceIterator* iter,
 {
   BOOL rc = FALSE;
 
-  switch( iter->m_Resource->m_Type )
+  switch( iter->m_Resource->isapnpr_Type )
   {
     case ISAPNP_NT_IRQ_RESOURCE:
     {
@@ -358,7 +358,7 @@ ResetResourceIterator( struct ResourceIterator* iter,
       
       while( iter->m_IRQBit < 16 )
       {
-        if( r->m_IRQMask & ( 1 << iter->m_IRQBit ) )
+        if( r->isapnpirqr_IRQMask & ( 1 << iter->m_IRQBit ) )
         {
           if( LockResource( iter, ctx ) )
           {
@@ -384,7 +384,7 @@ ResetResourceIterator( struct ResourceIterator* iter,
       
       while( iter->m_ChannelBit < 8 )
       {
-        if( r->m_ChannelMask & ( 1 << iter->m_ChannelBit ) )
+        if( r->isapnpdmar_ChannelMask & ( 1 << iter->m_ChannelBit ) )
         {
           if( LockResource( iter, ctx ) )
           {
@@ -406,11 +406,11 @@ ResetResourceIterator( struct ResourceIterator* iter,
       
       r = (struct ISAPNP_IOResource*) iter->m_Resource;
 
-      iter->m_Base   = r->m_MinBase;
-      iter->m_Length = r->m_Length;
+      iter->m_Base   = r->isapnpior_MinBase;
+      iter->m_Length = r->isapnpior_Length;
 
 
-      while( iter->m_Base <= r->m_MaxBase )
+      while( iter->m_Base <= r->isapnpior_MaxBase )
       {
         if( LockResource( iter, ctx ) )
         {
@@ -418,7 +418,7 @@ ResetResourceIterator( struct ResourceIterator* iter,
           break;
         }
 
-        iter->m_Base += r->m_Alignment;
+        iter->m_Base += r->isapnpior_Alignment;
       }
 
       break;
@@ -511,7 +511,7 @@ KPrintF( "AllocResourceIteratorList()\n" );
     
     r = (struct ISAPNP_Resource*) resource_list->mlh_Head;
     
-    while( r->m_MinNode.mln_Succ != NULL )
+    while( r->isapnpr_MinNode.mln_Succ != NULL )
     {
       struct ResourceIterator* iter;
       
@@ -527,7 +527,7 @@ KPrintF( "AllocResourceIteratorList()\n" );
       AddTail( (struct List*) &result->m_ResourceIterators,
                (struct Node*) iter );
       
-      r = (struct ISAPNP_Resource*) r->m_MinNode.mln_Succ;
+      r = (struct ISAPNP_Resource*) r->isapnpr_MinNode.mln_Succ;
     }
   }
 
@@ -593,7 +593,7 @@ IncResourceIterator( struct ResourceIterator* iter,
 
   UnlockResource( iter, ctx );
 
-  switch( iter->m_Resource->m_Type )
+  switch( iter->m_Resource->isapnpr_Type )
   {
     case ISAPNP_NT_IRQ_RESOURCE:
     {
@@ -605,7 +605,7 @@ IncResourceIterator( struct ResourceIterator* iter,
       {
         ++iter->m_IRQBit;
 
-        if( r->m_IRQMask & ( 1 << iter->m_IRQBit ) )
+        if( r->isapnpirqr_IRQMask & ( 1 << iter->m_IRQBit ) )
         {
           rc = LockResource( iter, ctx );
         }
@@ -624,7 +624,7 @@ IncResourceIterator( struct ResourceIterator* iter,
       {
         ++iter->m_ChannelBit;
 
-        if( r->m_ChannelMask & ( 1 << iter->m_ChannelBit ) )
+        if( r->isapnpdmar_ChannelMask & ( 1 << iter->m_ChannelBit ) )
         {
           rc = LockResource( iter, ctx );
         }
@@ -639,11 +639,11 @@ IncResourceIterator( struct ResourceIterator* iter,
 
       r = (struct ISAPNP_IOResource*) iter->m_Resource;
       
-      while( ! rc && iter->m_Base <= r->m_MaxBase )
+      while( ! rc && iter->m_Base <= r->isapnpior_MaxBase )
       {
-        iter->m_Base += r->m_Alignment;
+        iter->m_Base += r->isapnpior_Alignment;
 
-        if( iter->m_Base <= r->m_MaxBase )
+        if( iter->m_Base <= r->isapnpior_MaxBase )
         {
           rc = LockResource( iter, ctx );
         }
@@ -718,14 +718,14 @@ CreateResource( struct ResourceIterator* iter,
 {
   struct ISAPNP_Resource* result = NULL;
 
-  result = ISAPNP_AllocResource( iter->m_Resource->m_Type, res );
+  result = ISAPNP_AllocResource( iter->m_Resource->isapnpr_Type, res );
 
   if( result == NULL )
   {
     return NULL;
   }
 
-  switch( iter->m_Resource->m_Type )
+  switch( iter->m_Resource->isapnpr_Type )
   {
     case ISAPNP_NT_IRQ_RESOURCE:
     {
@@ -736,10 +736,10 @@ CreateResource( struct ResourceIterator* iter,
       // Make a copy of the iterators resource
 
       CopyMem( iter->m_Resource, r, sizeof( *r ) );
-      r->m_MinNode.mln_Succ = NULL;
-      r->m_MinNode.mln_Pred = NULL;
+      r->isapnpirqr_MinNode.mln_Succ = NULL;
+      r->isapnpirqr_MinNode.mln_Pred = NULL;
       
-      r->m_IRQMask = 1 << iter->m_IRQBit;
+      r->isapnpirqr_IRQMask = 1 << iter->m_IRQBit;
 
       break;
     }
@@ -753,10 +753,10 @@ CreateResource( struct ResourceIterator* iter,
       // Make a copy of the iterators resource
 
       CopyMem( iter->m_Resource, r, sizeof( *r ) );
-      r->m_MinNode.mln_Succ = NULL;
-      r->m_MinNode.mln_Pred = NULL;
+      r->isapnpdmar_MinNode.mln_Succ = NULL;
+      r->isapnpdmar_MinNode.mln_Pred = NULL;
       
-      r->m_ChannelMask = 1 << iter->m_ChannelBit;
+      r->isapnpdmar_ChannelMask = 1 << iter->m_ChannelBit;
 
       break;
     }
@@ -770,12 +770,12 @@ CreateResource( struct ResourceIterator* iter,
       // Make a copy of the iterators resource
 
       CopyMem( iter->m_Resource, r, sizeof( *r ) );
-      r->m_MinNode.mln_Succ = NULL;
-      r->m_MinNode.mln_Pred = NULL;
+      r->isapnpior_MinNode.mln_Succ = NULL;
+      r->isapnpior_MinNode.mln_Pred = NULL;
 
-      r->m_MinBase   = iter->m_Base;
-      r->m_MaxBase   = iter->m_Base;
-      r->m_Alignment = 1;
+      r->isapnpior_MinBase   = iter->m_Base;
+      r->isapnpior_MaxBase   = iter->m_Base;
+      r->isapnpior_Alignment = 1;
 
       break;
     }

@@ -18,7 +18,10 @@ ISAC_ReadByte(address)(d0)
 ISAC_WriteByte(address,value)(d0,d1)
 ISAC_ReadWord(address)(d0)
 ISAC_WriteWord(address,value)(d0,d1)
-
+*
+* Structure allocation and deallocation
+*
+##private
 ISAPNP_AllocCard()()
 ISAPNP_FreeCard(card)(a0)
 ISAPNP_AllocDevice()()
@@ -27,9 +30,12 @@ ISAPNP_AllocResourceGroup(pri)(d0)
 ISAPNP_FreeResourceGroup(rg)(a0)
 ISAPNP_AllocResource(type)(d0)
 ISAPNP_FreeResource(r)(a0)
-
+*
+* Card and device handling
+*
 ISAPNP_ScanCards()()
 ISAPNP_ConfigureCards()()
+##public
 ISAPNP_FindCard(last_card,manufacturer,product,revision,serial)(a0,d0,d1,d2,d3)
 ISAPNP_FindDevice(last_device,manufacturer,product,revision)(a0,d0,d1,d2)
 

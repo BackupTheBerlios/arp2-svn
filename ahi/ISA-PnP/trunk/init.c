@@ -485,7 +485,7 @@ HandleToolTypes( UBYTE**            tool_types,
                                          serial,
                                          res ) ) != NULL )
         {
-          card->m_Disabled = TRUE;
+          card->isapnpc_Disabled = TRUE;
         }
       }
       else
@@ -511,7 +511,7 @@ HandleToolTypes( UBYTE**            tool_types,
                                           revision,
                                           res ) ) != NULL )
         {
-          dev->m_Disabled = TRUE;
+          dev->isapnpd_Disabled = TRUE;
         }
       }
       else
