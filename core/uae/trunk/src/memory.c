@@ -1279,7 +1279,7 @@ static uae_u8* create_memarea(char* name, int fd, struct memarea* real,
   memarea->fd   = fd;
 
   if (address == (uae_u32) MAPPED_MALLOC_UNKNOWN) {
-    static uae_u32 temp_address = 0x60000000;
+    static uae_u32 temp_address = 0x80000000;
     address = temp_address;
     temp_address += s;
   }
@@ -1306,17 +1306,6 @@ static uae_u8* create_memarea(char* name, int fd, struct memarea* real,
     }
 
     memareas = memarea;
-
-/*     printf("****************************************************************\n"); */
-/*     printf("mapped %08lx bytes at %p using fd %d (name %s) %s\n", */
-/* 	   memarea->size, memarea->addr, memarea->fd, memarea->name, */
-/* 	   memarea->real && memarea->real->addr != memarea->addr ? "(mirror)":""); */
-/*     uae_u32* p = mem; */
-/*     printf("%08lx %08lx %08lx %08lx %08lx %08lx %08lx %08lx\n", */
-/* 	   p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7]); */
-/*   char cmd[128]; */
-/*   sprintf(cmd,"cat /proc/%d/maps", getpid()); */
-/*   system(cmd); */
   }
   else {
     // This is just a re-mmap of the original memory area.
@@ -1330,46 +1319,36 @@ static uae_u8* create_memarea(char* name, int fd, struct memarea* real,
 }
 
 static void add_shmmaps (uae_u32 start, addrbank *what) {
-//			 uae_u32 size, uae_u32 realsize) {
-/*   printf("add_shmmaps(%08lx, %p, %08lx, %08lx)\n", */
-/* 	 start, what->baseaddr, size, realsize); */
-
   if (!canbang) {
     return;
   }
 
   if (what->baseaddr == NULL && ! what->check(0, 1)) {
-//    printf("No real memory!!\n");
-    return; // Nothing to do. There is no actual host memory attached to this bank.
+    return; // Nothing to do. There is no actual host memory attached
+	    // to this bank.
   }
   
-//  if (what->baseaddr == (uae_u8*) start) {
-//    printf("already mapped\n");
-//  }
-//  else {
-    struct memarea* mas;
-    uae_u8* mem;
+  struct memarea* mas;
+  uae_u8* mem;
     
-    for (mas = memareas; mas != NULL; mas = mas->next) {
-      if ((intptr_t) mas->addr <= what->baseaddr &&
-	  (intptr_t) (mas->addr + mas->size) > what->baseaddr) {
-//	printf("found original memory\n");
-	break;
-      }
+  for (mas = memareas; mas != NULL; mas = mas->next) {
+    if ((intptr_t) mas->addr <= what->baseaddr &&
+	(intptr_t) (mas->addr + mas->size) > what->baseaddr) {
+      break;
     }
+  }
 
-    if (mas == NULL) {
-      write_log ("NATMEM: Failed to find real memory at %p\n",
-		 what->baseaddr);
-      canbang = 0;
-    }
-    else if (create_memarea(mas->name, mas->fd, mas, start, mas->size) ==
-	     MAPPED_MALLOC_FAILED) {
-      write_log ("NATMEM: Failed to create mapping to %p at %p\n",
-		 what->baseaddr, (void*) start);
-      canbang = 0;
-    }
-//  }
+  if (mas == NULL) {
+    write_log ("NATMEM: Failed to find real memory at %p\n",
+	       what->baseaddr);
+    canbang = 0;
+  }
+  else if (create_memarea(mas->name, mas->fd, mas, start, mas->size) ==
+	   MAPPED_MALLOC_FAILED) {
+    write_log ("NATMEM: Failed to create mapping to %p at %p\n",
+	       what->baseaddr, (void*) start);
+    canbang = 0;
+  }
 }
 
 static void delete_shmmaps (uae_u32 start, uae_u32 size) {
