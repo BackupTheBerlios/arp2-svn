@@ -1,9 +1,14 @@
 \input amigatexinfo
 \input texinfo
 @c %**start of header
-@setfilename FlexCat_english.guide
+@c @setfilename FlexCat_english.guide
 @settitle FlexCat @value{VERSION}    Documentation
 @setchapternewpage off
+
+@dircategory GeekGadgets programming tools
+@direntry
+* FlexCat: (flexcat).            The flexible catalog generator.
+@end direntry
 
 @c  $VER: FlexCat_english.texinfo 2.4
 @c
@@ -1587,15 +1592,15 @@ Amiga-user for the next 8 years too. ;-)
 
      @item Italian translation reworked by Luca Nora <ln546991@@silab.dsi.unimi.it> and Giovanni Addabbo <gaddabbo@@imar.net>
 
-         @item Slovenian translation by Damir Arh <damir.arh@guest.arnes.si>
+         @item Slovenian translation by Damir Arh <damir.arh@@guest.arnes.si>
 
-         @item Dutch translation updated by Leon Woestenberg <leon@stack.nl>
+         @item Dutch translation updated by Leon Woestenberg <leon@@stack.nl>
 
 @end table
 
-@item Christian Hattemer <chris@heaven.riednet.wh.tu-darmstadt.de> for StormC source descriptors and updating german catalog
+@item Christian Hattemer <chris@@heaven.riednet.wh.tu-darmstadt.de> for StormC source descriptors and updating german catalog
 
-@item Sven Steiniger <ss37@irz301.inf.tu-dresden.de> for the new source descriptor for E programmers (E32e.sd)
+@item Sven Steiniger <ss37@@irz301.inf.tu-dresden.de> for the new source descriptor for E programmers (E32e.sd)
       
 
 @end table

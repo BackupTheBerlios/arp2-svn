@@ -12,7 +12,7 @@
 /* $Id: flexcat.c,v 1.2 1999/11/28 03:36:38 carlos Exp $ */
 
 
-#define __amigados
+//#define __amigados
 
 /// README
 /*
@@ -425,7 +425,7 @@ int i;
        int a = tolower( (int)*str1 );
        int b = tolower( (int)*str2 );
 
-       if( !a || !b )
+       if( !a && !b )
            break;
 
        if( a != b )
