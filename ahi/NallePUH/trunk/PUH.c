@@ -251,7 +251,7 @@ AllocPUH( void )
     // I don't know enough about the memory map to do that yet.
 
     //location = (void*) ( ( ( 0xdff000 & ~page_size ) - size ) & ~page_size );
-    location = 0x80dff000;
+    location = (void*) 0x80dff000;
 
     pd = (struct PUHData*) AllocVec( sizeof( struct PUHData ),
                                      MEMF_PUBLIC | MEMF_CLEAR );

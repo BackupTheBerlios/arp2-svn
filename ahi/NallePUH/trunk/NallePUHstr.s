@@ -45,6 +45,8 @@ msgActivate EQU 261
 msgDeactivate EQU 262
 	XDEF msgNallePUH
 msgNallePUH EQU 263
+	XDEF msgTest
+msgTest EQU 264
 
 	ENDC ; CATCOMP_NUMBERS
 
@@ -70,6 +72,8 @@ msgActivate_STR: DC.B '_Activate',$00
 msgDeactivate_STR: DC.B '_Deactivate',$00
 	XDEF msgNallePUH_STR
 msgNallePUH_STR: DC.B 'Nalle PUH',$00
+	XDEF msgTest_STR
+msgTest_STR: DC.B '_Test',$00
 
 	ENDC ; CATCOMP_STRINGS
 
@@ -98,6 +102,7 @@ AS4:	DC.L msgUninstall,msgUninstall_STR
 AS5:	DC.L msgActivate,msgActivate_STR
 AS6:	DC.L msgDeactivate,msgDeactivate_STR
 AS7:	DC.L msgNallePUH,msgNallePUH_STR
+AS8:	DC.L msgTest,msgTest_STR
 
 	ENDC ; CATCOMP_ARRAY
 
@@ -135,6 +140,9 @@ _CatCompBlock:
 	DC.L $107
 	DC.W $A
 	DC.B 'Nalle PUH',$00
+	DC.L $108
+	DC.W $6
+	DC.B '_Test',$00
 
 	ENDC ; CATCOMP_BLOCK
 

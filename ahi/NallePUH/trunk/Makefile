@@ -7,7 +7,7 @@ PHXASSFLAGS	= NOEXE QUIET SET "CATCOMP_ARRAY" \
 		  INCPATH Include: 
 
 TARGET	= NallePUH
-OBJECTS	= Nalle.o PUH.o GUICAT.o
+OBJECTS	= Nalle.o PUH.o NallePUHstr.o
 
 %.o:	%.c
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c $(OUTPUT_OPTION) $<
@@ -17,14 +17,14 @@ all:	$(TARGET)
 clean:
 	$(RM) $(TARGET) $(OBJECTS)
 
-$(TARGET): 	$(OBJECTS) GUI.o
+$(TARGET): 	$(OBJECTS) NallePUH.o
 	$(CC) $(LDFLAGS) $(OUTPUT_OPTION) $^
 
-GUICAT.s:	GUI.cd
+NallePUHstr.s:	NallePUH.cd
 	CatComp $< asmfile $@ XDEF
 
 Nalle.o:	Nalle.c PUH.h
 PUH.o:		PUH.c PUH.h
 
-GUICAT.o:	GUICAT.s
+NallePUHstr.o:	NallePUHstr.s
 	PhxAss $(PHXASSFLAGS) $< TO $@

@@ -21,13 +21,11 @@
 
 #include "CompilerSpecific.h"
 
-#include <dos/dos.h>
 #include <devices/ahi.h>
 #include <exec/errors.h>
 #include <exec/memory.h>
 
 #include <proto/ahi.h>
-#include <proto/dos.h>
 #include <proto/exec.h>
 
 #include <hardware/custom.h>
@@ -37,16 +35,24 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "NallePUH.h"
 #include "PUH.h"
 
 static struct MsgPort*      AHImp     = NULL;
 static struct AHIRequest*   AHIio     = NULL;
 static BYTE                 AHIDevice = IOERR_OPENFAIL;
 
-struct Library* AHIBase = NULL;
-struct Library* MMUBase = NULL;
+struct Library* AHIBase       = NULL;
+struct Library* MMUBase       = NULL;
+struct Library *IntuitionBase = NULL;
+struct Library *LocaleBase    = NULL;
+struct Library *ResourceBase  = NULL;
 
+static BOOL
+OpenLibs( void );
 
+static void
+CloseLibs( void );
 
 static BOOL 
 OpenAHI( void );
@@ -66,43 +72,50 @@ int
 main( int   argc,
       char* argv[] )
 {
-  int   rc = 0;
-  ULONG mode_id;
-  ULONG frequency;
+  int   rc        = 0;
+  BOOL  gui_mode  = FALSE;
+
+  ULONG mode_id   = 0;
+  ULONG frequency = 0;
+  ULONG level     = 0;
 
   char* mode_ptr;
   char* freq_ptr;
+  char* levl_ptr;
 
-  if( argc != 3 )
+
+  if( ! OpenLibs() )
   {
-    printf( "Usage: %s [0x]<AHI mode ID> <Frequency>\n", argv[ 0 ] );
     return 20;
+  }
+
+  if( argc == 1 && ResourceBase != NULL )
+  {
+    // Gui mode
+    
+    gui_mode = TRUE;
+  }
+  else if( argc != 4 )
+  {
+    printf( "Usage: %s [0x]<AHI mode ID> <Frequency> <Level>\n", argv[ 0 ] );
+    printf( "Level can be 0 (no patches), 1 (ROM patches) or 2 (appl. patches)\n" );
+    return 10;
   }
 
   mode_id   = strtol( argv[ 1 ], &mode_ptr, 0 );
   frequency = strtol( argv[ 2 ], &freq_ptr, 0 );
+  level     = strtol( argv[ 3 ], &levl_ptr, 0 );
 
-  if( *mode_ptr != 0 || *freq_ptr != 0 )
+  if( *mode_ptr != 0 || *freq_ptr != 0 || *levl_ptr != 0 )
   {
-    printf( "Both first and second argument must be a number.\n" );
-    return 20;
+    printf( "All arguments must be numbers.\n" );
+    return 10;
   }
 
-  printf( "Using mode ID 0x%08lx, %ld Hz.\n", mode_id, frequency );
-
-  DOSBase = (struct DosLibrary*) OpenLibrary( "dos.library", 37 );
-  MMUBase = OpenLibrary( "mmu.library", 41 );
-
-  if( DOSBase == NULL )
+  if( level > 2 )
   {
-    printf( "Unable to open dos.library version 37.\n" );
-    rc = 20;
-  }
-
-  if( MMUBase == NULL )
-  {
-    printf( "Unable to open mmu.library version 41.\n" );
-    rc = 20;
+    printf( "Invalid value for Level.\n" );
+    return 10;
   }
 
   if( ! OpenAHI() )
@@ -123,43 +136,71 @@ main( int   argc,
     }
     else
     {
-      if( ! InstallPUH( PUHF_PATCH_ROM | PUHF_PATCH_APPS, 
-                        mode_id, frequency,
-                        pd ) )
+      if( gui_mode )
       {
-        rc = 20;
+        
       }
       else
       {
-#if 1
-        if( ! ActivatePUH( pd ) )
+        ULONG flags = 0;
+        
+        printf( "Using mode ID 0x%08lx, %ld Hz.\n", mode_id, frequency );
+        
+        switch( level )
+        {
+          case 0:
+            printf( "No patches.\n" );
+
+            flags = PUHF_NONE;
+            break;
+
+          case 1:
+            printf( "ROM patches.\n" );
+
+            flags = PUHF_PATCH_ROM;
+            break;
+            
+          case 2:
+            printf( "ROM and application patches.\n" );
+
+            flags = PUHF_PATCH_ROM | PUHF_PATCH_APPS;
+            break;
+        }
+
+        if( ! InstallPUH( flags,
+                          mode_id, frequency,
+                          pd ) )
         {
           rc = 20;
         }
         else
-#endif
         {
-          Test( (struct Custom*) 0xdff000 );
+          if( ! ActivatePUH( pd ) )
+          {
+            rc = 20;
+          }
+          else
+          {
+          //Test( (struct Custom*) 0xdff000 );
 
-          printf( "Waiting for CTRL-C...\n" );
-          Wait( SIGBREAKF_CTRL_C );
-          printf( "Got it.\n" );
+            printf( "Waiting for CTRL-C...\n" );
+            Wait( SIGBREAKF_CTRL_C );
+            printf( "Got it.\n" );
         
-          DeactivatePUH( pd );
+            DeactivatePUH( pd );
+          }
+        
+          UninstallPUH( pd );
         }
-        
-        UninstallPUH( pd );
       }
-      
+
       FreePUH( pd );
     }
   }
 
 
   CloseAHI();
-  // We must not close mmu.library if we have pached applications!
-//  CloseLibrary( MMUBase );
-  CloseLibrary( (struct Library*) DOSBase );
+  CloseLibs();
 
   return rc;
 }
@@ -171,6 +212,9 @@ BYTE samples[] =
   0, 90, 127, 90, 0, -90, -127, -90
 };
 
+
+
+#if 0
 
 
 /******************************************************************************
@@ -250,6 +294,60 @@ Test( struct Custom* custom )
   FreeVec( chip );
 }
 
+#endif
+
+/******************************************************************************
+** OpenLibs *******************************************************************
+******************************************************************************/
+
+static BOOL
+OpenLibs( void )
+{
+  IntuitionBase = OpenLibrary( "intuition.library", 39 );
+  LocaleBase    = OpenLibrary( "locale.library", 39 );
+  ResourceBase  = OpenLibrary( "resource.library", 44 );
+  MMUBase       = OpenLibrary( "mmu.library", 41 );
+
+  if( IntuitionBase == NULL || 
+      LocaleBase    == NULL ||
+      ResourceBase  == NULL )
+  {
+    CloseLibrary( IntuitionBase );
+    CloseLibrary( LocaleBase );
+    CloseLibrary( ResourceBase );
+    
+    IntuitionBase = NULL;
+    LocaleBase    = NULL;
+    ResourceBase  = NULL;
+    
+    printf( "The GUI requires AmigaOS 3.5.\n" );
+  }
+
+  if( MMUBase == NULL )
+  {
+    printf( "Unable to open mmu.library version 41.\n" );
+    CloseLibs();
+    return FALSE;
+  }
+  
+  return TRUE;
+}
+
+
+/******************************************************************************
+** CloseLibs ******************************************************************
+******************************************************************************/
+
+static void
+CloseLibs( void )
+{
+  CloseLibrary( IntuitionBase );
+  CloseLibrary( LocaleBase );
+  CloseLibrary( ResourceBase );
+
+  // We must not close mmu.library if we have pached applications running!
+  //  CloseLibrary( MMUBase );
+}
 
 /******************************************************************************
 ** OpenAHI ********************************************************************
