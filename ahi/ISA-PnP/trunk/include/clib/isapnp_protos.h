@@ -46,7 +46,7 @@ void ISAC_WriteWord( ULONG address, UWORD value );
 
 // Structure allocation and deallocation (private)
 
-struct ISAPNP_Card* ISAPNP_AllocCard( struct ISAPNPBase* res );
+struct ISAPNP_Card* ISAPNP_AllocCard( void );
 void ISAPNP_FreeCard( struct ISAPNP_Card* card );
 
 struct ISAPNP_Device* ISAPNP_AllocDevice( void );
