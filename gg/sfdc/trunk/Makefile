@@ -1,4 +1,7 @@
 
+VERSION		= 1.0
+DATE		= 2003-07-22
+
 MAIN		= main.pl
 CLASSES		= $(wildcard [A-Z]*.pl)
 PODS		= SFDCompile.pod
@@ -12,11 +15,11 @@ clean:
 	$(RM) $(EXECUTABLE) $(MAN) $(TXT)
 
 $(EXECUTABLE):	$(MAIN) $(CLASSES) $(PODS)
-	cat >$@ $^
+	sed "s/SFDC_VERSION/$(VERSION)/g" $^ | sed "s/SFDC_DATE/$(DATE)/g" >$@
 	chmod +x $@
 
-$(MAN):	$(PODS)
+$(MAN):	$(EXECUTABLE)
 	pod2man $^ -o $@
 
-$(TXT):	$(PODS)
+$(TXT):	$(EXECUTABLE)
 	pod2text -c $^ -o $@

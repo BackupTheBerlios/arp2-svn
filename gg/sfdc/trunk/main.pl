@@ -97,7 +97,7 @@ GetOptions ('gateprefix=s' => \$gateprefix,
 	    'version|v'    => \$version) or exit 10;
 
 if ($version) {
-    print STDERR "sfdc 1.0 (16.07.2003)\n";
+    print STDERR "sfdc SFDC_VERSION (SFDC_DATE)\n";
     print STDERR "Copyright (C) 2003 Martin Blom <martin\@blom.org>\n";
     print STDERR "This is free software; " .
 	"see the source for copying conditions.\n";

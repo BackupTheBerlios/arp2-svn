@@ -13,7 +13,7 @@ sfdc [options] file1.sfd [file2.sfd ...]
   Options:
     --gateprefix=PREFIX     Prefix for gatestub functions
     --help -h               Show full help message and exit
-    --libarg=LOCATION       Where to pass the libbase for library functions
+    --libarg=LOCATION       Where to pass the libbase
     --libprefix=PREFIX      Prefix for library functions
     --man                   Show full manual page and exit
     --mode=MODE             What to do
@@ -78,11 +78,17 @@ Dumps all information gathered from the SFD file. This is the default.
 Generate an old-style FD file.
 
     
+=item B<gatestubs>
+
+Generate library gate stubs. Useful for library and device developers.
+
+
 =item B<macros>
 
-Generate a headerfile containing F<gcc> specific preprocessor macros,
-similar to F<fd2inline>'s B<--new> switch. For targets, it generates a
-file suitable to be placed in the F<Include/defines/> directory.
+Generate a header file containing F<gcc> specific preprocessor macros,
+similar to F<fd2inline>'s B<--new> switch. For AROS targets, it
+generates a file suitable to be placed in the F<Include/defines/>
+directory.
 
     
 =item B<proto>
@@ -96,7 +102,8 @@ the C prototypes as well as compiler-specific inlines or pragma files.
 Generate C library stubs suitable to be compiled and archived into
 F<libamiga.a>, F<libamigastubs.a> or
 F<libI<E<lt>moduleE<gt>>.a>. Using the B<%f> escape sequence in the
-B<--output> switch is strongly recommended.
+B<--output> switch or a tool like F<splitasm.awk> strongly is
+recommended.
 
 =back
 
@@ -112,7 +119,7 @@ processed.
 
 =item B<%b>
 
-The library base variable name (C<_DOSBase>, for example).
+The library base variable name (C<DOSBase>, for example).
 
 =item B<%f>
 
