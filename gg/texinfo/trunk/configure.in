@@ -11,7 +11,11 @@ dnl Checks for programs.
 AC_PROG_CC
 AC_PROG_GCC_TRADITIONAL
 AC_PROG_INSTALL
-AC_PROG_RANLIB
+AC_CHECK_TOOL(RANLIB, ranlib, :)
+### begin-GG-local
+AC_CHECK_TOOL(AR, ar)
+AC_ARFLAGS
+### end-GG-local
 
 # We do this for the sake of a more helpful warning in doc/Makefile.
 TEXMF='$(datadir)/texmf'
@@ -62,6 +66,50 @@ AC_CHECK_FUNCS(setvbuf getcwd memset bzero strchr strcasecmp \
   sigprocmask sigsetmask)
 dnl strcasecmp, strerror, xmalloc, xrealloc, probably others should be added.
 AC_REPLACE_FUNCS(memcpy memmove strdup strerror)
+
+# We use our own version of getopt (including our own header file) if the
+# system one doesn't have getopt_long.  The problem we have is that we can't
+# just arbitrarily use the one in libs.  Some systems, notably those that use
+# the Microsoft style of shared library linkage, require special "cruft" in
+# the declarations (__declspec(dllimport)) to properly import global variables
+# set by the shared library functions.  Thus we not only have to use the version
+# of getopt supplied by the system, but we must also ensure that we use the
+# getopt.h supplied by the system.  On the other hand, if we use our replacement
+# getopt, then we must ensure that we also use the corresponding replacement
+# getopt.h.  Using the system getopt() with our getopt.h or vice versa, is a sure
+# recipe for disaster if there is any mismatch.
+
+private_getopt=
+AC_CHECK_FUNC(getopt_long, :, private_getopt=yes)
+AC_CHECK_HEADER(getopt.h, AC_DEFINE(HAVE_GETOPT_H), private_getopt=yes)
+if test -n "$private_getopt"; then
+  getopt_dist=lib/getopt.h.dist
+  getopt_used=lib/getopt.h
+  LIBOBJS="$LIBOBJS getopt.o getopt1.o"
+fi
+AC_LINK_FILES($getopt_dist,$getopt_used)
+
+dnl Enable AmigaGuide target, even on non-AmigaDOS platforms
+AC_ARG_ENABLE(amigaguide,
+[  --enable-amigaguide     Allow AmigaGuide target on non-AmigaDOS platforms],
+  [case "${enableval}" in
+    yes) configure_amigaguide=true ;;
+    no) configure_amigaguide=false ;;
+    *) AC_MSG_ERROR(bad value ${enableval} for AmigaGuide option) ;;
+   esac],
+  [configure_amigaguide=false])
+
+dnl This should always be true for the GeekGadgets version of makeinfo, 
+dnl so enable amigaguide explicit, and use this for conditionals in the
+dnl documentation as well.
+
+configure_amigaguide=true
+
+if test "x$configure_amigaguide" = "xtrue"; then
+  AC_DEFINE(ENABLE_AMIGAGUIDE)
+fi
+
+AM_CONDITIONAL(DOC_AMIGAGUIDE, test "x$configure_amigaguide" = "xtrue")
 
 dnl Set of available languages and i18n macros.
 ALL_LINGUAS="de fr"

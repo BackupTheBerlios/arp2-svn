@@ -1,6 +1,7 @@
-# Makefile.in generated automatically by automake 1.2f from Makefile.am
+# Makefile.in generated automatically by automake 1.5 from Makefile.am.
 
-# Copyright (C) 1994, 1995, 1996, 1997, 1998 Free Software Foundation, Inc.
+# Copyright 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001
+# Free Software Foundation, Inc.
 # This Makefile.in is free software; the Free Software Foundation
 # gives unlimited permission to copy and/or distribute it,
 # with or without modifications, as long as this notice is preserved.
@@ -10,8 +11,9 @@
 # even the implied warranty of MERCHANTABILITY or FITNESS FOR A
 # PARTICULAR PURPOSE.
 
+@SET_MAKE@
 
-SHELL = /bin/sh
+SHELL = @SHELL@
 
 srcdir = @srcdir@
 top_srcdir = @top_srcdir@
@@ -28,14 +30,16 @@ sharedstatedir = @sharedstatedir@
 localstatedir = @localstatedir@
 libdir = @libdir@
 infodir = @infodir@
+guidedir = @guidedir@
+htmldir = @htmldir@
+dvidir = @dvidir@
+psdir = @psdir@
 mandir = @mandir@
 includedir = @includedir@
 oldincludedir = /usr/include
-
 pkgdatadir = $(datadir)/@PACKAGE@
 pkglibdir = $(libdir)/@PACKAGE@
 pkgincludedir = $(includedir)/@PACKAGE@
-
 top_builddir = ..
 
 ACLOCAL = @ACLOCAL@
@@ -47,30 +51,40 @@ INSTALL = @INSTALL@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
 INSTALL_DATA = @INSTALL_DATA@
 INSTALL_SCRIPT = @INSTALL_SCRIPT@
+INSTALL_HEADER = $(INSTALL_DATA)
 transform = @program_transform_name@
-
 NORMAL_INSTALL = :
 PRE_INSTALL = :
 POST_INSTALL = :
 NORMAL_UNINSTALL = :
 PRE_UNINSTALL = :
 POST_UNINSTALL = :
+host_alias = @host_alias@
+host_triplet = @host@
+AMTAR = @AMTAR@
+AR = @AR@
+AWK = @AWK@
+BUILD_INCLUDED_LIBINTL = @BUILD_INCLUDED_LIBINTL@
 CATALOGS = @CATALOGS@
 CATOBJEXT = @CATOBJEXT@
 CC = @CC@
 DATADIRNAME = @DATADIRNAME@
+DEPDIR = @DEPDIR@
+EXEEXT = @EXEEXT@
 GENCAT = @GENCAT@
+GLIBC21 = @GLIBC21@
 GMOFILES = @GMOFILES@
 GMSGFMT = @GMSGFMT@
-GT_NO = @GT_NO@
-GT_YES = @GT_YES@
-INCLUDE_LOCALE_H = @INCLUDE_LOCALE_H@
+INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
 INSTOBJEXT = @INSTOBJEXT@
-INTLDEPS = @INTLDEPS@
+INTLBISON = @INTLBISON@
 INTLLIBS = @INTLLIBS@
 INTLOBJS = @INTLOBJS@
+INTL_LIBTOOL_SUFFIX_PREFIX = @INTL_LIBTOOL_SUFFIX_PREFIX@
+LIBICONV = @LIBICONV@
 MKINSTALLDIRS = @MKINSTALLDIRS@
 MSGFMT = @MSGFMT@
+OBJEXT = @OBJEXT@
 PACKAGE = @PACKAGE@
 POFILES = @POFILES@
 POSUB = @POSUB@
@@ -80,131 +94,213 @@ TEXCONFIG = @TEXCONFIG@
 USE_INCLUDED_LIBINTL = @USE_INCLUDED_LIBINTL@
 USE_NLS = @USE_NLS@
 VERSION = @VERSION@
-l = @l@
+am__include = @am__include@
+am__quote = @am__quote@
+install_sh = @install_sh@
+
+# We try to discover this via configure just to give a better help message.
+TEXMF = @TEXMF@
 
 info_TEXINFOS = info-stnd.texi info.texi texinfo.txi
 
-# Use the programs built in our distribution.
-MAKEINFO = ../makeinfo/makeinfo
+@DOC_AMIGAGUIDE_TRUE@EXTRA_INFO_FLAGS = -DAGdoc
+@DOC_AMIGAGUIDE_FALSE@EXTRA_INFO_FLAGS = 
+
+# Use the makeinfo built in our distribution.
+MAKEINFO = ../makeinfo/makeinfo $(EXTRA_INFO_FLAGS)
 INSTALL_INFO = ../util/install-info
 
 # Include our texinfo.tex, not Automake's.
 EXTRA_DIST = macro.texi userdoc.texi epsf.tex texinfo.tex
-
-# We try to discover this via configure just to give a better help message.
-TEXMF = @TEXMF@
+subdir = doc
 mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
-CONFIG_HEADER = ../config.h
-CONFIG_CLEAN_FILES = 
-TEXI2DVI = texi2dvi
-TEXINFO_TEX = $(srcdir)/texinfo.tex
+CONFIG_HEADER = $(top_builddir)/config.h
+CONFIG_CLEAN_FILES =
+DIST_SOURCES =
 INFO_DEPS = info-stnd.info info.info texinfo
 DVIS = info-stnd.dvi info.dvi texinfo.dvi
 TEXINFOS = info-stnd.texi info.texi texinfo.txi
-DIST_COMMON =  README $(info_TEXINFOS) Makefile.am Makefile.in \
-texinfo.tex
-
-
-DISTFILES = $(DIST_COMMON) $(SOURCES) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
-
-TAR = tar
-GZIP = --best
-default: all
+GUIDES = info-stnd.guide info.guide texinfo.guide
+GUIDE_DEPS = info-stnd.guide info.guide texinfo.guide
+HTMLS = info-stnd.html info.html texinfo.html
+HTML_DEPS = info-stnd.html info.html texinfo.html
+PS_S = info-stnd.ps info.ps texinfo.ps
+PS_DEPS = info-stnd.ps info.ps texinfo.ps
+DIST_COMMON = README $(info_TEXINFOS) Makefile.am Makefile.in \
+	texinfo.tex
+all: all-am
 
 .SUFFIXES:
-.SUFFIXES: .dvi .info .ps .texi .texinfo .txi
-$(srcdir)/Makefile.in: Makefile.am $(top_srcdir)/configure.in $(ACLOCAL_M4) 
-	cd $(top_srcdir) && $(AUTOMAKE) --gnu --include-deps doc/Makefile
-
-Makefile: $(srcdir)/Makefile.in $(top_builddir)/config.status
-	cd $(top_builddir) \
-	  && CONFIG_FILES=$(subdir)/$@ CONFIG_HEADERS= $(SHELL) ./config.status
-
+.SUFFIXES: .dvi .guide .html .info .ps .texi .texinfo .txi
+$(srcdir)/Makefile.in:  Makefile.am  $(top_srcdir)/configure.in $(ACLOCAL_M4)
+	cd $(top_srcdir) && \
+	  $(AUTOMAKE) --gnu  doc/Makefile
+Makefile:  $(srcdir)/Makefile.in  $(top_builddir)/config.status
+	cd $(top_builddir) && \
+	  CONFIG_HEADERS= CONFIG_LINKS= \
+	  CONFIG_FILES=$(subdir)/$@ $(SHELL) ./config.status
 
 info-stnd.info: info-stnd.texi
 info-stnd.dvi: info-stnd.texi
-
+info-stnd.guide: info-stnd.texi
+info-stnd.html: info-stnd.texi
+info-stnd.ps: info-stnd.texi
 
 info.info: info.texi $(info_TEXINFOS)
 info.dvi: info.texi $(info_TEXINFOS)
-
+info.guide: info.texi $(info_TEXINFOS)
+info.html: info.texi $(info_TEXINFOS)
+info.ps: info.texi $(info_TEXINFOS)
 
 texinfo: texinfo.txi
 texinfo.dvi: texinfo.txi
-
-
-DVIPS = dvips
+texinfo.guide: texinfo.txi
+texinfo.html: texinfo.txi
+texinfo.ps: texinfo.txi
 
 .texi.dvi:
 	TEXINPUTS=$(srcdir):$$TEXINPUTS \
-	  MAKEINFO='$(MAKEINFO) -I $(srcdir)' $(TEXI2DVI) $<
+	MAKEINFO='$(MAKEINFO) $(AM_MAKEINFOFLAGS) $(MAKEINFOFLAGS) -I $(srcdir)' \
+	$(TEXI2DVI) $<
 
 .texi:
-	@cd $(srcdir) && rm -f $@ $@-[0-9] $@-[0-9][0-9]
-	cd $(srcdir) \
-	  && $(MAKEINFO) `echo $< | sed 's,.*/,,'`
-
-.texinfo.info:
-	@cd $(srcdir) && rm -f $@ $@-[0-9] $@-[0-9][0-9]
-	cd $(srcdir) \
-	  && $(MAKEINFO) `echo $< | sed 's,.*/,,'`
-
-.texinfo:
-	@cd $(srcdir) && rm -f $@ $@-[0-9] $@-[0-9][0-9]
-	cd $(srcdir) \
-	  && $(MAKEINFO) `echo $< | sed 's,.*/,,'`
-
-.texinfo.dvi:
-	TEXINPUTS=$(srcdir):$$TEXINPUTS \
-	  MAKEINFO='$(MAKEINFO) -I $(srcdir)' $(TEXI2DVI) $<
+	@rm -f $@ $@-[0-9] $@-[0-9][0-9]
+	$(MAKEINFO) $(AM_MAKEINFOFLAGS) $(MAKEINFOFLAGS) \
+	  -I $(srcdir) $<
 
 .txi.info:
-	@cd $(srcdir) && rm -f $@ $@-[0-9] $@-[0-9][0-9]
-	cd $(srcdir) \
-	  && $(MAKEINFO) `echo $< | sed 's,.*/,,'`
+	@rm -f $@ $@-[0-9] $@-[0-9][0-9]
+	$(MAKEINFO) $(AM_MAKEINFOFLAGS) $(MAKEINFOFLAGS) \
+	  -I $(srcdir) $<
 
 .txi.dvi:
 	TEXINPUTS=$(srcdir):$$TEXINPUTS \
-	  MAKEINFO='$(MAKEINFO) -I $(srcdir)' $(TEXI2DVI) $<
+	MAKEINFO='$(MAKEINFO) $(AM_MAKEINFOFLAGS) $(MAKEINFOFLAGS) -I $(srcdir)' \
+	$(TEXI2DVI) $<
 
 .txi:
-	@cd $(srcdir) && rm -f $@ $@-[0-9] $@-[0-9][0-9]
-	cd $(srcdir) \
-	  && $(MAKEINFO) `echo $< | sed 's,.*/,,'`
+	@rm -f $@ $@-[0-9] $@-[0-9][0-9]
+	$(MAKEINFO) $(AM_MAKEINFOFLAGS) $(MAKEINFOFLAGS) \
+	  -I $(srcdir) $<
+
+MAKEGUIDE= $(MAKEINFO) --amiga
+
+MAKEHTML = texi2html -number -split_chapter
+
+.texi.guide:
+	$(MAKEGUIDE) -I$(srcdir) $< -o $@
+
+.texinfo.guide:
+	$(MAKEGUIDE) -I$(srcdir) $< -o $@
+
+.txi.guide:
+	$(MAKEGUIDE) -I$(srcdir) $< -o $@
+
+.texi.html:
+	$(MAKEHTML) -I$(srcdir) $< 
+
+.texinfo.html:
+	$(MAKEHTML) -I$(srcdir) $< 
+install-guide: $(GUIDE_DEPS)
+	$(mkinstalldirs) $(DESTDIR)$(guidedir)
+	for file in $(GUIDE_DEPS); do		\
+	  for ifile in `echo $$file*`; do \
+	    $(INSTALL_DATA) $$ifile $(DESTDIR)$(guidedir)/$$ifile; \
+	  done;					\
+	done
+
+uninstall-guide:
+	for file in *.guide*; do	\
+	  rm -f $(DESTDIR)$(guidedir)/$$file; \
+	done
+
+install-ps: $(PS_S)
+	$(mkinstalldirs) $(DESTDIR)$(psdir)
+	for file in $(PS_DEPS); do		\
+	  for ifile in `echo $$file*`; do \
+	    $(INSTALL_DATA) $$ifile $(DESTDIR)$(psdir)/$$ifile; \
+	  done;					\
+	done
+
+uninstall-ps:
+	for file in *.ps*; do	\
+	  rm -f $(DESTDIR)$(psdir)/$$file; \
+	done
+
+install-dvi: $(DVIS)
+	$(mkinstalldirs) $(DESTDIR)$(dvidir)
+	for file in $(DVIS); do		\
+	  for ifile in `echo $$file*`; do \
+	    $(INSTALL_DATA) $$ifile $(DESTDIR)$(dvidir)/$$ifile; \
+	  done;					\
+	done
+
+uninstall-dvi:
+	for file in *.dvi*; do	\
+	  rm -f $(DESTDIR)$(dvidir)/$$file; \
+	done
+install-html: $(HTML_DEPS)
+	$(mkinstalldirs) $(DESTDIR)$(htmldir)
+	@touch $(HTML_DEPS)
+	@for file in $(HTML_DEPS); do \
+	  if test -f $$file; then d=.; else d=$(srcdir); fi; \
+	  bfile=`basename $$file .html`; \
+	  for ifile in `cd $$d && echo $$file $$bfile'_toc.html' $$bfile'_foot.html' $$bfile'_[0-9].html' $$bfile'_[0-9][0-9].html'`; do \
+	    if test -f $$d/$$ifile; then \
+	      echo " $(INSTALL_DATA) $$d/$$ifile $(DESTDIR)$(htmldir)/$$ifile"; \
+	      $(INSTALL_DATA) $$d/$$ifile $(DESTDIR)$(htmldir)/$$ifile; \
+	    else : ; fi; \
+	  done; \
+	done
+	@rm -f $(htmldir)/$(HTML_DEPS)
+
+uninstall-html:
+	@for file in $(HTML_DEPS); do \
+	  bfile=`basename $$file .html`; \
+	  for ifile in `cd $(DESTDIR)$(htmldir) && echo $$file $$bfile'_toc.html' $$bfile'_foot.html' $$bfile'_[0-9].html' $$bfile'_[0-9][0-9].html'`; do \
+	    echo "removing: $(DESTDIR)$(htmldir)/$$ifile"; \
+	    rm -f $(DESTDIR)$(htmldir)/$$ifile; \
+	  done; \
+	done
+
+TEXI2DVI = `if test -f $(top_srcdir)/../texinfo/util/texi2dvi; then \
+             echo $(top_srcdir)/../texinfo/util/texi2dvi; \
+           else \
+             echo texi2dvi; \
+           fi`
+DVIPS = dvips
 .dvi.ps:
 	$(DVIPS) $< -o $@
 
-uninstall-info:
+uninstall-info-am:
 	$(PRE_UNINSTALL)
-	@if $(SHELL) -c 'install-info --version | sed 1q | fgrep -s -v -i debian' >/dev/null 2>&1; then \
-	  ii=yes; \
-	else ii=; fi; \
-	for file in $(INFO_DEPS); do \
-	  test -z "$ii" \
-	    || install-info --info-dir=$(infodir) --remove $$file; \
-	done
+	@if (install-info --version && \
+	     install-info --version | fgrep -i -v debian) >/dev/null 2>&1; then \
+	  list='$(INFO_DEPS)'; \
+	  for file in $$list; do \
+	    echo " install-info --info-dir=$(DESTDIR)$(infodir) --remove $(DESTDIR)$(infodir)/$$file"; \
+	    install-info --info-dir=$(DESTDIR)$(infodir) --remove $(DESTDIR)$(infodir)/$$file; \
+	  done; \
+	else :; fi
 	@$(NORMAL_UNINSTALL)
-	for file in $(INFO_DEPS); do \
-	  (cd $(infodir) && rm -f $$file $$file-[0-9] $$file-[0-9][0-9]); \
+	@list='$(INFO_DEPS)'; \
+	for file in $$list; do \
+	  (if cd $(DESTDIR)$(infodir); then \
+	     echo " rm -f $$file $$file-[0-9] $$file-[0-9][0-9])"; \
+	     rm -f $$file $$file-[0-9] $$file-[0-9][0-9]; \
+	   else :; fi); \
 	done
 
 mostlyclean-aminfo:
-	-rm -f info-stnd.aux info-stnd.cp info-stnd.cps info-stnd.dvi \
-	  info-stnd.fn info-stnd.fns info-stnd.ky info-stnd.kys \
-	  info-stnd.ps info-stnd.log info-stnd.pg info-stnd.toc \
-	  info-stnd.tp info-stnd.tps info-stnd.vr info-stnd.vrs \
-	  info-stnd.op info-stnd.tr info-stnd.cv info-stnd.cn info.aux \
-	  info.cp info.cps info.dvi info.fn info.fns info.ky info.kys \
-	  info.ps info.log info.pg info.toc info.tp info.tps info.vr \
-	  info.vrs info.op info.tr info.cv info.cn texinfo.aux \
-	  texinfo.cp texinfo.cps texinfo.dvi texinfo.fn texinfo.fns \
-	  texinfo.ky texinfo.kys texinfo.ps texinfo.log texinfo.pg \
-	  texinfo.toc texinfo.tp texinfo.tps texinfo.vr texinfo.vrs \
-	  texinfo.op texinfo.tr texinfo.cv texinfo.cn
-
-clean-aminfo:
-
-distclean-aminfo:
+	-rm -f info-stnd.aux info-stnd.cp info-stnd.cps info-stnd.dvi info-stnd.fn \
+	  info-stnd.guide info-stnd.html info-stnd.ky info-stnd.log \
+	  info-stnd.pg info-stnd.ps info-stnd.toc info-stnd.tp \
+	  info-stnd.vr info.aux info.cp info.dvi info.fn info.guide \
+	  info.html info.ky info.log info.pg info.ps info.toc info.tp \
+	  info.vr texinfo.aux texinfo.cp texinfo.cps texinfo.dvi \
+	  texinfo.fn texinfo.fns texinfo.guide texinfo.html texinfo.ky \
+	  texinfo.log texinfo.op texinfo.pg texinfo.ps texinfo.toc \
+	  texinfo.tp texinfo.vr
 
 maintainer-clean-aminfo:
 	for i in $(INFO_DEPS); do \
@@ -213,77 +309,137 @@ maintainer-clean-aminfo:
 	    rm -f $$i-[0-9]*; \
 	  fi; \
 	done
+
+clean-info: mostlyclean-aminfo
 tags: TAGS
 TAGS:
 
 
-distdir = $(top_builddir)/$(PACKAGE)-$(VERSION)/$(subdir)
+DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 
-subdir = doc
+top_distdir = ..
+distdir = $(top_distdir)/$(PACKAGE)-$(VERSION)
 
 distdir: $(DISTFILES)
 	@for file in $(DISTFILES); do \
-	  d=$(srcdir); \
-	  test -f $(distdir)/$$file \
-	  || ln $$d/$$file $(distdir)/$$file 2> /dev/null \
-	  || cp -p $$d/$$file $(distdir)/$$file; \
+	  if test -f $$file; then d=.; else d=$(srcdir); fi; \
+	  dir=`echo "$$file" | sed -e 's,/[^/]*$$,,'`; \
+	  if test "$$dir" != "$$file" && test "$$dir" != "."; then \
+	    $(mkinstalldirs) "$(distdir)/$$dir"; \
+	  fi; \
+	  if test -d $$d/$$file; then \
+	    cp -pR $$d/$$file $(distdir) \
+	    || exit 1; \
+	  else \
+	    test -f $(distdir)/$$file \
+	    || cp -p $$d/$$file $(distdir)/$$file \
+	    || exit 1; \
+	  fi; \
 	done
-	$(MAKE) top_distdir="$(top_distdir)" distdir="$(distdir)" dist-info
-info: $(INFO_DEPS)
-dvi: $(DVIS)
-check: all
-	$(MAKE)
-installcheck:
-install-exec: 
-	@$(NORMAL_INSTALL)
+	$(MAKE) $(AM_MAKEFLAGS) \
+	  top_distdir="${top_distdir}" distdir="$(distdir)" \
+	  dist-info
+check-am: all-am
+check: check-am
+all-am: Makefile $(DVIS) $(PS_DEPS) $(HTML_DEPS) $(GUIDE_DEPS) \
+		$(INFO_DEPS)
 
-install-data: install-info-am install-data-local
-	@$(NORMAL_INSTALL)
-
-install: install-exec install-data all
-	@:
-
-uninstall: uninstall-info
-
-all: Makefile $(INFO_DEPS)
-
-install-strip:
-	$(MAKE) INSTALL_PROGRAM='$(INSTALL_PROGRAM) -s' INSTALL_SCRIPT='$(INSTALL_PROGRAM)' install
 installdirs:
-	$(mkinstalldirs)  $(infodir)
+	$(mkinstalldirs) $(DESTDIR)$(infodir)
 
+install: install-am
+install-exec: install-exec-am
+install-data: install-data-am
+uninstall: uninstall-am
 
+install-am: all-am
+	@$(MAKE) $(AM_MAKEFLAGS) install-exec-am install-data-am
+
+installcheck: installcheck-am
+install-strip:
+	$(MAKE) $(AM_MAKEFLAGS) INSTALL_PROGRAM="$(INSTALL_STRIP_PROGRAM)" \
+	  `test -z '$(STRIP)' || \
+	    echo "INSTALL_PROGRAM_ENV=STRIPPROG='$(STRIP)'"` install
 mostlyclean-generic:
-	-test -z "$(MOSTLYCLEANFILES)" || rm -f $(MOSTLYCLEANFILES)
 
 clean-generic:
-	-test -z "$(CLEANFILES)" || rm -f $(CLEANFILES)
 
 distclean-generic:
-	-rm -f Makefile $(DISTCLEANFILES)
-	-rm -f config.cache config.log stamp-h stamp-h[0-9]*
-	-test -z "$(CONFIG_CLEAN_FILES)" || rm -f $(CONFIG_CLEAN_FILES)
+	-rm -f Makefile $(CONFIG_CLEAN_FILES) stamp-h stamp-h[0-9]*
 
 maintainer-clean-generic:
-	-test -z "$(MAINTAINERCLEANFILES)" || rm -f $(MAINTAINERCLEANFILES)
-	-test -z "$(BUILT_SOURCES)" || rm -f $(BUILT_SOURCES)
-mostlyclean:  mostlyclean-aminfo mostlyclean-generic
-
-clean:  clean-aminfo clean-generic mostlyclean
-
-distclean:  distclean-aminfo distclean-generic clean
-	-rm -f config.status
-
-maintainer-clean:  maintainer-clean-aminfo maintainer-clean-generic \
-		distclean
-	@echo "This command is intended for maintainers to use;"
+	@echo "This command is intended for maintainers to use"
 	@echo "it deletes files that may require special tools to rebuild."
+clean: clean-am
 
-.PHONY: default install-info-am uninstall-info mostlyclean-aminfo \
-distclean-aminfo clean-aminfo maintainer-clean-aminfo tags distdir info \
-dvi installcheck install-exec install-data install uninstall all \
-installdirs mostlyclean-generic distclean-generic clean-generic \
-maintainer-clean-generic clean mostlyclean distclean maintainer-clean
+clean-am: clean-generic mostlyclean-am
+
+distclean: distclean-am
+
+distclean-am: clean-am distclean-generic
+
+dvi: dvi-am
+
+dvi-am: $(DVIS)
+
+info: info-am
+
+info-am: $(INFO_DEPS)
+
+install-data-am: install-data-local install-info-am
+
+install-exec-am:
+
+install-info: install-info-am
+
+install-info-am: $(INFO_DEPS)
+	@$(NORMAL_INSTALL)
+	$(mkinstalldirs) $(DESTDIR)$(infodir)
+	@list='$(INFO_DEPS)'; \
+	for file in $$list; do \
+	  if test -f $$file; then d=.; else d=$(srcdir); fi; \
+	  for ifile in `CDPATH=: && cd $$d && echo $$file $$file-[0-9] $$file-[0-9][0-9]`; do \
+	    if test -f $$d/$$ifile; then \
+	      echo " $(INSTALL_DATA) $$d/$$ifile $(DESTDIR)$(infodir)/$$ifile"; \
+	      $(INSTALL_DATA) $$d/$$ifile $(DESTDIR)$(infodir)/$$ifile; \
+	    else : ; fi; \
+	  done; \
+	done
+	@$(POST_INSTALL)
+	@if (install-info --version && \
+	     install-info --version | fgrep -i -v debian) >/dev/null 2>&1; then \
+	  list='$(INFO_DEPS)'; \
+	  for file in $$list; do \
+	    echo " install-info --info-dir=$(DESTDIR)$(infodir) $(DESTDIR)$(infodir)/$$file";\
+	    install-info --info-dir=$(DESTDIR)$(infodir) $(DESTDIR)$(infodir)/$$file || :;\
+	  done; \
+	else : ; fi
+install-man:
+
+installcheck-am:
+
+maintainer-clean: maintainer-clean-am
+
+maintainer-clean-am: distclean-am maintainer-clean-aminfo \
+	maintainer-clean-generic
+
+mostlyclean: mostlyclean-am
+
+mostlyclean-am: mostlyclean-aminfo mostlyclean-generic
+
+uninstall-am: uninstall-info-am
+
+.PHONY: all all-am check check-am clean clean-generic clean-info \
+	dist-info distclean distclean-generic distdir dvi dvi-am info \
+	info-am install install-am install-data install-data-am \
+	install-data-local install-dvi install-exec install-exec-am \
+	install-guide install-html install-info install-info-am \
+	install-man install-ps install-strip installcheck \
+	installcheck-am installdirs maintainer-clean \
+	maintainer-clean-aminfo maintainer-clean-generic mostlyclean \
+	mostlyclean-aminfo mostlyclean-generic uninstall uninstall-am \
+	uninstall-dvi uninstall-guide uninstall-html uninstall-info-am \
+	uninstall-ps
 
 
 install-data-local:
@@ -326,7 +482,6 @@ install-info-am: $(INFO_DEPS)
 # Remove the info files at make distclean.
 distclean-aminfo:
 	rm -f texinfo texinfo-* info*.info*
-
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:

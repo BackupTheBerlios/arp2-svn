@@ -26,6 +26,15 @@
 
 #include "info.h"
 
+#ifdef __amigaos__
+/*
+ * The Amiga console sequences start with M-ESC (CSI)
+ */
+
+#define CSI 0x9B
+
+#endif /* __amigaos__ */
+
 #define ESC '\033'
 #define DEL '\177'
 #define TAB '\011'      

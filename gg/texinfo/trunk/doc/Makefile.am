@@ -4,8 +4,14 @@
 
 info_TEXINFOS = info-stnd.texi info.texi texinfo.txi
 
-# Use the programs built in our distribution.
-MAKEINFO = ../makeinfo/makeinfo
+if DOC_AMIGAGUIDE
+EXTRA_INFO_FLAGS = -DAGdoc
+else
+EXTRA_INFO_FLAGS =
+endif
+
+# Use the makeinfo built in our distribution.
+MAKEINFO = ../makeinfo/makeinfo $(EXTRA_INFO_FLAGS)
 INSTALL_INFO = ../util/install-info
 
 # Include our texinfo.tex, not Automake's.

@@ -43,7 +43,8 @@ MKINSTALLDIRS = @MKINSTALLDIRS@
 
 l = @l@
 
-AR = ar
+AR = @AR@
+ARFLAGS = @ARFLAGS@
 CC = @CC@
 LIBTOOL = @LIBTOOL@
 RANLIB = @RANLIB@
@@ -88,7 +89,7 @@ all-no:
 
 libintl.a: $(OBJECTS)
 	rm -f $@
-	$(AR) cru $@ $(OBJECTS)
+	$(AR) $(ARFLAGS) $@ $(OBJECTS)
 	$(RANLIB) $@
 
 libintl.la: $(OBJECTS)

@@ -15,7 +15,7 @@ localedir = $(datadir)/locale
 # -I. for funs.h.
 # Automake puts -I.. and -I$(srcdir) into DEFS by default, but
 # we need to override it, so include them ourselves.
-INCLUDES = -I. -I$(top_srcdir)/lib -I../intl -I.. -I$(srcdir)
+INCLUDES = -I. -I../lib -I$(top_srcdir)/lib -I../intl -I.. -I$(srcdir)
 DEFS = -DINFODIR=\"$(infodir)\" -DLOCALEDIR=\"$(localedir)\" @DEFS@
 LDADD = ../lib/libtxi.a @TERMLIBS@ @INTLLIBS@
 

@@ -1,3 +1,15 @@
+Sat Feb 21 14:04:25 1998  Fred Fish  <fnf@ninemoons.com>
+
+	* dcgettext.c: Only use gcc's builtin alloca if C_ALLOCA is not
+	defined.  Only include <alloca.h> if C_ALLOCA is not defined.
+	* localealias.c: Ditto.
+
+Sat Oct  4 21:47:53 1997  Fred Fish  <fnf@ninemoons.com>
+
+	* Makefile.in (AR): Set with autoconf.
+	(ARFLAGS): New, set with autoconf.
+	(libintl.a): Use ARFLAGS rather than hardwired "cru".
+
 1997-09-06 02:10  Ulrich Drepper  <drepper@cygnus.com>
 
 	* intlh.inst.in: Reformat copyright.

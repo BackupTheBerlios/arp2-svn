@@ -75,7 +75,7 @@ static int hsep, vsep;
    as the value, but this seems simplest.  */
 static void
 out_char (ch)
-    int ch;
+     int ch;
 {
   extern int output_position;
   putc (ch, output_stream);

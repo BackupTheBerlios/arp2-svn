@@ -163,6 +163,14 @@ initialize_info_keymaps ()
       echo_area_keymap[Control ('x')].type = ISKMAP;
       echo_area_keymap[Control ('x')].function =
         (VFunction *)keymap_make_keymap ();
+
+#ifdef __amigaos__
+      info_keymap[CSI].type = ISKMAP;
+      info_keymap[CSI].function = (VFunction *)keymap_make_keymap ();
+      echo_area_keymap[CSI].type = ISKMAP;
+      echo_area_keymap[CSI].function = (VFunction *)keymap_make_keymap ();
+#endif /* __amigaos__ */
+
     }
 
   /* Bind numeric arg functions for both echo area and info window maps. */

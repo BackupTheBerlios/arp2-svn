@@ -1020,6 +1020,13 @@ readfile (filename, sizep)
         }
     }
 
+  /* Bug fix: Close file descriptor when done with it.  At least on AmigaOS,
+     if we don't do this, the later fopen with "w" mode will fail to truncate
+     it to zero length, and instead the output will be appended to the
+     previous file!  Eventually the file will become big enough that install-info
+     will run out of memory to process it. */
+  close (desc);
+
   *sizep = filled;
 
 #ifdef HAVE_LIBZ

@@ -551,6 +551,23 @@ pretty_keyname (key)
 {
   char *rep;
 
+#ifdef __amigaos__
+
+  if (key == CSI)
+    {
+      char temp[20];
+	
+      if (key++ != '\0')
+	rep = pretty_keyname (key);
+
+      sprintf (temp, "CSI %s", rep);
+      strcpy (rep_buffer, temp);
+      rep = rep_buffer;
+      return (rep);
+    }
+
+#endif /* __amigaos__ */
+
   if (Meta_p (key))
     {
       char temp[20];

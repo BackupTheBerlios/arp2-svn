@@ -32,6 +32,10 @@
 #include "tilde.h"
 #include "man.h"
 
+#ifndef X_OK
+#define X_OK 1
+#endif
+
 #if !defined (_POSIX_VERSION)
 #define pid_t int
 #endif

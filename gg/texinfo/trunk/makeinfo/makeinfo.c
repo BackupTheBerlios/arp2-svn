@@ -29,7 +29,7 @@ int major_version = 1;
 int minor_version = 68;
 
 #include "system.h"
-#include "getopt.h"
+#include <getopt.h>
 
 #ifdef TM_IN_SYS_TIME
 #include <sys/time.h>
@@ -37,14 +37,14 @@ int minor_version = 68;
 #include <time.h>
 #endif /* !TM_IN_SYS_TIME */
 
-#ifdef __GNUC__
+#if defined (__GNUC__) && !defined (C_ALLOCA)
 # undef alloca
 # define alloca __builtin_alloca
 #else
-# ifdef HAVE_ALLOCA_H
+# if defined (HAVE_ALLOCA_H) && !defined (C_ALLOCA)
 #  include <alloca.h>
 # else
-#  ifndef _AIX
+#  if !defined (_AIX) && !defined (alloca)
 char *alloca ();
 #  endif
 # endif
@@ -396,6 +396,67 @@ int verbose_mode = 0;
    @table and @itemize do without arguments. */
 int allow_lax_format = 0;
 
+#if defined (__amigaos__) && !defined (ENABLE_AMIGAGUIDE) 
+#  define ENABLE_AMIGAGUIDE
+#endif
+
+#if defined (ENABLE_AMIGAGUIDE)
+
+/* Non-zero indicates that we're converting to AmigaGuide hypertext,
+   instead of plain info. The numerical value indicates what specific
+   version we're targeting. Currently, the accepted values are 34, 39
+   and 40. */
+int amiga_guide = 0;
+
+/* Non-zero indicates we're writing an AmigaGuide button. */
+int writing_amiga_guide_button = 0;
+
+/* Non-zero indicates that only macros should be expanded.  */
+int amiga_guide_only_mexp = 0;
+
+/* Count nonprinting characters in titles */
+int amiga_guide_hide_title_chars = 0;
+
+/* Count nonprinting characters, that may affect linebreaks*/
+int amiga_guide_nonprinting_chars = 0;
+
+/* The AmigaGuide output is a mix between info and dvi. As such, we
+   need to distinguish between @ref and @xref */
+
+int amiga_guide_ref_flag = 0;
+
+/* The various attributes supported by AmigaGuide */
+enum amiga_guide_attrs
+{ AMIGA_BOLD, AMIGA_ITALICS, AMIGA_UNDERLINE};
+
+/* This array contains the sequences of characters to add, for any of
+   the attributes above. The ordering are: AmigaGuide enable,
+   AmigaGuide disable, console.device enable, console.device
+   disable. */
+
+static const char *amiga_attr_cmds[] =
+{
+  /* AG(on), AG(off), CON:(on), CON:(off) */
+  "@{b}", "@{ub}", "\x9B" "1m", "\x9B" "22m", /* AMIGA_BOLD */
+  "@{i}", "@{ui}", "\x9B" "3m", "\x9B" "23m", /* AMIGA_ITALICS */
+  "@{u}", "@{uu}", "\x9B" "4m", "\x9B" "24m"  /* AMIGA_UNDERLINE */
+};
+
+/* When converting menus, output the gadget text in accordance with
+   this format string.  */
+
+char amiga_guide_menu_gadgets[12] = "\" %-25s \"\0";
+
+/* Prototypes for the various AmigaGuide functions. */
+
+void amiga_guide_add_link();	/* Canonize AmigaGuide links */
+void amiga_set_attributes ();	/* Handle Amiga attributes */
+int amiga_guide_convert_menu();	/* Tweak menus */
+
+void cm_bold(), cm_italics(), cm_amiga_ref();
+
+#endif /* ENABLE_AMIGAGUIDE */
+
 /* The list of commands that we hack in texinfo.  Each one
    has an associated function.  When the command is encountered in the
    text, the associated function is called with START as the argument.
@@ -494,7 +555,8 @@ void
   cm_defindex (), cm_defcodeindex (), cm_result (), cm_expansion (),
   cm_equiv (), cm_print (), cm_error (), cm_point (), cm_today (),
   cm_flushleft (), cm_flushright (), cm_smalllisp (), cm_finalout (),
-  cm_cartouche (), cm_detailmenu (), cm_multitable ();
+  cm_cartouche (), cm_detailmenu (), cm_multitable (),
+  emit_cmdline_defines ();
 
 /* Conditionals. */
 void cm_set (), cm_clear (), cm_ifset (), cm_ifclear ();
@@ -532,6 +594,9 @@ static COMMAND command_table[] = {
   { " ", insert_self, NO_BRACE_ARGS },
   { "!", insert_self, NO_BRACE_ARGS },
   { "\"", insert_self, NO_BRACE_ARGS },
+#if defined (ENABLE_AMIGAGUIDE)
+  { "\\", insert_self, NO_BRACE_ARGS },
+#endif /* ENABLE_AMIGAGUIDE */
   { "'", insert_self, NO_BRACE_ARGS },
   { "*", cm_asterisk, NO_BRACE_ARGS },
   { ",", cm_accent, BRACE_ARGS },
@@ -562,7 +627,11 @@ static COMMAND command_table[] = {
   { "appendixsubsec", cm_appendixsubsec, NO_BRACE_ARGS },
   { "appendixsubsubsec", cm_appendixsubsubsec, NO_BRACE_ARGS },
   { "asis", cm_no_op, BRACE_ARGS },
+#if defined (ENABLE_AMIGAGUIDE)
+  { "b", cm_bold, BRACE_ARGS }, /* AmigaGuide can do bold */
+#else  /* ENABLE_AMIGAGUIDE */
   { "b", cm_not_fixed_width, BRACE_ARGS },
+#endif /* ENABLE_AMIGAGUIDE */
   { "bullet", cm_bullet, BRACE_ARGS },
   { "bye", cm_bye, NO_BRACE_ARGS },
   { "c", cm_ignore_line, NO_BRACE_ARGS },
@@ -651,7 +720,11 @@ static COMMAND command_table[] = {
   { "headings", cm_ignore_line, NO_BRACE_ARGS },
   { "html", command_name_condition, NO_BRACE_ARGS },
   { "hyphenation", cm_no_op, BRACE_ARGS },
+#if defined (ENABLE_AMIGAGUIDE)
+  { "i", cm_italics, BRACE_ARGS },
+#else  /* ENABLE_AMIGAGUIDE */
   { "i", cm_not_fixed_width, BRACE_ARGS },
+#endif /* ENABLE_AMIGAGUIDE */
   { "ifclear", cm_ifclear, NO_BRACE_ARGS },
   { "ifeq", cm_ifeq, NO_BRACE_ARGS },
   { "ifhtml", command_name_condition, NO_BRACE_ARGS },
@@ -699,7 +772,11 @@ static COMMAND command_table[] = {
   { "quotation", cm_quotation, NO_BRACE_ARGS },
   { "r", cm_not_fixed_width, BRACE_ARGS },
   { "raisesections", cm_raisesections, NO_BRACE_ARGS },
+#if defined (ENABLE_AMIGAGUIDE)
+  { "ref", cm_amiga_ref, BRACE_ARGS }, /* Emulate printed docs */
+#else  /* ENABLE_AMIGAGUIDE */
   { "ref", cm_xref, BRACE_ARGS },
+#endif /* ENABLE_AMIGAGUIDE */
   { "refill", cm_no_op, NO_BRACE_ARGS },
   { "result", cm_result, BRACE_ARGS },
   { "ringaccent", cm_accent, BRACE_ARGS },
@@ -798,6 +875,12 @@ struct option long_options[] =
   { "verbose", 0, &verbose_mode, 1 },           /* formerly -verbose */
   { "help", 0, 0, 'h' },
   { "version", 0, 0, 'V' },
+#if defined (ENABLE_AMIGAGUIDE)
+  { "amiga-34", 0, &amiga_guide, 34 }, /* Convert to AmigaGuide V34 */
+  { "amiga-39", 0, &amiga_guide, 39 }, /* Convert to AmigaGuide V39 */
+  { "amiga", 0, &amiga_guide, 40 }, /* Convert to AmigaGuide V40 */
+  { "amiga-40", 0, &amiga_guide, -40 }, /* Catch obsolete option */
+#endif /* ENABLE_AMIGAGUIDE */
   {NULL, 0, NULL, 0}
 };
 
@@ -1128,6 +1211,40 @@ For more information about these matters, see the files named COPYING.\n"),
   if (verbose_mode)
     print_version_info ();
 
+#if defined (ENABLE_AMIGAGUIDE)
+
+  /* Complain about the use of -E and --amiga together */
+  if (macro_expansion_output_stream && amiga_guide) {
+    amiga_guide = 0;
+    fprintf (stderr,"\
+The use of -E will not give the expected results with AmigaGuide\n\
+output enabled. Disabling AmigaGuide in this invocation.\n");
+  }
+  
+  /* Complain about the use of the deprecated option --amiga-40 */
+  if (amiga_guide == -40) {
+    amiga_guide = 40;
+    fprintf (stderr, "--amiga-40 is obsolete. Use --amiga instead\n");
+  }
+
+  /* AmigaGuides can't be split */
+  if (amiga_guide != 0)
+    splitting = 0;
+  
+  /* Set a flag to indicate that we are writing an AmigaGuide */
+  if (amiga_guide)
+    {
+      char *set_tmp = (char *) 
+	xmalloc (strlen ("writing-amigaguide ") + 5);
+      /* This will break with amigaguide.library V1000 :-) */
+      sprintf (set_tmp,	"writing-amigaguide %d", amiga_guide);
+      handle_variable_internal (SET, set_tmp);
+      free (set_tmp);
+    }
+  
+  
+#endif /* ENABLE_AMIGAGUIDE */
+
   /* Remaining arguments are file names of texinfo files.
      Convert them, one by one. */
   if (!reading_from_stdin)
@@ -1197,6 +1314,16 @@ Email bug reports to bug-texinfo@gnu.org.\n\
 "),
            progname, max_error_level, fill_column,
            paragraph_start_indent, reference_warning_limit);
+#if defined (ENABLE_AMIGAGUIDE)
+  if (exit_value == 0)
+    printf("\nAdditional AmigaOS specific options:\n\
+--amiga-34             output AmigaGuide® V34 hypertext format \n\
+--amiga-39             output AmigaGuide® V39 hypertext format \n\
+--amiga                output AmigaGuide® V40 hypertext format \n\
+\n\
+Email Amiga specific bug reports to gg@ninemoons.com\n");
+  
+#endif /* ENABLE_AMIGAGUIDE */
   exit (exit_value);
 }
 
@@ -1399,11 +1526,35 @@ filename_part (filename)
 {
   char *basename;
 
+#if defined (__amigaos__)
+  /* Handle files residing in the root diretory of an AmigaDOS
+     volume.
+
+     For those not familiar with AmigaDOS:
+     A typical filename could be 'Foo:bar/baz/qux', where 'Foo:' is
+     the volume, 'bar/baz/' is nested directories, and 'qux' is the
+     filename. To complicate matters even more, ':foo' is roughly
+     equivalent to '/foo/ under unix, whereas '/foo/bar' is the
+     AmigaDOS shorthand for '../foo/bar' (sic!). Further changes to
+     handle these peculiarities wont be commented.
+ */
+  
+  basename = strrchr (filename, '/');
+  if (!basename)
+    basename = strrchr (filename, ':');
+    
+  if (basename)
+    basename++;
+  else
+    basename = filename;
+  
+#else /* __amigaos__ */
   basename = strrchr (filename, '/');
   if (!basename)
     basename = filename;
   else
     basename++;
+#endif /* __amigaos__ */
 
   basename = xstrdup (basename);
 #if defined (REMOVE_OUTPUT_EXTENSIONS)
@@ -1433,10 +1584,17 @@ pathname_part (filename)
 
   i = strlen (filename) - 1;
 
+#if defined (__amigaos__)
+  while (i && (filename[i] != '/') && (filename[i] != ':') )
+    i--;
+  if ((filename[i] == '/') || (filename[i] == ':'))
+    i++;
+#else  /* __amigaos__ */
   while (i && filename[i] != '/')
     i--;
   if (filename[i] == '/')
     i++;
+#endif  /* __amigaos__ */
 
   if (i)
     {
@@ -1455,7 +1613,11 @@ filename_non_directory (name)
   register int i;
 
   for (i = strlen (name) - 1; i; i--)
+#if defined (__amigaos__)
+    if ((name[i] == '/') || (name[i] == ':'))
+#else  /* __amigaos__ */
     if (name[i] == '/')
+#endif  /* __amigaos__ */
       return (xstrdup (name + i + 1));
 
   return (xstrdup (name));
@@ -1488,15 +1650,31 @@ expand_filename (filename, input_name)
       if (!i)
         i = strlen (filename);
 
+#if defined (ENABLE_AMIGAGUIDE)
+      if (i + 7 > (strlen (filename)))
+        filename = (char *)xrealloc (filename, i + 7);
+      if (amiga_guide){
+	if (!no_headers)
+	  strcpy (filename + i, ".guide");
+      }
+      else
+	strcpy (filename + i, ".info");
+#else  /* ENABLE_AMIGAGUIDE */
       if (i + 6 > (strlen (filename)))
         filename = (char *)xrealloc (filename, i + 6);
       strcpy (filename + i, ".info");
+#endif  /* ENABLE_AMIGAGUIDE */
+
       return (filename);
     }
         
+#if defined (__amigaos__)
+  if (filename[0] == '.' || filename[0] == '/' || filename[0] == ':')
+    return (filename);
+#else  /* __amigaos__ */
   if (filename[0] == '.' || filename[0] == '/')
     return (filename);
-
+#endif  /* __amigaos__ */
   if (filename[0] != '/' && input_name[0] == '/')
     {
       /* Make it so that relative names work. */
@@ -1507,11 +1685,19 @@ expand_filename (filename, input_name)
       result = (char *)xmalloc (1 + strlen (input_name) + strlen (filename));
       strcpy (result, input_name);
 
+#if defined (__amigaos__)
+      while ((result[i] != '/' && result[i] != ':') && i)
+        i--;
+
+      if ((result[i] == '/') || (result[i] == ':'))
+        i++;
+#else  /* __amigaos__ */
       while (result[i] != '/' && i)
         i--;
 
       if (result[i] == '/')
         i++;
+#endif  /* __amigaos__ */
 
       strcpy (&result[i], filename);
       free (filename);
@@ -2124,6 +2310,26 @@ convert_from_loaded_file (name)
 
   canon_white (output_filename);
 
+#if defined (ENABLE_AMIGAGUIDE)
+  if (amiga_guide && !no_headers && !real_output_filename)
+    {
+      /* Compute the canonical AmigaGuide filename. */
+      
+      char *dotpos;
+      
+      real_output_filename = xmalloc (strlen (output_filename) + 7);
+      
+      strcpy (real_output_filename, output_filename);
+      dotpos = strrchr (real_output_filename, '.'); 
+      
+      if ( dotpos && strncasecmp (dotpos, ".info", 5) == 0)
+	strcpy (dotpos, ".guide");
+      else
+	strcat (real_output_filename, ".guide");
+    }
+
+#endif /* ENABLE_AMIGAGUIDE */
+
   if (real_output_filename && strcmp (real_output_filename, "-") == 0)
     {
       if (macro_expansion_filename
@@ -2147,9 +2353,21 @@ convert_from_loaded_file (name)
       output_stream = fopen (real_output_filename, "w");
     }
 
+#if defined (ENABLE_AMIGAGUIDE)
+
+  if (output_stream != stdout)
+    if (amiga_guide && !no_headers)
+       printf ("Making AmigaGuide® V%d file `%s' from `%s'.\n",
+	       amiga_guide, real_output_filename, input_filename);
+    else     
+      printf (_("Making %s file `%s' from `%s'.\n"), no_headers ?
+	      "text" : "info", output_filename, input_filename);  
+
+#else  /* ENABLE_AMIGAGUIDE */
   if (output_stream != stdout)
     printf (_("Making %s file `%s' from `%s'.\n"),
             no_headers ? "text" : "info", output_filename, input_filename);
+#endif  /* ENABLE_AMIGAGUIDE */
 
   if (output_stream == NULL)
     {
@@ -2177,6 +2395,29 @@ convert_from_loaded_file (name)
   }
 
   if (!no_headers)
+#if defined (ENABLE_AMIGAGUIDE)
+    if (amiga_guide)
+      {
+	int old_paragraph_indentation = inhibit_paragraph_indentation;
+	int old_filling_enabled = filling_enabled;
+	
+	inhibit_paragraph_indentation=1;
+	filling_enabled = 0;
+	
+	add_word_args ("@database %s\n",output_filename);
+	add_word_args ("\n@Master %s\n", input_filename);
+	add_word_args ("\n@Width %d\n",fill_column);
+	
+	add_word_args ("\n\nThis is the AmigaGuide®  file %s, produced by Makeinfo-%d.%d from ", 
+		       output_filename, major_version, minor_version);
+	add_word_args ("\nthe input file %s.\n\n", input_filename);
+	
+	inhibit_paragraph_indentation = old_paragraph_indentation;
+	filling_enabled = old_filling_enabled;
+
+      }
+    else
+#endif  /* ENABLE_AMIGAGUIDE */
     {
      add_word_args (_("This is Info file %s, produced by Makeinfo version %d.%d"),
                      output_filename, major_version, minor_version);
@@ -2184,6 +2425,7 @@ convert_from_loaded_file (name)
     }
 
   close_paragraph ();
+  emit_cmdline_defines ();
   reader_loop ();
 
 finished:
@@ -2214,9 +2456,22 @@ finished:
       if (tag_table != NULL)
         {
           tag_table = (TAG_ENTRY *) reverse_list (tag_table);
+#if defined (ENABLE_AMIGAGUIDE)
+          if (!no_headers && !amiga_guide)
+            write_tag_table ();
+#else  /* ENABLE_AMIGAGUIDE */
           if (!no_headers)
             write_tag_table ();
+#endif  /* ENABLE_AMIGAGUIDE */
         }
+
+#if defined (ENABLE_AMIGAGUIDE)
+      if (amiga_guide && !no_headers)
+        {
+          inhibit_paragraph_indentation = 1;
+          add_word("\n@endnode\n\n");
+        }
+#endif  /* ENABLE_AMIGAGUIDE */
 
       if (output_stream != stdout)
         fclose (output_stream);
@@ -2311,7 +2566,8 @@ reader_loop ()
       if (character == '-')
         {
           dash_count++;
-          if (dash_count == 2 && !in_fixed_width_font)
+          if (dash_count == 2 && !in_fixed_width_font &&
+	      !amiga_guide_only_mexp) 
             {
               input_text_offset++;
               continue;
@@ -2356,6 +2612,15 @@ reader_loop ()
                  called with a Nonzero argument. */
               if (!in_detailmenu)
                 tem = glean_node_from_menu (1);
+
+#if defined (ENABLE_AMIGAGUIDE)
+              if (amiga_guide && !no_headers) 
+                {
+                  if (amiga_guide_convert_menu())
+                    continue;
+                }
+#endif  /* ENABLE_AMIGAGUIDE */ 
+	      
             }
         }
 
@@ -2371,6 +2636,19 @@ reader_loop ()
              Report the error here, but remember this brace on the stack so
              you can ignore its partner. */
 
+#if defined (ENABLE_AMIGAGUIDE)
+	  if (amiga_guide_only_mexp)
+	    {
+	      input_text_offset++;
+	      add_char('{');
+	    }
+	  else
+	    {
+	      line_error (_("Misplaced %c"), '{');
+	      remember_brace (misplaced_brace);
+	    }
+	  
+#else  /* ENABLE_AMIGAGUIDE */
           line_error (_("Misplaced %c"), '{');
           remember_brace (misplaced_brace);
 
@@ -2378,11 +2656,21 @@ reader_loop ()
              remember_brace ().
              input_text_offset++;
            */
+#endif  /* ENABLE_AMIGAGUIDE */
           break;
 
         case '}':
+#if defined (ENABLE_AMIGAGUIDE)
+	  if (amiga_guide_only_mexp)
+	    add_char('}');
+	  else
+	    pop_and_call_brace ();
+
+	  input_text_offset++;
+#else  /* ENABLE_AMIGAGUIDE */
           pop_and_call_brace ();
           input_text_offset++;
+#endif  /* ENABLE_AMIGAGUIDE */
           break;
 
         default:
@@ -2454,6 +2742,15 @@ read_command ()
       }
     }
 #endif /* HAVE_MACROS */
+
+#if defined (ENABLE_AMIGAGUIDE)
+  if (amiga_guide_only_mexp)
+    {
+      add_char('@');
+      add_word(command);
+      return;
+    }
+#endif /* ENABLE_AMIGAGUIDE */
 
   entry = get_command_entry (command);
   if (entry == (COMMAND *)-1)
@@ -2608,6 +2905,15 @@ get_char_len (character)
       len = fill_column - output_column;
       break;
 
+#if defined (ENABLE_AMIGAGUIDE)
+    case '\\':
+      if (amiga_guide >= 40) /* We have to escape \ */
+	len = 2;
+      else
+	len = 1;
+      break;
+      
+#endif  /* ENABLE_AMIGAGUIDE */
     default:
       /* ASCII control characters appear as two characters in the output
          (e.g., ^A).  But characters with the high bit set are just one
@@ -2689,7 +2995,13 @@ add_char (character)
     {
       must_start_paragraph = 0;
       line_already_broken = 0;  /* The line is no longer broken. */
+
+#if defined (ENABLE_AMIGAGUIDE)
+      if ((current_indent > output_column) &&
+	  (!writing_amiga_guide_button))
+#else  /* ENABLE_AMIGAGUIDE */
       if (current_indent > output_column)
+#endif  /* ENABLE_AMIGAGUIDE */
         {
           indent (current_indent - output_column);
           output_column = current_indent;
@@ -2716,6 +3028,11 @@ add_char (character)
             }
 
           output_column = 0;
+#if defined ( ENABLE_AMIGAGUIDE)
+	/* If we just inserted a linefeed, we can ignore the previous
+	   nonprinting characters. */
+	  amiga_guide_nonprinting_chars = 0;
+#endif  /* ENABLE_AMIGAGUIDE */
 
           if (!no_indent && paragraph_is_open)
             indent (output_column = current_indent);
@@ -2723,6 +3040,11 @@ add_char (character)
         }
       else /* CHARACTER is newline, and filling is enabled. */
         {
+#if defined ( ENABLE_AMIGAGUIDE)
+	/* If we just inserted a newline, we can ignore the previous
+	   nonprinting characters. */
+	  amiga_guide_nonprinting_chars = 0;
+#endif  /* ENABLE_AMIGAGUIDE */
           if (end_of_sentence_p ())
             {
               insert (' ');
@@ -2751,7 +3073,11 @@ add_char (character)
 
         if ((character == ' ') && (last_char_was_newline))
           {
+#if defined( ENABLE_AMIGAGUIDE)
+            if (!paragraph_is_open && (amiga_guide && !in_menu))
+#else  /* ENABLE_AMIGAGUIDE */
             if (!paragraph_is_open)
+#endif  /* ENABLE_AMIGAGUIDE */
               {
                 pending_indent++;
                 return;
@@ -2765,7 +3091,11 @@ add_char (character)
             /* If the paragraph is supposed to be indented a certain way,
                then discard all of the pending whitespace.  Otherwise, we
                let the whitespace stay. */
+#if defined( ENABLE_AMIGAGUIDE)
+            if (!paragraph_start_indent && !writing_amiga_guide_button)
+#else  /* ENABLE_AMIGAGUIDE */
             if (!paragraph_start_indent)
+#endif  /* ENABLE_AMIGAGUIDE */
               indent (pending_indent);
             pending_indent = 0;
           }
@@ -2850,9 +3180,19 @@ add_char (character)
                             free (temp_buffer);
                           }
                         output_column = 0;
+
+#if defined ( ENABLE_AMIGAGUIDE)
                         while (temp < output_paragraph_offset)
                           output_column +=
                             get_char_len (output_paragraph[temp++]);
+			output_column -=
+			  amiga_guide_nonprinting_chars;
+			amiga_guide_nonprinting_chars = 0;
+#else  /* ENABLE_AMIGAGUIDE */
+                        while (temp < output_paragraph_offset)
+                          output_column +=
+                            get_char_len (output_paragraph[temp++]);
+#endif  /* ENABLE_AMIGAGUIDE */
                         output_column += len;
                         break;
                       }
@@ -2860,8 +3200,22 @@ add_char (character)
               }
           }
 
+#if defined ( ENABLE_AMIGAGUIDE)
+	/* If we just inserted a space, we can ignore the previous
+	   nonprinting characters. */
+	if (character == ' ')
+	  amiga_guide_nonprinting_chars = 0;
+#endif  /* ENABLE_AMIGAGUIDE */
+
+
         if (!suppress_insert)
           {
+#if defined( ENABLE_AMIGAGUIDE)
+	    if ((character == '\\') && (amiga_guide >= 40)
+		&& !amiga_guide_only_mexp)
+	      insert (character);
+#endif  /* ENABLE_AMIGAGUIDE */
+	
             insert (character);
             last_inserted_character = character;
           }
@@ -2906,7 +3260,12 @@ end_of_sentence_p ()
   int loc = output_paragraph_offset - 1;
   while (loc > 0 && post_sentence (output_paragraph[loc]))
     loc--;
+
+  /* Avoid negative subscripts -awj */
+  if (loc >= 0)
   return sentence_ender (output_paragraph[loc]);
+  else
+    return (0);
 }
 
 
@@ -3165,7 +3524,11 @@ start_paragraph ()
       int amount_to_indent = 0;
 
       /* If doing indentation, then insert the appropriate amount. */
+#if defined (ENABLE_AMIGAGUIDE)
+      if (!no_indent && !writing_amiga_guide_button)
+#else  /* ENABLE_AMIGAGUIDE */
       if (!no_indent)
+#endif  /* ENABLE_AMIGAGUIDE */
         {
           if (inhibit_paragraph_indentation)
             {
@@ -3325,7 +3688,7 @@ push_insertion (type, item_function)
      char *item_function;
 {
   INSERTION_ELT *new = (INSERTION_ELT *) xmalloc (sizeof (INSERTION_ELT));
-
+  
   new->item_function = item_function;
   new->filling_enabled = filling_enabled;
   new->indented_fill = indented_fill;
@@ -3505,8 +3868,13 @@ begin_insertion (type)
       filling_enabled = no_indent = 0;
       inhibit_paragraph_indentation = 1;
 
+#if defined (ENABLE_AMIGAGUIDE)
+      if (!no_headers && !amiga_guide)
+        add_word (_("* Menu:\n"));
+#else  /* ENABLE_AMIGAGUIDE */
       if (!no_headers)
         add_word (_("* Menu:\n"));
+#endif  /* ENABLE_AMIGAGUIDE */
 
       in_menu++;
       no_discard++;
@@ -3822,8 +4190,57 @@ void
 insert_self (arg)
     int arg;
 {
+#if defined (ENABLE_AMIGAGUIDE)
+  if (arg != START)
+    return;
+    
+  if (!amiga_guide)
+    add_word (command);
+  else 
+    switch (*command)
+      {
+      case '\\':
+	if ((amiga_guide >= 40) && (!no_headers || multitable_active))
+	  {
+	    amiga_guide_hide_title_chars++;
+	    amiga_guide_nonprinting_chars++;
+	    insert_string ("\\\\");
+	  }
+	else
+	  add_word ("\\");
+	break;
+	
+      case '\"':
+	if (writing_amiga_guide_button)
+	  add_word ("\\034");
+	else
+	  add_word (command);
+	break;
+	
+      case '@':
+	if (amiga_guide  && 
+	    (!(no_headers || writing_amiga_guide_button) &&
+	    !last_char_was_newline &&
+	    whitespace(last_inserted_character)) ||
+	    multitable_active)
+	  {
+	    amiga_guide_hide_title_chars++;
+	    amiga_guide_nonprinting_chars++;
+	    insert_string ("\\@");
+	  }
+	else
+	  add_word ("@");
+	break;
+	
+      default:
+	add_word (command);
+	break;
+      }
+  
+#else  /* ENABLE_AMIGAGUIDE */
   if (arg == START)
     add_word (command);
+#endif  /* ENABLE_AMIGAGUIDE */
 }
 
 void
@@ -3993,7 +4410,28 @@ cm_code (arg)
      int arg;
 {
   extern int printing_index;
+#if defined (ENABLE_AMIGAGUIDE)
+  if (printing_index)
+    return;
 
+  if (arg == START)
+    in_fixed_width_font++;
+
+  if (amiga_guide > 34)
+    amiga_set_attributes (AMIGA_BOLD, arg);
+  else
+    if (arg == START)
+      {
+	if (!printing_index)
+	  add_char ('`');
+      }
+    else
+      {
+	if (!printing_index)
+	  add_char ('\'');
+      }
+
+#else  /* ENABLE_AMIGAGUIDE */
   if (arg == START)
     {
       in_fixed_width_font++;
@@ -4006,6 +4444,7 @@ cm_code (arg)
       if (!printing_index)
         add_char ('\'');
     }
+#endif  /* ENABLE_AMIGAGUIDE */
 }
 
 void
@@ -4081,21 +4520,54 @@ void
 cm_dfn (arg, position)
      int arg, position;
 {
+#if defined (ENABLE_AMIGAGUIDE)
+
+  extern int printing_index;
+  
+  if (amiga_guide <= 34)
+    add_char ('"');
+  else
+    amiga_set_attributes (AMIGA_ITALICS, arg);
+
+#else  /* ENABLE_AMIGAGUIDE */
   add_char ('"');
+#endif  /* ENABLE_AMIGAGUIDE */
 }
 
 void
 cm_emph (arg)
      int arg;
 {
+#if defined (ENABLE_AMIGAGUIDE)
+
+  extern int printing_index;
+  
+  if (amiga_guide <= 34)
+    add_char ('*');
+  else
+    amiga_set_attributes (AMIGA_ITALICS, arg);
+
+#else  /* ENABLE_AMIGAGUIDE */
   add_char ('*');
+#endif  /* ENABLE_AMIGAGUIDE */
 }
 
 void
 cm_strong (arg, position)
      int arg, position;
 {
-  cm_emph (arg);
+#if defined (ENABLE_AMIGAGUIDE)
+
+  extern int printing_index;
+  
+  if (amiga_guide <= 34)
+    add_char ('*');
+  else
+    amiga_set_attributes (AMIGA_BOLD, arg);
+
+#else  /* ENABLE_AMIGAGUIDE */
+  add_char ('*');
+#endif  /* ENABLE_AMIGAGUIDE */
 }
 
 void
@@ -4188,13 +4660,25 @@ insert_and_underscore (with_char)
     }
   else
 #endif /* HAVE_MACROS */
+
+#if defined (ENABLE_AMIGAGUIDE)
+    {
+      amiga_guide_hide_title_chars = 0;
+      execute_string ("%s\n", temp);
+    }
+#else  /* ENABLE_AMIGAGUIDE */
     execute_string ("%s\n", temp);
+#endif  /* ENABLE_AMIGAGUIDE */
 
   ending_pos = output_position + output_paragraph_offset;
   free (temp);
 
   len = (ending_pos - starting_pos) - 1;
+#if defined (ENABLE_AMIGAGUIDE)
+  for (i = 0; i < (len - amiga_guide_hide_title_chars); i++)
+#else  /* ENABLE_AMIGAGUIDE */
   for (i = 0; i < len; i++)
+#endif  /* ENABLE_AMIGAGUIDE */
     add_char (with_char);
   insert ('\n');
   close_paragraph ();
@@ -4643,8 +5127,44 @@ void
 normalize_node_name (string)
      char *string;
 {
+#if defined (ENABLE_AMIGAGUIDE)
+  char *set_p (char *);
+  
+  register int i, l;
+  int amiga_convert_nodes = (int) set_p ("amiga_convert_nodes");
+  
+  if (string  == NULL)
+    return;
+  
   if (strcasecmp (string, "Top") == 0)
     strcpy (string, "Top");
+
+  l = strlen (string);
+
+  for (i = 0; i < l; i++)
+    {
+      if (string[i] == '@' && string[i + 1] == '@')
+        {
+          strncpy (string + i, string + i + 1, l - i);
+          l--;
+        }
+      else if (amiga_guide)
+        {
+          if (string[i] == '/')
+            string[i] = '-';
+          else if (string[i] == '\"')
+            string[i] = '`';
+          else if (amiga_guide && !no_headers)
+	    if (amiga_convert_nodes && string[i] == ' ')
+	      string[i] = '_';
+	  
+	}
+    }
+  
+#else  /* ENABLE_AMIGAGUIDE */
+  if (strcasecmp (string, "Top") == 0)
+    strcpy (string, "Top");
+#endif  /* ENABLE_AMIGAGUIDE */
 }
 
 /* Look up NAME in the tag table, and return the associated
@@ -4670,6 +5190,10 @@ remember_node (node, prev, next, up, position, line_no, no_warn)
      char *node, *prev, *next, *up;
      int position, line_no, no_warn;
 {
+#if defined(ENABLE_AMIGAGUIDE)
+  char *tmp_node = node, *tmp_prev = prev, *tmp_next = next, *tmp_up = up;
+#endif  /* ENABLE_AMIGAGUIDE */
+
   /* Check for existence of this tag already. */
   if (validating)
     {
@@ -4685,7 +5209,7 @@ remember_node (node, prev, next, up, position, line_no, no_warn)
 
   /* First, make this the current node. */
   current_node = node;
-
+  
   /* Now add it to the list. */
   {
     TAG_ENTRY *new = (TAG_ENTRY *) xmalloc (sizeof (TAG_ENTRY));
@@ -4718,6 +5242,10 @@ cm_node ()
   int new_node_pos, defaulting, this_section, no_warn = 0;
   extern int already_outputting_pending_notes;
 
+#if defined (ENABLE_AMIGAGUIDE)
+  static amiga_guide_first_node = 1;
+#endif  /* ENABLE_AMIGAGUIDE */
+
   if (strcmp (command, "nwnode") == 0)
     no_warn = 1;
 
@@ -4744,7 +5272,13 @@ cm_node ()
     append_to_expansion_output (input_text_offset + 1);
 #endif /* HAVE_MACROS */
 
+#if defined (ENABLE_AMIGAGUIDE)
+  amiga_guide_only_mexp++; /* Avoid expanding anything else than macros. */
   node = get_node_token (1);
+  amiga_guide_only_mexp--;
+#else  /* ENABLE_AMIGAGUIDE */
+  node = get_node_token (1);
+#endif  /* ENABLE_AMIGAGUIDE */
   next = get_node_token (0);
   prev = get_node_token (0);
   up = get_node_token (0);
@@ -4760,15 +5294,60 @@ cm_node ()
   no_indent = 1;
   if (!no_headers)
     {
+#if defined (ENABLE_AMIGAGUIDE)
+      if (amiga_guide)
+	{
+	  writing_amiga_guide_button++;
+	  if (amiga_guide_first_node)
+	    {
+	      add_word_args ("@node Main \"%s\"", pretty_output_filename);
+	      amiga_guide_first_node = 0;
+	    }
+	  else
+	    {
+	      add_word_args ("\n@endnode\n\n");
+#  if defined (HAVE_MACROS)
+	      if (macro_expansion_output_stream)
+		{
+		  add_word_args ("@node \"");
+		  me_execute_string (node);
+		  add_word_args ("\" \"%s/", pretty_output_filename);
+		  execute_string (node);
+		  add_word_args ("\"");
+		}
+	      else
+#  endif /* HAVE_MACROS */
+		{
+		  add_word_args ("@node ");
+		  execute_string ("\"%s\" \"%s/%s\"",
+                                  node,pretty_output_filename,node);
+		}
+	    }
+	  writing_amiga_guide_button--;
+	}
+      else
+	{
       add_word_args ("\037\nFile: %s,  Node: ", pretty_output_filename);
+#  if defined (HAVE_MACROS)
+      if (macro_expansion_output_stream)
+        me_execute_string (node);
+      else
+#  endif /* HAVE_MACROS */
+        execute_string ("%s", node);
+      filling_enabled = indented_fill = 0;
 
+#else  /* ENABLE_AMIGAGUIDE */
+
+      add_word_args ("\037\nFile: %s,  Node: ", pretty_output_filename);
 #if defined (HAVE_MACROS)
       if (macro_expansion_output_stream && !executing_string)
         me_execute_string (node);
       else
-#endif /* HAVE_MACROS */
+#  endif /* HAVE_MACROS */
         execute_string ("%s", node);
       filling_enabled = indented_fill = 0;
+#endif  /* ENABLE_AMIGAGUIDE */
+	}
     }
 
   /* Check for defaulting of this node's next, prev, and up fields. */
@@ -4975,6 +5554,116 @@ cm_node ()
         me_inhibit_expansion++;
 #endif /* HAVE_MACROS */
 
+#if defined (ENABLE_AMIGAGUIDE)
+      if (amiga_guide)
+	{
+	  /* This is somewhat ugly, but since we only need to detect
+	     the presence of the variable, this is OK. We could
+	     probably save some time by performing this check at
+	     start, but then we would have to bloat the global
+	     namespace... Profiling indicates that this is not a big
+	     issue anyway. */
+
+	  char *set_p (char *name);
+	  int ag_verbose_header = (int) set_p
+	    ("amiga_guide_verbose_headers"); 
+	  
+	  writing_amiga_guide_button++; /* Avoid attrs in control strings */
+          if (*next)
+            {
+              if (strcasecmp (next, "Top") == 0)
+                add_word_args ("\n@next \"Main\"");
+              else
+                {
+                  add_word ("\n@next ");
+                  execute_string ("\"%s\"", next);
+                }
+              filling_enabled = indented_fill = 0;
+            }
+
+          if (*prev)
+            {
+              if (strcasecmp (prev, "(dir)") != 0)
+                {
+                  if (strcasecmp (prev, "Top") == 0)
+                    add_word ("\n@prev \"Main\"");
+                  else
+                    {
+                      add_word ("\n@prev ");
+                      execute_string ("\"%s\"", prev);
+                    }
+                  filling_enabled = indented_fill = 0;
+                }
+            }
+
+          if (*up)
+            {
+              if (strcasecmp (up, "(dir)") != 0)
+                {
+                  if (strcasecmp (up, "Top") == 0)
+                    add_word ("\n@toc \"Main\"");
+                  else
+                    {
+                      add_word ("\n@toc ");
+                      execute_string ("\"%s\"", up);
+                    }
+                  filling_enabled = indented_fill = 0;
+                }
+	    }
+	  writing_amiga_guide_button--;
+	  
+	  if (ag_verbose_header)
+	    {
+	      add_word("\n");
+	      if (*next)
+		{
+                  if (strcasecmp (next, "Top") == 0)
+		    execute_string ("Next: Main\xa0\xa0");
+		  else
+		    execute_string ("Next: %s\xa0\xa0", next);
+		  filling_enabled = indented_fill = 0;
+		}
+	      
+	      if (*prev && strcasecmp (prev, "(dir)") != 0)
+		{
+                  if (strcasecmp (prev, "Top") == 0)
+		    execute_string ("Prev: Main\xa0\xa0");
+		  else
+		    execute_string ("Prev: %s\xa0\xa0", prev);
+		  filling_enabled = indented_fill = 0;
+		}
+	      
+	      if (*up && strcasecmp (up, "(dir)") != 0)
+		{
+                  if (strcasecmp (up, "Top") == 0)
+		    execute_string ("Up: Main\xa0\xa0");
+		  else
+		    execute_string ("Up: %s\xa0\xa0", up);
+		  filling_enabled = indented_fill = 0;
+		}
+	    }
+	}
+      else
+	{
+	  if (*next)
+	  {
+	    execute_string (",  Next: %s", next);
+	    filling_enabled = indented_fill = 0;
+	  }
+
+	if (*prev)
+	  {
+	    execute_string (",  Prev: %s", prev);
+	    filling_enabled = indented_fill = 0;
+	  }
+
+	if (*up)
+	  {
+	    execute_string (",  Up: %s", up);
+	    filling_enabled = indented_fill = 0;
+	  }
+	}
+#else  /* ENABLE_AMIGAGUIDE */
       if (*next)
         {
           execute_string (",  Next: %s", next);
@@ -4992,6 +5681,8 @@ cm_node ()
           execute_string (",  Up: %s", up);
           filling_enabled = indented_fill = 0;
         }
+#endif  /* ENABLE_AMIGAGUIDE */
+
 #if defined (HAVE_MACROS)
       if (macro_expansion_output_stream)
         me_inhibit_expansion--;
@@ -5023,8 +5714,10 @@ cm_node ()
     current_section = this_section;
 
   filling_enabled = 1;
+
 }
 
+  
 /* Validation of an info file.
    Scan through the list of tag entries touching the Prev, Next, and Up
    elements of each.  It is an error not to be able to touch one of them,
@@ -5489,8 +6182,8 @@ remember_node_reference (node, line, type)
 {
   NODE_REF *temp = (NODE_REF *) xmalloc (sizeof (NODE_REF));
 
-  temp->next = node_references;
   temp->node = xstrdup (node);
+  temp->next = node_references;
   temp->line_no = line;
   temp->section = current_section;
   temp->type = type;
@@ -5669,6 +6362,66 @@ cm_menu ()
       warning (_("creating `Top' node"));
       execute_string ("@node Top");
     }
+
+#if defined (ENABLE_AMIGAGUIDE)
+  if (amiga_guide && !no_headers)
+    {
+      /* We want the individual buttons of an menu at an equal
+	 length. As we like menus with more than one line of
+	 descriptive text to line up nicely, we try to find a
+	 reasonable format string. */
+      int menu_width = 0;
+      int beginning_of_menu_line = input_text_offset;
+      int beginning_of_menu_body = input_text_offset;
+      int additional_from_tabs = 0;
+      int newline_encountered = 0;
+      
+      beginning_of_menu_line = 
+	search_forward (menu_starter, input_text_offset);
+      
+      beginning_of_menu_body = search_forward (":", beginning_of_menu_line);
+      
+      beginning_of_menu_body++;
+      
+      while ((input_text[beginning_of_menu_body] != '.') &&
+	     (input_text[beginning_of_menu_body] != ':'))
+	{
+	  if (input_text[beginning_of_menu_body] == '\n')
+	    newline_encountered = 1; /* Ouch! This shouldn't happen */
+	  
+	  beginning_of_menu_body++;
+	}
+      
+      beginning_of_menu_body++;
+    
+      while (whitespace (input_text[beginning_of_menu_body]))
+	{
+	  /* TAB's are a nasty thing to handle in this case,
+	     especially when there's more than one. This aproach will
+	     have to do for now, even though it's not perfect. */
+
+	  if (input_text[beginning_of_menu_body] == '\t')
+	    additional_from_tabs +=
+	      7 - ((beginning_of_menu_body - beginning_of_menu_line)
+		   & 0x07);
+
+	  if (input_text[beginning_of_menu_body] == '\n')
+	    newline_encountered = 1; /* Ouch! This shouldn't happen */
+	       
+	  beginning_of_menu_body++;
+	}
+      
+      menu_width = beginning_of_menu_body - beginning_of_menu_line +
+	additional_from_tabs;
+
+      sprintf (amiga_guide_menu_gadgets, "\" %%-%ds \"\0",
+	       menu_width - 6);
+      
+      if (newline_encountered) /* Be a chicken */
+	sprintf (amiga_guide_menu_gadgets, "\" %%-25ds \"\0");
+	
+    }
+#endif  /* ENABLE_AMIGAGUIDE */
   begin_insertion (menu);
 }
 
@@ -5720,7 +6473,19 @@ cm_xref (arg)
       arg4 = get_xref_token ();
       arg5 = get_xref_token ();
 
+#if defined (ENABLE_AMIGAGUIDE)
+
+      if (amiga_guide)
+        {
+	  normalize_node_name(arg1);
+          if (!amiga_guide_ref_flag)
+	    add_word_args("%s", px_ref_flag ? "see " : "See ");
+        }
+      else
       add_word_args ("%s", px_ref_flag ? "*note " : "*Note ");
+#else  /* ENABLE_AMIGAGUIDE */
+      add_word_args ("%s", px_ref_flag ? "*note " : "*Note ");
+#endif /* HAVE_MACROS */
 
       if (*arg5 || *arg4)
         {
@@ -5736,7 +6501,26 @@ cm_xref (arg)
           else
             node_name = arg2;
 
+#if defined (ENABLE_AMIGAGUIDE)
+
+          if (amiga_guide)
+            {
+              if (no_headers)
+                {
+                  execute_string ("%s/%s", arg4, node_name);
+                }
+              else
+                {
+		  amiga_guide_add_link("\"%s\"", node_name, arg1, arg4);
+		}
+            }
+          else
+           execute_string ("%s: (%s)%s", node_name, arg4, arg1);
+        
+#else  /* ENABLE_AMIGAGUIDE */
           execute_string ("%s: (%s)%s", node_name, arg4, arg1);
+#endif  /* ENABLE_AMIGAGUIDE */
+
           /* Free all of the arguments found. */
           if (arg1) free (arg1);
           if (arg2) free (arg2);
@@ -5750,17 +6534,63 @@ cm_xref (arg)
 
       if (*arg3)
         {
+#if defined (ENABLE_AMIGAGUIDE)
+          if (amiga_guide)
+            {
+	      if (no_headers)
+		execute_string (arg1);
+	      else
+		if (!*arg2)
+		  {
+		    canon_white(arg3);
+		    amiga_guide_add_link("\"%s\"", arg3, arg1, NULL);
+		  }
+		else
+		  {
+		    canon_white(arg2);
+		    amiga_guide_add_link("\"%s\"", arg2, arg1, NULL);
+		  }
+	    }
+	  else
           if (!*arg2)
             execute_string ("%s: %s", arg3, arg1);
           else
             execute_string ("%s: %s", arg2, arg1);
+#else  /* ENABLE_AMIGAGUIDE */
+	    if (!*arg2)
+	      execute_string ("%s: %s", arg3, arg1);
+	    else
+	      execute_string ("%s: %s", arg2, arg1);
+#endif  /* ENABLE_AMIGAGUIDE */
+	}
+      else
+	{
+#if defined (ENABLE_AMIGAGUIDE)
+	  if (amiga_guide)
+	    if (no_headers)
+	      execute_string (arg1);
+	    else
+	      if (*arg2)
+		{
+		  canon_white(arg2);
+		  amiga_guide_add_link("\"%s\"", arg2, arg1, NULL);
         }
       else
         {
+		  canon_white(arg1);
+		  amiga_guide_add_link("\"%s\"", arg1, arg1, NULL);
+		}
+	  else
+	    if (*arg2)
+	      execute_string ("%s: %s", arg2, arg1);
+	    else
+	      execute_string ("%s::", arg1);
+#else  /* ENABLE_AMIGAGUIDE */
           if (*arg2)
             execute_string ("%s: %s", arg2, arg1);
           else
             execute_string ("%s::", arg1);
+#endif  /* ENABLE_AMIGAGUIDE */
         }
 
       /* Free all of the arguments found. */
@@ -5777,9 +6607,20 @@ cm_xref (arg)
          ended the xref or pxref command. */
       int temp = input_text_offset + 1;
 
+#if defined (ENABLE_AMIGAGUIDE)
+      if (!amiga_guide)
+	if (output_paragraph[output_paragraph_offset - 2] == ':' &&
+	    output_paragraph[output_paragraph_offset - 1] == ':')
+	  return;
+      if (amiga_guide)
+	return; /* Errors here doesn't apply to AmigaGuide. */
+      
+#else  /* ENABLE_AMIGAGUIDE */
       if (output_paragraph[output_paragraph_offset - 2] == ':' &&
           output_paragraph[output_paragraph_offset - 1] == ':')
         return;
+#endif  /* ENABLE_AMIGAGUIDE */
+
       while (temp < size_of_input_text)
         {
           if (cr_or_whitespace (input_text[temp]))
@@ -5810,8 +6651,13 @@ cm_pxref (arg)
       cm_xref (arg);
       px_ref_flag--;
     }
+#if defined (ENABLE_AMIGAGUIDE)
+  else if (!amiga_guide)
+    add_char ('.');
+#else  /* ENABLE_AMIGAGUIDE */
   else
     add_char ('.');
+#endif  /* ENABLE_AMIGAGUIDE */
 }
 
 void
@@ -5824,11 +6670,31 @@ cm_inforef (arg)
       char *pname = get_xref_token ();
       char *file = get_xref_token ();
 
+#if defined (ENABLE_AMIGAGUIDE)
+      if (amiga_guide)
+	{
+	  add_word ("See ");
+	  
+      if (*pname)
+	    if (no_headers)
+        execute_string ("*note %s: (%s)%s", pname, file, node);
+      else
+	      {
+		canon_white (pname);
+		amiga_guide_add_link("\"%s\"", pname, node, file);
+	      }
+	  else
+	    if (no_headers)
+        execute_string ("*note (%s)%s::", file, node);
+	    else
+	      amiga_guide_add_link("\"%s\"", NULL, node, file);
+	}
+#else  /* ENABLE_AMIGAGUIDE */
       if (*pname)
         execute_string ("*note %s: (%s)%s", pname, file, node);
       else
         execute_string ("*note (%s)%s::", file, node);
-
+#endif  /* ENABLE_AMIGAGUIDE */
       free (node);
       free (pname);
       free (file);
@@ -7393,6 +8259,27 @@ cm_br ()
   close_paragraph ();
 }
 
+/* Stuff the flags defined on the commandline into the macro expansion
+ stream if present. */
+void
+emit_cmdline_defines()
+{
+#if defined (HAVE_MACROS)
+  if (macro_expansion_output_stream)
+    {
+      DEFINE *temp;
+      me_append_before_this_command ();
+      for (temp = defines; temp; temp = temp->next)
+	{
+	  fprintf (macro_expansion_output_stream, "@set %s %s\n",
+		   temp->name, temp->value);
+	}
+    }
+  
+#endif /* HAVE_MACROS */
+
+}
+
  /* Insert the number of blank lines passed as argument. */
 void
 cm_sp ()
@@ -8253,7 +9140,19 @@ cm_printindex ()
       return;
     }
   else
+#if defined (ENABLE_AMIGAGUIDE)
+    {
+      if (amiga_guide && !no_headers && (strcmp (index_name, "cp") == 0))
+        {
+          inhibit_paragraph_indentation = 1;
+          add_word_args ("\n@index \"%s\"", current_node);
+          inhibit_paragraph_indentation = saved_inhibit_paragraph_indentation;
+        }
+      free (index_name); 
+    }
+#else  /* ENABLE_AMIGAGUIDE */
     free (index_name);
+#endif  /* ENABLE_AMIGAGUIDE */
 
   /* Do this before sorting, so execute_string in index_element_compare
      will give the same results as when we actually print.  */
@@ -8263,15 +9162,32 @@ cm_printindex ()
   array = sort_index (index);
 
   close_paragraph ();
+#if defined (ENABLE_AMIGAGUIDE)
+  if (amiga_guide)
+    {
+      add_word ("\x80");
+       output_paragraph_offset--;
+       add_word ("\n\n");
+    }
+  else
   add_word (_("* Menu:\n\n"));
+#else  /* ENABLE_AMIGAGUIDE */
+  add_word (_("* Menu:\n\n"));
+#endif  /* ENABLE_AMIGAGUIDE */
 
 #if defined (HAVE_MACROS)
   me_inhibit_expansion++;
 #endif /* HAVE_MACROS */
 
+#if defined (ENABLE_AMIGAGUIDE)
+  /* This will probably be enough. AmigaGuide needs twice as much. */
+  line_length = 100;
+  line = xmalloc (line_length);
+#else  /* ENABLE_AMIGAGUIDE */
   /* This will probably be enough.  */
   line_length = 100;
   line = xmalloc (line_length);
+#endif  /* ENABLE_AMIGAGUIDE */
   
   for (item = 0; (index = array[item]); item++)
     {
@@ -8280,10 +9196,17 @@ cm_printindex ()
       char *index_node = index->node ? index->node : "(none)";
       unsigned new_length = strlen (index->entry);
 
+#if defined (ENABLE_AMIGAGUIDE)
+      if (amiga_guide)
+	new_length = strlen (index->entry) + (2 * strlen (index_node))
+	  + 100;
+      else
+	new_length += strlen (index_node) + 7; /* * : .\n\0 */
+#else  /* ENABLE_AMIGAGUIDE */
       if (new_length < 37) /* minimum length used below */
         new_length = 37;
       new_length += strlen (index_node) + 7; /* * : .\n\0 */
-      
+#endif  /* ENABLE_AMIGAGUIDE */      
       if (new_length > line_length)
         {
           line_length = new_length;
@@ -8293,9 +9216,37 @@ cm_printindex ()
       /* Print the entry, nicely formatted.  We've already expanded any
          commands, including any implicit @code.  Thus, can't call
          execute_string, since @@ has turned into @.  */
+#if defined (ENABLE_AMIGAGUIDE)
+      if (amiga_guide)
+       {
+         if (!no_headers)
+           {
+             normalize_node_name(index->entry);
+             /* Remove '\"' and '/' in btns. */
+                   sprintf (line, " @{\" %-40s \" link \"%s\"}   %s\n",
+                            index->entry, index_node, index_node);
+             insert_string (line);
+             
+           }
+         else
+           {
+             sprintf (line, " %-40s ... %s\n",
+                      index->entry, index_node);
+             insert_string (line);
+           }
+           
+       }
+      else
+       {
+          sprintf (line, "* %-37s  %s.\n", index->entry, index_node);
+          line[2 + strlen (index->entry)] = ':';
+          insert_string (line);
+        }
+#else  /* ENABLE_AMIGAGUIDE */
       sprintf (line, "* %-37s  %s.\n", index->entry, index_node);
       line[2 + strlen (index->entry)] = ':';
       insert_string (line);
+#endif  /* ENABLE_AMIGAGUIDE */
 
       /* Previous `output_paragraph' from growing to the size of the
          whole index.  */
@@ -8538,9 +9489,35 @@ cm_footnote ()
           temp_string = (char *)
             xmalloc ((strlen (current_node)) + (strlen (_("-Footnotes"))) + 1);
 
+#if defined (ENABLE_AMIGAGUIDE)
+	  if (amiga_guide)
+	    {
+	      if (no_headers)
+		execute_string ("%s-Footnotes", current_node);
+	      else
+		{
+		  writing_amiga_guide_button++;
+		  non_splitting_words++;
+		  add_word_args ("@{\"%s-%s\" link \"%s-%s\"}",
+				 current_node, "Footnotes",
+				 current_node, "Footnotes");
+		  writing_amiga_guide_button--;
+		  non_splitting_words--;
+		}
+	    }
+	  else
           add_word_args (" (*note %s-Footnotes::)", current_node);
+#else  /* ENABLE_AMIGAGUIDE */
+          add_word_args (" (*note %s-Footnotes::)", current_node);
+#endif  /* ENABLE_AMIGAGUIDE */
+
           strcpy (temp_string, current_node);
           strcat (temp_string, "-Footnotes");
+
+#if defined (ENABLE_AMIGAGUIDE)
+	  if (amiga_guide)
+	    normalize_node_name (temp_string);
+#endif  /* ENABLE_AMIGAGUIDE */
           remember_node_reference (temp_string, line_number, followed_reference);
           free (temp_string);
           first_footnote_this_node = 0;
@@ -9580,3 +10557,308 @@ get_file_info_in_path (filename, path, finfo)
     }
   return NULL;
 }
+
+#if defined (ENABLE_AMIGAGUIDE)
+/* **************************************************************** */
+/*                                                                  */
+/*                  Amiga extras                                    */
+/*                                                                  */
+/* **************************************************************** */
+
+/* Tweak the menu into a series of AmigaGuide buttons. Ideally, the
+   entire menu would be read and queued before output, so the exact
+   width of the link buttons can be calculated to the correct
+   (largest) size. But for now, we use a fixed width, which hopefully
+   isn't too bad. */
+
+int
+amiga_guide_convert_menu ()
+{
+  int orig_offset, i, ccpos, dotpos, lfpos;
+  char *gadgetname = NULL;	/* Presented text */
+  char *nodename = NULL;	/* Node that's linked to */
+  char *filename = NULL;	/* .. in this file. */
+  
+  if (strncmp (&input_text[input_text_offset + 1], menu_starter, strlen
+	       (menu_starter)) != 0)
+    return (0);
+  else
+    input_text_offset += strlen (menu_starter) + 1;
+  
+  orig_offset = input_text_offset;
+
+  /* remove leading whitespace before entry */
+  while (whitespace (curchar()))
+    input_text_offset++;
+
+  ccpos = search_forward ("::", input_text_offset);
+  dotpos = search_forward (".", input_text_offset);
+  lfpos = search_forward ("\n", input_text_offset);
+
+  if ((ccpos > 0) && (ccpos < lfpos))
+    /* Node and entry are identical */
+    {
+
+      if (curchar() == '(')	/* This is a link to another file */
+	{
+	  input_text_offset++;
+	  get_until_in_line (0, ")", &filename);
+	  
+	  if (curchar() != ')')
+	    {
+	      /* This doesn't look good. Chicken out. */
+	      input_text_offset = orig_offset;
+	      free (filename);
+	      return (0);
+	    }
+
+	  input_text_offset++;
+	}
+      
+      get_until_in_line (0, "::", &nodename);
+      input_text_offset++ ;
+    }
+  else if ((dotpos > 0) && (dotpos < lfpos)) /* Distinct names */
+    {
+      get_until_in_line (0, ":", &gadgetname);
+      
+      input_text_offset++;
+      while (whitespace (curchar()))
+	input_text_offset++;
+      
+      if (curchar() == '(')	/* This is a link to another file */
+	{
+	  input_text_offset++;
+	  get_until_in_line (0, ")", &filename);
+	  
+	  if (curchar() != ')')
+	    {
+	      /* This doesn't look good. Chicken out. */
+	      input_text_offset = orig_offset;
+	      free (filename);
+	      free (gadgetname);
+	      return (0);
+	    }
+	  
+	  input_text_offset++;
+	}
+      
+      get_until_in_line (0, ".", &nodename);
+      input_text_offset ++;
+    }
+  else
+    {
+      /* This doesn't look like a valid menu entry. Back up, and enter
+	 it as plain text. */
+
+      input_text_offset = orig_offset;
+      return (0);
+    }
+  
+
+  while (whitespace (curchar())) /* Skip trailing whitespace */
+    input_text_offset++;
+
+  if (filename) {
+      canon_white (filename);
+      if (strlen (filename) == 0) {
+	free (filename);
+	filename = NULL;
+      }
+  }
+  
+  if (nodename) {
+    canon_white (nodename);
+    if (strlen (nodename) == 0) {
+      free (nodename);
+      nodename = NULL;
+    }
+  }
+  
+  if ((nodename == NULL) && (filename == NULL))
+    {
+      /* Nothing to link to */
+      input_text_offset = orig_offset;
+      free (gadgetname);
+      return (0);			
+    }
+
+  normalize_node_name(nodename);
+  
+  add_word ("\n ");
+  amiga_guide_add_link (amiga_guide_menu_gadgets, gadgetname, nodename, filename);
+  add_word ("  ");
+
+  if (filename)
+  free (filename);
+  if (nodename)
+  free (nodename);
+  if (gadgetname)
+  free (gadgetname);
+
+  return (1);
+}
+
+ /* Add an AmigaGuide link, with the entire load of bells, whistles
+    and gongs. This includes adding the extension '.guide' to any
+    filenames, using 'Main' instead of 'Top' and removing any nasty
+    characters from the presented text. */
+
+void 
+amiga_guide_add_link (butfmt, buttxt, linknode, linkfile)
+     char *butfmt;
+     char *buttxt;
+     char *linknode;
+     char *linkfile;
+{
+  char *strp = NULL;
+  char *newlinkfile = NULL;
+  int newbuttxt = 0;
+  int old_fill_enable = filling_enabled;
+
+  filling_enabled = 0;
+  writing_amiga_guide_button++;
+  non_splitting_words++;
+  /* In AmigaGuide, Top is Main. */
+
+  if ((!linknode) || (strncmp(linknode, "Top", 4) == 0))
+      linknode = "Main";
+
+  /* If we link to another file, ensure that its name ends on .guide */
+
+  if (linkfile)
+    {
+      newlinkfile = (char *)xmalloc(strlen(linkfile) + 7);
+      strcpy(newlinkfile, linkfile);
+      if ((strp = strrchr(newlinkfile, '.')))
+        {
+          if (strncmp(strp, ".info", 5) == 0)
+            {
+              strcpy(strp, ".guide");
+            }
+        }
+      else 
+        /* Assume we have a clean basename */
+        strcat(newlinkfile, ".guide");
+    }
+  
+  if (buttxt == NULL && newlinkfile != NULL)
+    {
+      buttxt = xmalloc ((newlinkfile ? strlen (newlinkfile) : 0) +
+			strlen (linknode) + 3);
+      newbuttxt = 1;
+      sprintf (buttxt, 
+	       newlinkfile ? "(%s)%s" : "%s",
+	       newlinkfile ? newlinkfile : "",
+	       linknode);
+    }
+  
+  if (buttxt == NULL)
+    buttxt  = linknode;
+  
+
+  add_word ("@{");
+  execute_string (butfmt, buttxt);
+
+  add_word(" link \"");
+  if (newlinkfile) 
+    add_word_args ("%s/", newlinkfile);
+    execute_string ("%s", linknode);
+    add_word ("\"}");
+ 
+  /* Adjust output_column.  */
+
+  output_column -= strlen ("@{\"\" link \"\"}");
+  output_column -= strlen (linknode);
+  if (newlinkfile)
+    output_column -= (strlen (newlinkfile) + 1);
+  output_column += 1; /* Fudge, ends of button.  */
+  
+  /* Remember nonprinting chars */
+
+  amiga_guide_nonprinting_chars += strlen ("@{\"\" link \"\"}");
+  amiga_guide_nonprinting_chars += strlen (linknode);
+  if (newlinkfile)
+    amiga_guide_nonprinting_chars += (strlen (newlinkfile) + 1);
+  amiga_guide_nonprinting_chars -= 2;
+
+  non_splitting_words--;
+  writing_amiga_guide_button--;
+  filling_enabled = old_fill_enable;
+
+  if(newlinkfile)
+    free(newlinkfile);
+
+  if (newbuttxt)
+    free (buttxt);
+  
+}
+
+void
+cm_bold(arg)
+     int arg;
+{
+  if (amiga_guide)
+    amiga_set_attributes (AMIGA_BOLD, arg);
+  else
+    cm_not_fixed_width (arg);
+  
+}
+
+void
+cm_italics(arg)
+     int arg;
+{
+  if (amiga_guide)
+    amiga_set_attributes (AMIGA_ITALICS, arg);
+  else
+    cm_not_fixed_width (arg);
+}
+
+void 
+cm_amiga_ref(arg)
+     int arg;
+{
+  if (arg == START)
+    {
+      amiga_guide_ref_flag++;
+      cm_xref (arg);
+      amiga_guide_ref_flag--;
+    }
+  else if (!amiga_guide)
+    add_char ('.');
+}
+
+void
+amiga_set_attributes (attr, arg)
+     enum amiga_guide_attrs attr;
+     int arg;
+{
+  int attr_column_select = 0;
+  int attr_width = 0;
+  
+  if (writing_amiga_guide_button || printing_index
+      || (amiga_guide == 34))
+    return;
+  
+  if (arg != START)
+    attr_column_select++;
+  
+  if (no_headers)
+    attr_column_select += 2;
+    
+  attr_column_select += (4 * attr);
+
+  if ((amiga_guide) && (input_text[input_text_offset - 1] == '\\'))
+    add_word (" ");		/* Avoid escaping of attr. */
+
+  attr_width = strlen (amiga_attr_cmds[attr_column_select]);
+  
+  amiga_guide_hide_title_chars += attr_width;
+  amiga_guide_nonprinting_chars += attr_width;
+    
+  insert_string (amiga_attr_cmds[attr_column_select]);
+  
+}
+
+#endif /* ENABLE_AMIGAGUIDE */
