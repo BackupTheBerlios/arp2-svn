@@ -1,0 +1,160 @@
+.TH RDESKTOP 1 "Januari 2001" "Manual page for rdesktop"
+.\"
+.\" 5th Januari 2001
+.\" Man page author:
+.\"    Hugo Trippaers <spark@ision.nl>
+.\"
+.SH NAME
+.I rdesktop
+\- terminal server client for Windows NT4 and Windows 2000
+.SH SYNOPSIS
+.B rdesktop
+\-n <hostname> [options] server
+.br
+.SH DESCRIPTION
+.I rdesktop
+acts as a window terminal services client for Windows NT terminal servers and Windows 2000 terminal services either in administration or licenced mode. rdesktop implements the RDP version 4 protcol as used by Windows NT4 Terminalserver. Various mailinglist members wrote patches for rdesktop which implement RDP version 5. RDP 5 is used by Windows 2000 Terminal Services. At this time the patches are not merged in the main codebase but distributed seperately. See the links section for URLS.
+( THIS MANPAGE IS OUTDATED - UPDATEME )
+.SH OPTIONS
+.TP
+.BR "-u --user"
+The username for authentication on the terminal server, together with -p this can be used for autologon. On win2k the username is prefilled on the username box.
+.TP
+.BR "-d --domain"
+The domain to to which the user belongs. Use -u user@domain for win2k servers.
+.TP
+.BR "-s --shell"
+The startup shell for the user. Use this to force the user to start a specific shell of program after startup.
+.TP
+.BR "-c --workingdir"
+The current working directory for the user. Often used in combination with -s to setup a fixed environment for the user after logon.
+.TP
+.BR "-p --password"
+The password to authenticate with, used in combination with -u for autologon. WARNING: the -p <password> option will be visible to all users when then use tools like ps. Use -p - to make rdesktop request a password at startup.
+.TP
+.BR "-n --clientname"
+The name of the current machine rdesktop is running on. Usually the hostname (without the domain).
+.TP
+.BR "-k --keycode"
+The keyboard layout for the rdesktop session. i.e. us, is or nl
+.TP
+.BR "-K --vmkeys"
+By default the keybindings of the windowmanager will be ignored when the rdesktop window is in focus. Use this setting to keep the windowmanager keybindings.
+.TP
+.BR "-F --fullscreen"
+Enable fullscreen mode. The -w and -h flag will be ignored when using -f, rdesktop will get the current height and width from the current desktop.
+.TP
+.BR "-D --bpp"
+Rdesktop should detect the default screen depth, and try and run on that. The -D switch is only there so that the user can override the default bits-per-pixel setting.
+.TP
+.BR "-t --port"
+This option is used to make rdesktop connect to another rdp port on the remote machine. The default is 3389 as used by W2K and NT4 Terminal Server.
+.TP
+.BR "-T --bs"
+This option selects the backing-store method. The options are x,p and n.
+.TP
+.BR "  --bs x"
+Use the Xservers backing-store, but no internal pixmap. If the Xserver does not provide a backing-store none will be used at all, this acts as the --bs n switch. This method is the fastest since the Xserver can do optimizations in the hardware. 
+.TP
+.BR "  --bs n"
+No backingstore. This is slow but saves some memory.
+.TP
+.BR "  --bs p"
+This is the default setting, use an internal pixmap.
+.TP
+.BR "-e --no-enc"
+Do not use encryption, this is only for people who are not allowed to use encryption in Windows products. If you live in France you probably need this switch.
+.TP
+.BR "-l --no-license"
+Do not request license. This flag is not used when connecting to Windows 2000 Terminal Services.
+.TP
+.BR "-v --privcolmap"
+Use a private color map, this is useful when running X in 8bpp mode.
+.TP
+.BR "\-4 \-\-nt4tsc"
+Enable NT4 compatibility mode, this might be needed to connect to NT4 Terminal Servers.
+.TP
+.BR "\-N \-\-new\-kbcode"
+If you're not using a pc keyboard this may fix some of your key problems. This option should be used together with the \-k option.
+.TP
+.BR "\-V \-\-VNC"
+use a VNC viewer.
+.TP
+.BR "--no-bitmapcache"
+Force bitmap updates.
+.TP
+.BR "--no-bitmapcomp"
+Disable bitmap compression.
+.TP
+.BR "--no-desktopcache"
+Disable the use of the desktop cache.
+.TP
+.BR "--no-motionevents"
+Disable the sending of motion events.
+.TP
+.BR "--no-systembeep"
+Do not forward the system beep from the terminal session to the Xserver.
+.TP
+.SH EXAMPLES
+.PP
+.br
+Connect to a Windows 2000 Server called asp from a box called tux.
+.br
+\fI% rdesktop \-n tux asp.mydomain.com
+.PP
+.br
+Connect to a Windows 2000 Server called asp and automagically start Word. Rdesktop will request a password before starting the session.
+.br
+\fI% rdesktop -n tux -u worduser -p - -s winword.exe asp.mydomain.com
+.br
+.PP
+.br
+Connect to a Windows NT4 Terminal server
+.br
+\fI% rdesktop -n tux -4 terminal.mydomain.com
+.br
+.PP
+.br
+\fI% rdesktop -n tux -u aspuser@asp.mydomain.com -p - -P 90 asp.mydomain.com
+.br
+.PP
+.SH "RETURN VALUES"
+None are defined (yet)
+.SH LINKS
+Main website of rdesktop
+.br
+\fIhttp://www.rdesktop.org
+.LP
+The unified patch can be found here
+.br
+\fIhttp://bibl4.oru.se/projects/rdesktop
+.LP
+The mailinglist
+.br
+rdesktop@cifs.org
+.LP
+.SH BUGS
+Probably too many to list here. We suggest you visit the website at http://www.rdesktop.org and take a look at the mailinglist archives to find out about the latest news, bugs and fixes.
+.SH VERSION
+This manual page documents version 1.0.0/patch 19-4-2
+.SH AUTHOR
+rdesktop is written by Matt Chapman 
+.br
+<matthewc@cse.unsw.edu.au>
+.LP
+unified patch by Peter Bystrom 
+.br
+<peter.bystrom@ub.oru.se>
+.LP
+manual page by Hugo Trippaers 
+.br
+<spark@ision.nl>
+.br
+.SH THANKS
+Thanks to all the mailinglist members for their contributions to rdesktop.
+.PP
+
+
+
+
+

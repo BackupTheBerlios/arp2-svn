@@ -1,0 +1,8 @@
+./configure --with-debug --with-gui=amiga --without-openssl
+cat > localendian.h <<EOF
+#define __LITTLE_ENDIAN 1234
+#define __BIG_ENDIAN    4321
+#define __BYTE_ORDER __BIG_ENDIAN
+EOF
+
+make CC=m68k-amigaos-gcc OS=AmigaOS ARCH=m68k
