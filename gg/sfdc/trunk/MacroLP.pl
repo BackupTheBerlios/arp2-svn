@@ -14,6 +14,25 @@ BEGIN {
 	return $self;
     }
 
+    sub header {
+	my $self = shift;
+	my $sfd  = $self->{SFD};
+
+	$self->SUPER::header (@_);
+	
+	print "#ifndef __INLINE_MACROS_H\n";
+	print "#include <inline/macros.h>\n";
+	print "#endif /* !__INLINE_MACROS_H */\n";
+	print "\n";
+
+	if ($$sfd{'base'} ne '') {
+	    print "#ifndef $self->{BASE}\n";
+	    print "#define $self->{BASE} $$sfd{'base'}\n";
+	    print "#endif /* !$self->{BASE} */\n";
+	    print "\n";
+	}
+    }
+    
     sub function_start {
 	my $self      = shift;
 	my %params    = @_;

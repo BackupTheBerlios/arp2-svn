@@ -31,17 +31,6 @@ BEGIN {
 	print "#ifndef _INLINE_$$sfd{'BASENAME'}_H\n";
 	print "#define _INLINE_$$sfd{'BASENAME'}_H\n";
 	print "\n";
-	print "#ifndef __INLINE_MACROS_H\n";
-	print "#include <inline/macros.h>\n";
-	print "#endif /* !__INLINE_MACROS_H */\n";
-	print "\n";
-
-	if ($$sfd{'base'} ne '') {
-	    print "#ifndef $self->{BASE}\n";
-	    print "#define $self->{BASE} $$sfd{'base'}\n";
-	    print "#endif /* !$self->{BASE} */\n";
-	    print "\n";
-	}
     }
 
     sub function {

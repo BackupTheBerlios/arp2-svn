@@ -18,11 +18,8 @@ BEGIN {
 	my $self = shift;
 	my $sfd  = $self->{SFD};
 
-	print "/* Automatically generated header! Do not edit! */\n";
-	print "\n";
-	print "#ifndef _INLINE_$$sfd{'BASENAME'}_H\n";
-	print "#define _INLINE_$$sfd{'BASENAME'}_H\n";
-	print "\n";
+	$self->SUPER::header (@_);
+	
 	print "#ifndef AROS_LIBCALL_H\n";
 	print "#include <aros/libcall.h>\n";
 	print "#endif /* !AROS_LIBCALL_H */\n";
