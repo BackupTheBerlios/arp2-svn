@@ -444,10 +444,10 @@ amiga_blt_rastport( struct RastPort *srcRP, LONG xSrc, LONG ySrc,
 
 	InstallClipRegion( amiga_window->WLayer, region );
     
-	BltBitMapRastPort( temprp.BitMap, 0, 0,
-			   destRP, xDest, yDest,
-			   xSize, ySize,
-			   minterm );
+	WorkingBltBitMapRastPort( temprp.BitMap, 0, 0,
+				  destRP, xDest, yDest,
+				  xSize, ySize,
+				  minterm );
       }
     }
   }
