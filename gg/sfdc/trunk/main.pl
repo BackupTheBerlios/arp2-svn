@@ -416,6 +416,8 @@ sub parse_sfd ( $ ) {
     $$result{'typedefs'}   = ();
 
     if ($addvectors ne 'none') {
+	push @{$$result{'includes'}}, '<dos/dos.h>';
+	
 	for my $i ( 0 .. $#{$classes->{vectors}->{$addvectors}} ) {
 	    push @{$$result{'prototypes'}}, {
 		type    => 'function',
