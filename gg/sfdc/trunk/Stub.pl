@@ -1,5 +1,5 @@
 
-### Class Stub: Create a generic stub file #####################################
+### Class Stub: Create a generic stub file ####################################
 
 BEGIN {
     package Stub;
@@ -119,6 +119,8 @@ BEGIN {
 	}
 	print join (', ', @{$$prototype{'___args'}});
 	print ")\n";
+	print "{\n";
+	
     }
 
     sub function_start {
@@ -126,8 +128,6 @@ BEGIN {
 	my %params    = @_;
 	my $prototype = $params{'prototype'};
 	my $sfd       = $self->{SFD};
-	
-	print "{\n";
 	
 	if ($$prototype{'type'} =~ /^(varargs)|(stdarg)$/) {
 	    print "  return $$prototype{'real_funcname'}(BASE_PAR_NAME ";

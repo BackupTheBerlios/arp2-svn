@@ -43,7 +43,7 @@ my %targets = (
 	      'm68k(-unknown)?-amigaos'       =>
 	       { target => 'amigaos',
 		 macros => 'Macro68k',
-		 stubs  => 'Stub' },
+		 stubs  => 'Stub68k' },
 	       
 	      'p(ower)?pc(-unknown)?-morphos' =>
 	       { target => 'morphos',
