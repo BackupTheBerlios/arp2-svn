@@ -85,7 +85,7 @@ BEGIN {
 	print "$$prototype{'return'} $$prototype{'funcname'}($args)";
 
 	if ($$classes{'target'} eq 'morphos' &&
-	    $$prototype{'type'} =~ /^varargs|stdarg$/ ) {
+	    $$prototype{'type'} =~ /^varargs$/ ) {
 	    print " __attribute__((varargs68k))";
 	}
 	

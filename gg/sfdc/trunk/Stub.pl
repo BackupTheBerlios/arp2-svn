@@ -70,15 +70,6 @@ BEGIN {
 	$self->function_end (prototype => $prototype);
 
 	print "\n";
-
-#	if ($$classes{'target'} eq 'morphos' &&
-#	    $$prototype{'type'} =~ /^varargs|stdarg$/ ) {
-#
-#	    print "/* MorphOS varargs/stdarg stubs require this line */\n";
-#	    print "$$prototype{'return'}\n";
-#	    print "$$prototype{'funcname'}($args) __attribute__((varargs68k))\n";
-#	    print "\n";
-#	}
     }
 
     sub footer {
@@ -120,6 +111,7 @@ BEGIN {
 		}
 	    }
 	    print join (', ', @{$$rproto{'___args'}});
+
 	    print ");\n";
 	    print "\n";
 	}

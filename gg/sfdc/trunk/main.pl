@@ -48,7 +48,7 @@ my %targets = (
 	      'p(ower)?pc(-unknown)?-morphos' =>
 	       { target => 'morphos',
 		 macros => 'MacroMOS',
-		 stubs  => 'Stub' },
+		 stubs  => 'StubMOS' },
 	      );
 
 my $classes;
@@ -167,9 +167,9 @@ for my $i ( 0 .. $#ARGV ) {
 	    $obj = $$classes{'stubs'}->new( sfd => $sfd );
 
 	    # By tradition, the functions in the stub files are sorted
-#	    @{$$sfd{'prototypes'}} = sort {
-#		$$a{'funcname'} cmp $$b{'funcname'}
-#	    } @{$$sfd{'prototypes'}};
+	    @{$$sfd{'prototypes'}} = sort {
+		$$a{'funcname'} cmp $$b{'funcname'}
+	    } @{$$sfd{'prototypes'}};
 	    last;
 	};
 	
