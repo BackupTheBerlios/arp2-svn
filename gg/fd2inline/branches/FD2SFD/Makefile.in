@@ -27,7 +27,7 @@ all:		$(EXECUTABLE)
 
 clean:
 	$(RM) $(EXECUTABLE) $(EXECUTABLE)-$(VERSION).tar.gz $(EXECUTABLE).lha \
-	      $(EXECUTABLE).readme *~ core config.log
+	      $(EXECUTABLE).readme gg-fd2sfd.spec *~ core config.log
 
 distclean:	clean
 	$(RM) Makefile cross/bin/gg-fix-includes config.status
@@ -101,7 +101,7 @@ tgz:		all gg-fd2sfd.spec
 	cd $(srcdir) && cvs diff >/dev/null || (echo "Not checked in!"; exit 10)
 	mkdir $(EXECUTABLE)-$(VERSION)
 	cd $(EXECUTABLE)-$(VERSION) && cvs export -Dtoday -r FD2SFD fd2inline
-	mv fd2inline fd2sfd
+	mv $(EXECUTABLE)-$(VERSION)/fd2inline $(EXECUTABLE)-$(VERSION)/fd2sfd
 	mv $(EXECUTABLE)-$(VERSION)/fd2sfd/* $(EXECUTABLE)-$(VERSION)
 	cp gg-fd2sfd.spec $(EXECUTABLE)-$(VERSION)
 	rmdir $(EXECUTABLE)-$(VERSION)/fd2sfd
@@ -134,7 +134,7 @@ config.h: stamp-h
 stamp-h: config.h.in config.status
 	./config.status
 
-Makefile: Makefile.in config.status
+Makefile gg-fd2sfd.spec: Makefile.in config.status
 	./config.status
 
 config.status: configure
