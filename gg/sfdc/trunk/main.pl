@@ -578,7 +578,7 @@ sub parse_sfd ( $ ) {
 
 	    if ($proto_line =~ /.*\(.*[0-7]-.*\)\s*$/) {
 		print STDERR "Warning: Multiregister function broken.\n";
-		$proto_line =~ s/\((.*[0-9])-.*\)/($1)/;
+		$proto_line =~ s/([da][0-7])-[da][0-7]/$1/g;
 	    }
 #	    else {
 		push @{$$result{'prototypes'}}, {
