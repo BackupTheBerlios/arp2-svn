@@ -116,7 +116,8 @@ for my $i ( 0 .. $#ARGV ) {
 
 
     for my $j ( 0 .. $num + 1) {
-	my $funcname = $$sfd{'prototypes'}[$j]{'funcname'};
+	my $prototype = $$sfd{'prototypes'}[$j];
+	my $funcname  = $$prototype{'funcname'};
 	
 	if (!defined ($funcname) || will_close_output ($sfd, $funcname) != 0) {
 	    $obj->footer ();
@@ -130,7 +131,7 @@ for my $i ( 0 .. $#ARGV ) {
 	    $obj->header ();
 	}
 
-	$obj->function (num => $j);
+	$obj->function (prototype => $prototype);
     }
 
     close_output ();
@@ -218,7 +219,7 @@ sub parse_sfd ( $ ) {
 	    };
 
 	    /==base\s+/ && do {
-		( $$result{'base'} = $_ ) =~ s/==base\s+(.*)\s*/$1/;
+		( $$result{'base'} = $_ ) =~ s/==base\s+_?(.*)\s*/$1/;
 		last;
 	    };
 
@@ -557,50 +558,51 @@ sub BEGIN {
 
 	print "* \"$$sfd{'libname'}\"\n";
 	print "* Automatically generated FD! Do not edit!\n";
-	print "##base $$sfd{'base'}\n";
+	print "##base _$$sfd{'base'}\n";
 	$self->{BIAS}    = -1;
 	$self->{PRIVATE} = -1;
 	$self->{VERSION} = 1;
     }
 
     sub function {
-	my $self   = shift;
-	my %params = @_;
-	my $i      = $params{'num'};
-	
-	my $sfd  = $self->{SFD};
+	my $self      = shift;
+	my %params    = @_;
+	my $prototype = $params{'prototype'};
+	my $sfd       = $self->{SFD};
 
-	if ($self->{BIAS} != $$sfd{'prototypes'}[$i]{'bias'}) {
-	    $self->{BIAS} = $$sfd{'prototypes'}[$i]{'bias'};
-	    print "##bias $self->{BIAS}\n";
-	}
+	if ($$prototype{'type'} eq 'function') {
+	    if ($self->{BIAS} != $$prototype{'bias'}) {
+		$self->{BIAS} = $$prototype{'bias'};
+		print "##bias $self->{BIAS}\n";
+	    }
 
-	if ($self->{PRIVATE} != $$sfd{'prototypes'}[$i]{'private'}) {
-	    $self->{PRIVATE} = $$sfd{'prototypes'}[$i]{'private'};
-	    print $self->{PRIVATE} == 1 ? "##private\n" : "##public\n";
-	}
+	    if ($self->{PRIVATE} != $$prototype{'private'}) {
+		$self->{PRIVATE} = $$prototype{'private'};
+		print $self->{PRIVATE} == 1 ? "##private\n" : "##public\n";
+	    }
 
-	if ($self->{VERSION} != $$sfd{'prototypes'}[$i]{'version'}) {
-	    $self->{VERSION} = $$sfd{'prototypes'}[$i]{'version'};
+	    if ($self->{VERSION} != $$prototype{'version'}) {
+		$self->{VERSION} = $$prototype{'version'};
 
-	    print "*--- functions in V$self->{VERSION} or higher ---\n";
-	}
+		print "*--- functions in V$self->{VERSION} or higher ---\n";
+	    }
 
-	if ($$sfd{'prototypes'}[$i]{'comment'} ne '') {
-	    my $comment = $$sfd{'prototypes'}[$i]{'comment'};
+	    if ($$prototype{'comment'} ne '') {
+		my $comment = $$prototype{'comment'};
 
-	    $comment =~ s/^/\*/m;
+		$comment =~ s/^/\*/m;
 		
-	    print "$comment\n";
-	}
+		print "$comment\n";
+	    }
 	    
-	print "$$sfd{'prototypes'}[$i]{'funcname'}(";
-	print join (',', @{$$sfd{'prototypes'}[$i]{'argnames'}});
-	print ")(";
-	print join (',', @{$$sfd{'prototypes'}[$i]{'regs'}});
-	print ")\n";
+	    print "$$prototype{'funcname'}(";
+	    print join (',', @{$$prototype{'argnames'}});
+	    print ")(";
+	    print join (',', @{$$prototype{'regs'}});
+	    print ")\n";
 	
-	$self->{BIAS} += 6;
+	    $self->{BIAS} += 6;
+	}
     }
     
     sub footer {
@@ -668,20 +670,19 @@ sub BEGIN {
 
     sub function {
 	my $self     = shift;
-	my %params   = @_;
-	my $i        = $params{'num'};
-	my $sfd      = $self->{SFD};
-	my $funcname = $$sfd{'prototypes'}[$i]{'funcname'};
+	my %params    = @_;
+	my $prototype = $params{'prototype'};
+	my $sfd       = $self->{SFD};
 	
-	if ($self->{VERSION} != $$sfd{'prototypes'}[$i]{'version'}) {
-	    $self->{VERSION} = $$sfd{'prototypes'}[$i]{'version'};
+	if ($self->{VERSION} != $$prototype{'version'}) {
+	    $self->{VERSION} = $$prototype{'version'};
 
 	    print "\n";
 	    print "/*--- functions in V$self->{VERSION} or higher ---*/\n";
 	}
 	
-	if ($$sfd{'prototypes'}[$i]{'comment'} ne '') {
-	    my $comment = $$sfd{'prototypes'}[$i]{'comment'};
+	if ($$prototype{'comment'} ne '') {
+	    my $comment = $$prototype{'comment'};
 
 	    $comment =~ s,^(\s?)(.*),/*$1$2$1*/,m;
 		
@@ -689,13 +690,13 @@ sub BEGIN {
 	    print "$comment\n";
 	}
 	
-	my $args = join (', ',@{$$sfd{'prototypes'}[$i]{'args'}});
+	my $args = join (', ',@{$$prototype{'args'}});
 
 	if ($args eq '') {
 	    $args = "void";
 	}
 	
-	print "$$sfd{'prototypes'}[$i]{'return'} $funcname($args);\n";
+	print "$$prototype{'return'} $$prototype{'funcname'}($args);\n";
     }
 
     sub footer {
@@ -723,7 +724,9 @@ sub BEGIN {
 	my %params = @_;
 	my $class  = ref($proto) || $proto;
 	my $self   = {};
-	$self->{SFD} = $params{'sfd'};
+	$self->{SFD}  = $params{'sfd'};
+	$self->{BASE} = "${$self->{SFD}}{'BASENAME'}_BASE_NAME";
+	$self->{BASE} =~ s/^([0-9])/_$1/;
 	bless ($self, $class);
 	return $self;
     }
@@ -737,13 +740,44 @@ sub BEGIN {
 	print "#ifndef INLINE_$$sfd{'BASENAME'}_H\n";
 	print "#define INLINE_$$sfd{'BASENAME'}_H\n";
 	print "\n";
+	print "#ifndef __INLINE_MACROS_H\n";
+	print "#include <inline/macros.h>\n";
+	print "#endif /* !__INLINE_MACROS_H */\n";
+	print "\n";
+
+	if ($$sfd{'base'} ne '') {
+	    print "#ifndef $self->{BASE}\n";
+	    print "#define $self->{BASE} $$sfd{'base'}\n";
+	    print "#endif /* !$self->{BASE} */\n";
+	    print "\n";
+	}
     }
 
     sub function {
-	my $self     = shift;
-	my %params   = @_;
-	my $i        = $params{'num'};
-	my $sfd      = $self->{SFD};
+	my $self      = shift;
+	my %params    = @_;
+	my $prototype = $params{'prototype'};
+	my $sfd       = $self->{SFD};
+
+	if ($$prototype{'type'} eq 'stdarg') {
+	    print "#ifndef NO_INLINE_STDARG\n";
+	}
+	elsif ($$prototype{'type'} eq 'varargs') {
+	    print "##ifndef NO_INLINE_VARARGS\n";
+	}
+	
+	$self->function_define (prototype => $prototype);
+	$self->function_start (prototype => $prototype);
+	$self->function_end (prototype => $prototype);
+
+	if ($$prototype{'type'} eq 'stdarg') {
+	    print "#endif /* !NO_INLINE_STDARG */\n";
+	}
+	elsif ($$prototype{'type'} eq 'varargs') {
+	    print "##endif /* !NO_INLINE_VARARGS */\n";
+	}
+
+	print "\n";
     }
 
     sub footer {
@@ -752,6 +786,60 @@ sub BEGIN {
 
 	print "\n";
 	print "#endif /* INLINE_$$sfd{'BASENAME'}_H */\n";
+    }
+
+
+    # Helper functions
+    
+    sub function_define {
+	my $self     = shift;
+	my %params   = @_;
+	my $prototype = $params{'prototype'};
+	my $sfd      = $self->{SFD};
+
+	my @argnames ;
+
+	foreach my $arg (@{$$prototype{'argnames'}}) {
+	    $arg =~ s/^(\w)/___$1/;
+	    push @argnames, $arg;
+	}
+
+	if ($$prototype{'type'} eq 'stdarg') {
+	    # Remove the empty argument and the last ("Tag") and add "..."
+	    pop @argnames;
+	    pop @argnames;
+	    push @argnames, "...";
+	}
+	elsif ($$prototype{'type'} eq 'varargs') {
+	    # Remove the empty argument and add "..."
+	    pop @argnames;
+	    push @argnames, "...";
+	}
+
+	print "#define $$prototype{'funcname'}(";
+	print join (',', @argnames);
+	print ") \\\n";
+    }
+
+    sub function_start {
+	my $self      = shift;
+	my %params    = @_;
+	my $prototype = $params{'prototype'};
+	my $sfd       = $self->{SFD};
+    }
+
+    sub function_end {
+	my $self      = shift;
+	my %params    = @_;
+	my $prototype = $params{'prototype'};
+	my $sfd       = $self->{SFD};
+	
+	if ($$sfd{'base'} ne '') {
+	    print "	, $self->{BASE})\n";
+	}
+	else {
+	    print "	)\n";
+	}
     }
 }
 
