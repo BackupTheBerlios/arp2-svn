@@ -1,0 +1,43 @@
+# @configure_input@
+
+srcdir		= @srcdir@
+rdesktop_srcdir	= $(srcdir)/rdesktop-2004-04-17-0800
+
+
+CC		= @CC@
+CPPFLAGS	= @CPPFLAGS@ -I$(rdesktop_srcdir) -DENABLE_AMIGA -DWITH_OPENSSL -DWITH_RDPSND
+CFLAGS		= @CFLAGS@
+LDFLAGS		= @LDFLAGS@
+LDLIBS		= @LIBS@ -s
+
+VPATH		= $(srcdir) $(rdesktop_srcdir)
+
+RDESKTOP	= RDesktop
+
+OBJECTS		= amiga_rdesktop.o amiga.o rdpsnd_ahi.o getopt.o getopt1.o eprintf.o \
+		  rdesktop.o tcp.o iso.o mcs.o secure.o licence.o rdp.o \
+		  orders.o bitmap.o cache.o rdp5.o channels.o rdpdr.o \
+		  printercache.o cliprdr.o rdpsnd.o \
+#		  serial.o printer.o parallel.o 
+#		  rdpsnd.o disk.o
+
+DEPS		= $(OBJECTS:%.o=%.d)
+
+all:		$(RDESKTOP)
+
+clean:
+	$(RM) $(RDESKTOP) $(OBJECTS) $(DEPS) config.log
+
+distclean:	clean
+	$(RM) config.h stamp-h.in Makefile
+
+$(RDESKTOP): 	$(OBJECTS)
+	$(CC) $(LDFLAGS) $^ $(LDLIBS) $(OUTPUT_OPTION)
+
+lha:		$(RDESKTOP)
+	lha -ao5 $(RDESKTOP).lha $(RDESKTOP) $(RDESKTOP).readme *.info 
+
+%.d:		%.c
+	$(CC) $(CPPFLAGS) -M $< $(OUTPUT_OPTION)
+
+include $(DEPS)
