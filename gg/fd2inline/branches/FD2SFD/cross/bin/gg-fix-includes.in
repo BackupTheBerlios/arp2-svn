@@ -15,6 +15,10 @@ NORMAL="\e[0m"
 
 if [ $# -eq 1 ]; then
   case "$1" in
+    --check-sfd)
+      CHECK=yes
+      ;;
+
     --include)
       INCLUDE=yes
       ;;
@@ -29,10 +33,31 @@ if [ $# -eq 1 ]; then
   esac
 fi
 
-if [ -z "${INCLUDE}${LIB}${SFD}" ]; then
-  echo "Usage: $0 [--include] [--lib] [--sfd]"
+if [ -z "${CHECK}${INCLUDE}${LIB}${SFD}" ]; then
+  echo "Usage: $0 [--check-sfd] [--include] [--lib] [--sfd]"
+  echo
+  echo "  Options:"
+  echo "    --check-sfd  Make sure all SFD files are correct"
+  echo "    --include    Create and patch OS include files"
+  echo "    --lib        Create linker stub libraries"
+  echo "    --sfd        Create missing SFD files from FD and CLib files"
   exit
 fi
+
+
+# Check SFD files if asked to
+
+if [ ${CHECK} ]; then
+  for sfd_dir in ${prefix}/os-lib/sfd/*; do
+    package=`echo "${sfd_dir}" | sed -e "s,.*/,,"`
+
+    if [ -d ${fd_dir} ]; then
+      ${SFDC} --quiet --mode=verify ${sfd_dir}/*_*.[Ss][Ff][Dd] || exit 10
+    fi
+  done
+  exit
+fi
+
 
 # Verify that all SFD files exists, create them if instructed to do so
 
@@ -196,21 +221,13 @@ for gcc in ${bindir}/*-*-gcc; do
        ${SFDC} --quiet --mode=macros --target=${FD2SFD_OS} \
                -o ${prefix}/${target}/sys-include/inline/%n.h \
 	       ${sfd_dir}/*_*.[Ss][Ff][Dd]
-	       
-#       for sfd in ${sfd_dir}/*_*.[Ss][Ff][Dd]; do
-#         base=`echo "${sfd}" | sed -e "s,${sfd_dir}/\(.*\)_\(.*\)\....,\1,"`
 
-#         echo -ne "${NORMAL}[${base}] ${ERROR}"
-#         ${SFDC} --quiet --mode=macros --target=${FD2SFD_OS} ${sfd} \
-#            -o ${prefix}/${target}/sys-include/inline/${base}.h || exit 10
-             
-#         ${SFDC} --quiet --mode=proto --target=${FD2SFD_OS} ${sfd} \
-#            -o ${prefix}/${target}/sys-include/proto/${base}.h || exit 10
-#       done
-        
+       ${SFDC} --quiet --mode=proto --target=${FD2SFD_OS} \
+               -o ${prefix}/${target}/sys-include/proto/%n.h \
+	       ${sfd_dir}/*_*.[Ss][Ff][Dd]
+
        cp ${fd2sfddir}/stubs.h ${fd2sfddir}/${FD2SFD_OS}/* \
           ${prefix}/${target}/sys-include/inline/
-
       fi
 
       if [ ${LIB} ]; then
