@@ -82,11 +82,22 @@ BEGIN {
 		print "	$$sfd{'basetype'}, $self->{BASE}, ";
 	    }
 	    else {
-		print "	/* bt */, /* bn */, ";
+		my $bt = "/* bt */";
+		my $bn = "/* bn */";
+
+		for my $i (0 .. $#{$prototype->{regs}}) {
+		    if ($prototype->{regs}[$i] eq 'a6') {
+			$bt = $prototype->{argtypes}[$i];
+			$bn  =$prototype->{___argnames}[$i];
+			last;
+		    }
+		}
+		
+		print "	$bt, $bn, ";
 	    }
 	    
 	    print $$prototype{'bias'} / 6;
-	    print ", /* s */)\n";
+	    print ", $sfd->{Basename})\n";
 	}
 	else {
 	    $self->SUPER::function_end (@_);

@@ -33,7 +33,7 @@ my %targets = (
 	      '(\w)+(-.*)?-aros'              =>
 	       { target => 'aros',
 		 macros => 'MacroAROS',
-		 stubs  => 'Stub' },
+		 stubs  => 'StubAROS' },
 	       
 	      'i.86be(-pc)?-amithlon'         =>
 	       { target => 'amithlon',
