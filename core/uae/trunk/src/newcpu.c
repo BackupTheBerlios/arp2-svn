@@ -353,10 +353,12 @@ void init_m68k (void)
      * before starting the CPU */
     check_prefs_changed_comp ();
 
+#ifdef BLOMCALL
     // Set up blomcalls
     if (blomcall_init()) {
       write_log ("blomcalls enabled\n");
     }
+#endif
 }
 
 struct regstruct regs, lastint_regs;

@@ -1612,7 +1612,7 @@ static void add_shmmaps (uae_u32 start, addrbank *what)
  * direct memory access will be disabled and memory allocated via
  * malloc().
  */
-uae_u8 *mapped_malloc (size_t s, char *file, , uae_u32 __address)
+uae_u8 *mapped_malloc (size_t s, char *file, uae_u32 __address)
 {
     int id;
     void *answer;
@@ -1655,7 +1655,7 @@ uae_u8 *mapped_malloc (size_t s, char *file, , uae_u32 __address)
         canbang = 0;
         answer = mapped_malloc (s, file, __address);
     }
-    return answer == 0 : MAPPED_MALLOC_FAILED ? answer;
+    return answer == 0 ? MAPPED_MALLOC_FAILED : answer;
 }
 
 #ifndef WIN32
