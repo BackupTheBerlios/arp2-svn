@@ -1,0 +1,459 @@
+RELEASES
+
+rdesktop-1.0.0.tar.gz: 
+		Author: 	Matthew Chapman <matthewc@cse.unsw.edu.au>.
+
+
+
+NOTES:
+	I've only documented the changes done in the unified-patch series. Some changes have not been documented in any other way than in the source code itself, however I hope this will be as complete as it can get. 
+	[Peter Bystrom <peter.bystrom@ub.oru.se>]
+
+
+
+CHANGES:
+
+
+U-PATCH3:
+	* fix for small upsidedown images in rdp.c::process_bitmap_updates() and orders.c::process_raw_bmpcache().
+		Sebastian Andersson <sa@hogia.net>
+	* fix for 16-bit support added, rdesktop-16.patch-7 used.
+		Sebastian Andersson <sa@hogia.net>
+	* added cursor support.
+		Ben McKeegan <Ben.McKeegan@fitz.cam.ac.uk>
+	* w2k connects, caplen +=4 apparently adds w2k support... 
+		was it Peter H. Ganten <peter@ganten.org> who figured this out?
+	* added support for FillOrMix_1/2.
+		Philippe MARTIN <pmartin@eridan-info.fr>
+
+U-PATCH5:
+	* added support for extended keys, and int. chars.
+		Ben McKeegan <Ben.McKeegan@fitz.cam.ac.uk> 
+	* added support for 0xc0 in ui_triblt().
+		Sebastian Andersson <sa@hogia.net>
+
+U-PATCH6:
+	* fix in xwin.c::ui_desktop_save(). XGetImage fails when that part of the window is outside the boundaries of the screen.
+		Philippe MARTIN <pmartin@eridan-info.fr>
+
+U-PATCH7:
+	* fix for bigendian machines.
+		Joshua Weage <weage98@yahoo.com> 
+
+U-PATCH8:
+	* a fix for Tru64/OSF1, they need a struct to times(), or they will segfault.
+		Joshua Weage <weage98@yahoo.com>
+
+U-PATCH9:
+	* a fix for french servers, who do not support encryption.
+		Philippe MARTIN <pmartin@eridan-info.fr>
+
+U-PATCH10:
+	* added -4 flag. use -4 if you wish to connect to an NT4 TS, we now defaults o w2k.
+		Peter Bystrom <peter.bystrom@ub.oru.se>
+
+U-PATCH11-1:
+	* added support for CopyPacked int bitmap.c.
+		Peter Bystrom <peter.bystrom@ub.oru.se>
+
+U-PATCH12:
+	* fixups in bitmap.c
+		Peter Bystrom <peter.bystrom@ub.oru.se>
+
+U-PATCH14:
+	* a fix for some minor leaks.
+		Sveinn Sveinsson <svenni@strengur.is> 
+	* dynamic usage of depths, we can now use 8/16/24/32 bpps. A flag is added -D, so that the user can choose which depth if they got support for more than one.
+		Sveinn Sveinsson <svenni@strengur.is> 
+	* short path, performance fix for 32 bpps... Use that depth if you got support 
+for it.
+		Sveinn Sveinsson <svenni@strengur.is>
+
+U-PATCH15:
+	* fixups in bitmap.c ( I missed the fom_mask = 0 line while merging... )
+		Peter Bystrom <peter.bystrom@ub.oru.se>
+	* fixed a problem introduced in patch14X, I mixed different 16-bit patches, one can only expect problems from that..
+		Peter Bystrom <peter.bystrom@ub.oru.se>
+
+U-PATCH16:
+	* added support for vertical text.
+		Philippe MARTIN <pmartin@eridan-info.fr>
+
+U-PATCH17:
+	* fix: while merging patches, support for num lock and caps lock stopped working.
+		Peter Bystrom <peter.bystrom@ub.oru.se>
+	* fix: if no bpp is supplied use the default screen depth, instead of the maximum available.
+		Peter Bystrom <peter.bystrom@ub.oru.se>
+	* fix: modified the -k switch so that it now takes "us/sv/is/fr" etc instead of the doskbcodes. codes are in doskbcodes.h.
+		Peter Bystrom <peter.bystrom@ub.oru.se>
+
+U-PATCH18-3:
+	* added support for expose event, drawing is done twice, once on display, and once on backup pixmap.
+	        Peter H. Ganten <peter@ganten.org>
+	* fix: same as in 16bpp patch8 from Sebastian.
+		Sebastian Andersson <sa@hogia.net>
+	* added this document.
+		Peter Bystrom <peter.bystrom@ub.oru.se>
+U-PATCH18-4:
+	* fix: changed the translate() function, hopefully this will help with the mangled 24/32bpp modes.
+		Peter Bystrom <peter.bystrom@ub.oru.se>
+U-PATCH18-5:
+	* fix: another problem, related to the fix in 18-4.
+		Peter Bystrom (peter.bystrom@ub.oru.se>
+	* added a manpage.
+		Hugo Trippaers <spark@ision.nl>
+U-PATCH18-6:
+	* fix: added XSetFunction::GXcopy in ui_desktop_save(), fixed bad restores...
+	       Sveinni Sveinsson <svenni@strengur.is>
+U-PATCH18-7:
+	* added Hugos updated manpage.
+		 Hugo Trippaers <spark@ision.nl>
+U-PATCH18-8:
+      * fix: error in logic in tcp.c
+            Sveinni Sveinsson <svenni@strengur.is>
+	* fix: desktop save enable/disable, order_caps[11] T/F missed
+		<mail2gao@21cn.com>
+U-PATCH18-9:
+        * fix: depth/bpp mixup.
+                Sveinni Sveinnson <svenni@strengur.is>
+        * fix: if no bpp supplied, get highest available for default depth ( similar to svennis orig. code. )
+                Peter Bystrom <peter.bystrom@ub.oru.se>
+U-PATCH18-10:
+	* fix: changed encrypt bool to use_encryption since some libc impl. got a function with that name. ( Solaris among others. )
+		Per Kristian Hove <Per.Hove@math.ntnu.no>
+	* fix: little-/big- endianess support in translate() function. fixes images on big-endian servers. ( With a bit of luck. ;) ) and MSBFirst at 32bpp on little-endian fix.
+		Peter Bystrom <peter.bystrom@ub.oru.se>
+U-PATCH18-11:
+        * fix: automatic identification of some hardware archs.
+       -         Per Kristian Hove <perhov@math.ntnu.no>
+        * fix: delayed ui updates fix. fixes half drawn texts/toolboxes etc.
+                Sveinni Sveinnson <svenni@strengur.is>
+        * fix: sync capslock/numlock at start.
+                Norbert Federa <nob@thinstuff.com>
+U-PATCH18-12:
+        * fix: typo in parse.h for big-endians.
+               both Doug K Nordwall <nordwall@pnl.gov> and
+                    Per Kristian Hove <perhov@math.ntnu.no> pointed this out.. ;)
+	  * added: mips(sgi) identification to the big-endians.
+               Doug K Nordwall <nordwall@pnl.gov>
+	  * added: yet some more hardware identification ( vax/ppc/m68k )
+                    Per Kristian Hove <perhov@math.ntnu.no>
+        * fix: typo in xwin.c sync_lockkeys() renamed, but not everywhere.
+               both Per Kristian Hove <perhov@math.ntnu.no> and
+                    Norbert Federa <nfedera@thinstuff.com> ;)
+	  * fix: didn't link with Xext, needed for the lockkey sync stuff..
+               Norbert Federa <nfedera@thinstuff.com>
+	  * fix: num/caps-lock-didn't-work-if-first-event-was-pointer-event-fix
+                    Norbert Federa <nfedera@thinstuff.com> ;)
+U-PATCH18-13:
+        * fix: artifacts while connecting to w2k ( this should do it. ;) )
+                Sveinni Sveinnson <svenni@strengur.is>
+        * fix: for sparc/solaris need_align
+                Per Kristian Hove <perhov@math.ntnu.no>
+        * security: -p switch can take "-" if supplied, password is expected in stdin.
+                Per Kristian Hove <perhov@math.ntnu.no>
+U-PATCH18-14:
+        * typo: fix long-line warning in rdesktop.h
+                Per Kristian Hove <perhov@math.ntnu.no>
+        * fix: manpage update
+		 Hugo Trippaers <spark@ision.nl>
+        * fix: make install now installs against /usr/local
+		 Hugo Trippaers <spark@ision.nl>
+        * hack: until we get the wheel functions right, use this hack. ( conv wheel up/dwn to arrow.. ) easy to revert.
+                Norbert Federa <nob@thinstuff.com>
+        * fix: moved mouse wheel hack into button==0 ? statement.
+	        Peter Bystrom <peter.bystrom@ub.oru.se>
+        * fix: included the patch for some broken Xs kb handling ( HP-UX? among others )
+	        pikeb@neverland.ncssm.edu
+	* fix: changed a timer for the XFlush() code, more pleasant feeling.
+                Sveinn Sveinsson <svenni@strengur.is>
+U-PATCH18-14-1:
+        * fix: speeded up the xflush code...
+                Sveinn Sveinsson <svenni@strengur.is>
+U-PATCH19-1:
+        * fix: rare expose failures, missing XSetFunction()
+                Sveinn Sveinsson <svenni@strengur.is>
+        * added: now disables winmgrs keymappings by default, use -K to enable.
+                Sveinn Sveinsson <svenni@strengur.is>
+        * added: "fullscreen mode"
+                Norbert Federa <nfedera@thinstuff.com>
+U-PATCH19-2:
+        * fix: NEED_ALIGN is needed for alpha
+                Per Kristian Hove <Per.Hove@math.ntnu.no>
+        * added: -P flag -- rdesktop gets a size in % of screen size. [There are some problems yielded through this code, but not directly related to this patch. The code will remain disabled till fixed in some way. ]
+                Norbert Federa <nfedera@thinstuff.com>
+U-PATCH19-2-1:
+        * hack: enabled the -P flag code, two lowest bits on width is cleared to make it an even 32-bit word.
+	        Peter Bystrom <peter.bystrom@ub.oru.se>
+U-PATCH19-2-2:
+        * fix: lost a row in the previous 19-2-1.. ;) cut too much it seems. made -f flag stop working, nothing else.
+	        Peter Bystrom <peter.bystrom@ub.oru.se>
+U-PATCH19-2-3:
+        * typo: desktopsize_percent is not a BOOL
+                Norbert Federa <nob@thinstuff.com>
+        * fix: use dpy_width/dpy_height instead of checking values everytime.
+                Norbert Federa <nob@thinstuff.com>
+U-PATCH19-2-4:
+        * fix: ui_create_glyph() problem with bigendians viewing on little endian screens, and the other way around.
+                Peter Bystrom <peter.bystrom@ub.oru.se>
+U-PATCH19-3:
+        * fix: Makefile is now gcc dependent, however it supplies correct flags to the compilers, easier to build on solaris etc.
+                Per Kristian Hove <Per.Hove@math.ntnu.no>
+        * fix: the broken x kb handling was cleaned up some, also fixed some keys like "double-S" etc.
+                Johannes.Schindelin@gmx.de
+U-PATCH19-3-1:
+        * fix: move the hack in 19-2-1 so that it will check values supplied with -w flag as well.
+                Norbert Federa <nob@thinstuff.com>
+        * fix: Invert the bits in brush->pattern in the ui_patblt function, since in X stipples 1s are fg and 0s are bg.
+                Francisco Castro <jfcastro@uol.com.ar>
+U-PATCH19-3-2:
+        * fix: caps lock / num lock cleanups -- fixes some problems with shifting between active/inactive window
+                Ben McKeegan <Ben.McKeegan@fitz.cam.ac.uk>
+        * added: better support for xinerama; fullscreen only runs on one screen instead of all.
+                Hugo Trippaers <spark@ision.nl>
+        * fix: updated manpage.
+                Hugo Trippaers <spark@ision.nl>
+U-PATCH19-3-3:
+        * fix: translate(): tightened and unrolled the for loops, translate() should be quicker now. Moved to end of xwin.c since it's a bit larger now. :)
+                Peter Bystrom <peter.bystrom@ub.oru.se>
+        * fix: big-endian compiled rdesktop on little-endian screen 32bpp works now.. or? :)
+                Peter Bystrom <peter.bystrom@ub.oru.se>
+U-PATCH19-3-4:
+        * fix: some optimization was added to the Makefile
+                Sveinn Sveinsson <svenni@strengur.is>
+        * fix: glyph unroll in orders.c
+                Peter Bystrom <peter.bystrom@ub.oru.se>
+        * fix: performance fix in rdp.c ( favor small screen updates.. )
+                Sveinn Sveinsson <svenni@strengur.is>
+        * hack: hostname[64] instead of [16], still cuts at 16 length. Problem: gethostname fails if longer than buffer.
+		Hugo Trippaers <spark@ision.nl>
+        * fix: yet some key problems. ( "joe story" I believe it was. )
+                Norbert Federa <nob@thinstuff.com>
+U-PATCH19-3-5:
+        * fix: reverted the " ( favor small screen updates.. ) "-- "it only favors tests."
+                Sveinn Sveinsson <svenni@strengur.is>
+        * fix: disable backing store in x since we have backingstore in the program...
+                Sveinn Sveinsson <svenni@strengur.is>
+        * fix: added switch to change server port, useful when running through firewalls.
+                Norbert Federa <nob@thinstuff.com>
+U-PATCH19-3-6:
+        * changed: now using long switches as well, some short removed.
+	        Peter Bystrom <peter.bystrom@ub.oru.se>
+        * fix: a one-liner fix for Franks patch in 19-3-1, earlier patch didn't have any effect due to this.
+                Francisco Castro <jfcastro@uol.com.ar>
+        * fix: "scroll of death problem", didn't yield inputs from user when busy drawing, slows us down a tiny bit, but more responsive.
+                Sveinn Sveinsson <svenni@strengur.is>
+U-PATCH19-3-7:
+	* fix: enabled some order support that have been disabled ( triblt; among others. )
+                Peter Bystrom <peter.bystrom@ub.oru.se>
+        * fix: set the incoming buffer size to 8k instead of 4k.
+                Peter Bystrom <peter.bystrom@ub.oru.se>
+        * added: switch to disable systembeep
+                Norbert Federa <nob@thinstuff.com>
+        * fix: screen coordinates bug when negative values. Partly fixed?
+                Sveinn Sveinsson <svenni@strengur.is>
+        * fix: added x backing store again, disable with --no-x-bs flag if screen flickers.
+                Francisco Castro <jfcastro@uol.com.ar>
+
+U-PATCH19-3-8:
+        * fix: typo, KBD_FLAG_EXT shouldn't be used for DMod2 - xwin.c
+               Norbert Federa <nob@thinstuff.com>
+        * fix: 8bpp mode, fixes bad color maps, except for full screen - xwin.c
+               Vincent DEDIEU <vincent@axel.fr>
+        * hack: temporarly disable long switches on other platforms than Linux, the check does NOT look for getopt_long, it just checks for linux and enables it.
+               Peter Bystrom <peter.bystrom@ub.oru.se>
+        * fix: text draw speed up on solid backgrounds. ( affects slow cpus. )
+               Francisco Castro <jfcastro@uol.com.ar>
+
+U-PATCH19-3-9:
+        * fix: REPEAT() macro was speeded up a bit in bitmap.c, bitmap_decompress() goes from ~36% to ~22% of process CPU time.
+               Peter Bystrom <peter.bystrom@ub.oru.se>
+
+U-PATCH19-4:
+        * fix: 8bpp fullscreen mode colmap problem.
+               Vincent DEDIEU <vincent@axel.fr>
+        * fix: added aix to defines
+               Doug K Nordwall <nordwall@pnl.gov>
+        * fix/typo: 'X' was missing from getopt()
+               Norbert Federa <nfedera@thinstuff.com
+        * added: -S|--bs x|p|n flag. selects backing store scheme, xwin, pixmap, none.
+               Francisco Castro <jfcastro@uol.com.ar>
+        * fix: made the code logics conserning backing store options a bit cleaner.
+               Francisco Castro <jfcastro@uol.com.ar>
+        * speed: stopped using CTrans() in translate() skips re-evaluation of statement for each pix.
+               Francisco Castro <jfcastro@uol.com.ar>
+        * fix: also removed -X -x flags, since -S replaces them both.
+               Francisco Castro <jfcastro@uol.com.ar>
+        * added: internal getopt/getopt_long commands -- ripped from GNU libc.
+               Norbert Federa <nfedera@thinstuff.com>
+U-PATCH19-4-1:
+        * fix: manpage update.
+	       Hugo Trippaers <spark@ision.nl>
+        * fix: xext needed when using xinerama.
+	       Hugo Trippaers <spark@ision.nl>
+        * fix: remember last XSetFunction() and not setting it again if the same, gives a slight performance gain on some setups.
+               Peter Bystrom <peter.bystrom@ub.oru.se>
+U-PATCH19-4-2:
+        * fix: UnixWare added to Makefile
+               Simon Lane <simon.lane@sphinxcst.co.uk>
+        * fix: Line draw missed opcode ( [8] wasn't enabled.. ) ( speedup )
+               Ed Parks <ed@neoware.com>
+        * fix: cursor inversion not needed on big-endian screens.
+               Andrew Tefft <Andrew.Tefft@trans.ge.com>
+        * fix: bugfix: genkb.c - 0xffff instead of 0xfffe
+               Johannes.Schindelin@gmx.de
+        * fix: updated manpage.
+	       Hugo Trippaers <spark@ision.nl>
+
+U-PATCH19-4-3:
+        * fix: Vertical Text, should not swap baseline when positioning text.
+               Ed Parks <ed@neoware.com>
+        * fix: first order code should be PATBLT after a reset, fixes other background colors than default. on the login screen for NT.
+               Ben McKeegan <Ben.McKeegan@fitz.cam.ac.uk>
+
+U-PATCH19-5: ( changes in this patch only affects people using BROKEN_X_KB, it might be wise to continue using 19-4-3 in production; if anyone is doing that..  )
+        * added: isn't using genkb and that stuff anylonger. Instead we're using semantics similar to those of WINE. Some codes are missing that I noticed so far (PB) but in the end this will turn out to be much better.
+               Johannes Schindelin <Johannes.Schindelin@gmx.de>
+
+U-PATCH19-5-1: ( same as for patch 19-5 but this patch should be a bit more usable  )
+        * fix: fix some of the problems in the new keyboard handling code.
+               Johannes Schindelin <Johannes.Schindelin@gmx.de>
+        * fix: defined yet some more keys, also started to use symbols like XK_Escape etc, it's much easier to read.
+               Peter Bystrom <peter.bystrom@ub.oru.se>
+
+U-PATCH19-5-2: ( I believe that the new keboard code for non intel has had enough testing now; that this release and up should be considered for those who have continued to use 19-4-3 due to the changes done... )
+        * fix: added numpad keys to the new keyboard handling code.
+               Peter Bystrom <peter.bystrom@ub.oru.se>
+        * fix: someone complained on the "new style comments" // -- in a bad need to update their non gcc compiler I believe ;) .. For compatibility with older compilers I have removed those I found.
+               Peter Bystrom <peter.bystrom@ub.oru.se>
+
+U-PATCH19-5-3: ( the first two patches were first included in 19-4-1 -- but as you see in the history if you look back, they have been lost... )
+        * fix: while debugging -- error while printing incoming packets.
+               Mark Jonckheere <mark.jonckheere@easynet.be>
+        * fix: cursor oddness.
+               Cristiano Boncompagni <BoncompagniC@ibisolution.it>
+        * fix: logic for destroying glyph_gc was inversed.
+               Mark Jonckheere <mark.jonckheere@easynet.be>
+U-PATCH19-5-4:
+        * added: vncviewer support.
+               Vincent DEDIEU <vincent@axel.fr>
+        * fix: wine kb code is now possible to turn off/on by a command switch --new-kbcode instead of compile time define BROKEN_X_KB
+               Vincent DEDIEU <vincent@axel.fr>
+
+U-PATCH19-5-5:
+        * fix: 0x1ff wasn't enough to address dead keys among others, now using 0x3ff isntead.
+               Vincent DEDIEU <vincent@axel.fr>
+U-PATCH19-5-6:
+        * fix: initialize the complete array for the keys, use KS_MASK everywhere..
+               Vincent DEDIEU <vincent@axel.fr>
+U-PATCH19-5-7:
+        * fix: F10-F12 didn't work under new kb code
+               Johannes Schindelin <Johannes.Schindelin@gmx.de>
+        * fix: workaround for new-kb-code Xnvc and non US keyboard, problem is really with Xvnc.
+               Johannes Schindelin <Johannes.Schindelin@gmx.de>
+        * fix: added some missed chars for the new kbcode in the DE table, submitted to the wine project.
+               Johannes Schindelin <Johannes.Schindelin@gmx.de>
+        * fix: if XKeyLookup returns a single character the key is looked for by that ascii character. If it is found,the mod fiers settings are known and forced. If it is not found, the modifiers are not touched by translate_key.
+               Johannes Schindelin <Johannes.Schindelin@gmx.de>
+U-PATCH19-5-8:
+        * fix:  keyungrab message is annoying, and very much unneeded.
+                Tony Kew <tony.kew@ingrammicro.com>
+        * hack: disabled the XKeyLookup code from Johannes ( 19-5-7 ). There's a problem with it that needs to be solved.
+                Peter Bystrom <peter.bystrom@ub.oru.se>
+U-PATCH19-5-9:
+        * fix: the code disabled in the previous patch is re-applied but only for vncviewers...
+                Peter Bystrom <peter.bystrom@ub.oru.se>
+U-PATCH19-5-10:
+        * fix: fixed a paint problem, orders.c line 531, ROP2_COPY should be ROP2_NXOR.
+               Vincent DEDIEU <vincent@axel.fr>
+
+U-PATCH19-6:
+	* fix: a license problem. rdesktop in itself is GLP:ed, but one of the libs it used was licensed only for noncommercial use. This issue is now resolved.If you don't have the GMP lib installed you will need it, it's currently available at: http://www.swox.com/gmp/
+		Bradley Bell <btb@debian.org>
+U-PATCH19-6-1:
+	* instead of having some of the ssl lib in the rdesktop code, we link against the library, you need openssl 0.9.6 or compatible.
+		Bradley Bell <btb@debian.org>
+U-PATCH19-6-2:
+        * fix: added -c flag to Makefile, install parts. At gnu platforms this doesn't seem to be an issue, but on others the manual file may be removed, and impossible to rebuild if this flag isn't present.
+                Chris Knight <chris@aims.com.au>
+        * fix: when destroying window, we never checked if IM was null or not, this could result in core dumps on closure at times.
+                Norbert Federa <nfedera@thinstuff.com>
+        * fix: support for PowerPC, need align was missing.
+                Jacco de Leeuw <jacco2@dds.nl>
+U-PATCH19-6-3:
+        * fix: support for mips/irix.
+                Alexander Antsiferov <smng-alexa@mail.ru>
+U-PATCH19-6-4:
+        * fix: adding -mips3 flag since it supports more hardware than the default -mips4
+                Roger Brown <rogerb@pisco.engr.sgi.com>
+        * fix: the fix in the 19-6-3 patch was incorrect, probably due to me (peter) assuming that the -m flag would return mips. Alexander corrected me. Thanks! :)
+                Alexander Antsiferov <smng-alexa@mail.ru>
+U-PATCH19-6-5:
+	* fix: adding -mabi=32 on 32/64 bit irix. 
+		Roger Brown <rogerb@pisco.engr.sgi.com>
+	* fix: adding lost ctrl1 hangs fix ( got lost somewhere on the road )
+                Norbert Federa <nfedera@thinstuff.com>
+
+U-PATCH19-6-6:
+	* fix: fixes the cache font problem I ( Vincent ) reported (13/06/2001). Quick explanation: when a "DEMAND ACTIVE" request is received, the data structure must be reset only the fisrt time (at the connection). Else current variables used for orders (postion, size color...) are reset and every thing is broken.
+		Vincent DEDIEU <vincent@axel.fr>
+	* fix:  correct behavior for Portuguese keyboard
+                Vincent DEDIEU <vincent@axel.fr>
+
+U-PATCH19-6-7:
+        * fix: used __ARCH, changed to __ARCH__ since this is standard.
+                Matthew Wilcox <willy@debian.org>
+        * fix: using endian.h instead of checking endianess ourselves.
+                Matthew Wilcox <willy@debian.org>
+        * fix: -P switch did not work with a value of 100.
+                Martin Samuelsson <cosis@lysator.liu.se>
+
+U-PATCH19-7-0:
+        * added: a server module. < It doesn't touch the client code >. You have to remove an # in the Makefile to compile it. It should be considered in an alpha state. check the readme.txt file for further information.
+                Mark Jonckheere <no.spam.for.me@easynet.be>
+
+U-PATCH19-7-1:
+        * fix: fixing the problems with long texts, process_text2(). the familiar "ERROR: get font 7:255"
+                Michal Mihalik <mmihalik@sme.sk>
+        * fix: forcing signed char change variable in rdp_in_coord() since that is what change is...
+               Roger Brown <rogerb@pisco.engr.sgi.com>
+        * fix: fixes a problem of composed keys (^ + o = ô) with new Linux distributions (Mandrake 8 and RedHat 7.1) it is bw compatible.
+                Vincent DEDIEU <vincent@axel.fr>
+        * fix: allow the use of Euro sign (<AltGr><E> for main countries).
+                Vincent DEDIEU <vincent@axel.fr>
+
+U-PATCH19-7-2:
+        * fix: a minor bug with Michals code in the previous patch. The code has been cleaned a bit as well.
+                Michal Mihalik <mmihalik@sme.sk>
+        * fix: Alex pointed out that the IRIX build had been broken when we started using endian.h. Let's see if it has been fixed... :)
+                Alexander Antsiferov <smng-alexa@mail.ru>
+        * fix: might copy data over buffer end ( buffer overflow ) when creating some strings, now username, hostname etc are dynamically created. Some of the code in rdp.c, licence.c, secure.c had to be changed as well as in rdesktop.c, did I miss anything?
+                Paul Flinders <P.Flinders@ftel.co.uk> && Peter Bystrom <peter.bystrom@ub.oru.se>
+
+U-PATCH19-7-3:
+	* fix: -l switch problem fixed, works with NT4 FR. Not W2k servers.
+                    Vincent DEDIEU <vincent@axel.fr>
+	* fix: secure.c sec_process_mcs_data function had a problem when dealing with "non-encrypted" connections. A check had to be added to sec_parse_crypt_info to abort the function on nonencrypted frames.
+                    Vincent DEDIEU <vincent@axel.fr>
+	* fix: endian.h create our own endian.h file on the fly with a little program ( endian.c ) that detects our endianess... Now... this should be compatible on most platforms... :)
+ 	        Per Kristian Hove <Per.Hove@math.ntnu.no>
+	* added: support for null passwords
+	        Andreas Pitt <ap@i-ghg.de>
+	* added: support for xpos/ypos with to the -g flag.
+	        Andreas Pitt <ap@i-ghg.de>
+	* fix: hostname may not be longer than 15 ( 30 in UNICODE ) so we cut.
+	        Assar Westerlund <assar@sics.se>
+U-PATCH19-7-4:
+            * fix: blinking border problems in excel, must resent origin.
+         	        Vincent DEDIEU <vincent@axel.fr>
+            * fix: ctrl wasn't sent at times when using vncviewers. a part of the codepath has been disabled, seems it isn't needed anymore. (?)
+         	        Vincent DEDIEU <vincent@axel.fr>
+            * fix: in ui_patblt didn't use the x/y origins that rdp provide us with... we do now.
+         	        Vincent DEDIEU <vincent@axel.fr>
+            * fix: the creation of a local file called endian.h wasn't that wise, since some systems got it already. It became some kind of conflict... Anyway, the file, when created will be called localendian.h instead.
+                    problem reported by:  Alexander Antsiferov <smng-alexa@mail.ru>
+            * changed: the keyboard layout code, also added long codes. Naming conventions have changed, i.e. "sv" stands for swedish, and not "se". "se" is the code of the country. The author of the patch and I had some disagrements on the naming convention in use, but I believe it is better to follow the iso coding even if it feels funny at first. the LANG= encodings under linux appear to ( and probably other unices ) use a similar encoding, as far as I have noticed anyway. If anyone wishes to know where the iso is, it is available at: http://www.w3.org/WAI/ER/IG/ert/iso639.htm . If too many ppl bulks on the mailing list, I may consider changing it, if you can find a good reason for it.
+                     Michal Mihalik <mmihalik@sme.sk>
+
+
+
