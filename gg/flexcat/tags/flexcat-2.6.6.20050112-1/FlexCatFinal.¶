@@ -1,0 +1,391 @@
+Storm Shell Project (0018)
+Settings (Start)
+C/C++ Environment
+"INCLUDE:"
+0
+Includepath (End)
+0 "" 80
+1 "objects"
+0 0 "makelog.txt"
+""
+0
+0 0
+0
+0 0
+C/C++ Preprozessor
+0 "NDEBUG" ""
+0
+Defines (End)
+1 1 1
+0 0
+C/C++ Options
+0 0 0 2 1 0 0 0 1 0 0 0 0 0 0
+0 0 0
+0
+0 1 0
+C/C++ Optimizer
+9
+C/C++ Warnings
+1 1 1 1 1 1 0 1
+0 0
+GCC Options (1)
+1 "NDEBUG" ""
+0
+1 "AMIGA" ""
+0
+Defines (End)
+0 0 0 0 0
+1 0 0 0 0 1 0
+0 0 0 0 0
+0 0 0 0 1 0 0
+4 0 0 0
+0 "-Wall"
+2 1 1 1
+0 0 0 0 0 0 0 0 0 0
+0 0 0 0 0 0
+0 0 0 0 0 0 0
+0 0 0 0 0
+Assembler
+0 ""
+0 "CON://640/200/Storm Assembler/AUTO/WAIT/SCREEN StormScreen"
+0 0
+0 1 60 0 1 0 0 20 0
+Sets (End)
+0 1 0 0 0 2 1 0 0
+1 1 1 1 0 0 0 0 0
+1 0
+0 0 0 0 0
+Linker
+0 0 "PROGDIR:startups/gccstartup.o" 0 0 2 6 1 0 0
+"LIB:" 0 "StormC:lib/logfile" 0 1 1
+0 "_WizardSurface"
+0 0 50 0 50 0 50 0 0
+0 0 0 0 0 0 0 0
+Run
+30 "" "" "" 0
+""
+roadshow.cd roadshow.c=StormC:StormSYS/C_c.sd roadshow.h=StormC:StormSYS/C_h.sd
+1 "CON://600/300/Storm Console/AUTO/WAIT/SCREEN StormC" "RAM:Output" "RAM:Input"
+1 0
+1 0 0 "" ""
+Settings (End)
+Storm Shell Project (Custom Sections End)
+Section
+1 1 100
+0 1 1 0
+4
+File
+1 "createcat.c"
+"createcat.c"
+"flexcat.h"
+"scanct.h"
+"showfuncs.h"
+"readprefs.h"
+"swapfuncs.h"
+"globals.h"
+"utils.h"
+"flexcat_cat_amiga.h"
+Storm Shell Project (Dependencies)
+"objects/createcat.o" "objects/createcat.debug"
+""
+1 1
+File
+1 "createcatsrc.c"
+"createcatsrc.c"
+"flexcat.h"
+"readprefs.h"
+"showfuncs.h"
+"createcat.h"
+"swapfuncs.h"
+"scancd.h"
+"scanct.h"
+"globals.h"
+"utils.h"
+"flexcat_cat_amiga.h"
+Storm Shell Project (Dependencies)
+"objects/createcatsrc.o" "objects/createcatsrc.debug"
+""
+1 1
+File
+1 "createct.c"
+"createct.c"
+"flexcat.h"
+"flexcat_cat_amiga.h"
+"readprefs.h"
+"globals.h"
+"showfuncs.h"
+"scancd.h"
+"scanct.h"
+"createcat.h"
+Storm Shell Project (Dependencies)
+"objects/createct.o" "objects/createct.debug"
+""
+1 1
+File
+1 "getft.c"
+"getft.c"
+Storm Shell Project (Dependencies)
+"objects/getft.o" "objects/getft.debug"
+""
+1 1
+File
+1 "globals.c"
+"globals.c"
+"flexcat.h"
+"flexcat_cat_amiga.h"
+Storm Shell Project (Dependencies)
+"objects/globals.o" "objects/globals.debug"
+""
+1 1
+File
+1 "locale.c"
+"locale.c"
+"flexcat.h"
+"flexcat_cat_amiga.h"
+Storm Shell Project (Dependencies)
+"objects/locale.o" "objects/locale.debug"
+""
+1 1
+File
+1 "main.c"
+"main.c"
+"flexcat.h"
+"readprefs.h"
+"showfuncs.h"
+"scanct.h"
+"swapfuncs.h"
+"scancd.h"
+"createcat.h"
+"globals.h"
+"utils.h"
+"createcatsrc.h"
+"createct.h"
+"flexcat_cat_amiga.h"
+Storm Shell Project (Dependencies)
+"objects/main.o" "objects/main.debug"
+""
+1 1
+File
+1 "readprefs.c"
+"readprefs.c"
+"flexcat.h"
+"flexcat_cat_amiga.h"
+Storm Shell Project (Dependencies)
+"objects/readprefs.o" "objects/readprefs.debug"
+""
+1 1
+File
+1 "scancd.c"
+"scancd.c"
+"flexcat.h"
+"showfuncs.h"
+"readprefs.h"
+"globals.h"
+"utils.h"
+"createcat.h"
+"flexcat_cat_amiga.h"
+Storm Shell Project (Dependencies)
+"objects/scancd.o" "objects/scancd.debug"
+""
+1 1
+File
+1 "scanct.c"
+"scanct.c"
+"flexcat.h"
+"showfuncs.h"
+"readprefs.h"
+"globals.h"
+"utils.h"
+"createcat.h"
+"flexcat_cat_amiga.h"
+Storm Shell Project (Dependencies)
+"objects/scanct.o" "objects/scanct.debug"
+""
+1 1
+File
+1 "showfuncs.c"
+"showfuncs.c"
+"flexcat.h"
+"readprefs.h"
+"globals.h"
+"utils.h"
+"flexcat_cat_amiga.h"
+Storm Shell Project (Dependencies)
+"objects/showfuncs.o" "objects/showfuncs.debug"
+""
+1 1
+File
+1 "swapfuncs.c"
+"swapfuncs.c"
+"flexcat.h"
+"flexcat_cat_amiga.h"
+Storm Shell Project (Dependencies)
+"objects/swapfuncs.o" "objects/swapfuncs.debug"
+""
+1 1
+File
+1 "utils.c"
+"utils.c"
+"flexcat.h"
+"readprefs.h"
+"swapfuncs.h"
+"showfuncs.h"
+"scancd.h"
+"scanct.h"
+"createcat.h"
+"globals.h"
+"flexcat_cat_amiga.h"
+Storm Shell Project (Dependencies)
+"objects/utils.o" "objects/utils.debug"
+""
+1 1
+Section
+2 1 95
+0 1 1 0
+2
+File
+2 "flexcat_cat_amiga.h"
+"flexcat_cat_amiga.h"
+Storm Shell Project (Dependencies)
+"" ""
+""
+0 0
+File
+2 "flexcat.h"
+"flexcat.h"
+Storm Shell Project (Dependencies)
+"" ""
+""
+0 0
+File
+2 "readprefs.h"
+"readprefs.h"
+Storm Shell Project (Dependencies)
+"" ""
+""
+0 0
+File
+2 "swapfuncs.h"
+"swapfuncs.h"
+Storm Shell Project (Dependencies)
+"" ""
+""
+0 0
+File
+2 "showfuncs.h"
+"showfuncs.h"
+Storm Shell Project (Dependencies)
+"" ""
+""
+0 0
+File
+2 "scancd.h"
+"scancd.h"
+Storm Shell Project (Dependencies)
+"" ""
+""
+0 0
+File
+2 "scanct.h"
+"scanct.h"
+Storm Shell Project (Dependencies)
+"" ""
+""
+0 0
+File
+2 "createcat.h"
+"createcat.h"
+Storm Shell Project (Dependencies)
+"" ""
+""
+0 0
+File
+2 "globals.h"
+"globals.h"
+Storm Shell Project (Dependencies)
+"" ""
+""
+0 0
+File
+2 "utils.h"
+"utils.h"
+Storm Shell Project (Dependencies)
+"" ""
+""
+0 0
+File
+2 "createcatsrc.h"
+"createcatsrc.h"
+Storm Shell Project (Dependencies)
+"" ""
+""
+0 0
+File
+2 "createct.h"
+"createct.h"
+Storm Shell Project (Dependencies)
+"" ""
+""
+0 0
+Section
+10 1 40
+0 0 0 0
+7
+File
+10 "FlexCat"
+"FlexCat"
+Storm Shell Project (Dependencies)
+"" ""
+""
+0 0
+Section
+1001 1 80
+"Locale catalogs: catalogs"
+15
+"catalogs"
+0 1 1 0
+8
+File
+1001 "catalogs/FlexCat.cd"
+"catalogs/FlexCat.cd"
+Storm Shell Project (Dependencies)
+"" ""
+""
+0 0
+Section
+6 1 10
+0 1 1 0
+9
+File
+6 "developer.readme"
+"developer.readme"
+Storm Shell Project (Dependencies)
+"" ""
+""
+0 0
+Section
+5 1 -50
+0 0 0 0
+7
+File
+5 "LIB:stormgcc020.lib"
+"LIB:stormgcc020.lib"
+Storm Shell Project (Dependencies)
+"" ""
+""
+0 0
+File
+5 "amiga.lib"
+"amiga.lib"
+Storm Shell Project (Dependencies)
+"" ""
+""
+0 0
+File
+5 "debug.lib"
+"debug.lib"
+Storm Shell Project (Dependencies)
+"" ""
+""
+0 0
+Storm Shell Project (End)
