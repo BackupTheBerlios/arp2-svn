@@ -9,6 +9,8 @@ AM_INIT_AUTOMAKE([glgfx], [0.1])
 
 AC_PROG_MAKE_SET
 
+: ${CFLAGS="-W -Wall"}
+	
 # Checks for programs.
 AC_CHECK_TOOL([STRIP],[strip])
 
@@ -32,9 +34,9 @@ fi
 CFLAGS="${CFLAGS} ${X_CFLAGS}"
 LIBS="${LIBS} ${X_LIBS} ${X_PRE_LIBS} ${X_EXTRA_LIBS}"
 
-PKG_CHECK_MODULES(DEPS, glib-2.0,, 	AC_ERROR([glib is required]))
-AC_SUBST(DEPS_CFLAGS)
-AC_SUBST(DEPS_LIBS)
+PKG_CHECK_MODULES(GLIB, glib-2.0,, 	AC_ERROR([glib is required]))
+AC_SUBST(GLIB_CFLAGS)
+AC_SUBST(GLIB_LIBS)
 			
 # Checks for libraries.
 AC_CHECK_LIB([X11],      [XCreateWindow],,             [AC_MSG_ERROR([libX11 not found])])
@@ -52,6 +54,7 @@ AC_CHECK_HEADERS([stdlib.h string.h unistd.h])
 AC_HEADER_STDBOOL
 AC_C_CONST
 AC_TYPE_SIZE_T
+AC_C_BIGENDIAN
 
 # Checks for library functions.
 AC_TYPE_SIGNAL

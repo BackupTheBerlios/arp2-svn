@@ -2,31 +2,28 @@
 #define ARP2_glgfx_glgfx_h
 
 #include <stdbool.h>
-#include <stdio.h>
-#define BUG(...) printf(__VA_ARGS__)
-
-#if defined(DEBUG)
-# define D(x) (x)
-#else
-# define D(x)
-#endif
-
-enum glgfx_pixel_format {
-  glgfx_pixel_unknown,
-  glgfx_pixel_a4r4g4b4,
-  glgfx_pixel_r5g6b5,
-  glgfx_pixel_a1r5g5b5,
-//  glgfx_pixel_r8g8b8,
-  glgfx_pixel_a8b8g8r8,
-//  glgfx_pixel_b8g8r8,
-  glgfx_pixel_a8r8g8b8,
-  glgfx_pixel_max
-};
+#include <inttypes.h>
 
 bool glgfx_create_monitors(void);
 void glgfx_destroy_monitors(void);
 bool glgfx_waitblit(void);
 bool glgfx_waittof(void);
+
+enum glgfx_tag {
+  glgfx_tag_done   = 0,
+  glgfx_tag_end    = 0,
+  glgfx_tag_ignore = 1,
+  glgfx_tag_more   = 2,
+  glgfx_tag_skip   = 3,
+  glgfx_tag_user   = 0x80000000
+};
+
+struct glgfx_tagitem {
+    enum glgfx_tag tag;
+    uintptr_t data;
+};
+
+struct glgfx_tagitem* glgfx_nexttagitem(struct glgfx_tagitem** taglist_ptr);
 
 struct glgfx_monitor;
 #define max_monitors  8               // Four cards, two outputs/card max

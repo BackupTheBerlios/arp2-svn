@@ -7,14 +7,16 @@
 struct glgfx_monitor;
 
 enum glgfx_monitor_attr {
-  glgfx_monitor_width = 0,
-  glgfx_monitor_height,
-  glgfx_monitor_format,
-  glgfx_monitor_vsync,
-  glgfx_monitor_hsync,
-  glgfx_monitor_dotclock,
+  glgfx_monitor_attr_unknown = glgfx_tag_user,
 
-  glgfx_monitor_max
+  glgfx_monitor_attr_width,
+  glgfx_monitor_attr_height,
+  glgfx_monitor_attr_format,
+  glgfx_monitor_attr_vsync,
+  glgfx_monitor_attr_hsync,
+  glgfx_monitor_attr_dotclock,
+
+  glgfx_monitor_attr_max
 };
 
 struct glgfx_monitor* glgfx_monitor_create(char const* display_name,

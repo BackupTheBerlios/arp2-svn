@@ -8,15 +8,16 @@
 struct glgfx_bitmap;
 
 enum glgfx_bitmap_attr {
-  glgfx_bitmap_width = 0,
-  glgfx_bitmap_height,
-  glgfx_bitmap_format,
-  glgfx_bitmap_bytesperpixel,
-  glgfx_bitmap_bytesperrow,
-  glgfx_bitmap_locked,
-  glgfx_bitmap_mapaddr,
+  glgfx_bitmap_attr_unknown,
 
-  glgfx_bitmap_max
+  glgfx_bitmap_attr_width,
+  glgfx_bitmap_attr_height,
+  glgfx_bitmap_attr_format,
+  glgfx_bitmap_attr_bytesperrow,
+  glgfx_bitmap_attr_locked,
+  glgfx_bitmap_attr_mapaddr,
+
+  glgfx_bitmap_attr_max
 };
 
 struct glgfx_bitmap* glgfx_bitmap_create(int width, int height, int bits,

@@ -17,7 +17,6 @@
 #define glXChooseVisualAttrs(d, s, tag1 ...) \
   ({ int _attrs[] = { tag1 }; glXChooseVisual((d), (s), _attrs); })
 
-
 struct glgfx_monitor* glgfx_monitor_create(char const*  display_name,
 					   struct glgfx_monitor const* friend) {
   struct glgfx_monitor* monitor;
@@ -136,9 +135,9 @@ struct glgfx_monitor* glgfx_monitor_create(char const*  display_name,
 			       GLX_USE_GL,
 			       GLX_DOUBLEBUFFER,
 			       GLX_RGBA,
-			       GLX_RED_SIZE,     5,
-			       GLX_GREEN_SIZE,   5,
-			       GLX_BLUE_SIZE,    5,
+			       GLX_RED_SIZE,     1,
+			       GLX_GREEN_SIZE,   1,
+			       GLX_BLUE_SIZE,    1,
 			       GLX_DEPTH_SIZE,   12,
 			       GLX_STENCIL_SIZE, 1,
 			       None);
@@ -149,6 +148,16 @@ struct glgfx_monitor* glgfx_monitor_create(char const*  display_name,
     return NULL;
   }
 
+  struct glgfx_tagitem tags[] = {
+    { glgfx_pixel_attr_rgb,       true              },
+    { glgfx_pixel_attr_redmask,   vinfo->red_mask   },
+    { glgfx_pixel_attr_greenmask, vinfo->green_mask },
+    { glgfx_pixel_attr_bluemask,  vinfo->blue_mask  },
+    { glgfx_tag_done,             0                 }
+  };
+
+  monitor->format = glgfx_pixel_getformat(tags);
+  
   swa.colormap = XCreateColormap(monitor->display,
 				 RootWindow(monitor->display,
 					    vinfo->screen),
@@ -268,7 +277,7 @@ void glgfx_monitor_destroy(struct glgfx_monitor* monitor) {
 
 
 void glgfx_monitor_fullscreen(struct glgfx_monitor* monitor, bool fullscreen) {
-  long        propvalue[3];
+  long propvalue[3];
 
   if (monitor == NULL || monitor->display == NULL) {
     return;
@@ -299,35 +308,35 @@ void glgfx_monitor_fullscreen(struct glgfx_monitor* monitor, bool fullscreen) {
 bool glgfx_monitor_getattr(struct glgfx_monitor* monitor,
 			   enum glgfx_monitor_attr attr,
 			   uint32_t* storage) {
-  if (monitor == NULL || storage == NULL || attr < 0 || attr >= glgfx_monitor_max) {
+  if (monitor == NULL || storage == NULL ||
+      attr <= glgfx_monitor_attr_unknown || attr >= glgfx_monitor_attr_max) {
     return false;
   }
 
   switch (attr) {
-    case glgfx_monitor_width:
+    case glgfx_monitor_attr_width:
       *storage = monitor->mode.hdisplay;
       break;
 
-    case glgfx_monitor_height:
+    case glgfx_monitor_attr_height:
       *storage = monitor->mode.vdisplay;
       break;
 
-    case glgfx_monitor_format: 
-      *storage = glgfx_pixel_unknown;
+    case glgfx_monitor_attr_format: 
+      *storage = monitor->format;
       break;
 
-    case glgfx_monitor_vsync:
+    case glgfx_monitor_attr_vsync:
       *storage = monitor->dotclock * 1000.0 / (monitor->mode.htotal * monitor->mode.vtotal);
       break;
 
-    case glgfx_monitor_hsync:
+    case glgfx_monitor_attr_hsync:
       *storage = monitor->dotclock * 1000.0 / monitor->mode.htotal;
       break;
       
-    case glgfx_monitor_dotclock:
+    case glgfx_monitor_attr_dotclock:
       *storage = monitor->dotclock * 1000.0;
       break;
-
       
     default:
       abort();

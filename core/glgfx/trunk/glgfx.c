@@ -8,9 +8,43 @@
 
 #include "glgfx.h"
 #include "glgfx_monitor.h"
+#include "glgfx_intern.h"
 
 int                   glgfx_num_monitors;
 struct glgfx_monitor* glgfx_monitors[max_monitors];
+
+struct glgfx_tagitem* glgfx_nexttagitem(struct glgfx_tagitem** taglist_ptr) {
+  if (taglist_ptr == NULL || *taglist_ptr == NULL) {
+    return NULL;
+  }
+
+  while (true) {
+    switch ((*taglist_ptr)->tag) {
+      case glgfx_tag_done:
+	*taglist_ptr = NULL;
+	return NULL;
+
+      case glgfx_tag_more:
+	*taglist_ptr = (struct glgfx_tagitem*) (*taglist_ptr)->data;
+	break;
+
+      case glgfx_tag_ignore:
+	++(*taglist_ptr);
+	break;
+
+      case glgfx_tag_skip:
+	*taglist_ptr += (*taglist_ptr)->data + 1;
+	break;
+
+      default: {
+	struct glgfx_tagitem* res = *taglist_ptr;
+
+	++(*taglist_ptr);
+	return res;
+      }
+    }
+  }
+}
 
 bool glgfx_create_monitors(void) {
   char name[8];

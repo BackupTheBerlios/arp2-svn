@@ -4,6 +4,7 @@
 
 #include "glgfx_bitmap.h"
 #include "glgfx_monitor.h"
+#include "glgfx_pixel.h"
 #include "glgfx_view.h"
 #include "glgfx_viewport.h"
 #include "glgfx_input.h"
@@ -26,14 +27,14 @@ int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) 
   if (glgfx_create_monitors()) {
     int width = 1200;
     int height = 800;
-    unsigned int* data;
+    unsigned short* data;
 
 #if UPLOAD_MODE < 2
     data = calloc(sizeof (*data), width * height);
 #endif
     
     struct glgfx_bitmap* bm = glgfx_bitmap_create(width, height, 24, 0, NULL,
-						  glgfx_pixel_a8r8g8b8, glgfx_monitors[0]);
+						  glgfx_pixel_format_r5g6b5, glgfx_monitors[0]);
 
     if (bm != NULL) {
 #if UPLOAD_MODE > 0

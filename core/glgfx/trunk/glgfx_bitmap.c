@@ -8,30 +8,15 @@
 #include "glgfx_bitmap.h"
 #include "glgfx_intern.h"
 
-struct pixel_info {
-    GLint  internal_format;
-    GLenum format;
-    GLenum type;
-    size_t size;
-};
-
-static struct pixel_info formats[] = {
-  { 0, 0, 0, 0},
-  { GL_RGBA4,   GL_BGRA, GL_UNSIGNED_SHORT_4_4_4_4_REV, 2 },   // glgfx_pixel_a4r4g4b4,   BGRA, 1 * UWORD
-  { GL_RGB5,    GL_RGB,  GL_UNSIGNED_SHORT_5_6_5,       2 },   // glgfx_pixel_r5g6b5,     BGR,  1 * UWORD
-  { GL_RGB5_A1, GL_BGRA, GL_UNSIGNED_SHORT_1_5_5_5_REV, 2 },   // glgfx_pixel_a1r5g5b5,   BGRA, 1 * UWORD
-//{ GL_RGB8,    GL_RGB,  GL_UNSIGNED_BYTE,              3 },   // glgfx_pixel_r8g8b8,     RGB,  3 * UBYTE
-  { GL_RGBA8,   GL_RGBA, GL_UNSIGNED_INT_8_8_8_8_REV,   4 },   // glgfx_pixel_a8b8g8r8,   RGBA, 4 * UBYTE
-//{ GL_RGB8,    GL_BGR,  GL_UNSIGNED_BYTE,              3 },   // glgfx_pixel_b8g8r8,     BGR,  3 * UBYTE
-  { GL_RGBA8,   GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV,   4 },   // glgfx_pixel_a8r8g8b8    BGRA, 4 * UBYTE
-};
-
 static enum glgfx_pixel_format select_format(int bits __attribute__((unused)),
 					     struct glgfx_bitmap* friend,
 					     enum glgfx_pixel_format format) {
   enum glgfx_pixel_format fmt = friend != NULL ? friend->format : format;
 
-  if (fmt <= glgfx_pixel_unknown || fmt >= glgfx_pixel_max) {
+  if (fmt == glgfx_pixel_format_unknown) {
+  }
+  
+  if (fmt <= glgfx_pixel_format_unknown || fmt >= glgfx_pixel_format_max) {
     abort();
   }
 
@@ -39,7 +24,7 @@ static enum glgfx_pixel_format select_format(int bits __attribute__((unused)),
 }
 
 static size_t glgfx_texture_size(int width, int height, enum glgfx_pixel_format format) {
-  if (format <= glgfx_pixel_unknown || format >= glgfx_pixel_max ||
+  if (format <= glgfx_pixel_format_unknown || format >= glgfx_pixel_format_max ||
     width < 0 || height < 0) {
     BUG("width: %d; height: %d; format: %d\n", width, height, format);
     abort();
@@ -194,7 +179,7 @@ bool glgfx_bitmap_update(struct glgfx_bitmap* bitmap, void* data, size_t size) {
       glBindBuffer(GL_PIXEL_UNPACK_BUFFER_EXT, bitmap->pbo);
       check_error();
 
-      glBufferSubDataARB(GL_PIXEL_UNPACK_BUFFER_EXT, (void*) 0, size, data);
+      glBufferSubDataARB(GL_PIXEL_UNPACK_BUFFER_EXT, 0, size, data);
       check_error();
     }
   }
@@ -250,36 +235,33 @@ bool glgfx_bitmap_unlock(struct glgfx_bitmap* bitmap) {
 bool glgfx_bitmap_getattr(struct glgfx_bitmap* bm,
 			  enum glgfx_bitmap_attr attr,
 			  uint32_t* storage) {
-  if (bm == NULL || storage == NULL || attr < 0 || attr >= glgfx_bitmap_max) {
+  if (bm == NULL || storage == NULL ||
+      attr <= glgfx_bitmap_attr_unknown || attr >= glgfx_bitmap_attr_max) {
     return false;
   }
 
   switch (attr) {
-    case glgfx_bitmap_width:
+    case glgfx_bitmap_attr_width:
       *storage = bm->width;
       break;
 
-    case glgfx_bitmap_height:
+    case glgfx_bitmap_attr_height:
       *storage = bm->height;
       break;
 
-    case glgfx_bitmap_format: 
+    case glgfx_bitmap_attr_format: 
       *storage = bm->format;
       break;
 
-    case glgfx_bitmap_bytesperpixel:
-      *storage = formats[bm->format].size;
-      break;
-      
-    case glgfx_bitmap_bytesperrow:
+    case glgfx_bitmap_attr_bytesperrow:
       *storage = formats[bm->format].size * bm->width;
       break;
       
-    case glgfx_bitmap_locked:
+    case glgfx_bitmap_attr_locked:
       *storage = bm->locked;
       break;
       
-    case glgfx_bitmap_mapaddr:
+    case glgfx_bitmap_attr_mapaddr:
       *storage = (uint32_t) bm->locked_memory;
       break;
       
