@@ -50,7 +50,6 @@ BEGIN {
 	print "\n";
 	print "ULONG _CallLib68k(struct _Regs*,LONG) " .
 	    "__attribute__((__regparm__(3)));\n";
-	print "static __inline__ __SIZE_TYPE__ _Return1(void) { return 1; }\n";
 	print "\n";
 	print "#endif /* __INLINE_MACROS_H */\n";
 	print "\n";
@@ -76,7 +75,7 @@ BEGIN {
 		print "  $prototype->{return} _res;\n";
 	    }
 
-	    print "  struct _Regs _regs[_Return1()];\n";
+	    print "  struct _Regs _regs;\n";
 	}
 	else {
 	    $self->SUPER::function_start (@_);
@@ -93,7 +92,7 @@ BEGIN {
 	my $argnum    = $params{'argnum'};
 
 	if ($$prototype{'type'} !~ /^(stdarg)|(varargs)$/) {
-	    printf "  __asm(\"movl %%1,%%0\":\"=m\"(_regs[0].%s)" .
+	    printf "  __asm(\"movl %%1,%%0\":\"=m\"(_regs.%s)" .
 		":\"ri\"((ULONG)%s));\n", $argreg, $argname;
 	}
 	else {
@@ -113,7 +112,7 @@ BEGIN {
 	    my $nb = $sfd->{base} eq '';
 
 	    if (!$nb) {
-		print "  __asm(\"movl %1,%0\":\"=m\"(_regs[0].a6)" .
+		print "  __asm(\"movl %1,%0\":\"=m\"(_regs.a6)" .
 		    ":\"ri\"((ULONG)(BASE_NAME)));\n";
 	    }
 
@@ -123,7 +122,7 @@ BEGIN {
 		print "_res = ($prototype->{return}) ";
 	    }
 
-	    print "_CallLib68k(&_regs[0],-$prototype->{bias});\n";
+	    print "_CallLib68k(&_regs,-$prototype->{bias});\n";
 	    
 	    if (!$nr) {
 		print "  return _res;\n";
