@@ -36,10 +36,14 @@ bool glgfx_viewport_move(struct glgfx_viewport* viewport,
     return false;
   }
 
+  pthread_mutex_lock(&glgfx_mutex);
+
   viewport->width = width;
   viewport->height = height;
   viewport->xoffset = xoffset;
   viewport->yoffset = yoffset;
+
+  pthread_mutex_unlock(&glgfx_mutex);
   return true;
 }
 
@@ -53,9 +57,13 @@ void glgfx_viewport_destroy(struct glgfx_viewport* viewport) {
     free(data);
   }
   
+  pthread_mutex_lock(&glgfx_mutex);
+
   g_list_foreach(viewport->rasinfos, (GFunc) free_rasinfo, NULL);
   g_list_free(viewport->rasinfos);
   free(viewport);
+
+  pthread_mutex_unlock(&glgfx_mutex);
 }
 
 struct glgfx_rasinfo* glgfx_viewport_addbitmap(struct glgfx_viewport* viewport,
@@ -74,13 +82,18 @@ struct glgfx_rasinfo* glgfx_viewport_addbitmap(struct glgfx_viewport* viewport,
     return NULL;
   }
 
+  pthread_mutex_lock(&glgfx_mutex);
+
   if (!glgfx_viewport_setbitmap(viewport, rasinfo, bitmap,
 				xoffset, yoffset, width, height)) {
     free(rasinfo);
+    pthread_mutex_unlock(&glgfx_mutex);
     return NULL;
   }
   
   viewport->rasinfos = g_list_append(viewport->rasinfos, rasinfo);
+
+  pthread_mutex_unlock(&glgfx_mutex);
   return rasinfo;
 }
 
@@ -90,8 +103,12 @@ bool glgfx_viewport_rembitmap(struct glgfx_viewport* viewport,
     return false;
   }
 
+  pthread_mutex_lock(&glgfx_mutex);
+
   viewport->rasinfos = g_list_remove(viewport->rasinfos, rasinfo);
   free(rasinfo);
+
+  pthread_mutex_unlock(&glgfx_mutex);
   return true;
 }
 
@@ -104,20 +121,31 @@ bool glgfx_viewport_setbitmap(struct glgfx_viewport* viewport,
     return false;
   }
   
+  pthread_mutex_lock(&glgfx_mutex);
+
   rasinfo->bitmap = bitmap;
   rasinfo->xoffset = xoffset;
   rasinfo->yoffset = yoffset;
   rasinfo->width = width;
   rasinfo->height = height;
+
+  pthread_mutex_unlock(&glgfx_mutex);
   return true;
 }
 
 int glgfx_viewport_numbitmaps(struct glgfx_viewport* viewport) {
+  int res;
+  
   if (viewport == NULL) {
     return 0;
   }
 
-  return g_list_length(viewport->rasinfos);
+  pthread_mutex_lock(&glgfx_mutex);
+
+  res = g_list_length(viewport->rasinfos);
+
+  pthread_mutex_unlock(&glgfx_mutex);
+  return res;
 }
 
 bool glgfx_viewport_render(struct glgfx_viewport* viewport) {
@@ -148,7 +176,11 @@ bool glgfx_viewport_render(struct glgfx_viewport* viewport) {
     glEnd();
   }
 
+  pthread_mutex_lock(&glgfx_mutex);
+
   g_list_foreach(viewport->rasinfos, (GFunc) render, viewport);
 
+  pthread_mutex_unlock(&glgfx_mutex);
+  
   return true;
 }

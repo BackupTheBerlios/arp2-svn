@@ -1,7 +1,9 @@
 
+#define _GNU_SOURCE  // for PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP
 #include "glgfx-config.h"
 #include <stdlib.h>
 #include <errno.h>
+#include <pthread.h>
 
 #include <GL/gl.h>
 #include <GL/glut.h>
@@ -9,6 +11,8 @@
 #include "glgfx.h"
 #include "glgfx_monitor.h"
 #include "glgfx_intern.h"
+
+pthread_mutex_t glgfx_mutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
 
 int                   glgfx_num_monitors;
 struct glgfx_monitor* glgfx_monitors[max_monitors];
@@ -47,10 +51,13 @@ struct glgfx_tagitem* glgfx_nexttagitem(struct glgfx_tagitem** taglist_ptr) {
 }
 
 bool glgfx_create_monitors(void) {
+  bool rc;
   char name[8];
   int display;
   int screen;
   struct glgfx_monitor* friend = NULL;
+
+  pthread_mutex_lock(&glgfx_mutex);
   
   glgfx_destroy_monitors();
 
@@ -81,13 +88,18 @@ bool glgfx_create_monitors(void) {
       break;
     }
   }
+ 
+  rc = glgfx_num_monitors != 0;
 
-  return glgfx_num_monitors != 0;
+  pthread_mutex_unlock(&glgfx_mutex);
+  return rc;
 }
 
 
 void glgfx_destroy_monitors(void) {
   int i;
+
+  pthread_mutex_lock(&glgfx_mutex);
 
   for (i = 0; i < glgfx_num_monitors; ++i) {
     glgfx_monitor_destroy(glgfx_monitors[i]);
@@ -95,6 +107,8 @@ void glgfx_destroy_monitors(void) {
   }
 
   glgfx_num_monitors = 0;
+
+  pthread_mutex_unlock(&glgfx_mutex);
 }
 
 
@@ -111,12 +125,12 @@ bool glgfx_waitblit(void) {
   return rc;
 }
 
-bool glgfx_waittof(void) {
+bool glgfx_swapbuffers(void) {
   bool rc = true;
   int i;
 
   for (i = 0; i < glgfx_num_monitors; ++i) {
-    if (!glgfx_monitor_waittof(glgfx_monitors[i])) {
+    if (!glgfx_monitor_swapbuffers(glgfx_monitors[i])) {
       rc = false;
     }
   }

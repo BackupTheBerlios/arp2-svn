@@ -17,7 +17,7 @@
 #define glXChooseVisualAttrs(d, s, tag1 ...) \
   ({ int _attrs[] = { tag1 }; glXChooseVisual((d), (s), _attrs); })
 
-struct glgfx_monitor* glgfx_monitor_create(char const*  display_name,
+struct glgfx_monitor* glgfx_monitor_create(char const* display_name,
 					   struct glgfx_monitor const* friend) {
   struct glgfx_monitor* monitor;
   sigjmp_buf jmpbuf;
@@ -38,6 +38,8 @@ struct glgfx_monitor* glgfx_monitor_create(char const*  display_name,
 
   monitor->name = strdup(display_name);
   monitor->xa_win_state = None;
+
+  monitor->friend = friend;
   
   sa.sa_handler = (__sighandler_t) handler;
   sigemptyset(&sa.sa_mask);
@@ -126,58 +128,57 @@ struct glgfx_monitor* glgfx_monitor_create(char const*  display_name,
     return NULL;
   }
       
-  XVisualInfo* vinfo;
   XSetWindowAttributes swa;
 
   // Get a truecolor visual, at least a 555 mode.
-  vinfo = glXChooseVisualAttrs(monitor->display,
-			       DefaultScreen(monitor->display),
-			       GLX_USE_GL,
-			       GLX_DOUBLEBUFFER,
-			       GLX_RGBA,
-			       GLX_RED_SIZE,     1,
-			       GLX_GREEN_SIZE,   1,
-			       GLX_BLUE_SIZE,    1,
-			       GLX_DEPTH_SIZE,   12,
-			       GLX_STENCIL_SIZE, 1,
-			       None);
+  monitor->vinfo = glXChooseVisualAttrs(monitor->display,
+					DefaultScreen(monitor->display),
+					GLX_USE_GL,
+					GLX_DOUBLEBUFFER,
+					GLX_RGBA,
+					GLX_RED_SIZE,     1,
+					GLX_GREEN_SIZE,   1,
+					GLX_BLUE_SIZE,    1,
+					GLX_DEPTH_SIZE,   12,
+					GLX_STENCIL_SIZE, 1,
+					None);
 
-  if (vinfo == NULL) {
+  if (monitor->vinfo == NULL) {
     BUG("Unable to get a GL visual for display %s!\n", display_name);
     glgfx_monitor_destroy(monitor);
     return NULL;
   }
 
   struct glgfx_tagitem tags[] = {
-    { glgfx_pixel_attr_rgb,       true              },
-    { glgfx_pixel_attr_redmask,   vinfo->red_mask   },
-    { glgfx_pixel_attr_greenmask, vinfo->green_mask },
-    { glgfx_pixel_attr_bluemask,  vinfo->blue_mask  },
-    { glgfx_tag_done,             0                 }
+    { glgfx_pixel_attr_rgb,       true                       },
+    { glgfx_pixel_attr_redmask,   monitor->vinfo->red_mask   },
+    { glgfx_pixel_attr_greenmask, monitor->vinfo->green_mask },
+    { glgfx_pixel_attr_bluemask,  monitor->vinfo->blue_mask  },
+    { glgfx_tag_done,             0                          }
   };
 
   monitor->format = glgfx_pixel_getformat(tags);
   
   swa.colormap = XCreateColormap(monitor->display,
 				 RootWindow(monitor->display,
-					    vinfo->screen),
-				 vinfo->visual,
+					    monitor->vinfo->screen),
+				 monitor->vinfo->visual,
 				 AllocNone);
   swa.background_pixel = BlackPixel(monitor->display,
-				    vinfo->screen);
+				    monitor->vinfo->screen);
   swa.border_pixel = BlackPixel(monitor->display,
-				vinfo->screen);
+				monitor->vinfo->screen);
 
   monitor->window = XCreateWindow(monitor->display,
 				  RootWindow(monitor->display,
-					     vinfo->screen),
+					     monitor->vinfo->screen),
 				  0, 0,
 				  monitor->mode.hdisplay,
 				  monitor->mode.vdisplay,
 				  0, 
-				  vinfo->depth,
+				  monitor->vinfo->depth,
 				  CopyFromParent,
-				  vinfo->visual,
+				  monitor->vinfo->visual,
 //				   0,
 				  (CWBackPixel |
 				   CWBorderPixel |
@@ -190,34 +191,14 @@ struct glgfx_monitor* glgfx_monitor_create(char const*  display_name,
     return NULL;
   }
 
-  monitor->context = glXCreateContext(monitor->display,
-				      vinfo,
-				      friend != NULL ? friend->context : NULL,
-				      True);
+  monitor->main_context = glgfx_monitor_createcontext(monitor);
 
-  if (monitor->context == NULL) {
+  if (monitor->main_context == NULL) {
     BUG("Unable to create a GL context for window on display %s!\n",
 	display_name);
     glgfx_monitor_destroy(monitor);
     return NULL;
   }
-      
-  if (!glXMakeCurrent(monitor->display, monitor->window, monitor->context)) {
-    BUG("Unable to make GL context display %s current!\n", display_name);
-    glgfx_monitor_destroy(monitor);
-    return NULL;
-  }
-
-//  D(BUG("Supported extensions: %s\n", glGetString(GL_EXTENSIONS)));
-
-  // Setup a standard integer 2D coordinate system
-  glViewport(0, 0, monitor->mode.hdisplay, monitor->mode.vdisplay);
-  glMatrixMode(GL_PROJECTION);
-  glLoadIdentity();
-  glOrtho(0, monitor->mode.hdisplay, monitor->mode.vdisplay, 0, -1, 0);
-  glMatrixMode(GL_MODELVIEW);
-  glLoadIdentity();
-  glTranslatef(0.375, 0.375, 0.0);
   
   glgfx_monitor_fullscreen(monitor, true);
 
@@ -241,6 +222,8 @@ void glgfx_monitor_destroy(struct glgfx_monitor* monitor) {
     return;
   }
 
+  pthread_mutex_lock(&glgfx_mutex);
+
   D(BUG("Destroying monitor %p (%s)\n", monitor, monitor->name));
 
   glgfx_monitor_fullscreen(monitor, false);
@@ -252,10 +235,9 @@ void glgfx_monitor_destroy(struct glgfx_monitor* monitor) {
     D(BUG("Freed private modeline data.\n"));
   }
 
-  if (monitor->context != NULL) {
-    glXMakeCurrent(monitor->display, None, NULL);
-    glXDestroyContext(monitor->display, monitor->context);
-    monitor->context = NULL;
+  if (monitor->main_context != NULL) {
+    glgfx_monitor_destroycontext(monitor, monitor->main_context);
+    monitor->main_context = NULL;
     D(BUG("Destroyed context for window.\n"));
   }
   
@@ -273,6 +255,8 @@ void glgfx_monitor_destroy(struct glgfx_monitor* monitor) {
 
   free(monitor);
   D(BUG("Freed monitor\n"));
+
+  pthread_mutex_unlock(&glgfx_mutex);
 }
 
 
@@ -282,6 +266,8 @@ void glgfx_monitor_fullscreen(struct glgfx_monitor* monitor, bool fullscreen) {
   if (monitor == NULL || monitor->display == NULL) {
     return;
   }
+
+  pthread_mutex_lock(&glgfx_mutex);
 
   if (monitor->xa_win_state == None) {
     monitor->xa_win_state = XInternAtom(monitor->display, "_NET_WM_STATE", False);
@@ -302,8 +288,82 @@ void glgfx_monitor_fullscreen(struct glgfx_monitor* monitor, bool fullscreen) {
   else {
     XDeleteProperty(monitor->display, monitor->window, monitor->xa_win_state);
   }
+
+  pthread_mutex_unlock(&glgfx_mutex);
 }
 
+struct glgfx_context* glgfx_monitor_createcontext(struct glgfx_monitor* monitor) {
+  GLXContext context;
+  
+  if (monitor == NULL) {
+    return NULL;
+  }
+
+  pthread_mutex_lock(&glgfx_mutex);
+
+  context = glXCreateContext(monitor->display,
+			     monitor->vinfo,
+			     (GLXContext) (monitor->main_context != NULL ? monitor->main_context :
+					   monitor->friend != NULL ? monitor->friend->main_context : NULL),
+			     True);
+
+  if (!glXMakeCurrent(monitor->display, monitor->window, context)) {
+    BUG("Unable to make GL context current!\n");
+    glXDestroyContext(monitor->display, context);
+    return NULL;
+  }
+
+//  D(BUG("Supported extensions: %s\n", glGetString(GL_EXTENSIONS)));
+
+  // Setup a standard integer 2D coordinate system
+  glViewport(0, 0, monitor->mode.hdisplay, monitor->mode.vdisplay);
+  glMatrixMode(GL_PROJECTION);
+  glLoadIdentity();
+  glOrtho(0, monitor->mode.hdisplay, monitor->mode.vdisplay, 0, -1, 0);
+  glMatrixMode(GL_MODELVIEW);
+  glLoadIdentity();
+  glTranslatef(0.375, 0.375, 0.0);
+
+  pthread_mutex_unlock(&glgfx_mutex);
+  return (struct glgfx_context*) context;
+}
+
+void glgfx_monitor_destroycontext(struct glgfx_monitor* monitor, struct glgfx_context* context) {
+  pthread_mutex_lock(&glgfx_mutex);
+  glXMakeCurrent(monitor->display, None, NULL);
+  glXDestroyContext(monitor->display, (GLXContext) context);
+  pthread_mutex_unlock(&glgfx_mutex);
+}
+
+static __thread struct glgfx_context* current_context  = NULL;
+
+bool glgfx_monitor_selectcontext(struct glgfx_monitor* monitor, struct glgfx_context* context) {
+  bool rc;
+  
+  if (monitor == NULL || context == NULL) {
+    return false;
+  }
+
+  pthread_mutex_lock(&glgfx_mutex);
+
+  if (current_context != context) {
+    if (glXMakeCurrent(monitor->display,
+		       monitor->window,
+		       (GLXContext) context)) {
+      current_context = context;
+      rc = true;
+    }
+    else {
+      rc = false;
+    }
+  }
+  else {
+    rc = true;
+  }
+
+  pthread_mutex_unlock(&glgfx_mutex);
+  return rc;
+}
 
 bool glgfx_monitor_getattr(struct glgfx_monitor* monitor,
 			   enum glgfx_monitor_attr attr,
@@ -312,6 +372,8 @@ bool glgfx_monitor_getattr(struct glgfx_monitor* monitor,
       attr <= glgfx_monitor_attr_unknown || attr >= glgfx_monitor_attr_max) {
     return false;
   }
+
+  pthread_mutex_lock(&glgfx_mutex);
 
   switch (attr) {
     case glgfx_monitor_attr_width:
@@ -342,31 +404,14 @@ bool glgfx_monitor_getattr(struct glgfx_monitor* monitor,
       abort();
   }
 
+  pthread_mutex_unlock(&glgfx_mutex);
+  
   return true;
 }
 
 
 bool glgfx_monitor_select(struct glgfx_monitor* monitor) {
-  static struct glgfx_monitor* current_monitor = NULL;
-
-  if (monitor == NULL) {
-    return false;
-  }
-
-  if (current_monitor != monitor) {
-    if (glXMakeCurrent(monitor->display,
-		       monitor->window,
-		       monitor->context)) {
-      current_monitor = monitor;
-      return true;
-    }
-    else {
-      return false;
-    }
-  }
-  else {
-    return true;
-  }
+  return glgfx_monitor_selectcontext(monitor, monitor->main_context);
 }
 
 
@@ -379,8 +424,23 @@ bool glgfx_monitor_waitblit(struct glgfx_monitor* monitor) {
   return true;
 }
 
-bool glgfx_monitor_waittof(struct glgfx_monitor* monitor) {
+bool glgfx_monitor_swapbuffers(struct glgfx_monitor* monitor) {
+  pthread_mutex_lock(&glgfx_mutex);
   glXSwapBuffers(monitor->display, monitor->window);
+  pthread_mutex_unlock(&glgfx_mutex);
+  return true;
+}
+
+bool glgfx_monitor_waittof(struct glgfx_monitor* monitor) {
+  GLuint frame_count;
+  
+  if (!glgfx_monitor_select(monitor)) {
+    return false;
+  }
+
+  // Don't lock mutex here, since it will sleep!
+  glXGetVideoSyncSGI(&frame_count);
+  glXWaitVideoSyncSGI(1, 0, &frame_count);
   return true;
 }
 

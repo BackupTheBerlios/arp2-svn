@@ -5,6 +5,7 @@
 #include <inttypes.h>
 
 struct glgfx_monitor;
+struct glgfx_context;
 
 enum glgfx_monitor_attr {
   glgfx_monitor_attr_unknown = glgfx_tag_user,
@@ -23,9 +24,15 @@ struct glgfx_monitor* glgfx_monitor_create(char const* display_name,
 					   struct glgfx_monitor const* friend);
 void glgfx_monitor_destroy(struct glgfx_monitor* monitor);
 void glgfx_monitor_fullscreen(struct glgfx_monitor* monitor, bool fullscreen);
+
+struct glgfx_context* glgfx_monitor_createcontext(struct glgfx_monitor* monitor);
+void glgfx_monitor_destroycontext(struct glgfx_monitor* monitor, struct glgfx_context* context);
+bool glgfx_monitor_selectcontext(struct glgfx_monitor* monitor, struct glgfx_context* context);
+
 bool glgfx_monitor_select(struct glgfx_monitor* monitor);
 bool glgfx_monitor_waitblit(struct glgfx_monitor* monitor);
 bool glgfx_monitor_waittof(struct glgfx_monitor* monitor);
+bool glgfx_monitor_swapbuffers(struct glgfx_monitor* monitor);
 
 bool glgfx_monitor_getattr(struct glgfx_monitor* bm,
 			   enum glgfx_monitor_attr attr,

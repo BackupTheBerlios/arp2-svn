@@ -35,7 +35,7 @@ int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) 
     
     struct glgfx_bitmap* bm = glgfx_bitmap_create(width, height, 24, 0, NULL,
 						  glgfx_pixel_format_r5g6b5, glgfx_monitors[0]);
-
+    
     if (bm != NULL) {
 #if UPLOAD_MODE > 0
       if (glgfx_bitmap_lock(bm, false, true)) {
@@ -59,8 +59,6 @@ int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) 
       }
 #endif
 
-      glgfx_monitor_select(glgfx_monitors[0]);
-
       struct glgfx_viewport* vp = glgfx_viewport_create(320, 256, 100, 200);
       struct glgfx_rasinfo*  ri = glgfx_viewport_addbitmap(vp, bm, 0, 0, 320, 256);
       struct glgfx_view*     v  = glgfx_view_create(glgfx_monitors[0]);
@@ -83,7 +81,7 @@ int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) 
 #endif
 	  for (y = 0; y < height; y+=10) {
 	    for (x = 0; x < width; x+=10) {
-	      data[x+y*width] = -1;
+	      data[x+y*width] = 0;
 	    }
 	  }
 #if UPLOAD_MODE < 2
@@ -94,11 +92,12 @@ int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) 
 	}
 #endif
 
-	glgfx_viewport_move(vp, 320 + i, 256, 100, 200+i);
+	glgfx_viewport_move(vp, 100+i*3, 256, 100, i*4-100);
 //	glgfx_viewport_setbitmap(vp, ri, bm, 0, 0, 320, 256);
 	
 	glgfx_view_render(v);
 	glgfx_monitor_waittof(glgfx_monitors[0]);
+	glgfx_monitor_swapbuffers(glgfx_monitors[0]);
 
 /* 	enum glgfx_input_code code; */
 /* 	while ((code = glgfx_input_getcode()) != glgfx_input_none) { */

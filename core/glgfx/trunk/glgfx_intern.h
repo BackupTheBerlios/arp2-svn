@@ -20,11 +20,16 @@
 
 #include "glgfx_pixel.h"
 
+#include <pthread.h>
+pthread_mutex_t glgfx_mutex;
+
 struct glgfx_monitor {
     char const*             name;
     Display*                display;
     Window                  window;
-    GLXContext              context;
+    struct glgfx_context*   main_context;
+    XVisualInfo*            vinfo;
+    struct glgfx_monitor const*   friend;
 
     Atom                    xa_win_state;
 

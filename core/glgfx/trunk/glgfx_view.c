@@ -7,6 +7,7 @@
 #include <GL/glext.h>
 
 #include "glgfx.h"
+#include "glgfx_intern.h"
 #include "glgfx_view.h"
 #include "glgfx_viewport.h"
 
@@ -39,8 +40,12 @@ void glgfx_view_destroy(struct glgfx_view* view) {
     return;
   }
 
+  pthread_mutex_lock(&glgfx_mutex);
+
   g_list_free(view->viewports);
   free(view);
+
+  pthread_mutex_unlock(&glgfx_mutex);
 }
 
 bool glgfx_view_addviewport(struct glgfx_view* view,
@@ -49,7 +54,10 @@ bool glgfx_view_addviewport(struct glgfx_view* view,
     return false;
   }
 
+  pthread_mutex_lock(&glgfx_mutex);
   view->viewports = g_list_append(view->viewports, viewport);
+  pthread_mutex_unlock(&glgfx_mutex);
+
   return true;
 }
 
@@ -59,16 +67,25 @@ bool glgfx_view_remviewport(struct glgfx_view* view,
     return false;
   }
 
+  pthread_mutex_lock(&glgfx_mutex);
   view->viewports = g_list_remove(view->viewports, viewport);
+  pthread_mutex_unlock(&glgfx_mutex);
   return true;
 }
 
 int glgfx_view_numviewports(struct glgfx_view* view) {
+  int res;
+  
   if (view == NULL) {
     return 0;
   }
 
-  return g_list_length(view->viewports);
+  pthread_mutex_lock(&glgfx_mutex);
+
+  res = g_list_length(view->viewports);
+
+  pthread_mutex_unlock(&glgfx_mutex);
+  return res;
 }
 
 bool glgfx_view_render(struct glgfx_view* view) {
@@ -85,7 +102,10 @@ bool glgfx_view_render(struct glgfx_view* view) {
     glgfx_viewport_render(viewport);
   }
 
+  pthread_mutex_lock(&glgfx_mutex);
+
   g_list_foreach(view->viewports, (GFunc) render, view);
 
+  pthread_mutex_unlock(&glgfx_mutex);
   return true;
 }

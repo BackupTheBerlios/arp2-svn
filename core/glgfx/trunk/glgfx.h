@@ -7,7 +7,7 @@
 bool glgfx_create_monitors(void);
 void glgfx_destroy_monitors(void);
 bool glgfx_waitblit(void);
-bool glgfx_waittof(void);
+bool glgfx_swapbuffers(void);
 
 enum glgfx_tag {
   glgfx_tag_done   = 0,
