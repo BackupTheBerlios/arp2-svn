@@ -113,20 +113,20 @@ BEGIN {
 		    print "_iface);\n"
 		}
 
-		print "  return $prototype->{real_funcname}(";
+		print "  return $libprefix$prototype->{real_funcname}(";
 
 		if ($libarg eq 'first' && !$prototype->{nb}) {
 		    print "($sfd->{basetype}) _iface->Data.LibBase";
 		    print $prototype->{numargs} > 0 ? ", " : "";
 		}
 
+		for (my $i = 0; $i <= $na; ++$i) {
+		    print "@{$prototype->{___argnames}}[$i], ";
+		}
+
 		print "va_getlinearva (_va, " .
 		    "$prototype->{argtypes}[$prototype->{numargs}-1])";
 		
-		for (my $i = 0; $i < $na; ++$i) {
-		    print @{$prototype->{___argnames}}[$i];
-		}
-
 		if ($libarg eq 'last' && !$prototype->{nb}) {
 		    print $prototype->{numargs} > 0 ? ", " : "";
 		    print "($sfd->{basetype}) _iface->Data.LibBase";
