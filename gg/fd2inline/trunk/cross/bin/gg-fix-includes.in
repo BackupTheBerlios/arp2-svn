@@ -15,6 +15,10 @@ for gcc in ${bindir}/*-*-gcc; do
  
  if test -d ${prefix}/${target}; then
   case "${target}" in
+   i?86be-amithlon)
+     FD2INLINE_OS="ix86be-amithlon"
+     FIXINCLUDE="perl ${fd2inlinedir}/geninclude.pl"
+     ;;
    m68k-amigaos)
      FD2INLINE_OS="${target}"
      FIXINCLUDE="cat"
@@ -37,6 +41,7 @@ for gcc in ${bindir}/*-*-gcc; do
    echo -e "${INFO}*** Fixing includes for for ${target}${ERROR}"
 
    rm -rf ${prefix}/${target}/sys-include
+   echo "The sys-include directory is automatically generated. Do no edit!" > ${prefix}/${target}/sys-include.readme
    mkdir ${prefix}/${target}/sys-include
    mkdir ${prefix}/${target}/sys-include/inline
    mkdir ${prefix}/${target}/sys-include/proto
@@ -92,7 +97,7 @@ for gcc in ${bindir}/*-*-gcc; do
         fi
       done
 
-      cp ${fd2inlinedir}/stubs.h ${fd2inlinedir}/${target}/* \
+      cp ${fd2inlinedir}/stubs.h ${fd2inlinedir}/${FD2INLINE_OS}/* \
 	 ${prefix}/${target}/sys-include/inline/
 
       echo; echo

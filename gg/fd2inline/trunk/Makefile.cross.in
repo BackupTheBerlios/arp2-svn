@@ -15,7 +15,7 @@ INSTALL_DATA	= @INSTALL_DATA@
 all:
 	$(MAKE) fd2inline fd2inline.info
 
-install:
+install:	all
 	$(INSTALL) -d $(bindir) $(infodir) $(fd2inlinedir)
 
 	# Install tools
