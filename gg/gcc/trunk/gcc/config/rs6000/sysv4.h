@@ -24,7 +24,8 @@ enum rs6000_sdata_type {
   SDATA_NONE,			/* no small data support */
   SDATA_DATA,			/* just put data in .sbss/.sdata, don't use relocs */
   SDATA_SYSV,			/* Use r13 to point to .sdata/.sbss */
-  SDATA_EABI			/* Use r13 like above, r2 points to .sdata2/.sbss2 */
+  SDATA_EABI,			/* Use r13 like above, r2 points to .sdata2/.sbss2 */
+  SDATA_BREL			/* Use r13 to point to .data/.sdata/.sbss/.bss */
 };
 
 extern enum rs6000_sdata_type rs6000_sdata;
@@ -181,6 +182,8 @@ do {									\
 	rs6000_sdata = SDATA_SYSV;					\
       else if (!strcmp (rs6000_sdata_name, "eabi"))			\
 	rs6000_sdata = SDATA_EABI;					\
+      else if (!strcmp (rs6000_sdata_name, "baserel"))			\
+	rs6000_sdata = SDATA_BREL;					\
       else								\
 	error ("Bad value for -msdata=%s", rs6000_sdata_name);		\
     }									\

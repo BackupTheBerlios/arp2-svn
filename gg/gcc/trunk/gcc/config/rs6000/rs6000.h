@@ -3276,6 +3276,7 @@ extern int call_operand ();
 extern int current_file_function_operand ();
 extern int input_operand ();
 extern int small_data_operand ();
+extern int baserel_data_operand ();
 extern void init_cumulative_args ();
 extern void function_arg_advance ();
 extern int function_arg_boundary ();

@@ -241,6 +241,10 @@ enum insn_code clrstr_optab[NUM_MACHINE_MODES];
 #define SLOW_UNALIGNED_ACCESS STRICT_ALIGNMENT
 #endif
 
+#ifndef GET_MIN_MODE_ALIGNMENT
+#define GET_MIN_MODE_ALIGNMENT(x) BITS_PER_UNIT
+#endif
+
 /* Register mappings for target machines without register windows.  */
 #ifndef INCOMING_REGNO
 #define INCOMING_REGNO(OUT) (OUT)
@@ -4749,7 +4753,10 @@ store_field (target, bitsize, bitpos, mode, exp, value_mode,
 	 store it as a bit field.  */
       || (SLOW_UNALIGNED_ACCESS
 	  && align * BITS_PER_UNIT < GET_MODE_ALIGNMENT (mode))
-      || (SLOW_UNALIGNED_ACCESS && bitpos % GET_MODE_ALIGNMENT (mode) != 0))
+      || (!SLOW_UNALIGNED_ACCESS
+	  && align * BITS_PER_UNIT < GET_MIN_MODE_ALIGNMENT(mode))
+      || (SLOW_UNALIGNED_ACCESS && bitpos % GET_MODE_ALIGNMENT (mode) != 0)
+      || (!SLOW_UNALIGNED_ACCESS && bitpos % GET_MIN_MODE_ALIGNMENT (mode) != 0))
     {
       rtx temp = expand_expr (exp, NULL_RTX, VOIDmode, 0);
 
@@ -6645,7 +6652,10 @@ expand_expr (exp, target, tmode, modifier)
 		       fetch it as a bit field.  */
 		    || (SLOW_UNALIGNED_ACCESS
 			&& ((TYPE_ALIGN (TREE_TYPE (tem)) < (unsigned int) GET_MODE_ALIGNMENT (mode))
-			    || (bitpos % GET_MODE_ALIGNMENT (mode) != 0))))))
+			    || (bitpos % GET_MODE_ALIGNMENT (mode) != 0)))
+		    || (!SLOW_UNALIGNED_ACCESS
+			&& ((TYPE_ALIGN (TREE_TYPE (tem)) < (unsigned int) GET_MIN_MODE_ALIGNMENT(mode))
+			    || (bitpos % GET_MIN_MODE_ALIGNMENT (mode) != 0))))))
 	  {
 	    enum machine_mode ext_mode = mode;
 

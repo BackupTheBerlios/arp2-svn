@@ -122,6 +122,11 @@ static int total_attempts, total_merges, total_extras, total_successes;
 #ifndef REVERSIBLE_CC_MODE
 #define REVERSIBLE_CC_MODE(MODE) 0
 #endif
+
+#ifndef GET_MIN_MODE_ALIGNMENT
+#define GET_MIN_MODE_ALIGNMENT(mode) 1
+#endif
+
 
 /* Vector mapping INSN_UIDs to cuids.
    The cuids are like uids but increase monotonically always.
@@ -5626,7 +5631,7 @@ make_extraction (mode, inner, pos, pos_rtx, len,
 	  || (GET_CODE (inner) == MEM && pos_rtx == 0
 	      && (pos
 		  % (STRICT_ALIGNMENT ? GET_MODE_ALIGNMENT (tmode)
-		     : BITS_PER_UNIT)) == 0
+		     : GET_MIN_MODE_ALIGNMENT (tmode))) == 0
 	      /* We can't do this if we are widening INNER_MODE (it
 		 may not be aligned, for one thing).  */
 	      && GET_MODE_BITSIZE (inner_mode) >= GET_MODE_BITSIZE (tmode)

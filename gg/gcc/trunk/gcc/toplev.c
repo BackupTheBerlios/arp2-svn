@@ -924,6 +924,10 @@ lang_independent_options f_options[] =
   {"pic", &flag_pic, 1,
    "Generate position independent code, if possible"},
   {"PIC", &flag_pic, 2, ""},
+  {"baserel", &flag_pic, 3,
+   "Generate base relative code"},
+  {"baserel32", &flag_pic, 4,
+   "Generate base relative code with no data limits"},
   {"exceptions", &flag_exceptions, 1,
    "Enable exception handling" },
   {"new-exceptions", &flag_new_exceptions, 1,
@@ -2569,7 +2573,11 @@ output_file_directive (asm_file, input_name)
   /* NA gets INPUT_NAME sans directory names.  */
   while (na > input_name)
     {
-      if (na[-1] == '/')
+      if (na[-1] == '/'
+#ifdef VOL_SEPARATOR
+	  || na[-1] == VOL_SEPARATOR
+#endif
+	  )
 	break;
 #ifdef DIR_SEPARATOR
       if (na[-1] == DIR_SEPARATOR)
@@ -4776,6 +4784,9 @@ main (argc, argv)
 #ifdef DIR_SEPARATOR
 	 && p[-1] != DIR_SEPARATOR
 #endif
+#ifdef VOL_SEPARATOR
+	 && p[-1] != VOL_SEPARATOR
+#endif
 	 )
     --p;
   progname = p;
@@ -5449,7 +5460,7 @@ main (argc, argv)
 
   compile_file (filename);
 
-#if !defined(OS2) && !defined(VMS) && (!defined(_WIN32) || defined (__CYGWIN__)) && !defined(__INTERIX)
+#if !defined(OS2) && !defined(VMS) && (!defined(_WIN32) || defined (__CYGWIN__)) && !defined(__INTERIX) && !defined (__amigaos__) && !defined (__morphos__)
   if (flag_print_mem)
     {
       char *lim = (char *) sbrk (0);
@@ -5465,7 +5476,7 @@ main (argc, argv)
 #endif /* not USG */
 #endif
     }
-#endif /* ! OS2 && ! VMS && (! _WIN32 || CYGWIN) && ! __INTERIX */
+#endif /* ! OS2 && ! VMS && (! _WIN32 || CYGWIN) && ! __INTERIX  && ! __amigaos__ && ! __morphos__ */
 
   if (errorcount)
     exit (FATAL_EXIT_CODE);

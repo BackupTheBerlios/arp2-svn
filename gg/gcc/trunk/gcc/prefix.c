@@ -275,7 +275,11 @@ translate_name (name)
     prefix = PREFIX;
 
   /* Remove any trailing directory separator from what we got.  */
+#if defined (__amigaos__) || defined (__morphos__)	/* Don't kill ':' on Amiga! */
+  if (prefix[strlen (prefix) - 1] == DIR_SEPARATOR)
+#else
   if (IS_DIR_SEPARATOR (prefix[strlen (prefix) - 1]))
+#endif
     {
       char * temp = save_string (prefix, strlen (prefix));
       temp[strlen (temp) - 1] = 0;
@@ -303,6 +307,7 @@ update_path (path, key)
 	path = translate_name (path);
     }
 
+#if !defined (__amigaos__) && !defined (__morphos__)	/* Don't convert ':' on Amiga! */
 #ifdef DIR_SEPARATOR_2
   /* Convert DIR_SEPARATOR_2 to DIR_SEPARATOR. */
   if (DIR_SEPARATOR != DIR_SEPARATOR_2)
@@ -315,6 +320,7 @@ update_path (path, key)
           new_path[i] = DIR_SEPARATOR;
       path = new_path;
     }
+#endif
 #endif
       
 #if defined (DIR_SEPARATOR) && !defined (DIR_SEPARATOR_2)

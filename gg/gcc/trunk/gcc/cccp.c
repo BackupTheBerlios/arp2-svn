@@ -85,7 +85,7 @@ static int hack_vms_include_specification ();
 
 /* Windows does not natively support inodes, and neither does MSDOS.  */
 #if (defined (_WIN32) && ! defined (__CYGWIN__) && ! defined (_UWIN)) \
-  || defined (__MSDOS__)
+  || defined (__MSDOS__) || defined (__amigaos__) || defined (__morphos__)
 #define INO_T_EQ(a, b) 0
 #endif
 
@@ -102,6 +102,11 @@ static int hack_vms_include_specification ();
 #endif
 
 /* External declarations.  */
+
+#ifndef OPEN_CASE_SENSITIVE
+/* Default is standard open() */
+#define OPEN_CASE_SENSITIVE open
+#endif
 
 extern char *version_string;
 HOST_WIDEST_INT parse_escape PROTO((char **, HOST_WIDEST_INT));
@@ -402,6 +407,10 @@ static struct default_include {
 #ifdef TOOL_INCLUDE_DIR
     /* This is another place that the target system's headers might be.  */
     { TOOL_INCLUDE_DIR, "BINUTILS", 0, 0, 0 },
+#endif
+    /* Some systems have an extra dir of include files.  */
+#ifdef SYSTEM_INCLUDE_DIR
+    { SYSTEM_INCLUDE_DIR, 0, 0, 0, 0 },
 #endif
 #else /* not CROSS_COMPILE */
 #ifdef LOCAL_INCLUDE_DIR
@@ -1124,7 +1133,7 @@ print_help ()
   printf ("Usage: %s [switches] input output\n", progname);
   printf ("Switches:\n");
   printf ("  -include <file>           Include the contents of <file> before other files\n");
-  printf ("  -imacros <file>           Accept definition of marcos in <file>\n");
+  printf ("  -imacros <file>           Accept definition of macros in <file>\n");
   printf ("  -iprefix <path>           Specify <path> as a prefix for next two options\n");
   printf ("  -iwithprefix <dir>        Add <dir> to the end of the system include paths\n");
   printf ("  -iwithprefixbefore <dir>  Add <dir> to the end of the main include paths\n");
@@ -1918,7 +1927,12 @@ main (argc, argv)
 	notice ("#include <...> search starts here:\n");
       if (!p->fname[0])
 	fprintf (stderr, " .\n");
-      else if (!strcmp (p->fname, "/") || !strcmp (p->fname, "//"))
+      else if (!strcmp (p->fname, "/") || !strcmp (p->fname, "//")
+#ifdef VOL_SEPARATOR
+	/* Don't omit the last character if it's not a '/'.  */
+	       || p->fname[strlen (p->fname) - 1] != '/'
+#endif
+	       )
 	fprintf (stderr, " %s\n", p->fname);
       else
 	/* Omit trailing '/'.  */
@@ -4785,6 +4799,9 @@ base_name (fname)
 #ifdef DIR_SEPARATOR
   if ((p = rindex (s, DIR_SEPARATOR))) s = p + 1;
 #endif
+#ifdef VOL_SEPARATOR
+  if ((p = rindex (s, VOL_SEPARATOR))) s = p + 1;
+#endif
   return s;
 }
 
@@ -4794,6 +4811,7 @@ static int
 absolute_filename (filename)
      char *filename;
 {
+#ifndef FILE_NAME_ABSOLUTE_P
 #if defined (__MSDOS__) \
   || (defined (_WIN32) && !defined (__CYGWIN__) && !defined (_UWIN))
   if (ISALPHA (filename[0]) && filename[1] == ':') filename += 2;
@@ -4810,6 +4828,9 @@ absolute_filename (filename)
   if (filename[0] == DIR_SEPARATOR) return 1;
 #endif
   return 0;
+#else /* FILE_NAME_ABSOLUTE_P */
+  return FILE_NAME_ABSOLUTE_P (filename);
+#endif /* FILE_NAME_ABSOLUTE_P */
 }
 
 /* Returns whether or not a given character is a directory separator.
@@ -4888,9 +4909,11 @@ simplify_filename (filename)
                   return to - filename;
                 }
             }
+#if !defined (__amigaos__) && !defined (__morphos__)	/* Don't convert ':' on Amiga! */
 #if defined(DIR_SEPARATOR_2)
           /* Simplify to one directory separator.  */
           to[-1] = DIR_SEPARATOR;
+#endif
 #endif
         }
 
@@ -5072,7 +5095,7 @@ open_include_file (filename, searchptr, importing, pinc)
       || ! inc->control_macro
       || (inc->control_macro[0] && ! lookup (inc->control_macro, -1, -1))) {
 
-    fd = open (fname, O_RDONLY, 0);
+    fd = OPEN_CASE_SENSITIVE (fname, O_RDONLY, 0);
 
     if (fd < 0)
       {
@@ -10406,7 +10429,11 @@ new_include_prefix (prev_file_name, component, prefix, name)
     len = simplify_filename (dir->fname);
 
     /* Convert directory name to a prefix.  */
-    if (len && dir->fname[len - 1] != DIR_SEPARATOR) {
+    if (len && dir->fname[len - 1] != DIR_SEPARATOR
+#ifdef VOL_SEPARATOR
+	&& dir->fname[len - 1] != VOL_SEPARATOR
+#endif
+	) {
       if (len == 1 && dir->fname[len - 1] == '.')
 	len = 0;
       else

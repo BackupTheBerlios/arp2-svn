@@ -5739,3 +5739,31 @@ memory_address_info (addr, disp_length)
 
   return len;
 }
+
+/* Functions to convert between little and endian modes */
+
+short
+bswap_16( x )
+  short x;
+{
+  return ((((x) >> 8) & 0xff) | (((x) & 0xff) << 8));
+}
+
+long
+bswap_32( x )
+  long x;
+{
+  return ((((x) & 0xff000000) >> 24) | (((x) & 0x00ff0000) >>  8) |
+	  (((x) & 0x0000ff00) <<  8) | (((x) & 0x000000ff) << 24));
+}
+
+/* Return 1 is the operand is either a non-special register or ANY
+   constant integer.  */
+
+int
+reg_or_cint_operand (op, mode)
+    register rtx op;
+    enum machine_mode mode;
+{
+     return (GET_CODE (op) == CONST_INT || register_operand (op, mode));
+}

@@ -2766,6 +2766,9 @@ extern int ix86_can_use_return_insn_p ();
 extern int small_shift_operand ();
 extern char *output_ashl ();
 extern int memory_address_info ();
+extern short bswap_16 ();
+extern long bswap_32 ();
+extern int reg_or_cint_operand ();
 
 #ifdef NOTYET
 extern struct rtx_def *copy_all_rtx ();

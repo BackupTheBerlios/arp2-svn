@@ -7027,3 +7027,29 @@ reposition_prologue_and_epilogue_notes (f)
     }
 #endif /* HAVE_prologue or HAVE_epilogue */
 }
+
+/* begin-GG-local: explicit register specification for parameters */
+/* Return 1 if an argument for the current function was passed in
+   register REGNO.  */
+
+int
+function_arg_regno_p (regno)
+     int regno;
+{
+  tree parm = DECL_ARGUMENTS (current_function_decl);
+  for (; parm; parm = TREE_CHAIN (parm))
+    {
+      rtx incoming = DECL_INCOMING_RTL (parm);
+      if (GET_CODE (incoming) == REG)
+	{
+	  int incoming_reg;
+	  incoming_reg = REGNO (incoming);
+	  if (regno >= incoming_reg &&
+	      regno < incoming_reg + HARD_REGNO_NREGS (incoming_reg,
+						       GET_MODE (incoming)))
+	    return 1;
+	}
+    }
+  return 0;
+}
+/* end-GG-local */
