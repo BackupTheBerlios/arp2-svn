@@ -609,7 +609,7 @@ fD_SetOffset	  (fdDef* obj, long off);
 static void
 fD_SetPrivate	  (fdDef* obj, int priv);
 Error
-fD_parsefd	  (fdDef* obj, fdFile* infile);
+fD_parsefd	  (fdDef* obj, char** comment_ptr, fdFile* infile);
 Error
 fD_parsepr	  (fdDef* obj, fdFile* infile);
 static const char*
@@ -643,6 +643,7 @@ fD_SetFuncParNum  (fdDef* obj, shortcard at);
 
 static fdDef **defs;
 static fdDef **arrdefs;
+static char  **arrcmts;
 static long fds;
 
 static char *fD_nostring="";
@@ -1079,7 +1080,7 @@ fD_ProtoNum(const fdDef* obj)
  ******************************************************************************/
 
 Error
-fD_parsefd(fdDef* obj, fdFile* infile)
+fD_parsefd(fdDef* obj, char** comment_ptr, fdFile* infile)
 {
    enum parse_info { name, params, regs, ready } parsing;
    char *buf, *bpoint, *bnext;
@@ -1141,12 +1142,28 @@ fD_parsefd(fdDef* obj, fdFile* infile)
 			      fF_SetFlags(infile, fF_GetFlags(infile) &
 				 ~FD_PRIVATE);
 			}
-		     /* drop through for error comment */
-
-		  case '*':
 		     /* try again somewhere else */
 		     fF_SetError(infile, nodef);
 			break;
+
+		  case '*':
+		  {
+		    size_t olen = *comment_ptr ? strlen(*comment_ptr) : 0;
+		    size_t clen = strlen(buf) + 1 + olen;
+		    
+		    *comment_ptr = realloc(*comment_ptr, clen);
+
+		    if (olen ==0) {
+		      **comment_ptr = 0;
+		    }
+
+		    strcat(*comment_ptr, buf);
+		    DBP(fprintf(stderr, "Comments: %s", *comment_ptr));
+
+		    /* try again somewhere else */
+		     fF_SetError(infile, nodef);
+			break;
+		  }
 
 		  default:
 		     /* assume a regular line here */
@@ -1937,10 +1954,20 @@ main(int argc, char** argv)
    if (!(arrdefs=malloc(FDS*sizeof(fdDef*))))
    {
       fprintf(stderr, "No mem for FDs\n");
-      return EXIT_FAILURE;
+      rc = EXIT_FAILURE;
+      goto quit;
+   }
+   if (!(arrcmts=malloc(FDS*sizeof(char*))))
+   {
+      fprintf(stderr, "No mem for FD comments\n");
+      rc = EXIT_FAILURE;
+      goto quit;
    }
    for (count=0; count<FDS; count++)
+   {
       arrdefs[count]=NULL;
+      arrcmts[count]=NULL;
+   }
 
    if (!(myfile=fF_ctor(fdfilename)))
    {
@@ -1964,7 +1991,7 @@ main(int argc, char** argv)
 	 if ((lerror=fF_readln(myfile))==false)
 	 {
 	    fF_SetError(myfile, false);
-	    lerror=fD_parsefd(arrdefs[count], myfile);
+	    lerror=fD_parsefd(arrdefs[count], &arrcmts[count], myfile);
 	 }
       }
       while (lerror==nodef);
@@ -1974,6 +2001,7 @@ main(int argc, char** argv)
       count--;
       fD_dtor(arrdefs[count]);
       arrdefs[count]=NULL;
+      arrcmts[count]=NULL;
    }
    fds=count;
 
@@ -2172,6 +2200,10 @@ main(int argc, char** argv)
    for (count=0; count<fds && defs[count]; count++)
    {
       DBP(fprintf(stderr, "outputting %ld...\n", count));
+      if (arrcmts[count])
+      {
+	fprintf(outfile, "%s", arrcmts[count]);
+      }
       fD_write(outfile, defs[count], 0);
    }
 
@@ -2181,9 +2213,12 @@ main(int argc, char** argv)
   quit:
    for (count=0; count<FDS && arrdefs[count]; count++)
       fD_dtor(arrdefs[count]);
+   for (count=0; count<FDS && arrcmts[count]; count++)
+      free(arrcmts[count]);
 
    free(defs);
    free(arrdefs);
+   free(arrcmts);
 
    if (closeoutfile)
    {
