@@ -45,22 +45,41 @@ install:	all
 	  $(INSTALL_DATA) -D $(srcdir)/cross/share/$${f} $(fd2sfddir)/$${f}; \
 	done
 
-	# Install example file structure for fds
+	# Install example file structure for FDs
 	$(INSTALL) -d $(prefix)/os-lib/fd/3rd
+	$(INSTALL) -d $(prefix)/os-lib/fd/3rd-amigaos
+	$(INSTALL) -d $(prefix)/os-lib/fd/3rd-amithlon
+	$(INSTALL) -d $(prefix)/os-lib/fd/3rd-morphos
 	$(INSTALL) -d $(prefix)/os-lib/fd/amigaos
 	$(INSTALL) -d $(prefix)/os-lib/fd/morphos
-	$(INSTALL_DATA) $(srcdir)/README.os-lib $(prefix)/os-lib/fd/README
+	$(INSTALL_DATA) $(srcdir)/README.os-lib.fd $(prefix)/os-lib/fd/README
+
+	# Install example file structure for SFDs
+	$(INSTALL) -d $(prefix)/os-lib/sfd/3rd
+	$(INSTALL) -d $(prefix)/os-lib/sfd/3rd-amigaos
+	$(INSTALL) -d $(prefix)/os-lib/sfd/3rd-amithlon
+	$(INSTALL) -d $(prefix)/os-lib/sfd/3rd-morphos
+	$(INSTALL) -d $(prefix)/os-lib/sfd/amigaos
+	$(INSTALL) -d $(prefix)/os-lib/sfd/morphos
+	$(INSTALL_DATA) $(srcdir)/README.os-lib.sfd $(prefix)/os-lib/sfd/README
 
 	# Install example file structure for includes
 	$(INSTALL) -d $(prefix)/os-include/3rd
+	$(INSTALL) -d $(prefix)/os-include/3rd-amigaos
+	$(INSTALL) -d $(prefix)/os-include/3rd-amithlon
+	$(INSTALL) -d $(prefix)/os-include/3rd-morphos
 	for dir in classes clib datatypes devices diskfont dos exec \
 		   gadgets graphics hardware images intuition libraries \
-		   pragma pragmas prefs proto reaction resources rexx \
+		   prefs reaction resources rexx \
 		   utility workbench; do \
 	  $(INSTALL) -d $(prefix)/os-include/amigaos/$${dir}; \
 	done
-	for dir in clib cybergraphics cybergraphx datatypes devices \
-		   emul exec powerup ppcdisslib resources; do \
+
+	for dir in classes clib cybergraphx datatypes devices diskfont dos \
+		   emul exec gadgets graphics guigfx hardware images \
+		   intuition libraries mui net ppcdisslib ppclib \
+		   prefs reaction render resources rexx \
+		   utility workbench; do \
 	  $(INSTALL) -d $(prefix)/os-include/morphos/$${dir}; \
 	done
 	$(INSTALL_DATA) $(srcdir)/README.os-include $(prefix)/os-include/README
