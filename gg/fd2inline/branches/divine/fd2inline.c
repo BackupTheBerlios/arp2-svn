@@ -37,7 +37,7 @@
  * if you use this code, please leave a little origin note.
  ******************************************************************************/
 
-const static char version_str[]="$VER: fd2inline " VERSION " (1.12.2001)";
+const static char version_str[]="$VER: fd2inline " VERSION " (6.1.2002)";
 
 /******************************************************************************
  * These are general definitions including types for defining registers etc.
@@ -730,7 +730,22 @@ fD_NewParam(fdDef* obj, shortcard at, const char* newstr)
 	 newstr++;
 
       if (NewString(&pa, newstr))
-	 obj->param[at]=pa;
+      {
+	 char* prefix_pa;
+
+	 prefix_pa = malloc( strlen( pa ) + 4 );
+
+	 if( prefix_pa == NULL )
+	 {
+	   fprintf(stderr, "No mem for string\n");
+	 }
+	 else
+	 {
+	   sprintf( prefix_pa, "___%s", pa );
+	   obj->param[at]=prefix_pa;
+	   free( pa );
+	 }
+      }
       else
 	 obj->param[at]=fD_nostring;
    }
@@ -1966,7 +1981,8 @@ fD_write(FILE* outfile, const fdDef* obj)
          }
       }
       else if (target==IX86BE_AMITHLON)
-      {	
+      {
+#if 0
          for (count = d0; count < numregs; count++)
          {
             chtmp = fD_GetProto(obj, count);
@@ -1999,14 +2015,70 @@ fD_write(FILE* outfile, const fdDef* obj)
 	 
          if (vd)
          {
-	    fprintf(outfile, "\t_CallOS68k(%ld,&_regs)\n}\n\n",
-		    fD_GetOffset(obj));
+	    fprintf(outfile, "\t_CallOS68k(%ld,&_regs);\n}\n\n",
+		    -fD_GetOffset(obj));
          }
          else
          {
-	    fprintf(outfile, "\treturn (%s) _CallOS68k(%ld,&_regs)\n}\n\n",
-		    rettype,fD_GetOffset(obj));
+	    fprintf(outfile, "\treturn (%s) _CallOS68k(%ld,&_regs);\n}\n\n",
+		    rettype,-fD_GetOffset(obj));
          }
+#else
+         for (count = d0; count < numregs; count++)
+         {
+            chtmp = fD_GetProto(obj, count);
+            if (fD_GetFuncParNum(obj) == count)
+               fprintf(outfile, chtmp, fD_GetParam(obj, count));
+            else
+               fprintf(outfile, "%s%s%s", chtmp, (*(chtmp + strlen(chtmp) - 1) == '*' ?
+						  "" : " "), fD_GetParam(obj, count));
+            if (count < numregs - 1)
+               fprintf(outfile, ", ");
+         }
+
+         fprintf(outfile, ")\n{\n");
+	 fprintf(outfile, "\t%s LP%d%s%s(0x%lx, ",
+		 (vd ? "" : "return "),
+		 numregs,
+		 (vd ? "NR" : ""),
+		 (BaseName[0] ? "" : "UB"),
+		 -fD_GetOffset(obj));
+	 
+	 if (!vd)
+	    fprintf(outfile, "%s, ", rettype);
+	 fprintf(outfile, "%s, ", name);
+
+	 for (count=d0; count<numregs; count++)
+	 {
+	    chtmp=fD_GetRegStr(obj, count);
+
+	    if (strchr(fD_GetProto(obj, count),'%'))
+	    {
+	       sprintf(Buffer,
+		       fD_GetProto(obj, count),
+		       "");
+
+	       fprintf(outfile, "%s, %s, %s%s",
+		       Buffer,
+		       fD_GetParam(obj, count),
+		       chtmp,
+		       (count == numregs - 1 && !BaseName[0] ? "" : ", "));
+	    }
+	    else
+	    {
+	       fprintf(outfile, "%s, %s, %s%s",
+		       fD_GetProto(obj, count),
+		       fD_GetParam(obj, count),
+		       chtmp,
+		       (count == numregs - 1 && !BaseName[0] ? "" : ", "));
+	    }
+	 }
+	 
+	 if (BaseName[0])
+	    fprintf(outfile, "\\\n\t, BASE_NAME");
+
+	 fprintf(outfile, ");\n}\n\n");
+#endif	 
       }
       else
       {
@@ -2057,9 +2129,9 @@ fD_write(FILE* outfile, const fdDef* obj)
       }
       else
       {
-	 if (target==M68K_AMIGAOS)
+	 if (target==M68K_AMIGAOS || target==IX86BE_AMITHLON)
 	 {
-	    fprintf(outfile, "%s %s(", rettype, tagname);
+	    fprintf(outfile, "__inline %s\n%s(", rettype, tagname);
 
 	    for (count=d0; count<numregs-1; count++)
 	    {
@@ -2662,40 +2734,59 @@ main(int argc, char** argv)
 	 }
 	 else
 	 {
+	    FILE* clib;
+	    
 	    fprintf(outfile,
 		    "#ifndef __INLINE_STUB_H\n"
 		    "#include <inline/stubs.h>\n"
-		    "#endif /* !__INLINE_STUB_H */");
+		    "#endif /* !__INLINE_STUB_H */\n\n");
 
+	    fprintf(outfile, "#ifdef __CLIB_TYPES__\n" );
+
+	    clib = fopen( clibfilename, "r" );
+
+	    if( clib == NULL )
+	    {
+	       fprintf(stderr, "Couldn't open file '%s'.\n", clibfilename);
+	    }
+	    else
+	    {
+	      char* buffer = malloc( 1024 );
+
+	      if( buffer == NULL )
+	      {
+		fprintf(stderr, "No memory for line buffer.\n " );
+	      }
+	      else
+	      {
+		while( fgets( buffer, 1023, clib ) != NULL )
+		{
+		  if( buffer[ 0 ] == '#' /* Pre-processor instruction */ ||
+		      strncmp( buffer, "typedef", 7 ) == 0 )
+		  {
+		    fprintf(outfile, buffer );
+		  }
+		}
+		
+		free( buffer );
+	      }
+
+	      fclose( clib );
+	    }
+	    
+	    fprintf(outfile, "#endif /* __CLIB_TYPES__ */\n\n" );
+	    
 	    if(target==IX86BE_AMITHLON)
 	    {
 	      fprintf(outfile,
-		      "\n"
-		      "\n"
-		      "#ifndef __INLINE_MACROS_H_REGS\n"
-		      "#define __INLINE_MACROS_H_REGS\n"
-		      "\n"
-		      "struct _Regs\n"
-		      "{\n"
-		      "    ULONG reg_d0;\n"
-		      "    ULONG reg_d1;\n"
-		      "    ULONG reg_d2;\n"
-		      "    ULONG reg_d3;\n"
-		      "    ULONG reg_d4;\n"
-		      "    ULONG reg_d5;\n"
-		      "    ULONG reg_d6;\n"
-		      "    ULONG reg_d7;\n"
-		      "    ULONG reg_a0;\n"
-		      "    ULONG reg_a1;\n"
-		      "    ULONG reg_a2;\n"
-		      "    ULONG reg_a3;\n"
-		      "    ULONG reg_a4;\n"
-		      "    ULONG reg_a5;\n"
-		      "    ULONG reg_a6;\n"
-		      "};\n"
-		      "\n"
-		      "ULONG _CallOS68k(ULONG o, struct _Regs* r);\n\n"
-		      "#endif /* __INLINE_MACROS_H_REGS */\n\n");
+		      "#ifndef __INLINE_MACROS_H\n"
+		      "#include <inline/macros.h>\n"
+		      "#endif /* __INLINE_MACROS_H */\n\n");
+	    }
+	    else if (target == PPC_MORPHOS)
+	    {
+	      fprintf(outfile,
+		      "#include <emul/emulregs.h>\n\n" );
 	    }
 	 }
       }
