@@ -104,13 +104,44 @@ amiga_clip_init(void) {
   return TRUE;
 }
 
+BOOL
+amiga_clip_shutdown(void) {
+  if (amiga_clip_clipid != 0) {
+    // We may have an outstanding CBD_POST. Check it.
+
+    amiga_clip_handle->cbh_Req.io_Command = CBD_CURRENTWRITEID;
+    DoIO((struct IORequest*) &amiga_clip_handle->cbh_Req);
+ 
+    if (amiga_clip_handle->cbh_Req.io_ClipID <= amiga_clip_clipid) {
+      static BOOL once = TRUE;
+
+      if (once) {
+	cliprdr_send_data_request(amiga_clip_format);
+	once = FALSE;
+      }
+      
+      return FALSE;
+    }
+  }
+
+  // It's ok to shutdown
+  return TRUE;
+}
+
 void
 amiga_clip_deinit(void) {
   if (amiga_clip_clipid != 0) {
-    // We have an outstanding CBD_POST! Write nothing to satisfy it
-    // now, else we risk that clipboard.device sends the SatisfyMsg to
-    // a delallocated port.
-    ui_clip_handle_data("", 0);
+    // We may have an outstanding CBD_POST. Check it.
+
+    amiga_clip_handle->cbh_Req.io_Command = CBD_CURRENTWRITEID;
+    DoIO((struct IORequest*) &amiga_clip_handle->cbh_Req);
+ 
+    if (amiga_clip_handle->cbh_Req.io_ClipID <= amiga_clip_clipid) {
+      // We have an outstanding CBD_POST! This happens when we
+      // disconnect using Windows and the Amiga side.  All we can do
+      // is to write empty data to the clipboard. :-(
+      ui_clip_handle_data("", 0);
+    }
   }
   
   if (amiga_clip_iffhandle != NULL) {

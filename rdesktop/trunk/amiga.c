@@ -115,7 +115,7 @@ struct Cursor
     Object*       Pointer;
 };
 
-
+void __chkabort(void) {}
 
 void
 amiga_req(char* prefix, char* txt)
@@ -1503,12 +1503,18 @@ ui_select(int rdp_socket)
   fd_set rfds, wfds;
   struct timeval tv;
   Bool s_timeout = False;
-  BOOL   quit = FALSE;
+  static BOOL quit = FALSE;
 
-  while( !quit )
+  while(TRUE)
   {
     int   res;
     ULONG mask;
+
+    if (quit) {
+      if (amiga_clip_shutdown()) {
+	break;
+      }
+    }
 
     FD_ZERO(&rfds);
     FD_ZERO(&wfds);
@@ -1524,6 +1530,10 @@ ui_select(int rdp_socket)
     n++;
 
     mask = (1UL << amiga_wb_port->mp_SigBit) | amiga_clip_signals;
+
+#ifdef __libnix__
+      mask |= SIGBREAKF_CTRL_C;
+#endif
 
     if( amiga_window != NULL )
     {
@@ -1548,6 +1558,13 @@ ui_select(int rdp_socket)
       error("select: %s\n", strerror(errno));
       return False;
     }
+
+#ifdef __libnix__
+    if (mask & SIGBREAKF_CTRL_C) {
+      SetSignal(0,SIGBREAKF_CTRL_C);
+      quit = TRUE;
+    }
+#endif
 
     if (mask & (amiga_clip_signals)) {
       amiga_clip_handle_signals();
@@ -1774,7 +1791,7 @@ ui_select(int rdp_socket)
             }
 
 	    default:
-	      printf( "Unexpected IDCMP: %d\n", (int) msg->Class );
+	      error( "Unexpected IDCMP: %d\n", (int) msg->Class );
 	      break;
           }
 
