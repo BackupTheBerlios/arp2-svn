@@ -1,8 +1,8 @@
 
-### Class GateMOS: Create a MorphOS gatestub file #############################
+### Class GateAmithlon: Create an Amithlon gatestub file ######################
 
 BEGIN {
-    package GateMOS;
+    package GateAmithlon;
     use vars qw(@ISA);
     @ISA = qw( Gate );
 
@@ -19,8 +19,36 @@ BEGIN {
 	
 	$self->SUPER::header (@_);
 
+	print "#ifndef __INLINE_MACROS_H\n";
+	print "#define __INLINE_MACROS_H\n";
 	print "\n";
-	print "#include <emul/emulregs.h>\n";
+	print "#ifndef __INLINE_MACROS_H_REGS\n";
+	print "#define __INLINE_MACROS_H_REGS\n";
+	print "\n";
+	print "#include <exec/types.h>\n";
+	print "\n";
+	print "struct _Regs {\n";
+	print "	ULONG d0;\n";
+	print "	ULONG d1;\n";
+	print "	ULONG d2;\n";
+	print "	ULONG d3;\n";
+	print "	ULONG d4;\n";
+	print "	ULONG d5;\n";
+	print "	ULONG d6;\n";
+	print "	ULONG d7;\n";
+	print "	ULONG a0;\n";
+	print "	ULONG a1;\n";
+	print "	ULONG a2;\n";
+	print "	ULONG a3;\n";
+	print "	ULONG a4;\n";
+	print "	ULONG a5;\n";
+	print "	ULONG a6;\n";
+	print "	ULONG a7;\n";
+	print "};\n";
+	print "\n";
+	print "#endif /* __INLINE_MACROS_H_REGS */\n";
+	print "\n";
+	print "#endif /* __INLINE_MACROS_H */\n";
 	print "\n";
     }
 
@@ -32,8 +60,10 @@ BEGIN {
 
 	Gate::print_libproto($sfd, $prototype);
 	print ";\n\n";
+	print_gateproto($sfd, $prototype);
+	print ";\n\n";
 	print "$prototype->{return}\n";
-	print "$gateprefix$prototype->{funcname}(void)\n";
+	print "$gateprefix$prototype->{funcname}(struct _Regs* _regs)\n";
     }
     
     sub function_start {
@@ -55,8 +85,8 @@ BEGIN {
 	my $argnum    = $params{'argnum'};
 	my $sfd       = $self->{SFD};
 
-	print "  $prototype->{___args}[$argnum] = ($argtype) REG_" .
-	    (uc $argreg) . ";\n";
+	print "  $prototype->{___args}[$argnum] = ($argtype) ({long r;" .
+	    "__asm(\"movl %1,%0\":\"=r\"(r):\"m\"(_regs->$argreg));r;});\n";
     }
     
     sub function_end {
@@ -66,7 +96,8 @@ BEGIN {
 	my $sfd       = $self->{SFD};
 
 	if ($libarg ne 'none' && $sfd->{base} ne '') {
-	    print "  $sfd->{basetype} _base = ($sfd->{basetype}) REG_A6;\n";
+	    print "  $sfd->{basetype} _base = ($sfd->{basetype}) ({long r;" .
+		"__asm(\"movl %1,%0\":\"=r\"(r):\"m\"(_regs->a6));r;});\n";
 	}
 
 	print "  return $libprefix$prototype->{funcname}(";
@@ -85,5 +116,14 @@ BEGIN {
 	
 	print ");\n";
 	print "}\n";
+    }
+
+    sub print_gateproto {
+	my $sfd       = shift;
+	my $prototype = shift;
+	
+	print "$prototype->{return}\n";
+	print "$gateprefix$prototype->{funcname}" .
+	    "(struct _Regs* _regs) __attribute__((regparm(3)))";
     }
 }

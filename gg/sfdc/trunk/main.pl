@@ -48,7 +48,7 @@ my %targets = (
 	       { target    => 'amithlon',
 		 macros    => 'MacroLP',
 		 stubs     => 'StubAmithlon',
-		 gatestubs => 'Gate'
+		 gatestubs => 'GateAmithlon'
 	       },
 	       
 	      'm68k(-unknown)?-amigaos' =>
