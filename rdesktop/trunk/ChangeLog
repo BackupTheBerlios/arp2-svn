@@ -1,5 +1,13 @@
 2005-01-26  Martin Blom  <martin@blom.org>
 
+	* OS4 now sends Scroll Lock when the Help key (which is Scroll
+	Lock!) is pressed (untested). Help still sends Windows Menu in
+	Classic and MorphOS.
+
+	* Enabled Windows Menu key in OS4 (untested).
+
+	* Enabled PrtScr in MorphOS and (untested) OS4.
+
 	* When checking for RAmiga-Q, use MapRawKey() instead of raw key
 	code. [Stéphane Guillard]
 

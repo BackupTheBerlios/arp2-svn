@@ -1005,7 +1005,12 @@ amiga_translate_key( int code )
       return 0x4e;
 
     case 0x5f:    // help
+#ifndef __amigaos4__
       return 0x5d | 0x80;             // Map to Windows App/Menu key
+#else
+      return 0x46;		      // Map to Scroll Lock key
+#endif
+      
       
     case 0x60:    // lshift
       return 0x2a;
@@ -1036,17 +1041,27 @@ amiga_translate_key( int code )
     case 0x6a:    // unused
       return 0;
 
-    case 0x6b:    // MOS scroll lock
+#ifdef __amigaos4__
+    case 0x6b:	  // OS4 Menu key
+      return 0x5d | 0x80;
+
+    case 0x6d:    // OS4 print screen
+      return 0x37 | 0x80;
+
+#else
+
+    case 0x6b:	  // MOS scroll lock
       return 0x46;
-      
-//    case 0x6c:    // MOS print screen
-//      return 0x37 | 0x80;
 
-    case 0x6d:    // MOS numlock
+    case 0x6c:    // MOS print screen
+      return 0x37 | 0x80;
+
+    case 0x6d:	  // MOS numlock
       return 0x45;
+#endif
 
-//    case 0x6e:    // MOS pause
-//      return 0x46 | 0x80;
+//    case 0x6e:    // MOS/OS4 pause // There is no Break scancode?
+//      return 0x46 | 0x80; // This is not Pause, it's Break ...
       
     case 0x6f:    // MOS f12
       return 0x58;
@@ -1847,6 +1862,7 @@ ui_select(int rdp_socket)
 	      }
 #endif
 
+	      
 	      // RAmiga-Q quits.
 	      ie.ie_Code = msg->Code;
 	      ie.ie_Qualifier = msg->Qualifier;
