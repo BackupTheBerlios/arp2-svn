@@ -23,6 +23,7 @@ prefix =	@prefix@
 # Common prefix for machine-dependent installed files.
 exec_prefix =	@exec_prefix@
 
+includedir =	@includedir@
 libdir =	@libdir@
 infodir =	@infodir@
 guidedir =	@guidedir@
@@ -33,7 +34,7 @@ INSTALL_DATA =	@INSTALL_DATA@
 
 #### End system configuration section ####
 
-V=VER: libnix/lcs 2.1 (21.01.2003)
+V=VER: libnix/lcs 2.1 (15.06.2004)
 
 CURDIR := $(shell pwd)
 
@@ -122,6 +123,7 @@ libnix.info: libnix.texi
 	makeinfo $(srcdir)/libnix.texi -o libnix.info
 
 install: installdirs
+	$(INSTALL) $(srcdir)/sources/headers/libnix.h $(includedir)
 	$(INSTALL) startup/*.o $(libdir)/libnix
 	$(INSTALL) lib/*/lib*.a $(libdir)/libnix
 	$(INSTALL) lib/misc/*.o $(libdir)/libnix
@@ -152,6 +154,7 @@ endif
 
 installdirs: mkinstalldirs
 	$(srcdir)/mkinstalldirs \
+	$(includedir) \
 	$(infodir) \
 	$(guidedir) \
 	$(libdir) \
