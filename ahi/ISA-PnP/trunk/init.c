@@ -142,7 +142,9 @@ initRoutine( struct ISAPnPResource*  res,
       if( cd == NULL )
       {
         // No card found
-        
+      }
+      else
+      {
         if( cd->cd_Rom.er_Manufacturer != 2150 ||
             cd->cd_Rom.er_Product      != 1 )
         {
@@ -160,8 +162,10 @@ initRoutine( struct ISAPnPResource*  res,
           }
           else
           {
-            cd->cd_Flags &= ~CDF_CONFIGME;
+            cd->cd_Flags  &= ~CDF_CONFIGME;
+            cd->cd_Driver  = res;
           
+KPrintF( "Installed.\n" );
             ISAPnPBase = res;
           }
         }

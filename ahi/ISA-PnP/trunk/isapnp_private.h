@@ -1,9 +1,10 @@
 /* $Id$ */
 
-#ifndef	ISAPNP_ISAPNP_PRIVATE_H
-#define ISAPNP_ISAPNP_PRIVATE_H
+#ifndef	ISA_PNP_isapnp_private_h
+#define ISA_PNP_isapnp_private_h
 
 #include <exec/libraries.h>
+#include <libraries/configvars.h>
 
 struct ISAPnPResource
 {
@@ -13,4 +14,4 @@ struct ISAPnPResource
   struct CurrentBinding m_CurrentBinding;
 };
 
-#endif /* ISAPNP_ISAPNP_PRIVATE_H */
+#endif /* ISA_PNP_isapnp_private_h */
