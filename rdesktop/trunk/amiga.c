@@ -96,6 +96,8 @@ static struct Region* amiga_old_region     = NULL;
 static ULONG          amiga_cursor_colors[ 3 * 3 ];
 static LONG           amiga_pens[ 256 ];
 static LONG           amiga_broken_blitter = FALSE;
+static APTR           amiga_blt_buffer     = NULL;
+static ULONG          amiga_blt_length     = 0;
 
 struct Glyph
 {
@@ -126,6 +128,20 @@ amiga_remap_pens( UBYTE* from, UBYTE* to, size_t length )
 }
 
 
+static APTR
+amiga_get_blt_buffer( ULONG length )
+{
+  if( length > amiga_blt_length )
+  {
+    printf( "amiga_blt_buffer grows from %d to %d bytes\n", amiga_blt_length, length );
+    amiga_blt_length = length;
+    FreeVec( amiga_blt_buffer );
+    amiga_blt_buffer = AllocVec( amiga_blt_length, MEMF_ANY );
+  }
+
+  return amiga_blt_buffer;
+}
+
 LONG
 RemappedWriteChunkyPixels(struct RastPort *rp,LONG xstart,LONG ystart,
 			  LONG xstop,LONG ystop,UBYTE *array,LONG bytesperrow)
@@ -145,7 +161,7 @@ RemappedWriteChunkyPixels(struct RastPort *rp,LONG xstart,LONG ystart,
   {
     modulo = (width + 15) & ~15;
 
-    temparray = AllocVec(modulo * height,MEMF_ANY);
+    temparray = amiga_get_blt_buffer( modulo * height );
 
     if( temparray != NULL )
     {
@@ -170,8 +186,6 @@ RemappedWriteChunkyPixels(struct RastPort *rp,LONG xstart,LONG ystart,
 	WaitBlit();
 	FreeBitMap(temprp.BitMap);
       }
-
-      FreeVec(temparray);
     }
   }
 
@@ -198,7 +212,7 @@ SafeWriteChunkyPixels(struct RastPort *rp,LONG xstart,LONG ystart,
   {
     modulo = (width + 15) & ~15;
 
-    temparray = AllocVec(modulo * height,MEMF_ANY);
+    temparray = amiga_get_blt_buffer( modulo * height );
 
     if( temparray != NULL )
     {
@@ -223,8 +237,6 @@ SafeWriteChunkyPixels(struct RastPort *rp,LONG xstart,LONG ystart,
 	WaitBlit();
 	FreeBitMap(temprp.BitMap);
       }
-
-      FreeVec(temparray);
     }
   }
 
@@ -248,41 +260,36 @@ SoftClipBlit( struct RastPort *srcRP, LONG xSrc, LONG ySrc,
   ULONG* dst;
 
 //  printf( "soft %02x\n", minterm );
-  src = AllocVec( sizeof( ULONG ) * xSize * 2, MEMF_ANY );
+  src = amiga_get_blt_buffer( sizeof( ULONG ) * xSize * ySize * 2 );
 
   if( src == NULL )
   {
     return;
   }
 
-  dst = src + xSize;
+  dst = src + xSize * ySize;
   
-  for( y = 0; y < ySize; ++y )
+  ReadPixelArray( src, 0, 0, sizeof( ULONG ) * xSize,
+		  srcRP, xSrc, ySrc, xSize, ySize, RECTFMT_ARGB );
+
+  ReadPixelArray( dst, 0, 0, sizeof( ULONG ) * xSize,
+		  destRP, xDest, yDest, xSize, ySize, RECTFMT_ARGB );
+
+  for( x = 0; x < xSize * ySize; ++x )
   {
-    ReadPixelArray( src, 0, 0, sizeof( ULONG ) * xSize,
-		    srcRP, xSrc, ySrc + y, xSize, 1, RECTFMT_ARGB );
-
-    ReadPixelArray( dst, 0, 0, sizeof( ULONG ) * xSize,
-		    destRP, xDest, yDest + y, xSize, 1, RECTFMT_ARGB );
-
-    for( x = 0; x < xSize; ++x )
-    {
-      ULONG b = src[ x ];
-      ULONG c = dst[ x ];
+    ULONG b = src[ x ];
+    ULONG c = dst[ x ];
       
-      ULONG d = ( ( bc & ( b & c ) ) |
-		  ( bC & ( b & ~c ) ) |
-		  ( Bc & ( ~b & c ) ) |
-		  ( BC & ( ~b & ~c ) ) );
+    ULONG d = ( ( bc & ( b & c ) ) |
+		( bC & ( b & ~c ) ) |
+		( Bc & ( ~b & c ) ) |
+		( BC & ( ~b & ~c ) ) );
 
-      dst[ x ] = d;
-    }
-
-    WritePixelArray( dst, 0, 0, sizeof( ULONG ) * xSize,
-		     destRP, xDest, yDest + y, xSize, 1, RECTFMT_ARGB );
+    dst[ x ] = d;
   }
 
-  FreeVec( src );
+  WritePixelArray( dst, 0, 0, sizeof( ULONG ) * xSize,
+		   destRP, xDest, yDest, xSize, ySize, RECTFMT_ARGB );
 }
 
 
@@ -399,7 +406,7 @@ amiga_write_pixels( struct RastPort* rp, int x, int y, int width, int height, ui
   }
   else
   {
-    ULONG* argb_data = xmalloc( width * height * 4 );
+    ULONG* argb_data = amiga_get_blt_buffer( width * height * 4 );
     int xx, yy;
     int i = 0;
     
@@ -473,8 +480,6 @@ amiga_write_pixels( struct RastPort* rp, int x, int y, int width, int height, ui
     }
 
     WritePixelArray( argb_data, 0, 0, width * 4, rp, x, y, width, height, RECTFMT_ARGB );
-    
-    xfree( argb_data );
   }
 }
 
@@ -1120,6 +1125,8 @@ ui_deinit(void)
   
   ui_destroy_cursor( amiga_null_cursor );
   amiga_null_cursor = 0;
+
+  FreeVec( amiga_blt_buffer );
 }
 
 
@@ -2014,7 +2021,7 @@ ui_set_colourmap(HCOLOURMAP map)
 
     // Pen for LUT may have changed: Fix screen! 
 
-    buffer = xmalloc( g_width );
+    buffer = amiga_get_blt_buffer( g_width );
 
     if( buffer != NULL )
     {
@@ -2050,8 +2057,6 @@ ui_set_colourmap(HCOLOURMAP map)
         WaitBlit();
         FreeBitMap(temprp.BitMap);
       }
-      
-      xfree( buffer );
     }
   }
 }
@@ -2513,7 +2518,7 @@ ui_desktop_save(uint32 offset, int x, int y, int cx, int cy)
 
   bytesperrow = ( (cx + 15) & ~15 ) * bytesperpixel;
 
-  buffer = xmalloc( bytesperrow * cy );
+  buffer = amiga_get_blt_buffer( bytesperrow * cy );
 
   if( buffer != NULL )
   {
@@ -2523,7 +2528,6 @@ ui_desktop_save(uint32 offset, int x, int y, int cx, int cy)
 
     offset *= bytesperpixel;
     cache_put_desktop( offset, cx, cy, bytesperrow, bytesperpixel, buffer );
-    xfree( buffer );
   }
 }
 
