@@ -1,0 +1,29 @@
+
+prefix		= @prefix@
+exec_prefix	= @exec_prefix@
+bindir		= @bindir@
+infodir		= @infodir@
+datadir		= @datadir@
+fd2inlinedir	= ${datadir}/fd2inline
+
+srcdir		= @srcdir@
+
+INSTALL		= @INSTALL@
+INSTALL_PROGRAM	= @INSTALL_PROGRAM@ -s
+INSTALL_DATA	= @INSTALL_DATA@
+
+all:
+	$(MAKE) fd2inline fd2inline.info
+
+install:	all
+	$(INSTALL) -d $(bindir) $(infodir) $(fd2inlinedir)
+
+	# Install tools
+	$(INSTALL_PROGRAM) fd2inline $(bindir)
+	$(INSTALL_DATA) fd2inline.info $(infodir)
+	$(INSTALL_PROGRAM) cross/bin/gg-fix-includes \
+		$(bindir)/gg-fix-includes.fd2inline
+	for f in `cd $(srcdir)/cross/share/ && find * -type f`; do \
+	  $(INSTALL_DATA) -D $(srcdir)/cross/share/$${f} $(fd2inlinedir)/$${f}; \
+	done
+
