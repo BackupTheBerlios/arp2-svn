@@ -852,6 +852,15 @@ stubs (@pxref{Using fd2inline}).
 @cindex History
 @cindex What has changed
 
+Version 1.38,  July 8:th, 2003,  Martin Blom
+@itemize @bullet
+@item
+Target ``ppc-morphos'' is now accepted again, in addition to
+``powerpc-morphos''.
+@item
+Fixed comment parsing for clib files -- the CAMD files are now correctly processed.
+@end itemize
+
 Version 1.37,  April 22:nd, 2003,  Martin Blom
 @itemize @bullet
 @item

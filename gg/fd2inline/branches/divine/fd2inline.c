@@ -116,7 +116,7 @@ char*
 NewString(char** new, const char* old)
 {
    const char *high;
-   ulong len;
+   unsigned long len;
 
    while (*old && (*old==' ' || *old=='\t'))
       old++;
@@ -289,6 +289,25 @@ MatchGlob( char* glob, char* str )
   return *str == 0;
 }
 
+const char*
+SkipWSAndComments( const char* ptr )
+{
+   for(;;)
+   {
+      while (*ptr && (*ptr==' ' || *ptr=='\t'))
+	 ptr++;
+      if (ptr[0] == '/' && ptr[1] == '*' ) 
+      {
+	 ptr+=2;
+	 while (ptr[0] && ! (ptr[-2] == '*' && ptr[-1] == '/') )
+	    ptr++;
+      }
+      else
+	 break;
+   }
+
+   return ptr;
+}
 
 /******************************************************************************
  *    CLASS fdFile
@@ -309,12 +328,12 @@ typedef enum {FD_PRIVATE=1, FD_SHADOW=2} fdflags;
 
 typedef struct
 {
-   FILE*    file;	      /* the file we're reading from	  */
-   char	    line[fF_BUFSIZE]; /* the current line		  */
-   ulong    lineno;	      /* current line number		  */
-   long	    offset;	      /* current fd offset (-bias)	  */
-   Error    error;	      /* is everything o.k.		  */
-   fdflags  flags;	      /* for ##private, ##shadow (p.OS)	  */
+   FILE*         file;	      /* the file we're reading from	  */
+   char	         line[fF_BUFSIZE]; /* the current line		  */
+   unsigned long lineno;      /* current line number		  */
+   long	         offset;      /* current fd offset (-bias)	  */
+   Error         error;	      /* is everything o.k.		  */
+   fdflags       flags;	      /* for ##private, ##shadow (p.OS)	  */
 } fdFile;
 
 fdFile*
@@ -434,6 +453,7 @@ fF_readln(fdFile* obj)
 	    DBP(fprintf(stderr, "in# %s\n", obj->line));
 	    return false;
 	 }
+	 low=SkipWSAndComments(low);
 	 len=strlen(low);
 	 bpoint=low+len-1;
 	 while (len && isspace(*bpoint))
@@ -501,11 +521,9 @@ fF_FuncName(fdFile* obj)
       illparams("fF_FuncName");
       return NULL;
    }
-
    lower=obj->line;
-   while (*lower && (*lower==' ' || *lower=='\t'))
-      lower++;
-
+   /* lcs: Skip whitespaces AND comments */
+   lower=SkipWSAndComments(lower);
    if (!*lower || (!isalpha(*lower) && *lower!='_'))
    {
       fF_SetError(obj, nodef);
@@ -1127,7 +1145,7 @@ fD_parsefd(fdDef* obj, fdFile* infile)
 {
    enum parse_info { name, params, regs, ready } parsing;
    char *buf, *bpoint, *bnext;
-   ulong index;
+   unsigned long index;
 
    if (obj && infile && fF_GetError(infile)==false)
    {
@@ -1409,14 +1427,13 @@ fD_parsepr(fdDef* obj, fdFile* infile)
       fF_SetError(infile, real_error);
       return real_error;
    }
-   if (!NewString(&buf, infile->line))
+   if (!NewString(&buf, SkipWSAndComments(infile->line))) //lcs
    {
       fprintf(stderr, "No mem for fD_parsepr\n");
       fF_SetError(infile, real_error);
       return real_error;
    }
    fF_SetError(infile, false);
-
    bpoint=strchr(buf, '(');
    while (--bpoint>=buf && strstr(bpoint, fD_GetName(obj))!=bpoint);
    if (bpoint>=buf)
@@ -2737,8 +2754,8 @@ printusage(const char* exename)
       "\ti?86be*-amithlon\tAmithlon (Intel x86)\n"
       "\tm68k*-amigaos\t\tAmigaOS (Motorola 68000)\n"
       "\tm68k*-pos\t\tPOS (Motorola 68000)\n"
-      "\tpowerpc*-powerup\tPowerUp (PowerPC)\n"
-      "\tpowerpc*-morphos\tMorphOS (PowerPC)\n"
+      "\tp*pc*-powerup\tPowerUp (PowerPC)\n"
+      "\tp*pc*-morphos\tMorphOS (PowerPC)\n"
 
       "--direct-varargs-calls\tUse direct varargs call for MorphOS stubs\n"
       "--gateprefix=PREFIX\tLibrary gate function name prefix\n"
@@ -2848,9 +2865,9 @@ main(int argc, char** argv)
 		  target=M68K_AMIGAOS;
 	       else if (MatchGlob("m68k*-pos",option+7))
 		  target=M68K_POS;
-	       else if (MatchGlob("powerpc*-powerup",option+7))
+	       else if (MatchGlob("p*pc*-powerup",option+7))
 		  target=PPC_POWERUP;
-	       else if (MatchGlob("powerpc*-morphos",option+7))
+	       else if (MatchGlob("p*pc*-morphos",option+7))
 		  target=PPC_MORPHOS;
 	       else
 	       {
