@@ -6,7 +6,7 @@
 	time. This makes the keymap code work even when the m68k binary is
 	run under OS4.
 
-	* Added OS4 TCP and keymap patch fro Jörg.
+	* Added OS4 TCP and keymap patch from Jörg.
 
 	* Released version 1.3.1cvs (29.01.2005).
 
