@@ -293,7 +293,6 @@ main (argc, argv)
 
   ldemul_after_parse ();
 
-
   if (config.map_filename)
     {
       if (strcmp (config.map_filename, "-") == 0)

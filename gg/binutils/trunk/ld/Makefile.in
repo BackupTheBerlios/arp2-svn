@@ -175,6 +175,7 @@ ALL_EMULATIONS = \
 	eaixrs6.o \
 	eamiga.o \
 	eamiga_bss.o \
+	eamithlon.o \
 	ealpha.o \
 	earcelf.o \
 	earmaoutb.o \
@@ -195,7 +196,6 @@ ALL_EMULATIONS = \
 	eelf32lppc.o \
 	eelf32ppc.o \
 	eelf_i386.o \
-	eelf_i386be.o \
 	egld960.o \
 	egld960coff.o \
 	ego32.o \
@@ -949,6 +949,9 @@ eamiga.c: $(srcdir)/emulparams/amiga.sh\
 eamiga_bss.c: $(srcdir)/emulparams/amiga_bss.sh\
    $(srcdir)/emultempl/amiga.em $(srcdir)/scripttempl/amiga_bss.sc ${GEN_DEPENDS}
 	${GENSCRIPTS} amiga_bss "$(tdir_amiga_bss)"
+eamithlon.c: $(srcdir)/emulparams/amithlon.sh \
+  $(srcdir)/emultempl/amithlon.em $(srcdir)/scripttempl/amithlon.sc ${GEN_DEPENDS}
+	${GENSCRIPTS} amithlon "$(tdir_amithlon)"
 eppcamiga.c: $(srcdir)/emulparams/ppcamiga.sh\
    $(srcdir)/emultempl/amiga.em $(srcdir)/scripttempl/amiga.sc ${GEN_DEPENDS} 
 	${GENSCRIPTS} ppcamiga "$(tdir_ppcamiga)"
@@ -1039,9 +1042,6 @@ eelf64_sparc.c: $(srcdir)/emulparams/elf64_sparc.sh \
 eelf_i386.c: $(srcdir)/emulparams/elf_i386.sh \
   $(srcdir)/emultempl/elf32.em $(srcdir)/scripttempl/elf.sc ${GEN_DEPENDS}
 	${GENSCRIPTS} elf_i386 "$(tdir_elf_i386)"
-eelf_i386be.c: $(srcdir)/emulparams/elf_i386be.sh \
-  $(srcdir)/emultempl/elf32.em $(srcdir)/scripttempl/elf.sc ${GEN_DEPENDS}
-	${GENSCRIPTS} elf_i386be "$(tdir_elf_i386be)"
 egld960.c: $(srcdir)/emulparams/gld960.sh \
   $(srcdir)/emultempl/gld960.em $(srcdir)/scripttempl/i960.sc ${GEN_DEPENDS}
 	${GENSCRIPTS} gld960 "$(tdir_gld960)"

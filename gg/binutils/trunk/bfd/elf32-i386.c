@@ -23,6 +23,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "libbfd.h"
 #include "elf-bfd.h"
 
+//#define DEBUG_GEN_RELOC
+
 static reloc_howto_type *elf_i386_reloc_type_lookup
   PARAMS ((bfd *, bfd_reloc_code_real_type));
 static void elf_i386_info_to_howto
@@ -1141,11 +1143,20 @@ elf_i386_relocate_section (output_bfd, info, input_bfd, input_section,
 	      if (ELF_ST_TYPE (sym->st_info) == STT_SECTION)
 		{
 		  bfd_vma val;
-
+// lcs
 		  sec = local_sections[r_symndx];
-		  val = bfd_get_32 (input_bfd, contents + rel->r_offset);
-		  val += sec->output_offset + sym->st_value;
-		  bfd_put_32 (input_bfd, val, contents + rel->r_offset);
+		  if (bfd_get_section_flags (input_bfd, input_section) & SEC_CODE)
+		  {
+		    val = bfd_getl32 (contents + rel->r_offset);
+		    val += sec->output_offset + sym->st_value;
+		    bfd_putl32 (val, contents + rel->r_offset);
+		  }
+		  else
+		  {
+		    val = bfd_get_32 (input_bfd, contents + rel->r_offset);
+		    val += sec->output_offset + sym->st_value;
+		    bfd_put_32 (input_bfd, val, contents + rel->r_offset);
+		  }
 		}
 	    }
 
