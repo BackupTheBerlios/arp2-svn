@@ -1147,6 +1147,11 @@ PUHRead( UWORD            reg,
   switch( reg )
   {
     case DMACONR:
+      result  = ReadWord( address ); 
+      result &= ~DMAF_AUDIO;
+      result |= ( pd->m_DMACON & DMAF_AUDIO );
+      break;
+
     case INTENAR:
     case INTREQR:
     case ADKCONR:
@@ -1196,7 +1201,7 @@ PUHWrite( UWORD            reg,
         pd->m_DMACON &= ( value & ~DMAF_SETCLR );
       }
 
-      if( value & DMAF_MASTER )
+      if( pd->m_DMACON & DMAF_MASTER )
       {
         new_dmacon = pd->m_DMACON;
       }
@@ -1285,7 +1290,7 @@ PUHWrite( UWORD            reg,
         }
         else
         {
-          pd->m_SoundOn[ 2 ] = FALSE;
+          pd->m_SoundOn[ 3 ] = FALSE;
 
           AHI_SetSound( 3, AHI_NOSOUND, 0, 0, pd->m_AudioCtrl, AHISF_IMM );
         }
