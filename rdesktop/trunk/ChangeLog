@@ -1,3 +1,9 @@
+2005-02-06  Martin Blom  <martin@blom.org>
+
+	* The default keyboard layout in Windows is now set based on
+	country, since the kaymap name was not really reliable. You can
+	still override using the KEYMAP argument of course.
+
 2005-01-29  Martin Blom  <martin@blom.org>
 
 	* Added CapsLock sync.

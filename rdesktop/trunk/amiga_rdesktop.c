@@ -37,6 +37,7 @@
 #include <proto/intuition.h>
 #include <proto/keymap.h>
 #include <proto/layers.h>
+#include <proto/locale.h>
 #include <proto/utility.h>
 #include <proto/wb.h>
 
@@ -50,6 +51,8 @@
 #include <stdarg.h>		/* va_list va_start va_end */
 #include <unistd.h>		/* read close getuid getgid getpid getppid gethostname */
 #include <pwd.h>		/* getpwuid */
+
+#include "country_codes.h"
 
 extern int amiga_left;
 extern int amiga_top;
@@ -114,6 +117,7 @@ struct SocketIFace    *ISocket        = NULL;
 struct UserGroupIFace *IUserGroup     = NULL;
 struct AmiSSLIFace    *IAmiSSL        = NULL;
 struct KeymapIFace    *IKeymap        = NULL;
+struct LocaleIFace    *ILocale        = NULL;
 uint32 AmiSSL_initialized = FALSE;
 #else
 struct Library*        AslBase        = NULL;
@@ -121,11 +125,11 @@ struct GfxBase*        GfxBase        = NULL;
 struct Library*        IFFParseBase   = NULL;
 struct Library*        IconBase       = NULL;
 struct Library*        KeymapBase     = NULL;
+struct LocaleBase*     LocaleBase     = NULL;
 struct IntuitionBase*  IntuitionBase  = NULL;
 struct UtilityBase*    UtilityBase    = NULL;
 struct Library*        WorkbenchBase  = NULL;
 #endif
-struct KeyMapResource* KeymapResource = NULL;
 struct Library*        CyberGfxBase   = NULL;
 struct Library*        LayersBase     = NULL;
 
@@ -202,59 +206,11 @@ static struct
    FALSE,
    "56K",
    FALSE,
-   &def_depth,
+   NULL,
    NULL
 };
 
 static struct WBStartup*  wb_msg = NULL;
-
-
-// Windows keymap codes:
-// rdesktop-*/doc/keymap-names.txt
-// http://www.science.co.il/Language/Locale-Codes.asp
-//
-// Amiga keymap codes:
-// No idea. Mail me if the following table is incorrect!
-
-static struct {
-    char const* name;
-    int         win_code;
-} keymap_codes[] = {
-  { "1251Q_US_RUS",	0x00419 },		// ??? Russian
-  { "1251_GB1_RUS",	0x00419 },		// ??? Russian
-  { "1251_GB_RUS",	0x00419 },		// ??? Russian
-  { "a",		0x00409 },		// ??? 
-  { "be",		0x0080c },		// ??? French (Belgium)
-  { "br",		0x00416 },		// ??? Portuguese (Brazil)
-  { "br2",		0x00416 },		// ??? Portuguese (Brazil)
-  { "br3-ABNT2",	0x00416 },		// ??? Portuguese (Brazil)
-  { "cat",		0x00403 },		// ??? Catalan
-  { "cdn",		0x00c0c },		// French Canadian
-  { "ch1",		0x0100c },		// Swiss French
-  { "ch2",		0x00807 },		// Swiss German
-  { "d",		0x00407 },		// German (Standard)
-  { "d_pc",		0x00407 },		// German (Standard)
-  { "dk",		0x00406 },		// Danish
-  { "e",		0x00c0a },		// ??? Spanish (Modern)
-  { "f",		0x0040c },		// French
-  { "gb",		0x00809 },		// British
-  { "gr",		0x00408 },		// ??? Greek
-  { "i",		0x00410 },		// Italian
-  { "n",		0x00414 },		// Norwegian
-  { "oe",		0x00409 },		// ???
-  { "po",		0x00816 },		// Portuguese (Portugal)
-  { "Russian",		0x00419 },		// ??? Russian
-  { "s",		0x0041d },		// Swedish
-  { "si",		0x00409 },		// ???
-  { "su",		0x0040b },		// Finnish
-  { "türkçe",		0x0041f },		// ??? Turkish (Q type)
-  { "usa",		0x00409 },		// United States 101
-  { "usa0",		0x00409 },		// United States 101
-  { "usa1",		0x00409 },		// United States 101
-  { "usa2",		0x20409 },		// United States-Dvorak
-  { "usa3",		0x00409 },		// United States 101
-  { NULL, 		0       }
-};
 
 static Bool
 read_password(char *password, int size)
@@ -366,6 +322,15 @@ cleanup(void)
     CloseLibrary(LibBase);
   }
 
+  if (ILocale)
+  {
+    struct Library *LibBase = ((struct Interface *)ILocale)->Data.LibBase;
+
+    DropInterface((struct Interface *)ILocale);
+    ILocale = NULL;
+    CloseLibrary(LibBase);
+  }
+
   if (ICyberGfx)
   {
      DropInterface((struct Interface *)ICyberGfx);
@@ -393,6 +358,9 @@ cleanup(void)
 
   CloseLibrary( KeymapBase );
   KeymapBase = NULL;
+
+  CloseLibrary( (struct Library*) LocaleBase );
+  LocaleBase = NULL;
 #endif
   
 #ifdef __amigaos4__
@@ -425,10 +393,8 @@ main(int argc, char *argv[])
   struct passwd *pw;
   uint32 flags;
   char *p;
-  struct Node* node;
-  struct KeyMap* default_keymap;
+  struct Locale* locale;
   
-
   char pubscreen[64];
   struct RDArgs* rdargs = NULL;
   char* wbargs = NULL;
@@ -460,6 +426,13 @@ main(int argc, char *argv[])
     error( "Unable to open '%s'.\n", "keymap.library" );
   }
 
+  LocaleBase = (struct LocaleBase*) OpenLibrary("locale.library", 38);
+
+  if( LocaleBase == NULL )
+  {
+    error( "Unable to open '%s'.\n", "locale.library" );
+  }
+
   IconBase = OpenLibrary("icon.library", 0);
 
   if( IconBase == NULL )
@@ -483,13 +456,6 @@ main(int argc, char *argv[])
   }
 #endif
 
-  KeymapResource = OpenResource("keymap.resource"); 
-
-  if( KeymapResource == NULL )
-  {
-    error( "Unable to open '%s'.\n", "keymap.resource" );
-  }
- 
 #ifdef __amigaos4__
 {
   struct Library *LibBase;
@@ -503,6 +469,18 @@ main(int argc, char *argv[])
   if( NULL == IKeymap)
   {
     error( "Unable to open '%s'.\n", "keymap.library" );
+    return RETURN_FAIL;
+  }
+
+  LibBase = OpenLibrary("locale.library", 38);
+  if (NULL != LibBase)
+  {
+     ILocale = (struct LocaleIFace *)GetInterface(LibBase, "main", 1, NULL);
+     if (!ILocale) CloseLibrary(LibBase);
+  }
+  if( NULL == ILocale)
+  {
+    error( "Unable to open '%s'.\n", "locale.library" );
     return RETURN_FAIL;
   }
 
@@ -632,24 +610,48 @@ main(int argc, char *argv[])
     a_args.a_client = fullhostname;
   }
 
-  Forbid();
-  // According to RKRM, it's ok to check this against the keymap list
-  default_keymap = AskKeyMapDefault();
+  locale = OpenLocale(NULL);
 
-  ForeachNode (&KeymapResource->kr_List, node) {
-    struct KeyMapNode* keymapnode = (struct KeyMapNode*) node;
+  if (locale != NULL) {
+    struct ContryCodes* cc = amiga_country_codes;
+    char code[4];
 
-    if (default_keymap == &keymapnode->kn_KeyMap) {
-      int i;
+    code[0] = (locale->loc_CountryCode >> 24) & 255;
+    code[1] = (locale->loc_CountryCode >> 16) & 255;
+    code[2] = (locale->loc_CountryCode >>  8) & 255;
+    code[3] = (locale->loc_CountryCode >>  0) & 255;
 
-      for (i = 0; keymap_codes[i].name != NULL; ++i) {
-	if (Stricmp(keymapnode->kn_Node.ln_Name, keymap_codes[i].name) == 0) {
-	  keylayout = keymap_codes[i].win_code;
-	}
+    for (cc = amiga_country_codes; cc->Country != NULL; ++cc) {
+      if (strcmp(code, cc->Alpha3) == 0) {
+	keylayout = cc->WindowsLocaleCode;
+	goto got_it;
       }
     }
+
+    for (cc = amiga_country_codes; cc->Country != NULL; ++cc) {
+      if (strcmp(code, cc->DistinguishingSign) == 0) {
+	keylayout = cc->WindowsLocaleCode;
+	goto got_it;
+      }
+    }
+
+    for (cc = amiga_country_codes; cc->Country != NULL; ++cc) {
+      if (strcmp(code, cc->Alpha2) == 0) {
+	keylayout = cc->WindowsLocaleCode;
+	goto got_it;
+      }
+    }
+
+    for (cc = amiga_country_codes; cc->Country != NULL; ++cc) {
+      if (strcmp(code, cc->Extra) == 0) {
+	keylayout = cc->WindowsLocaleCode;
+	goto got_it;
+      }
+    }
+
+got_it:
+    CloseLocale(locale);
   }
-  Permit();
   
   if (argc == 0)
   {
