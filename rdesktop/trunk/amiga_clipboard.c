@@ -160,8 +160,14 @@ void ui_clip_handle_data(uint8 * data, uint32 length)
 	if (PushChunk(amiga_clip_iffhandle, 0, ID_CHRS,
 		      IFFSIZE_UNKNOWN) == 0) {
 	  int len;
+	  int i;
 
-	  for (len = 0; len <= length && data[len] != 0; ++len);
+	  for (i = 0, len = 0; i < length && data[i] != 0; ++i) {
+	    if (data[i] != '\r') {
+	      data[len] = data[i];
+	      ++len;
+	    }
+	  }
 
 	  if (WriteChunkBytes(amiga_clip_iffhandle, data, len) == len) {
 	    // Success
@@ -178,36 +184,84 @@ void ui_clip_handle_data(uint8 * data, uint32 length)
   }
 }
 
+static char* extract_collection(struct CollectionItem* ci, char* str) {
+  int   i;
+  char* chrs = ci->ci_Data;
+
+  if (ci->ci_Next != NULL) {
+    str = extract_collection(ci->ci_Next, str);
+  }
+  
+  for (i = 0; i < ci->ci_Size; ++i) {
+    if (chrs[i] == '\n') {
+      *str++ = '\r';
+    }
+
+    *str++ = chrs[i];
+  }
+
+  *str = 0;
+  return str;
+}
+
 void ui_clip_request_data(uint32 format)
 {
+  char* str = NULL;
+  int	len = 1; // Always reserve space for NUL byte
+
   if (format == CF_TEXT) {
     if (OpenIFF(amiga_clip_iffhandle, IFFF_READ) == 0) {
-      if (StopChunk(amiga_clip_iffhandle, ID_FTXT, ID_CHRS) == 0) {
+      if (CollectionChunk(amiga_clip_iffhandle, ID_FTXT, ID_CHRS) == 0 &&
+	  StopOnExit(amiga_clip_iffhandle,ID_FTXT,ID_FORM) == 0) {
 	while (TRUE) {
-	  struct ContextNode* cn;
+	  LONG error = ParseIFF(amiga_clip_iffhandle, IFFPARSE_SCAN);
 
-	  CollectionChunk!!!
-	  
-	  LONG error = ParseIFF(amiga_clip_iffhandle);
-	  
-	  if (error == IFFERR_EOC) {
-	    continue;
-	  }
-	  else if (error != 0) {
+	  if (error == IFFERR_EOF) {
 	    break;
 	  }
+	  
+	  if (error == IFFERR_EOC) {
+	    struct CollectionItem* ci;
+	    struct CollectionItem* first_ci;
 
-	  cn = CurrentChunk(amiga_clip_iffhandle);
+ 	    ci = first_ci = FindCollection(amiga_clip_iffhandle,
+					   ID_FTXT, ID_CHRS);
 
-	  if (cn != NULL && cn->cn_Type == ID_FTXT && cn->cn_ID == ID_CHRS) {
-	    
-	  }
+	    while (ci != NULL) {
+	      int   i;
+	      char* chrs = ci->ci_Data;
+
+	      len += ci->ci_Size;
+
+	      for (i = 0; i < ci->ci_Size; ++i) {
+		if (chrs[i] == '\n') {
+		  ++len;
+		}
+	      }
+
+	      ci = ci->ci_Next;
+	    }
+
+	    str = malloc(len);
+
+	    if (str != NULL) {
+	      extract_collection(first_ci, str);
+	    }
+ 	  }
+	}
       }
       
       CloseIFF(amiga_clip_iffhandle);
     }
-    
-    cliprdr_send_data("Banan", 6);
+
+    if (str != NULL) {
+      cliprdr_send_data(str, len);
+      free(str);
+    }
+    else {
+      cliprdr_send_data("", 0);
+    }
+
   }
 }
 
