@@ -68,6 +68,33 @@ static const char VersTag[] =
 
 
 /******************************************************************************
+** Send debug to serial port **************************************************
+******************************************************************************/
+
+static UWORD rawputchar_m68k[] = 
+{
+  0x2C4B,             // MOVEA.L A3,A6
+  0x4EAE, 0xFDFC,     // JSR     -$0204(A6)
+  0x4E75              // RTS
+};
+
+
+void
+KPrintFArgs( UBYTE* fmt, 
+             LONG*  args )
+{
+  RawDoFmt( fmt, args, (void(*)(void)) rawputchar_m68k, SysBase );
+}
+
+
+#define KPrintF( fmt, ... )        \
+({                                 \
+  LONG _args[] = { __VA_ARGS__ };  \
+  KPrintFArgs( (fmt), _args );     \
+})
+
+
+/******************************************************************************
 ** Resource initialization ****************************************************
 ******************************************************************************/
 
@@ -78,7 +105,9 @@ initRoutine( struct ISAPnPResource*  res,
 {
   struct ExpansionBase* ExpansionBase;
 
-  SysBase    = sysbase;
+  SysBase = sysbase;
+
+  KPrintF( "init routine called\n" );
 
   res->m_Library.lib_Node.ln_Type = NT_RESOURCE;
   res->m_Library.lib_Node.ln_Name = (STRPTR) ResName;
@@ -184,32 +213,3 @@ static const APTR InitTable[4] =
   0,
   (APTR) gw_initRoutine
 };
-
-
-#if 0
-
-ISA::ISA( ULONG manufacturer,
-          ULONG product,
-          int   card )
-  throw( NoCard )
-{
-  struct ConfigDev *cd = NULL;
-
-  do
-  {
-    cd = FindConfigDev( cd , manufacturer, product );
-    card--;
-  } while( cd != NULL && card > 0 );
-
-  if( cd == NULL )
-  {
-    throw NoCard();
-  }
-
-  m_Base         = reinterpret_cast<UBYTE*>( cd->cd_BoardAddr );
-  m_Manufacturer = manufacturer;
-  m_Product      = product;
-}
-
-
-#endif

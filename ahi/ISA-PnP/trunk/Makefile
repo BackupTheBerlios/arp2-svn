@@ -1,12 +1,13 @@
 
 INSTALL		= /gg/bin/install -c
 INSTALL_PROGRAM = ${INSTALL}
+INSTALL_DATA	= ${INSTALL} --mode=644
 
 CPPFLAGS	= 
 CFLAGS		= -m68020-60 -mnobitfield -fomit-frame-pointer \
                   -fstrict-aliasing -Os \
-		  -W -Wall -Wstrict-prototypes
-LDFLAGS		= -noixemul
+		  -W -Wall -Wstrict-prototypes -g
+LDFLAGS		= -noixemul -lamiga
 
 TARGET		= ISA-PnP
 
@@ -23,6 +24,7 @@ distclean:	clean
 
 install:	all
 	$(INSTALL_PROGRAM) --strip $(TARGET) /SYS/Expansion
+	$(INSTALL_DATA) $(TARGET).info /SYS/Expansion
 
 revup:
 	@rev=`cat version.rev` && echo `expr $$rev + 1` > version.rev
@@ -47,7 +49,7 @@ init.o:		version.h
 $(TARGET):	main.o init.o controller.o
 	$(CC) $(LDFLAGS) $^ -o $@
 
-depend Makefile.dep:
+depend Makefile.dep:	version.h
 	$(CC) $(CPPFLAGS) -MM $(wildcard *.c) > Makefile.dep
 
 include Makefile.dep
