@@ -852,6 +852,27 @@ stubs (@pxref{Using fd2inline}).
 @cindex History
 @cindex What has changed
 
+Version 1.37,  April 22:nd, 2003,  Martin Blom
+@itemize @bullet
+@item
+Targets are now specified in such a way that canonical system
+names (from config.sub) can be used, as well as the short names.
+@item
+Added some AROS support (old and stubs do not yet work).
+@item
+@samp{--gatestubs} now works for all targets.
+@item
+Added @samp{--gateproto}.
+@item
+Added @samp{--mode}, @samp{--gateprefix} and @samp{--libprefix}.
+@end itemize
+
+Version 1.36,  February 24:th, 2002,  Martin Blom
+@itemize @bullet
+@item
+Added @samp{--gatestubs} for AmigaOS and MorphOS.
+@end itemize
+
 Version 1.35,  February 2nd, 2002,  Martin Blom
 @itemize @bullet
 @item
@@ -1022,7 +1043,7 @@ Ralph Schmidt and Emmanuel Lesueur added PowerUp and MorphOS support
 (version 2.00).
 
 Martin Blom backported some of their work to version 1.xx and added support
-for ix86be-amithlon.
+for ix86be-amithlon and AROS.
 
 Not all of the files distributed in the @samp{FD2InLine} archives were
 created by me or @samp{FD2InLine}. Most of the files in

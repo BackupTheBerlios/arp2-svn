@@ -37,7 +37,7 @@
  * if you use this code, please leave a little origin note.
  ******************************************************************************/
 
-const static char version_str[]="$VER: fd2inline " VERSION " (6.1.2002)";
+const static char version_str[]="$VER: fd2inline " VERSION " (24.2.2002)";
 
 /******************************************************************************
  * These are general definitions including types for defining registers etc.
@@ -67,20 +67,18 @@ typedef unsigned char shortcard;
 
 typedef enum { false, nodef, real_error } Error;
 
-enum { NEW, OLD, STUBS, PROTO, GATESTUBS } output_mode=NEW;
-enum { IX86BE_AMITHLON, M68K_AMIGAOS, M68K_POS, PPC_POWERUP, PPC_MORPHOS } target = M68K_AMIGAOS;
+enum { NEW, OLD, STUBS, PROTO, GATESTUBS, GATEPROTO } output_mode=NEW;
+enum { IX86BE_AMITHLON, AROS, M68K_AMIGAOS, M68K_POS, PPC_POWERUP, PPC_MORPHOS } target = M68K_AMIGAOS;
 
 int Quiet = 0;
 int DirectVarargsCalls = 0;
 int RegLibFlag = 0;
 int PreLibFlag = 0;
 int PostLibFlag = 0;
-int LocalFlag = 0;
-char *prefixname = "";
-char *subprefixname = "";
-char *premacro = "";
+char *gateprefix = "";
+char *libprefix = "";
 
-char BaseName[64], BaseNamU[64],  BaseNamL[64];
+char BaseName[64], BaseNamU[64], BaseNamL[64], BaseNamC[64];
 char Buffer[512];
 
 const static char *LibExcTable[]=
@@ -195,6 +193,8 @@ RegStrU(regs reg)
    return (target!=M68K_POS ? aosregs[reg] : RegStr(reg));
 }
 
+static INLINE 
+
 /******************************************************************************
  *    StrNRBrk
  *
@@ -234,6 +234,61 @@ StrUpr(char* str)
       str++;
    }
 }
+
+int
+MatchGlob( char* glob, char* str )
+{
+  while( *glob )
+  {
+    char c = *glob++;
+
+    switch( c )
+    {
+      case '?':
+	if( *str == 0 )
+	{
+	  return 0;
+	}
+	break;
+
+      case '\\':
+	c = *glob++;
+	if( c == 0 || *str != c )
+	{
+	  return 0;
+	}
+	break;
+	
+      case '*':
+	if( *glob == 0 )
+	{
+	  return 1;
+	}
+
+	while( *str )
+	{
+	  if( MatchGlob( glob, str ) )
+	  {
+	    return 1;
+	  }
+	  ++str;
+	}
+	return 0;
+
+      default:
+	if( *str != c )
+	{
+	  return 0;
+	}
+	break;
+    }
+
+    ++str;
+  }
+
+  return *str == 0;
+}
+
 
 /******************************************************************************
  *    CLASS fdFile
@@ -1804,6 +1859,35 @@ fD_write(FILE* outfile, const fdDef* obj)
 
 	 fprintf(outfile, ")\n\n");
       }
+      else if (target==AROS)
+      {
+	 fprintf(outfile, ") \\\n\tAROS_LC%d%s(%s, %s, \\\n",
+		 numregs,
+		 (BaseName[0] ? "" : "I"),
+		 (vd ? "void" : rettype),
+		 name);
+	 
+	 for (count=d0; count<numregs; count++)
+	 {
+	    chtmp=fD_GetRegStrU(obj, count);
+	    fprintf(outfile, "\tAROS_LCA(%s, (%s), %s), \\\n",
+		    fD_GetProto(obj, count),
+		    fD_GetParam(obj, count),
+		    chtmp);
+	 }
+
+	 if (BaseName[0]) /* was "##base" used? */
+	 {
+	    fprintf(outfile, "\tstruct %s *, %s_BASE_NAME, ", StdLib, BaseNamU);
+	 }
+	 else
+	 {
+	   fprintf(outfile, "\t/* bt */, /* bn */, ");
+	 }
+	 fprintf(outfile,
+		 "%ld, /* s */)\n\n",
+		 -fD_GetOffset(obj) / 6);
+      }
       else
       {
 	 fprintf(stderr, "Internal error: Unknown target in fD_write().\n");
@@ -2086,13 +2170,249 @@ fD_write(FILE* outfile, const fdDef* obj)
 	 return;
       }
    }
+   else if (output_mode==GATESTUBS || output_mode==GATEPROTO)
+   {
+      int has_base = (BaseName[0] && fD_GetOffset(obj) != 0);
+      
+      //lcs
+      if (target==AROS)
+      {
+	 for (count=d0; count<numregs; count++)
+	 {
+	    if (fD_GetFuncParNum(obj) == count)
+	    {
+	       char funcproto[200]; /* Hope will be enough... */
+	       sprintf(funcproto, "%s_%s_funcproto_%d",
+		       BaseNamC, name, count );
+	       fprintf(outfile, "typedef ");
+	       fprintf(outfile, fD_GetProto(obj, count), funcproto);
+	       fprintf(outfile, ";\n");
+	    }
+	 }
+      }
+
+      if (output_mode==GATESTUBS)
+      {	 
+	 fprintf(outfile, "%s %s%s(",
+		 rettype,
+		 libprefix,
+		 name);
+     
+	 for (count=d0; count<numregs; count++)
+	 {
+	    chtmp = fD_GetProto(obj, count);
+
+	    fprintf(outfile, chtmp, "");
+	    fprintf(outfile, "%s",
+		    (count == numregs - 1 && !has_base ? ");\n" : ", "));
+	 }
+
+	 if (has_base)
+	    fprintf(outfile, "struct %s *);\n", StdLib);
+      }
+      
+      if (target==M68K_AMIGAOS)
+      {
+	 fprintf(outfile, "%s %s%s(\n",
+		 rettype,
+		 gateprefix,
+		 name);
+	 
+	 for (count=d0; count<numregs; count++)
+	 {
+	    chtmp = fD_GetProto(obj, count);
+
+	    if (fD_GetFuncParNum(obj) == count)
+	    {
+	       fprintf(outfile, "\t");
+	       fprintf(outfile, chtmp,
+		       fD_GetParam(obj, count));
+	       fprintf(outfile, " __asm(\"%s\")%s",
+		       fD_GetRegStr(obj, count),
+		       (count == numregs - 1 && !has_base ? ")\n" : ",\n"));
+	    }
+	    else
+	    {
+	       fprintf(outfile, "\t%s %s __asm(\"%s\")%s",
+		       chtmp,
+		       fD_GetParam(obj, count),
+		       fD_GetRegStr(obj, count),
+		       (count == numregs - 1 && !has_base ? ")\n" : ",\n"));
+	    }
+	 }
+
+	 if (has_base)
+	    fprintf(outfile, "\tstruct %s * BASE_NAME __asm(\"a6\") )\n", StdLib);
+
+	 if (output_mode==GATESTUBS)
+	    fprintf(outfile, "{\n");
+      }
+      else if (target==AROS)
+      {
+	 fprintf(outfile, "AROS_LH%d%s(%s, %s%s,\n",
+		 numregs,
+		 has_base ? "" : "I",
+		 rettype,
+		 gateprefix,
+		 name);
+
+	 for (count=d0; count<numregs; count++)
+	 {
+	    char funcproto[200]; /* Hope will be enough... */
+
+	    if (fD_GetFuncParNum(obj) == count)
+	    {
+	       sprintf(funcproto, "%s_%s_funcproto_%d",
+		       BaseNamC, name, count );
+	    }
+	    
+	    fprintf(outfile, "\tAROS_LHA(%s, %s, %s),\n",
+		    fD_GetFuncParNum(obj) == count ? funcproto : fD_GetProto(obj, count),
+		    fD_GetParam(obj, count),
+		    fD_GetRegStrU(obj, count));
+	 }
+
+	 fprintf(outfile, "\tstruct %s *, BASE_NAME, %ld, %s)\n",
+		 StdLib,
+		 -fD_GetOffset(obj) / 6,
+		 BaseNamC);
+
+	 if (output_mode==GATESTUBS)
+	    fprintf(outfile, "{\n");
+      }
+      else if (target==PPC_MORPHOS)
+      {
+ 	 fprintf(outfile, "%s %s%s(void)\n",
+		 rettype,
+		 gateprefix,
+		 name);
+
+	 if (output_mode==GATESTUBS)
+	 {
+	    fprintf(outfile, "{\n");
+
+	    for (count=d0; count<numregs; count++)
+	    {
+	       chtmp = fD_GetProto(obj, count);
+
+	       if (fD_GetFuncParNum(obj) == count)
+	       {
+		  fprintf(outfile, "\t");
+		  fprintf(outfile, chtmp,
+			  fD_GetParam(obj, count));
+		  fprintf(outfile, " = (");
+		  fprintf(outfile, chtmp, "");
+		  fprintf(outfile, ") REG_%s;\n",
+			  fD_GetRegStrU(obj, count));
+	       }
+	       else
+	       {
+		  fprintf(outfile, "\t%s %s = (%s) REG_%s;\n",
+			  fD_GetProto(obj, count),
+			  fD_GetParam(obj, count),
+			  fD_GetProto(obj, count),
+			  fD_GetRegStrU(obj, count));
+	       }
+	    }
+
+	    if (has_base)
+	       fprintf(outfile,
+		       "\tstruct %s * BASE_NAME = (struct %s *) REG_A6;\n",
+		       StdLib, StdLib);
+
+	    fprintf(outfile, "\n");
+	 }
+      }
+      else if (target==IX86BE_AMITHLON)
+      {
+	 fprintf(outfile, "%s %s%s( struct _Regs _regs )\n",
+		 rettype,
+		 gateprefix,
+		 name);
+
+	 if (output_mode==GATESTUBS)
+	 {
+	    fprintf(outfile, "{\n");
+
+	    for (count=d0; count<numregs; count++)
+	    {
+	       chtmp = fD_GetProto(obj, count);
+
+	       if (fD_GetFuncParNum(obj) == count)
+	       {
+		  fprintf(outfile, "\t");
+		  fprintf(outfile, chtmp,
+			  fD_GetParam(obj, count));
+		  fprintf(outfile, " = (");
+		  fprintf(outfile, chtmp, "");
+		  fprintf(outfile, ") _regs.%s;\n",
+			  fD_GetRegStr(obj, count));
+	       }
+	       else
+	       {
+		  fprintf(outfile, "\t%s %s = (%s) _regs.%s;\n",
+			  fD_GetProto(obj, count),
+			  fD_GetParam(obj, count),
+			  fD_GetProto(obj, count),
+			  fD_GetRegStr(obj, count));
+	       }
+	    }
+
+	    if (has_base)
+	       fprintf(outfile,
+		       "\tstruct %s * BASE_NAME = (struct %s *) _regs.a6;\n",
+		       StdLib, StdLib);
+
+	    fprintf(outfile, "\n");
+	 }
+      }
+      else
+      {
+	 fprintf(stderr, "Internal error: Unknown target in fD_write().\n");
+	 return;
+      }
+
+      if (output_mode==GATESTUBS)
+      {
+	 fprintf(outfile,"\treturn %s%s(",
+		 libprefix,
+		 name);	
+
+	 for (count=d0; count<numregs; count++)
+	 {
+	    fprintf(outfile, "%s%s",
+		    fD_GetParam(obj, count),
+		    (count == numregs - 1 && !has_base ? ");" : ", "));
+	 }
+
+	 if (has_base)
+	    fprintf(outfile, "BASE_NAME);");
+
+	 fprintf(outfile,"\n}\n\n");
+      }
+      else
+      {
+	 fprintf(outfile,";\n");
+
+	 if (target==AROS)
+	 {
+	    fprintf(outfile, "#define %s%s AROS_SLIB_ENTRY(%s%s,%s)\n",
+		    gateprefix, name,
+		    gateprefix, name,
+		    BaseNamC);
+	 }
+
+	 fprintf(outfile,"\n");
+      }
+   }
    else
    {
       fprintf(stderr, "Internal error: Unknown output mode in fD_write().\n");
       return;
    }
 
-   if ((tagname=aliasfunction(fD_GetName(obj)))!=0)
+   if ((tagname=aliasfunction(fD_GetName(obj)))!=0 &&
+       output_mode!=GATESTUBS && output_mode!=GATEPROTO)
    {
       fprintf(outfile, "#define %s(", tagname);
       for (count=d0; count<numregs-1; count++)
@@ -2103,7 +2423,8 @@ fD_write(FILE* outfile, const fdDef* obj)
       fprintf(outfile, "(a%d))\n\n", count);
    }
 
-   if ((tagname=taggedfunction(obj))!=0)
+   if ((tagname=taggedfunction(obj))!=0 &&
+       output_mode!=GATESTUBS && output_mode!=GATEPROTO)
    {
       if (output_mode!=STUBS)
       {
@@ -2259,7 +2580,8 @@ fD_write(FILE* outfile, const fdDef* obj)
 	 }
       }
    }
-   else if ((varname = getvarargsfunction(obj)) != 0)
+   else if ((varname = getvarargsfunction(obj)) != 0 &&
+	    output_mode!=GATESTUBS && output_mode!=GATEPROTO)
    {
       if (output_mode != STUBS)
       {
@@ -2290,7 +2612,8 @@ fD_write(FILE* outfile, const fdDef* obj)
       }
    }
 
-   if (strcmp(name, "DoPkt")==0)
+   if (strcmp(name, "DoPkt")==0 &&
+       output_mode!=GATESTUBS && output_mode!=GATEPROTO)
    {
       fdDef *objnc=(fdDef*)obj;
       char newname[7]="DoPkt0";
@@ -2400,19 +2723,38 @@ printusage(const char* exename)
    fprintf(stderr,
       "Usage: %s [options] fd-file clib-file [[-o] output-file]\n"
       "Options:\n"
-      "--new\t\t\tpreprocessor based (default)\n"
-      "--old\t\t\tinline based\n"
-      "--stubs\t\t\tlibrary stubs\n"
-      "--proto\t\t\tbuild proto files (no clib-file required)\n"
-      "--target=OS\t\tOS is one of the following: ix86be-amithlon, m68k-amigaos,\n"
-      "\t\t\tm68k-pos, ppc-powerup or ppc-morphos\n"
-      "--direct-varargs-calls\tuse direct varargs call for MorphOS stubs\n"
+
+      "--mode=MODE\t\tMODE is one of the following:\n"
+      "\tnew\t\t\tPreprocessor based (default)\n"
+      "\told\t\t\tInline based\n"
+      "\tstubs\t\t\tLibrary stubs\n"
+      "\tgatestubs\t\tLibrary gate stubs\n"
+      "\tgateproto\t\tLibrary gate prototypes\n"
+      "\tproto\t\t\tBuild proto files (no clib-file required)\n"
+
+      "--target=OS\t\tOS is one of the following: \n"
+      "\t*-aros\t\t\tAROS (any CPU)\n"
+      "\ti?86be*-amithlon\tAmithlon (Intel x86)\n"
+      "\tm68k*-amigaos\t\tAmigaOS (Motorola 68000)\n"
+      "\tm68k*-pos\t\tPOS (Motorola 68000)\n"
+      "\tpowerpc*-powerup\tPowerUp (PowerPC)\n"
+      "\tpowerpc*-morphos\tMorphOS (PowerPC)\n"
+
+      "--direct-varargs-calls\tUse direct varargs call for MorphOS stubs\n"
+      "--gateprefix=PREFIX\tLibrary gate function name prefix\n"
+      "--libprefix=PREFIX\tLocal function name prefix\n"
+      "--local\t\t\tUse local includes\n"
       "--quiet\t\t\tDon't display warnings\n"
-      "--version\t\tprint version number and exit\n\n"
-      "Compability options:\n"
+      "--version\t\tPrint version number and exit\n\n"
+      "Compatibility options:\n"
+      "--new\t\t\tSame as --mode=new\n"
+      "--old\t\t\tSame as --mode=old\n"
+      "--stubs\t\t\tSame as --mode=stubs\n"
+      "--gatestubs\t\tSame as --mode=gatestubs\n"
+      "--proto\t\t\tSame as --mode=prot\n"
       "--pos\t\t\tSame as --target=m68k-pos\n"
-      "--morphos\t\tSame as --target=ppc-morphos\n"
-      "--powerup\t\tSame as --target=ppc-powerup\n"
+      "--morphos\t\tSame as --target=powerpc-morphos\n"
+      "--powerup\t\tSame as --target=powerpc-powerup\n"
 	   , exename);
 }
 
@@ -2481,31 +2823,34 @@ main(int argc, char** argv)
 	 {
 	    if (*option=='-') /* Accept GNU-style '--' options */
 	       option++;
-	    if (strcmp(option, "new")==0)
-	       output_mode=NEW;
-	    else if (strcmp(option, "old")==0)
-	       output_mode=OLD;
-	    else if (strcmp(option, "stubs")==0)
-	       output_mode=STUBS;
-	    else if (strcmp(option, "proto")==0)
-	       output_mode=PROTO;
-	    else if (strcmp(option, "pos")==0)
-	       target=M68K_POS;
-	    else if (strcmp(option, "powerup")==0)
-	       target=PPC_POWERUP;
-	    else if (strcmp(option, "morphos")==0)
-	       target=PPC_MORPHOS;
+	    if (strncmp(option, "mode=", 5)==0)
+	    {
+	      if (strcmp(option+5, "new")==0)
+		output_mode=NEW;
+	      else if (strcmp(option+5, "old")==0)
+		output_mode=OLD;
+	      else if (strcmp(option+5, "stubs")==0)
+		output_mode=STUBS;
+	      else if (strcmp(option+5, "gatestubs")==0)
+		output_mode=GATESTUBS;
+	      else if (strcmp(option+5, "gateproto")==0)
+		output_mode=GATEPROTO;
+	      else if (strcmp(option+5, "proto")==0)
+		output_mode=PROTO;
+	    }
 	    else if (strncmp(option, "target=", 7)==0)
 	    {
-	       if (strcmp(option+7,"ix86be-amithlon")==0)
+	       if (MatchGlob("*-aros",option+7))
+		  target=AROS;
+	       else if (MatchGlob("i?86be*-amithlon",option+7))
 		  target=IX86BE_AMITHLON;
-	       else if (strcmp(option+7,"m68k-amigaos")==0)
+	       else if (MatchGlob("m68k*-amigaos",option+7))
 		  target=M68K_AMIGAOS;
-	       else if (strcmp(option+7,"m68k-pos")==0)
+	       else if (MatchGlob("m68k*-pos",option+7))
 		  target=M68K_POS;
-	       else if (strcmp(option+7,"ppc-powerup")==0)
+	       else if (MatchGlob("powerpc*-powerup",option+7))
 		  target=PPC_POWERUP;
-	       else if (strcmp(option+7,"ppc-morphos")==0)
+	       else if (MatchGlob("powerpc*-morphos",option+7))
 		  target=PPC_MORPHOS;
 	       else
 	       {
@@ -2515,6 +2860,10 @@ main(int argc, char** argv)
 	    }
             else if (strcmp(option, "direct-varargs-calls") == 0)
 	       DirectVarargsCalls = 1;
+	    else if (strncmp(option, "gateprefix=", 11)==0)
+	        gateprefix = option+11;
+	    else if (strncmp(option, "libprefix=", 10)==0)
+	        libprefix = option+10;
             else if (strcmp(option, "quiet") == 0)
 	       Quiet = 1;
 	    else if (strcmp(option, "version")==0)
@@ -2522,6 +2871,24 @@ main(int argc, char** argv)
 	       fprintf(stderr, "fd2inline version " VERSION "\n");
 	       return EXIT_SUCCESS;
 	    }
+	    /* Compatibility options */
+	    else if (strcmp(option, "new")==0)
+	       output_mode=NEW;
+	    else if (strcmp(option, "old")==0)
+	       output_mode=OLD;
+	    else if (strcmp(option, "stubs")==0)
+	       output_mode=STUBS;
+	    else if (strcmp(option, "gatestubs")==0)
+	       output_mode=GATESTUBS;
+	    else if (strcmp(option, "proto")==0)
+	       output_mode=PROTO;
+	    else if (strcmp(option, "pos")==0)
+	       target=M68K_POS;
+	    else if (strcmp(option, "powerup")==0)
+	       target=PPC_POWERUP;
+	    else if (strcmp(option, "morphos")==0)
+	       target=PPC_MORPHOS;
+	    /* Unknown option */
 	    else
 	    {
 	       printusage(argv[0]);
@@ -2601,7 +2968,7 @@ main(int argc, char** argv)
 
    qsort(arrdefs, count, sizeof arrdefs[0], fD_cmpName);
 
-   if (output_mode!=NEW)
+   if (output_mode!=NEW || target==AROS)
    {
       unsigned int count2;
       StdLib="Library";
@@ -2670,9 +3037,11 @@ main(int argc, char** argv)
       char *str=fdfilename+strlen(fdfilename)-8;
       while (str!=fdfilename && str[-1]!='/' && str[-1]!=':')
 	 str--;
-      strncpy(BaseNamL, str, strlen(str)-7);
+//lcs      strncpy(BaseNamL, str, strlen(str)-7);
       strncpy(BaseNamU, str, strlen(str)-7);
       BaseNamU[strlen(str)-7]='\0';
+      strcpy(BaseNamL, BaseNamU);
+      strcpy(BaseNamC, BaseNamU);
    }
    else
    {
@@ -2682,8 +3051,10 @@ main(int argc, char** argv)
       if (target==M68K_POS && strncmp(BaseNamU, "gb_", 3)==0)
 	 memmove(BaseNamU, &BaseNamU[3], strlen(&BaseNamU[3])+1);
       strcpy(BaseNamL, BaseNamU);
+      strcpy(BaseNamC, BaseNamU);
    }
    StrUpr(BaseNamU);
+   BaseNamC[0]=toupper(BaseNamC[0]);
 
    if (outfilename)
    {
@@ -2704,16 +3075,25 @@ main(int argc, char** argv)
       output_proto(outfile);
    else
    {
-      if (output_mode==NEW || output_mode==OLD || output_mode==STUBS)
+      if (output_mode==NEW || output_mode==OLD || output_mode==STUBS ||
+	  output_mode==GATESTUBS || output_mode==GATEPROTO)
       {
-	 fprintf(outfile,
-		 "/* Automatically generated header! Do not edit! */\n\n"
-		 "#ifndef %sINLINE_%s_H\n"
-		 "#define %sINLINE_%s_H\n\n",
-		 (target==M68K_POS ? "__INC_POS_P" : "_"),
-		 BaseNamU,
-		 (target==M68K_POS ? "__INC_POS_P" : "_"),
-		 BaseNamU );
+	 if (output_mode==GATESTUBS || output_mode==GATEPROTO)
+	 {
+ 	    fprintf(outfile,
+		    "/* Automatically generated stubs! Do not edit! */\n\n");
+	 }
+	 else
+	 {
+	    fprintf(outfile,
+		    "/* Automatically generated header! Do not edit! */\n\n"
+		    "#ifndef %sINLINE_%s_H\n"
+		    "#define %sINLINE_%s_H\n\n",
+		    (target==M68K_POS ? "__INC_POS_P" : "_"),
+		    BaseNamU,
+		    (target==M68K_POS ? "__INC_POS_P" : "_"),
+		    BaseNamU );
+	 }
 
 	 if (output_mode==NEW)
 	 {
@@ -2723,6 +3103,13 @@ main(int argc, char** argv)
 		       "#ifndef __INC_POS_PINLINE_MACROS_H\n"
 		       "#include <pInline/macros.h>\n"
 		       "#endif /* !__INC_POS_PINLINE_MACROS_H */\n\n" );
+	    }
+	    else if(target==AROS)
+	    {
+	       fprintf(outfile,
+		       "#ifndef AROS_LIBCALL_H\n"
+		       "#include <aros/libcall.h>\n"
+		       "#endif /* !AROS_LIBCALL_H */\n\n");
 	    }
 	    else
 	    {
@@ -2776,45 +3163,25 @@ main(int argc, char** argv)
 	    
 	    fprintf(outfile, "#endif /* __CLIB_TYPES__ */\n\n" );
 	    
-	    if(target==IX86BE_AMITHLON)
+	    if(target==AROS)
 	    {
-	      fprintf(outfile,
-		      "#ifndef __INLINE_MACROS_H\n"
-		      "#include <inline/macros.h>\n"
-		      "#endif /* __INLINE_MACROS_H */\n\n");
+	       fprintf(outfile,
+		       "#include <aros/libcall.h>\n\n" );
+	    }
+	    else if(target==IX86BE_AMITHLON)
+	    {
+	       fprintf(outfile,
+		       "#ifndef __INLINE_MACROS_H\n"
+		       "#include <inline/macros.h>\n"
+		       "#endif /* __INLINE_MACROS_H */\n\n");
 	    }
 	    else if (target == PPC_MORPHOS)
 	    {
-	      fprintf(outfile,
-		      "#include <emul/emulregs.h>\n\n" );
+	       fprintf(outfile,
+		       "#include <emul/emulregs.h>\n\n" );
 	    }
 	 }
       }
-#if 0 
-      else if (output_mode == GATESTUBS)
-      {
-	 if (LocalFlag)
-	 {
-	    fprintf(outfile,
-		    "/* Automatically generated gate stubs */\n\n"
-		    "%s\n"
-		    "#include \"%s_protos.h\"\n\n"
-		    "#include <emul/emulregs.h>\n",
-		    premacro,
-		    BaseNamL);
-	 }
-	 else
-	 {
-	    fprintf(outfile,
-		    "/* Automatically generated gate stubs */\n\n"
-		    "%s\n"
-		    "#include <clib/%s_protos.h>\n\n"
-		    "#include <emul/emulregs.h>\n",
-		    premacro,
-		    BaseNamL);
-	 }
-      }
-#endif
       else
       {
 	 fprintf(stderr, "Internal error: Unknown output mode in main().\n");
@@ -2872,7 +3239,7 @@ main(int argc, char** argv)
 	 arrdefs[count]=NULL;
       }
 
-      if (output_mode==OLD || output_mode==STUBS)
+      if (output_mode!=NEW)
 	 if (BaseName[0])
 	    fprintf(outfile,
 	       "#undef BASE_EXT_DECL\n"
@@ -2881,8 +3248,11 @@ main(int argc, char** argv)
 	       "#undef BASE_PAR_DECL0\n"
 	       "#undef BASE_NAME\n\n");
 
-      fprintf(outfile, "#endif /* !%sINLINE_%s_H */\n",
-	      (target==M68K_POS ? "__INC_POS_P" : "_"), BaseNamU);
+      if (output_mode==NEW || output_mode==OLD || output_mode==STUBS)
+      {
+	 fprintf(outfile, "#endif /* !%sINLINE_%s_H */\n",
+		 (target==M68K_POS ? "__INC_POS_P" : "_"), BaseNamU);
+      }
    }
 
    free(arrdefs);
