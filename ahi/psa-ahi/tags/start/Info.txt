@@ -1,0 +1,189 @@
+/**************************************************************
+
+          ----------------------------------------
+          --- AudioLabs InOut   Driver Example ---
+          ----------------------------------------
+          Copyright © 1995-1997  Maurizio Ciccione
+          Copyright © 1998-1999          AudioLabs
+          ----------------------------------------
+          ------------ Confidential --------------
+          ----------------------------------------
+          ------------ AHI  Version --------------
+          ----------------------------------------
+
+
+* Below "application" means  any AudioLabs audio application
+  including versions of AudioLab16 and ProStationAudio.
+
+
+
+                     --- General ---
+
+External hardware is supported by two entities:
+- a pre-driver (embedded in the application)
+- an external driver (this one)
+
+[...]
+
+This is a demo AHIInOut driver  that  outputs  strings  to a
+CLI instead  of  signals to the D/As (playback)  and  passes
+dummy data to the application (recording).
+
+
+
+
+
+                  --- How to use this ---
+
+
+- Compile this source.
+- Run AHIInOut from a CLI.
+- Run the application and use any record/playback functions.
+- Watch messages printed in AHIInOut's CLI.
+- Quit the application to quit the driver.
+
+[...]
+
+
+                    --- How it works ---
+
+Basically  this driver inits the hardware and then sits down
+waiting for both messages from the application  and  signals
+from board's interrupt code.
+
+The  application  sends  messages  containing  commands  and
+parameters (see the DriverTypes.h file)  whereas  the  board
+sends a signal every time it completes one  of  the  buffers
+used for double-buffering.
+
+This   demo   uses  the  timer.device  to  simulate  board's
+signalling  activity (a signal is sent every DELAY seconds).
+You  have to remove this stuff when implemening a driver for
+a real board.
+
+The EIO_CMD_STOP command requires some care.
+Here  is  the  procedure when playing a stream splitted in N
+pages:
+
+[during playback]
+
+- ...
+
+- the board completes page N-2 and signals the application
+  (actually it signals your driver and your driver signals
+  the application)
+
+- the board starts page N-1
+
+- the application gets the signal and loads page N
+
+- the board completes page N-1 and signals the application
+
+- the board starts page N
+
+- the application gets the signal, no page is loaded
+
+- the board completes page N and signals the application
+
+- the board starts page N+1 (this page containts NOT VALID
+  data)
+
+- the application gets the signal and sends the STOP command
+
+- the board stops playing.
+
+Please note that when the board enters an invalid page it is
+immediatly stopped.  This happens before the invaild data is
+played.
+
+
+
+
+
+               --- Minimum implementation ---
+
+A minimum implementation requires:
+
+- support for EIO_CMD_INFO,EIO_CMD_QUIT,EIO_CMD_PLAY,
+  EIO_CMD_REC,EIO_CMD_STOP commands.
+
+- support for
+  PLAY   : EIO_DAT_16LS,EIO_DAT_8LU samplepoint formats
+  REC    : EIO_DAT_16LS samplepoint format
+  RECPLAY: EIO_DAT_16LS samplepoint format
+
+- support for 1 or 2 channels (mono/stereo)
+
+
+
+
+
+                       --- Notes ---
+
+- If there is any problem during driver's startup perform
+  any action required, then quit. DO NOT set up the message
+  port...
+  Once the driver's message port is visible you can't quit
+  until the aplication requires it.
+
+- Avoid dynamical allocation of resource (or any action that
+  may 'fail') after setting up the message port.
+
+- If any problem shows during playback try to recover it by
+  yourself. Stopping signaling the swapper doesn't freeze
+  the application but won't help in case of  unattended
+  operations...
+  If something went wrong during playback set the lError
+  field to EIO_ERR_HARDFAIL when replying next EIO_CMD_STOP
+  command
+  (NOTE1: currently all the error messages are ignored)
+  (NOTE2: EIO_ERR_HARDFAIL may be usefull to build a report
+          after unattended operations).
+
+- Signal clock parameter may differ from hardware legal
+  values.  Check and possibly round it.
+
+- Reply any application message as soon as possible.
+
+- Don't let the program flow stop on an instruction other
+  then the main 'Wait()': be ALWAYS ready to get and reply
+  a new message from the application almost immediatly.
+
+- Keep the driver light... test how it interferes with
+  realtime DSP and mixing. Try avoiding heavy interrupt
+  activity.
+
+
+<*** NEW! ***>
+- It's the driver's resposibility to provide a realtime
+  monitoring signal at outputs, during recording operations.
+  This can be obtained in hardware or software, depending
+  on board's features.
+
+<*** NEW! ***>
+- Future AudioLab architectures will use the sequence of
+  Signal()s sent by the driver (at each buffer swap) as a
+  a special timing "tick".
+  Driver's developers are encouraged to take care of this
+  when designing new code..
+  Possible driver's private buffers are recommended to be
+  tuned *at the same size* as AudioLab I/O buffers. This
+  would avoid any jitter-effect on the "tick" signal.
+  If your board needs some buffer size alignment, please
+  add conditional code so that driver's and AudioLab's
+  buffers have the same size at least when AudioLab respects
+  the required alignment.
+  Releases up to the R2Plus don't guarantee any particular
+  size alignment.
+  Safe alignment rules (probably multiples of 1024 bytes)
+  will apply as soon as the "tick" signal will be used.
+  Please be ready for this evolution *now* providing
+  conditional code, if necessary. Thanks.
+
+
+[...]
+
+
+                    --- Source Code ---
+
+****************************************************************/
