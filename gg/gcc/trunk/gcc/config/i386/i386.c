@@ -876,21 +876,84 @@ singlemove_string (operands)
      rtx *operands;
 {
   rtx x;
+
   if (GET_CODE (operands[0]) == MEM
       && GET_CODE (x = XEXP (operands[0], 0)) == PRE_DEC)
     {
       if (XEXP (x, 0) != stack_pointer_rtx)
 	abort ();
-      return "push%L1 %1";
+
+      if (BYTES_BIG_ENDIAN)
+        {
+	  if (REG_P (operands[1]))
+            {
+	      // lcs: AFAIK, we never push a half-word with this function
+	      output_asm_insn (AS1 (bswap,%1), operands);
+	      output_asm_insn (AS1 (push%L1,%1), operands);
+	      output_asm_insn (AS1 (bswap,%1), operands);
+	      RET;
+	    }
+	  else if (GET_CODE (operands[1]) == CONST_INT )
+	    {
+	      operands[1] = GEN_INT ( bswap_32 (INTVAL (operands[1])));
+	      return "push%L1 %1";
+	    }
+	  else
+	    {
+	      abort ();
+	    }
+      }
+      else
+	return "push%L1 %1";
     }
   else if (GET_CODE (operands[1]) == CONST_DOUBLE)
+  {
     return output_move_const_single (operands);
+  }
   else if (GET_CODE (operands[0]) == REG || GET_CODE (operands[1]) == REG)
-    return AS2 (mov%L0,%1,%0);
+    {
+      if (!BYTES_BIG_ENDIAN ||
+	   (GET_CODE (operands[0]) == REG && GET_CODE (operands[1]) == REG))
+	return AS2 (mov%L0,%1,%0);
+      else
+      {
+	if (GET_CODE (operands[0]) == REG)
+	{
+	  output_asm_insn (AS2 (mov%L0,%1,%0), operands);
+
+	  if (GET_CODE (operands[1]) == MEM)
+	  {
+	    output_asm_insn (AS1 (bswap,%0), operands);
+	  }
+	  RET;
+	}
+	else
+	{
+	  output_asm_insn (AS1 (bswap,%1), operands);
+	  output_asm_insn (AS2 (mov%L0,%1,%0), operands);
+	  output_asm_insn (AS1 (bswap,%1), operands);
+	  RET;
+	}
+      }
+    }
+  else if (BYTES_BIG_ENDIAN && GET_CODE (operands[1]) == CONST_INT)
+    {
+      operands[1] = GEN_INT ( bswap_32 (INTVAL (operands[1]) ) );
+      return AS2 (mov%L0,%1,%0);      
+    }
   else if (CONSTANT_P (operands[1]))
-    return AS2 (mov%L0,%1,%0);
+    {
+      // lcs: What is this? a label/symbol move to memory?  Symbols
+      // should be fine, I suppose, but labels will be little endian?
+      if (BYTES_BIG_ENDIAN && GET_CODE (operands[0]) != GET_CODE (operands[1]))
+	abort();
+
+      return AS2 (mov%L0,%1,%0);
+      RET;
+    }
   else
     {
+      // lcs: WTF is this? Memory to memory move? Floating point move?
       output_asm_insn ("push%L1 %1", operands);
       return "pop%L0 %0";
     }
@@ -1056,9 +1119,21 @@ output_move_double (operands)
 
 	      REAL_VALUE_FROM_CONST_DOUBLE (r, operands[1]);
 	      REAL_VALUE_TO_TARGET_LONG_DOUBLE (r, l);
-	      operands[1] = GEN_INT (l[0]);
-	      middlehalf[1] = GEN_INT (l[1]);
-	      latehalf[1] = GEN_INT (l[2]);
+
+	      if (BYTES_BIG_ENDIAN)
+	        {
+		  // lcs: We have changed the data type from double to interger:
+		  // we have to compensate for the different byte order
+		  operands[1] = GEN_INT (bswap_32 (l[0]));
+		  middlehalf[1] = GEN_INT (bswap_32 (l[1]));
+		  latehalf[1] = GEN_INT (bswap_32 (l[2]));
+		}
+	      else
+	        {
+		  operands[1] = GEN_INT (l[0]);
+		  middlehalf[1] = GEN_INT (l[1]);
+		  latehalf[1] = GEN_INT (l[2]);
+		}
 	    }
 	  else if (CONSTANT_P (operands[1]))
 	    /* No non-CONST_DOUBLE constant should ever appear here.  */
@@ -1076,18 +1151,81 @@ output_move_double (operands)
       /* Size is not 12. */
 
       if (optype0 == REGOP)
-	latehalf[0] = gen_rtx_REG (SImode, REGNO (operands[0]) + 1);
+      {
+//	printf( "move double src: reg %d\n", REGNO (operands[0]));
+	if (0 && WORDS_BIG_ENDIAN)
+	{
+	  latehalf[0] = operands[0];
+	  operands[0] = gen_rtx_REG (SImode, REGNO (operands[0]) + 1);
+	}
+	else
+	{
+	  latehalf[0] = gen_rtx_REG (SImode, REGNO (operands[0]) + 1);
+	}
+      }
       else if (optype0 == OFFSOP)
-	latehalf[0] = adj_offsettable_operand (operands[0], 4);
+      {
+//	printf( "move double src: mem\n");
+	if (0 && WORDS_BIG_ENDIAN)
+	{
+	  latehalf[0] = operands[0];
+	  operands[0] = adj_offsettable_operand (operands[0], 4);
+	}
+	else
+	{
+	  latehalf[0] = adj_offsettable_operand (operands[0], 4);
+	}
+      }
       else
 	latehalf[0] = operands[0];
 
       if (optype1 == REGOP)
-	latehalf[1] = gen_rtx_REG (SImode, REGNO (operands[1]) + 1);
+      {
+//	printf( "move double dst: reg %d\n", REGNO (operands[0]));
+	if (0 && WORDS_BIG_ENDIAN)
+	{
+	  latehalf[1] = operands[1];
+	  operands[1] = gen_rtx_REG (SImode, REGNO (operands[1]) + 1);
+	}
+	else
+	{
+	  latehalf[1] = gen_rtx_REG (SImode, REGNO (operands[1]) + 1);
+	}
+      }
       else if (optype1 == OFFSOP)
-	latehalf[1] = adj_offsettable_operand (operands[1], 4);
+      {
+//	printf( "move double dst: mem\n");
+	if (0 && WORDS_BIG_ENDIAN)
+	{
+	  latehalf[1] = operands[1];
+	  operands[1] = adj_offsettable_operand (operands[1], 4);
+	}
+	else
+	{
+	  latehalf[1] = adj_offsettable_operand (operands[1], 4);
+	}
+      }
       else if (optype1 == CNSTOP)
-	split_double (operands[1], &operands[1], &latehalf[1]);
+      {
+	if (BYTES_BIG_ENDIAN && GET_CODE (operands[1]) == CONST_DOUBLE)
+	{
+	  split_double (operands[1], &operands[1], &latehalf[1]);
+	  
+	  // lcs: We have changed the data type from double to interger:
+	  // we have to compensate for the different byte order
+	  operands[1] = GEN_INT ( bswap_32 (INTVAL (operands[1]) ) );
+	  latehalf[1] = GEN_INT ( bswap_32 (INTVAL (latehalf[1]) ) );
+	}
+	else
+	if (0 && WORDS_BIG_ENDIAN)
+	{
+	  split_double (operands[1], &latehalf[1], &operands[1]);
+	}
+	else
+	{
+	  split_double (operands[1], &operands[1], &latehalf[1]);
+	}
+      }
       else
 	latehalf[1] = operands[1];
     }
@@ -1126,6 +1264,9 @@ output_move_double (operands)
 	    }
 	  else
 	    {
+	      if (0 && WORDS_BIG_ENDIAN)
+		abort (); // lcs: I have no idea what to do here, so I abort!
+	      
 	      operands[1] = gen_rtx_MEM (DImode, latehalf[0]);
 	      latehalf[1] = adj_offsettable_operand (operands[1], size-4);
 	    }
@@ -1335,8 +1476,14 @@ output_move_const_single (operands)
 
       REAL_VALUE_FROM_CONST_DOUBLE (r, operands[1]);
       REAL_VALUE_TO_TARGET_SINGLE (r, l);
-      operands[1] = GEN_INT (l);
+
+      if (BYTES_BIG_ENDIAN) // Compensate for bswap in singlemove_string();
+	operands[1] = GEN_INT (bswap_32(l)); 
+      else
+	operands[1] = GEN_INT (l);
     }
+  else if (BYTES_BIG_ENDIAN)
+    abort ();
 
   return singlemove_string (operands);
 }
@@ -3793,24 +3940,52 @@ split_di (operands, num, lo_half, hi_half)
   while (num--)
     {
       rtx op = operands[num];
+
       if (! reload_completed)
-	{
+        {
 	  lo_half[num] = gen_lowpart (SImode, op);
 	  hi_half[num] = gen_highpart (SImode, op);
 	}
       else if (GET_CODE (op) == REG)
 	{
-	  lo_half[num] = gen_rtx_REG (SImode, REGNO (op));
-	  hi_half[num] = gen_rtx_REG (SImode, REGNO (op) + 1);
+	  if (WORDS_BIG_ENDIAN)
+	  {
+	    lo_half[num] = gen_rtx_REG (SImode, REGNO (op) + 1);
+	    hi_half[num] = gen_rtx_REG (SImode, REGNO (op));
+	  }
+	  else
+	  {
+	    lo_half[num] = gen_rtx_REG (SImode, REGNO (op));
+	    hi_half[num] = gen_rtx_REG (SImode, REGNO (op) + 1);
+	  }
 	}
       else if (CONSTANT_P (op))
-	split_double (op, &lo_half[num], &hi_half[num]);
+      {
+	if (WORDS_BIG_ENDIAN)
+	{
+	  split_double (op, &hi_half[num], &lo_half[num]);
+	}
+	else
+	{
+	  split_double (op, &lo_half[num], &hi_half[num]);
+	}
+      }
       else if (offsettable_memref_p (op))
 	{
-	  rtx lo_addr = XEXP (op, 0);
-	  rtx hi_addr = XEXP (adj_offsettable_operand (op, 4), 0);
-	  lo_half[num] = change_address (op, SImode, lo_addr);
-	  hi_half[num] = change_address (op, SImode, hi_addr);
+	  if (WORDS_BIG_ENDIAN)
+	    {
+	      rtx lo_addr = XEXP (adj_offsettable_operand (op, 4), 0);
+	      rtx hi_addr = XEXP (op, 0);
+	      lo_half[num] = change_address (op, SImode, lo_addr);
+	      hi_half[num] = change_address (op, SImode, hi_addr);
+	    }
+	  else
+	    {
+	      rtx lo_addr = XEXP (op, 0);
+	      rtx hi_addr = XEXP (adj_offsettable_operand (op, 4), 0);
+	      lo_half[num] = change_address (op, SImode, lo_addr);
+	      hi_half[num] = change_address (op, SImode, hi_addr);
+	    }
 	}
       else
 	abort();

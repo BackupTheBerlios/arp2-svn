@@ -5467,9 +5467,9 @@ for machine in $build $host $target; do
 #		extra_objs=amigaos.o
 		gnu_ld=yes
 #		tmake_file="t-linux i386/t-crtstuff"
-#		extra_parts="crtbegin.o crtbeginS.o crtend.o crtendS.o"
-#		gnu_ld=yes
-#		float_format=i386
+		extra_parts="crtbegin.o crtbeginS.o crtend.o crtendS.o"
+		gnu_ld=yes
+		float_format=i386
 # 		if test x$enable_threads = xyes; then
 # 			thread_file='posix'
 # 		fi
