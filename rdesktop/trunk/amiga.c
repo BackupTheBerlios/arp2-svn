@@ -165,7 +165,8 @@ amiga_get_tmp_bitmap( int width, int height )
     FreeBitMap( amiga_tmp_bitmap );
 
     amiga_tmp_bitmap = AllocBitMap( width, height, amiga_bpp,
-				    BMF_MINPLANES, amiga_window->BitMap );
+				    BMF_MINPLANES,
+				    amiga_window->RPort->BitMap );
 
     if( amiga_tmp_bitmap == NULL )
     {
