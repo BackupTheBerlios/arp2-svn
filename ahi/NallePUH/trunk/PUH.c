@@ -346,7 +346,8 @@ InstallPUH( ULONG           flags,
                                     AHIA_Channels,   4,
                                     AHIA_Sounds,     1,
                                     AHIA_SoundFunc,  (ULONG) &pd->m_SoundFunc,
-                                    AHIA_PlayerFreq, 100 << 16 );
+                                    AHIA_PlayerFreq, 100 << 16,
+                                    TAG_DONE );
 
   if( pd->m_AudioCtrl == NULL )
   {
@@ -367,7 +368,9 @@ InstallPUH( ULONG           flags,
     }
     else
     {
-      if( AHI_ControlAudio( pd->m_AudioCtrl, AHIC_Play, TRUE ) != AHIE_OK )
+      if( AHI_ControlAudio( pd->m_AudioCtrl, 
+          AHIC_Play, TRUE,
+          TAG_DONE ) != AHIE_OK )
       {
         printf( "Unable to start playback.\n" );
       }
