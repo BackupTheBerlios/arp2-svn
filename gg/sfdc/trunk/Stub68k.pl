@@ -19,20 +19,18 @@ BEGIN {
 	my %params    = @_;
 	my $prototype = $params{'prototype'};
 	my $sfd       = $self->{SFD};
-	my $nr        = $prototype->{return} =~ /^(VOID|void)$/;
-	my $nb        = $sfd->{base} eq '';
 
 	if ($prototype->{type} !~ /^(varargs)|(stdarg)$/) {
 	    print "\n";
 	    print "{\n";
 
-	    if (!$nb) {
+	    if (!$prototype->{nb}) {
 		print "  BASE_EXT_DECL\n";
 	    }
-	    if (!$nr) {
+	    if (!$prototype->{nr}) {
 		print "  register $prototype->{return} _res __asm(\"d0\");\n";
 	    }
-	    if (!$nb) {
+	    if (!$prototype->{nb}) {
 		print "  register $sfd->{basetype} _base __asm(\"a6\") " .
 		    "= BASE_NAME;\n";
 	    }
@@ -69,18 +67,16 @@ BEGIN {
 
 	
 	if ($$prototype{'type'} !~ /^(varargs)|(stdarg)$/) {
-	    my $nr = $prototype->{return} =~ /^(VOID|void)$/;
-	    my $nb = $sfd->{base} eq '';
-
 	    print "  __asm volatile (\"jsr a6@(-$prototype->{bias}:W)\"\n";
-	    print "  : " . ($nr ? "/* No output */" : '"=r" (_res)') . "\n";
+	    print "  : " .
+		($prototype->{nr} ? "/* No output */" : '"=r" (_res)') . "\n";
 	    print "  : ";
-	    if (!$nb) {
+	    if (!$prototype->{nb}) {
 		print '"r" (_base)';
 	    }
 
 	    for my $i (0 .. $prototype->{numargs} - 1) {
-		if ($i != 0 || !$nb) {
+		if ($i != 0 || !$prototype->{nb}) {
 		    print ", ";
 		}
 		
@@ -91,7 +87,7 @@ BEGIN {
 	    print '  : "d0", "d1", "a0", "a1", "fp0", "fp1", "cc", "memory");';
 	    print "\n";
 	    
-	    if (!$nr) {
+	    if (!$prototype->{nr}) {
 		print "  return _res;\n";
 	    }
 

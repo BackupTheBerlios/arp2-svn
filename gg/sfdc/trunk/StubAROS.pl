@@ -28,18 +28,16 @@ BEGIN {
 	my %params    = @_;
 	my $prototype = $params{'prototype'};
 	my $sfd       = $self->{SFD};
-	my $nr        = $prototype->{return} =~ /^(VOID|void)$/;
-	my $nb        = $sfd->{base} eq '';
 
 	if ($prototype->{type} !~ /^(varargs)|(stdarg)$/) {
 	    print "\n";
 	    print "{\n";
 
-	    if (!$nb) {
+	    if (!$prototype->{nb}) {
 		print "  BASE_EXT_DECL\n";
 	    }
 
-	    if (!$nr) {
+	    if (!$prototype->{nr}) {
 		print "  $prototype->{return} _res = ($prototype->{return}) ";
 	    }
 	    else {
@@ -47,7 +45,7 @@ BEGIN {
 	    }
 
 	    printf "AROS_LC%d%s($prototype->{return}, $prototype->{funcname},\n",
-	    $prototype->{numargs}, $nb ? "I" : "";
+	    $prototype->{numargs}, $prototype->{nb} ? "I" : "";
 	}
 	else {
 	    $self->SUPER::function_start (@_);
@@ -77,11 +75,9 @@ BEGIN {
 	my %params    = @_;
 	my $prototype = $params{'prototype'};
 	my $sfd       = $self->{SFD};
-	my $nr        = $prototype->{return} =~ /^(VOID|void)$/;
-	my $nb        = $sfd->{base} eq '';
 	
 	if ($$prototype{'type'} !~ /^(varargs)|(stdarg)$/) {
-	    if ($nb) {
+	    if ($prototype->{nb}) {
 		my $bt = "/* bt */";
 		my $bn = "/* bn */";
 
@@ -101,7 +97,7 @@ BEGIN {
 		$prototype->{bias} / 6;
 	    }
 
-	    if (!$nr) {
+	    if (!$prototype->{nr}) {
 		print "  return _res;\n";
 	    }
 	    

@@ -66,21 +66,21 @@ BEGIN {
 	    my $prototype = $params{'prototype'};
 	    my $sfd       = $self->{SFD};
 
-	    if ($libarg ne 'none' && $sfd->{base} ne '') {
+	    if ($libarg ne 'none' && !$prototype->{nb}) {
 		print "  $sfd->{basetype} _base = ($sfd->{basetype}) ".
 		    "REG_A6;\n";
 	    }
 	    
 	    print "  return $libprefix$prototype->{funcname}(";
 
-	    if ($libarg eq 'first' && $sfd->{base} ne '') {
+	    if ($libarg eq 'first' && !$prototype->{nb}) {
 		print "_base";
 		print $prototype->{numargs} > 0 ? ", " : "";
 	    }
 
 	    print join (', ', @{$prototype->{___argnames}});
 	
-	    if ($libarg eq 'last' && $sfd->{base} ne '') {
+	    if ($libarg eq 'last' && !$prototype->{nb}) {
 		print $prototype->{numargs} > 0 ? ", " : "";
 		print "_base";
 	    }

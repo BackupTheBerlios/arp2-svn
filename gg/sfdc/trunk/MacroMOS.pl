@@ -23,14 +23,11 @@ BEGIN {
 	
 	if ($$prototype{'type'} !~ /^(varargs|stdarg)$/) {
 
-	    if( $$sfd{'base'} ne '') {
-		print "\\\n	, $self->{BASE}, ";
-	    }
-	    else {
-		print ", ";
+	    if (!$prototype->{nb}) {
+		print ",\\\n	, $self->{BASE}";
 	    }
 
-	    print "IF_CACHEFLUSHALL, NULL, 0, IF_CACHEFLUSHALL, NULL, 0)\n";
+	    print ", IF_CACHEFLUSHALL, NULL, 0, IF_CACHEFLUSHALL, NULL, 0)\n";
 	}
 	else {
 	    print "})\n";

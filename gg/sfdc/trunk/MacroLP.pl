@@ -19,18 +19,17 @@ BEGIN {
 	my %params    = @_;
 	my $prototype = $params{'prototype'};
 	my $sfd       = $self->{SFD};
-	my $nr        = $$prototype{'return'} =~ /^(VOID|void)$/;
-	my $nb        = $$sfd{'base'} eq '';
 
 	if ($$prototype{'type'} !~ /^(stdarg)|(varargs)$/) {
 	    printf "	LP%d%s%s(0x%x, ", $$prototype{'numargs'},
-	    $nr ? "NR" : "", $nb ? "NB" : "", $$prototype{'bias'};
+	    $prototype->{nr} ? "NR" : "",
+	    $prototype->{nb} ? "NB" : "", $$prototype{'bias'};
 
-	    if (!$nr) {
+	    if (!$prototype->{nr}) {
 		print "$$prototype{'return'}, ";
 	    }
 
-	    print "$$prototype{'funcname'}, ";
+	    print "$$prototype{'funcname'}";
 	}
 	else {
 	    $self->SUPER::function_start (@_);
@@ -48,7 +47,7 @@ BEGIN {
 	my $sfd       = $self->{SFD};
 
 	if ($$prototype{'type'} !~ /^(stdarg)|(varargs)$/) {
-	    print "$argtype, $argname, $argreg, ";
+	    print ", $argtype, $argname, $argreg";
 	}
 	else {
 	    $self->SUPER::function_arg (@_);
@@ -64,7 +63,7 @@ BEGIN {
 	
 	if ($$prototype{'type'} !~ /^(varargs)|(stdarg)$/) {
 
-	    if ($$sfd{'base'} ne '') {
+	    if (!$prototype->{nb}) {
 		print "\\\n	, $self->{BASE})\n";
 	    }
 	    else {

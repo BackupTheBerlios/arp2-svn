@@ -104,7 +104,7 @@ BEGIN {
 	    my $prototype = $params{'prototype'};
 	    my $sfd       = $self->{SFD};
 
-	    if ($libarg ne 'none' && $sfd->{base} ne '') {
+	    if ($libarg ne 'none' && !$prototype->{nb}) {
 		print "  $sfd->{basetype} _base = ($sfd->{basetype}) " .
 		    "({long r;" .
 		    "__asm(\"movl %1,%0\":\"=r\"(r):\"m\"(_regs->a6));" .
@@ -113,14 +113,14 @@ BEGIN {
 
 	    print "  return $libprefix$prototype->{funcname}(";
 
-	    if ($libarg eq 'first' && $sfd->{base} ne '') {
+	    if ($libarg eq 'first' && !$prototype->{nb}) {
 		print "_base";
 		print $prototype->{numargs} > 0 ? ", " : "";
 	    }
 
 	    print join (', ', @{$prototype->{___argnames}});
 	
-	    if ($libarg eq 'last' && $sfd->{base} ne '') {
+	    if ($libarg eq 'last' && !$prototype->{nb}) {
 		print $prototype->{numargs} > 0 ? ", " : "";
 		print "_base";
 	    }

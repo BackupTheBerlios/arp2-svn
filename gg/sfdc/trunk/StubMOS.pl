@@ -52,13 +52,12 @@ BEGIN {
 	my %params    = @_;
 	my $prototype = $params{'prototype'};
 	my $sfd       = $self->{SFD};
-	my $nb        = $sfd->{base} eq '';
 
 	if ($prototype->{type} !~ /^(varargs)|(stdarg)$/) {
 	    print "\n";
 	    print "{\n";
 
-	    if (!$nb) {
+	    if (!$prototype->{nb}) {
 		print "  BASE_EXT_DECL\n";
 	    }
 	}
@@ -194,16 +193,13 @@ BEGIN {
 
 	
 	if ($$prototype{'type'} !~ /^(varargs)|(stdarg)$/) {
-	    my $nr = $prototype->{return} =~ /^(VOID|void)$/;
-	    my $nb = $sfd->{base} eq '';
-
-	    if (!$nb) {
+	    if (!$prototype->{nb}) {
 		print "  REG_A6 = (ULONG) BASE_NAME;\n";
 	    }
 
 	    print "  ";
 	    
-	    if (!$nr) {
+	    if (!$prototype->{nr}) {
 		print "return ($prototype->{return}) ";
 	    }
 

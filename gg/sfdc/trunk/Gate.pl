@@ -109,7 +109,7 @@ BEGIN {
 	    print "{\n";
 	    print "  return $libprefix$prototype->{funcname}(";
 
-	    if ($libarg eq 'first' && $sfd->{base} ne '') {
+	    if ($libarg eq 'first' && !$prototype->{nb}) {
 		print "_base";
 		print $prototype->{numargs} > 0 ? ", " : "";
 	    }
@@ -137,7 +137,7 @@ BEGIN {
 	    my $prototype = $params{'prototype'};
 	    my $sfd       = $self->{SFD};
 	    
-	    if ($libarg eq 'last' && $sfd->{base} ne '') {
+	    if ($libarg eq 'last' && !$prototype->{nb}) {
 		print $prototype->{numargs} > 0 ? ", " : "";
 		print "_base";
 	    }
@@ -155,14 +155,14 @@ BEGIN {
 	print "$prototype->{return}\n";
 	print "$gateprefix$prototype->{funcname}(";
 
-	if ($libarg eq 'first' && $sfd->{base} ne '') {
+	if ($libarg eq 'first' && !$prototype->{nb}) {
 	    print "$sfd->{basetype} _base";
 	    print $prototype->{numargs} > 0 ? ", " : "";
 	}
 	
 	print join (', ', @{$prototype->{___args}});
 
-	if ($libarg eq 'last' && $sfd->{base} ne '') {
+	if ($libarg eq 'last' && !$prototype->{nb}) {
 	    print $prototype->{numargs} > 0 ? ", " : "";
 	    print "$sfd->{basetype} _base";
 	}
@@ -180,14 +180,14 @@ BEGIN {
 	print "$prototype->{return}\n";
 	print "$libprefix$prototype->{funcname}(";
 
-	if ($libarg eq 'first' && $sfd->{base} ne '') {
+	if ($libarg eq 'first' && !$prototype->{nb}) {
 	    print "$sfd->{basetype} _base";
 	    print $prototype->{numargs} > 0 ? ", " : "";
 	}
 	    
 	print join (', ', @{$prototype->{___args}});
 
-	if ($libarg eq 'last' && $sfd->{base} ne '') {
+	if ($libarg eq 'last' && !$prototype->{nb}) {
 	    print $prototype->{numargs} > 0 ? ", " : "";
 	    print "$sfd->{basetype} _base";
 	}

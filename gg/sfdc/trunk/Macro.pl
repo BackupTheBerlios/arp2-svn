@@ -105,7 +105,6 @@ BEGIN {
 	my $prototype = $params{'prototype'};
 	my $sfd       = $self->{SFD};
 	my $nr        = $$prototype{'return'} =~ /^(VOID|void)$/;
-	my $nb        = $$sfd{'base'} eq '';
 
 	if ($$prototype{'type'} eq 'stdarg') {
 	    my $first_stdargnum = $$prototype{'numargs'} - 2;

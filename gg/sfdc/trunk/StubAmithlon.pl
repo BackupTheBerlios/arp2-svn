@@ -62,16 +62,13 @@ BEGIN {
 	my $sfd       = $self->{SFD};
 
 	if ($prototype->{type} !~ /^(varargs)|(stdarg)$/) {
-	    my $nr = $prototype->{return} =~ /^(VOID|void)$/;
-	    my $nb = $sfd->{base} eq '';
-
 	    print "\n";
 	    print "{\n";
 
-	    if (!$nb) {
+	    if (!$prototype->{nb}) {
 		print "  BASE_EXT_DECL\n";
 	    }
-	    if (!$nr) {
+	    if (!$prototype->{nr}) {
 		print "  $prototype->{return} _res;\n";
 	    }
 
@@ -108,23 +105,20 @@ BEGIN {
 
 	
 	if ($$prototype{'type'} !~ /^(varargs)|(stdarg)$/) {
-	    my $nr = $prototype->{return} =~ /^(VOID|void)$/;
-	    my $nb = $sfd->{base} eq '';
-
-	    if (!$nb) {
+	    if (!$prototype->{nb}) {
 		print "  __asm(\"movl %1,%0\":\"=m\"(_regs.a6)" .
 		    ":\"ri\"((ULONG)(BASE_NAME)));\n";
 	    }
 
 	    print "  ";
 	    
-	    if (!$nr) {
+	    if (!$prototype->{nr}) {
 		print "_res = ($prototype->{return}) ";
 	    }
 
 	    print "_CallLib68k(&_regs,-$prototype->{bias});\n";
 	    
-	    if (!$nr) {
+	    if (!$prototype->{nr}) {
 		print "  return _res;\n";
 	    }
 

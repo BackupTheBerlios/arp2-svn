@@ -102,7 +102,7 @@ BEGIN {
 	    my $rproto = $prototype->{real_prototype};
 
 	    print "$$rproto{'return'} $$rproto{'funcname'}(";
-	    if ($$sfd{'base'} ne '') {
+	    if (!$prototype->{nb}) {
 		if ($$rproto{'numargs'} == 0) {
 		    print "BASE_PAR_DECL0";
 		}
@@ -118,7 +118,7 @@ BEGIN {
 	
 	print "$$prototype{'return'}\n";
 	print "$$prototype{'funcname'}(";
-	if ($$sfd{'base'} ne '') {
+	if (!$prototype->{nb}) {
 	    if ($$prototype{'numargs'} == 0) {
 		print "BASE_PAR_DECL0";
 	    }
@@ -144,7 +144,7 @@ BEGIN {
 	    print "  return $$prototype{'real_funcname'}(BASE_PAR_NAME ";
 	}
 	else {
-	    if ($$sfd{'base'} ne '') {
+	    if (!$prototype->{nb}) {
 		print "  BASE_EXT_DECL\n";
 	    }
 
@@ -155,7 +155,7 @@ BEGIN {
 	    }
 
 	    # Skip jmp instruction (is m68k ILLEGAL in MOS)
-	    my $offs = $$prototype{'bias'} + 2;
+	    my $offs = $$prototype{'bias'} - 2;
 	    
 	    print "  $$prototype{'return'} (*_func) ($argtypes) = \n";
 	    print "    ($$prototype{'return'} (*) ($argtypes))\n";

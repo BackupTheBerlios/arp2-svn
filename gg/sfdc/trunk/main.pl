@@ -63,7 +63,7 @@ if ($@) {
 }
     
 sub parse_sfd ( $ );
-sub parse_proto ( $$ );
+sub parse_proto ( $$$ );
 sub open_output ( $$ );
 sub will_close_output ( $$ );
 sub close_output ();
@@ -321,7 +321,7 @@ sub parse_sfd ( $ ) {
 	id         => '',
 	libname    => '',
 	base       => '',
-	basetype   => '',
+	basetype   => 'struct Library *',
 	includes   => (),
 	prototypes => (),
 	basename   => '',
@@ -495,7 +495,7 @@ sub parse_sfd ( $ ) {
 	    $$prototype{'real_prototype'} = $real_prototype;
 	}
 	
-	parse_proto ($prototype, $varargs_type);
+	parse_proto ($result, $prototype, $varargs_type);
 
 	if ($$prototype{'type'} ne 'varargs' &&
 	    $$prototype{'type'} ne 'stdarg') {
@@ -513,14 +513,13 @@ sub parse_sfd ( $ ) {
     ( $$result{'basename'} = $$result{'libname'} ) =~ s/(.*)\.\w+/$1/;
 
     if ($$result{'basename'} eq '') {
-	( $$result{'basename'} = $file ) =~ s:.*/(\w+?)_lib\.sfd:$1:;
+	( $$result{'basename'} = $file ) =~ s:.*/(\w+?)_lib\.sfd:$1: or do {
+	    print STDERR "Unable to find or guess base name.\n";
+	    print STDERR "Please add \"==libname module_name\" to SFD file.\n";
+	    die;
+	};
     }
 
-    if ($$result{'basename'} eq '') {
-	print STDERR "Unable to find or guess base name.\n";
-	die;
-    }
-    
     $$result{'basename'} = lc $$result{'basename'};
     $$result{'BASENAME'} = uc $$result{'basename'};
     $$result{'Basename'} = ucfirst $$result{'basename'};
@@ -531,9 +530,10 @@ sub parse_sfd ( $ ) {
 
 ### parse_proto: Parse a single function prototype  ###########################
 
-sub parse_proto ( $$ ) {
-    my $prototype      = shift;
-    my $varargs_type   = shift;
+sub parse_proto ( $$$ ) {
+    my $sfd          = shift;
+    my $prototype    = shift;
+    my $varargs_type = shift;
     
     my $return;
     my $struct;     # Just a dummy
@@ -592,6 +592,9 @@ sub parse_proto ( $$ ) {
     $$prototype{'numargs'} = $#{$$prototype{'args'}} + 1;
     $$prototype{'numregs'} = $#{$$prototype{'regs'}} + 1;
     
+    $$prototype{'nr'}      = $$prototype{'return'} =~ /^(VOID|void)$/;
+    $$prototype{'nb'}      = $$sfd{'base'} eq '' || $registers =~ /a6/;
+
     # varags -> stdarg (stdarg is a tag list) Example:
     # varargs: LONG Printf( STRPTR format, ... );
     # stdarg: BOOL AslRequestTags( APTR requester, Tag Tag1, ... );

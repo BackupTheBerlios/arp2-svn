@@ -28,7 +28,7 @@ BEGIN {
 	my %params    = @_;
 	my $prototype = $params{'prototype'};
 	my $sfd       = $self->{SFD};
-	my $nb        = $sfd->{base} eq '' || $libarg eq 'none';
+	my $nb        = $prototype->{nb} || $libarg eq 'none';
 
 	# AROS macros cannot handle function pointer arguments :-(
 
@@ -69,12 +69,11 @@ BEGIN {
 	my %params    = @_;
 	my $prototype = $params{'prototype'};
 	my $sfd       = $self->{SFD};
-	my $nb        = $sfd->{base} eq '';
 
 	my $bt = "/* bt */";
 	my $bn = "/* bn */";
 
-	if ($nb) {
+	if ($prototype->{nb}) {
 	    for my $i (0 .. $#{$prototype->{regs}}) {
 		if ($prototype->{regs}[$i] eq 'a6') {
 		    $bt = $prototype->{argtypes}[$i];
@@ -102,14 +101,14 @@ BEGIN {
 	    print "{\n";
 	    print "  return $libprefix$prototype->{funcname}(";
 
-	    if ($libarg eq 'first' && $sfd->{base} ne '') {
+	    if ($libarg eq 'first' && !$prototype->{nb}) {
 		print "_base";
 		print $prototype->{numargs} > 0 ? ", " : "";
 	    }
 
 	    print join (', ', @{$prototype->{___argnames}});
 	
-	    if ($libarg eq 'last' && $sfd->{base} ne '') {
+	    if ($libarg eq 'last' && !$prototype->{nb}) {
 		print $prototype->{numargs} > 0 ? ", " : "";
 		print "_base";
 	    }

@@ -41,11 +41,10 @@ BEGIN {
 	my %params    = @_;
 	my $prototype = $params{'prototype'};
 	my $sfd       = $self->{SFD};
-	my $nb        = $$sfd{'base'} eq '';
 
 	if ($$prototype{'type'} !~ /^(varargs|stdarg)$/) {
 	    printf "	AROS_LC%d%s(%s, %s, \\\n",
-	    $$prototype{'numargs'}, $nb ? "I" : "",
+	    $$prototype{'numargs'}, $prototype->{nb} ? "I" : "",
 	    $$prototype{'return'}, $$prototype{'funcname'};
 	}
 	else {
@@ -78,7 +77,7 @@ BEGIN {
 	my $sfd       = $self->{SFD};
 
 	if ($$prototype{'type'} !~ /^(varargs|stdarg)$/) {
-	    if( $$sfd{'base'} ne '') {
+	    if( !$prototype->{nb}) {
 		print "	$$sfd{'basetype'}, $self->{BASE}, ";
 	    }
 	    else {
