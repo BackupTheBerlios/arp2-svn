@@ -910,7 +910,7 @@ Optional Features:
   --enable-natmem         Enable JIT direct memory support (default auto)
   --enable-noflags        Enable noflags support in JIT (default no)
   --enable-x86assembly    Enable x86 assembly optimizations (default auto)
-  --enable-blomcall       Enable multitasking x86 code (default auto)
+  --enable-blomcall       Enable multitasking x86 calls (default auto)
   --enable-threads        Enable thread support (default auto)
   --enable-autoconfig     Enable emulaton of autoconfig devices (default auto)
   --enable-scsi-device    Enable emulaton of SCSI devices (default no)
@@ -16487,8 +16487,8 @@ else
 echo "${ECHO_T}no" >&6
 fi
 
-echo "$as_me:$LINENO: checking whether to add blomcall suppport" >&5
-echo $ECHO_N "checking whether to add blomcall suppport... $ECHO_C" >&6
+echo "$as_me:$LINENO: checking whether to add BCALL support" >&5
+echo $ECHO_N "checking whether to add BCALL support... $ECHO_C" >&6
 
 if [ "x$WANT_BLOMCALL" != "xno" -a "x$WANT_X86ASSEMBLY" != "xno" -a "x$HAVE_GCC27" = "xyes" -a "$HOST_CPU" = "i386" ]; then
   UAE_DEFINES="$UAE_DEFINES -DBLOMCALL"
