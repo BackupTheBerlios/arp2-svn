@@ -27,6 +27,12 @@
 
 #include <exec/types.h>
 
+BOOL
+OpenLibs( void );
+
+void
+CloseLibs( void );
+
 void
 KPrintFArgs( UBYTE* fmt, 
              LONG*  args );

@@ -22,7 +22,9 @@
 
 #include "CompilerSpecific.h"
 
+#include <exec/memory.h>
 #include <exec/resident.h>
+#include <devices/timer.h>
 #include <libraries/configvars.h>
 #include <libraries/expansion.h>
 #include <libraries/expansionbase.h>
@@ -38,17 +40,6 @@
 #include "init.h"
 #include "pnp.h"
 
-#if 0
-/******************************************************************************
-** Resource entry *************************************************************
-******************************************************************************/
-
-ULONG
-Start( void )
-{
-  return -1;
-}
-#endif
 
 /******************************************************************************
 ** Resource resident structure ************************************************
@@ -77,8 +68,19 @@ const struct Resident RomTag =
 ** Globals ********************************************************************
 ******************************************************************************/
 
-struct ExecBase*       SysBase    = NULL;
-struct ISAPnPResource* ISAPnPBase = NULL;
+struct Device*         TimerBase     = NULL;
+struct ExecBase*       SysBase       = NULL;
+struct ExpansionBase*  ExpansionBase = NULL;
+struct ISAPnPResource* ISAPnPBase    = NULL;
+struct UtilityBase*    UtilityBase   = NULL;
+
+/* linker can use symbol b for symbol a if a is not defined */
+#define ALIAS(a,b) asm(".stabs \"_" #a "\",11,0,0,0\n.stabs \"_" #b "\",1,0,0,0")
+
+// Make libnix use our UtilityBase instead of her own */
+ALIAS( __UtilityBase, UtilityBase );
+
+static struct timerequest *TimerIO   = NULL;
 
 const char ResName[]   = ISAPNPNAME;
 const char IDString[]  = ISAPNPNAME " " VERS "\r\n";
@@ -116,31 +118,22 @@ initRoutine( REG( d0, struct ISAPnPResource* res ),
              REG( a0, APTR                   seglist ),
              REG( a6, struct ExecBase*       sysbase ) )
 {
-  struct ExpansionBase* ExpansionBase;
-
   SysBase = sysbase;
 
-  KPrintF( "init routine called\n" );
-
-  res->m_Library.lib_Node.ln_Type = NT_RESOURCE;
-  res->m_Library.lib_Node.ln_Name = (STRPTR) ResName;
-  res->m_Library.lib_Flags        = LIBF_SUMUSED | LIBF_CHANGED;
-  res->m_Library.lib_Version      = VERSION;
-  res->m_Library.lib_Revision     = REVISION;
-  res->m_Library.lib_IdString     = (STRPTR) IDString;
-
-  ExpansionBase = (struct ExpansionBase*) OpenLibrary( EXPANSIONNAME, 37 );
+  KPrintF( "init routine called %08lx %08lx\n", SysBase, res );
   
-  if( ExpansionBase == NULL )
+  if( ! OpenLibs() )
   {
-    // No expansion.library
+    // No libraries?
 
-KPrintF( "No expansion.library.\n" );
+KPrintF( "No libraries?.\n" );
 
   }
   else
   {
     ULONG actual;
+
+KPrintF( "Getting binding.\n" );
     
     actual = GetCurrentBinding( &res->m_CurrentBinding, 
                                 sizeof( res->m_CurrentBinding ) );
@@ -184,6 +177,8 @@ KPrintF( "No board address?\n" );
           }
           else
           {
+KPrintF( "Congiguring.\n" );
+
             if( ! PNPISA_ConfigureCards( res ) )
             {
               // Unable to configure cards
@@ -195,14 +190,26 @@ KPrintF( "Unable to configure cards.\n" );
               cd->cd_Flags  &= ~CDF_CONFIGME;
               cd->cd_Driver  = res;
 
+KPrintF( "0 " );
+              res->m_Library.lib_Node.ln_Type = NT_RESOURCE;
+KPrintF( "1 " );
+              res->m_Library.lib_Node.ln_Name = (STRPTR) ResName;
+KPrintF( "2 " );
+              res->m_Library.lib_Flags        = LIBF_SUMUSED | LIBF_CHANGED;
+KPrintF( "3 " );
+              res->m_Library.lib_Version      = VERSION;
+KPrintF( "4 " );
+              res->m_Library.lib_Revision     = REVISION;
+KPrintF( "5 " );
+              res->m_Library.lib_IdString     = (STRPTR) IDString;
+KPrintF( "6 " );
+
               ISAPnPBase = res;
             }
           }
         }
       }
     }
-
-    CloseLibrary( (struct Library*) ExpansionBase );
   }
 
   return ISAPnPBase;
@@ -240,3 +247,87 @@ static const APTR InitTable[4] =
   0,
   (APTR) initRoutine
 };
+
+/******************************************************************************
+** OpenLibs *******************************************************************
+******************************************************************************/
+
+BOOL
+OpenLibs( void )
+{
+  SysBase = *( (struct ExecBase**) 4 );
+
+KPrintF( "Opening libs... " );
+
+  /* Utility Library (libnix depends on it, and out startup-code is not
+     executed when BindDriver LoadSeg()s us!) */
+
+  UtilityBase = (struct UtilityBase *) OpenLibrary( "utility.library", 37 );
+
+KPrintF( "utility.library " );
+
+  if( UtilityBase == NULL)
+  {
+    return FALSE;
+  }
+
+  /* Expansion Library */
+
+  ExpansionBase = (struct ExpansionBase*) OpenLibrary( EXPANSIONNAME, 37 );
+
+KPrintF( "expansion.library " );
+
+  if( ExpansionBase == NULL )
+  {
+    return FALSE;
+  }
+
+  /* Timer Device */
+
+  TimerIO = (struct timerequest *) AllocVec( sizeof(struct timerequest),
+                                             MEMF_PUBLIC | MEMF_CLEAR );
+
+  if( TimerIO == NULL)
+  {
+    return FALSE;
+  }
+
+  if( OpenDevice( "timer.device",
+                  UNIT_MICROHZ,
+                  (struct IORequest *)
+                  TimerIO,
+                  0) != 0 )
+  {
+    return FALSE;
+  }
+
+KPrintF( "timer.device\n" );
+
+  TimerBase = (struct Device *) TimerIO->tr_node.io_Device;
+
+  return TRUE;
+}
+
+
+/******************************************************************************
+** CloseLibs *******************************************************************
+******************************************************************************/
+
+void
+CloseLibs( void )
+{
+  if( TimerIO  != NULL )
+  {
+    CloseDevice( (struct IORequest *) TimerIO );
+  }
+
+  FreeVec( TimerIO );
+
+  CloseLibrary( (struct Library*) ExpansionBase );
+  CloseLibrary( (struct Library*) UtilityBase );
+
+  TimerIO       = NULL;
+  TimerBase     = NULL;
+  ExpansionBase = NULL;  
+  UtilityBase   = NULL;
+}

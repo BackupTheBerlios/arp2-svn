@@ -22,6 +22,8 @@
 
 #include "CompilerSpecific.h"
 
+#include <proto/timer.h>
+
 #include "isapnp.h"
 #include "isapnp_private.h"
 
@@ -81,6 +83,98 @@ SendInitiationKey( struct ISAPnPResource* res )
   }
 }
 
+void
+BusyWait( ULONG micro_seconds )
+{
+  typedef unsigned long long uint64_t;
+
+  ULONG            freq;
+  struct EClockVal eclock;
+  uint64_t         current;
+  uint64_t         end;
+
+  freq = ReadEClock( &eclock );
+
+  current = ( ( (uint64_t) eclock.ev_hi ) << 32 ) + eclock.ev_lo;
+  end     = current + (uint64_t) freq * micro_seconds / 1000000;
+
+  while( current < end )
+  {
+    ReadEClock( &eclock );
+
+    current = ( ( (uint64_t) eclock.ev_hi ) << 32 ) + eclock.ev_lo;
+  }
+}
+
+static BOOL
+ReadSerialIdentifier( struct ISAPNP_SerialIdentifier* id,
+                      struct ISAPnPResource*          res )
+{
+  UBYTE buf[ 9 ] = { 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+  int   i;
+  UBYTE check_sum;
+  
+  ISAC_SetRegByte( ISAPNP_ADDRESS, ISAPNP_REG_SERIAL_ISOLATION, res );
+
+  // Wait 1 ms before we read the first pair
+
+  BusyWait( 1000 );
+
+  check_sum = 0x6a;
+
+  for( i = 0; i < 72; ++i )
+  {
+    UBYTE value1;
+    UBYTE value2;
+
+    value1 = GetLastPnPReg( res );
+    value2 = GetLastPnPReg( res );
+    
+    if( value1 == 0x55 && value2 == 0xaa )
+    {
+      buf[ i >> 3 ] |= ( 1 << ( i & 7 ) );
+    }
+
+    if( i < 64 )
+    {
+      UBYTE bitten = value1 == 0x55 && value2 == 0xaa ? 1 : 0;
+
+      check_sum = ISAPNP_LFSR( check_sum, bitten );
+    }
+
+    // Wait 250 µs before we read the next pair
+    
+    BusyWait( 250 );
+  }
+
+  if( check_sum != buf[ 8 ] )
+  {
+    return FALSE;
+  }
+  
+
+  // Decode information
+  
+  if( buf[ 0 ] & 0x80 )
+  {
+    return FALSE;
+  }
+  
+  id->m_Vendor[ 0 ]  = 0x40 + ( buf[ 0 ] >> 2 );
+  id->m_Vendor[ 1 ]  = 0x40 + ( ( ( buf[ 0 ] & 0x03 ) << 3 ) | ( buf[ 1 ] >> 5 ) );
+  id->m_Vendor[ 2 ]  = 0x40 + ( buf[ 1 ] & 0x1f );
+  id->m_Vendor[ 3 ]  = 0;
+  
+  id->m_ProductID    = ( buf[ 2 ] << 4 ) | ( buf[ 3 ] >> 4 );
+  id->m_Revision     = buf[ 3 ] & 0x0f;
+  
+  id->m_SerialNumber = ( buf[ 7 ] << 25 ) |
+                       ( buf[ 6 ] << 16 ) |
+                       ( buf[ 5 ] << 8 )  | 
+                         buf[ 4 ];
+
+  return TRUE;
+}
 
 
 /******************************************************************************
@@ -108,29 +202,14 @@ PNPISA_ConfigureCards( REG( a6, struct ISAPnPResource* res ) )
   
   SetPnPReg( ISAPNP_REG_SET_RD_DATA_PORT, 0x80, res );
   res->m_RegReadData = 0x80;
- 
 
-  ISAC_SetRegByte( ISAPNP_ADDRESS, ISAPNP_REG_SERIAL_ISOLATION, res );
-
-  // TODO: Wait 1 ms before we read the first pair
-
-  KPrintF( "TODO: Wait 1 ms before we read the first pair\n" );
-  
   {
-    int i;
+    struct ISAPNP_SerialIdentifier id;
     
-    for( i = 0; i < 72; ++i )
+    if( ReadSerialIdentifier( &id, res ) )
     {
-      UBYTE value1;
-      UBYTE value2;
-
-      value1 = GetLastPnPReg( res );
-      value2 = GetLastPnPReg( res );
-      
-      KPrintF( "[%02lx/%02lx] ", value1, value2 );
-      KPrintF( "\n" );
-
-      // TODO: Wait 250 µs before we read the next pair
+      KPrintF( "Vendor: %s, Product: %ld, Revision: %ld, Serial: %08lx\n",
+               id.m_Vendor, id.m_ProductID, id.m_Revision, id.m_SerialNumber );
     }
   }
 

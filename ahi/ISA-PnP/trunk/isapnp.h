@@ -41,6 +41,9 @@
   0xB0, 0x58, 0x2C, 0x16, 0x8B, 0x45, 0xA2, 0xD1, \
   0xE8, 0x74, 0x3A, 0x9D, 0xCE, 0xE7, 0x73, 0x39
 
+#define ISAPNP_LFSR( old, bit ) \
+ ( ( (old) >> 1 ) | ( ( ( (old) ^ ( (old) >> 1 ) ^ (bit) ) & 1 ) << 7 ) )
+
 
 /* ISAPNP_ADDRESS values */
 
@@ -128,6 +131,21 @@
 #define ISAPNP_CCB_RESET        0
 #define ISAPNP_CCB_WAIT_FOR_KEY 1
 #define ISAPNP_CCB_RESET_CSN    2
+
+
+/* Serial identifier */
+
+struct ISAPNP_SerialIdentifier
+{
+  char  m_Vendor[ 4 ];
+
+  UWORD m_ProductID;
+  UBYTE	m_Revision;
+
+  UBYTE m_Pad;
+
+  ULONG m_SerialNumber;
+};
 
 
 #endif /* ISA_PNP_isapnp_private_h */

@@ -25,26 +25,44 @@
 #include "include/resources/isapnp.h"
 #include "isapnp_private.h"
 
-#include <stdio.h>
-#include <stdlib.h>
+#include "init.h"
 
 extern struct Resident RomTag;
 
+
+/******************************************************************************
+** First instruction of the binary ********************************************
+******************************************************************************/
+
+asm( "jmp _ResourceEntry" );
+
+
+/******************************************************************************
+** Resource entry *************************************************************
+******************************************************************************/
+
 int 
-main( int argc, const char* argv[] )
+ResourceEntry( void )
 {
   struct ISAPnPResource* ISAPnPBase;
+
+  if( ! OpenLibs() )
+  {
+    return 20;
+  }
 
   ISAPnPBase = (struct ISAPnPResource* ) OpenResource( ISAPNPNAME );
 
   if( ISAPnPBase != NULL )
   {
-    printf( "Located resource at $%08lx\n", ISAPnPBase );
+    KPrintF( "Located resource at $%08lx\n", ISAPnPBase );
 
     ISAPnPBase->m_CurrentBinding.cb_ConfigDev->cd_Flags  |= CDF_CONFIGME;
     ISAPnPBase->m_CurrentBinding.cb_ConfigDev->cd_Driver  = NULL;
     RemResource( ISAPnPBase );
   }
+
+  CloseLibs();
 
   return 0;
 };

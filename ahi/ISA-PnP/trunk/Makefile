@@ -11,7 +11,8 @@ CPPFLAGS	=
 CFLAGS		= -m68020-60 -mnobitfield -fomit-frame-pointer \
                   -fstrict-aliasing -Os \
 		  -W -Wall -Wstrict-prototypes -g
-LDFLAGS		= -noixemul -lamiga
+LDFLAGS		= -noixemul -nostartfiles
+LIBS		= 
 
 TARGET		= ISA-PnP
 
@@ -58,7 +59,7 @@ version.h:	version.rev version.date
 ### Real targets ##############################################################
 
 $(TARGET):	main.o init.o controller.o pnp.o
-	$(CC) $(LDFLAGS) $^ -o $@
+	$(CC) $(LDFLAGS) $^ $(LIBS) -o $@
 
 
 ### Dependencies ##############################################################
