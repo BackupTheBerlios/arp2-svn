@@ -947,9 +947,9 @@ load_licence(unsigned char **data)
 	path = (char *) xmalloc(strlen(home) + strlen(hostname) + sizeof("/.rdesktop/licence."));
 	sprintf(path, "%s/.rdesktop/licence.%s", home, hostname);
 #else
-	home = "ENVARC:RDesktop";
-	path = (char *) xmalloc(strlen(home) + strlen(hostname) + sizeof("/RDesktop/licence."));
-	sprintf(path, "%s/RDesktop/licence.%s", home, hostname);
+	home = "ENVARC:";
+	path = (char *) xmalloc(strlen(home) + strlen(hostname) + sizeof("RDesktop/licence."));
+	sprintf(path, "%sRDesktop/licence.%s", home, hostname);
 #endif
 
 	fd = open(path, O_RDONLY);
@@ -980,9 +980,9 @@ save_licence(unsigned char *data, int length)
 	path = (char *) xmalloc(strlen(home) + strlen(hostname) + sizeof("/.rdesktop/licence."));
 	sprintf(path, "%s/.rdesktop", home);
 #else
-	home = "ENVARC:RDesktop";
-	path = (char *) xmalloc(strlen(home) + strlen(hostname) + sizeof("/RDesktop/licence."));
-	sprintf(path, "%s/RDesktop", home);
+	home = "ENVARC:";
+	path = (char *) xmalloc(strlen(home) + strlen(hostname) + sizeof("RDesktop/licence."));
+	sprintf(path, "%sRDesktop", home);
 #endif
 
 	if ((mkdir(path, 0700) == -1) && errno != EEXIST)
