@@ -35,7 +35,7 @@ $(RDESKTOP): 	$(OBJECTS)
 	$(CC) $(LDFLAGS) $^ $(LDLIBS) $(OUTPUT_OPTION)
 
 lha:		$(RDESKTOP)
-	lha -ao5 $(RDESKTOP).lha $(RDESKTOP) $(RDESKTOP).readme *.info 
+	lha -co5 $(RDESKTOP).lha $(RDESKTOP) $(RDESKTOP).readme *.info COPYING
 
 %.d:		%.c
 	$(CC) $(CPPFLAGS) -M $< $(OUTPUT_OPTION)
