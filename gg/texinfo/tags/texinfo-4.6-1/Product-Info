@@ -1,0 +1,28 @@
+.name
+texinfo
+.fullname
+GNU documentation system
+.type
+Miscellaneous
+.short
+GNU documentation system
+.description
+Texinfo is a documentation system that uses a single source file to
+produce both on-line information and printed output.  This means that
+instead of writing two different documents, one for the on-line help
+or other on-line information and the other for a typeset manual or
+other printed work, you need write only one document.  When the work
+is revised, you need revise only one document.  One way to read the
+on-line information, known as an "Info file", is with an Info
+documentation-reading program. An other way is by converting the
+Texinfo files to AmigaGuide® hypertext files.
+.version
+4.6
+.author
+Free Software Foundation
+.requirements
+Amiga binaries require ixemul.library.
+.distribution
+GNU Public License
+.described-by
+Kristof Depraetere <Kristof.Depraetere@rug.ac.be>
