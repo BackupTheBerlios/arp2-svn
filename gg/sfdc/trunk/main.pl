@@ -21,8 +21,47 @@ use strict;
 
 use IO::Handle;
 use Getopt::Long;
-use Pod::Usage;
 
+# The default AmigaOS GG installation of does not seem to include
+# Pod::Usage, so we have to provide a fallback. Ugly, but it works and
+# that's what counts.
+
+eval {
+    require Pod::Usage;
+    import Pod::Usage;
+};
+
+if ($@) {
+    eval '
+	# Minimal fall-back ...
+
+	sub pod2usage {
+	    my @params = @_;
+	    
+	    my $verbose = 0;
+	    my $exitval = 0;
+	    my $message = "";
+	    my $output = \*STDERR;
+
+	    while (@params) {
+		for (shift @params) {
+		    /^-verbose$/ && do { $verbose = shift @params};
+		    /^-exitval$/ && do { $exitval = shift @params};
+		    /^-message$/ && do { $message = shift @params};
+		    /^-output$/  && do { $output  = shift @params};
+		}
+	    }
+	
+	    print $output "$message\n" if $message;
+	    print $output "\n";
+	    print $output "Perl module Pod::Usage is missing.\n";
+	    print $output "Please refer to the sfdc documentation for usage, ".
+		"or install Pod::Usage.\n";
+	    exit $exitval;
+	}
+    ';
+}
+    
 sub parse_sfd ( $ );
 sub parse_proto ( $$ );
 sub open_output ( $$ );
