@@ -21,9 +21,9 @@ prefix =	@prefix@
 # Common prefix for machine-dependent installed files.
 exec_prefix =	@exec_prefix@
 
-libdir =	$(exec_prefix)/lib
-infodir =	$(exec_prefix)/info
-guidedir =	$(exec_prefix)/guide
+libdir =	@libdir@
+infodir =	@infodir@
+guidedir =	@guidedir@
 
 INSTALL =	@INSTALL@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
@@ -104,29 +104,29 @@ libnix.info: libnix.texi
 	makeinfo $(srcdir)/libnix.texi -o libnix.info
 
 install: installdirs
-	$(INSTALL) startup/*.o $(prefix)/lib/libnix
-	$(INSTALL) lib/*/lib*.a $(prefix)/lib/libnix
-	$(INSTALL) lib/misc/*.o $(prefix)/lib/libnix
-	$(INSTALL) libb/*/lib*.a $(prefix)/lib/libb/libnix
-	$(INSTALL) libb/misc/*.o $(prefix)/lib/libb/libnix
-	$(INSTALL) lib020/*/lib*.a $(prefix)/lib/libm020/libnix
-	$(INSTALL) lib020/misc/*.o $(prefix)/lib/libm020/libnix
-	$(INSTALL) libb020/*/lib*.a $(prefix)/lib/libb/libm020/libnix
-	$(INSTALL) libb020/misc/*.o $(prefix)/lib/libb/libm020/libnix
-	$(INSTALL) lib881/*/lib*.a $(prefix)/lib/libm020/libm881/libnix
-	$(INSTALL) lib881/misc/*.o $(prefix)/lib/libm020/libm881/libnix
-	$(INSTALL) libb881/*/lib*.a $(prefix)/lib/libb/libm020/libm881/libnix
-	$(INSTALL) libb881/misc/*.o $(prefix)/lib/libb/libm020/libm881/libnix
-#	$(INSTALL) lib060/*/lib*.a $(prefix)/lib/libm060/libnix
-#	$(INSTALL) lib060/misc/*.o $(prefix)/lib/libm060/libnix
-#	$(INSTALL) libb060/*/lib*.a $(prefix)/lib/libb/libm060/libnix
-#	$(INSTALL) libb060/misc/*.o $(prefix)/lib/libb/libm060/libnix
-#	$(INSTALL) libb32/*/lib*.a $(prefix)/lib/libb32/libm020/libnix
-#	$(INSTALL) libb32/misc/*.o $(prefix)/lib/libb32/libm020/libnix
-#	$(INSTALL) libb32881/*/lib*.a $(prefix)/lib/libb32/libm020/libm881/libnix
-#	$(INSTALL) libb32881/misc/*.o $(prefix)/lib/libb32/libm020/libm881/libnix
-#	$(INSTALL) libb32060/*/lib*.a $(prefix)/lib/libb32/libm060/libnix
-#	$(INSTALL) libb32060/misc/*.o $(prefix)/lib/libb32/libm060/libnix
+	$(INSTALL) startup/*.o $(libdir)/libnix
+	$(INSTALL) lib/*/lib*.a $(libdir)/libnix
+	$(INSTALL) lib/misc/*.o $(libdir)/libnix
+	$(INSTALL) libb/*/lib*.a $(libdir)/libb/libnix
+	$(INSTALL) libb/misc/*.o $(libdir)/libb/libnix
+	$(INSTALL) lib020/*/lib*.a $(libdir)/libm020/libnix
+	$(INSTALL) lib020/misc/*.o $(libdir)/libm020/libnix
+	$(INSTALL) libb020/*/lib*.a $(libdir)/libb/libm020/libnix
+	$(INSTALL) libb020/misc/*.o $(libdir)/libb/libm020/libnix
+	$(INSTALL) lib881/*/lib*.a $(libdir)/libm020/libm881/libnix
+	$(INSTALL) lib881/misc/*.o $(libdir)/libm020/libm881/libnix
+	$(INSTALL) libb881/*/lib*.a $(libdir)/libb/libm020/libm881/libnix
+	$(INSTALL) libb881/misc/*.o $(libdir)/libb/libm020/libm881/libnix
+#	$(INSTALL) lib060/*/lib*.a $(libdir)/libm060/libnix
+#	$(INSTALL) lib060/misc/*.o $(libdir)/libm060/libnix
+#	$(INSTALL) libb060/*/lib*.a $(libdir)/libb/libm060/libnix
+#	$(INSTALL) libb060/misc/*.o $(libdir)/libb/libm060/libnix
+#	$(INSTALL) libb32/*/lib*.a $(libdir)/libb32/libm020/libnix
+#	$(INSTALL) libb32/misc/*.o $(libdir)/libb32/libm020/libnix
+#	$(INSTALL) libb32881/*/lib*.a $(libdir)/libb32/libm020/libm881/libnix
+#	$(INSTALL) libb32881/misc/*.o $(libdir)/libb32/libm020/libm881/libnix
+#	$(INSTALL) libb32060/*/lib*.a $(libdir)/libb32/libm060/libnix
+#	$(INSTALL) libb32060/misc/*.o $(libdir)/libb32/libm060/libnix
 	$(INSTALL_DATA) *.info* $(infodir)
 	$(INSTALL_DATA) libnix.guide $(guidedir)/libnix.guide
 
