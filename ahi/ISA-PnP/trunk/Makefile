@@ -14,6 +14,7 @@ CFLAGS		= -m68020-60 -mnobitfield -fomit-frame-pointer \
 LDFLAGS		= -noixemul -nostartfiles
 LIBS		= 
 
+OBJECTS		= main.o init.o controller.o pnp.o pnp_structs.o
 TARGET		= ISA-PnP
 
 
@@ -31,7 +32,7 @@ TARGET		= ISA-PnP
 all:		$(TARGET)
 
 clean:
-		$(RM) *.o $(TARGET) version.h
+		$(RM) $(OBJECTS) $(TARGET) version.h
 
 distclean:	clean
 	$(RM) Makefile.dep
@@ -58,7 +59,7 @@ version.h:	version.rev version.date
 
 ### Real targets ##############################################################
 
-$(TARGET):	main.o init.o controller.o pnp.o
+$(TARGET):	$(OBJECTS)
 	$(CC) $(LDFLAGS) $^ $(LIBS) -o $@
 
 

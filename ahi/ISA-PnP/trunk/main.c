@@ -26,7 +26,7 @@
 #include "isapnp_private.h"
 
 #include "init.h"
-#include "pnp.h"
+#include "pnp_structs.h"
 
 extern struct Resident RomTag;
 

@@ -20,8 +20,8 @@
      MA 02139, USA.
 */
 
-#ifndef	ISA_PNP_pnp_h
-#define ISA_PNP_pnp_h
+#ifndef	ISA_PNP_pnp_structs_h
+#define ISA_PNP_pnp_structs_h
 
 #include "CompilerSpecific.h"
 
@@ -29,8 +29,22 @@
 
 struct ISAPNPBase;
 
-BOOL ASMCALL
-PNPISA_ConfigureCards( REG( a6, struct ISAPNPBase* res ) );
+struct ISAPNP_Card;
+struct ISAPNP_Device;
+
+struct ISAPNP_Card* ASMCALL
+PNPISA_AllocCard( REG( a6, struct ISAPNPBase* res ) );
+
+void ASMCALL
+PNPISA_FreeCard( REG( a0, struct ISAPNP_Card* card ),
+                 REG( a6, struct ISAPNPBase*  res ) );
+
+struct ISAPNP_Device* ASMCALL
+PNPISA_AllocDevice( REG( a6, struct ISAPNPBase* res ) );
+
+void ASMCALL
+PNPISA_FreeDevice( REG( a0, struct ISAPNP_Device* dev ),
+                   REG( a6, struct ISAPNPBase*    res ) );
 
 
-#endif /* ISA_PNP_controller_h */
+#endif /* ISA_PNP_pnp_structs_h */
