@@ -10,6 +10,8 @@
   * support still to come . . .
   */
 
+#define _FILE_OFFSET_BITS 64
+
 #include "sysconfig.h"
 #include "sysdeps.h"
 
@@ -45,7 +47,7 @@ static int hdf_seek (struct hardfiledata *hfd, uae_u64 offset)
 	abort ();
     }
 
-    if (offset >= 0x80000000) {
+    if (offset >= 0x80000000 && _FILE_OFFSET_BITS != 64) {
 	DEBUG_LOG ("Failed to seek passed 2GB limit (0x%llx)\n", offset);
 	return -1;
     }
@@ -71,7 +73,7 @@ static void poscheck (struct hardfiledata *hfd, int len)
     }
 
     pos = lseek ((int)hfd->handle, 0, SEEK_CUR);
-
+//    printf("hfd->offset = %llx, hfd->size = %llx, pos = %llx\n", hfd->offset, hfd->size, pos);
     if (pos == -1 ) {
 	gui_message ("hd: poscheck failed. seek failure, error %d", errno);
 	abort ();
