@@ -48,9 +48,6 @@ start:		movel	a0,d3
 		subal	a2,a2
 		bne	fromCLI
 
-		tstl	___nowbmsg
-		bne	fromCLI
-
 | wb start - get our message
 
 fromWB:		lea	a3@(pr_MsgPort:W),a0

@@ -59,9 +59,6 @@ nobss:
 		tstl	a3@(pr_CLI:W)
 		bne	fromCLI
 
-		tstl	___nowbmsg
-		bne	fromCLI
-
 | wb start - get wbmsg
 
 fromWB:		lea	a3@(pr_MsgPort:W),a0

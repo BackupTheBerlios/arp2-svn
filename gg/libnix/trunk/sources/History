@@ -426,9 +426,14 @@ F 2002-12-30: Added <libnix.h>, which declares lx_select(). Made
   lx_select() global and added an ix_select() alias for some ixemul
   and <ix.h> compatibility. (Martin Blom)
 
-B 20023-01-21: nrcrt0.o was not compiled with -traditional, which made
+B 2003-01-21: nrcrt0.o was not compiled with -traditional, which made
   the /**/ trick fail. Changed /**/ to ## in ncrt0.S and nrcrt0.S and
   removed -traditional. (Martin Blom)
 
-F 20023-01-21: New startup tweak: Use "long __nowbmsg=1" to disable
-  WBenchMsg handling. Useful when writing DOS handlers.
+B 2003-04-29: memcpy() no longer requires SysBase (it's now using
+  bcopy() instead of CopyMem()). (Martin Blom)
+
+F 2004-03-21: Enabled UserFilter in libamiga.a, since it seems to be
+  present in the NDK 3.9 version of amiga.lib. (Martin Blom)
+
+B 2004-06-14: SetSuperAttrs was broken. (Martin Blom)
