@@ -6,6 +6,11 @@
 @include version.texi
 @c %**end of header
 
+@dircategory GeekGadgets programming tools
+@direntry
+* FD2Inline: (fd2inline).        Creates @samp{GNU CC} @samp{inlines}.
+@end direntry
+                              
 @ifinfo
 This is a user's guide to FD2Inline @value{version}, a parser
 converting FD files to GCC ``inlines''.
@@ -305,7 +310,13 @@ Produce @samp{proto} file. If this option is specified, providing
 @file{include/proto} directory.
 
 @item --pos
-Produce p.OS @samp{inlines}.
+Produce p.OS @samp{inlines}. This flag is now obsolete. Use the
+@samp{--target} option instead.
+
+@item --target=TARGET
+Produce @samp{inlines} for the given target. Valid targets are:
+@samp{m68k-amigaos}, @samp{m68k-pos}, @samp{ppc-powerup}
+and @samp{ppc-morphos}.
 
 @item --version
 Print version information and exit.
@@ -833,6 +844,19 @@ stubs (@pxref{Using fd2inline}).
 @cindex History
 @cindex What has changed
 
+Version 1.30,  October 11th, 2001,  Martin Blom
+@itemize @bullet
+@item
+Backported some of Ralphs and Emmanuels updates from
+version 2.00 (the PowerUp and MorphOS support; @samp{--pragma} and
+@samp{--gatestubs} are not included).
+@item
+Added @samp{--quiet}.
+@item
+Fixed tag calls declared @code{const struct TagItem *} instead of
+just @code{const struct TagItem *}.
+@end itemize
+
 Version 1.21,  March 22nd, 1998,  Kamil Iskra
 @itemize @bullet
 @item
@@ -936,6 +960,11 @@ the @samp{inlines} parser. Having no idea about programming in
 @samp{Perl}, I decided to modify the parser written in @samp{C}. I
 fixed all the bugs known to me, added some new features, and wrote
 this terribly long documentation :-).
+
+Ralph Schmidt and Emmanuel Lesueur added PowerUp and MorphOS support
+(version 2.00).
+
+Martin Blom backported some of their work to version 1.xx.
 
 Not all of the files distributed in the @samp{FD2InLine} archives were
 created by me or @samp{FD2InLine}. Most of the files in

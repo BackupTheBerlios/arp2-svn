@@ -71,4 +71,5 @@ AC_SUBST(pos_inlines)
 AC_SUBST(pos_fd_path)
 AC_SUBST(pos_header_path)
 
-AC_OUTPUT(Makefile lib/Makefile)
+mkdir cross
+AC_OUTPUT(Makefile Makefile.cross cross/bin/gg-fix-includes lib/Makefile)
