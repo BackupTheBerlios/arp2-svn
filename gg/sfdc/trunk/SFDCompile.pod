@@ -71,7 +71,7 @@ Generate C prototypes to be placed in F<Include/clib/>.
 
 =item B<dump>
 
-Dumps all information gathered from the SFD file. This is the default.
+Dumps all information gathered from the SFD file.
 
 
 =item B<fd>
@@ -128,6 +128,10 @@ F<libamiga.a>, F<libamigastubs.a> or
 F<libI<E<lt>moduleE<gt>>.a>. Using the B<%f> escape sequence in the
 B<--output> switch or a tool like F<splitasm.awk> strongly is
 recommended.
+
+=item B<verify>
+
+Just loads and parses the SFD file. This is the default.
 
 =back
 
