@@ -87,6 +87,68 @@ static const char *LibExcTable[]=
 };
 static const char *StdLib; /* global lib-name ptr */
 
+#define CLASS		"class"
+#define DEVICE		"device"
+#define GADGET		"gadget"
+#define IMAGE		"image"
+#define RESOURCE	"resource"
+
+static const char *TypeTable[] =
+{
+   "ARexxBase",		CLASS,
+   "DTClassBase",	CLASS,
+   "RequesterBase",	CLASS,
+   "WindowBase",	CLASS,
+
+   "AHIBase",		DEVICE,
+   "ConsoleDevice",	DEVICE,
+   "InputBase",		DEVICE,
+   "RamdriveDevice",	DEVICE,
+   "TimerBase",		DEVICE,
+
+   "BGUIPaletteBase",	GADGET,
+   "ButtonBase",	GADGET,
+   "CheckBoxBase",	GADGET,
+   "ChooserBase",	GADGET,
+   "ColorWheelBase",	GADGET,
+   "ClickTabBase",	GADGET,
+   "DateBrowserBase",	GADGET,
+   "FuelGaugeBase",	GADGET,
+   "GetFileBase",	GADGET,
+   "GetFontBase",	GADGET,
+   "GetScreenModeBase",	GADGET,
+   "IntegerBase",	GADGET,
+   "LayoutBase",	GADGET,
+   "ListBrowserBase",	GADGET,
+   "PaletteBase",	GADGET,
+   "PopCycleBase",	GADGET,
+   "RadioButtonBase",	GADGET,
+   "ScrollerBase",	GADGET,
+   "SliderBase",	GADGET,
+   "SpaceBase",		GADGET,
+   "SpeedBarBase",	GADGET,
+   "StringBase",	GADGET,
+   "TextEditorBase"	GADGET,
+   "TextFieldBase",	GADGET,
+   "VirtualBase",	GADGET,
+
+   "BevelBase",		IMAGE,
+   "BitMapBase",	IMAGE,
+   "DrawListBase",	IMAGE,
+   "GlyphBase",		IMAGE,
+   "LabelBase",		IMAGE,
+   "PenMapBase",	IMAGE,
+
+   "BattClockBase",	RESOURCE,
+   "BattMemBase",	RESOURCE,
+   "CardBase",		RESOURCE,
+   "DiskBase",		RESOURCE,
+   "KeymapBase",	RESOURCE,
+   "MiscBase",		RESOURCE,
+   "PotgoBase"		RESOURCE,
+};
+
+
 /*******************************************
  * just some support functions, no checking
  *******************************************/
@@ -1888,6 +1950,7 @@ main(int argc, char** argv)
    int   closeoutfile=0;
    int   rc = EXIT_FAILURE;
    char *fdfilename=0, *clibfilename=0, *outfilename=0;
+   const char* type = "library";
 
    int count;
    Error lerror;
@@ -2019,6 +2082,7 @@ main(int argc, char** argv)
    
    qsort(arrdefs, count, sizeof arrdefs[0], fD_cmpName);
 
+   if (BaseName[0])
    {
       unsigned int count2;
       StdLib="Library";
@@ -2103,6 +2167,32 @@ main(int argc, char** argv)
    StrUpr(BaseNamU);
    BaseNamC[0]=toupper(BaseNamC[0]);
 
+   if (BaseName[0])
+   {
+      unsigned int count2;
+
+      if (strlen(fdfilename)>6 &&
+	  !strcmp(fdfilename+strlen(fdfilename)-6, "_gc.fd"))
+	 type = GADGET;
+      else if (strlen(fdfilename)>6 &&
+	       !strcmp(fdfilename+strlen(fdfilename)-6, "_ic.fd"))
+	 type = IMAGE;
+      else if (strlen(fdfilename)>6 &&
+	       !strcmp(fdfilename+strlen(fdfilename)-6, "_cl.fd"))
+	 type = CLASS;
+      else
+      {
+	 for (count2=0; count2<sizeof TypeTable/sizeof TypeTable[0]; count2+=2)
+	 {
+	    if (strcmp(BaseName, TypeTable[count2])==0)
+	    {
+	       type=TypeTable[count2+1];
+	       break;
+	    }
+	 }
+      }
+   }
+
    if (outfilename)
    {
       if (!(outfile=fopen(outfilename, "w")))
@@ -2124,8 +2214,11 @@ main(int argc, char** argv)
       fprintf(outfile, "==base _%s\n", BaseName);
       fprintf(outfile, "==basetype struct %s *\n", StdLib);
    }
-   
-   fprintf(outfile, "==libname %s\n", "FIXME: UNKNOWN_MODULE_NAME");
+
+   if (BaseName[0])
+   {
+      fprintf(outfile, "==libname %s.%s\n", BaseNamL, type);
+   }
 
    // We always need this
    fprintf(outfile, "==include <exec/types.h>\n");
