@@ -18,16 +18,33 @@
 #include "CompilerSpecific.h"
 #include "DriverTypes.h"
 
-/*** Definitions, prototypes and global variables ****************************/
+/*** Definitions *************************************************************/
 
-static BOOL Init(void);
-static void ShutDown(void);
+#define PORTNAME        "AHIInOut"
+
+struct Context
+{
+  struct AHIEffMasterVolume MasterVol;
+  ULONG                     MasterVolRC;
+  struct Hook               SoundHook;
+  struct AHIAudioCtrl*      AudioCtrl;
+  UWORD                     CurrentSound;
+  UWORD                     NextSound;
+};
+
+
+/*** Prototypes **************************************************************/
+
+static BOOL Init( void );
+static void ShutDown( void );
 
 static BOOL OpenAHI( void );
 static void CloseAHI( void );
 
-static BOOL AllocAudio( ULONG mode, ULONG freq );
-static void FreeAudio( void );
+static BOOL Construct( struct Context* this );
+static void Destruct( struct Context* this );
+static BOOL AllocAudio( ULONG mode, ULONG freq, struct Context* this );
+static void FreeAudio( struct Context* this );
 
 static HOOKCALL ULONG
 SoundFunc( REG( a0, struct Hook *hook ),
@@ -35,40 +52,13 @@ SoundFunc( REG( a0, struct Hook *hook ),
            REG( a1, struct AHISoundMessage *smsg ) );
 
 
+/*** Global variables ********************************************************/
+
 static struct MsgPort*      AHImp     = NULL;
 static struct AHIRequest*   AHIio     = NULL;
 static BYTE                 AHIDevice = IOERR_OPENFAIL;
 
-static struct AHIAudioCtrl* AudioCtrl = NULL;
-
-static struct AHIEffMasterVolume MasterVol =
-{
-  AHIET_MASTERVOLUME,
-  0x20000
-};
-
-static ULONG MasterVolRC = AHIE_UNKNOWN;
-
-static struct Hook SoundHook =
-{
-  0,0,
-  SoundFunc,
-  NULL,
-  NULL,
-};
-
 struct Library* AHIBase = NULL;
-
-#define PORTNAME        "AHIInOut"
-
-#define MODE_PLAY 0
-#define MODE_REC  1
-
-struct MyData
-{
-  UWORD CurrentSound;
-  UWORD NextSound;
-};
 
 
 /******************************************************************************
@@ -102,18 +92,29 @@ main( void )
 
   LONG lTmp;
 
-  /* Init the hardware. If there is any problem quit without setting up
-     the message port */
+  struct Context context;
+  
+  /* Open 'ahi.device'. */
 
   if( !Init() )
   {
     return RETURN_FAIL;
   }
 
+
+  /* Init the hardware. If there is any problem quit without setting up
+     the message port */
+
+  if( !Construct( &context ) )
+  {
+    ShutDown();
+    return RETURN_FAIL;
+  }
+
   /* Set up the message port */
 
-  port = CreatePort(PORTNAME,0);
-  
+  port = CreatePort( PORTNAME, 0 );
+
   if( port != NULL )
   {
     BOOL fQuit      = FALSE;
@@ -424,12 +425,14 @@ printf( "Timer signal.\n" );
   }
 
 printf( "Exiting... " );
-  if(port)
-    DeletePort(port);
 
+  if( port != NULL )
+  {
+    DeletePort( port );
+  }
+
+  Destruct( &context );
   ShutDown();
-
-printf( "Done.\n" );
   return 0;
 }
 
@@ -442,7 +445,7 @@ Init( void )
 {
   if( OpenAHI() )
   {
-    return AllocAudio( AHI_DEFAULT_ID, AHI_DEFAULT_FREQ );
+    return TRUE;
   }
 
   return FALSE;
@@ -456,7 +459,6 @@ Init( void )
 static void
 ShutDown( void )
 {
-  FreeAudio();
   CloseAHI();
 }
 
@@ -465,7 +467,7 @@ ShutDown( void )
 ** OpenAHI ********************************************************************
 ******************************************************************************/
 
-/* Opens and initializes the device */
+/* Opens and initializes the device. */
 
 static BOOL
 OpenAHI( void )
@@ -503,7 +505,7 @@ OpenAHI( void )
 ** CloseAHI *******************************************************************
 ******************************************************************************/
 
-/* Closes the device, cleans up */
+/* Closes the device, cleans up. */
 
 static void
 CloseAHI( void )
@@ -524,6 +526,35 @@ CloseAHI( void )
 
 
 /******************************************************************************
+** Construct ******************************************************************
+******************************************************************************/
+
+static BOOL
+Construct( struct Context* this )
+{
+  memset( this, 0, sizeof( struct Context ) );
+
+  this->SoundHook.h_Entry = SoundFunc;
+  this->SoundHook.h_Data  = this;
+
+  return AllocAudio( AHI_DEFAULT_ID, 
+                     AHI_DEFAULT_FREQ, 
+                     this );
+}
+
+
+/******************************************************************************
+** Destruct *******************************************************************
+******************************************************************************/
+
+static void
+Destruct( struct Context* this )
+{
+  FreeAudio( this );
+}
+
+
+/******************************************************************************
 ** AllocAudio *****************************************************************
 ******************************************************************************/
 
@@ -531,23 +562,27 @@ CloseAHI( void )
    to change the audio mode. */
 
 static BOOL
-AllocAudio( ULONG mode, ULONG freq )
+AllocAudio( ULONG mode, 
+            ULONG freq,
+            struct Context* this )
 {
-  FreeAudio();
+  FreeAudio( this );
 
-  AudioCtrl = AHI_AllocAudio( AHIA_AudioID,   mode,
-                              AHIA_MixFreq,   freq,
-                              AHIA_Channels,  1,
-                              AHIA_Sounds,    2,
-                              AHIA_SoundFunc, (ULONG) &SoundHook,
-                              TAG_DONE );
+  this->AudioCtrl = AHI_AllocAudio( AHIA_AudioID,   mode,
+                                    AHIA_MixFreq,   freq,
+                                    AHIA_Channels,  1,
+                                    AHIA_Sounds,    2,
+                                    AHIA_SoundFunc, (ULONG) &this->SoundHook,
+                                    TAG_DONE );
 
-  if( AudioCtrl != NULL )
+  if( this->AudioCtrl != NULL )
   {
     /* Raise volume to use the full dynamic range */
 
-    MasterVol.ahie_Effect &= ~AHIET_CANCEL;
-    MasterVolRC = AHI_SetEffect( &MasterVol, AudioCtrl );
+    this->MasterVol.ahie_Effect   = AHIET_MASTERVOLUME;
+    this->MasterVol.ahiemv_Volume = 0x20000;
+    this->MasterVolRC = AHI_SetEffect( &this->MasterVol, 
+                                       this->AudioCtrl );
     return TRUE;
   }
 
@@ -559,17 +594,32 @@ AllocAudio( ULONG mode, ULONG freq )
 ** FreeAudio ******************************************************************
 ******************************************************************************/
 
-/* Deallocates the audio hardware */
+/* Deallocates the audio hardware. */
 
 static void
-FreeAudio( void )
+FreeAudio( struct Context* this )
 {
-  if( MasterVolRC == AHIE_OK && AudioCtrl != NULL )
+  if( this->MasterVolRC == AHIE_OK && this->AudioCtrl != NULL )
   {
-    MasterVol.ahie_Effect |= AHIET_CANCEL;
-    AHI_SetEffect( &MasterVol, AudioCtrl );
+    this->MasterVol.ahie_Effect = AHIET_CANCEL | AHIET_MASTERVOLUME;
+    AHI_SetEffect( &this->MasterVol, 
+                   this->AudioCtrl );
   }
 
-  AHI_FreeAudio( AudioCtrl );
-  AudioCtrl = NULL;
+  AHI_FreeAudio( this->AudioCtrl );
+  this->AudioCtrl = NULL;
+}
+
+/******************************************************************************
+** SoundFunc ******************************************************************
+******************************************************************************/
+
+static HOOKCALL ULONG
+SoundFunc( REG( a0, struct Hook*            hook ),
+           REG( a2, struct AHIAudioCtrl*    actrl ),
+           REG( a1, struct AHISoundMessage* smsg ) )
+{
+  struct Context* this = (struct Context*) hook->h_Data;
+
+  return 0;
 }
