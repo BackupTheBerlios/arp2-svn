@@ -20,7 +20,7 @@ BEGIN {
 	my $prototype = $params{'prototype'};
 	my $sfd       = $self->{SFD};
 
-	if ($$prototype{'type'} !~ /^(stdarg)|(varargs)$/) {
+	if ($$prototype{'type'} ne 'varargs') {
 	    printf "	LP%d%s%s(0x%x, ", $$prototype{'numargs'},
 	    $prototype->{nr} ? "NR" : "",
 	    $prototype->{nb} ? "NB" : "", $$prototype{'bias'};
@@ -46,7 +46,7 @@ BEGIN {
 	my $argnum    = $params{'argnum'};
 	my $sfd       = $self->{SFD};
 
-	if ($$prototype{'type'} !~ /^(stdarg)|(varargs)$/) {
+	if ($$prototype{'type'} ne 'varargs') {
 	    print ", $argtype, $argname, $argreg";
 	}
 	else {
@@ -61,7 +61,7 @@ BEGIN {
 	my $sfd       = $self->{SFD};
 
 	
-	if ($$prototype{'type'} !~ /^(varargs)|(stdarg)$/) {
+	if ($$prototype{'type'} ne 'varargs') {
 
 	    if (!$prototype->{nb}) {
 		print ",\\\n	, $self->{BASE})\n";

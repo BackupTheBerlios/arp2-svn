@@ -41,6 +41,10 @@ BEGIN {
 	    print "#include $inc\n";
 	}
 
+	foreach my $td (@{$$sfd{'typedefs'}}) {
+	    print "typedef $td;\n";
+	}
+
 	print "\n";
 	print "#ifdef __cplusplus\n";
 	print "extern \"C\" {\n";

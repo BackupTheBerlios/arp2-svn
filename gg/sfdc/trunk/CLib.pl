@@ -45,6 +45,10 @@ BEGIN {
 	    print "#include $inc\n";
 	}
 
+	foreach my $td (@{$$sfd{'typedefs'}}) {
+	    print "typedef $td;\n";
+	}
+
 	print "\n";
 	print "#ifdef __cplusplus\n";
 	print "extern \"C\" {\n";
@@ -59,6 +63,11 @@ BEGIN {
 	my %params    = @_;
 	my $prototype = $params{'prototype'};
 	my $sfd       = $self->{SFD};
+	
+	# Don't process private functions
+	if ($prototype->{private}) {
+	    return;
+	}
 	
 	if ($self->{VERSION} != $$prototype{'version'}) {
 	    $self->{VERSION} = $$prototype{'version'};
@@ -85,7 +94,8 @@ BEGIN {
 	print "$$prototype{'return'} $$prototype{'funcname'}($args)";
 
 	if ($$classes{'target'} eq 'morphos' &&
-	    $$prototype{'type'} =~ /^varargs$/ ) {
+	    $$prototype{'type'} eq 'varargs' &&
+	    $$prototype{'subtype'} ne 'tagcall') {
 	    print " __attribute__((varargs68k))";
 	}
 	

@@ -29,7 +29,7 @@ BEGIN {
 	my $prototype = $params{'prototype'};
 	my $sfd       = $self->{SFD};
 
-	if ($prototype->{type} !~ /^(varargs)|(stdarg)$/) {
+	if ($prototype->{type} ne 'varargs') {
 	    print "\n";
 	    print "{\n";
 
@@ -62,7 +62,7 @@ BEGIN {
 	my $argnum    = $params{'argnum'};
 	my $sfd       = $self->{SFD};
 
-	if ($$prototype{'type'} !~ /^(stdarg)|(varargs)$/) {
+	if ($$prototype{'type'} ne 'varargs') {
 	    print "    AROS_LCA($argtype, $argname, " . (uc $argreg) . "),\n";
 	}
 	else {
@@ -76,7 +76,7 @@ BEGIN {
 	my $prototype = $params{'prototype'};
 	my $sfd       = $self->{SFD};
 	
-	if ($$prototype{'type'} !~ /^(varargs)|(stdarg)$/) {
+	if ($$prototype{'type'} ne 'varargs') {
 	    if ($prototype->{nb}) {
 		my $bt = "/* bt */";
 		my $bn = "/* bn */";

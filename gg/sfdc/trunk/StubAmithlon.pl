@@ -61,7 +61,7 @@ BEGIN {
 	my $prototype = $params{'prototype'};
 	my $sfd       = $self->{SFD};
 
-	if ($prototype->{type} !~ /^(varargs)|(stdarg)$/) {
+	if ($prototype->{type} ne 'varargs') {
 	    print "\n";
 	    print "{\n";
 
@@ -88,7 +88,7 @@ BEGIN {
 	my $argreg    = $params{'argreg'};
 	my $argnum    = $params{'argnum'};
 
-	if ($$prototype{'type'} !~ /^(stdarg)|(varargs)$/) {
+	if ($$prototype{'type'} ne 'varargs') {
 	    printf "  __asm(\"movl %%1,%%0\":\"=m\"(_regs.%s)" .
 		":\"ri\"((ULONG)%s));\n", $argreg, $argname;
 	}
@@ -104,7 +104,7 @@ BEGIN {
 	my $sfd       = $self->{SFD};
 
 	
-	if ($$prototype{'type'} !~ /^(varargs)|(stdarg)$/) {
+	if ($$prototype{'type'} ne 'varargs') {
 	    if (!$prototype->{nb}) {
 		print "  __asm(\"movl %1,%0\":\"=m\"(_regs.a6)" .
 		    ":\"ri\"((ULONG)(BASE_NAME)));\n";

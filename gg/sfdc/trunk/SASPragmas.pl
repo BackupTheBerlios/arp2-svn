@@ -63,6 +63,11 @@ BEGIN {
 	my $prototype = $params{'prototype'};
 	my $sfd       = $self->{SFD};
 
+	# Don't process private functions
+	if ($prototype->{private}) {
+	    return;
+	}
+
 	my $regs = '';
 	
 	foreach my $reg (@{$prototype->{regs}}) {

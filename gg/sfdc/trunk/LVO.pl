@@ -29,6 +29,11 @@ BEGIN {
 	my %params    = @_;
 	my $prototype = $params{'prototype'};
 
+	# Don't process private functions
+	if ($prototype->{private}) {
+	    return;
+	}
+	
 	if ($prototype->{type} eq 'function' ||
 	    $prototype->{type} eq 'alias' ) {
 

@@ -42,7 +42,7 @@ BEGIN {
 	my $prototype = $params{'prototype'};
 	my $sfd       = $self->{SFD};
 
-	if ($$prototype{'type'} !~ /^(varargs|stdarg)$/) {
+	if ($$prototype{'type'} ne 'varargs') {
 	    printf "	AROS_LC%d%s(%s, %s, \\\n",
 	    $$prototype{'numargs'}, $prototype->{nb} ? "I" : "",
 	    $$prototype{'return'}, $$prototype{'funcname'};
@@ -58,7 +58,7 @@ BEGIN {
 	my %params    = @_;
 	my $prototype = $params{'prototype'};
 
-	if ($$prototype{'type'} !~ /^(varargs|stdarg)$/) {
+	if ($$prototype{'type'} ne 'varargs') {
 	    my $argtype   = $params{'argtype'};
 	    my $argname   = $params{'argname'};
 	    my $argreg    = $params{'argreg'};
@@ -76,7 +76,7 @@ BEGIN {
 	my $prototype = $params{'prototype'};
 	my $sfd       = $self->{SFD};
 
-	if ($$prototype{'type'} !~ /^(varargs|stdarg)$/) {
+	if ($$prototype{'type'} ne 'varargs') {
 	    if( !$prototype->{nb}) {
 		print "	$$sfd{'basetype'}, $self->{BASE}, ";
 	    }

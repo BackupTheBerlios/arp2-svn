@@ -50,11 +50,18 @@ BEGIN {
 	my $prototype = $params{'prototype'};
 	my $sfd       = $self->{SFD};
 
-	if ($$prototype{'type'} eq 'stdarg') {
-	    print "#ifndef NO_INLINE_STDARG\n";
+	# Don't process private functions
+	if ($prototype->{private}) {
+	    return;
 	}
-	elsif ($$prototype{'type'} eq 'varargs') {
-	    print "#ifndef NO_INLINE_VARARGS\n";
+	
+	if ($$prototype{'type'} eq 'varargs') {
+	    if ($prototype->{subtype} eq 'tagcall') {
+		print "#ifndef NO_INLINE_STDARG\n";
+	    }
+	    else {
+		print "#ifndef NO_INLINE_VARARGS\n";
+	    }
 	}
 	
 	$self->function_define (prototype => $prototype);
@@ -68,11 +75,13 @@ BEGIN {
 	}
 	$self->function_end (prototype => $prototype);
 
-	if ($$prototype{'type'} eq 'stdarg') {
+	if ($$prototype{'type'} eq 'varargs') {
+	    if ($prototype->{subtype} eq 'tagcall') {
 	    print "#endif /* !NO_INLINE_STDARG */\n";
-	}
-	elsif ($$prototype{'type'} eq 'varargs') {
+	    }
+	    else {
 	    print "#endif /* !NO_INLINE_VARARGS */\n";
+	    }
 	}
 
 	print "\n";
@@ -106,17 +115,21 @@ BEGIN {
 	my $sfd       = $self->{SFD};
 	my $nr        = $$prototype{'return'} =~ /^(VOID|void)$/;
 
-	if ($$prototype{'type'} eq 'stdarg') {
-	    my $first_stdargnum = $$prototype{'numargs'} - 2;
-	    my $first_stdarg = $$prototype{'___argnames'}[$first_stdargnum];
+	if ($$prototype{'type'} eq 'varargs') {
+	    if ($prototype->{subtype} eq 'tagcall' ||
+		$prototype->{subtype} eq 'methodcall') {
+		my $first_stdargnum = $$prototype{'numargs'} - 2;
+		my $first_stdarg = $$prototype{'___argnames'}[$first_stdargnum];
 	    
-	    print "	({ULONG _tags[] = { $first_stdarg, __VA_ARGS__ }; ";
-	    print "$$prototype{'real_funcname'}(";	    
-	}
-	elsif ($$prototype{'type'} eq 'varargs' ) {
-	    print "	({ULONG _args[] = { __VA_ARGS__ }; ";
+		printf "	({ULONG _%s[] = { $first_stdarg, __VA_ARGS__ }; ",
+		$prototype->{subtype} eq 'tagcall' ? "_tags" : "_message";
+		print "$$prototype{'real_funcname'}(";
+	    }
+	    else {
+		print "	({ULONG _args[] = { __VA_ARGS__ }; ";
 
-	    print "$$prototype{'real_funcname'}(";
+		print "$$prototype{'real_funcname'}(";
+	    }
 	}
 	else {
 	    my $argtypes = join (', ',@{$$prototype{'argtypes'}});
@@ -146,20 +159,28 @@ BEGIN {
 	my $sfd       = $self->{SFD};
 
 	if ($$prototype{'type'} eq 'varargs') {
-	    if ($argname eq '...') {
-		print "($argtype) _args";
+	    if ($prototype->{subtype} eq 'tagcall' ||
+		$prototype->{subtype} eq 'methodcall') {
+		my $first_stdargnum = $$prototype{'numargs'} - 2;
+
+		# Skip the first stdarg completely
+		if( $argnum != $first_stdargnum ) {
+		    if ($argname eq '...') {
+			if ($prototype->{subtype} eq 'tagcall') {
+			    print "($argtype) _tags";
+			}
+			else {
+			    print "($argtype) _message";
+			}
+		    }
+		    else {
+			print "($argname), ";
+		    }
+		}
 	    }
 	    else {
-		print "($argname), ";
-	    }
-	}
-	elsif ($$prototype{'type'} eq 'stdarg' ) {
-	    my $first_stdargnum = $$prototype{'numargs'} - 2;
-
-	    # Skip the first stdarg completely
-	    if( $argnum != $first_stdargnum ) {
 		if ($argname eq '...') {
-		    print "($argtype) _tags";
+		    print "($argtype) _args";
 		}
 		else {
 		    print "($argname), ";

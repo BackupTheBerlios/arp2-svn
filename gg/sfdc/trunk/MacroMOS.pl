@@ -21,7 +21,7 @@ BEGIN {
 	my $sfd       = $self->{SFD};
 
 	
-	if ($$prototype{'type'} !~ /^(varargs|stdarg)$/) {
+	if ($$prototype{'type'} ne 'varargs') {
 
 	    if (!$prototype->{nb}) {
 		print ",\\\n	, $self->{BASE}";

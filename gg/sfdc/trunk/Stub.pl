@@ -10,6 +10,7 @@ BEGIN {
 	my $class  = ref($proto) || $proto;
 	my $self   = {};
 	$self->{SFD}     = $params{'sfd'};
+	$self->{NEWFILE} = 0;
 	bless ($self, $class);
 	return $self;
     }
@@ -18,11 +19,17 @@ BEGIN {
 	my $self = shift;
 	my $sfd  = $self->{SFD};
 
+	$self->{NEWFILE} = 1;
+
 	print "/* Automatically generated stubs! Do not edit! */\n";
 	print "\n";
 
 	foreach my $inc (@{$$sfd{'includes'}}) {
 	    print "#include $inc\n";
+	}
+
+	foreach my $td (@{$$sfd{'typedefs'}}) {
+	    print "typedef $td;\n";
 	}
 
 	print "\n";
@@ -58,7 +65,12 @@ BEGIN {
 	my $prototype = $params{'prototype'};
 	my $sfd       = $self->{SFD};
 
-	$self->function_proto (prototype => $prototype);
+	# Don't process private functions
+	if ($prototype->{private}) {
+	    return;
+	}
+	
+	$self->function_proto (prototype => $prototype, decl_regular => $self->{NEWFILE} );
 	$self->function_start (prototype => $prototype);
 	for my $i (0 .. $$prototype{'numargs'} - 1 ) {
 	    $self->function_arg (prototype => $prototype,
@@ -70,6 +82,8 @@ BEGIN {
 	$self->function_end (prototype => $prototype);
 
 	print "\n";
+
+	$self->{NEWFILE} = 0;
     }
 
     sub footer {
@@ -95,13 +109,14 @@ BEGIN {
     sub function_proto {
 	my $self     = shift;
 	my %params   = @_;
-	my $prototype = $params{'prototype'};
+	my $prototype    = $params{'prototype'};
+	my $decl_regular = $params{'decl_regular'};
 	my $sfd      = $self->{SFD};
 
-	if ($prototype->{type} =~ /^(varargs)|(stdarg)$/) {
+	if ($prototype->{type} eq 'varargs' && $decl_regular) {
 	    my $rproto = $prototype->{real_prototype};
 
-	    print "$$rproto{'return'} $$rproto{'funcname'}(";
+	    print "__inline $$rproto{'return'} $$rproto{'funcname'}(";
 	    if (!$prototype->{nb}) {
 		if ($$rproto{'numargs'} == 0) {
 		    print "BASE_PAR_DECL0";
@@ -116,7 +131,7 @@ BEGIN {
 	    print "\n";
 	}
 	
-	print "$$prototype{'return'}\n";
+	print "__inline $$prototype{'return'}\n";
 	print "$$prototype{'funcname'}(";
 	if (!$prototype->{nb}) {
 	    if ($$prototype{'numargs'} == 0) {
@@ -140,7 +155,7 @@ BEGIN {
 	print "\n";
 	print "{\n";
 
-	if ($$prototype{'type'} =~ /^(varargs)|(stdarg)$/) {
+	if ($$prototype{'type'} eq 'varargs') {
 	    print "  return $$prototype{'real_funcname'}(BASE_PAR_NAME ";
 	}
 	else {
@@ -177,28 +192,34 @@ BEGIN {
 	my $argstr;
 	
 	if ($$prototype{'type'} eq 'varargs') {
-	    if ($argnum < $$prototype{'numargs'} - 1) {
-		$argstr = $argname;
-	    }
-	    elsif ($argnum == $$prototype{'numargs'} - 1) {
-		my $vartype  = $$prototype{'argtypes'}[$$prototype{'numargs'} - 1];
-		my $argnm = $$prototype{'___argnames'}[$$prototype{'numargs'} - 2];
-		$argstr = "($vartype) (&$argnm + 1)";
-	    }
-	    else {
-		$argstr = '';
-	    }
-	}
-	elsif ($$prototype{'type'} eq 'stdarg') {
-	    if ($argnum < $$prototype{'numargs'} - 2) {
-		$argstr = $argname;
-	    }
-	    elsif ($argnum == $$prototype{'numargs'} - 2) {
-		my $vartype = $$prototype{'argtypes'}[$$prototype{'numargs'} - 1];
-		$argstr = "($vartype) &$argname";
+	    if ($prototype->{subtype} eq 'printfcall') {
+		if ($argnum < $$prototype{'numargs'} - 1) {
+		    $argstr = $argname;
+		}
+		elsif ($argnum == $$prototype{'numargs'} - 1) {
+		    my $vartype  =
+			$$prototype{'argtypes'}[$$prototype{'numargs'} - 1];
+		    my $argnm =
+			$$prototype{'___argnames'}[$$prototype{'numargs'} - 2];
+		    $argstr = "($vartype) (&$argnm + 1)";
+		}
+		else {
+		    $argstr = '';
+		}
 	    }
 	    else {
-		$argstr = '';
+		# tagcall/methodcall
+		if ($argnum < $$prototype{'numargs'} - 2) {
+		    $argstr = $argname;
+		}
+		elsif ($argnum == $$prototype{'numargs'} - 2) {
+		    my $vartype =
+			$$prototype{'argtypes'}[$$prototype{'numargs'} - 1];
+		    $argstr = "($vartype) &$argname";
+		}
+		else {
+		    $argstr = '';
+		}
 	    }
 	}
 	else {

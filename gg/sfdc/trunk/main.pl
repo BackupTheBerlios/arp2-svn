@@ -339,15 +339,18 @@ sub parse_sfd ( $ ) {
 	libname    => '',
 	base       => '',
 	basetype   => 'struct Library *',
-	includes   => (),
-	prototypes => (),
+#	includes   => (),
+#	typedefs   => (),
+#	prototypes => (),
 	basename   => '',
 	BASENAME   => '',
 	Basename   => ''
     };
 
     # Why do I need this????
-    $$result{'includes'} = ();
+    $$result{'prototypes'} = ();
+    $$result{'includes'}   = ();
+    $$result{'typedefs'}   = ();
 
     my $proto_line = '';
     my %proto;
@@ -400,6 +403,13 @@ sub parse_sfd ( $ ) {
 		( my $inc = $_ ) =~ s/==include\s+(.*)\s*/$1/;
 
 		push @{$$result{'includes'}}, $inc;
+		last;
+	    };
+
+	    /==typedef\s+/ && do {
+		( my $td = $_ ) =~ s/==typedef\s+(.*)\s*$/$1/;
+
+		push @{$$result{'typedefs'}}, $td;
 		last;
 	    };
 	    
@@ -475,18 +485,25 @@ sub parse_sfd ( $ ) {
 	
 	if ( $proto_line =~
 	     /.*[A-Za-z0-9_]+\(.*\).*\(([\saAdD][0-7]-?,?)*\)\s*$/ ) {
-	    push @{$$result{'prototypes'}}, {
-		type    => $type,
-		value   => $proto_line,
-		line    => $line_no,
-		private => $private,
-		bias    => $bias,
-		version => $version,
-		comment => $comment
-	    };
+
+	    if ($proto_line =~ /.*\(.*[0-7]-.*\)\s*$/) {
+		print STDERR "Warning: Multiregister function ignored.\n";
+	    }
+	    else {
+		push @{$$result{'prototypes'}}, {
+		    type    => $type,
+		    value   => $proto_line,
+		    line    => $line_no,
+		    private => $private,
+		    bias    => $bias,
+		    version => $version,
+		    comment => $comment
+		    };
+
+		$comment    = '';
+	    }
 
 	    $type       = 'function';
-	    $comment    = '';
 	    $proto_line = '';
 	    $bias += 6;
 	}
@@ -514,8 +531,7 @@ sub parse_sfd ( $ ) {
 	
 	parse_proto ($result, $prototype, $varargs_type);
 
-	if ($$prototype{'type'} ne 'varargs' &&
-	    $$prototype{'type'} ne 'stdarg') {
+	if ($$prototype{'type'} ne 'varargs') {
 	    $varargs_type = $$prototype{'argtypes'}[$#{$$prototype{'argtypes'}}];
 	}
 
@@ -619,25 +635,66 @@ sub parse_proto ( $$$ ) {
     $$prototype{'nr'}      = $$prototype{'return'} =~ /^(VOID|void)$/;
     $$prototype{'nb'}      = $$sfd{'base'} eq '' || $registers =~ /a6/;
 
-    # varags -> stdarg (stdarg is a tag list) Example:
-    # varargs: LONG Printf( STRPTR format, ... );
-    # stdarg: BOOL AslRequestTags( APTR requester, Tag Tag1, ... );
+    $prototype->{subtype}  = '';
 
-    if ($$prototype{'type'} eq 'varargs' &&
-	$varargs_type =~ /^\s*(const|CONST)?\s*struct\s+TagItem\s*\*\s*$/ ) {
-	$$prototype{'type'} = 'stdarg';
+    # varargs sub types:
+    #   printfcall: LONG Printf( STRPTR format, ... );
+    #     All varargs are optional
+    #   tagcall:    BOOL AslRequestTags( APTR requester, Tag Tag1, ... );
+    #     First vararg is a Tag, then a TAG_DONE terminated tag list
+    #   methodcall: ULONG DoGadgetMethod( ... ULONG message, ...);
+    #     First vararg is required.
+
+    if ($prototype->{type} eq 'varargs') {
+	if ($varargs_type =~ /^\s*(const|CONST)?\s*struct\s+TagItem\s*\*\s*$/ ) {
+	    $prototype->{subtype} = 'tagcall';
+
+	    if ($prototype->{numargs} == $prototype->{numregs}) {
+		if (!$quiet) {
+		    print STDERR "Warning: Adding missing Tag argument to " .
+			$prototype->{funcname} . "()\n";
+		}
+		
+		my $last = pop @{$prototype->{args}};
+		push @{$prototype->{args}}, "Tag _tag1" ;
+		push @{$prototype->{args}}, $last;
+
+		++$prototype->{numargs};
+	    }
+	}
+	else {
+	    if ($prototype->{numargs} == $prototype->{numregs}) {
+		$prototype->{subtype} = 'printfcall';
+	    }
+	    elsif ($prototype->{numargs} == $prototype->{numregs} + 1) {
+		$prototype->{subtype} = 'methodcall';
+	    }
+	}
     }
-    
-    # Make sure we have the same number of arguments as registers, or,
-    # if this is a stdarg function, possible one extra, á la "Tag, ..."
-    
-    if ( !($$prototype{'numargs'} == $$prototype{'numregs'} || 
-	   (($$prototype{'type'} eq 'stdarg' ||
-	     $$prototype{'type'} eq 'varargs') &&
-	    $$prototype{'numargs'} == $$prototype{'numregs'} + 1)) ) {
 
+    # Make sure we have the same number of arguments as registers, or,
+    # if this is a varargs function, possible one extra, á la "MethodID, ...".
+    # Tagcalls always have one extra, á la "Tag, ...".
+
+    if (($prototype->{type} eq 'varargs' &&
+	 $prototype->{subtype} eq 'tagcall' &&
+	 $prototype->{numargs} != $prototype->{numregs} + 1 ) ||
+
+	($prototype->{type} eq 'varargs' &&
+	 $prototype->{subtype} eq 'printfcall' &&
+	 $prototype->{numargs} != $prototype->{numregs}) ||
+
+	($prototype->{type} eq 'varargs' &&
+	 $prototype->{subtype} eq 'methodcall' &&
+	 $prototype->{numargs} != $prototype->{numregs} + 1) ||
+
+	($prototype->{type} ne 'varargs' &&
+	 $prototype->{numargs} != $prototype->{numregs})) {
+	
 	print STDERR "Failed to parse arguments/registers on SFD " .
 	    "line $$prototype{'line'}:\n$$prototype{'value'}\n";
+	print STDERR "The number of arguments doesn't match " .
+	    "the number of registers (+1 if tagcall).\n";
 	die;
     }
 

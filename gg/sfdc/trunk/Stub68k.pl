@@ -20,7 +20,7 @@ BEGIN {
 	my $prototype = $params{'prototype'};
 	my $sfd       = $self->{SFD};
 
-	if ($prototype->{type} !~ /^(varargs)|(stdarg)$/) {
+	if ($prototype->{type} ne 'varargs') {
 	    print "\n";
 	    print "{\n";
 
@@ -50,7 +50,7 @@ BEGIN {
 	my $argnum    = $params{'argnum'};
 	my $sfd       = $self->{SFD};
 
-	if ($$prototype{'type'} !~ /^(stdarg)|(varargs)$/) {
+	if ($$prototype{'type'} ne 'varargs') {
 	    print "  register $prototype->{args}[$argnum] __asm(\"$argreg\") " .
 		"= $argname;\n";
 	}
@@ -66,7 +66,7 @@ BEGIN {
 	my $sfd       = $self->{SFD};
 
 	
-	if ($$prototype{'type'} !~ /^(varargs)|(stdarg)$/) {
+	if ($$prototype{'type'} ne 'varargs') {
 	    print "  __asm volatile (\"jsr a6@(-$prototype->{bias}:W)\"\n";
 	    print "  : " .
 		($prototype->{nr} ? "/* No output */" : '"=r" (_res)') . "\n";

@@ -30,6 +30,8 @@ BEGIN {
 	print "\n";
 	print "Include files:		";
 	print join ("\n			", @{$$sfd{'includes'}});
+	print "Type definitions:		";
+	print join ("\n			", @{$$sfd{'typedefs'}});
 	print "\n";
 	print "\n";
     }
