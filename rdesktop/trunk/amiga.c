@@ -823,10 +823,32 @@ amiga_restore_window( void )
 
 
 static int
-amiga_translate_key( int code )
+amiga_translate_key( int code, ULONG qualifier )
 {
   // Good URL:
   // http://panda.cs.ndsu.nodak.edu/~achapwes/PICmicro/keyboard/scancodes1.html
+
+#ifdef __amigaos4__
+  // OS4 handles NumLock internally, so we have to undo it.
+  if (qualifier & IEQUALIFIER_NUMERICPAD) {
+    case 0x5c: code = 0x5c; break;     //  /    
+    case 0x5d: code = 0x5d; break;     //  *    
+    case 0x4a: cdoe = 0x4a; break;     //  -    
+    case 0x70: code = 0x3d; break;     //  7    
+    case 0x4c: code = 0x3e; break;     //  8    
+    case 0x48: code = 0x3f; break;     //  9    
+    case 0x5e: code = 0x5e; break;     //  +    
+    case 0x4f: code = 0x2d; break;     //  4    
+//  case nada: code = 0x2e; break;     //  5 (no keycode sent)
+    case 0x4e: code = 0x2f; break;     //  6    
+    case 0x71: code = 0x1d; break;     //  1    
+    case 0x4d: code = 0x1e; break;     //  2    
+    case 0x49: code = 0x1f; break;     //  3    
+    case 0x43: code = 0x43; break;     //  Enter
+    case 0x47: code = 0x0f; break;     //  0
+    case 0x46: code = 0x3c; break;     //  ,
+  }
+#endif
   
   switch( code )
   {
@@ -950,19 +972,19 @@ amiga_translate_key( int code )
     case 0x46:    // del
       return 0x53 | 0x80;
 
-    case 0x47:    // MOS insert
+    case 0x47:    // MOS/OS4 insert
       return 0x52 | 0x80;
 
-    case 0x48:    // MOS page up
+    case 0x48:    // MOS/OS4 page up
       return 0x49 | 0x80;
 
-    case 0x49:    // MOS page down
+    case 0x49:    // MOS/OS4 page down
       return 0x51 | 0x80;
       
     case 0x4a:    // kp -
       return 0x4a;
 
-    case 0x4b:    // MOS f11
+    case 0x4b:    // MOS/OS4 f11
       return 0x57;
       
     case 0x4c:    // up arrow
@@ -1048,6 +1070,9 @@ amiga_translate_key( int code )
     case 0x6d:    // OS4 print screen
       return 0x37 | 0x80;
 
+    case 0x79:    // OS4 num lock
+      return 0x45;
+
 #else
 
     case 0x6b:	  // MOS scroll lock
@@ -1060,34 +1085,39 @@ amiga_translate_key( int code )
       return 0x45;
 #endif
 
-//    case 0x6e:    // MOS/OS4 pause // There is no Break scancode?
-//      return 0x46 | 0x80; // This is not Pause, it's Break ...
+    case 0x6e:    // MOS/OS4 pause
+      if (qualifier & IEQUALIFIER_CONTROL) {
+	return 0x46 | 0x80;	      // Map to Break
+      }
+      else {
+	break;
+      }
       
-    case 0x6f:    // MOS f12
+    case 0x6f:    // MOS/AOS4 f12
       return 0x58;
       
-    case 0x70:    // MOS home
+    case 0x70:    // MOS/OS4 home
       return 0x47 | 0x80;
 
-    case 0x71:    // MOS end
+    case 0x71:    // MOS/OS4 end
       return 0x4f | 0x80;
 
-    case 0x72:    // MOS CDTV stop
+    case 0x72:    // MOS/CDTV stop
       return  0x24 | 0x80;
       
-    case 0x73:    // MOS CDTV play
+    case 0x73:    // MOS/CDTV play
       return 0x22 | 0x80;
       
-    case 0x74:    // MOS CDTV prev
+    case 0x74:    // MOS/CDTV prev
       return 0x10 | 0x80;
       
-    case 0x75:    // MOS CDTV next
+    case 0x75:    // MOS/CDTV next
       return 0x19 | 0x80;
       
-    case 0x76:    // MOS CDTV rew
+    case 0x76:    // MOS/CDTV rew
       return 0x2e | 0x80;             // Map to volume down
       
-    case 0x77:    // MOS CDTV ff
+    case 0x77:    // MOS/CDTV ff
       return 0x30 | 0x80;             // Map to volume up
       
     default:
@@ -1897,7 +1927,8 @@ ui_select(int rdp_socket)
                 flag = KBD_FLAG_DOWN;
               }
 
-	      scancode = amiga_translate_key( msg->Code & ~0x80 );
+	      scancode = amiga_translate_key( msg->Code & ~0x80,
+					      msg->Qualifier );
 
               if( scancode == 0 )
                 break;

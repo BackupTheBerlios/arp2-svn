@@ -1,3 +1,10 @@
+2005-01-28  Martin Blom  <martin@blom.org>
+
+	* Ctrl-Pause now sends Break.
+
+	* Added NumLock support in OS4, thanks to info from Jörg
+	Strohmayer.
+
 2005-01-26  Martin Blom  <martin@blom.org>
 
 	* NewMouse support was accidentally disabled in the m68k build.
