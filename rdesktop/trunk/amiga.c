@@ -52,16 +52,16 @@
 #ifdef __MORPHOS__
 # include <intuition/extensions.h>
 #else
-#define __MORPHOS__
-#define WA_ExtraGadget_Iconify (WA_Dummy + 153)
-#define ETI_Dummy               (0xFFD0)
-#define ETI_Iconify             (ETI_Dummy)
-#define HideWindow(___win) \
-       LP1NR(0x34e, HideWindow, struct Window *, ___win, a0,\
-       , INTUITION_BASE_NAME)
-#define ShowWindow(___win) \
-       LP1NR(0x348, ShowWindow, struct Window *, ___win, a0,\
-       , INTUITION_BASE_NAME)
+/* #define __MORPHOS__ */
+/* #define WA_ExtraGadget_Iconify (WA_Dummy + 153) */
+/* #define ETI_Dummy               (0xFFD0) */
+/* #define ETI_Iconify             (ETI_Dummy) */
+/* #define HideWindow(___win) \ */
+/*        LP1NR(0x34e, HideWindow, struct Window *, ___win, a0,\ */
+/*        , INTUITION_BASE_NAME) */
+/* #define ShowWindow(___win) \ */
+/*        LP1NR(0x348, ShowWindow, struct Window *, ___win, a0,\ */
+/*        , INTUITION_BASE_NAME) */
 #endif
 
 extern int  g_width;
@@ -134,9 +134,18 @@ amiga_get_blt_buffer( ULONG length )
   if( length > amiga_blt_length )
   {
 //    printf( "amiga_blt_buffer grows from %d to %d bytes\n", amiga_blt_length, length );
-    amiga_blt_length = length;
     FreeVec( amiga_blt_buffer );
-    amiga_blt_buffer = AllocVec( amiga_blt_length, MEMF_ANY );
+    amiga_blt_buffer = AllocVec( length, MEMF_ANY );
+
+    if( amiga_blt_buffer == NULL )
+    {
+      error( "amiga_get_blt_buffer: Unable to allocate %d bytes.\n", length );
+      amiga_blt_length = 0;
+    }
+    else
+    {
+      amiga_blt_length = length;
+    }
   }
 
   return amiga_blt_buffer;
@@ -944,7 +953,7 @@ ui_init(void)
 
       if( ! AslRequestTags( req, TAG_DONE ) )
       {
-	error( "ui_init: Requester canceled.\n" );
+//	error( "ui_init: Requester canceled.\n" );
 	return False;
       }
   
@@ -1031,7 +1040,7 @@ ui_init(void)
   //   amiga version of rdesktop).
   // * If window mode, amiga_bpp is taken from the public screen.
   //
-  // Now, set g_server_bpp to something appropriate if 0.
+  // Now, set g_server_bpp to something appropriate.
   
   switch( amiga_bpp )
   {
@@ -1359,8 +1368,9 @@ ui_select(int rdp_socket)
 	    {
 	      RemoveAppIcon( amiga_app_icon );
 	      amiga_app_icon = NULL;
-	      
+#ifdef __MORPHOS__	      
 	      ShowWindow( amiga_window );
+#endif
 	    }
 	  }
 
