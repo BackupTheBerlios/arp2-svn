@@ -9,6 +9,17 @@ FD2SFD=${bindir}/fd2sfd
 SFDC=${bindir}/sfdc
 SPLITASM="awk -f ${fd2sfddir}/splitasm.awk"
 
+SEDPRAGMA='s/\([ \t]*\)#\([ \t]*\)\(include[ \t].*\)/\1#\2pragma pack(0)\
+\1#\2\3\
+\1#\2pragma pack(2)/'
+
+function fixinclude()
+{
+    (echo "#pragma pack(2)";
+    cat $@;
+     echo "#pragma pack(0)" ) | sed "$SEDPRAGMA"
+}
+
 ERROR="\e[31m"
 INFO="\e[32m"
 NORMAL="\e[0m"
@@ -50,7 +61,7 @@ fi
 if [ ${CHECK} ]; then
   for sfd_dir in ${prefix}/os-lib/sfd/*; do
     if [ -d ${sfd_dir} ]; then
-      files=`ls ${sfd_dir}/*_*.[Ss][Ff][Dd]`;
+      files=`ls ${sfd_dir}/*_*.[Ss][Ff][Dd] 2>/dev/null`;
       if [ ! -z "${files}" ]; then 
         ${SFDC} --quiet --mode=verify ${files} || exit 10
       fi
@@ -78,7 +89,7 @@ for fd_dir in ${prefix}/os-lib/fd/*; do
       mkdir ${prefix}/os-lib/sfd/${package} || exit 10
     fi
   
-    for fd in `ls ${fd_dir}/*_*.[Ff][Dd]`; do
+    for fd in `ls ${fd_dir}/*_*.[Ff][Dd] 2>/dev/null`; do
       base=`echo "${fd}" | sed -e "s,${fd_dir}/\(.*\)_\(.*\)\...,\1,"`
       clib="${prefix}/os-include/${package}/clib/${base}_protos.h"
 
@@ -134,12 +145,11 @@ for gcc in ${bindir}/*-*-gcc; do
   case "${target}" in
    i?86be-amithlon)
      PACKAGES=`cd ${prefix}/os-lib/sfd && echo {amigaos,3rd-amithlon,3rd}`
-     echo $PACKAGES
      CC="${target}-gcc -Os -fomit-frame-pointer"
      AS="${target}-as"
      AR="${target}-ar"
      SFDC_OS="ix86be-amithlon"
-     FIXINCLUDE="perl ${fd2sfddir}/geninclude.pl"
+     FIXINCLUDE="fixinclude"
      ;;
    m68k-amigaos)
      PACKAGES=`cd ${prefix}/os-lib/sfd && echo {amigaos,3rd-amigaos,3rd}`
@@ -155,7 +165,7 @@ for gcc in ${bindir}/*-*-gcc; do
      AS="${target}-as"
      AR="${target}-ar"
      SFDC_OS="${target}"
-     FIXINCLUDE="perl ${fd2sfddir}/geninclude.pl"
+     FIXINCLUDE="fixinclude"
      ;;
    *)
      SFDC_OS="X"
@@ -171,14 +181,14 @@ for gcc in ${bindir}/*-*-gcc; do
    echo -e "${INFO}*** Target ${target}${ERROR}"
 
    if [ ${INCLUDE} ]; then
-     rm -r ${prefix}/${target}/sys-include
+     rm -r ${prefix}/${target}/sys-include 2>/dev/null
      echo "The sys-include directory is automatically generated. Do no edit!" > ${prefix}/${target}/sys-include.readme
      mkdir ${prefix}/${target}/sys-include
      mkdir ${prefix}/${target}/sys-include/inline
      mkdir ${prefix}/${target}/sys-include/proto
    fi
 
-   if [ ${LIB} ]; then
+   if [ ${LIB} -a -e ${prefix}/${target}/lib/libamigastubs.a ]; then
      rm ${prefix}/${target}/lib/libamigastubs.a
    fi;
 
@@ -195,12 +205,13 @@ for gcc in ${bindir}/*-*-gcc; do
        
        for dir in `cd ${prefix}/os-include/${package} &&
                    find . -type d \
-                     -and -not -ipath "ppcinline*" \
-                     -and -not -ipath "ppcpragma*" \
-                     -and -not -ipath "ppcproto*" \
-                     -and -not -ipath "inline*" \
-                     -and -not -ipath "pragma*" \
-                     -and -not -ipath "proto*"`; do
+                     -and -not -ipath "./ppcinline*" \
+                     -and -not -ipath "./ppcpragma*" \
+                     -and -not -ipath "./ppcproto*" \
+                     -and -not -ipath "./inline*" \
+                     -and -not -ipath "./pragma*" \
+		     -and -not -ipath "./stormpragma*" \
+                     -and -not -ipath "./proto*"`; do
          test -d ${prefix}/${target}/sys-include/${dir} || \
              mkdir ${prefix}/${target}/sys-include/${dir}
        done
@@ -209,12 +220,13 @@ for gcc in ${bindir}/*-*-gcc; do
 
        for header in `cd ${prefix}/os-include/${package} &&
                       find . -iname "*.h" -and -type f \
-                        -and -not -ipath "ppcinline*" \
-                        -and -not -ipath "ppcpragma*" \
-                        -and -not -ipath "ppcproto*" \
-                        -and -not -ipath "inline*" \
-                        -and -not -ipath "pragma*" \
-                        -and -not -ipath "proto*"`; do
+                        -and -not -ipath "./ppcinline*" \
+                        -and -not -ipath "./ppcpragma*" \
+                        -and -not -ipath "./ppcproto*" \
+                        -and -not -ipath "./inline*" \
+                        -and -not -ipath "./pragma*" \
+                        -and -not -ipath "./stormpragma*" \
+                        -and -not -ipath "./proto*"`; do
          echo -ne "${NORMAL}[${header}] ${ERROR}"
          ${FIXINCLUDE} ${prefix}/os-include/${package}/${header} \
             > ${prefix}/${target}/sys-include/${header}
@@ -223,7 +235,7 @@ for gcc in ${bindir}/*-*-gcc; do
        echo; echo
        echo -e "${INFO}  *** Generating inlines and proto files${ERROR}"
 
-       files=`ls ${sfd_dir}/*_*.[Ss][Ff][Dd]`;
+       files=`ls ${sfd_dir}/*_*.[Ss][Ff][Dd] 2>/dev/null`;
 
        if [ ! -z "${files}" ]; then
          ${SFDC} --quiet --mode=macros --target=${SFDC_OS} \
@@ -240,31 +252,30 @@ for gcc in ${bindir}/*-*-gcc; do
       fi
 
       if [ ${LIB} ]; then
-        echo; echo
         echo -e "${INFO}  *** Generating stub libraries${ERROR}"
 
         # Note that we cannot compile the stubs until inlines and prototypes
         # has been generated!
 
-        files=`ls ${sfd_dir}/*_*.[Ss][Ff][Dd]`;
+        files=`ls ${sfd_dir}/*_*.[Ss][Ff][Dd] 2>/dev/null`;
 
         if [ ! -z "${files}" ]; then
 	  ${SFDC} --quiet --mode=stubs --target=${SFDC_OS} \
                   -o ${build_dir}/-stubs-%n.c \
 	          ${files} || exit 10
-	fi
 
-        for source in `ls ${build_dir}/-stubs-*.c`; do
-          base=`echo "${source}" | sed -e "s,${build_dir}/-stubs-\(.*\)\.c,\1,"`
+	  for source in `ls ${build_dir}/-stubs-*.c`; do
+	    base=`echo "${source}" | sed -e "s,${build_dir}/-stubs-\(.*\)\.c,\1,"`
 
-          echo -ne "${NORMAL}[${base}] ${ERROR}"
+	    echo -ne "${NORMAL}[${base}] ${ERROR}"
 	    
-          ${CC} -S ${source} -o ${build_dir}/-stubs-${base}.s && \
-	      ${SPLITASM} -v dest=${build_dir} ${build_dir}/-stubs-${base}.s
+	    ${CC} -S ${source} -o ${build_dir}/-stubs-${base}.s && \
+		${SPLITASM} -v dest=${build_dir} ${build_dir}/-stubs-${base}.s
 
-	  rm ${build_dir}/-stubs-${base}.c
-	  rm ${build_dir}/-stubs-${base}.s
-        done
+	    rm ${build_dir}/-stubs-${base}.c
+	    rm ${build_dir}/-stubs-${base}.s 2>/dev/null
+          done
+	fi
       fi
 
       echo; echo
