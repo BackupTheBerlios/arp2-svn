@@ -79,7 +79,7 @@ main( void )
       }
       else
       {
-#if 0
+#if 1
         if( ! ActivatePUH( pd ) )
         {
           rc = 20;

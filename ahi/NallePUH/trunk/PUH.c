@@ -831,18 +831,44 @@ PatchROMShadowBuffer( struct PUHData* pd )
   union
   {
     void*            m_Void;
-    WORD*            m_Word;
-    LONG*            m_Long;
+    UWORD*           m_Word;
+    ULONG*           m_Long;
     struct Resident* m_Resident;
   } ptr;
 
-  void* end;
+  void*  end;
+
+  ULONG  patches;
+
+  STRPTR module_name;
+  void*  module_rom_start;
+  void*  module_rom_end;
+  void*  module_end;
+
 
   ptr.m_Void = pd->m_ROMShadowBuffer;
   end        = (void*) ( (ULONG) pd->m_ROMShadowBuffer + pd->m_ROMSize );
 
+  patches          = 0;
+  module_name      = NULL;
+  module_rom_start = NULL;
+  module_rom_end   = NULL;
+  module_end       = NULL;
+
   while( ptr.m_Void < end )
   {
+    // Print summary
+
+    if( module_end != NULL && ptr.m_Void >= module_end )
+    {
+      printf( "Patched %ld accesses in module "
+              "%s ($%08lx-$%08lx).\n",
+              patches, module_name, module_rom_start, module_rom_end );
+
+      patches    = 0;
+      module_end = NULL;
+    }
+
     // Check for new module
 
     if( *ptr.m_Word == RTC_MATCHWORD )
@@ -850,26 +876,27 @@ PatchROMShadowBuffer( struct PUHData* pd )
       if( ptr.m_Resident->rt_MatchTag == 
           pd->m_ROM + ( ptr.m_Void - pd->m_ROMShadowBuffer ) )
       {
-        printf( "Found module %s at $%08lx-$%08lx\n", 
-                ptr.m_Resident->rt_Name,
-                (ULONG) ptr.m_Void, 
-                (ULONG) pd->m_ROMShadowBuffer + ( ptr.m_Resident->rt_EndSkip - pd->m_ROM ) );
-      }
- 
-      if( strcmp( ptr.m_Resident->rt_Name, "audio.device" ) == 0 )
-      {
-        printf( "Skipping %s...\n", ptr.m_Resident->rt_Name );
+        module_name      = ptr.m_Resident->rt_Name;
+        module_rom_start = ptr.m_Void - pd->m_ROMShadowBuffer + pd->m_ROM;
+        module_rom_end   = ptr.m_Resident->rt_EndSkip;
+        module_end       = pd->m_ROMShadowBuffer + ( module_rom_end - pd->m_ROM );
 
-        ptr.m_Void += ( ptr.m_Resident->rt_EndSkip - pd->m_ROM );
+        if( strcmp( module_name, "audio.device" ) == 0 )
+        {
+          printf( "Skipping %s ($%08lx-$%08lx).\n", 
+                  module_name, module_rom_start, module_rom_end );
+
+          ptr.m_Void = pd->m_ROMShadowBuffer + ( ptr.m_Resident->rt_EndSkip - pd->m_ROM );
+          continue;
+        }
       }
     }
 
-    if( ( *ptr.m_Long & ~0xfff ) == 0xdff000 )
+    if( ( *ptr.m_Long & ~0x1ff ) == 0xdff000 )
     {
-      *ptr.m_Long = pd->m_Custom + ( *ptr.m_Long & 0xfff );
+      *ptr.m_Long = (ULONG) pd->m_Custom + ( *ptr.m_Long & 0xfff );
 
-      printf( "Patched chip access at $%08lx (%03lx).\n",
-              (ULONG) ptr.m_Void, *ptr.m_Long & 0xfff );
+      ++patches;
     }
 
     // Skip to next word
@@ -1091,6 +1118,7 @@ PUHWrite( UWORD            reg,
     case AUD3DAT:
       WriteWord( address, value );
 
+//      KPrintF( "." );
 //      KPrintF( "Wrote $%04lx to $%08lx.\n", value, (ULONG) pd->m_Intercepted + reg );
       break;
 
