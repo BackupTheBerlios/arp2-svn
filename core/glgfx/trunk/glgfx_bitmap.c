@@ -171,12 +171,11 @@ bool glgfx_bitmap_unlock(struct glgfx_bitmap* bitmap) {
     glBindTexture(GL_TEXTURE_RECTANGLE_EXT, bitmap->texture);
     check_error();
 
-    glTexImage2D(GL_TEXTURE_RECTANGLE_EXT, 0,
-		 formats[bitmap->format].internal_format,
-		 bitmap->width, bitmap->height, 0,
-		 formats[bitmap->format].format,
-		 formats[bitmap->format].type,
-		 NULL);
+    glTexSubImage2D(GL_TEXTURE_RECTANGLE_EXT, 0,
+		    0, 0, bitmap->width, bitmap->height,
+		    formats[bitmap->format].format,
+		    formats[bitmap->format].type,
+		    NULL);
     check_error();
   }
 

@@ -11,7 +11,7 @@ libglgfx_la_SOURCES	= glgfx.c glgfx_monitor.c glgfx_input.c \
 libglgfx_la_CFLAGS	= @DEPS_CFLAGS@
 libglgfx_la_LIBADD	= @DEPS_LIBS@
 
-bin_PROGRAMS		= test
-test_SOURCES		= test.c
-test_CFLAGS		= @DEPS_CFLAGS@
-test_LDADD		= libglgfx.la
+bin_PROGRAMS		= glgfx-test
+glgfx_test_SOURCES	= test.c
+glgfx_test_CFLAGS	= @DEPS_CFLAGS@
+glgfx_test_LDADD	= libglgfx.la @DEPS_LIBS@

@@ -20,8 +20,8 @@ int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) 
 /* EndSection */
 
   if (glgfx_create_monitors()) {
-    int width = 1280;
-    int height = 1024;
+    int width = 640;
+    int height = 480;
     struct glgfx_bitmap* bm = glgfx_bitmap_create(width, height, 24, 0, NULL,
 						  glgfx_pixel_b8g8r8a8, monitors[0]);
 
