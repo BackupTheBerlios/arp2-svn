@@ -1,5 +1,7 @@
 2005-01-05  Martin Blom  <martin@blom.org>
 
+	* Released version 1.3.1cvs (05.01.2005).
+
 	* Added hatch patterns to ui_patblt().
 
 	* The pattern in ui_patblt() seems to be inverted. This fixes the
