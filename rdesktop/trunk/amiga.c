@@ -1459,8 +1459,7 @@ ui_select(int rdp_socket)
 
     n++;
 
-    // CTRL-F is the clipboard hook
-    mask = 1UL << amiga_wb_port->mp_SigBit | SIGBREAKF_CTRL_F;
+    mask = (1UL << amiga_wb_port->mp_SigBit) | amiga_clip_signals;
 
     if( amiga_window != NULL )
     {
@@ -1486,8 +1485,8 @@ ui_select(int rdp_socket)
       return False;
     }
 
-    if (mask & SIGBREAKF_CTRL_F) {
-      cliprdr_send_text_format_announce();
+    if (mask & (amiga_clip_signals)) {
+      amiga_clip_handle_signals();
     }
     
       if( mask & ( 1UL << amiga_wb_port->mp_SigBit ) )
