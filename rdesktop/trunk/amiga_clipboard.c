@@ -106,6 +106,13 @@ amiga_clip_init(void) {
 
 void
 amiga_clip_deinit(void) {
+  if (amiga_clip_clipid != 0) {
+    // We have an outstanding CBD_POST! Write nothing to satisfy it
+    // now, else we risk that clipboard.device sends the SatisfyMsg to
+    // a delallocated port.
+    ui_clip_handle_data("", 0);
+  }
+  
   if (amiga_clip_iffhandle != NULL) {
     FreeIFF(amiga_clip_iffhandle);
   }
@@ -168,6 +175,7 @@ void ui_clip_handle_data(uint8 * data, uint32 length)
     if (OpenIFF(amiga_clip_iffhandle, IFFF_WRITE) == 0) {
 
       amiga_clip_handle->cbh_Req.io_ClipID = amiga_clip_clipid;
+      amiga_clip_clipid = 0;
       
       if (PushChunk(amiga_clip_iffhandle, ID_FTXT, ID_FORM,
 		    IFFSIZE_UNKNOWN) == 0) {

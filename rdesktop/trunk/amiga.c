@@ -95,6 +95,7 @@ static struct Window* amiga_window             = NULL;
 static struct Region* amiga_old_region         = NULL;
 static ULONG          amiga_cursor_colors[ 3 * 3 ];
 static LONG           amiga_pens[ 256 ];
+static LONG           amiga_broken_cursor      = FALSE;
 static LONG           amiga_broken_blitter     = FALSE;
 static APTR           amiga_tmp_buffer         = NULL;
 static ULONG          amiga_tmp_buffer_length  = 0;
@@ -1261,6 +1262,13 @@ ui_init(void)
     }
   }
 
+  // Check for broken cursor handling
+
+  if (OpenResource("amithlon.resource") ||
+      OpenResource("umilator.resource")) {
+    amiga_broken_cursor = TRUE;
+  }
+
   g_width = g_width & ~3;
 
   /* create invisible 1x1 cursor to be used as null cursor */
@@ -2038,9 +2046,11 @@ ui_set_cursor(HCURSOR cursor)
 
   if( c->Pointer != NULL )
   {
-    SetWindowPointer( amiga_window,
-                      WA_Pointer, (ULONG) c->Pointer,
-                      TAG_DONE );
+    if (!amiga_broken_cursor) {
+      SetWindowPointer( amiga_window,
+			WA_Pointer, (ULONG) c->Pointer,
+			TAG_DONE );
+    }
     amiga_last_cursor = cursor;
   }
 }
