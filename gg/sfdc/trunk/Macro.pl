@@ -122,7 +122,7 @@ BEGIN {
 		my $first_stdarg = $$prototype{'___argnames'}[$first_stdargnum];
 	    
 		printf "	({ULONG _%s[] = { $first_stdarg, __VA_ARGS__ }; ",
-		$prototype->{subtype} eq 'tagcall' ? "_tags" : "_message";
+		$prototype->{subtype} eq 'tagcall' ? "tags" : "message";
 		print "$$prototype{'real_funcname'}(";
 	    }
 	    else {
