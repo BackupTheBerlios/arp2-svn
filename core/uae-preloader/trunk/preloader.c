@@ -61,7 +61,15 @@
  */
 
 #include "config.h"
-#include "wine/port.h"
+//#include "wine/port.h"
+# define __ASM_GLOBAL_FUNC(name,code) \
+      __asm__( ".text\n\t" \
+               ".align 4\n\t" \
+               ".globl " __ASM_NAME(#name) "\n\t" \
+               __ASM_FUNC(#name) "\n" \
+               __ASM_NAME(#name) ":\n\t" \
+               code \
+               "\n\t.previous" );
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -106,9 +114,7 @@
 
 static struct wine_preload_info preload_info[] =
 {
-    { (void *)0x00000000, 0x00110000 },  /* DOS area */
-    { (void *)0x80000000, 0x01000000 },  /* shared heap */
-    { (void *)0x00110000, 0x0fef0000 },  /* default PE exe range (may be set with WINEPRELOADRESERVE) */
+    { (void *)0x00000000, 0xa0000000 },  /* 2.5 GB amiga memory space leaves 512 for UAE, libs, opengl etc */
     { 0, 0 }                             /* end of list */
 };
 
@@ -819,7 +825,7 @@ static void preload_reserve( const char *str )
     else if ((char *)end > preloader_start &&
              (char *)start <= preloader_end)
     {
-        wld_printf( "WINEPRELOADRESERVE range %x-%x overlaps preloader %x-%x\n",
+        wld_printf( "UAEPRELOADRESERVE range %x-%x overlaps preloader %x-%x\n",
                      start, end, preloader_start, preloader_end );
         start = end = NULL;
     }
@@ -830,7 +836,7 @@ static void preload_reserve( const char *str )
     return;
 
 error:
-    fatal_error( "invalid WINEPRELOADRESERVE value '%s'\n", str );
+    fatal_error( "invalid UAEPRELOADRESERVE value '%s'\n", str );
 }
 
 /*
@@ -874,7 +880,7 @@ void* wld_start( void **stack )
 
     pargc = *stack;
     argv = (char **)pargc + 1;
-    if (*pargc < 2) fatal_error( "Usage: %s wine_binary [args]\n", argv[0] );
+    if (*pargc < 2) fatal_error( "Usage: %s uae_binary [args]\n", argv[0] );
 
     /* skip over the parameters */
     p = argv + *pargc + 1;
@@ -882,7 +888,7 @@ void* wld_start( void **stack )
     /* skip over the environment */
     while (*p)
     {
-        static const char res[] = "WINEPRELOADRESERVE=";
+        static const char res[] = "UAEPRELOADRESERVE=";
         if (!wld_strncmp( *p, res, sizeof(res)-1 )) reserve = *p + sizeof(res) - 1;
         p++;
     }
@@ -915,9 +921,9 @@ void* wld_start( void **stack )
 
     /* store pointer to the preload info into the appropriate main binary variable */
     wine_main_preload_info = find_symbol( main_binary_map.l_phdr, main_binary_map.l_phnum,
-                                          "wine_main_preload_info" );
+                                          "uae_main_preload_info" );
     if (wine_main_preload_info) *wine_main_preload_info = preload_info;
-    else wld_printf( "wine_main_preload_info not found\n" );
+    else wld_printf( "uae_main_preload_info not found\n" );
 
 #define SET_NEW_AV(n,type,val) new_av[n].a_type = (type); new_av[n].a_un.a_val = (val);
     SET_NEW_AV( 0, AT_PHDR, (unsigned long)main_binary_map.l_phdr );
