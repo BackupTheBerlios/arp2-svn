@@ -1,7 +1,7 @@
 # @configure_input@
 
 srcdir		= @srcdir@
-rdesktop_srcdir	= $(srcdir)/rdesktop-2004-04-17-0800
+rdesktop_srcdir	= $(srcdir)/rdesktop-2004-04-17-0600
 
 
 CC		= @CC@
