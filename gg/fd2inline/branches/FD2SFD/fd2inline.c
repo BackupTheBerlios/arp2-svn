@@ -1644,12 +1644,11 @@ fD_PrintRegs(FILE* outfile, const fdDef* obj)
 
    if (obj->cfunction)
    {
-      fprintf(outfile, "c");
-      
       if (obj->base)
       {
-	 fprintf(outfile, ",base");
+	 fprintf(outfile, "base,");
       }
+      fprintf(outfile, "sysv");
    }
    if (numregs>0)
    {
@@ -1670,7 +1669,14 @@ fD_write(FILE* outfile, const fdDef* obj,int alias)
 
    DBP(fprintf(stderr, "func %s\n", fD_GetName(obj)));
 
-   numargs=fD_ParamNum(obj);
+   numargs=fD_RegNum(obj);
+
+   if (!numargs)
+     numargs=fD_ParamNum(obj);
+   else if (fD_ParamNum(obj) != numargs && !Quiet)
+     fprintf(stderr, "Warning: %s gets %d params and %d regs!\n",
+	     fD_GetName(obj), fD_ParamNum(obj), numargs);
+     
 
    if ((rettype=fD_GetType(obj))==fD_nostring)
    {
@@ -1743,6 +1749,11 @@ fD_write(FILE* outfile, const fdDef* obj,int alias)
 	 else
 	    sprintf(Buffer, "%s %s",
 		    fD_GetProto(obj, count), fD_GetParam(obj, count));
+
+	 // Workaround varargs in FD file (sysv)
+	 if (strcmp(fD_GetParam(obj, count), "...")==0)
+	   sprintf(Buffer, "...");
+	 
 	 if (count<numargs-1)
 	    fprintf(outfile, "%s, ", Buffer);
 	 else
