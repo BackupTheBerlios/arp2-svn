@@ -72,7 +72,7 @@ const struct Resident RomTag =
 struct Device*          TimerBase     = NULL;
 struct ExecBase*        SysBase       = NULL;
 struct ExpansionBase*   ExpansionBase = NULL;
-struct ISAPNP_Resource* ISAPNPBase    = NULL;
+struct ISAPNPBase*      ISAPNPBase    = NULL;
 struct UtilityBase*     UtilityBase   = NULL;
 
 /* linker can use symbol b for symbol a if a is not defined */
@@ -114,8 +114,8 @@ KPrintFArgs( UBYTE* fmt,
 ** Resource initialization ****************************************************
 ******************************************************************************/
 
-struct ISAPNP_Resource* ASMCALL
-initRoutine( REG( d0, struct ISAPNP_Resource* res ),
+struct ISAPNPBase* ASMCALL
+initRoutine( REG( d0, struct ISAPNPBase* res ),
              REG( a0, APTR                    seglist ),
              REG( a6, struct ExecBase*        sysbase ) )
 {
@@ -177,7 +177,7 @@ KPrintF( "No board address?\n" );
           {
 KPrintF( "Congiguring.\n" );
 
-            // Set up the ISAPNP_Resource structure
+            // Set up the ISAPNPBase structure
 
             res->m_Library.lib_Node.ln_Type = NT_RESOURCE;
             res->m_Library.lib_Node.ln_Name = (STRPTR) ResName;
@@ -243,7 +243,7 @@ static const APTR funcTable[] =
 
 static const APTR InitTable[4] =
 {
-  (APTR) sizeof( struct ISAPNP_Resource ),
+  (APTR) sizeof( struct ISAPNPBase ),
   (APTR) &funcTable,
   0,
   (APTR) initRoutine

@@ -45,14 +45,14 @@ asm( "jmp _ResourceEntry" );
 int 
 ResourceEntry( void )
 {
-  struct ISAPNP_Resource* ISAPNPBase;
+  struct ISAPNPBase* ISAPNPBase;
 
   if( ! OpenLibs() )
   {
     return 20;
   }
 
-  ISAPNPBase = (struct ISAPNP_Resource* ) OpenResource( ISAPNPNAME );
+  ISAPNPBase = (struct ISAPNPBase* ) OpenResource( ISAPNPNAME );
 
   if( ISAPNPBase != NULL )
   {

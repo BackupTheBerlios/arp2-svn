@@ -27,70 +27,70 @@
 
 #include <exec/types.h>
 
-struct ISAPNP_Resource;
+struct ISAPNPBase;
 
 void ASMCALL
-ISAC_SetMasterInt( REG( d0, BOOL                    on ),
-                   REG( a6, struct ISAPNP_Resource* res ) );
+ISAC_SetMasterInt( REG( d0, BOOL               on ),
+                   REG( a6, struct ISAPNPBase* res ) );
 
 BOOL ASMCALL
-ISAC_GetMasterInt( REG( a6, struct ISAPNP_Resource* res ) );
+ISAC_GetMasterInt( REG( a6, struct ISAPNPBase* res ) );
 
 
 void ASMCALL
-ISAC_SetWaitState( REG( d0, BOOL                    on ),
-                   REG( a6, struct ISAPNP_Resource* res ) );
+ISAC_SetWaitState( REG( d0, BOOL               on ),
+                   REG( a6, struct ISAPNPBase* res ) );
 
 
 BOOL ASMCALL
-ISAC_GetWaitState( REG( a6, struct ISAPNP_Resource* res ) );
+ISAC_GetWaitState( REG( a6, struct ISAPNPBase* res ) );
 
 
 BOOL ASMCALL
-ISAC_GetInterruptStatus( REG( d0, UBYTE                   interrupt ),
-                         REG( a6, struct ISAPNP_Resource* res ) );
+ISAC_GetInterruptStatus( REG( d0, UBYTE              interrupt ),
+                         REG( a6, struct ISAPNPBase* res ) );
 
 UBYTE ASMCALL
-ISAC_GetRegByte( REG( d0, UWORD                   reg ),
-                 REG( a6, struct ISAPNP_Resource* res ) );
+ISAC_GetRegByte( REG( d0, UWORD              reg ),
+                 REG( a6, struct ISAPNPBase* res ) );
 
 
 void ASMCALL
-ISAC_SetRegByte( REG( d0, UWORD                   reg ),
-                 REG( d1, UBYTE                   value ),
-                 REG( a6, struct ISAPNP_Resource* res ) );
+ISAC_SetRegByte( REG( d0, UWORD              reg ),
+                 REG( d1, UBYTE              value ),
+                 REG( a6, struct ISAPNPBase* res ) );
 
 
 UWORD ASMCALL
-ISAC_GetRegWord( REG( d0, UWORD                   reg ),
-                 REG( a6, struct ISAPNP_Resource* res ) );
+ISAC_GetRegWord( REG( d0, UWORD              reg ),
+                 REG( a6, struct ISAPNPBase* res ) );
 
 
 void ASMCALL
-ISAC_SetRegWord( REG( d0, UWORD                   reg ),
-                 REG( d1, UWORD                   value ),
-                 REG( a6, struct ISAPNP_Resource* res ) );
+ISAC_SetRegWord( REG( d0, UWORD              reg ),
+                 REG( d1, UWORD              value ),
+                 REG( a6, struct ISAPNPBase* res ) );
 
 
 UBYTE ASMCALL
-ISAC_ReadByte( REG( d0, ULONG                   address ),
-               REG( a6, struct ISAPNP_Resource* res ) );
+ISAC_ReadByte( REG( d0, ULONG              address ),
+               REG( a6, struct ISAPNPBase* res ) );
 
 
 void ASMCALL
-ISAC_WriteByte( REG( d0, ULONG                   address ),
-                REG( d1, UBYTE                   value ),
-                REG( a6, struct ISAPNP_Resource* res ) );
+ISAC_WriteByte( REG( d0, ULONG              address ),
+                REG( d1, UBYTE              value ),
+                REG( a6, struct ISAPNPBase* res ) );
 
 
 UWORD ASMCALL
-ISAC_ReadWord( REG( d0, ULONG                   address ),
-               REG( a6, struct ISAPNP_Resource* res ) );
+ISAC_ReadWord( REG( d0, ULONG              address ),
+               REG( a6, struct ISAPNPBase* res ) );
 
 
 void ASMCALL
-ISAC_WriteWord( REG( d0, ULONG                   address ),
-                REG( d1, UWORD                   value ),
-                REG( a6, struct ISAPNP_Resource* res ) );
+ISAC_WriteWord( REG( d0, ULONG              address ),
+                REG( d1, UWORD              value ),
+                REG( a6, struct ISAPNPBase* res ) );
 
 #endif /* ISA_PNP_controller_h */

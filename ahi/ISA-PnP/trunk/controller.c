@@ -87,8 +87,8 @@ WriteLong( volatile ULONG* address,
 ******************************************************************************/
 
 void ASMCALL
-ISAC_SetMasterInt( REG( d0, BOOL                    on ),
-                   REG( a6, struct ISAPNP_Resource* res ) )
+ISAC_SetMasterInt( REG( d0, BOOL               on ),
+                   REG( a6, struct ISAPNPBase* res ) )
 {
   UWORD* reg2 = (UWORD*)( res->m_Base + 0x18002 );
 
@@ -104,7 +104,7 @@ ISAC_SetMasterInt( REG( d0, BOOL                    on ),
 
 
 BOOL ASMCALL
-ISAC_GetMasterInt( REG( a6, struct ISAPNP_Resource* res ) )
+ISAC_GetMasterInt( REG( a6, struct ISAPNPBase* res ) )
 {
   UWORD* reg1 = (UWORD*)( res->m_Base + 0x18000 );
 
@@ -113,8 +113,8 @@ ISAC_GetMasterInt( REG( a6, struct ISAPNP_Resource* res ) )
 
 
 void ASMCALL
-ISAC_SetWaitState( REG( d0, BOOL                    on ),
-                   REG( a6, struct ISAPNP_Resource* res ) )
+ISAC_SetWaitState( REG( d0, BOOL               on ),
+                   REG( a6, struct ISAPNPBase* res ) )
 {
 #if 0
   UBYTE* reg3 = (UBYTE*) ( isa_Base + 0x18007 );
@@ -129,7 +129,7 @@ ISAC_SetWaitState( REG( d0, BOOL                    on ),
 
 
 BOOL ASMCALL
-ISAC_GetWaitState( REG( a6, struct ISAPNP_Resource* res ) )
+ISAC_GetWaitState( REG( a6, struct ISAPNPBase* res ) )
 {
   UWORD* reg1 = (UWORD*)( res->m_Base + 0x18000 );
 
@@ -138,8 +138,8 @@ ISAC_GetWaitState( REG( a6, struct ISAPNP_Resource* res ) )
 
 
 BOOL ASMCALL
-ISAC_GetInterruptStatus( REG( d0, UBYTE                   interrupt ),
-                         REG( a6, struct ISAPNP_Resource* res ) )
+ISAC_GetInterruptStatus( REG( d0, UBYTE              interrupt ),
+                         REG( a6, struct ISAPNPBase* res ) )
 {
   UWORD* reg1 = (UWORD*)( res->m_Base + 0x18000 );
 
@@ -184,25 +184,25 @@ ISAC_GetInterruptStatus( REG( d0, UBYTE                   interrupt ),
 
 
 UBYTE ASMCALL
-ISAC_GetRegByte( REG( d0, UWORD                   reg ),
-                 REG( a6, struct ISAPNP_Resource* res ) )
+ISAC_GetRegByte( REG( d0, UWORD              reg ),
+                 REG( a6, struct ISAPNPBase* res ) )
 {
   return ReadByte( res->m_Base + 2 * reg + 1 );
 }
 
 
 void ASMCALL
-ISAC_SetRegByte( REG( d0, UWORD                   reg ),
-                 REG( d1, UBYTE                   value ),
-                 REG( a6, struct ISAPNP_Resource* res ) )
+ISAC_SetRegByte( REG( d0, UWORD              reg ),
+                 REG( d1, UBYTE              value ),
+                 REG( a6, struct ISAPNPBase* res ) )
 {
   WriteByte( res->m_Base + 2 * reg + 1, value );
 }
 
 
 UWORD ASMCALL
-ISAC_GetRegWord( REG( d0, UWORD                   reg ),
-                 REG( a6, struct ISAPNP_Resource* res ) )
+ISAC_GetRegWord( REG( d0, UWORD              reg ),
+                 REG( a6, struct ISAPNPBase* res ) )
 {
   ULONG value;
 
@@ -213,9 +213,9 @@ ISAC_GetRegWord( REG( d0, UWORD                   reg ),
 
 
 void ASMCALL
-ISAC_SetRegWord( REG( d0, UWORD                   reg ),
-                 REG( d1, UWORD                   value ),
-                 REG( a6, struct ISAPNP_Resource* res ) )
+ISAC_SetRegWord( REG( d0, UWORD              reg ),
+                 REG( d1, UWORD              value ),
+                 REG( a6, struct ISAPNPBase* res ) )
 {
   WriteLong( (ULONG*)( res->m_Base + 2 * reg ),
              ( (ULONG)( value & 0xff ) << 16 ) | ( value >> 8 ) );
@@ -223,34 +223,34 @@ ISAC_SetRegWord( REG( d0, UWORD                   reg ),
 
 
 UBYTE ASMCALL
-ISAC_ReadByte( REG( d0, ULONG                   address ),
-               REG( a6, struct ISAPNP_Resource* res ) )
+ISAC_ReadByte( REG( d0, ULONG              address ),
+               REG( a6, struct ISAPNPBase* res ) )
 {
   return ReadByte( res->m_Base + ( ( 2 * address ) & 0xfffff ) + 1 );
 }
 
 
 void ASMCALL
-ISAC_WriteByte( REG( d0, ULONG                   address ),
-                REG( d1, UBYTE                   value ),
-                REG( a6, struct ISAPNP_Resource* res ) )
+ISAC_WriteByte( REG( d0, ULONG              address ),
+                REG( d1, UBYTE              value ),
+                REG( a6, struct ISAPNPBase* res ) )
 {
   WriteByte( res->m_Base + ( ( 2 * address ) & 0xfffff ) + 1, value );
 }
 
 
 UWORD ASMCALL
-ISAC_ReadWord( REG( d0, ULONG                   address ),
-               REG( a6, struct ISAPNP_Resource* res ) )
+ISAC_ReadWord( REG( d0, ULONG              address ),
+               REG( a6, struct ISAPNPBase* res ) )
 {
   return ReadWord( (UWORD*)( res->m_Base + ( ( 2 * address ) & 0xfffff ) ) );
 }
 
 
 void ASMCALL
-ISAC_WriteWord( REG( d0, ULONG                   address ),
-                REG( d1, UWORD                   value ),
-                REG( a6, struct ISAPNP_Resource* res ) )
+ISAC_WriteWord( REG( d0, ULONG              address ),
+                REG( d1, UWORD              value ),
+                REG( a6, struct ISAPNPBase* res ) )
 {
   WriteWord( (UWORD*)( res->m_Base + ( ( 2 * address ) & 0xfffff ) ),
              value );

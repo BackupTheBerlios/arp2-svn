@@ -28,7 +28,7 @@
 
 /* The resource base */
 
-struct ISAPNP_Resource
+struct ISAPNPBase
 {
   struct Library        m_Library;
   UWORD                 m_Pad1;

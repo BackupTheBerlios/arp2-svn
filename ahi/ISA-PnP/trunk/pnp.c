@@ -42,8 +42,8 @@
 ******************************************************************************/
 
 static UBYTE
-GetPnPReg( UBYTE                   pnp_reg,
-           struct ISAPNP_Resource* res )
+GetPnPReg( UBYTE              pnp_reg,
+           struct ISAPNPBase* res )
 {
   ISAC_SetRegByte( PNPISA_ADDRESS, pnp_reg, res );
 
@@ -52,16 +52,16 @@ GetPnPReg( UBYTE                   pnp_reg,
 
 
 static UBYTE
-GetLastPnPReg( struct ISAPNP_Resource* res )
+GetLastPnPReg( struct ISAPNPBase* res )
 {
   return ISAC_GetRegByte( ( res->m_RegReadData << 2 ) | 3, res );
 }
 
 
 static void
-SetPnPReg( UBYTE                   pnp_reg,
-           UBYTE                   value,
-           struct ISAPNP_Resource* res )
+SetPnPReg( UBYTE              pnp_reg,
+           UBYTE              value,
+           struct ISAPNPBase* res )
 {
   ISAC_SetRegByte( PNPISA_ADDRESS,    pnp_reg, res );
   ISAC_SetRegByte( PNPISA_WRITE_DATA, value,   res );
@@ -69,7 +69,7 @@ SetPnPReg( UBYTE                   pnp_reg,
 
 
 static UBYTE
-GetNextResourceData( struct ISAPNP_Resource* res )
+GetNextResourceData( struct ISAPNPBase* res )
 {
   // Poll for data
   while( ( GetPnPReg( PNPISA_REG_STATUS, res ) & PNPISA_SF_AVAILABLE ) == 0 );
@@ -131,7 +131,7 @@ DecodeID( UBYTE* buf, struct ISAPNP_Identifier* res )
 ******************************************************************************/
 
 static void
-SendInitiationKey( struct ISAPNP_Resource* res )
+SendInitiationKey( struct ISAPNPBase* res )
 {
   static const UBYTE key[] =
   {
@@ -157,8 +157,8 @@ SendInitiationKey( struct ISAPNP_Resource* res )
 ******************************************************************************/
 
 static BOOL
-ReadSerialIdentifier( struct ISAPNP_Card*     card,
-                      struct ISAPNP_Resource* res )
+ReadSerialIdentifier( struct ISAPNP_Card* card,
+                      struct ISAPNPBase*  res )
 {
   UBYTE buf[ 9 ] = { 0, 0, 0, 0, 0, 0, 0, 0, 0 };
   int   i;
@@ -221,8 +221,8 @@ ReadSerialIdentifier( struct ISAPNP_Card*     card,
 ******************************************************************************/
 
 static BOOL
-ReadResourceData( struct ISAPNP_Card*     card,
-                  struct ISAPNP_Resource* res )
+ReadResourceData( struct ISAPNP_Card* card,
+                  struct ISAPNPBase*  res )
 {
   UBYTE                 check_sum = 0;
   struct ISAPNP_Device* dev       = NULL;
@@ -431,8 +431,8 @@ ReadResourceData( struct ISAPNP_Card*     card,
 ******************************************************************************/
 
 ULONG
-AddCards( UBYTE                   rd_data_port_value, 
-          struct ISAPNP_Resource* res )
+AddCards( UBYTE              rd_data_port_value, 
+          struct ISAPNPBase* res )
 {
   UBYTE csn = 0;
 
@@ -499,7 +499,7 @@ AddCards( UBYTE                   rd_data_port_value,
 // You should set m_Node.ln_Name. Allocate the string with AllocVec()!
 
 struct ISAPNP_Card* ASMCALL
-PNPISA_AllocCard( REG( a6, struct ISAPNP_Resource* res ) )
+PNPISA_AllocCard( REG( a6, struct ISAPNPBase* res ) )
 {
   struct ISAPNP_Card* card;
 
@@ -517,8 +517,8 @@ PNPISA_AllocCard( REG( a6, struct ISAPNP_Resource* res ) )
 ******************************************************************************/
 
 void ASMCALL
-PNPISA_FreeCard( REG( a0, struct ISAPNP_Card*     card ),
-                 REG( a6, struct ISAPNP_Resource* res ) )
+PNPISA_FreeCard( REG( a0, struct ISAPNP_Card* card ),
+                 REG( a6, struct ISAPNPBase*  res ) )
 {
   struct ISAPNP_Device* dev;
 
@@ -552,7 +552,7 @@ PNPISA_FreeCard( REG( a0, struct ISAPNP_Card*     card ),
 // You should set m_Node.ln_Name. Allocate the string with AllocVec()!
 
 struct ISAPNP_Device* ASMCALL
-PNPISA_AllocDevice( REG( a6, struct ISAPNP_Resource* res ) )
+PNPISA_AllocDevice( REG( a6, struct ISAPNPBase* res ) )
 {
   struct ISAPNP_Device* dev;
 
@@ -571,8 +571,8 @@ PNPISA_AllocDevice( REG( a6, struct ISAPNP_Resource* res ) )
 ******************************************************************************/
 
 void ASMCALL
-PNPISA_FreeDevice( REG( a0, struct ISAPNP_Device*   dev ),
-                   REG( a6, struct ISAPNP_Resource* res ) )
+PNPISA_FreeDevice( REG( a0, struct ISAPNP_Device* dev ),
+                   REG( a6, struct ISAPNPBase*    res ) )
 {
   struct ISAPNP_Identifier* id;
 
@@ -608,7 +608,7 @@ PNPISA_FreeDevice( REG( a0, struct ISAPNP_Device*   dev ),
 ******************************************************************************/
 
 BOOL ASMCALL
-PNPISA_ConfigureCards( REG( a6, struct ISAPNP_Resource* res ) )
+PNPISA_ConfigureCards( REG( a6, struct ISAPNPBase* res ) )
 {
   int read_port_value;
  
