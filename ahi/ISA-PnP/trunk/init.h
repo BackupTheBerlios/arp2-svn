@@ -27,6 +27,10 @@
 
 #include <exec/types.h>
 
+void
+KPrintFArgs( UBYTE* fmt, 
+             LONG*  args );
+
 #define KPrintF( fmt, ... )        \
 ({                                 \
   LONG _args[] = { __VA_ARGS__ };  \
