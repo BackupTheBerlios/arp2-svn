@@ -25,10 +25,10 @@ struct glgfx_bitmap* glgfx_bitmap_create(int width, int height, int bits,
 					 int format, struct glgfx_monitor* monitor);
 void glgfx_bitmap_destroy(struct glgfx_bitmap* bitmap);
 bool glgfx_bitmap_lock(struct glgfx_bitmap* bitmap, bool read, bool write);
-bool glgfx_bitmap_update(struct glgfx_bitmap* bitmap, void* data, size_t size);
-void* glgfx_bitmap_map(struct glgfx_bitmap* bitmap);
-bool glgfx_bitmap_unmap(struct glgfx_bitmap* bitmap);
-bool glgfx_bitmap_unlock(struct glgfx_bitmap* bitmap);
+bool glgfx_bitmap_unlock(struct glgfx_bitmap* bitmap, int x, int y, int width, int height);
+bool glgfx_bitmap_update(struct glgfx_bitmap* bitmap,
+			 int x, int y, int width, int height,
+			 void* data, enum glgfx_pixel_format format, size_t bytes_per_row);
 
 bool glgfx_bitmap_getattr(struct glgfx_bitmap* bm,
 			  enum glgfx_bitmap_attr attr,

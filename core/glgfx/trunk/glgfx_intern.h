@@ -48,7 +48,8 @@ struct glgfx_bitmap {
     enum glgfx_pixel_format format;
     GLuint                  texture;
     GLuint                  pbo;
-    size_t                  size;
+    size_t                  pbo_size;
+    size_t                  pbo_bytes_per_row;
     bool                    locked;
     GLenum                  locked_usage;
     GLenum                  locked_access;
