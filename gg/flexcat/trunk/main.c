@@ -260,6 +260,8 @@ int main ( int argc, char *argv[] )
 
                 if ( lslash == NULL )
                     lslash = cdfile;
+		else
+		    ++lslash;
                 if ( ldot == NULL )
                     ldot = cdfile + strlen ( cdfile );
                 if ( ldot - lslash > 0 )
