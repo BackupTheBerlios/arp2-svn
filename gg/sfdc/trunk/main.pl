@@ -41,7 +41,7 @@ my %targets = (
 	       { target    => 'aros',
 		 macros    => 'MacroAROS',
 		 stubs     => 'StubAROS',
-		 gatestubs => 'Gate'
+		 gatestubs => 'GateAROS'
 	       },
 	       
 	      'i.86be(-pc)?-amithlon' =>

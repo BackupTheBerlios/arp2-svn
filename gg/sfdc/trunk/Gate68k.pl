@@ -22,12 +22,16 @@ BEGIN {
 
 	Gate::print_libproto($sfd, $prototype);
 	print ";\n\n";
-	print "$prototype->{return}\n";
-	print "$gateprefix$prototype->{funcname}(";
     }
     
     sub function_start {
-	# Do nothing
+	my $self      = shift;
+	my %params    = @_;
+	my $prototype = $params{'prototype'};
+	my $sfd       = $self->{SFD};
+
+	print "$prototype->{return}\n";
+	print "$gateprefix$prototype->{funcname}(";
     }
 
     sub function_arg {

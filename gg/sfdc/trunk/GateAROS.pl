@@ -1,8 +1,8 @@
 
-### Class GateMOS: Create a MorphOS gatestub file #############################
+### Class GateAROS: Create an AROS gatestub file ##############################
 
 BEGIN {
-    package GateMOS;
+    package GateAROS;
     use vars qw(@ISA);
     @ISA = qw( Gate );
 
@@ -19,8 +19,7 @@ BEGIN {
 	
 	$self->SUPER::header (@_);
 
-	print "\n";
-	print "#include <emul/emulregs.h>\n";
+	print "#include <aros/libcall.h>\n";
 	print "\n";
     }
 
@@ -32,6 +31,19 @@ BEGIN {
 
 	Gate::print_libproto($sfd, $prototype);
 	print ";\n\n";
+
+	# AROS macros cannot handle function pointer arguments :-(
+
+	for my $i (0 .. $prototype->{numargs} - 1) {
+	    if ($prototype->{argtypes}[$i] =~ /\(\*\)/) {
+		my $typedef  = $prototype->{argtypes}[$i];
+		my $typename = "$sfd->{Basename}_$prototype->{funcname}_fp$i";
+
+		$typedef =~ s/\(\*\)/(*_$typename)/;
+		    
+		print "typedef $typedef;\n";
+	    }
+	}
     }
     
     sub function_start {
@@ -39,10 +51,10 @@ BEGIN {
 	my %params    = @_;
 	my $prototype = $params{'prototype'};
 	my $sfd       = $self->{SFD};
+	my $nb        = $sfd->{base} eq '' || $libarg eq 'none';
 
-	print "$prototype->{return}\n";
-	print "$gateprefix$prototype->{funcname}(void)\n";
-	print "{\n";
+	printf "AROS_LH%d%s(", $prototype->{numargs}, $nb ? "I" : "";
+	print "$prototype->{return}, $gateprefix$prototype->{funcname},\n";
     }
 
     sub function_arg {
@@ -55,8 +67,11 @@ BEGIN {
 	my $argnum    = $params{'argnum'};
 	my $sfd       = $self->{SFD};
 
-	print "  $prototype->{___args}[$argnum] = ($argtype) REG_" .
-	    (uc $argreg) . ";\n";
+	if ($argtype =~ /\(\*\)/) {
+	    $argtype = "_$sfd->{Basename}_$prototype->{funcname}_fp$argnum";
+	}
+	
+	print "	AROS_LHA($argtype, $argname, " . (uc $argreg) . "),\n";
     }
     
     sub function_end {
@@ -64,11 +79,29 @@ BEGIN {
 	my %params    = @_;
 	my $prototype = $params{'prototype'};
 	my $sfd       = $self->{SFD};
+	my $nb        = $sfd->{base} eq '';
 
-	if ($libarg ne 'none' && $sfd->{base} ne '') {
-	    print "  $sfd->{basetype} _base = ($sfd->{basetype}) REG_A6;\n";
+	my $bt = "/* bt */";
+	my $bn = "/* bn */";
+
+	if ($nb) {
+	    for my $i (0 .. $#{$prototype->{regs}}) {
+		if ($prototype->{regs}[$i] eq 'a6') {
+		    $bt = $prototype->{argtypes}[$i];
+		    $bn  =$prototype->{___argnames}[$i];
+		    last;
+		}
+	    }
+	}
+	else {
+	    $bt = $sfd->{basetype};
+	    $bn = "_base";
 	}
 
+	printf "	$bt, $bn, %d, $sfd->{Basename})\n",
+	$prototype->{bias} / 6;
+	
+	print "{\n";
 	print "  return $libprefix$prototype->{funcname}(";
 
 	if ($libarg eq 'first' && $sfd->{base} ne '') {

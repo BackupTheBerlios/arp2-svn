@@ -75,7 +75,6 @@ BEGIN {
 
 	print_libproto($sfd, $prototype);
 	print ";\n\n";	
-	print_gateproto ($sfd, $prototype);
     }
 
     sub function_start {
@@ -84,6 +83,7 @@ BEGIN {
 	my $prototype = $params{'prototype'};
 	my $sfd       = $self->{SFD};
 	
+	print_gateproto ($sfd, $prototype);
 	print "\n";
 	print "{\n";
 	print "  return $libprefix$prototype->{funcname}(";

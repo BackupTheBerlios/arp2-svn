@@ -62,8 +62,6 @@ BEGIN {
 	print ";\n\n";
 	print_gateproto($sfd, $prototype);
 	print ";\n\n";
-	print "$prototype->{return}\n";
-	print "$gateprefix$prototype->{funcname}(struct _Regs* _regs)\n";
     }
     
     sub function_start {
@@ -72,6 +70,8 @@ BEGIN {
 	my $prototype = $params{'prototype'};
 	my $sfd       = $self->{SFD};
 
+	print "$prototype->{return}\n";
+	print "$gateprefix$prototype->{funcname}(struct _Regs* _regs)\n";
 	print "{\n";
     }
 
