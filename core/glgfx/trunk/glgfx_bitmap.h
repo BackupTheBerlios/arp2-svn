@@ -7,17 +7,22 @@
 #include <GL/gl.h>
 
 struct glgfx_bitmap {
-    struct glgfx_monitor* monitor;
-    int                   width;
-    int                   height;
-    int                   depth;
-    int                   flags;
-    int                   format;
-    GLuint                texture;
+    struct glgfx_monitor*   monitor;
+    int                     width;
+    int                     height;
+    int                     bits;
+    int                     flags;
+    enum glgfx_pixel_format format;
+    GLuint                  texture;
+    GLuint                  pbo;
+    size_t                  size;
+    bool                    locked;
+    bool                    locked_write;
+    void*                   locked_memory;
 };
 
 
-struct glgfx_bitmap* glgfx_bitmap_create(int width, int height, int depth,
+struct glgfx_bitmap* glgfx_bitmap_create(int width, int height, int bits,
 					 int flags, struct glgfx_bitmap* friend,
 					 int format, struct glgfx_monitor* monitor);
 void glgfx_bitmap_destroy(struct glgfx_bitmap* bitmap);

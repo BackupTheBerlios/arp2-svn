@@ -1,8 +1,7 @@
 
 CPPFLAGS	= -DDEBUG -W -Wall
 CFLAGS		= -O2 -pthread
-LDLIBS		= -L/usr/X11R6/lib -lX11 -lXxf86vm -lXext -ldl -lGL
-LDFLAGS		= -pthread 
+LDLIBS		= -L/usr/X11R6/lib -lX11 -lXxf86vm -lXext -ldl -lGL -lglut
 
 GLGFX_OBJECTS	= glgfx.o glgfx_monitor.o glgfx_bitmap.o
 GLGFX_TARGET	= glgfx

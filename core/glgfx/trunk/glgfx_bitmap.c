@@ -3,6 +3,7 @@
 #define GL_GLEXT_PROTOTYPES
 #include <GL/gl.h>
 #include <GL/glext.h>
+#include <GL/glu.h>
 
 #include "glgfx_bitmap.h"
 
@@ -10,18 +11,51 @@ struct pixel_info {
     GLint  internal_format;
     GLenum format;
     GLenum type;
+    size_t size;
 };
 
 static struct pixel_info formats[] = {
-  { 3, GL_RGB,  GL_UNSIGNED_BYTE }, // glgfx_pixel_r8g8b8,
-  { 4, GL_RGBA, GL_UNSIGNED_BYTE }, // glgfx_pixel_r8g8b8a8
+  { GL_RGB,  GL_RGB,  GL_UNSIGNED_BYTE, 3 }, // glgfx_pixel_r8g8b8,    RGB,  3 * UBYTE
+  { GL_RGBA, GL_RGBA, GL_UNSIGNED_BYTE, 4 }, // glgfx_pixel_r8g8b8a8,  RGBA, 4 * UBYTE
+  { GL_RGB,  GL_BGR,  GL_UNSIGNED_BYTE, 3 }, // glgfx_pixel_b8g8r8,    BGR,  3 * UBYTE
+  { GL_RGBA, GL_BGRA, GL_UNSIGNED_BYTE, 4 }, // gqlgfx_pixel_b8g8r8a8   BGRA, 4 * UBYTE
 };
 
-static enum glgfx_pixel_format select_format(int depth, struct glgfx_bitmap* friend, int format) {
-  return friend != NULL ? friend->format : format;
+#define check_error() _check_error(__PRETTY_FUNCTION__, __FILE__, __LINE__);
+static void _check_error(char const* func, char const* file, int line) {
+  GLenum error = glGetError();
+
+  if (error != 0) {
+    char const* msg = gluErrorString(error);
+    
+    BUG("OpenGL error %d %s:%d (%s): %s\n", error, file, line, func, msg);
+    abort();
+  }
 }
 
-struct glgfx_bitmap* glgfx_bitmap_create(int width, int height, int depth,
+static enum glgfx_pixel_format select_format(int bits __attribute__((unused)),
+					     struct glgfx_bitmap* friend,
+					     enum glgfx_pixel_format format) {
+  enum glgfx_pixel_format fmt = friend != NULL ? friend->format : format;
+
+  if (fmt <= glgfx_pixel_unknown || fmt >= glgfx_pixel_max) {
+    abort();
+  }
+
+  return fmt;
+}
+
+static size_t glgfx_texture_size(int width, int height, enum glgfx_pixel_format format) {
+  if (format <= glgfx_pixel_unknown || format >= glgfx_pixel_max ||
+    width < 0 || height < 0) {
+    BUG("width: %d; height: %d; format: %d\n", width, height, format);
+    abort();
+  }
+
+  return width * height * formats[format].size;
+}
+
+struct glgfx_bitmap* glgfx_bitmap_create(int width, int height, int bits,
 					 int flags, struct glgfx_bitmap* friend,
 					 int format, struct glgfx_monitor* monitor) {
   struct glgfx_bitmap* bitmap;
@@ -37,21 +71,29 @@ struct glgfx_bitmap* glgfx_bitmap_create(int width, int height, int depth,
   bitmap->monitor = monitor;
   bitmap->width   = width;
   bitmap->height  = height;
-  bitmap->depth   = depth;
+  bitmap->bits    = bits;
   bitmap->flags   = flags;
-  bitmap->format  = select_format(depth, friend, format);
+  bitmap->format  = select_format(bits, friend, format);
+  bitmap->size    = glgfx_texture_size(width, height, bitmap->format);
 
   glGenTextures(1, &bitmap->texture);
+  check_error();
 
-  glBindTexture(GL_TEXTURE_RECTANGLE_EXT, bitmap->texture);
-  glTexImage2D(GL_TEXTURE_RECTANGLE_EXT, 0,
+  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, bitmap->texture);
+  check_error();
+
+  glTexImage2D(GL_TEXTURE_RECTANGLE_ARB, 0,
 	       formats[bitmap->format].internal_format,
-	       width, height, 0, 
+	       width, height, 0,
 	       formats[bitmap->format].format,
 	       formats[bitmap->format].type,
 	       NULL);
-  glEnable(GL_TEXTURE_RECTANGLE_EXT);
+  check_error();
 
+  glEnable(GL_TEXTURE_RECTANGLE_ARB);
+  check_error();
+
+  D(BUG("Returning bitmap %p\n", bitmap));
   return bitmap;
 }
 
@@ -60,10 +102,109 @@ void glgfx_bitmap_destroy(struct glgfx_bitmap* bitmap) {
     return;
   }
 
+  glDeleteBuffers(1, &bitmap->pbo);
   glDeleteTextures(1, &bitmap->texture);
   free(bitmap);
 }
 
-bool glgfx_bitmap_select(struct glgfx_bitmap* bitmap);
-bool glgfx_bitmap_waitblit(struct glgfx_bitmap* bitmap);
+bool glgfx_bitmap_lock(struct glgfx_bitmap* bitmap, bool read, bool write) {
+  GLenum usage;
+  GLenum access;
+  
+  if (bitmap == NULL) {
+    return false;
+  }
+
+  if (read) {
+    BUG("No EXT_framebuffer_object yet!\n");
+  }
+  
+  if (read && write) {
+    usage = GL_STREAM_COPY_ARB;
+    access = READ_WRITE_ARB;
+  }
+  else if (!read && write) {
+    usage = GL_STREAM_DRAW_ARB;
+    access = WRITE_ONLY_ARB;
+  }
+  else {
+    usage = GL_STATIC_READ_ARB;
+    access = READ_ONLY_ARB;
+  }
+
+  if (bitmap->pbo == 0) {
+    glGenBuffers(1, &bitmap->pbo);
+    check_error();
+    glBindBuffer(GL_PIXEL_UNPACK_BUFFER_EXT, bitmap->pbo);
+    check_error();
+    glBufferData(GL_PIXEL_UNPACK_BUFFER_EXT, bitmap->size, NULL, usage);
+    check_error();
+    glBindBuffer(GL_PIXEL_UNPACK_BUFFER_EXT, 0);
+  }
+
+  if (read) {
+    glBindBuffer(GL_PIXEL_PACK_BUFFER_EXT, bitmap->pbo);
+    // Read texture data into buffer here
+    glBindBuffer(GL_PIXEL_PACK_BUFFER_EXT, 0);
+  }
+
+  glBindBuffer(GL_PIXEL_UNPACK_BUFFER_EXT, bitmap->pbo);
+  bitmap->locked_memory = glMapBuffer(GL_PIXEL_UNPACK_BUFFER_EXT, access);
+
+  if (bitmap->locked_memory != NULL) {
+    bitmap->locked = true;
+    bitmap->locked_write = write;
+  }
+}
+
+bool glgfx_bitmap_unlock(struct glgfx_bitmap* bitmap) {
+  bool rc = false;
+
+  if (bitmap == NULL || !bitmap->locked) {
+    return false;
+  }
+
+  if (glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER_EXT)) {
+    rc = true;
+  }
+
+  if (bitmap->locked_write) {
+    glBindTexture(GL_TEXTURE_RECTANGLE_ARB, bitmap->texture);
+    check_error();
+
+    glTexImage2D(GL_TEXTURE_RECTANGLE_ARB, 0,
+		 formats[bitmap->format].internal_format,
+		 width, height, 0,
+		 formats[bitmap->format].format,
+		 formats[bitmap->format].type,
+		 NULL);
+    check_error();
+  }
+
+  bitmap->locked = false;
+  bitmap->locked_memory = NULL;
+  bitmap->locked_write = false;
+  glBindBuffer(GL_PIXEL_UNPACK_BUFFER_EXT, 0);
+  check_error();
+  
+  return rc;
+}
+
+bool glgfx_bitmap_select(struct glgfx_bitmap* bitmap) {
+  if (bitmap == NULL) {
+    return false;
+  }
+  
+  abort();
+  return false;
+}
+
+bool glgfx_bitmap_waitblit(struct glgfx_bitmap* bitmap) {
+  if (bitmap == NULL) {
+    return false;
+  }
+
+  glgfx_bitmap_select(bitmap);
+  glFinish();
+}
 

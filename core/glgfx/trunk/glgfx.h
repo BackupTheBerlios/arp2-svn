@@ -22,12 +22,18 @@
 #endif
 
 enum glgfx_pixel_format {
-  glgfx_pixel_r8g8b8,
-  glgfx_pixel_r8g8b8a8
+  glgfx_pixel_unknown,
+  glgfx_pixel_r8g8b8,		// RGB,  3 * UBYTE
+  glgfx_pixel_r8g8b8a8,		// RGBA, 4 * UBYTE
+  glgfx_pixel_b8g8r8,		// BGR,  3 * UBYTE
+  glgfx_pixel_b8g8r8a8,		// BGRA, 4 * UBYTE
+  glgfx_pixel_max
 };
 
 bool glgfx_create_monitors(void);
 void glgfx_destroy_monitors(void);
+bool glgfx_waitblit(void);
+bool glgfx_waittof(void);
 
 bool glopen(void);
 void glclose(void);
