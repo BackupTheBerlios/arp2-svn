@@ -81,14 +81,18 @@ void events_schedule (void)
     }
     nextevent = currcycle + mintime;
 }
+
+#ifdef BLOMCALL
 extern int blomcall_counter;
 extern int blomcall_cycles;
 extern int blomcall_code;
+#endif
 /*
  * Handle all events pending within the next cycles_to_add cycles
  */
 void do_cycles_slow (unsigned int cycles_to_add)
 {
+#ifdef BLOMCALL
   {
   uae_u64 start_time = read_processor_time ();
   static uae_u64 last_time;
@@ -101,6 +105,7 @@ void do_cycles_slow (unsigned int cycles_to_add)
     currcycle_l = currcycle;
   }
   }
+#endif
 
 #ifdef JIT
     if ((pissoff -= cycles_to_add) >= 0)
