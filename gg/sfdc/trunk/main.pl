@@ -68,16 +68,58 @@ sub open_output ( $$ );
 sub will_close_output ( $$ );
 sub close_output ();
 
+my @lf =
+[
+ 'struct Library* LibInit(struct Library* library,' .
+ '                        BPTR seglist,' .
+ '                        struct ExecBase* SysBase)' .
+ '                       (d0,a0,a6)',
+ 'struct Library* LibOpen() ()',
+ 'struct Library* LibClose()()',
+ 'BPTR LibExpunge()()',
+ 'ULONG LibNull()()'
+ ];
+
+my @df  =
+[
+ 'struct Library* DevInit(struct Library* library,' .
+ '                        BPTR seglist,' .
+ '                        struct ExecBase* SysBase)' .
+ '                       (d0,a0,a6)',
+ 'ULONG DevOpen(struct IORequest* ioreq,' .
+ '              ULONG unit,' .
+ '              ULONG flags) (a1,d0,d1)',
+ 'BPTR DevClose(struct IORequest* ioreq) (a1)',
+ 'BPTR DevExpunge() ()',
+ 'ULONG DevNull() ()',
+ 'VOID DevBeginIO(struct IORequest* ioreq) (a1)',
+ 'ULONG DevAbortIO(struct IORequest* ioreq) (a1)'
+ ];
+
+my @bf  =
+[
+ 'struct ClassLibrary* ClassInit(struct ClassLibrary* library,' .
+ '                               BPTR seglist,' .
+ '                               struct ExecBase* SysBase)' .
+ '                              (d0,a0,a6)',
+ 'struct ClassLibrary* ClassOpen() ()',
+ 'struct ClassLibrary* ClassClose()()',
+ 'BPTR ClassExpunge()()',
+ 'ULONG ClassNull()()',
+ ];
+
 my %targets = (
 	      'generic' =>
                { target    => 'generic',
+		 vectors   => { 'library' => @lf, 'device' => @df, 'boopsi' => @bf },
 		 macros    => 'Macro',
 		 stubs     => 'Stub',
-		 gatestubs => 'Gate'
+		 gatestubs => 'Gate',
 	       },
     
 	      '(\w)+(-.*)?-aros' =>
 	       { target    => 'aros',
+		 vectors   => { 'library' => @lf, 'device' => @df, 'boopsi' => @bf },
 		 macros    => 'MacroAROS',
 		 stubs     => 'StubAROS',
 		 gatestubs => 'GateAROS'
@@ -85,6 +127,7 @@ my %targets = (
 	       
 	      'i.86be(-pc)?-amithlon' =>
 	       { target    => 'amithlon',
+		 vectors   => { 'library' => @lf, 'device' => @df, 'boopsi' => @bf },
 		 macros    => 'MacroLP',
 		 stubs     => 'StubAmithlon',
 		 gatestubs => 'GateAmithlon'
@@ -92,6 +135,7 @@ my %targets = (
 	       
 	      'm68k(-unknown)?-amigaos' =>
 	       { target    => 'amigaos',
+		 vectors   => { 'library' => @lf, 'device' => @df, 'boopsi' => @bf },
 		 macros    => 'Macro68k',
 		 stubs     => 'Stub68k',
 		 gatestubs => 'Gate68k'
@@ -99,6 +143,7 @@ my %targets = (
 	       
 	      'p(ower)?pc(-unknown)?-amigaos' =>
 	       { target    => 'amigaos4',
+		 vectors   => { 'library' => @lf, 'device' => @df, 'boopsi' => @bf },
 		 macros    => 'MacroAOS4',
 		 stubs     => 'StubAOS4',
 		 gatestubs => 'GateAOS4'
@@ -106,6 +151,7 @@ my %targets = (
     
 	      'p(ower)?pc(-unknown)?-morphos' =>
 	       { target    => 'morphos',
+		 vectors   => { 'library' => @lf, 'device' => @df, 'boopsi' => @bf },
 		 macros    => 'MacroMOS',
 		 stubs     => 'StubMOS',
 		 gatestubs => 'GateMOS'
@@ -124,6 +170,7 @@ my $gateprefix = '';
 my $help       = '0';
 my $libarg     = 'none';
 my $libprefix  = '';
+my $addvectors = 'none';
 my $man        = '0';
 my $mode       = 'verify';
 my $output     = '-';
@@ -131,7 +178,8 @@ my $quiet      = '0';
 my $target     = 'm68k-unknown-amigaos';
 my $version    = '0';
 
-GetOptions ('gateprefix=s' => \$gateprefix,
+GetOptions ('addvectors=s' => \$addvectors,
+            'gateprefix=s' => \$gateprefix,
             'help|h'       => \$help,
             'libarg=s'     => \$libarg,
             'libprefix=s'  => \$libprefix,
@@ -178,6 +226,12 @@ if (!($mode =~ /^(clib|dump|fd|libproto|lvo|macros|proto|pragmas|stubs|gateproto
 
 if ($libarg !~ /^(first|last|none)$/) {
     pod2usage (-message => "Unknown libarg specified. Use --help for a list.",
+	       -verbose => 0,
+	       -exitval => 10);
+}
+
+if ($addvectors !~ /^(none|library|device|boopsi)$/) {
+    pod2usage (-message => "Unknown addvectors value. Use --help for a list.",
 	       -verbose => 0,
 	       -exitval => 10);
 }
@@ -360,6 +414,22 @@ sub parse_sfd ( $ ) {
     $$result{'includes'}   = ();
     $$result{'typedefs'}   = ();
 
+    if ($addvectors ne 'none') {
+	for my $i ( 0 .. $#{$classes->{vectors}->{$addvectors}} ) {
+	    push @{$$result{'prototypes'}}, {
+		type    => 'function',
+		subtype => $addvectors,
+		value   => $classes->{vectors}->{$addvectors}[$i],
+		line    => 0,
+		private => 0,
+		bias    => 6 * $i,
+		version => 0,
+		comment => ''
+		};
+	}
+    }
+	
+    
     my $proto_line = '';
     my %proto;
 
@@ -501,6 +571,7 @@ sub parse_sfd ( $ ) {
 	    else {
 		push @{$$result{'prototypes'}}, {
 		    type    => $type,
+		    subtype => '',
 		    value   => $proto_line,
 		    line    => $line_no,
 		    private => $private,
@@ -657,8 +728,6 @@ sub parse_proto ( $$$ ) {
 
     $$prototype{'nr'} = $$prototype{'return'} =~ /^(VOID|void)$/;
     
-    $prototype->{subtype}  = '';
-
     # varargs sub types:
     #   printfcall: LONG Printf( STRPTR format, ... );
     #     All varargs are optional

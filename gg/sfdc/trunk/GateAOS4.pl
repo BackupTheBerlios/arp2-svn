@@ -14,6 +14,19 @@ BEGIN {
 	return $self;
     }
 
+    sub header {
+	my $self = shift;
+	my $sfd  = $self->{SFD};
+	
+	$self->SUPER::header (@_);
+
+	print "#define __NOLIBBASE__\n";
+	print "#include <proto/$sfd->{basename}.h>\n";
+	print "#undef __NOLIBBASE__\n";
+	print "#include <stdarg.h>\n";
+	print "\n";
+    }
+
     sub function {
 	my $self     = shift;
 	my %params    = @_;
@@ -43,9 +56,30 @@ BEGIN {
 	my $prototype = $params{'prototype'};
 	my $sfd       = $self->{SFD};
 
-	print "$prototype->{return}\n";
+	print "$prototype->{return}";
+	if ($prototype->{type} eq 'varargs') {
+	    print " VARARGS68K";
+	}
+	print "\n";
 	print "$gateprefix$prototype->{funcname}(";
-	print "struct $sfd->{BASENAME}IFace* _iface"
+	if ($prototype->{type} eq 'function' &&
+	    $prototype->{subtype} =~ /^(library|device|boopsi)$/) {
+	    # Special function prototype
+
+	    if ($prototype->{bias} == 0) {
+		# Do nothing
+	    }
+	    elsif ($prototype->{subtype} eq 'library' ||
+		   $prototype->{subtype} eq 'boopsi') {
+		print "struct LibraryManagerInterface* _iface";
+	    }
+	    elsif( $prototype->{subtype} eq 'device') {
+		print "struct DeviceManagerInterface* _iface";
+	    }
+	}
+	else {
+	    print "struct $sfd->{BASENAME}IFace* _iface";
+	}
     }
 
     sub function_arg {
@@ -58,8 +92,22 @@ BEGIN {
 	my $argnum    = $params{'argnum'};
 	my $sfd       = $self->{SFD};
 
-	print ",\n";
-	print "	$prototype->{___args}[$argnum]";
+	if ($prototype->{subtype} ne 'tagcall' ||
+	    $argnum ne $prototype->{numargs} - 2) {
+
+	    if ($argnum != 0 || $prototype->{bias} != 0) {
+		print ",\n";
+	    }
+
+	    if ($prototype->{subtype} =~ /^(library|device|boopsi)$/ &&
+		$prototype->{bias} == 0 &&
+		$argnum == $prototype->{numargs} - 1 ) {
+		print "	struct ExecIFace* _iface";
+	    }
+	    else {
+		print "	$prototype->{___args}[$argnum]";
+	    }
+	}
     }
     
     sub function_end {
@@ -74,6 +122,13 @@ BEGIN {
 	else {
 	    print ")\n";
 	    print "{\n";
+	    
+	    if ($prototype->{subtype} =~ /^(library|device|boopsi)$/ &&
+		$prototype->{bias} == 0) {
+		print "  $prototype->{___args}[$prototype->{numargs} - 1] = ".
+		    "($prototype->{argtypes}[$prototype->{numargs} - 1]) " .
+		    "_iface->Data.LibBase;\n";
+	    }
 	    
 	    if ($prototype->{type} ne 'varargs') {
 		print "  return $libprefix$prototype->{funcname}(";

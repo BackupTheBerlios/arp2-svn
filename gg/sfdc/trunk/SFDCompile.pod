@@ -12,6 +12,7 @@ sfdc - Compile SFD files into someting useful
 sfdc [options] file1.sfd [file2.sfd ...]
 
   Options:
+    --addvectors=TYPE       Add default functions
     --gateprefix=PREFIX     Prefix for gatestub functions
     --help -h               Show full help message and exit
     --libarg=LOCATION       Where to pass the libbase
@@ -26,6 +27,14 @@ sfdc [options] file1.sfd [file2.sfd ...]
 =head1 OPTIONS
 
 =over 8
+
+
+=item B<--addvectors>
+
+This flag adds the standard library/device/BOOPSI functions to the
+list of function entries to process. Possible values are B<none>,
+B<library>, B<device> and B<boopsi>. The default is B<none>. Useful
+when generating gate stub functions.
 
 
 =item B<--gateprefix>
