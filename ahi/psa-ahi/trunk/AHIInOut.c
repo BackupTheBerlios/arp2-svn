@@ -2,15 +2,18 @@
 
 /*** Include files ************************************************************/
 
+#include <devices/ahi.h>
+#include <dos/dos.h>
 #include <exec/errors.h>
 #include <exec/types.h>
 #include <exec/ports.h>
-#include <devices/ahi.h>
-#include <dos/dos.h>
+#include <intuition/intuition.h>
 
+#include <clib/alib_protos.h>
 #include <proto/ahi.h>
 #include <proto/exec.h>
 #include <proto/dos.h>
+#include <proto/intuition.h>
 
 #include <string.h>
 
@@ -18,6 +21,8 @@
 #include "DriverTypes.h"
 
 /*** Definitions *************************************************************/
+
+#define VERSTR              "1.1"
 
 #define COMMANDF_PLAY       1
 #define COMMANDF_RECORD     2
@@ -35,6 +40,7 @@ struct Context
 
   ULONG                     Mode;
   ULONG                     Frequency;
+  ULONG                     ActualFrequency;
   ULONG                     CanRecord;
   ULONG                     FullDuplex;
   ULONG                     RecordSamples;
@@ -60,8 +66,8 @@ struct Context
 
 /*** Prototypes **************************************************************/
 
-//void kprintf( char* fmt, ... );
-#define kprintf( ... )
+void kprintf( char* fmt, ... );
+//#define kprintf( ... )
 
 static BOOL Init( void );
 static void ShutDown( void );
@@ -84,6 +90,11 @@ RecordFunc( REG( a0, struct Hook*             hook ),
             REG( a2, struct AHIAudioCtrl*     actrl ),
             REG( a1, struct AHIRecordMessage* msg ) );
 
+void
+ReqA( const char* text, APTR args );
+
+#define Req( text, args...) \
+        ( { ULONG _args[] = { args }; ReqA( (text), (APTR) _args ); } )
 
 
 /*** Global variables ********************************************************/
@@ -175,7 +186,7 @@ kprintf( "Got message!\n" );
                  into an 11 char string). Fill free to choose
                  a name for your driver. */
               strncpy( pEIOsg->mpchDrvName, 
-                       INFONAME " 1.0",
+                       INFONAME " " VERSTR,
                        12);
               pEIOsg->lError = EIO_ERR_NOERROR;
 
@@ -271,11 +282,17 @@ kprintf( "EIO_CMD_PLAY or RECORD \n" );
               }
               else
               {
+                Req( "Unsupported number of channels: %ld", 
+                     pEIOsg->wChannels );
+
                 pEIOsg->lError = EIO_ERR_CHANNELS;
               }
             }
             else
             {
+              Req( "Unsupported sample format: %ld", 
+                   pEIOsg->wDataType );
+
               pEIOsg->lError = EIO_ERR_DATATYPE;
             }
 
@@ -325,6 +342,8 @@ kprintf( "Loadsound 0: %lx, %ld\n", si.ahisi_Address, si.ahisi_Length );
                                    &si,
                                    context.AudioCtrl ) != AHIE_OK )
                 {
+                  Req( "AHI_LoadSound( 0 ... ) failed." );
+
                   pEIOsg->lError = EIO_ERR_HARDFAIL;
                 }
                 else
@@ -350,6 +369,8 @@ kprintf( "Loadsound 0: %lx, %ld\n", si.ahisi_Address, si.ahisi_Length );
                                    &si,
                                    context.AudioCtrl ) != AHIE_OK )
                 {
+                  Req( "AHI_LoadSound( 0 ... ) failed." );
+
                   pEIOsg->lError = EIO_ERR_HARDFAIL;
                 }
                 else
@@ -364,6 +385,8 @@ kprintf( "Loadsound 1: %lx, %ld\n", si.ahisi_Address, si.ahisi_Length );
                                      &si,
                                      context.AudioCtrl ) != AHIE_OK )
                   {
+                    Req( "AHI_LoadSound( 1 ... ) failed." );
+
                     pEIOsg->lError = EIO_ERR_HARDFAIL;
                   }
                   else
@@ -407,6 +430,8 @@ kprintf( "EIO_CMD_REC\n" );
 
             if( pEIOsg->lError == EIO_ERR_NOERROR && !context.CanRecord )
             {
+              Req( "Tried to record from non-recordable audio mode." );
+
               pEIOsg->lError = EIO_ERR_HARDFAIL;
             }
 
@@ -421,6 +446,8 @@ kprintf( "EIO_CMD_REC\n" );
 
               if( context.RecordSamples > context.RecordBufferLength )
               {
+                Req( "The requested record buffer is too small." );
+
                 pEIOsg->lError = EIO_ERR_BUFFERSIZE;
               }
 
@@ -455,6 +482,8 @@ kprintf( "AHI_ControlAudio(play/rec/monitor)\n" );
                                     AHIC_MonitorVolume, monitor_volume,
                                     TAG_DONE ) != AHIE_OK )
               {
+                Req( "AHI_ControlAudio() failed." );
+
                 context.Playing   = FALSE;
                 context.Recording = FALSE;
                 pEIOsg->lError    = EIO_ERR_HARDFAIL;
@@ -548,6 +577,11 @@ OpenAHI( void )
     }
   }
 
+  if( ! rc )
+  {
+    Req( "Unable to open AHI version 4." );
+  }
+
   return rc;
 }
 
@@ -587,10 +621,10 @@ Construct( struct Context* this )
 {
   memset( this, 0, sizeof( struct Context ) );
 
-  this->SoundHook.h_Entry  = SoundFunc;
+  this->SoundHook.h_Entry  = (HOOKFUNC) SoundFunc;
   this->SoundHook.h_Data   = this;
 
-  this->RecordHook.h_Entry = RecordFunc;
+  this->RecordHook.h_Entry = (HOOKFUNC) RecordFunc;
   this->RecordHook.h_Data  = this;
 
   /* Pre-allocate the audio hardware, so that nobody steals it... */
@@ -638,18 +672,28 @@ AllocAudio( ULONG mode,
 
   if( this->AudioCtrl != NULL )
   {
-    this->Frequency    = freq;
+    char mode_name[ 256 ];
+
+    this->Frequency = freq;
 
     if( AHI_GetAudioAttrs( AHI_INVALID_ID, this->AudioCtrl,
+                           AHIDB_BufferLen,        sizeof( mode_name ),
                            AHIDB_AudioID,          (ULONG) &this->Mode,
+                           AHIDB_Frequency,        (ULONG) &this->ActualFrequency,
                            AHIDB_MaxRecordSamples, (ULONG) &this->RecordSamples,
                            AHIDB_Record,           (ULONG) &this->CanRecord,
                            AHIDB_FullDuplex,       (ULONG) &this->FullDuplex,
+                           AHIDB_Name,             (ULONG) mode_name,
                            TAG_DONE ) )
     {
 #ifdef ENABLE_RECORD
       if( !this->CanRecord )
       {
+        Req( "The selected mode\n"
+             " (%s, %ld Hz)\n"
+             "does not support recording.", 
+             (ULONG) mode_name, this->ActualFrequency );
+
         return FALSE;
       }
 #endif
@@ -657,6 +701,11 @@ AllocAudio( ULONG mode,
 #ifdef ENABLE_DUPLEX
       if( !this->FullDuplex )
       {
+        Req( "The selected mode\n"
+             "(%s, %ld Hz)\n"
+             "does not support full duplex.",
+             (ULONG) mode_name, this->ActualFrequency );
+
         return FALSE;
       }
 #endif
@@ -668,6 +717,14 @@ AllocAudio( ULONG mode,
                                          this->AudioCtrl );
       return TRUE;
     }
+    else
+    {
+      Req( "Unable to read audio mode properties." );
+    }
+  }
+  else
+  {
+    Req( "Unable to allocate mode 0x%08lx, %ld Hz.", mode, freq );
   }
 
   return FALSE;
@@ -804,4 +861,23 @@ kprintf( ". " );
   }
 
   return 0;
+}
+
+/******************************************************************************
+** ReqA ***********************************************************************
+******************************************************************************/
+
+void
+ReqA( const char* text, APTR args )
+{
+  struct EasyStruct es = 
+  {
+    sizeof (struct EasyStruct),
+    0,
+    (STRPTR) INFONAME " " VERSTR,
+    (STRPTR) text,
+    "OK"
+  };
+
+  EasyRequestArgs( NULL, &es, NULL, args );
 }
