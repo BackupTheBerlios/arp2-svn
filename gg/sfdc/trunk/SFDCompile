@@ -24,9 +24,24 @@ use Pod::Usage;
 sub parse_sfd ( $ );
 sub parse_proto ( $ );
 sub open_output ( $$ );
+sub will_close_output ( $$ );
 sub close_output ();
-sub create_fd( $ );
-sub create_clib( $ );
+
+sub create_fd_header( $$ );
+sub create_fd_function( $$ );
+sub create_fd_footer( $$ );
+
+sub create_clib_header( $$ );
+sub create_clib_function( $$ );
+sub create_clib_footer( $$ );
+
+sub create_proto_header( $$ );
+sub create_proto_function( $$ );
+sub create_proto_footer( $$ );
+
+sub create_macro_header( $$ );
+sub create_macro_function( $$ );
+sub create_macro_footer( $$ );
 
 my $rules = {
     m68k_unknown_amigaos =>
@@ -58,7 +73,7 @@ GetOptions ('help|h|?'   => \$help,
 	    'version|v'  => \$version) or exit 10;
 
 if ($version) {
-    print STDERR "$Id:\n";
+    print STDERR "SFDCompile 1.0 (16.07.2003)\n";
     print STDERR "Copyright (C) 2003 Martin Blom <martin\@blom.org>\n";
     print STDERR "This is free software; " .
 	"see the source for copying conditions.\n";
@@ -91,21 +106,58 @@ if (!($mode =~ /(fd|clib|proto|macro)/)) {
 
 open( OLDOUT, ">&STDOUT" );
 
+my @functions;
+
+for ($mode) {
+    /^fd$/ && do {
+	@functions = [ \&create_fd_header,
+		       \&create_fd_function,
+		       \&create_fd_footer ];
+	last;
+    };
+    
+    /^clib$/ && do {
+	@functions = [ \&create_clib_header,
+		       \&create_clib_function,
+		       \&create_clib_footer ];
+	last;
+    };
+
+    /^proto$/ && do {
+	@functions = [ \&create_proto_header,
+		       \&create_proto_function,
+		       \&create_proto_footer ];
+	last;
+    };
+
+    die "Unknown mode specified: " . $mode;
+}
+
 for my $i ( 0 .. $#ARGV ) {
     my $sfd = parse_sfd ($ARGV[$i]);
+    my $num = $#{$$sfd{'prototypes'}};
 
-    for ($mode) {
-	/^fd$/ && do {
-	    create_fd( $sfd );
+    for my $j ( 0 .. $num + 1) {
+	my $funcname = $$sfd{'prototypes'}[$j]{'funcname'};
+	
+	if (!defined ($funcname) || will_close_output ($sfd, $funcname) != 0) {
+
+	    # Call XXX_footer function
+	    $functions[2]->($sfd,$funcname);
+	}
+
+	if ($j > $num) {
 	    last;
-	};
+	}
+	
+	if (open_output ($sfd, $funcname) != 0) {
 
-	/^clib$/ && do {
-	    create_clib( $sfd );
-	    last;
-	};
+	    # Call XXX_header function
+	    $functions[0]->($sfd,$funcname);
+	}
 
-	die "Unknown mode specified: " . $mode;
+	# Call XXX_function function
+	$functions[1]->($sfd,$funcname,$j);
     }
 
     close_output ();
@@ -312,7 +364,18 @@ sub parse_sfd ( $ ) {
 
     # Create some other variables
 
-    ( $$result{'basename'} = lc $$result{'libname'} ) =~ s/(.*)\.\w+/$1/;
+    ( $$result{'basename'} = $$result{'libname'} ) =~ s/(.*)\.\w+/$1/;
+
+    if ($$result{'basename'} eq '') {
+	( $$result{'basename'} = $file ) =~ s:.*/(\w+?)_lib\.sfd:$1:;
+    }
+
+    if ($$result{'basename'} eq '') {
+	print STDERR "Unable to find or guess base name.\n";
+	die;
+    }
+    
+    $$result{'basename'} = lc $$result{'basename'};
     $$result{'BASENAME'} = uc $$result{'basename'};
     $$result{'Basename'} = ucfirst $$result{'basename'};
 
@@ -367,24 +430,34 @@ sub parse_proto ( $ ) {
 	    push @{$$prototype{'args'}}, $arg;
 	}
 
-	if ($arg =~ /[()]/) {
-	    $par_cnt += ( $arg =~ tr/\(/\(/ );
-	    $par_cnt -= ( $arg =~ tr/\)/\)/ );
-	}
+	# Count parentheses (a function pointer arguments is processed
+	# when $par_cnt is 0).
+	$par_cnt += ( $arg =~ tr/\(/\(/ );
+	$par_cnt -= ( $arg =~ tr/\)/\)/ );
+    }
 
+    # varags -> stdarg (varargs has N arguments for N registers,
+    # stdarg has N+1 arguments for N registers. Example:
+    # varargs: LONG Printf( STRPTR format, ... );
+    # stdarg: BOOL AslRequestTags( APTR requester, Tag Tag1, ... );
+
+    if ($$prototype{'type'} eq 'varargs' &&
+	$#{$$prototype{'args'}} == $#{$$prototype{'regs'}} + 1) {
+	$$prototype{'type'} = 'stdarg';
     }
     
     # Make sure we have the same number of arguments as registers, or,
     # if this is a varargs function, possible one extra, á la "Tag, ..."
     
     if ( !($#{$$prototype{'args'}} == $#{$$prototype{'regs'}} || 
-	   ($$prototype{'type'} eq 'varargs' &&
+	   ($$prototype{'type'} eq 'stdarg' &&
 	    $#{$$prototype{'args'}} == $#{$$prototype{'regs'}} + 1)) ) {
+
 	print STDERR "Failed to parse arguments/registers on SFD " .
 	    "line $$prototype{'line'}:\n$$prototype{'value'}\n";
 	die;
     }
-    
+
     foreach $arg (@{$$prototype{'args'}}) {
 	my $type = '';
 	my $name  = '';
@@ -412,18 +485,21 @@ sub parse_proto ( $ ) {
 }
 
 
-### open_output: (Re)open the output file if necessary  ########################
-### close_output: Close the output file if necessary  ##########################
-### check_output: Check if the file will be reopended by open_output ###########
 
 sub BEGIN {
     my $old_output = '';
+
+
+### close_output: Close the output file if necessary  ##########################
 
     sub close_output () {
 	close (STDOUT);
 	$old_output = '';
     }
     
+
+### check_output: Check if the file will be reopended by open_output ###########
+
     sub will_close_output ( $$ ) {
 	my $sfd      = shift;
 	my $function = shift;
@@ -444,6 +520,8 @@ sub BEGIN {
 	}
     }
     
+### open_output: (Re)open the output file if necessary  ########################
+
     sub open_output ( $$ ) {
 	my $sfd      = shift;
 	my $function = shift;
@@ -481,8 +559,38 @@ sub BEGIN {
 }
 
 
-### create_fd: Create an old-style FD file #####################################
+### create_fd_XXX: Create an old-style FD file #################################
 
+{
+    package FD;
+    use strict;
+
+    sub new {
+	my $proto  = shift;
+	my %params = @_;
+	my $class  = ref($proto) || $proto;
+	my $self   = {};
+	$self->{SFD}     = $params{'sfd'};
+	$self->{BIAS}    = -1;
+	$self->{PRIVATE} = -1;
+	$self->{VERSION} = 1;
+	bless ($self, $class);
+	return $self;
+    }
+
+    sub header {
+	my $self = shift;
+	my $sfd  = $self->{SFD};
+
+	print "* \"$$sfd{'libname'}\"\n";
+	print "##base $$sfd{'base'}\n";
+	print "* Automatically generated FD! Do not edit!\n";
+	$self->{BIAS}    = -1;
+	$self->{PRIVATE} = -1;
+	$self->{VERSION} = 1;
+    }
+}
+    
 sub create_fd ( $ ) {
     my $sfd     = shift;
     my $bias    = -1;
@@ -506,6 +614,7 @@ sub create_fd ( $ ) {
 	    if (open_output ($sfd, $funcname) != 0) {
 		print "* \"$$sfd{'libname'}\"\n";
 		print "##base $$sfd{'base'}\n";
+		print "* Automatically generated FD! Do not edit!\n";
 		$bias    = -1;
 		$private = -1;
 		$version = 1;
@@ -546,7 +655,6 @@ sub create_fd ( $ ) {
     }
 }
 
-
 ### create_clib: Create a CLIB file ############################################
 
 sub create_clib ( $ ) {
@@ -579,6 +687,8 @@ sub create_clib ( $ ) {
 	    $v =~ s/^\$[I]d: .*? ([0-9.]+).*/$1/;
 	    $d =~ s,^\$[I]d: .*? [0-9.]+ (\d{4})/(\d{2})/(\d{2}).*,($3.$2.$1),;
 		
+	    print "/* Automatically generated header! Do not edit! */\n";
+	    print "\n";
 	    print "#ifndef CLIB_$$sfd{'BASENAME'}_PROTOS_H\n";
 	    print "#define CLIB_$$sfd{'BASENAME'}_PROTOS_H\n";
 	    print "\n";
@@ -621,7 +731,7 @@ sub create_clib ( $ ) {
 	    print "$comment\n";
 	}
 	
-	my $args = join (',',@{$$sfd{'prototypes'}[$i]{'args'}});
+	my $args = join (', ',@{$$sfd{'prototypes'}[$i]{'args'}});
 
 	if ($args eq '') {
 	    $args = "void";
@@ -629,6 +739,87 @@ sub create_clib ( $ ) {
 	
 	print "$$sfd{'prototypes'}[$i]{'return'} $funcname($args);\n";
     }
+}
+
+
+### create_macro: Create a macro file ##########################################
+
+sub create_macro ( $ ) {
+    my $sfd     = shift;
+
+    my $header;
+    my $tail;
+    
+    my $num = $#{$$sfd{'prototypes'}};
+
+    for my $i ( 0 .. $num + 1) {
+	my $funcname = $$sfd{'prototypes'}[$i]{'funcname'};
+	
+	if (!defined ($funcname) || will_close_output ($sfd, $funcname) != 0) {
+	    print $tail;
+	}
+
+	if ($i > $num) {
+	    last;
+	}
+	
+	if (open_output ($sfd, $funcname) != 0) {
+	}
+    }
+}
+
+
+### create_proto: Create a proto file ##########################################
+
+sub create_proto ( $ ) {
+    my $sfd = shift; 
+    my $base     = $$sfd{'base'};
+    my $basename = $$sfd{'basename'};
+    my $BASENAME = $$sfd{'BASENAME'};
+    my $basetype = $$sfd{'basetype'};
+
+    $base =~ s/^_//;
+    
+    open_output ($sfd, '');
+
+    print "/* Automatically generated header! Do not edit! */\n";
+    print "\n";
+    print "#ifndef PROTO_${BASENAME}_H\n";
+    print "#define PROTO_${BASENAME}_H\n";
+    print "\n";
+    print "#include <clib/${basename}_protos.h>\n";
+    print "\n";
+    print "#ifndef _NO_INLINE\n";
+    print "# ifdef __GNUC__\n";
+    print "#  ifdef __amigaos4__\n";
+    print "#   ifdef __USE_INLINE__\n";
+    print "#    include <inline4/${basename}.h>\n";
+    print "#   endif /* __USE_INLINE__ */\n";
+    print "#  else /* !__amigaos4__ */\n";
+    print "#   include <inline/${basename}.h>\n";
+    print "#  endif /* __amigaos4__ */\n";
+    print "# endif /* __GNUC__ */\n";
+    print "#endif /* _NO_INLINE */\n";
+    print "\n";
+
+    if ($base ne '') {
+	print "#ifdef __amigaos4__\n";
+	print "# include <interfaces/${basename}.h>\n";
+	print "# ifndef __NOGLOBALIFACE__\n";
+	print "   extern struct ${base}IFace *I${base};\n";
+	print "# endif /* __NOGLOBALIFACE__*/\n";  
+	print "#else /* !__amigaos4__ */\n";
+	print "# ifndef __NOLIBBASE__\n";
+	print "   extern ${basetype}\n";
+	print "#  ifdef __CONSTLIBBASEDECL__\n";
+	print "    __CONSTLIBBASEDECL__\n";
+	print "#  endif /* __CONSTLIBBASEDECL__ */\n";
+	print "   ${base};\n";
+	print "# endif /* !__NOLIBBASE__ */\n";
+	print "\n";
+    }
+    
+    print "#endif /* !PROTO_${BASENAME}_H */\n";
 }
 
 
@@ -766,7 +957,9 @@ Martin Blom <martin@blom.org>
 
 =head1 HISTORY
 
-$Log:
+=item B<1.0 (2003-07-16)>
+
+Initial release.
 
 
 =out
