@@ -1,5 +1,9 @@
 2005-01-08  Martin Blom  <martin@blom.org>
 
+	* Ignore zero-size clipboard announcements from the Windows
+	side. Also ignore clipboard announcements about anything except
+	plain text data, since we can't handle that.
+
 	* Try harder to satisfy outstanding CBD_POST requests at exit
 	(window close gadget, CTRL-C), using real Windows clipboard data
 	if possible.

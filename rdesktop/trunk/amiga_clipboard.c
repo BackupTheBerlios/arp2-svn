@@ -66,6 +66,21 @@ static struct Hook amiga_clip_hook = {
 };
 
 
+static BOOL amiga_clip_active_post() {
+  if (amiga_clip_clipid != 0) {
+    // We may have an outstanding CBD_POST. Check it.
+
+    amiga_clip_handle->cbh_Req.io_Command = CBD_CURRENTWRITEID;
+    DoIO((struct IORequest*) &amiga_clip_handle->cbh_Req);
+ 
+    if (amiga_clip_handle->cbh_Req.io_ClipID <= amiga_clip_clipid) {
+      return TRUE;
+    }
+  }
+
+  return FALSE;
+}
+
 BOOL
 amiga_clip_init(void) {
   amiga_clip_hooksignal = AllocSignal(-1);
@@ -106,42 +121,30 @@ amiga_clip_init(void) {
 
 BOOL
 amiga_clip_shutdown(void) {
-  if (amiga_clip_clipid != 0) {
-    // We may have an outstanding CBD_POST. Check it.
+  if (amiga_clip_active_post()) {
+    static BOOL once = TRUE;
 
-    amiga_clip_handle->cbh_Req.io_Command = CBD_CURRENTWRITEID;
-    DoIO((struct IORequest*) &amiga_clip_handle->cbh_Req);
- 
-    if (amiga_clip_handle->cbh_Req.io_ClipID <= amiga_clip_clipid) {
-      static BOOL once = TRUE;
-
-      if (once) {
-	cliprdr_send_data_request(amiga_clip_format);
-	once = FALSE;
-      }
-      
-      return FALSE;
+    if (once) {
+      cliprdr_send_data_request(amiga_clip_format);
+      once = FALSE;
     }
-  }
 
-  // It's ok to shutdown
-  return TRUE;
+    // Don't shutdown yet
+    return FALSE;
+  }
+  else {
+    // It's ok to shutdown
+    return TRUE;
+  }
 }
 
 void
 amiga_clip_deinit(void) {
-  if (amiga_clip_clipid != 0) {
-    // We may have an outstanding CBD_POST. Check it.
-
-    amiga_clip_handle->cbh_Req.io_Command = CBD_CURRENTWRITEID;
-    DoIO((struct IORequest*) &amiga_clip_handle->cbh_Req);
- 
-    if (amiga_clip_handle->cbh_Req.io_ClipID <= amiga_clip_clipid) {
-      // We have an outstanding CBD_POST! This happens when we
-      // disconnect using Windows and the Amiga side.  All we can do
-      // is to write empty data to the clipboard. :-(
-      ui_clip_handle_data("", 0);
-    }
+  if (amiga_clip_active_post()) {
+    // We have an outstanding CBD_POST! This happens when we
+    // disconnect using Windows and the Amiga side.  All we can do
+    // is to write empty data to the clipboard. :-(
+    ui_clip_handle_data("", 0);
   }
   
   if (amiga_clip_iffhandle != NULL) {
@@ -169,7 +172,7 @@ amiga_clip_deinit(void) {
 void
 amiga_clip_handle_signals() {
   struct SatisfyMsg* sm;
-  
+
   if (amiga_clip_announce != 0 && amiga_clip_announce != amiga_clip_clipid) {
     amiga_clip_announce = 0;
     ui_clip_sync();
@@ -178,6 +181,9 @@ amiga_clip_handle_signals() {
   sm = (struct SatisfyMsg*) GetMsg(&amiga_clip_handle->cbh_SatisfyPort);
   
   if (sm != NULL) {
+    // TODO: In rare cases, the Windows host will never reply to this
+    // request. In that case, the Amiga clipboard will hang until some
+    // other application pastes.
     cliprdr_send_data_request(amiga_clip_format);
   }
 }
@@ -186,18 +192,38 @@ amiga_clip_handle_signals() {
 void
 ui_clip_format_announce(uint8 * data, uint32 length)
 {
-  amiga_clip_handle->cbh_Req.io_Command = CBD_POST;
-  amiga_clip_handle->cbh_Req.io_Data    = (char*) &amiga_clip_handle->cbh_SatisfyPort;
-  amiga_clip_handle->cbh_Req.io_ClipID  = 0;
+  if ((length % 36) != 0) {
+    // What's this???
+    return;
+  }
 
-  if (DoIO((struct IORequest*) &amiga_clip_handle->cbh_Req) == 0) {
-    // TODO: Check format
-    amiga_clip_format = CF_TEXT;
-    amiga_clip_clipid = amiga_clip_handle->cbh_Req.io_ClipID;
+  while (length != 0) {
+    uint32 format = ((data[3] << 24) |
+		     (data[2] << 16) |
+		     (data[1] <<  8) |
+		     (data[0]));
+    
+    if (format == CF_TEXT) {
+      amiga_clip_handle->cbh_Req.io_Command = CBD_POST;
+      amiga_clip_handle->cbh_Req.io_Data    =
+	(char*) &amiga_clip_handle->cbh_SatisfyPort;
+      amiga_clip_handle->cbh_Req.io_ClipID  = 0;
+
+      if (DoIO((struct IORequest*) &amiga_clip_handle->cbh_Req) == 0) {
+	amiga_clip_format = format;
+	amiga_clip_clipid = amiga_clip_handle->cbh_Req.io_ClipID;
+      }
+      else {
+	amiga_clip_clipid = 0;
+      }
+
+      break;
+    }
+    
+    length -= 36;
+    data += 36;
   }
-  else {
-    amiga_clip_clipid = 0;
-  }
+  
 }
 
 void ui_clip_handle_data(uint8 * data, uint32 length)
@@ -263,7 +289,8 @@ void ui_clip_request_data(uint32 format)
   int	len = 1; // Always reserve space for NUL byte
 
   if (format == CF_TEXT) {
-    if (OpenIFF(amiga_clip_iffhandle, IFFF_READ) == 0) {
+    if (!amiga_clip_active_post() && // Avoid deadlocks
+	OpenIFF(amiga_clip_iffhandle, IFFF_READ) == 0) {
       if (CollectionChunk(amiga_clip_iffhandle, ID_FTXT, ID_CHRS) == 0 &&
 	  StopOnExit(amiga_clip_iffhandle,ID_FTXT,ID_FORM) == 0) {
 	while (TRUE) {
