@@ -22,8 +22,11 @@
 #include "CompilerSpecific.h"
 
 #include <dos/dos.h>
+#include <devices/ahi.h>
+#include <exec/errors.h>
 #include <exec/memory.h>
 
+#include <proto/ahi.h>
 #include <proto/dos.h>
 #include <proto/exec.h>
 
@@ -34,8 +37,19 @@
 
 #include "PUH.h"
 
-struct Library*  MMUBase = NULL;
+static struct MsgPort*      AHImp     = NULL;
+static struct AHIRequest*   AHIio     = NULL;
+static BYTE                 AHIDevice = IOERR_OPENFAIL;
 
+struct Library* AHIBase = NULL;
+struct Library* MMUBase = NULL;
+
+
+static BOOL 
+OpenAHI( void );
+
+static void 
+CloseAHI( void );
 
 void
 Test( struct Custom* custom );
@@ -61,6 +75,12 @@ main( void )
     rc = 20;
   }
 
+  if( ! OpenAHI() )
+  {
+    printf( "Unable to open ahi.device version 4.\n" );
+    rc = 20;
+  }
+
   if( rc == 0 )
   {
     struct PUHData* pd;
@@ -73,7 +93,9 @@ main( void )
     }
     else
     {
-      if( ! InstallPUH( PUHF_PATCH_ROM, pd ) )
+      if( ! InstallPUH( PUHF_PATCH_ROM, 
+                        0x1f0001, 22050,
+                        pd ) )
       {
         rc = 20;
       }
@@ -108,6 +130,7 @@ main( void )
   }
 
 
+  CloseAHI();
   CloseLibrary( MMUBase );
   CloseLibrary( (struct Library*) DOSBase );
 
@@ -122,6 +145,10 @@ BYTE samples[] =
 };
 
 
+
+/******************************************************************************
+** Test ***********************************************************************
+******************************************************************************/
 
 void
 Test( struct Custom* custom )
@@ -146,4 +173,66 @@ Test( struct Custom* custom )
   WriteWord( (UWORD*) &custom->dmacon, DMAF_AUD0 );
 
   FreeVec( chip );
+}
+
+
+/******************************************************************************
+** OpenAHI ********************************************************************
+******************************************************************************/
+
+/* Opens and initializes the device. */
+
+static BOOL
+OpenAHI( void )
+{
+  BOOL rc = FALSE;
+
+  AHImp = CreateMsgPort();
+
+  if( AHImp != NULL )
+  {
+    AHIio = (struct AHIRequest *) CreateIORequest( AHImp, 
+                                                   sizeof( struct AHIRequest ) );
+
+    if( AHIio != NULL ) 
+    {
+      AHIio->ahir_Version = 4;
+      AHIDevice = OpenDevice( AHINAME,
+                              AHI_NO_UNIT,
+                              (struct IORequest *) AHIio,
+                              NULL );
+                              
+      if( AHIDevice == 0 )
+      {
+        AHIBase = (struct Library *) AHIio->ahir_Std.io_Device;
+        rc = TRUE;
+      }
+    }
+  }
+
+  return rc;
+}
+
+
+/******************************************************************************
+** CloseAHI *******************************************************************
+******************************************************************************/
+
+/* Closes the device, cleans up. */
+
+static void
+CloseAHI( void )
+{
+  if( AHIDevice == 0 )
+  {
+    CloseDevice( (struct IORequest *) AHIio );
+  }
+
+  DeleteIORequest( (struct IORequest *) AHIio );
+  DeleteMsgPort( AHImp );
+
+  AHIBase   = NULL;
+  AHImp     = NULL;
+  AHIio     = NULL;
+  AHIDevice = IOERR_OPENFAIL;
 }

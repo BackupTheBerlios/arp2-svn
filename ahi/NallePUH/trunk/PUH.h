@@ -24,10 +24,12 @@
 
 #include "CompilerSpecific.h"
 
+#include <utility/hooks.h>
+
 struct ExceptionData;
+struct ExecBase;
 struct Library;
 struct MMUContext;
-struct ExecBase;
 
 /* Debugging */
 
@@ -75,9 +77,23 @@ WriteLong( void* address, ULONG value );
 
 struct PUHData
 {
-  ULONG			m_Flags;
   BOOL                  m_Active;
   UWORD                 m_Pad;
+
+  ULONG			m_Flags;
+
+  ULONG                 m_AudioMode;
+  struct AHIAudioCtrl*  m_AudioCtrl;
+
+  struct Hook           m_SoundFunc;
+
+  BOOL                  m_DMACON;
+  UWORD                 m_Pad2;
+
+  BOOL                  m_SoundOn[ 4 ];
+
+  ULONG                 m_SoundLocation[ 4 ];
+  UWORD                 m_SoundLength[ 4 ];
 
   void*                 m_Intercepted;
   volatile void*        m_Custom;
@@ -121,6 +137,8 @@ FreePUH( struct PUHData* pd );
 
 BOOL
 InstallPUH( ULONG           flags,
+            ULONG           audio_mode,
+            ULONG           frequency,
 	    struct PUHData* pd );
 
 

@@ -22,6 +22,7 @@
 #include <dos/dos.h>
 #include <exec/memory.h>
 #include <exec/resident.h>
+#include <devices/ahi.h>
 #include <hardware/custom.h>
 #include <hardware/dmabits.h>
 #include <mmu/context.h>
@@ -30,6 +31,7 @@
 #include <mmu/mmubase.h>
 #include <mmu/mmutags.h>
 
+#include <proto/ahi.h>
 #include <proto/exec.h>
 #include <proto/mmu.h>
 
@@ -39,6 +41,9 @@
 
 #define ROMEND       0x01000000L
 #define MAGIC_ROMEND 0x14L
+
+#define PALFREQ	     3546895
+#define NTSCFREQ     3579545
 
 
 static BOOL
@@ -53,24 +58,29 @@ static void
 PatchROMShadowBuffer( struct PUHData* pd );
 
 
-ASMCALL INTERRUPT ULONG
+ASMCALL INTERRUPT static ULONG
 PUHHandler( REG( a0, struct ExceptionData* ed ),
             REG( a1, struct PUHData*       d ),
             REG( a6, struct Library*       MMUBase ) );
 
 
-UWORD
+static UWORD
 PUHRead( UWORD            reg, 
          struct PUHData*  pd,
          struct ExecBase* SysBase );
 
 
-void
+static void
 PUHWrite( UWORD            reg, 
           UWORD            value,
           struct PUHData*  pd,
           struct ExecBase* SysBase );
 
+
+ASMCALL SAVEDS static void
+PUHSoundFunc( REG( a0, struct Hook*            hook ),
+              REG( a2, struct AHIAudioCtrl*    actrl ),
+              REG( a1, struct AHISoundMessage* msg ) );
 
 
 /******************************************************************************
@@ -179,6 +189,13 @@ AllocPUH( void )
   if( MMUBase == NULL )
   {
     printf( "MMUBase not initialized!\n" );
+    return NULL;
+  }
+
+  if( AHIBase == NULL )
+  {
+    printf( "AHIBase not initialized!\n" );
+    return NULL;
   }
 
 
@@ -238,10 +255,16 @@ AllocPUH( void )
         rom_size  = *( (ULONG*) ( ROMEND - MAGIC_ROMEND ) );
         rom_start = ( (UBYTE*) ROMEND ) - rom_size;
 
-        pd->m_Flags                = 0L;
-
         pd->m_Active               = FALSE;
         pd->m_Pad                  = 0;
+
+        pd->m_Flags                = 0L;
+
+        pd->m_AudioMode            = AHI_INVALID_ID;
+        pd->m_AudioCtrl            = NULL;
+
+        pd->m_SoundFunc.h_Entry    = (ULONG(*)(void)) PUHSoundFunc;
+        pd->m_SoundFunc.h_Data     = pd;
 
 #ifdef TEST_MODE
         pd->m_Intercepted          = location;
@@ -307,9 +330,64 @@ FreePUH( struct PUHData* pd )
 
 BOOL
 InstallPUH( ULONG           flags,
+            ULONG           audio_mode,
+            ULONG           frequency,
             struct PUHData* pd )
 {
-  pd->m_Flags = flags;
+  BOOL ahi_ok = FALSE;
+
+  pd->m_Flags     = flags;
+  pd->m_AudioMode = audio_mode;
+
+  // Activate AHI
+
+  pd->m_AudioCtrl = AHI_AllocAudio( AHIA_AudioID,    audio_mode,
+                                    AHIA_MixFreq,    frequency,
+                                    AHIA_Channels,   4,
+                                    AHIA_Sounds,     1,
+                                    AHIA_SoundFunc,  (ULONG) &pd->m_SoundFunc,
+                                    AHIA_PlayerFreq, 100 << 16 );
+
+  if( pd->m_AudioCtrl == NULL )
+  {
+    printf( "Unable to allocate audio mode $%08lx.\n", audio_mode );
+  }
+  else
+  {
+    struct AHISampleInfo si = 
+    {
+      AHIST_M8S,   // An 8-bit sample
+      0,           // beginning at address 0
+      0xffffffff   // and ending at the last address.
+    };
+    
+    if( AHI_LoadSound( 0, AHIST_DYNAMICSAMPLE, &si, pd->m_AudioCtrl ) != AHIE_OK )
+    {
+      printf( "Unable to load dynamic sample.\n" );
+    }
+    else
+    {
+      if( AHI_ControlAudio( pd->m_AudioCtrl, AHIC_Play, TRUE ) != AHIE_OK )
+      {
+        printf( "Unable to start playback.\n" );
+      }
+      else
+      {
+        ahi_ok = TRUE;
+      }
+    }
+  }
+
+  if( ! ahi_ok )
+  {
+    // Clean up
+
+    UninstallPUH( pd );
+    return FALSE;
+  }
+
+
+  // Activate MMU
 
   pd->m_UserException = 
       AddContextHook( MADTAG_CONTEXT, (ULONG) pd->m_UserContext,
@@ -380,6 +458,14 @@ InstallPUH( ULONG           flags,
     }
   }
 
+
+  if( ! pd->m_Active )
+  {
+    // Clean up
+
+    UninstallPUH( pd );
+  }
+
   return pd->m_Active;
 }
 
@@ -421,8 +507,15 @@ UninstallPUH( struct PUHData* pd )
     pd->m_UserException = NULL;
   }
   
-  pd->m_Flags  = 0L;
-  pd->m_Active = FALSE;
+  if( pd->m_AudioCtrl != NULL )
+  {
+    AHI_FreeAudio( pd->m_AudioCtrl );
+    pd->m_AudioCtrl = NULL;
+  }
+
+  pd->m_Flags     = 0L;
+  pd->m_AudioMode = AHI_INVALID_ID;
+  pd->m_Active    = FALSE;
 }
 
 
@@ -861,9 +954,12 @@ PatchROMShadowBuffer( struct PUHData* pd )
 
     if( module_end != NULL && ptr.m_Void >= module_end )
     {
-      printf( "Patched %ld accesses in module "
-              "%s ($%08lx-$%08lx).\n",
-              patches, module_name, module_rom_start, module_rom_end );
+      if( patches != 0 )
+      {
+        printf( "Patched %ld instructions in '%s' ($%08lx-$%08lx).\n",
+                patches, module_name, 
+                (ULONG) module_rom_start, (ULONG) module_rom_end );
+      }
 
       patches    = 0;
       module_end = NULL;
@@ -884,8 +980,10 @@ PatchROMShadowBuffer( struct PUHData* pd )
         if( strcmp( module_name, "audio.device" ) == 0 )
         {
           printf( "Skipping %s ($%08lx-$%08lx).\n", 
-                  module_name, module_rom_start, module_rom_end );
+                  module_name, 
+                  (ULONG) module_rom_start, (ULONG) module_rom_end );
 
+          module_end = NULL;
           ptr.m_Void = pd->m_ROMShadowBuffer + ( ptr.m_Resident->rt_EndSkip - pd->m_ROM );
           continue;
         }
@@ -910,7 +1008,7 @@ PatchROMShadowBuffer( struct PUHData* pd )
 ** MMU exception handler ******************************************************
 ******************************************************************************/
 
-ASMCALL INTERRUPT ULONG
+ASMCALL INTERRUPT static ULONG
 PUHHandler( REG( a0, struct ExceptionData* ed ),
             REG( a1, struct PUHData*       pd ),
             REG( a6, struct Library*       MMUBase ) )
@@ -1035,7 +1133,7 @@ PUHHandler( REG( a0, struct ExceptionData* ed ),
 ** Handle reads ***************************************************************
 ******************************************************************************/
 
-UWORD
+static UWORD
 PUHRead( UWORD            reg, 
          struct PUHData*  pd,
          struct ExecBase* SysBase )
@@ -1070,7 +1168,7 @@ PUHRead( UWORD            reg,
 ** Handle writes **************************************************************
 ******************************************************************************/
 
-void
+static void
 PUHWrite( UWORD            reg, 
           UWORD            value,
           struct PUHData*  pd,
@@ -1081,45 +1179,229 @@ PUHWrite( UWORD            reg,
   switch( reg )
   {
     case DMACON:
+    {
+      UWORD old_dmacon = pd->m_DMACON;
+      UWORD new_dmacon;
+      UWORD xor_dmacon;
+
+      if( value & DMAF_SETCLR )
+      {
+        pd->m_DMACON |= ( value & ~DMAF_SETCLR );
+      }
+      else
+      {
+        pd->m_DMACON &= ( value & ~DMAF_SETCLR );
+      }
+
+      if( value & DMAF_MASTER )
+      {
+        new_dmacon = pd->m_DMACON;
+      }
+      else
+      {
+        new_dmacon = 0;
+      }
+
+      xor_dmacon = old_dmacon ^ new_dmacon;
+
+      if( xor_dmacon & DMAF_AUD0 )
+      {
+        if( new_dmacon & DMAF_AUD0 )
+        {
+          pd->m_SoundOn[ 0 ] = TRUE;
+
+          AHI_SetSound( 0, 0,
+                        pd->m_SoundLocation[ 0 ],
+                        pd->m_SoundLength[ 0 ],
+                        pd->m_AudioCtrl,
+                        AHISF_IMM );
+          
+        }
+        else
+        {
+          pd->m_SoundOn[ 0 ] = FALSE;
+
+          AHI_SetSound( 0, AHI_NOSOUND, 0, 0, pd->m_AudioCtrl, AHISF_IMM );
+        }
+      }
+
+      if( xor_dmacon & DMAF_AUD1 )
+      {
+        if( new_dmacon & DMAF_AUD1 )
+        {
+          pd->m_SoundOn[ 1 ] = TRUE;
+
+          AHI_SetSound( 1, 0,
+                        pd->m_SoundLocation[ 1 ],
+                        pd->m_SoundLength[ 1 ],
+                        pd->m_AudioCtrl,
+                        AHISF_IMM );
+          
+        }
+        else
+        {
+          pd->m_SoundOn[ 1 ] = FALSE;
+
+          AHI_SetSound( 1, AHI_NOSOUND, 0, 0, pd->m_AudioCtrl, AHISF_IMM );
+        }
+      }
+
+      if( xor_dmacon & DMAF_AUD2 )
+      {
+        if( new_dmacon & DMAF_AUD2 )
+        {
+          pd->m_SoundOn[ 2 ] = TRUE;
+
+          AHI_SetSound( 2, 0,
+                        pd->m_SoundLocation[ 2 ],
+                        pd->m_SoundLength[ 2 ],
+                        pd->m_AudioCtrl,
+                        AHISF_IMM );
+          
+        }
+        else
+        {
+          pd->m_SoundOn[ 2 ] = FALSE;
+
+          AHI_SetSound( 2, AHI_NOSOUND, 0, 0, pd->m_AudioCtrl, AHISF_IMM );
+        }
+      }
+
+      if( xor_dmacon & DMAF_AUD3 )
+      {
+        if( new_dmacon & DMAF_AUD3 )
+        {
+          pd->m_SoundOn[ 3 ] = TRUE;
+
+          AHI_SetSound( 3, 0,
+                        pd->m_SoundLocation[ 3 ],
+                        pd->m_SoundLength[ 3 ],
+                        pd->m_AudioCtrl,
+                        AHISF_IMM );
+          
+        }
+        else
+        {
+          pd->m_SoundOn[ 2 ] = FALSE;
+
+          AHI_SetSound( 3, AHI_NOSOUND, 0, 0, pd->m_AudioCtrl, AHISF_IMM );
+        }
+      }
+
+      WriteWord( address, value & ~DMAF_AUDIO );
+      break;
+    }
+      
     case INTENA:
     case INTREQ:
     case ADKCON:
       WriteWord( address, value );
-
-//      KPrintF( "Wrote $%04lx to $%08lx.\n", value, (ULONG) pd->m_Intercepted + reg );
       break;
 
     case AUD0LCH:
-    case AUD0LCL:
-    case AUD0LEN:
-    case AUD0PER:
-    case AUD0VOL:
-    case AUD0DAT:
-
     case AUD1LCH:
-    case AUD1LCL:
-    case AUD1LEN:
-    case AUD1PER:
-    case AUD1VOL:
-    case AUD1DAT:
-
     case AUD2LCH:
-    case AUD2LCL:
-    case AUD2LEN:
-    case AUD2PER:
-    case AUD2VOL:
-    case AUD2DAT:
-
     case AUD3LCH:
-    case AUD3LCL:
-    case AUD3LEN:
-    case AUD3PER:
-    case AUD3VOL:
-    case AUD3DAT:
-      WriteWord( address, value );
+      pd->m_SoundLocation[ ( reg - AUD0LCH ) >> 4 ] &= 0x0000ffff;
+      pd->m_SoundLocation[ ( reg - AUD0LCH ) >> 4 ] |= value << 16;
+      break;
 
-//      KPrintF( "." );
-//      KPrintF( "Wrote $%04lx to $%08lx.\n", value, (ULONG) pd->m_Intercepted + reg );
+    case AUD0LCL:
+    case AUD1LCL:
+    case AUD2LCL:
+    case AUD3LCL:
+    {
+      int channel = ( reg - AUD0LCL ) >> 4;
+
+      pd->m_SoundLocation[ channel ] &= 0xffff0000;
+      pd->m_SoundLocation[ channel ] |= value;
+      
+      if( pd->m_SoundOn[ channel ] )
+      {
+        // Queue it
+        AHI_SetSound( channel, 0,
+                      pd->m_SoundLocation[ channel ],
+                      pd->m_SoundLength[ channel ],
+                      pd->m_AudioCtrl,
+                      AHISF_NONE );
+      }
+
+      break;
+    }
+
+    case AUD0LEN:
+    case AUD1LEN:
+    case AUD2LEN:
+    case AUD3LEN:
+    {
+      int channel = ( reg - AUD0LEN ) >> 4;
+      
+      pd->m_SoundLength[ channel ] = value * 2;
+      
+      if( pd->m_SoundOn[ channel ] )
+      {
+        // Queue it
+        AHI_SetSound( channel, 0,
+                      pd->m_SoundLocation[ channel ],
+                      pd->m_SoundLength[ channel ],
+                      pd->m_AudioCtrl,
+                      AHISF_NONE );
+      }
+
+      break;
+    }
+
+    case AUD0PER:
+    case AUD1PER:
+    case AUD2PER:
+    case AUD3PER:
+    {
+      int channel = ( reg - AUD0PER ) >> 4;
+      
+      AHI_SetFreq( channel,
+                   PALFREQ / value, 
+                   pd->m_AudioCtrl,
+                   AHISF_IMM );
+      break;
+    }
+
+    case AUD0VOL:
+      AHI_SetVol( 0,
+                  value << 10,
+                  0x10000,
+                  pd->m_AudioCtrl,
+                  AHISF_IMM );
+      break;
+
+    case AUD1VOL:
+      AHI_SetVol( 1,
+                  value << 10,
+                  0x0,
+                  pd->m_AudioCtrl,
+                  AHISF_IMM );
+      break;
+
+    case AUD2VOL:
+      AHI_SetVol( 2,
+                  value << 10,
+                  0x0,
+                  pd->m_AudioCtrl,
+                  AHISF_IMM );
+      break;
+
+    case AUD3VOL:
+      AHI_SetVol( 3,
+                  value << 10,
+                  0x10000,
+                  pd->m_AudioCtrl,
+                  AHISF_IMM );
+      break;
+
+    case AUD0DAT:
+    case AUD1DAT:
+    case AUD2DAT:
+    case AUD3DAT:
+      // TODO: For now, just ignore this
       break;
 
     default:
@@ -1129,4 +1411,17 @@ PUHWrite( UWORD            reg,
 
       break;
   }
+}
+
+
+/******************************************************************************
+** Audio interrupt simulation *************************************************
+******************************************************************************/
+
+ASMCALL SAVEDS static void
+PUHSoundFunc( REG( a0, struct Hook*            hook ),
+              REG( a2, struct AHIAudioCtrl*    actrl ),
+              REG( a1, struct AHISoundMessage* msg ) )
+{
+
 }
