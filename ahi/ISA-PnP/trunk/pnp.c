@@ -29,8 +29,9 @@
 #include <proto/timer.h>
 
 #include "include/resources/isapnp.h"
-#include "isapnp.h"
 #include "isapnp_private.h"
+
+#include "pnpisa.h"
 
 #include "controller.h"
 #include "init.h"
