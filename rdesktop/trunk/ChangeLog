@@ -1,5 +1,7 @@
 2005-02-06  Martin Blom  <martin@blom.org>
 
+	* Released version 1.3.1cvs (05.02.2005).
+
 	* The default keyboard layout in Windows is now set based on
 	country, since the kaymap name was not really reliable. You can
 	still override using the KEYMAP argument of course.
