@@ -133,7 +133,7 @@ amiga_get_blt_buffer( ULONG length )
 {
   if( length > amiga_blt_length )
   {
-    printf( "amiga_blt_buffer grows from %d to %d bytes\n", amiga_blt_length, length );
+//    printf( "amiga_blt_buffer grows from %d to %d bytes\n", amiga_blt_length, length );
     amiga_blt_length = length;
     FreeVec( amiga_blt_buffer );
     amiga_blt_buffer = AllocVec( amiga_blt_length, MEMF_ANY );
