@@ -29,7 +29,7 @@
 #include <proto/exec.h>
 #include <proto/expansion.h>
 
-#include "isapnp.h"
+#include "include/resources/isapnp.h"
 #include "isapnp_private.h"
 #include "controller.h"
 #include "version.h"

@@ -21,7 +21,7 @@
 
 #include <proto/exec.h>
 
-#include "isapnp.h"
+#include "include/resources/isapnp.h"
 #include "isapnp_private.h"
 
 #include <stdio.h>
