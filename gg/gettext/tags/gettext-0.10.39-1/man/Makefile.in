@@ -1,0 +1,377 @@
+# Makefile.in generated automatically by automake 1.5 from Makefile.am.
+
+# Copyright 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001
+# Free Software Foundation, Inc.
+# This Makefile.in is free software; the Free Software Foundation
+# gives unlimited permission to copy and/or distribute it,
+# with or without modifications, as long as this notice is preserved.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY, to the extent permitted by law; without
+# even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+# PARTICULAR PURPOSE.
+
+@SET_MAKE@
+
+SHELL = @SHELL@
+
+srcdir = @srcdir@
+top_srcdir = @top_srcdir@
+VPATH = @srcdir@
+prefix = @prefix@
+exec_prefix = @exec_prefix@
+
+bindir = @bindir@
+sbindir = @sbindir@
+libexecdir = @libexecdir@
+datadir = @datadir@
+sysconfdir = @sysconfdir@
+sharedstatedir = @sharedstatedir@
+localstatedir = @localstatedir@
+libdir = @libdir@
+infodir = @infodir@
+guidedir = @guidedir@
+dvidir = @dvidir@
+psdir = @psdir@
+includedir = @includedir@
+oldincludedir = /usr/include
+pkgdatadir = $(datadir)/@PACKAGE@
+pkglibdir = $(libdir)/@PACKAGE@
+pkgincludedir = $(includedir)/@PACKAGE@
+top_builddir = ..
+
+ACLOCAL = @ACLOCAL@
+AUTOCONF = @AUTOCONF@
+AUTOMAKE = @AUTOMAKE@
+AUTOHEADER = @AUTOHEADER@
+
+INSTALL = @INSTALL@
+INSTALL_PROGRAM = @INSTALL_PROGRAM@
+INSTALL_DATA = @INSTALL_DATA@
+INSTALL_SCRIPT = @INSTALL_SCRIPT@
+INSTALL_HEADER = $(INSTALL_DATA)
+transform = @program_transform_name@
+NORMAL_INSTALL = :
+PRE_INSTALL = :
+POST_INSTALL = :
+NORMAL_UNINSTALL = :
+PRE_UNINSTALL = :
+POST_UNINSTALL = :
+host_alias = @host_alias@
+host_triplet = @host@
+ACLOCAL_VERSION = @ACLOCAL_VERSION@
+AMTAR = @AMTAR@
+AR = @AR@
+AS = @AS@
+AWK = @AWK@
+BUILD_INCLUDED_LIBINTL = @BUILD_INCLUDED_LIBINTL@
+CATALOGS = @CATALOGS@
+CATOBJEXT = @CATOBJEXT@
+CC = @CC@
+DATADIRNAME = @DATADIRNAME@
+DEPDIR = @DEPDIR@
+DLLTOOL = @DLLTOOL@
+DVIPS = @DVIPS@
+ECHO = @ECHO@
+EMACS = @EMACS@
+EXEEXT = @EXEEXT@
+GENCAT = @GENCAT@
+GLIBC21 = @GLIBC21@
+GMOFILES = @GMOFILES@
+GMSGFMT = @GMSGFMT@
+INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
+INSTOBJEXT = @INSTOBJEXT@
+INTLBISON = @INTLBISON@
+INTLLIBS = @INTLLIBS@
+INTLOBJS = @INTLOBJS@
+INTL_LIBTOOL_SUFFIX_PREFIX = @INTL_LIBTOOL_SUFFIX_PREFIX@
+LIBICONV = @LIBICONV@
+LIBOBJS = @LIBOBJS@
+LIBTOOL = @LIBTOOL@
+LN_S = @LN_S@
+MKINSTALLDIRS = @MKINSTALLDIRS@
+MSGFMT = @MSGFMT@
+OBJDUMP = @OBJDUMP@
+OBJEXT = @OBJEXT@
+PACKAGE = @PACKAGE@
+POFILES = @POFILES@
+POSUB = @POSUB@
+RANLIB = @RANLIB@
+STRIP = @STRIP@
+TEXI2HTML = @TEXI2HTML@
+TEXI2PDF = @TEXI2PDF@
+USE_INCLUDED_LIBINTL = @USE_INCLUDED_LIBINTL@
+USE_NLS = @USE_NLS@
+YACC = @YACC@
+aclocaldir = @aclocaldir@
+am__include = @am__include@
+am__quote = @am__quote@
+install_sh = @install_sh@
+lispdir = @lispdir@
+htmldir = $(docdir)
+mandir = @mandir@
+
+VERSION = @VERSION@
+docdir = $(prefix)/doc/@PACKAGE@
+
+AUTOMAKE_OPTIONS = 1.2 gnits
+
+man_MAN3 = gettext.3 ngettext.3 \
+textdomain.3 bindtextdomain.3 bind_textdomain_codeset.3
+
+man_MAN3IN = gettext.3.in ngettext.3.in \
+textdomain.3.in bindtextdomain.3.in bind_textdomain_codeset.3.in
+
+man_MANS = $(man_MAN3) \
+dgettext.3 dcgettext.3 dngettext.3 dcngettext.3
+
+
+man_HTML = gettext.3.html ngettext.3.html \
+textdomain.3.html bindtextdomain.3.html bind_textdomain_codeset.3.html
+
+
+EXTRA_DIST = $(man_MANS) $(man_MAN3IN) $(man_HTML)
+MAINTAINERCLEANFILES = $(man_MAN1) $(man_MAN3) $(man_HTML)
+
+RM = rm -f
+
+# groff 1.17 or newer.
+MAN2HTML = groff -mandoc -Thtml
+subdir = man
+mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
+CONFIG_HEADER = $(top_builddir)/config.h
+CONFIG_CLEAN_FILES =
+DIST_SOURCES =
+
+NROFF = nroff
+MANS = $(man_MANS)
+DIST_COMMON = ChangeLog Makefile.am Makefile.in
+all: all-am
+
+.SUFFIXES:
+
+mostlyclean-libtool:
+	-rm -f *.lo
+
+clean-libtool:
+	-rm -rf .libs _libs
+
+distclean-libtool:
+	-rm -f libtool
+$(srcdir)/Makefile.in:  Makefile.am  $(top_srcdir)/configure.in $(ACLOCAL_M4)
+	cd $(top_srcdir) && \
+	  $(AUTOMAKE) --gnits  man/Makefile
+Makefile:  $(srcdir)/Makefile.in  $(top_builddir)/config.status
+	cd $(top_builddir) && \
+	  CONFIG_HEADERS= CONFIG_LINKS= \
+	  CONFIG_FILES=$(subdir)/$@ $(SHELL) ./config.status
+uninstall-info-am:
+
+man3dir = $(mandir)/man3
+install-man3: $(man3_MANS) $(man_MANS)
+	@$(NORMAL_INSTALL)
+	$(mkinstalldirs) $(DESTDIR)$(man3dir)
+	@list='$(man3_MANS) $(dist_man3_MANS) $(nodist_man3_MANS)'; \
+	l2='$(man_MANS) $(dist_man_MANS) $(nodist_man_MANS)'; \
+	for i in $$l2; do \
+	  case "$$i" in \
+	    *.3*) list="$$list $$i" ;; \
+	  esac; \
+	done; \
+	for i in $$list; do \
+	  if test -f $(srcdir)/$$i; then file=$(srcdir)/$$i; \
+	  else file=$$i; fi; \
+	  ext=`echo $$i | sed -e 's/^.*\\.//'`; \
+	  inst=`echo $$i | sed -e 's/\\.[0-9a-z]*$$//'`; \
+	  inst=`echo $$inst | sed -e 's/^.*\///'`; \
+	  inst=`echo $$inst | sed '$(transform)'`.$$ext; \
+	  echo " $(INSTALL_DATA) $$file $(DESTDIR)$(man3dir)/$$inst"; \
+	  $(INSTALL_DATA) $$file $(DESTDIR)$(man3dir)/$$inst; \
+	done
+uninstall-man3:
+	@$(NORMAL_UNINSTALL)
+	@list='$(man3_MANS) $(dist_man3_MANS) $(nodist_man3_MANS)'; \
+	l2='$(man_MANS) $(dist_man_MANS) $(nodist_man_MANS)'; \
+	for i in $$l2; do \
+	  case "$$i" in \
+	    *.3*) list="$$list $$i" ;; \
+	  esac; \
+	done; \
+	for i in $$list; do \
+	  ext=`echo $$i | sed -e 's/^.*\\.//'`; \
+	  inst=`echo $$i | sed -e 's/\\.[0-9a-z]*$$//'`; \
+	  inst=`echo $$inst | sed -e 's/^.*\///'`; \
+	  inst=`echo $$inst | sed '$(transform)'`.$$ext; \
+	  echo " rm -f $(DESTDIR)$(man3dir)/$$inst"; \
+	  rm -f $(DESTDIR)$(man3dir)/$$inst; \
+	done
+tags: TAGS
+TAGS:
+
+
+DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
+
+top_distdir = ..
+distdir = $(top_distdir)/$(PACKAGE)-$(VERSION)
+
+distdir: $(DISTFILES)
+	@for file in $(DISTFILES); do \
+	  if test -f $$file; then d=.; else d=$(srcdir); fi; \
+	  dir=`echo "$$file" | sed -e 's,/[^/]*$$,,'`; \
+	  if test "$$dir" != "$$file" && test "$$dir" != "."; then \
+	    $(mkinstalldirs) "$(distdir)/$$dir"; \
+	  fi; \
+	  if test -d $$d/$$file; then \
+	    cp -pR $$d/$$file $(distdir) \
+	    || exit 1; \
+	  else \
+	    test -f $(distdir)/$$file \
+	    || cp -p $$d/$$file $(distdir)/$$file \
+	    || exit 1; \
+	  fi; \
+	done
+check-am: all-am
+check: check-am
+all-am: Makefile $(MANS) all-local
+
+install: install-am
+install-exec: install-exec-am
+install-data: install-data-am
+uninstall: uninstall-am
+
+install-am: all-am
+	@$(MAKE) $(AM_MAKEFLAGS) install-exec-am install-data-am
+
+installcheck: installcheck-am
+install-strip:
+	$(MAKE) $(AM_MAKEFLAGS) INSTALL_PROGRAM="$(INSTALL_STRIP_PROGRAM)" \
+	  `test -z '$(STRIP)' || \
+	    echo "INSTALL_PROGRAM_ENV=STRIPPROG='$(STRIP)'"` install
+mostlyclean-generic:
+
+clean-generic:
+
+distclean-generic:
+	-rm -f Makefile $(CONFIG_CLEAN_FILES) stamp-h stamp-h[0-9]*
+
+maintainer-clean-generic:
+	@echo "This command is intended for maintainers to use"
+	@echo "it deletes files that may require special tools to rebuild."
+	-test -z "$(MAINTAINERCLEANFILES)" || rm -f $(MAINTAINERCLEANFILES)
+clean: clean-am
+
+clean-am: clean-generic clean-libtool mostlyclean-am
+
+distclean: distclean-am
+
+distclean-am: clean-am distclean-generic distclean-libtool
+
+dvi: dvi-am
+
+dvi-am:
+
+info: info-am
+
+info-am:
+
+install-data-am: install-data-local install-man
+
+install-exec-am:
+
+install-info: install-info-am
+
+install-man: install-man3
+
+installcheck-am:
+
+maintainer-clean: maintainer-clean-am
+
+maintainer-clean-am: distclean-am maintainer-clean-generic
+
+mostlyclean: mostlyclean-am
+
+mostlyclean-am: mostlyclean-generic mostlyclean-libtool
+
+uninstall-am: uninstall-info-am uninstall-local uninstall-man
+
+uninstall-man: uninstall-man3
+
+.PHONY: all all-am all-local check check-am clean clean-generic \
+	clean-libtool distclean distclean-generic distclean-libtool \
+	distdir dvi dvi-am info info-am install install-am install-data \
+	install-data-am install-data-local install-exec install-exec-am \
+	install-info install-info-am install-man install-man3 \
+	install-strip installcheck installcheck-am installdirs \
+	maintainer-clean maintainer-clean-generic mostlyclean \
+	mostlyclean-generic mostlyclean-libtool uninstall uninstall-am \
+	uninstall-info-am uninstall-local uninstall-man uninstall-man3
+
+
+# We distribute both the man pages and their HTML equivalent.
+# The user can generate the parts, via
+#   make man
+#   make html
+
+all-local: html
+install-data-local: install-html
+installdirs-local: installdirs-html
+uninstall-local: uninstall-html
+
+# Man pages.
+
+gettext.3: gettext.3.in $(top_srcdir)/configure.in
+	sed -e 's/@''VERSION''@/@VERSION@/g' < $(srcdir)/gettext.3.in > t-$@
+	mv t-$@ $@
+ngettext.3: ngettext.3.in $(top_srcdir)/configure.in
+	sed -e 's/@''VERSION''@/@VERSION@/g' < $(srcdir)/ngettext.3.in > t-$@
+	mv t-$@ $@
+textdomain.3: textdomain.3.in $(top_srcdir)/configure.in
+	sed -e 's/@''VERSION''@/@VERSION@/g' < $(srcdir)/textdomain.3.in > t-$@
+	mv t-$@ $@
+bindtextdomain.3: bindtextdomain.3.in $(top_srcdir)/configure.in
+	sed -e 's/@''VERSION''@/@VERSION@/g' < $(srcdir)/bindtextdomain.3.in > t-$@
+	mv t-$@ $@
+bind_textdomain_codeset.3: bind_textdomain_codeset.3.in $(top_srcdir)/configure.in
+	sed -e 's/@''VERSION''@/@VERSION@/g' < $(srcdir)/bind_textdomain_codeset.3.in > t-$@
+	mv t-$@ $@
+
+# Man pages in HTML format.
+
+html: $(man_HTML)
+
+gettext.3.html: gettext.3.in
+	$(MAN2HTML) $(srcdir)/gettext.3.in > t-$@
+	mv t-$@ $@
+ngettext.3.html: ngettext.3.in
+	$(MAN2HTML) $(srcdir)/ngettext.3.in > t-$@
+	mv t-$@ $@
+textdomain.3.html: textdomain.3.in
+	$(MAN2HTML) $(srcdir)/textdomain.3.in > t-$@
+	mv t-$@ $@
+bindtextdomain.3.html: bindtextdomain.3.in
+	$(MAN2HTML) $(srcdir)/bindtextdomain.3.in > t-$@
+	mv t-$@ $@
+bind_textdomain_codeset.3.html: bind_textdomain_codeset.3.in
+	$(MAN2HTML) $(srcdir)/bind_textdomain_codeset.3.in > t-$@
+	mv t-$@ $@
+
+install-html:
+	$(mkinstalldirs) $(DESTDIR)$(htmldir)
+	for file in $(man_HTML); do \
+	  if test -f $$file; then dir=.; else dir=$(srcdir); fi; \
+	  $(INSTALL_DATA) $$dir/$$file $(DESTDIR)$(htmldir)/$$file; \
+	done
+
+installdirs-html:
+	$(mkinstalldirs) $(DESTDIR)$(htmldir)
+
+uninstall-html:
+	for file in $(man_HTML); do \
+	  $(RM) $(DESTDIR)$(htmldir)/$$file; \
+	done
+
+# One more automake bug.
+installdirs: installdirs-local
+# Tell versions [3.59,3.63) of GNU make to not export all variables.
+# Otherwise a system limit (for SysV at least) may be exceeded.
+.NOEXPORT:
