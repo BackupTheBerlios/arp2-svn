@@ -8,7 +8,8 @@ Known bugs and missing features:
   the descriptor numbers will be wrong.
 
 * Cards with only 10 bit IO decoding will not reserve IO areas where
-  a15-a10 != 0.
+  a15-a10 != 0.  However, since Windows does not allow this either, this
+  should really not be an issue.
 
 * Fixed resources, used by non-PnP ISA cards, cannot be reserved yet.  This
   means that the resource allocation algorithm may assign resources to PnP
