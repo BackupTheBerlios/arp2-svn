@@ -39,7 +39,7 @@ install:	all
 tgz:		all gg-sfdc.spec
 	cvs diff >/dev/null || (echo "Not checked in!"; exit 10)
 	mkdir $(EXECUTABLE)-$(VERSION)
-	cd $(EXECUTABLE)-$(VERSION) && cvs export sfdc -Dtoday
+	cd $(EXECUTABLE)-$(VERSION) && cvs export -Dtoday sfdc
 	mv $(EXECUTABLE)-$(VERSION)/sfdc/* $(EXECUTABLE)-$(VERSION)
 	cp $^ $(EXECUTABLE)-$(VERSION)
 	rmdir $(EXECUTABLE)-$(VERSION)/sfdc
