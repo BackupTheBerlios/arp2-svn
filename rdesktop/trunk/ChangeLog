@@ -1,5 +1,15 @@
 2005-01-05  Martin Blom  <martin@blom.org>
 
+	* Added hatch patterns to ui_patblt().
+
+	* The pattern in ui_patblt() seems to be inverted. This fixes the
+	missing grid in Microsoft Outlook and also made the lasso in
+	Explorer appear.
+
+	* Picasso96 and CyberGraphX do not handle minterm 0x00 or 0xf0
+	correctly. :-( Detect this and use RectFill() instead. This fixes
+	bad colors in Microsoft Outlook.
+
 	* Avoid 'ERROR: send: Bad file descriptor' when terminating
 	RDesktop while audio is streaming.
 

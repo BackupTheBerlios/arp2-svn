@@ -62,6 +62,8 @@
 
 #include "amiga_clipboard.h"
 
+#define TRACEFUNC printf("%s()\n", __func__);
+
 extern int  g_width;
 extern int  g_height;
 extern Bool g_sendmotion;
@@ -296,6 +298,59 @@ SafeWriteChunkyPixels(struct RastPort *rp,LONG xstart,LONG ystart,
 }
 
 
+static LONG
+amiga_obtain_pen( ULONG color )
+{
+  ULONG r, g, b;
+
+  switch( g_server_bpp )
+  {
+    case 8:
+      return amiga_pens[ color ];
+
+    case 15:
+      r = ( color & 0x7c00 ) << 17;
+      g = ( color & 0x03e0 ) << 22;
+      b = ( color & 0x001f ) << 27;
+      break;
+
+    case 16:
+      r = ( color & 0xf800 ) << 16;
+      g = ( color & 0x07e0 ) << 21;
+      b = ( color & 0x001f ) << 27;
+      break;
+
+    case 24:
+      r = ( color & 0x0000ff ) << 24;
+      g = ( color & 0x00ff00 ) << 16;
+      b = ( color & 0xff0000 ) << 8;
+      break;
+
+    default:
+      error( "amiga_obtain_pen: Illegal server bitplane depth.\n" );
+      return -1;
+  }
+
+  return ObtainBestPen( amiga_window->WScreen->ViewPort.ColorMap,
+			r, g, b,
+			OBP_Precision, PRECISION_EXACT,
+			TAG_DONE );
+  
+  return ObtainPen( amiga_window->WScreen->ViewPort.ColorMap,
+		    -1, r, g, b, 0 );
+}
+
+static void
+amiga_release_pen( LONG pen )
+{
+  if( g_server_bpp != 8 )
+  {
+    ReleasePen( amiga_window->WScreen->ViewPort.ColorMap, pen );
+  }
+}
+
+
+
 VOID
 SoftClipBlit( struct RastPort *srcRP, LONG xSrc, LONG ySrc,
 	      struct RastPort *destRP, LONG xDest, LONG yDest,
@@ -365,7 +420,32 @@ WorkingClipBlit( struct RastPort *srcRP, LONG xSrc, LONG ySrc,
 		 LONG xSize, LONG ySize,
 		 ULONG minterm )
 {
-  if( amiga_broken_blitter && minterm != 0xc0 )
+  // Neither Picasso96 nor CyberGraphX handle minterm 0x00 and 0xff
+  // correctly, so use RectFill() for those instead. :-(
+
+  if( minterm == 0 )
+  {
+    LONG pen = amiga_obtain_pen( 0x00000000 );
+  
+    SetABPenDrMd( amiga_window->RPort, pen, 0, JAM1 );
+    RectFill( amiga_window->RPort,
+	      xDest, yDest,
+	      xDest + xSize - 1, yDest + ySize - 1 );
+
+    amiga_release_pen( pen );
+  }
+  else if( minterm == 0xf0 )
+  {
+    LONG pen = amiga_obtain_pen( 0xffffffff );
+  
+    SetABPenDrMd( amiga_window->RPort, pen, 0, JAM1 );
+    RectFill( amiga_window->RPort,
+	      xDest, yDest,
+	      xDest + xSize - 1, yDest + ySize - 1 );
+
+    amiga_release_pen( pen );
+  }
+  else if( amiga_broken_blitter && minterm != 0xc0 )
   {
     // MinTerms do not work with CyberGraphX
 
@@ -390,7 +470,33 @@ WorkingBltBitMapRastPort( struct BitMap *srcBitMap, LONG xSrc, LONG ySrc,
 			  LONG xSize, LONG ySize,
 			  ULONG minterm )
 {
-  if( amiga_broken_blitter && minterm != 0xc0 )
+  // Neither Picasso96 nor CyberGraphX handle minterm 0x00 and 0xff
+  // correctly, so use RectFill() for those instead. :-(
+  
+  if( minterm == 0 )
+  {
+
+    LONG pen = amiga_obtain_pen( 0x00000000 );
+  
+    SetABPenDrMd( amiga_window->RPort, pen, 0, JAM1 );
+    RectFill( amiga_window->RPort,
+	      xDest, yDest,
+	      xDest + xSize - 1, yDest + ySize - 1 );
+
+    amiga_release_pen( pen );
+  }
+  else if( minterm == 0xf0 )
+  {
+    LONG pen = amiga_obtain_pen( 0xffffffff );
+  
+    SetABPenDrMd( amiga_window->RPort, pen, 0, JAM1 );
+    RectFill( amiga_window->RPort,
+	      xDest, yDest,
+	      xDest + xSize - 1, yDest + ySize - 1 );
+
+    amiga_release_pen( pen );
+  }
+  else if( amiga_broken_blitter && minterm != 0xc0 )
   {
     // MinTerms do not work with CyberGraphX
  
@@ -471,56 +577,6 @@ amiga_blt_rastport( struct RastPort *srcRP, LONG xSrc, LONG ySrc,
 
 
 
-static LONG
-amiga_obtain_pen( ULONG color )
-{
-  ULONG r, g, b;
-
-  switch( g_server_bpp )
-  {
-    case 8:
-      return amiga_pens[ color ];
-
-    case 15:
-      r = ( color & 0x7c00 ) << 17;
-      g = ( color & 0x03e0 ) << 22;
-      b = ( color & 0x001f ) << 27;
-      break;
-
-    case 16:
-      r = ( color & 0xf800 ) << 16;
-      g = ( color & 0x07e0 ) << 21;
-      b = ( color & 0x001f ) << 27;
-      break;
-
-    case 24:
-      r = ( color & 0x0000ff ) << 24;
-      g = ( color & 0x00ff00 ) << 16;
-      b = ( color & 0xff0000 ) << 8;
-      break;
-
-    default:
-      error( "amiga_obtain_pen: Illegal server bitplane depth.\n" );
-      return -1;
-  }
-
-  return ObtainBestPen( amiga_window->WScreen->ViewPort.ColorMap,
-			r, g, b,
-			OBP_Precision, PRECISION_EXACT,
-			TAG_DONE );
-  
-  return ObtainPen( amiga_window->WScreen->ViewPort.ColorMap,
-		    -1, r, g, b, 0 );
-}
-
-static void
-amiga_release_pen( LONG pen )
-{
-  if( g_server_bpp != 8 )
-  {
-    ReleasePen( amiga_window->WScreen->ViewPort.ColorMap, pen );
-  }
-}
 
 
 static void
@@ -2236,11 +2292,31 @@ ui_destblt(uint8 opcode,
 }
 
 
+static uint8 hatch_patterns[] = {
+#if 0
+	0x00, 0x00, 0x00, 0xff, 0x00, 0x00, 0x00, 0x00,	/* 0 - bsHorizontal */
+	0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08,	/* 1 - bsVertical */
+	0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01,	/* 2 - bsFDiagonal */
+	0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80,	/* 3 - bsBDiagonal */
+	0x08, 0x08, 0x08, 0xff, 0x08, 0x08, 0x08, 0x08,	/* 4 - bsCross */
+	0x81, 0x42, 0x24, 0x18, 0x18, 0x24, 0x42, 0x81	/* 5 - bsDiagCross */
+#else
+	0xff, 0xff, 0xff, 0x00, 0xff, 0xff, 0xff, 0xff,	/* 0 - bsHorizontal */
+	0xf7, 0xf7, 0xf7, 0xf7, 0xf7, 0xf7, 0xf7, 0xf7,	/* 1 - bsVertical */ 
+	0x7f, 0xbf, 0xdf, 0xef, 0xf7, 0xfb, 0xfd, 0xfe,	/* 2 - bsFDiagonal */
+	0xfe, 0xfd, 0xfb, 0xf7, 0xef, 0xdf, 0xbf, 0x7f,	/* 3 - bsBDiagonal */
+	0xf7, 0xf7, 0xf7, 0x00, 0xf7, 0xf7, 0xf7, 0xf7,	/* 4 - bsCross */    
+	0x7e, 0xbd, 0xdb, 0xe7, 0xe7, 0xdb, 0xbd, 0x7e,	/* 5 - bsDiagCross */
+#endif
+};
+
 void
 ui_patblt(uint8 opcode,
 	  /* dest */ int x, int y, int cx, int cy,
 	  /* brush */ BRUSH *brush, int bgcolour, int fgcolour)
 {
+  uint8* pattern = brush->pattern;
+    
   // TODO: This function is totally fucked up and shout be rewritten
   
   x += amiga_window->BorderLeft;
@@ -2254,6 +2330,9 @@ ui_patblt(uint8 opcode,
 			  cx, cy,
 			  ( opcode ^ 3 ) << 4   /* B is always 1 */ );
       break;
+
+    case 2:     /* Hatch */
+      pattern = hatch_patterns + brush->pattern[0] * 8;
 
     case 3:	/* Pattern */
     {
@@ -2274,11 +2353,11 @@ ui_patblt(uint8 opcode,
         {
           UBYTE mask;
         
-          mask = brush->pattern[ ( v + brush->yorigin ) & 7 ];
+          mask = pattern[ ( v + brush->yorigin ) & 7 ];
 
           for( h = 0; h < cx; ++h )
           {
-            if( mask & ( 1 << ( ( h + brush->xorigin ) & 7 ) ) )
+            if( ( mask & ( 1 << ( ( h + brush->xorigin ) & 7 ) ) ) == 0 )
             {
               SetAPen( &rp, fgpen );
             }
@@ -2306,6 +2385,7 @@ ui_patblt(uint8 opcode,
     default:
       unimpl("brush %d\n", brush->style);
   }
+
 }
 
 
