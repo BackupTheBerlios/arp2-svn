@@ -2685,7 +2685,7 @@ fi
 
 #AC_CHECK_HEADERS([alloca.h arpa/inet.h errno.h fcntl.h limits.h mntent.h netdb.h netinet/in.h stdlib.h string.h strings.h sys/ioctl.h sys/mntent.h sys/mount.h sys/param.h sys/socket.h sys/statvfs.h sys/time.h sys/vfs.h termios.h unistd.h utime.h])
 
-for ac_header in devices/newmouse.h devices/rawkeycodes.h
+for ac_header in newmouse.h devices/newmouse.h devices/rawkeycodes.h
 do
 as_ac_Header=`echo "ac_cv_header_$ac_header" | $as_tr_sh`
 echo "$as_me:2691: checking for $ac_header" >&5

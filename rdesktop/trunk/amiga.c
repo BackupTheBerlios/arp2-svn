@@ -53,6 +53,9 @@
 
 #include <cybergraphx/cybergraphics.h>
 #include <exec/memory.h>
+#ifdef HAVE_NEWMOUSE_H
+# include <newmouse.h>
+#endif
 #ifdef HAVE_DEVICES_NEWMOUSE_H
 # include <devices/newmouse.h>
 #endif
@@ -1810,15 +1813,23 @@ ui_select(int rdp_socket)
 	      int scancode;
 	      int flag;
 
-#if defined(HAVE_DEVICES_NEWMOUSE_H) || defined(HAVE_DEVICES_RAWKEYCODES_H)
+#if defined(HAVE_NEWMOUSE_H) || defined(HAVE_DEVICES_NEWMOUSE_H)
 	      int button = 0;
 
 	      switch (msg->Code & ~0x80) {
+#if defined(HAVE_DEVICES_RAWKEYCODES_H)
 		case RAWKEY_NM_WHEEL_UP:
+#elif defined(HAVE_NEWMOUSE_H)
+		case NM_WHEEL_UP:
+#endif
 		  button = MOUSE_FLAG_BUTTON4 | MOUSE_FLAG_DOWN;
 		  break;
 
+#if defined(HAVE_DEVICES_RAWKEYCODES_H)
 		case RAWKEY_NM_WHEEL_DOWN:
+#elif defined(HAVE_NEWMOUSE_H)
+		case NM_WHEEL_DOWN:
+#endif
 		  button = MOUSE_FLAG_BUTTON5 | MOUSE_FLAG_DOWN;
 		  break;
 	      }
