@@ -19,8 +19,14 @@ man_MANS = info.1 install-info.1 makeinfo.1 texindex.1 texi2dvi.1 \
 HELP2MAN = help2man
 noinst_SCRIPTS = $(HELP2MAN)
 
-# Use the programs built in our distribution.
-MAKEINFO = ../makeinfo/makeinfo
+if DOC_AMIGAGUIDE
+EXTRA_INFO_FLAGS = -DAGdoc
+else
+EXTRA_INFO_FLAGS =
+endif
+
+# Use the makeinfo built in our distribution.
+MAKEINFO = ../makeinfo/makeinfo $(EXTRA_INFO_FLAGS)
 INSTALL_INFO = ../util/install-info
 
 TXI_XLATE = txi-cs.tex txi-de.tex txi-en.tex txi-es.tex txi-fr.tex \

@@ -843,6 +843,14 @@ initialize_info_keymaps ()
     initialize_vi_like_keymaps ();
   else
     initialize_emacs_like_keymaps ();
+
+  if (CSI)
+    {
+      info_keymap[CSI].type = ISKMAP;
+      info_keymap[CSI].function = (VFunction *)keymap_make_keymap ();
+      echo_area_keymap[CSI].type = ISKMAP;
+      echo_area_keymap[CSI].function = (VFunction *)keymap_make_keymap ();
+    }
 }
 
 #else /* defined(INFOKEY) */

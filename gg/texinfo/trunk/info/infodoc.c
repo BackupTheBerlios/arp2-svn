@@ -740,6 +740,19 @@ pretty_keyname (key)
   static char rep_buffer[30];
   char *rep;
 
+  if (CSI && key == CSI)
+    {
+      char temp[20];
+
+      if (key++ != '\0')
+	rep = pretty_keyname (key);
+
+      sprintf (temp, "CSI %s", rep);
+      strcpy (rep_buffer, temp);
+      rep = rep_buffer;
+      return (rep);
+    }
+
   if (Meta_p (key))
     {
       char temp[20];

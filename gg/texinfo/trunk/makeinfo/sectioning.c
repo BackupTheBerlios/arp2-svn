@@ -20,6 +20,7 @@
    Originally written by Karl Heinz Marbaise <kama@hippo.fido.de>.  */
 
 #include "system.h"
+#include "amigaguide.h"
 #include "cmds.h"
 #include "macro.h"
 #include "makeinfo.h"
@@ -379,7 +380,11 @@ insert_and_underscore (level, with_char, cmd)
       free (temp1);
     }
   else
-    execute_string ("%s\n", temp);
+    {
+      if (have_amigaguide && amiga_guide)
+        amiga_guide_hide_title_chars = 0;
+      execute_string ("%s\n", temp);
+    }
 
   /* Step 3: pluck "X.Y SECTION-NAME" from the output buffer and
      insert it into the TOC.  */
@@ -391,6 +396,8 @@ insert_and_underscore (level, with_char, cmd)
   free (temp);
 
   len = (ending_pos - starting_pos) - 1;
+  if (have_amigaguide && amiga_guide)
+    len -= amiga_guide_hide_title_chars;
   for (i = 0; i < len; i++)
     add_char (with_char);
   insert ('\n');

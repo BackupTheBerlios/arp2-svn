@@ -23,7 +23,11 @@ AC_PROG_CC
 AC_PROG_GCC_TRADITIONAL
 AC_PROG_INSTALL
 AC_PROG_MAKE_SET
-AC_PROG_RANLIB
+AC_CHECK_TOOL(RANLIB, ranlib, :)
+### begin-GG-local
+AC_CHECK_TOOL(AR, ar)
+AC_ARFLAGS
+### end-GG-local
 
 AC_ISC_POSIX
 AC_MINIX
@@ -152,6 +156,23 @@ dnl i18n support.  To update to a new version of gettext, run:
 dnl  gettextize -f -c --intl
 AM_GNU_GETTEXT_VERSION(0.12.1)
 AM_GNU_GETTEXT()
+
+dnl Enable AmigaGuide target, even on non-AmigaDOS platforms
+AC_ARG_ENABLE(amigaguide,
+[  --enable-amigaguide     Allow AmigaGuide target on non-AmigaDOS platforms],
+  [case "${enableval}" in
+    yes) configure_amigaguide=true ;;
+    no) configure_amigaguide=false ;;
+    *) AC_MSG_ERROR(bad value ${enableval} for AmigaGuide option) ;;
+   esac],
+  [configure_amigaguide=false])
+
+if test "x$configure_amigaguide" = "xtrue"; then
+  AC_DEFINE([ENABLE_AMIGAGUIDE], [], [Enable AmigaGuide® support])
+#  AC_DEFINE(ENABLE_AMIGAGUIDE)
+fi
+
+AM_CONDITIONAL(DOC_AMIGAGUIDE, test "x$configure_amigaguide" = "xtrue")
 
 AC_CONFIG_FILES([
   Makefile			\

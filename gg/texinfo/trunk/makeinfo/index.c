@@ -18,6 +18,7 @@
    Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "system.h"
+#include "amigaguide.h"
 #include "index.h"
 #include "lang.h"
 #include "macro.h"
@@ -681,6 +682,12 @@ cm_printindex ()
           free (index_name);
           return;
         }
+      else if (have_amigaguide && amiga_guide && !no_headers && !strcmp (index_name, "cp"))
+        {
+          inhibit_paragraph_indentation = 1;
+          add_word_args ("\n@index \"%s\"", current_node);
+          inhibit_paragraph_indentation = saved_inhibit_paragraph_indentation;
+        }
 
       /* Do this before sorting, so execute_string is in the good environment */
       if (xml && docbook)
@@ -697,6 +704,12 @@ cm_printindex ()
       close_paragraph ();
       if (html)
         add_word_args ("<ul class=\"index-%s\" compact>", index_name);
+      else if (have_amigaguide && amiga_guide)
+        {
+          add_char ('\x80');
+          --output_paragraph_offset;
+          add_word ("\n\n");
+        }
       else if (!no_headers && !docbook)
         add_word ("* Menu:\n\n");
 
@@ -788,7 +801,14 @@ cm_printindex ()
 
               if (new_length < 50) /* minimum length used below */
                 new_length = 50;
-              new_length += strlen (index_node) + 7; /* * : .\n\0 */
+              if (have_amigaguide && amiga_guide)
+                {
+                  if (!strcmp (index_node, "Top"))
+                    index_node = "Main";
+                  new_length= strlen (index->entry) + (2 * strlen (index_node)) + 100;
+                }
+              else
+                new_length += strlen (index_node) + 7; /* * : .\n\0 */
 
               if (new_length > line_length)
                 {
@@ -799,6 +819,23 @@ cm_printindex ()
                  expanded any commands in index->entry, including any
                  implicit @code.  Thus, can't call execute_string, since
                  @@ has turned into @. */
+              if (have_amigaguide && amiga_guide)
+                {
+                  if (!no_headers)
+                    {
+                      normalize_node_name(index->entry);
+                      /* Remove '\"' and '/' in btns. */
+                      sprintf (line, " @{\" %-40s \" link \"%s\"}   %s\n",
+                               index->entry, index_node, index_node);
+                    }
+                  else
+                    {
+                       sprintf (line, " %-40s ... %s\n",
+                                index->entry, index_node);
+                    }
+                  insert_string (line);
+                }
+              else
               if (!no_headers)
                 {
                   sprintf (line, "* %-37s  ", index->entry);

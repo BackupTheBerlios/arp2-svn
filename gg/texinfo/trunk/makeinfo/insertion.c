@@ -19,6 +19,7 @@
    Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "system.h"
+#include "amigaguide.h"
 #include "cmds.h"
 #include "defun.h"
 #include "insertion.h"
@@ -400,7 +401,7 @@ begin_insertion (type)
         {
           had_menu_commentary = 1;
         }
-      else if (!no_headers && !xml)
+      else if (!no_headers && !xml && !(have_amigaguide && amiga_guide))
         add_word ("* Menu:\n");
 
       if (xml)
@@ -1134,7 +1135,7 @@ cm_smalldisplay ()
 void
 cm_direntry ()
 {
-  if (html || xml)
+  if (html || xml || (have_amigaguide && amiga_guide))
     command_name_condition ();
   else
     begin_insertion (direntry);
@@ -1247,6 +1248,10 @@ handle_verbatim_environment (find_end_verbatim)
         add_word ("&amp;");
       else if (html && character == '<' && escape_html)
         add_word ("&lt;");
+      else if (have_amigaguide && amiga_guide && !no_headers && character == '@')
+        {
+          insert ('\\'); add_char (character);
+        }
       else
         add_char (character);
 
@@ -1438,6 +1443,64 @@ cm_menu ()
       /* Include @top command so we can construct the implicit node tree.  */
       execute_string ("@node top\n@top Top\n");
     }
+
+  if (!no_headers && have_amigaguide && amiga_guide)
+    {
+      /* We want the individual buttons of an menu at an equal
+	 length. As we like menus with more than one line of
+	 descriptive text to line up nicely, we try to find a
+	 reasonable format string. */
+      int menu_width = 0;
+      int beginning_of_menu_line = input_text_offset;
+      int beginning_of_menu_body = input_text_offset;
+      int additional_from_tabs = 0;
+      int newline_encountered = 0;
+
+      beginning_of_menu_line =
+	search_forward (/*MENU_STARTER*/"* ", input_text_offset);
+
+      beginning_of_menu_body = search_forward (":", beginning_of_menu_line);
+
+      beginning_of_menu_body++;
+
+      while ((input_text[beginning_of_menu_body] != '.') &&
+	     (input_text[beginning_of_menu_body] != ':'))
+	{
+	  if (input_text[beginning_of_menu_body] == '\n')
+	    newline_encountered = 1; /* Ouch! This shouldn't happen */
+
+	  beginning_of_menu_body++;
+	}
+
+      beginning_of_menu_body++;
+
+      while (whitespace (input_text[beginning_of_menu_body]))
+	{
+	  /* TAB's are a nasty thing to handle in this case,
+	     especially when there's more than one. This aproach will
+	     have to do for now, even though it's not perfect. */
+
+	  if (input_text[beginning_of_menu_body] == '\t')
+	    additional_from_tabs +=
+	      7 - ((beginning_of_menu_body - beginning_of_menu_line)
+		   & 0x07);
+
+	  if (input_text[beginning_of_menu_body] == '\n')
+	    newline_encountered = 1; /* Ouch! This shouldn't happen */
+
+	  beginning_of_menu_body++;
+	}
+
+      menu_width = beginning_of_menu_body - beginning_of_menu_line +
+	additional_from_tabs;
+
+      sprintf (amiga_guide_menu_gadgets, "\" %%-%ds \"\0",
+	       menu_width - 6);
+
+      if (newline_encountered) /* Be a chicken */
+	sprintf (amiga_guide_menu_gadgets, "\" %%-25ds \"\0");
+    }
+
   begin_insertion (menu);
 }
 

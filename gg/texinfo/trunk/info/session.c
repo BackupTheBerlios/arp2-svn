@@ -4659,6 +4659,14 @@ info_dispatch_on_key (key, map)
 #if !defined(INFOKEY)
   if (Meta_p (key) && (!ISO_Latin_p || map[key].function != ea_insert))
     {
+      if (CSI && key == CSI && map[CSI].type == ISKMAP)
+	{
+	  map = (Keymap)map[CSI].function;
+	  add_char_to_keyseq (CSI);
+	  key = info_get_input_char();
+	  info_dispatch_on_key (key, map);
+	  return;
+	}
       if (map[ESC].type == ISKMAP)
         {
           map = (Keymap)map[ESC].function;

@@ -1,3 +1,7 @@
+2005-01-15  Martin Blom  <martin@blom.org>
+
+	* Made it compile even when ENABLE_AMIGAGUIDE is undefined.
+
 2003-06-10    <karl@gnu.org>
 
 	* version 4.6.
@@ -6575,6 +6579,20 @@ Wed Feb 25 15:26:26 1998  Karl Berry  <karl@cs.umb.edu>
 	Date: 15 Aug 1997 18:05:33 +0200
 	* doc/texinfo.txi (Format with texi2dvi): Mention --help.
 
+Sun Feb 22 09:53:31 1998  Fred Fish  <fnf@ninemoons.com>
+
+	* makeinfo/makeinfo.c: Only use gcc's builtin alloca if C_ALLOCA
+	is not defined.  Only include alloca.h if C_ALLOCA is not defined.
+
+Sat Feb 21 14:01:11 1998  Fred Fish  <fnf@ninemoons.com>
+
+	* info/tilde.c: Only use gcc's builtin_alloca if C_ALLOCA is not
+	defined.  Only include <alloca.h> if C_ALLOCA is not defined.
+	Declare alloca as either void* or char* as default if not using
+	builtin alloca or alloca.h.
+	* lib/alloca.c: Always compile file if C_ALLOCA is defined, even
+	if compiling with gcc.
+
 	Applied this:
 1997-08-09  Andreas Schwab  <schwab@issan.informatik.uni-dortmund.de>
 
@@ -6710,6 +6728,159 @@ Sat Feb 21 17:41:26 1998  Karl Berry  <karl@cs.umb.edu>
 	From: Kenneth Stailey <kstailey@disclosure.com>.
 
 	* info/Makefile.am (INCLUDES): Add -I.. -I$(srcdir).
+
+Thu Nov 27 09:20:50 1997  Anders Wegge Jakobsen  <wegge@obelix.wegge.dk>
+
+	* makeinfo/makeinfo.c (insert_self): Added yet another hack for
+		handling of AmigaGuide. This particular one deals with
+		escaping in multitable environments.
+
+Thu Oct 16 07:50:55 1997  Fred Fish  <fnf@ninemoons.com>
+
+	* util/install-info.c (readfile): Close file descriptor when
+	done with file.
+
+Tue Oct  7 14:37:19 1997  Anders Wegge Jakobsen  <wegge@obelix.wegge.dk>
+
+	* makeinfo/makeinfo.c (various): Cleaned up code, made a few
+		optimizations based on gprof output.
+
+	* doc/texinfo.texi (makeinfo options): Conditionalized the
+		AmigaGuide specific documentation. Added documentation for
+		the special variables that modify AmigaGuide output.
+
+	* makeinfo/makeinfo.c (ENABLE_AMIGAGUIDE): Remove previous
+		short-circuit of this conditional, as the configure script
+		now handles this.
+		(emit_cmdline_defines): New function, dumps command-line
+		defines (-D'foo bar') into the macro expansion stream.
+
+	* configure.in (configure_amigaguide),
+	* doc/Makefile.am (EXTRA_INFO_FLAGS): Add extra conditional, to
+		determine whether or not the amigaguide-specific parts
+		should be included in the documentation. For the purpose
+		of easy handling within GeekGadgets, the configure script
+		always behave as if an --enable-amigaguide have been
+		given. 
+
+Sat Oct  4 21:50:58 1997  Fred Fish  <fnf@ninemoons.com>
+
+	* Makefile.in: Regenerated with current automake.
+	* doc/Makefile.in: Ditto.
+	* emacs/Makefile.in: Ditto.
+	* info/Makefile.in: Ditto.
+	* lib/Makefile.in: Ditto.
+	* makeinfo/Makefile.in: Ditto.
+	* util/Makefile.in: Ditto.
+	* configure.in: Use AC_CHECK_TOOL to set RANLIB and AR.
+	Use AC_ARFLAGS to find ARFLAGS.
+	* configure: Regenerated.
+	* makeinfo/makeinfo.c (cm_uref): Cast output_paragraph from unsigned
+	char * to char *.
+	(cm_email): Ditto.
+	(cm_value): Ditto.
+	
+Fri Oct  3 07:58:53 1997  Anders Wegge Jakobsen  <wegge@obelix.wegge.dk>
+
+	* makeinfo/makeinfo.c (normalize_node_name): Always normalize Top,
+		even for AmigaGuide.
+		(reader_loop): Don't change '--' into '-', when expanding
+		strings for nodenames.
+		(cm_node): Enable macro-expansion-only-mode for all kind
+		of output, not only AmigaGuide.
+
+Thu Oct  2 00:09:26 1997  Anders Wegge Jakobsen  <wegge@obelix.wegge.dk>
+
+	* manifests/bin: Remove .tex and .el files from the binary
+		archive. 	
+
+	* makeinfo/makeinfo.c (cm_node, remember_node,
+		remember_node_reference): Remove previous changes, as they
+		created more problems than they fixed.
+		(reader_loop, read_command, cm_node): When expanding
+		read-ahead, only expand macro definitions, when scanning
+		for node tokens.
+		(cm_node): Moved a misplaced brace, that had rather
+		dramatic influence on the operation with --no-headers.
+
+Wed Oct  1 08:22:20 1997  Anders Wegge Jakobsen  <wegge@obelix.wegge.dk>
+
+	* makeinfo/makeinfo.c (amiga_guide_add_link): Avoid AmigaGuide
+		attributes in links.
+		(cm_node, remember_node, remember_node_reference): Work
+		around problems with attributes in nodenames.
+		(ENABLE_AMIGAGUIDE): Avoid complaints about re-declaration
+		of symbols.
+		(usage): Fix typos for --amiga.
+
+Mon Sep 29 22:09:39 1997  Fred Fish  <fnf@ninemoons.com>
+
+	* config.sub: Change occurances of amigados to amigaos, put back
+	the BeOS changes lost in merge.
+	* config.guess: Add support for AmigaOS and BeOS.
+	* emacs/Makefile.am (install-data-local): Completely disable installing
+	emacs files for now since it fails anyway.
+	* Makefile.in, doc/Makefile.in, emacs/Makefile.in, info/Makefile.in,
+	lib/Makefile.in, makeinfo/Makefile.in, util/Makefile.in: Regenerate
+	using latest automake and "--geek --include-deps" options.
+	* info/tilde.c (__builtin_alloca): Only use this if C_ALLOCA is
+	also not defined.
+	* makeinfo/makeinfo.c (start_paragraph): If ENABLE_AMIGAGUIDE is
+ 	not defined, don't reference writing_amiga_guide_button.
+	* makeinfo/makeinfo.c (ENABLE_AMIGAGUIDE): Always enable support
+	for AmigaGuide files in this version, even when not running on
+	AmigaOS.
+	* doc/Makefile.am (install-data-local): Temporarily disable installing
+	texinfo.tex and epsf.tex.
+
+Fri Sep 26 01:01:11 1997  Anders Wegge Jakobsen  <wegge@obelix.wegge.dk>
+
+	* emacs/Makefile.am: Added an terrible hack to force inclusion of
+		elisp files in GeekGadgets.
+
+	* doc/Makefile.am: Added an terrible hack to force the inclusion
+		of texinfo.tex and epsf.tex in GeekGadgets
+
+	* makeinfo/makeinfo.c (main): Complain about the use of -E with
+		AmigaGuide output.
+
+	* doc/texinfo.texi (makeinfo options): Added documentation of
+		--amiga.
+
+Tue Sep 23 18:20:21 1997  Anders Wegge Jakobsen  <wegge@obelix.wegge.dk>
+
+	* makeinfo/makeinfo.c (insert_self): Only escape '@' at the
+	beginning of words/lines, when creating AmigaGuide.
+
+Mon Sep 22 20:22:59 1997  Anders Wegge Jakobsen  <wegge@obelix.wegge.dk>
+
+	* makeinfo/makeinfo.c (cm_menu): Calculate the width of menu
+		buttons for each menu separately.
+
+Thu Sep 18 01:20:47 1997  GNU Emacs Lover  (wegge@asterix.wegge.dk)
+
+	* info/filesys.h,
+	* info/infodoc.c,
+	* info/infomap.h,
+	* info/infomap.c,
+	* info/man.c,
+	* info/session.c,
+	* info/tilde.c: Add support for the Amiga console. The most
+		prominent change, is recognition of CSI (M-ESC) as such,
+		instead of ESC-ESC.
+	
+	* makeinfo/makeinfo.c: Numerous additions and changes, which
+		allows makeinfo the create AmigaGuide documents. All
+		changes are nicely protected behind '#if defined
+		(ENABLE_AMIGAGUIDE)' or '#if defined (__amigaos__)', so
+		they should not have any unpleasant sideeffects on other
+		systems. 
+
+	* config.h.in,
+	* configure.in,
+	* makeinfo/Makefile.am: Add --enable-amigaguide to the configure
+		options. 
+
 
 Fri Aug 22 16:24:59 1997  Karl Berry  <karl@cs.umb.edu>
 

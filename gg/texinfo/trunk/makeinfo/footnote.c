@@ -18,6 +18,7 @@
    Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "system.h"
+#include "amigaguide.h"
 #include "footnote.h"
 #include "macro.h"
 #include "makeinfo.h"
@@ -247,6 +248,23 @@ cm_footnote ()
       {
       case separate_node:
         add_word_args ("(%s)", marker);
+        if (have_amigaguide && amiga_guide)
+          {
+            if (no_headers)
+              execute_string (" (*note %s-Footnote-%d::)",
+                              current_node, current_footnote_number);
+	    else
+	      {
+	        amiga_guide_writing_button++;
+	        non_splitting_words++;
+	        add_word_args ("@{\"%s-%s\" link \"%s-%s\"}",
+	                       current_node, "Footnotes",
+	                       current_node, "Footnotes");
+	        non_splitting_words--;
+	        amiga_guide_writing_button--;
+	      }
+	  }
+	else
         execute_string (" (*note %s-Footnote-%d::)",
                         current_node, current_footnote_number);
         if (first_footnote_this_node)
@@ -259,6 +277,8 @@ cm_footnote ()
             strcpy (temp_string, current_node);
             strcat (temp_string, "-Footnotes");
             expanded_ref = expansion (temp_string, 0);
+            if (have_amigaguide && amiga_guide)
+              normalize_node_name (temp_string);
             remember_node_reference (expanded_ref, line_number,
                                      followed_reference);
             free (temp_string);

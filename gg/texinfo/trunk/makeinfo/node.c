@@ -19,6 +19,7 @@
    Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "system.h"
+#include "amigaguide.h"
 #include "cmds.h"
 #include "files.h"
 #include "footnote.h"
@@ -30,6 +31,7 @@
 #include "insertion.h"
 #include "xml.h"
 
+char *set_p (char *);
 
 /* See comments in node.h.  */
 NODE_REF *node_references = NULL;
@@ -124,12 +126,35 @@ write_tag_table_indirect ()
 }
 
 /* Convert "top" and friends into "Top". */
-static void
+void
 normalize_node_name (string)
      char *string;
 {
+  if (!string)
+    return;
+
   if (strcasecmp (string, "Top") == 0)
     strcpy (string, "Top");
+
+  if (have_amigaguide && amiga_guide)
+    {
+      int i, l, amiga_convert_nodes = (int) set_p (AG_CONVERT_NODES);
+
+      for (l = strlen (string), i = 0; i < l; i++)
+        {
+          if (string[i] == '@' && string[i + 1] == '@')
+            {
+              strncpy (string + i, string + i + 1, l - i);
+              l--;
+            }
+          else if (string[i] == '/')
+            string[i] = '-';
+          else if (string[i] == '\"')
+            string[i] = '`';
+          else if (!no_headers && amiga_convert_nodes && string[i] == ' ')
+            string[i] = '_';
+        }
+    }
 }
 
 char *
@@ -621,6 +646,38 @@ cm_node ()
     }
   else if (!no_headers && !html)
     {
+      if (have_amigaguide && amiga_guide)
+	{
+	  static amiga_guide_first_node = 1;
+
+	  amiga_guide_writing_button++;
+	  if (amiga_guide_first_node)
+	    {
+	      add_word_args ("\n@node Main \"%s\"", pretty_output_filename);
+	      amiga_guide_first_node = 0;
+	    }
+	  else
+	    {
+	      add_word_args ("@endnode\n\n");
+	      if (macro_expansion_output_stream)
+		{
+		  add_word_args ("@node \"");
+		  me_execute_string (node);
+		  add_word_args ("\" \"%s/", pretty_output_filename);
+		  execute_string (node);
+		  add_word_args ("\"");
+		}
+	      else
+		{
+		  add_word_args ("@node ");
+		  execute_string ("\"%s\" \"%s/%s\"",
+                                  node,pretty_output_filename,node);
+		}
+	    }
+	  amiga_guide_writing_button--;
+	}
+      else
+	{
       add_word_args ("\037\nFile: %s,  Node: ", pretty_output_filename);
 
       if (macro_expansion_output_stream && !executing_string)
@@ -628,6 +685,7 @@ cm_node ()
       else
         execute_string ("%s", node);
       filling_enabled = indented_fill = 0;
+	}
     }
 
   /* Check for defaulting of this node's next, prev, and up fields. */
@@ -997,6 +1055,88 @@ cm_node ()
       if (macro_expansion_output_stream)
         me_inhibit_expansion++;
 
+      if (have_amigaguide && amiga_guide)
+	{
+	  /* This is somewhat ugly, but since we only need to detect
+	     the presence of the variable, this is OK. We could
+	     probably save some time by performing this check at
+	     start, but then we would have to bloat the global
+	     namespace... Profiling indicates that this is not a big
+	     issue anyway. */
+
+	  char *set_p (char *name);
+
+	  amiga_guide_writing_button++; /* Avoid attrs in control strings */
+          if (next)
+            {
+              if (strcasecmp (next, "Top") == 0)
+                add_word_args ("\n@next \"Main\"");
+              else
+                {
+                  add_word ("\n@next ");
+                  execute_string ("\"%s\"", next);
+                }
+              filling_enabled = indented_fill = 0;
+            }
+
+          if (prev && strcasecmp (prev, "(dir)") != 0)
+            {
+              if (strcasecmp (prev, "Top") == 0)
+                add_word ("\n@prev \"Main\"");
+              else
+                {
+                  add_word ("\n@prev ");
+                  execute_string ("\"%s\"", prev);
+                }
+              filling_enabled = indented_fill = 0;
+            }
+
+          if (up && strcasecmp (up, "(dir)") != 0)
+            {
+              if (strcasecmp (up, "Top") == 0)
+                add_word ("\n@toc \"Main\"");
+              else
+                {
+                  add_word ("\n@toc ");
+                  execute_string ("\"%s\"", up);
+                }
+              filling_enabled = indented_fill = 0;
+	    }
+	  amiga_guide_writing_button--;
+
+	  if (set_p (AG_VERBOSE_HEADER))
+	    {
+	      add_word("\n");
+	      if (next)
+		{
+                  if (strcasecmp (next, "Top") == 0)
+		    execute_string ("Next: Main\xa0\xa0");
+		  else
+		    execute_string ("Next: %s\xa0\xa0", next);
+		  filling_enabled = indented_fill = 0;
+		}
+
+	      if (prev && strcasecmp (prev, "(dir)") != 0)
+		{
+                  if (strcasecmp (prev, "Top") == 0)
+		    execute_string ("Prev: Main\xa0\xa0");
+		  else
+		    execute_string ("Prev: %s\xa0\xa0", prev);
+		  filling_enabled = indented_fill = 0;
+		}
+
+	      if (up && strcasecmp (up, "(dir)") != 0)
+		{
+                  if (strcasecmp (up, "Top") == 0)
+		    execute_string ("Up: Main\xa0\xa0");
+		  else
+		    execute_string ("Up: %s\xa0\xa0", up);
+		  filling_enabled = indented_fill = 0;
+		}
+	    }
+	}
+      else
+	{
       /* These strings are not translatable.  */
       if (next)
         {
@@ -1013,6 +1153,7 @@ cm_node ()
           execute_string (",  Up: %s", up);
           filling_enabled = indented_fill = 0;
         }
+	}
       if (macro_expansion_output_stream)
         me_inhibit_expansion--;
     }

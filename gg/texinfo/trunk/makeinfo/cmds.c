@@ -19,6 +19,7 @@
    Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "system.h"
+#include "amigaguide.h"
 #include "cmds.h"
 #include "defun.h"
 #include "files.h"
@@ -390,8 +391,57 @@ void
 insert_self (arg)
     int arg;
 {
-  if (arg == START)
+  extern int last_inserted_character;
+
+  if (arg != START)
+    return;
+
+  if (!have_amigaguide)
     add_word (command);
+  else
+    switch (*command)
+      {
+      case '@':
+	if (amiga_guide && (!(no_headers || amiga_guide_writing_button) || multitable_active))
+	  {
+	    amiga_guide_hide_title_chars++;
+	    amiga_guide_nonprinting_chars++;
+	    /* WARNING! THIS IS A HACK!  */
+	    add_char ('\x80');
+	    --output_paragraph_offset;
+	    --output_column;
+	    insert_string ("\\@");
+	  }
+	else
+	  add_char ('@');
+	break;
+
+      case '\\':
+	if ((amiga_guide >= 40) && (!no_headers || multitable_active))
+	  {
+	    amiga_guide_hide_title_chars++;
+	    amiga_guide_nonprinting_chars++;
+	    /* WARNING! THIS IS A HACK!  */
+	    add_char ('\x80');
+	    --output_paragraph_offset;
+	    --output_column;
+	    insert_string ("\\\\");
+	  }
+	else
+	  add_char ('\\');
+	break;
+
+      case '\"':
+	if (amiga_guide_writing_button)
+	  add_word ("\\034");
+	else
+	  add_word (command);
+	break;
+
+      default:
+	add_word (command);
+	break;
+      }
 }
 
 void
@@ -572,9 +622,13 @@ cm_code (arg)
       extern int printing_index;
 
       if (arg == START)
-        {
-          in_fixed_width_font++;
+        in_fixed_width_font++;
 
+      if (have_amigaguide && amiga_guide
+          && amiga_set_attributes (AG_BOLD, arg))
+        ;
+      else if (arg == START)
+        {
           if (html)
             insert_html_tag (arg, "code");
           else if (!printing_index)
@@ -733,6 +787,9 @@ cm_dfn (arg, position)
     {
   if (html)
     insert_html_tag (arg, "dfn");
+  else if (have_amigaguide && amiga_guide
+           && amiga_set_attributes (AG_ITALICS, arg))
+    ;
   else if (arg == START)
     add_char ('"');
   else
@@ -748,6 +805,9 @@ cm_emph (arg)
     xml_insert_element (EMPH, arg);
   else if (html)
     insert_html_tag (arg, "em");
+  else if (have_amigaguide && amiga_guide
+           && amiga_set_attributes (AG_ITALICS, arg))
+    ;
   else
     add_char ('_');
 }
@@ -839,6 +899,9 @@ cm_strong (arg, position)
     xml_insert_element (STRONG, arg);
   else if (html)
     insert_html_tag (arg, "strong");
+  else if (have_amigaguide && amiga_guide 
+           && amiga_set_attributes (AG_BOLD, arg))
+    ;
   else
     add_char ('*');
 }
@@ -878,6 +941,9 @@ cm_i (arg)
     xml_insert_element (I, arg);
   else if (html)
     insert_html_tag (arg, "i");
+  else if (have_amigaguide && amiga_guide
+           && amiga_set_attributes (AG_ITALICS, arg))
+    ;
   else
     not_fixed_width (arg);
 }
@@ -890,6 +956,9 @@ cm_b (arg)
     xml_insert_element (B, arg);
   else if (html)
     insert_html_tag (arg, "b");
+  else if (have_amigaguide && amiga_guide
+           && amiga_set_attributes (AG_BOLD, arg))
+    ;
   else
     not_fixed_width (arg);
 }
@@ -1118,7 +1187,7 @@ cm_dircategory ()
 {
   char *line;
 
-  if (html || docbook)
+  if (html || docbook || (have_amigaguide && amiga_guide))
     cm_ignore_line ();
   else if (xml)
     {

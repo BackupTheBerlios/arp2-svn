@@ -25,6 +25,7 @@
 
 #define COMPILING_MAKEINFO
 #include "makeinfo.h"
+#include "amigaguide.h"
 #include "cmds.h"
 #include "files.h"
 #include "footnote.h"
@@ -197,6 +198,8 @@ void execute_string (char *, ...);
 void add_word_args ();
 void execute_string ();
 #endif /* no prototypes */
+
+static void emit_cmdline_defines();
 
 /* Error handling.  */
 
@@ -399,6 +402,13 @@ Output format selection (default is to produce Info):\n\
       --xml                 output Texinfo XML rather than Info.\n\
 "));
 
+    if (have_amigaguide)
+      puts (_("Additional AmigaOS output formats:\n\
+      --amiga               output AmigaGuide(R) V40 hypertext format.\n\
+      --amiga-39            output AmigaGuide(R) V39 hypertext format.\n\
+      --amiga-34            output AmigaGuide(R) V34 hypertext format.\n\
+"));
+
     puts (_("\
 General output options:\n\
   -E, --macro-expand FILE   output macro-expanded source to FILE.\n\
@@ -485,6 +495,9 @@ Email bug reports to bug-texinfo@gnu.org,\n\
 general questions and discussion to help-texinfo@gnu.org.\n\
 Texinfo home page: http://www.gnu.org/software/texinfo/"));
 
+    if (have_amigaguide)
+      puts (_("\nEmail Amiga specific bug reports to gg@geekgadgets.org."));
+
   } /* end of full help */
 
   xexit (exit_value);
@@ -492,6 +505,12 @@ Texinfo home page: http://www.gnu.org/software/texinfo/"));
 
 struct option long_options[] =
 {
+#if have_amigaguide > 0
+  { "amiga", 0, &amiga_guide, 40 }, /* Convert to AmigaGuide V40 */
+  { "amiga-40", 0, &amiga_guide, -40 }, /* Catch obsolete option */
+  { "amiga-39", 0, &amiga_guide, 39 }, /* Convert to AmigaGuide V39 */
+  { "amiga-34", 0, &amiga_guide, 34 }, /* Convert to AmigaGuide V34 */
+#endif /* have_amigaguide > 0 */
   { "commands-in-node-names", 0, &expensive_validation, 1 },
   { "css-include", 1, 0, 'C' },
   { "docbook", 0, 0, 'd' },
@@ -776,6 +795,41 @@ For more information about these matters, see the files named COPYING.\n"),
 
   if (verbose_mode)
     print_version_info ();
+
+  if (have_amigaguide && amiga_guide)
+    {
+      /* Complain about the use of -E and --amiga together.  */
+      if (macro_expansion_output_stream) {
+        amiga_guide = 0;
+        fprintf (stderr,"\
+The use of -E will not give the expected results with AmigaGuide\n\
+output enabled. Disabling AmigaGuide in this invocation.\n");
+      }
+      else {
+
+        char *set_tmp;
+
+        /* Complain about the use of deprecated option --amiga-40.  */
+        if (amiga_guide == -40) {
+          amiga_guide = 40;
+          fprintf (stderr, "--amiga-40 is deprecated. Use --amiga instead.\n");
+        }
+
+        /* AmigaGuides can't be split.  */
+        splitting = 0;
+
+        /* Cheat: AmigaGuides can use ISO 8859-1 encoding.  */
+        enable_encoding = 1;
+        document_encoding_code = ISO_8859_1;
+
+        /* Set a flag to indicate that we are writing an AmigaGuide.  */
+        set_tmp = (char *) xmalloc (strlen (AG_WRITING_MESG) + 3);
+        /* This will break with amigaguide.library V1000 :-) */
+        sprintf (set_tmp, AG_WRITING_MESG, amiga_guide);
+        handle_variable_internal (SET, set_tmp);
+        free (set_tmp);
+      }
+    }
 
   /* Remaining arguments are file names of texinfo files.
      Convert them, one by one. */
@@ -1503,6 +1557,26 @@ convert_from_loaded_file (name)
           free (output_filename);
           output_filename = html_name;
         }
+      else if (have_amigaguide && amiga_guide)
+        {
+          /* Compute the canonical AmigaGuide filename.  */
+
+          char *ag_name, *dotpos;
+
+          canon_white (output_filename);
+
+          ag_name = xmalloc (strlen (output_filename) + 7);
+          strcpy (ag_name, output_filename);
+
+          dotpos = strrchr (ag_name, '.');
+          if (dotpos && strncasecmp (dotpos, ".info", 5) == 0)
+            strcpy (dotpos, ".guide");
+          else
+            strcat (ag_name, ".guide");
+
+          free (output_filename);
+          output_filename = ag_name;
+        }
     }
   else
     {
@@ -1553,7 +1627,10 @@ convert_from_loaded_file (name)
 
   set_current_output_filename (real_output_filename);
 
-  if (verbose_mode)
+  if (verbose_mode && have_amigaguide && amiga_guide)
+    printf (_("Making AmigaGuide(R) V%d file `%s' from `%s'.\n"),
+	    amiga_guide, output_filename, input_filename);
+  else if (verbose_mode)
     printf (_("Making %s file `%s' from `%s'.\n"),
             no_headers ? "text"
             : html ? "HTML"
@@ -1589,8 +1666,26 @@ convert_from_loaded_file (name)
 
   /* html fixxme: should output this as trailer on first page.  */
   if (!no_headers && !html && !xml)
-    add_word_args (_("This is %s, produced by makeinfo version %s from %s.\n"),
-                   output_filename, VERSION, input_filename);
+    {
+      char *pretty_input_filename = filename_part(input_filename);
+      if (!(have_amigaguide && amiga_guide))
+        add_word_args (_("This is %s, produced by makeinfo version %s from %s.\n"),
+                       pretty_output_filename, VERSION, pretty_input_filename);
+      else
+        {
+          int old_paragraph_indentation = inhibit_paragraph_indentation;
+          int old_filling_enabled = filling_enabled;
+          inhibit_paragraph_indentation=1;
+          filling_enabled = 0;
+          add_word_args ("@database %s\n@Master %s\n@Width %d\n\n",
+                         pretty_output_filename, pretty_input_filename, fill_column);
+          filling_enabled = old_filling_enabled;
+          add_word_args ("This is AmigaGuide(R) %s, produced by makeinfo version %s from %s.\n",
+                         pretty_output_filename, VERSION, pretty_input_filename);
+          inhibit_paragraph_indentation = old_paragraph_indentation;
+        }
+        free(pretty_input_filename);
+    }
 
   close_paragraph ();
   reader_loop ();
@@ -1601,6 +1696,7 @@ convert_from_loaded_file (name)
 finished:
   discard_insertions (0);
   close_paragraph ();
+  emit_cmdline_defines();
   flush_file_stack ();
 
   if (macro_expansion_output_stream)
@@ -1624,7 +1720,7 @@ finished:
       if (tag_table)
         {
           tag_table = (TAG_ENTRY *) reverse_list (tag_table);
-          if (!no_headers && !html)
+          if (!no_headers && !html && !(have_amigaguide && amiga_guide))
             write_tag_table ();
         }
 
@@ -1633,6 +1729,12 @@ finished:
           start_paragraph ();
           add_word ("</body></html>\n");
           close_paragraph ();
+        }
+
+      if (have_amigaguide && amiga_guide && !no_headers)
+        {
+          inhibit_paragraph_indentation = 1;
+          add_word("@endnode\n\n");
         }
 
       /* maybe we want local variables in info output.  */
@@ -1685,6 +1787,9 @@ char *
 info_trailer ()
 {
   if (!enable_encoding || document_encoding_code <= US_ASCII)
+    return NULL;
+
+  if (have_amigaguide && amiga_guide)
     return NULL;
 
   {
@@ -1825,6 +1930,11 @@ handle_menu_entry ()
     {
       xml_start_menu_entry (tem);
     }
+  else if (have_amigaguide && amiga_guide && !no_headers)
+    {
+      if (amiga_guide_convert_menu())
+        /*continue*/;
+    }
   else if (tem)
     { /* For Info output, we can just use the input and the main case in
          reader_loop where we output what comes in.  Just move off the *
@@ -1912,6 +2022,13 @@ read_command ()
       remember_brace (enclosure_expand);
       enclosure_expand (START, output_paragraph_offset, 0);
       return 0;
+    }
+
+  if (have_amigaguide && amiga_guide && only_macro_expansion)
+    {
+      add_char('@');
+      add_word(command);
+      return 1;
     }
 
   entry = get_command_entry (command);
@@ -2268,6 +2385,11 @@ get_char_len (character)
       len = fill_column - output_column;
       break;
 
+    case '\\':
+      /* We have to escape '\'.  */
+      len = have_amigaguide && amiga_guide >= 40 ? 2 : 1;
+      break;
+
     default:
       /* ASCII control characters appear as two characters in the output
          (e.g., ^A).  But characters with the high bit set are just one
@@ -2372,7 +2494,8 @@ add_char (character)
     {
       must_start_paragraph = 0;
       line_already_broken = 0;  /* The line is no longer broken. */
-      if (current_indent > output_column)
+      if (current_indent > output_column
+          && !(have_amigaguide && amiga_guide_writing_button))
         {
           indent (current_indent - output_column);
           output_column = current_indent;
@@ -2400,6 +2523,10 @@ add_char (character)
   switch (character)
     {
     case '\n':
+      /* If we just inserted a linefeed, we can ignore the previous
+         nonprinting characters.  */
+      if (have_amigaguide && amiga_guide)
+        amiga_guide_nonprinting_chars = 0;
       if (!filling_enabled && !(html && (in_menu || in_detailmenu)))
         {
           insert ('\n');
@@ -2450,7 +2577,7 @@ add_char (character)
 
         if ((character == ' ') && (last_char_was_newline))
           {
-            if (!paragraph_is_open)
+            if (!paragraph_is_open && !(have_amigaguide && amiga_guide && in_menu))
               {
                 pending_indent++;
                 return;
@@ -2472,7 +2599,8 @@ add_char (character)
             /* If the paragraph is supposed to be indented a certain
                way, then discard all of the pending whitespace.
                Otherwise, we let the whitespace stay. */
-            if (!paragraph_start_indent)
+            if (!paragraph_start_indent
+                && !(have_amigaguide && amiga_guide_writing_button))
               indent (pending_indent);
             pending_indent = 0;
 
@@ -2580,6 +2708,11 @@ add_char (character)
                         while (temp < output_paragraph_offset)
                           output_column +=
                             get_char_len (output_paragraph[temp++]);
+                        if (have_amigaguide && amiga_guide)
+                          {
+                            output_column -= amiga_guide_nonprinting_chars;
+                            amiga_guide_nonprinting_chars = 0;
+                          }
                         output_column += len;
                         break;
                       }
@@ -2587,8 +2720,16 @@ add_char (character)
               }
           }
 
+	/* If we just inserted a space, we can ignore the previous
+	   nonprinting characters.  */
+	if (have_amigaguide && amiga_guide && character == ' ')
+	  amiga_guide_nonprinting_chars = 0;
+
         if (!suppress_insert)
           {
+	    if ((character == '\\') && (have_amigaguide && amiga_guide >= 40)
+		&& !only_macro_expansion)
+	      insert (character);
             insert (character);
             last_inserted_character = character;
           }
@@ -2923,7 +3064,7 @@ start_paragraph ()
       int amount_to_indent = 0;
 
       /* If doing indentation, then insert the appropriate amount. */
-      if (!no_indent)
+      if (!no_indent && !(have_amigaguide && amiga_guide_writing_button))
         {
           if (inhibit_paragraph_indentation)
             {
@@ -3113,6 +3254,12 @@ cm_xref (arg)
           if (!ref_flag)
             add_word_args ("%s", px_ref_flag ? _("see ") : _("See "));
         }
+      else if (have_amigaguide && amiga_guide)
+	{
+	  normalize_node_name(arg1);
+          if (!ref_flag)
+	    add_word_args("%s", px_ref_flag ? "see " : "See ");
+	}
       else
         add_word_args ("%s", px_ref_flag ? "*note " : "*Note ");
 
@@ -3163,6 +3310,13 @@ cm_xref (arg)
                   execute_string ("%s", ref_name);
                   add_word ("</a>");
                 }
+              else if (have_amigaguide && amiga_guide)
+                {
+                  if (no_headers)
+                    execute_string ("%s/%s", arg4, ref_name);
+                  else
+                    amiga_guide_add_link("\"%s\"", ref_name, arg1, arg4);
+                }
               else
                 {
                   execute_string ("%s:", ref_name);
@@ -3196,6 +3350,17 @@ cm_xref (arg)
                   execute_string ("%s", *arg2 ? arg2 : arg3);
                   add_word ("</a>");
                 }
+              else if (have_amigaguide && amiga_guide)
+                {
+                  if (no_headers)
+                    execute_string (arg1);
+                  else
+                    {
+                      char *arg = *arg2 ? arg2 : arg3;
+                      canon_white(arg);
+                      amiga_guide_add_link("\"%s\"", arg, arg1, NULL);
+                    }
+                }
               else
                 {
                   execute_string ("%s:", *arg2 ? arg2 : arg3);
@@ -3217,6 +3382,17 @@ cm_xref (arg)
                   add_word ("\">");
                   execute_string ("%s", *arg2 ? arg2 : arg1);
                   add_word ("</a>");
+                }
+              else if (have_amigaguide && amiga_guide)
+                {
+                  if (no_headers)
+                    execute_string (arg1);
+                  else
+                    {
+                      char *arg = *arg2 ? arg2 : arg1;
+                      canon_white(arg);
+                      amiga_guide_add_link("\"%s\"", arg, arg1, NULL);
+                    }
                 }
               else
                 {
@@ -3244,6 +3420,7 @@ cm_xref (arg)
       if (arg5) free (arg5);
     }
   else
+  if (!(have_amigaguide && amiga_guide))
     { /* Check to make sure that the next non-whitespace character is
          valid to follow an xref (so info readers can find the node
          names).  `input_text_offset' is pointing at the "}" which ended
@@ -3342,6 +3519,27 @@ cm_inforef (arg)
           execute_string ("%s", *pname ? pname : tem);
           add_word ("</a>");
           free (tem);
+        }
+      else if (have_amigaguide && amiga_guide)
+        {
+	  add_word ("See ");
+	  if (*pname)
+	    {
+	      if (no_headers)
+                 execute_string ("*note %s: (%s)%s", pname, file, node);
+               else
+                {
+                  canon_white (pname);
+                  amiga_guide_add_link("\"%s\"", pname, node, file);
+	        }
+	    }
+	  else
+	    {
+	      if (no_headers)
+                execute_string ("*note (%s)%s::", file, node);
+	      else
+	        amiga_guide_add_link("\"%s\"", NULL, node, file);
+	    }
         }
       else
         {
@@ -3728,6 +3926,23 @@ set_p (name)
       return temp->value;
 
   return NULL;
+}
+
+/* Stuff the flags defined on the commandline into the macro expansion
+   stream if present. */
+static void
+emit_cmdline_defines()
+{
+  if (macro_expansion_output_stream)
+    {
+      DEFINE *temp;
+      me_append_before_this_command ();
+      for (temp = defines; temp; temp = temp->next)
+	{
+	  fprintf (macro_expansion_output_stream, "@set %s %s\n",
+		   temp->name, temp->value);
+	}
+    }
 }
 
 /* Create a variable whose name appears as the first word on this line. */
