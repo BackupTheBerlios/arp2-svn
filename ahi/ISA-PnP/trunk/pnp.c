@@ -1005,7 +1005,7 @@ FindConfiguration( struct ISAPNP_Device*   dev,
   struct ISAPNP_ResourceGroup* rg;
   struct ResourceIteratorList* ril = NULL;
 
-  {
+#if 1
     struct ISAPNP_Identifier* id;
 
     KPrintF( "Logical device %ld: ",
@@ -1024,6 +1024,14 @@ FindConfiguration( struct ISAPNP_Device*   dev,
     }
 
     KPrintF( "\n" );
+#endif
+
+  if( dev->m_Disabled || dev->m_Card->m_Disabled )
+  {
+    // Skip to next device
+    
+    KPrintF( "DISABLED!\n" );
+    return FindNextCardConfiguration( dev, ctx, res );
   }
 
   ril = AllocResourceIteratorList( &dev->m_Options->m_Resources, ctx );
@@ -1116,7 +1124,7 @@ FindNextCardConfiguration( struct ISAPNP_Device*   dev,
     {
       // This was the last device on the last card!
 KPrintF( "End of chain!\n" );      
-      rc = FALSE;
+      rc = TRUE;
     }
   }
 
@@ -1161,4 +1169,126 @@ ISAPNP_ConfigureCards( REG( a6, struct ISAPNPBase* res ) )
   }
 
   return rc;
+}
+
+
+/******************************************************************************
+** Find a PNP ISA card  *******************************************************
+******************************************************************************/
+
+struct ISAPNP_Card* ASMCALL
+ISAPNP_FindCard( REG( a0, struct ISAPNP_Card* last_card ), 
+                 REG( d0, LONG                manufacturer ),
+                 REG( d1, WORD                product ),
+                 REG( d2, BYTE                revision ),
+                 REG( d3, LONG                serial ),
+                 REG( a6, struct ISAPNPBase*  res ) )
+{
+  struct ISAPNP_Card* card;
+  UBYTE               man[ 4 ];
+  
+  man[ 0 ] = manufacturer >> 24;
+  man[ 1 ] = manufacturer >> 16;
+  man[ 2 ] = manufacturer >> 16;
+
+  if( last_card == NULL )
+  {
+    card = (struct ISAPNP_Card*) res->m_Cards.lh_Head;
+  }
+  else
+  {
+    card = (struct ISAPNP_Card*) last_card->m_Node.ln_Succ;
+  }
+
+  while( card->m_Node.ln_Succ != NULL )
+  {
+    if( manufacturer == -1 || 
+        ISAPNP_MAKE_ID( card->m_ID.m_Vendor[ 0 ],
+                        card->m_ID.m_Vendor[ 1 ],
+                        card->m_ID.m_Vendor[ 2 ] ) == manufacturer )
+    {
+      if( product == -1 || card->m_ID.m_ProductID == product )
+      {
+        if( revision == -1 || card->m_ID.m_Revision == revision )
+        {
+          if( serial == -1 || card->m_SerialNumber == serial )
+          {
+            return card;
+          }
+        }
+      }
+    }
+
+    card = (struct ISAPNP_Card*) card->m_Node.ln_Succ;
+  }
+
+  return NULL;
+}
+
+
+/******************************************************************************
+** Find a PNP ISA device  *****************************************************
+******************************************************************************/
+
+struct ISAPNP_Device* ASMCALL
+ISAPNP_FindDevice( REG( a0, struct ISAPNP_Device* last_device ), 
+                   REG( d0, LONG                  manufacturer ),
+                   REG( d1, WORD                  product ),
+                   REG( d2, BYTE                  revision ),
+                   REG( a6, struct ISAPNPBase*    res ) )
+{
+  struct ISAPNP_Card* card;
+
+  if( last_device == NULL )
+  {
+    card = (struct ISAPNP_Card*) res->m_Cards.lh_Head;
+  }
+  else
+  {
+    card = (struct ISAPNP_Card*) last_device->m_Card;
+  }
+
+  while( card->m_Node.ln_Succ != NULL )
+  {
+    struct ISAPNP_Device* dev;
+    
+    if( last_device == NULL )
+    {
+      dev = (struct ISAPNP_Device*) card->m_Devices.lh_Head;
+    }
+    else
+    {
+      dev = (struct ISAPNP_Device*) last_device->m_Node.ln_Succ;
+    }
+    
+    while( dev->m_Node.ln_Succ != NULL )
+    {
+      struct ISAPNP_Identifier* id;
+
+      for( id = (struct ISAPNP_Identifier*) dev->m_IDs.mlh_Head;
+           id->m_MinNode.mln_Succ != NULL;
+           id = (struct ISAPNP_Identifier*) id->m_MinNode.mln_Succ )
+      {
+        if( manufacturer == -1 || 
+            ISAPNP_MAKE_ID( id->m_Vendor[ 0 ],
+                            id->m_Vendor[ 1 ],
+                            id->m_Vendor[ 2 ] ) == manufacturer )
+        {
+          if( product == -1 || id->m_ProductID == product )
+          {
+            if( revision == -1 || id->m_Revision == revision )
+            {
+              return dev;
+            }
+          }
+        }
+      }
+
+      dev = (struct ISAPNP_Device*) dev->m_Node.ln_Succ;
+    }
+
+    card = (struct ISAPNP_Card*) card->m_Node.ln_Succ;
+  }
+
+  return NULL;
 }

@@ -28,6 +28,8 @@
 #include <exec/types.h>
 
 struct ISAPNPBase;
+struct ISAPNP_Card;
+struct ISAPNP_Device;
 
 BOOL ASMCALL
 ISAPNP_ScanCards( REG( a6, struct ISAPNPBase* res ) );
@@ -35,5 +37,21 @@ ISAPNP_ScanCards( REG( a6, struct ISAPNPBase* res ) );
 BOOL ASMCALL
 ISAPNP_ConfigureCards( REG( a6, struct ISAPNPBase* res ) );
 
+
+struct ISAPNP_Card* ASMCALL
+ISAPNP_FindCard( REG( a0, struct ISAPNP_Card* last_card ), 
+                 REG( d0, LONG                manufacturer ),
+                 REG( d1, WORD                product ),
+                 REG( d2, BYTE                revision ),
+                 REG( d3, LONG                serial ),
+                 REG( a6, struct ISAPNPBase*  res ) );
+
+
+struct ISAPNP_Device* ASMCALL
+ISAPNP_FindDevice( REG( a0, struct ISAPNP_Device* last_device ), 
+                   REG( d0, LONG                  manufacturer ),
+                   REG( d1, WORD                  product ),
+                   REG( d2, BYTE                  revision ),
+                   REG( a6, struct ISAPNPBase*    res ) );
 
 #endif /* ISA_PNP_controller_h */

@@ -19,6 +19,12 @@
 #define ISAPNPNAME "isapnp.resource"
 
 
+/*** A macro usable for ISAPNP_FindCard() and ISAPNP_FindDevice() ************/
+
+#define ISAPNP_MAKE_ID(a,b,c) \
+ ( (LONG) (a) << 24 | (LONG) (b) << 16 | (LONG) (c) << 8 )
+
+
 /*** Node types **************************************************************/
 
 #define ISAPNP_NT_CARD            ( NT_USER - 1 )
@@ -46,7 +52,8 @@ struct ISAPNP_Identifier
 struct ISAPNP_Card
 {
   struct Node              m_Node;
-  UWORD                    m_Pad1;
+
+  BOOL                     m_Disabled;
 
   struct List              m_Devices;
   UWORD                    m_Pad2;
@@ -69,7 +76,8 @@ struct ISAPNP_ResourceGroup;
 struct ISAPNP_Device
 {
   struct Node                  m_Node;
-  UWORD       	               m_Pad1;
+
+  BOOL       	               m_Disabled;
 
   struct ISAPNP_Card*          m_Card;
   

@@ -40,6 +40,7 @@
 #include "controller.h"
 #include "init.h"
 #include "pnp.h"
+#include "pnp_structs.h"
 
 
 /******************************************************************************
@@ -149,6 +150,14 @@ KPrintF( "No legal CurrentBinding structure.\n" );
     {
       struct ConfigDev* cd = current_binding.cb_ConfigDev;
 
+      UBYTE** cp = current_binding.cb_ToolTypes;
+      
+      while( cp && *cp )
+      {
+        KPrintF( "Tool type: %s\n", *cp );
+        ++cp;
+      }
+
       if( cd == NULL )
       {
         // No card found
@@ -202,6 +211,10 @@ KPrintF( "No cards found.\n" );
             }
             else
             {
+              // Let's see if we're to disable any cards or devices
+              
+inaktivera korten här!
+
               if( ! ISAPNP_ConfigureCards( res ) )
               {
                 // Unable to configure cards
@@ -246,6 +259,20 @@ static const APTR funcTable[] =
   ISAC_WriteByte,
   ISAC_ReadWord,
   ISAC_WriteWord,
+
+  ISAPNP_AllocCard,
+  ISAPNP_FreeCard,
+  ISAPNP_AllocDevice,
+  ISAPNP_FreeDevice,
+  ISAPNP_AllocResourceGroup,
+  ISAPNP_FreeResourceGroup,
+  ISAPNP_AllocResource,
+  ISAPNP_FreeResource,
+
+  ISAPNP_ScanCards,
+  ISAPNP_ConfigureCards,
+  ISAPNP_FindCard,
+  ISAPNP_FindDevice,
 
   (APTR) -1
 };
