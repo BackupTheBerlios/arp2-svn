@@ -67,7 +67,8 @@ AC_CHECK_LIB([crypto], [SHA1_Init])
 AC_HEADER_DIRENT
 AC_HEADER_STDC
 #AC_CHECK_HEADERS([alloca.h arpa/inet.h errno.h fcntl.h limits.h mntent.h netdb.h netinet/in.h stdlib.h string.h strings.h sys/ioctl.h sys/mntent.h sys/mount.h sys/param.h sys/socket.h sys/statvfs.h sys/time.h sys/vfs.h termios.h unistd.h utime.h])
-
+AC_CHECK_HEADERS([devices/newmouse.h devices/rawkeycodes.h])
+			    
 # Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
 AC_TYPE_SIZE_T

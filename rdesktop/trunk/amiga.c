@@ -19,6 +19,8 @@
   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
+#include "config.h"
+
 #ifdef __amigaos4__
 # include <devices/timer.h>
 # include <intuition/gadgetclass.h>
@@ -51,6 +53,12 @@
 
 #include <cybergraphx/cybergraphics.h>
 #include <exec/memory.h>
+#ifdef HAVE_DEVICES_NEWMOUSE_H
+# include <devices/newmouse.h>
+#endif
+#ifdef HAVE_DEVICES_RAWKEYCODES_H
+# include <devices/rawkeycodes.h>
+#endif
 #include <graphics/displayinfo.h>
 #include <graphics/gfxbase.h>
 #include <graphics/gfxmacros.h>
@@ -1802,6 +1810,28 @@ ui_select(int rdp_socket)
 	      int scancode;
 	      int flag;
 
+#if defined(HAVE_DEVICES_NEWMOUSE_H) || defined(HAVE_DEVICES_RAWKEYCODES_H)
+	      int button = 0;
+
+	      switch (msg->Code & ~0x80) {
+		case RAWKEY_NM_WHEEL_UP:
+		  button = MOUSE_FLAG_BUTTON4 | MOUSE_FLAG_DOWN;
+		  break;
+
+		case RAWKEY_NM_WHEEL_DOWN:
+		  button = MOUSE_FLAG_BUTTON5 | MOUSE_FLAG_DOWN;
+		  break;
+	      }
+
+	      if (button != 0) {
+		rdp_send_input( ev_time, RDP_INPUT_MOUSE,
+				button,
+                                msg->MouseX - amiga_window->BorderLeft,
+                                msg->MouseY - amiga_window->BorderTop );
+		break;
+	      }
+#endif
+	      
               if( msg->Code & 0x80 )
               {
                 flag = KBD_FLAG_UP;
@@ -1879,7 +1909,6 @@ ui_select(int rdp_socket)
 				button,
                                 msg->MouseX - amiga_window->BorderLeft,
                                 msg->MouseY - amiga_window->BorderTop );
-              
               }
 
 	      break;
