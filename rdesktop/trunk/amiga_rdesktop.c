@@ -140,18 +140,10 @@ static struct WBStartup*  wb_msg = NULL;
 static Bool
 read_password(char *password, int size)
 {
-//	struct termios tios;
-  Bool ret = False;
-  int istty = 0;
+  Bool ret = False;  
   char *p;
 
-//	if (tcgetattr(STDIN_FILENO, &tios) == 0)
-  {
-    fprintf(stderr, "Password: ");
-//		tios.c_lflag &= ~ECHO;
-//		tcsetattr(STDIN_FILENO, TCSANOW, &tios);
-    istty = 1;
-  }
+  fprintf(stderr, "Password: \e[8m");
 
   if (fgets(password, size, stdin) != NULL)
   {
@@ -163,12 +155,7 @@ read_password(char *password, int size)
       *p = 0;
   }
 
-  if (istty)
-  {
-//		tios.c_lflag |= ECHO;
-//		tcsetattr(STDIN_FILENO, TCSANOW, &tios);
-    fprintf(stderr, "\n");
-  }
+  fprintf(stderr, "\e[28m\n");
 
   return ret;
 }
