@@ -29,8 +29,8 @@ bool glopen(void);
 void glclose(void);
 
 #define max_monitors  8               // Four cards, two outputs/card max
-extern int                   num_monitors;
-extern struct glgfx_monitor* monitors[max_monitors];
+extern int                   glgfx_num_monitors;
+extern struct glgfx_monitor* glgfx_monitors[max_monitors];
 
 
 #define check_error() glgfx_check_error(__PRETTY_FUNCTION__, __FILE__, __LINE__);

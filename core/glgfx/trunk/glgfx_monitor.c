@@ -6,7 +6,8 @@
 #include <errno.h>
 #include <string.h>
 #include <unistd.h>
-
+#include <X11/Xlib.h>
+#include <X11/extensions/xf86dga.h>
 
 #include "glgfx_monitor.h"
 
@@ -62,12 +63,18 @@ struct glgfx_monitor* glgfx_monitor_create(char const*  display_name,
 	glXQueryExtensionsString(monitor->display, DefaultScreen(monitor->display))));
 
   int dummy;
+  if (!XF86DGAQueryExtension(monitor->display, &dummy, &dummy)) {
+    BUG("The XF86DGA extension is missing from display %s!\n", display_name);
+    glgfx_monitor_destroy(monitor);
+    return NULL;
+  }
+
   if (!XF86VidModeQueryExtension(monitor->display, &dummy, &dummy)) {
     BUG("The XF86VidMode extension is missing from display %s!\n", display_name);
     glgfx_monitor_destroy(monitor);
     return NULL;
   }
-      
+  
   if (!XF86VidModeGetModeLine(monitor->display,
 			      DefaultScreen(monitor->display),
 			      &monitor->dotclock,

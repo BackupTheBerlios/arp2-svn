@@ -9,8 +9,8 @@
 #include "glgfx.h"
 #include "glgfx_monitor.h"
 
-int                   num_monitors;
-struct glgfx_monitor* monitors[max_monitors];
+int                   glgfx_num_monitors;
+struct glgfx_monitor* glgfx_monitors[max_monitors];
 
 bool glgfx_create_monitors(void) {
   char name[8];
@@ -20,15 +20,15 @@ bool glgfx_create_monitors(void) {
   
   glgfx_destroy_monitors();
 
-  num_monitors = 0;
+  glgfx_num_monitors = 0;
   
-  for (display = 0; num_monitors < max_monitors; ++display) {
-    for (screen = 0; num_monitors < max_monitors; ++screen) {
+  for (display = 0; glgfx_num_monitors < max_monitors; ++display) {
+    for (screen = 0; glgfx_num_monitors < max_monitors; ++screen) {
       sprintf(name, ":%d.%d", display, screen);
 
-      monitors[num_monitors] = glgfx_monitor_create(name, friend);
+      glgfx_monitors[glgfx_num_monitors] = glgfx_monitor_create(name, friend);
 
-      if (monitors[num_monitors] == NULL) {
+      if (glgfx_monitors[glgfx_num_monitors] == NULL) {
 	if (errno == ENXIO) {
 	  break;
 	}
@@ -37,9 +37,9 @@ bool glgfx_create_monitors(void) {
 	}
       }
 
-      friend = monitors[num_monitors];
+      friend = glgfx_monitors[glgfx_num_monitors];
       
-      ++num_monitors;
+      ++glgfx_num_monitors;
     }
 
     if (screen == 0) {
@@ -48,19 +48,19 @@ bool glgfx_create_monitors(void) {
     }
   }
 
-  return num_monitors != 0;
+  return glgfx_num_monitors != 0;
 }
 
 
 void glgfx_destroy_monitors(void) {
   int i;
 
-  for (i = 0; i < num_monitors; ++i) {
-    glgfx_monitor_destroy(monitors[i]);
-    monitors[i] = NULL;
+  for (i = 0; i < glgfx_num_monitors; ++i) {
+    glgfx_monitor_destroy(glgfx_monitors[i]);
+    glgfx_monitors[i] = NULL;
   }
 
-  num_monitors = 0;
+  glgfx_num_monitors = 0;
 }
 
 
@@ -68,8 +68,8 @@ bool glgfx_waitblit(void) {
   bool rc = true;
   int i;
 
-  for (i = 0; i < num_monitors; ++i) {
-    if (!glgfx_monitor_waitblit(monitors[i])) {
+  for (i = 0; i < glgfx_num_monitors; ++i) {
+    if (!glgfx_monitor_waitblit(glgfx_monitors[i])) {
       rc = false;
     }
   }
@@ -81,8 +81,8 @@ bool glgfx_waittof(void) {
   bool rc = true;
   int i;
 
-  for (i = 0; i < num_monitors; ++i) {
-    if (!glgfx_monitor_waittof(monitors[i])) {
+  for (i = 0; i < glgfx_num_monitors; ++i) {
+    if (!glgfx_monitor_waittof(glgfx_monitors[i])) {
       rc = false;
     }
   }

@@ -6,6 +6,7 @@
 #include "glgfx_monitor.h"
 #include "glgfx_view.h"
 #include "glgfx_viewport.h"
+#include "glgfx_input.h"
 
 int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) {
   // If unset, sync to vblank as default (nvidia driver)
@@ -24,7 +25,7 @@ int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) 
     int width = 640;
     int height = 480;
     struct glgfx_bitmap* bm = glgfx_bitmap_create(width, height, 24, 0, NULL,
-						  glgfx_pixel_b8g8r8a8, monitors[0]);
+						  glgfx_pixel_b8g8r8a8, glgfx_monitors[0]);
 
     if (bm != NULL) {
 	if (glgfx_bitmap_lock(bm, false, true)) {
@@ -39,14 +40,15 @@ int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) 
 	  glgfx_bitmap_unlock(bm);
 	}
 
-      glgfx_monitor_select(monitors[0]);
+      glgfx_monitor_select(glgfx_monitors[0]);
 
       struct glgfx_viewport* vp = glgfx_viewport_create(320, 256, 100, 200);
       struct glgfx_rasinfo*  ri = glgfx_viewport_addbitmap(vp, bm, 0, 0, 320, 256);
-      struct glgfx_view*     v  = glgfx_view_create(monitors[0]);
+      struct glgfx_view*     v  = glgfx_view_create(glgfx_monitors[0]);
 
       glgfx_view_addviewport(v, vp);
-      
+
+      glgfx_input_acquire();
       int i;
       for (i = 0; i < 255; i+=1) {
 /* 	if (glgfx_bitmap_lock(bm, false, true)) { */
@@ -65,8 +67,14 @@ int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) 
 //	glgfx_viewport_setbitmap(vp, ri, bm, 0, 0, 320, 256);
 	
 	glgfx_view_render(v);
-	glgfx_monitor_waittof(monitors[0]);
+	glgfx_monitor_waittof(glgfx_monitors[0]);
+
+	enum glgfx_input_code code;
+	while ((code = glgfx_input_getcode()) != glgfx_input_none) {
+	  printf("%08lx\n", code);
+	}
       }
+      glgfx_input_release();
 
       glgfx_viewport_destroy(vp);
     }

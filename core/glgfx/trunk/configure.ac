@@ -37,10 +37,11 @@ AC_SUBST(DEPS_CFLAGS)
 AC_SUBST(DEPS_LIBS)
 			
 # Checks for libraries.
-AC_CHECK_LIB([X11],     [XCreateWindow],,             [AC_MSG_ERROR([libX11 not found])])
-AC_CHECK_LIB([Xxf86vm], [XF86VidModeQueryExtension],, [AC_MSG_ERROR([libXxf86vm not found])])
-AC_CHECK_LIB([GL],      [glGetError],,                [AC_MSG_ERROR([libGL not found])])
-AC_CHECK_LIB([glut],    [gluErrorString],,            [AC_MSG_ERROR([libglut not found])])
+AC_CHECK_LIB([X11],      [XCreateWindow],,             [AC_MSG_ERROR([libX11 not found])])
+AC_CHECK_LIB([Xxf86vm],  [XF86VidModeQueryExtension],, [AC_MSG_ERROR([libXxf86vm not found])])
+AC_CHECK_LIB([Xxf86dga], [XF86DGAQueryExtension],,     [AC_MSG_ERROR([libXxf86dga not found])])
+AC_CHECK_LIB([GL],       [glGetError],,                [AC_MSG_ERROR([libGL not found])])
+AC_CHECK_LIB([glut],     [gluErrorString],,            [AC_MSG_ERROR([libglut not found])])
 #AC_CHECK_LIB([dl], [main])
 
 # Checks for header files.
