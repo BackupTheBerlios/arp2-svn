@@ -1,0 +1,6 @@
+Makefile
+RDesktop
+RDesktop.readme
+config.h
+config.status
+*.d
