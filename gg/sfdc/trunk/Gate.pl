@@ -10,6 +10,7 @@ BEGIN {
 	my $class  = ref($proto) || $proto;
 	my $self   = {};
 	$self->{SFD}     = $params{'sfd'};
+	$self->{PROTO}   = $params{'proto'};
 	bless ($self, $class);
 	return $self;
     }
@@ -18,7 +19,15 @@ BEGIN {
 	my $self = shift;
 	my $sfd  = $self->{SFD};
 
-	print "/* Automatically generated gatestubs! Do not edit! */\n";
+	if ($self->{PROTO}) {
+	    print "/* Automatically generated header! Do not edit! */\n";
+	    print "\n";
+	    print "#ifndef _GATEPROTO_$$sfd{'BASENAME'}_H\n";
+	    print "#define _GATEPROTO_$$sfd{'BASENAME'}_H\n";
+	}
+	else {
+	    print "/* Automatically generated gatestubs! Do not edit! */\n";
+	}
 	print "\n";
 
 	foreach my $inc (@{$$sfd{'includes'}}) {
@@ -62,6 +71,11 @@ BEGIN {
 	print "#ifdef __cplusplus\n";
 	print "}\n";
 	print "#endif /* __cplusplus */\n";
+
+	if ($self->{PROTO}) {
+	    print "\n";
+	    print "#endif /* _GATEPROTO_$$sfd{'BASENAME'}_H */\n";
+	}
     }
 
 
@@ -73,8 +87,10 @@ BEGIN {
 	my $prototype = $params{'prototype'};
 	my $sfd      = $self->{SFD};
 
-	print_libproto($sfd, $prototype);
-	print ";\n\n";	
+	if (!$self->{PROTO}) {
+	    print_libproto($sfd, $prototype);
+	    print ";\n\n";
+	}
     }
 
     sub function_start {
@@ -84,43 +100,51 @@ BEGIN {
 	my $sfd       = $self->{SFD};
 	
 	print_gateproto ($sfd, $prototype);
-	print "\n";
-	print "{\n";
-	print "  return $libprefix$prototype->{funcname}(";
+	
+	if ($self->{PROTO}) {
+	    print ";\n";
+	}
+	else {
+	    print "\n";
+	    print "{\n";
+	    print "  return $libprefix$prototype->{funcname}(";
 
-	if ($libarg eq 'first' && $sfd->{base} ne '') {
-	    print "_base";
-	    print $prototype->{numargs} > 0 ? ", " : "";
+	    if ($libarg eq 'first' && $sfd->{base} ne '') {
+		print "_base";
+		print $prototype->{numargs} > 0 ? ", " : "";
+	    }
 	}
     }
 
     sub function_arg {
 	my $self      = shift;
-	my %params    = @_;
-	my $prototype = $params{'prototype'};
-	my $argtype   = $params{'argtype'};
-	my $argname   = $params{'argname'};
-	my $argreg    = $params{'argreg'};
-	my $argnum    = $params{'argnum'};
-	my $sfd       = $self->{SFD};
 
-	print $argnum > 0 ? ", " : "";
-	print $argname;
+	if (!$self->{PROTO}) {
+	    my %params    = @_;
+	    my $argname   = $params{'argname'};
+	    my $argnum    = $params{'argnum'};
+
+	    print $argnum > 0 ? ", " : "";
+	    print $argname;
+	}
     }
 
     sub function_end {
 	my $self      = shift;
-	my %params    = @_;
-	my $prototype = $params{'prototype'};
-	my $sfd       = $self->{SFD};
 	
-	if ($libarg eq 'last' && $sfd->{base} ne '') {
-	    print $prototype->{numargs} > 0 ? ", " : "";
-	    print "_base";
-	}
+	if (!$self->{PROTO}) {
+	    my %params    = @_;
+	    my $prototype = $params{'prototype'};
+	    my $sfd       = $self->{SFD};
 	    
-	print ");\n";
-	print "}\n";
+	    if ($libarg eq 'last' && $sfd->{base} ne '') {
+		print $prototype->{numargs} > 0 ? ", " : "";
+		print "_base";
+	    }
+	    
+	    print ");\n";
+	    print "}\n";
+	}
     }
 
 

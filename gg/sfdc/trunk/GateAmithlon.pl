@@ -58,64 +58,76 @@ BEGIN {
 	my $prototype = $params{'prototype'};
 	my $sfd       = $self->{SFD};
 
-	Gate::print_libproto($sfd, $prototype);
-	print ";\n\n";
+	$self->SUPER::function_proto (@_);
+
 	print_gateproto($sfd, $prototype);
 	print ";\n\n";
     }
     
     sub function_start {
 	my $self      = shift;
-	my %params    = @_;
-	my $prototype = $params{'prototype'};
-	my $sfd       = $self->{SFD};
 
-	print "$prototype->{return}\n";
-	print "$gateprefix$prototype->{funcname}(struct _Regs* _regs)\n";
-	print "{\n";
+	if (!$self->{PROTO}) {
+	    my %params    = @_;
+	    my $prototype = $params{'prototype'};
+	    my $sfd       = $self->{SFD};
+
+	    print "$prototype->{return}\n";
+	    print "$gateprefix$prototype->{funcname}(struct _Regs* _regs)\n";
+	    print "{\n";
+	}
     }
 
     sub function_arg {
 	my $self      = shift;
-	my %params    = @_;
-	my $prototype = $params{'prototype'};
-	my $argtype   = $params{'argtype'};
-	my $argname   = $params{'argname'};
-	my $argreg    = $params{'argreg'};
-	my $argnum    = $params{'argnum'};
-	my $sfd       = $self->{SFD};
 
-	print "  $prototype->{___args}[$argnum] = ($argtype) ({long r;" .
-	    "__asm(\"movl %1,%0\":\"=r\"(r):\"m\"(_regs->$argreg));r;});\n";
+	if (!$self->{PROTO}) {
+	    my %params    = @_;
+	    my $prototype = $params{'prototype'};
+	    my $argtype   = $params{'argtype'};
+	    my $argname   = $params{'argname'};
+	    my $argreg    = $params{'argreg'};
+	    my $argnum    = $params{'argnum'};
+	    my $sfd       = $self->{SFD};
+
+	    print "  $prototype->{___args}[$argnum] = ($argtype) ({long r;" .
+		"__asm(\"movl %1,%0\":\"=r\"(r):\"m\"(_regs->$argreg));" .
+		"r;});\n";
+	}
     }
     
     sub function_end {
 	my $self      = shift;
-	my %params    = @_;
-	my $prototype = $params{'prototype'};
-	my $sfd       = $self->{SFD};
 
-	if ($libarg ne 'none' && $sfd->{base} ne '') {
-	    print "  $sfd->{basetype} _base = ($sfd->{basetype}) ({long r;" .
-		"__asm(\"movl %1,%0\":\"=r\"(r):\"m\"(_regs->a6));r;});\n";
-	}
+	if (!$self->{PROTO}) {
+	    my %params    = @_;
+	    my $prototype = $params{'prototype'};
+	    my $sfd       = $self->{SFD};
 
-	print "  return $libprefix$prototype->{funcname}(";
+	    if ($libarg ne 'none' && $sfd->{base} ne '') {
+		print "  $sfd->{basetype} _base = ($sfd->{basetype}) " .
+		    "({long r;" .
+		    "__asm(\"movl %1,%0\":\"=r\"(r):\"m\"(_regs->a6));" .
+		    "r;});\n";
+	    }
 
-	if ($libarg eq 'first' && $sfd->{base} ne '') {
-	    print "_base";
-	    print $prototype->{numargs} > 0 ? ", " : "";
-	}
+	    print "  return $libprefix$prototype->{funcname}(";
 
-	print join (', ', @{$prototype->{___argnames}});
+	    if ($libarg eq 'first' && $sfd->{base} ne '') {
+		print "_base";
+		print $prototype->{numargs} > 0 ? ", " : "";
+	    }
+
+	    print join (', ', @{$prototype->{___argnames}});
 	
-	if ($libarg eq 'last' && $sfd->{base} ne '') {
-	    print $prototype->{numargs} > 0 ? ", " : "";
-	    print "_base";
-	}
+	    if ($libarg eq 'last' && $sfd->{base} ne '') {
+		print $prototype->{numargs} > 0 ? ", " : "";
+		print "_base";
+	    }
 	
-	print ");\n";
-	print "}\n";
+	    print ");\n";
+	    print "}\n";
+	}
     }
 
     sub print_gateproto {

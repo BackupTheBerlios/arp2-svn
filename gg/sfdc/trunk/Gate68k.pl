@@ -14,16 +14,6 @@ BEGIN {
 	return $self;
     }
 
-    sub function_proto {
-	my $self      = shift;
-	my %params    = @_;
-	my $prototype = $params{'prototype'};
-	my $sfd       = $self->{SFD};
-
-	Gate::print_libproto($sfd, $prototype);
-	print ";\n\n";
-    }
-    
     sub function_start {
 	my $self      = shift;
 	my %params    = @_;
@@ -68,24 +58,29 @@ BEGIN {
 	    print "void";
 	}
 
-	print ")\n";
-	print "{\n";
-
-	print "  return $libprefix$prototype->{funcname}(";
-
-	if ($libarg eq 'first' && $sfd->{base} ne '') {
-	    print "_base";
-	    print $prototype->{numargs} > 0 ? ", " : "";
+	if ($self->{PROTO}) {
+	    print ");\n";
 	}
+	else {
+	    print ")\n";
+	    print "{\n";
 
-	print join (', ', @{$prototype->{___argnames}});
+	    print "  return $libprefix$prototype->{funcname}(";
+
+	    if ($libarg eq 'first' && $sfd->{base} ne '') {
+		print "_base";
+		print $prototype->{numargs} > 0 ? ", " : "";
+	    }
+
+	    print join (', ', @{$prototype->{___argnames}});
+
+	    if ($libarg eq 'last' && $sfd->{base} ne '') {
+		print $prototype->{numargs} > 0 ? ", " : "";
+		print "_base";
+	    }
 	
-	if ($libarg eq 'last' && $sfd->{base} ne '') {
-	    print $prototype->{numargs} > 0 ? ", " : "";
-	    print "_base";
+	    print ");\n";
+	    print "}\n";
 	}
-	
-	print ");\n";
-	print "}\n";
     }
 }

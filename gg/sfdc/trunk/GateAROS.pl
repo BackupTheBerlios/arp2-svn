@@ -23,14 +23,12 @@ BEGIN {
 	print "\n";
     }
 
-    sub function_proto {
+    sub function_start {
 	my $self      = shift;
 	my %params    = @_;
 	my $prototype = $params{'prototype'};
 	my $sfd       = $self->{SFD};
-
-	Gate::print_libproto($sfd, $prototype);
-	print ";\n\n";
+	my $nb        = $sfd->{base} eq '' || $libarg eq 'none';
 
 	# AROS macros cannot handle function pointer arguments :-(
 
@@ -44,14 +42,6 @@ BEGIN {
 		print "typedef $typedef;\n";
 	    }
 	}
-    }
-    
-    sub function_start {
-	my $self      = shift;
-	my %params    = @_;
-	my $prototype = $params{'prototype'};
-	my $sfd       = $self->{SFD};
-	my $nb        = $sfd->{base} eq '' || $libarg eq 'none';
 
 	printf "AROS_LH%d%s(", $prototype->{numargs}, $nb ? "I" : "";
 	print "$prototype->{return}, $gateprefix$prototype->{funcname},\n";
@@ -98,25 +88,31 @@ BEGIN {
 	    $bn = "_base";
 	}
 
-	printf "	$bt, $bn, %d, $sfd->{Basename})\n",
+	printf "	$bt, $bn, %d, $sfd->{Basename})",
 	$prototype->{bias} / 6;
-	
-	print "{\n";
-	print "  return $libprefix$prototype->{funcname}(";
 
-	if ($libarg eq 'first' && $sfd->{base} ne '') {
-	    print "_base";
-	    print $prototype->{numargs} > 0 ? ", " : "";
+	if ($self->{PROTO}) {
+	    print ";\n";
 	}
+	else {
+	    print "\n";
+	    print "{\n";
+	    print "  return $libprefix$prototype->{funcname}(";
 
-	print join (', ', @{$prototype->{___argnames}});
+	    if ($libarg eq 'first' && $sfd->{base} ne '') {
+		print "_base";
+		print $prototype->{numargs} > 0 ? ", " : "";
+	    }
+
+	    print join (', ', @{$prototype->{___argnames}});
 	
-	if ($libarg eq 'last' && $sfd->{base} ne '') {
-	    print $prototype->{numargs} > 0 ? ", " : "";
-	    print "_base";
+	    if ($libarg eq 'last' && $sfd->{base} ne '') {
+		print $prototype->{numargs} > 0 ? ", " : "";
+		print "_base";
+	    }
+	
+	    print ");\n";
+	    print "}\n";
 	}
-	
-	print ");\n";
-	print "}\n";
     }
 }
