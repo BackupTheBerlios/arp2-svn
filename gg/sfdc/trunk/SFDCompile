@@ -58,7 +58,7 @@ GetOptions ('help|h|?'   => \$help,
 	    'version|v'  => \$version) or exit 10;
 
 if ($version) {
-    print STDERR "SFDCompile 1.0 (2003-07-14)\n";
+    print STDERR "SFDCompile $Version: ($Date:)\n";
     print STDERR "Copyright (C) 2003 Martin Blom <martin\@blom.org>\n";
     print STDERR "This is free software; " .
 	"see the source for copying conditions.\n";
@@ -591,15 +591,15 @@ sub create_clib ( $ ) {
 	    print "**	    All Rights Reserved\n";
 	    print "*/\n";
 	    print "\n";
-	    print "#ifdef __cplusplus\n";
-	    print "extern \"C\" {\n";
-	    print "#endif /* __cplusplus */\n";
-	    print "\n";
 
 	    foreach $inc (@{$$sfd{'includes'}}) {
 		print "#include $inc\n";
 	    }
 
+	    print "\n";
+	    print "#ifdef __cplusplus\n";
+	    print "extern \"C\" {\n";
+	    print "#endif /* __cplusplus */\n";
 	    print "\n";
 
 	    $version = 1;
@@ -607,7 +607,8 @@ sub create_clib ( $ ) {
 
 	if ($version != $$sfd{'prototypes'}[$i]{'version'}) {
 	    $version = $$sfd{'prototypes'}[$i]{'version'};
-	    
+
+	    print "\n";
 	    print "/*--- functions in V$version or higher ---*/\n";
 	}
 	
@@ -616,6 +617,7 @@ sub create_clib ( $ ) {
 
 	    $comment =~ s,^(\s?)(.*),/*$1$2$1*/,m;
 		
+	    print "\n";
 	    print "$comment\n";
 	}
 	
@@ -764,8 +766,7 @@ Martin Blom <martin@blom.org>
 
 =head1 HISTORY
 
-=item B<1.0 (2003-07-14)>
+$Log:
 
-Initial release.
 
 =out
