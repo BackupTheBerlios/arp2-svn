@@ -835,8 +835,9 @@ amiga_restore_window( void )
 static int
 amiga_translate_key( int code, ULONG qualifier, BOOL* numlock )
 {
-  // Good URL:
+  // Good URLs:
   // http://panda.cs.ndsu.nodak.edu/~achapwes/PICmicro/keyboard/scancodes1.html
+  // http://library.n0i.net/linux-unix/programming/ke-scan/scancodes-1.html
 
   // OS4 handles NumLock internally, so we have to undo it.
   if (amiga_is_os4 && (qualifier & IEQUALIFIER_NUMERICPAD)) {
