@@ -1,0 +1,46 @@
+
+prefix		= @prefix@
+exec_prefix	= @exec_prefix@
+bindir		= @bindir@
+mandir		= @mandir@
+
+INSTALL		= @INSTALL@
+INSTALL_DATA	= @INSTALL_DATA@
+INSTALL_PROGRAM	= @INSTALL_PROGRAM@
+
+POD2TEXT	= @POD2TEXT@
+POD2MAN		= @POD2MAN@
+
+VERSION		= 1.0
+DATE		= 2003-07-23
+
+MAIN		= main.pl
+CLASSES		= $(wildcard [A-Z]*.pl)
+PODS		= SFDCompile.pod
+EXECUTABLE	= sfdc
+MAN		= sfdc.1
+TXT		= sfdc.txt
+
+
+all:	$(EXECUTABLE) $(MAN) $(TXT)
+
+clean:
+	$(RM) $(EXECUTABLE) $(MAN) $(TXT) config.log
+
+distclean:	clean
+	$(RM) config.status Makefile
+
+install:	all
+	$(INSTALL_PROGRAM) $(EXECUTABLE) $(bindir)
+	$(INSTALL_DATA) $(MAN) $(mandir)/man1
+
+
+$(EXECUTABLE):	$(MAIN) $(CLASSES) $(PODS)
+	sed "s/SFDC_VERSION/$(VERSION)/g" $^ | sed "s/SFDC_DATE/$(DATE)/g" >$@
+	chmod +x $@
+
+$(MAN):	$(EXECUTABLE)
+	$(POD2MAN) $^ -o $@
+
+$(TXT):	$(EXECUTABLE)
+	$(POD2TEXT) -c $^ -o $@
