@@ -29,12 +29,29 @@ sub open_output ( $$ );
 sub will_close_output ( $$ );
 sub close_output ();
 
-my %classes = (
-	      '(\w)+(-.*)?-aros'              => [ 'MacroAROS', 'Stub' ],
-	      'i.86be(-pc)?-amithlon'         => [ 'Macro',     'Stub' ],
-	      'm68k(-unknown)?-amigaos'       => [ 'Macro68k',  'Stub' ],
-	      'p(ower)?pc(-unknown)?-morphos' => [ 'MacroMOS',  'Stub' ],
+my %targets = (
+	      '(\w)+(-.*)?-aros'              =>
+	       { target => 'aros',
+		 macros => 'MacroAROS',
+		 stubs  => 'Stub' },
+	       
+	      'i.86be(-pc)?-amithlon'         =>
+	       { target => 'amithlon',
+		 macros => 'Macro',
+		 stubs  => 'Stub' },
+	       
+	      'm68k(-unknown)?-amigaos'       =>
+	       { target => 'amigaos',
+		 macros => 'Macro68k',
+		 stubs  => 'Stub' },
+	       
+	      'p(ower)?pc(-unknown)?-morphos' =>
+	       { target => 'morphos',
+		 macros => 'MacroMOS',
+		 stubs  => 'Stub' },
 	      );
+
+my $classes;
 
 ################################################################################
 ### Main program ###############################################################
@@ -93,8 +110,9 @@ if (!($mode =~ /^(clib|dump|fd|macros|proto|stubs)$/)) {
 }
 
 check_target: {
-    foreach my $class (keys %classes) {
-	if ($target =~ /^$class$/) {
+    foreach my $target_regex (keys %targets) {
+	if ($target =~ /^$target_regex$/) {
+	    $classes = $targets{$target_regex};
 	    last check_target;
 	}
     }
@@ -131,11 +149,7 @@ for my $i ( 0 .. $#ARGV ) {
 	};
     
 	/^macros$/ && do {
-	    foreach my $class (keys %classes) {
-		if ($target =~ /^$class$/) {
-		    $obj = $classes{$class}[0]->new( sfd => $sfd );
-		}
-	    }
+	    $obj = $$classes{'macros'}->new( sfd => $sfd );
 
 	    # By tradition, the functions in the macro files are sorted
 	    @{$$sfd{'prototypes'}} = sort {
@@ -150,11 +164,7 @@ for my $i ( 0 .. $#ARGV ) {
 	};
 
 	/^stubs$/ && do {
-	    foreach my $class (keys %classes) {
-		if ($target =~ /^$class$/) {
-		    $obj = $classes{$class}[1]->new( sfd => $sfd );
-		}
-	    }
+	    $obj = $$classes{'stubs'}->new( sfd => $sfd );
 
 	    # By tradition, the functions in the stub files are sorted
 	    @{$$sfd{'prototypes'}} = sort {

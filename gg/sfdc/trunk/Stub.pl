@@ -79,6 +79,40 @@ BEGIN {
 	print "\n";
     }
 
+    sub function {
+	my $self      = shift;
+	my %params    = @_;
+	my $prototype = $params{'prototype'};
+	my $sfd       = $self->{SFD};
+
+	if ($$prototype{'type'} eq 'stdarg') {
+	    print "#ifndef NO_INLINE_STDARG\n";
+	}
+	elsif ($$prototype{'type'} eq 'varargs') {
+	    print "#ifndef NO_INLINE_VARARGS\n";
+	}
+	
+#	$self->function_define (prototype => $prototype);
+#	$self->function_start (prototype => $prototype);
+#	for my $i (0 .. $$prototype{'numargs'} - 1 ) {
+#	    $self->function_arg (prototype => $prototype,
+#				 argtype   => $$prototype{'argtypes'}[$i],
+#				 argname   => $$prototype{'___argnames'}[$i],
+#				 argreg    => $$prototype{'regs'}[$i],
+#				 argnum    => $i );
+#	}
+#	$self->function_end (prototype => $prototype);
+
+	if ($$prototype{'type'} eq 'stdarg') {
+	    print "#endif /* !NO_INLINE_STDARG */\n";
+	}
+	elsif ($$prototype{'type'} eq 'varargs') {
+	    print "#endif /* !NO_INLINE_VARARGS */\n";
+	}
+
+	print "\n";
+    }
+
     sub footer {
 	my $self = shift;
 	my $sfd  = $self->{SFD};

@@ -82,7 +82,14 @@ BEGIN {
 	    $args = "void";
 	}
 	
-	print "$$prototype{'return'} $$prototype{'funcname'}($args);\n";
+	print "$$prototype{'return'} $$prototype{'funcname'}($args)";
+
+	if ($$classes{'target'} eq 'morphos' &&
+	    $$prototype{'type'} =~ /^varargs|stdargs$/ ) {
+	    print " __attribute__((varargs68k))";
+	}
+	
+	print ";\n";
     }
 
     sub footer {
