@@ -220,11 +220,11 @@ for gcc in ${bindir}/*-*-gcc; do
 
        ${SFDC} --quiet --mode=macros --target=${FD2SFD_OS} \
                -o ${prefix}/${target}/sys-include/inline/%n.h \
-	       ${sfd_dir}/*_*.[Ss][Ff][Dd]
+	       ${sfd_dir}/*_*.[Ss][Ff][Dd] || exit 10
 
        ${SFDC} --quiet --mode=proto --target=${FD2SFD_OS} \
                -o ${prefix}/${target}/sys-include/proto/%n.h \
-	       ${sfd_dir}/*_*.[Ss][Ff][Dd]
+	       ${sfd_dir}/*_*.[Ss][Ff][Dd] || exit 10
 
        cp ${fd2sfddir}/stubs.h ${fd2sfddir}/${FD2SFD_OS}/* \
           ${prefix}/${target}/sys-include/inline/
@@ -237,18 +237,19 @@ for gcc in ${bindir}/*-*-gcc; do
         # Note that we cannot compile the stubs until inlines and prototypes
         # has been generated!
 
-        for sfd in ${sfd_dir}/*_*.[Ss][Ff][Dd]; do
-          base=`echo "${sfd}" | sed -e "s,${sfd_dir}/\(.*\)_\(.*\)\....,\1,"`
+	${SFDC} --quiet --mode=stubs --target=${FD2SFD_OS} \
+            -o ${build_dir}/-stubs-%n.c \
+	    ${sfd_dir}/*_*.[Ss][Ff][Dd] || exit 10
+	    
+        for source in ${build_dir}/-stubs-*.c; do
+          base=`echo "${source}" | sed -e "s,${build_dir}/-stubs-\(.*\)\.c,\1,"`
 
           echo -ne "${NORMAL}[${base}] ${ERROR}"
-	  
-          ${SFDC} --quiet --mode=stubs --target=${FD2SFD_OS} ${sfd} \
-            -o ${build_dir}/-stubs.c || exit 10
+	    
+          ${CC} -S ${source} \
+	    -o ${build_dir}/-stubs-${base}.s || exit 10
 
-          ${CC} -S ${build_dir}/-stubs.c \
-	    -o ${build_dir}/-stubs.s || exit 10
-
-          ${SPLITASM} -v dest=${build_dir} ${build_dir}/-stubs.s
+          ${SPLITASM} -v dest=${build_dir} ${build_dir}/-stubs-${base}.s
         done
       fi
 
