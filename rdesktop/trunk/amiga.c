@@ -1842,6 +1842,22 @@ ui_select(int rdp_socket)
 		break;
 	      }
 #endif
+
+	      // RAmiga-Q quits.
+	      if( msg->Code == 0x10 &&
+		  (msg->Qualifier & (IEQUALIFIER_LSHIFT |
+				     IEQUALIFIER_RSHIFT |
+				     IEQUALIFIER_CAPSLOCK |
+				     IEQUALIFIER_CONTROL |
+				     IEQUALIFIER_LALT |
+				     IEQUALIFIER_RALT |
+				     IEQUALIFIER_LCOMMAND |
+				     IEQUALIFIER_RCOMMAND |
+				     IEQUALIFIER_NUMERICPAD))
+		   == IEQUALIFIER_RCOMMAND) {
+		quit = TRUE;
+		break;
+	      }
 	      
               if( msg->Code & 0x80 )
               {
