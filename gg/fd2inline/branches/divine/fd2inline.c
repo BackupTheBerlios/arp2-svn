@@ -37,7 +37,7 @@
  * if you use this code, please leave a little origin note.
  ******************************************************************************/
 
-const static char version_str[]="$VER: fd2inline " VERSION " (14.10.2001)";
+const static char version_str[]="$VER: fd2inline " VERSION " (1.12.2001)";
 
 /******************************************************************************
  * These are general definitions including types for defining registers etc.
@@ -1785,7 +1785,7 @@ fD_write(FILE* outfile, const fdDef* obj)
 	 }
 	 
 	 if (BaseName[0])
-	    fprintf(outfile, "%s_BASE_NAME", BaseNamU);
+	    fprintf(outfile, "\\\n\t, %s_BASE_NAME", BaseNamU);
 
 	 fprintf(outfile, ")\n\n");
       }

@@ -844,10 +844,18 @@ stubs (@pxref{Using fd2inline}).
 @cindex History
 @cindex What has changed
 
+Version 1.32,  December 1st, 2001,  Martin Blom
+@itemize @bullet
+@item
+Inlines and @file{macros.h} for @samp{ix86be-amithlon} now include the
+unused @var{bt} argument. It made it easier to port libnix that way
+@enddots{}
+@end itemize
+
 Version 1.31,  October 14th, 2001,  Martin Blom
 @itemize @bullet
 @item
-Added added the @samp{ix86be0-amithlon} target.
+Added added the @samp{ix86be-amithlon} target.
 @item
 Added the varproto code from version 2.00.
 @item
