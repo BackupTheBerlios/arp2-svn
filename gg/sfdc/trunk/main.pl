@@ -55,7 +55,7 @@ my %targets = (
 	       { target    => 'amigaos',
 		 macros    => 'Macro68k',
 		 stubs     => 'Stub68k',
-		 gatestubs => 'Gate'
+		 gatestubs => 'Gate68k'
 	       },
 	       
 	      'p(ower)?pc(-unknown)?-morphos' =>
@@ -63,7 +63,7 @@ my %targets = (
 		 macros    => 'MacroMOS',
 		 stubs     => 'StubMOS',
 		 gatestubs => 'GateMOS'
-	       },
+	       }
 	      );
 
 my $classes;
