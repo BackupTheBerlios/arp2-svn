@@ -7,6 +7,10 @@ PACKAGE_VERSION	= @PACKAGE_VERSION@
 srcdir		= @srcdir@
 VPATH		= @srcdir@
 
+prefix		= @prefix@
+exec_prefix	= @exec_prefix@
+libdir		= @libdir@
+
 SFDC		= @SFDC@
 
 CC		= @CC@
@@ -27,7 +31,7 @@ SOURCES		= debug.c
 SER_OBJECTS	= kdebug.o
 PAR_OBJECTS	= pdebug.o
 OBJECTS		= $(SER_OBJECTS) $(PAR_OBJECTS)
-TARGETS		= test libdebug.a #libddebug.a
+TARGETS		= libdebug.a #libddebug.a
 
 k%.o:		%.c
 	$(CC) $(CPPFLAGS) $(CFLAGS) -DUSE_SERIAL -c $^ $(OUTPUT_OPTION)
@@ -52,6 +56,10 @@ libddebug.a:	$(PAR_OBJECTS)
 	$(AR) $(ARFLAGS) $@ $^
 
 test:		test.c libdebug.a
+
+install:	all
+	$(INSTALL) -d $(libdir)
+	$(INSTALL_DATA) $(TARGETS) $(libdir)
 
 tgz:	distclean
 	cp -r $(srcdir) /tmp/$(PACKAGE_TARNAME)-$(PACKAGE_VERSION)
