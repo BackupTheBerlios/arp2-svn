@@ -43,7 +43,12 @@ BEGIN {
 	    }
 	}
 
-	printf "AROS_LH%d%s(", $prototype->{numargs}, $nb ? "I" : "";
+	if ($self->{PROTO}) {
+	    printf "AROS_LD%d%s(", $prototype->{numargs}, $nb ? "I" : "";
+	}
+	else {
+	    printf "AROS_LH%d%s(", $prototype->{numargs}, $nb ? "I" : "";
+	}
 	print "$prototype->{return}, $gateprefix$prototype->{funcname},\n";
     }
 
@@ -60,8 +65,13 @@ BEGIN {
 	if ($argtype =~ /\(\*\)/) {
 	    $argtype = "_$sfd->{Basename}_$prototype->{funcname}_fp$argnum";
 	}
-	
-	print "	AROS_LHA($argtype, $argname, " . (uc $argreg) . "),\n";
+
+	if ($self->{PROTO}) {
+	    print "	AROS_LDA($argtype, $argname, " . (uc $argreg) . "),\n";
+	}
+	else {
+	    print "	AROS_LHA($argtype, $argname, " . (uc $argreg) . "),\n";
+	}	    
     }
     
     sub function_end {

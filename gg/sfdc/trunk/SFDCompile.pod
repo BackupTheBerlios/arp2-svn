@@ -327,3 +327,9 @@ Added the --addvectors switch.
 
 Generates files for mathieeedoub*, though probably broken. Well they
 are the same as fd2inline generates at least.
+
+
+=item B<1.2a (2004-06-20)>
+
+Replace AROS_LP with AROS_LD. Because it is guaranteed to define the
+function prototype. [verhaegs]
