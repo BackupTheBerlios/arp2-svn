@@ -123,7 +123,7 @@ main( int   argc,
     }
     else
     {
-      if( ! InstallPUH( PUHF_PATCH_ROM, 
+      if( ! InstallPUH( PUHF_PATCH_ROM | PUHF_PATCH_APPS, 
                         mode_id, frequency,
                         pd ) )
       {
@@ -139,11 +139,7 @@ main( int   argc,
         else
 #endif
         {
-#ifdef TEST_MODE
-          Test( (struct Custom*) location );
-#else
           Test( (struct Custom*) 0xdff000 );
-#endif
 
           printf( "Waiting for CTRL-C...\n" );
           Wait( SIGBREAKF_CTRL_C );

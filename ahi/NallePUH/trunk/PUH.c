@@ -46,6 +46,9 @@
 
 #define INTF_AUDIO   ( INTF_AUD3 | INTF_AUD2 | INTF_AUD1 | INTF_AUD0 )
 
+
+
+int cp = 0;
 #define static
 
 
@@ -238,84 +241,68 @@ AllocPUH( void )
 
     page_size = max( GetPageSize( uctx ), GetPageSize( sctx ) );
 
-    // Allocate memory for the re-mapped registers
-
     size = ( ( 0x200 - 1 ) / page_size + 1 ) * page_size;
 
-    location = AllocAligned( size, 
-                             MEMF_PUBLIC | MEMF_CLEAR,
-                             page_size );
 
+    // Calculate address for re-mapped registers (page below 0xdff000 )
+    
+    location = (void*) ( ( ( 0xdff000 & ~page_size ) - size ) & ~page_size );
 
-    if( location == NULL )
+    pd = (struct PUHData*) AllocVec( sizeof( struct PUHData ),
+                                     MEMF_PUBLIC | MEMF_CLEAR );
+
+    if( pd == NULL )
     {
       printf( "Out of memory!\n" );
     }
     else
     {
-      pd = (struct PUHData*) AllocVec( sizeof( struct PUHData ),
-                                       MEMF_PUBLIC | MEMF_CLEAR );
+      void* rom_start    = NULL;
+      ULONG rom_size     = NULL;
 
-      if( pd == NULL )
+      // Get location of Kickstart ROM  
+      rom_size  = *( (ULONG*) ( ROMEND - MAGIC_ROMEND ) );
+      rom_start = ( (UBYTE*) ROMEND ) - rom_size;
+
+      pd->m_Active               = FALSE;
+
+      pd->m_AudioMode            = AHI_INVALID_ID;
+
+      pd->m_SoundFunc.h_Entry    = (ULONG(*)(void)) PUHSoundFunc;
+      pd->m_SoundFunc.h_Data     = pd;
+
+      if( gfxbase != NULL && 
+          ( gfxbase->DisplayFlags & REALLY_PAL ) == 0 )
       {
-        FreeMem( location, size );
-        printf( "Out of memory!\n" );
+        // NTSC
+        pd->m_ChipFreq = 3579545;
       }
       else
       {
-        void* rom_start    = NULL;
-        ULONG rom_size     = NULL;
-
-        // Get location of Kickstart ROM  
-        rom_size  = *( (ULONG*) ( ROMEND - MAGIC_ROMEND ) );
-        rom_start = ( (UBYTE*) ROMEND ) - rom_size;
-
-        pd->m_Active               = FALSE;
-
-        pd->m_AudioMode            = AHI_INVALID_ID;
-
-        pd->m_SoundFunc.h_Entry    = (ULONG(*)(void)) PUHSoundFunc;
-        pd->m_SoundFunc.h_Data     = pd;
-
-        if( gfxbase != NULL && 
-            ( gfxbase->DisplayFlags & REALLY_PAL ) == 0 )
-        {
-          // NTSC
-          pd->m_ChipFreq = 3579545;
-        }
-        else
-        {
-          // PAL
-          pd->m_ChipFreq = 3546895;
-        }
-
-#ifdef TEST_MODE
-        pd->m_Intercepted          = location;
-        pd->m_Custom               = (void*) 0xdff000;
-#else
-        pd->m_Intercepted          = (void*) 0xdff000;
-        pd->m_Custom               = location;
-#endif
-
-        pd->m_UserContext          = uctx;        
-        pd->m_SuperContext         = sctx;
-
-        pd->m_UserException        = NULL;        
-        pd->m_SuperException       = NULL;
-
-        pd->m_ROM                  = rom_start;
-        pd->m_ROMShadowBuffer      = NULL;
-        pd->m_CustomShadowBuffer   = location;
-
-        pd->m_ROMSize              = rom_size;
-        pd->m_CustomSize           = size;
-
-        pd->m_SoftInt.is_Node.ln_Type = NT_INTERRUPT;
-        pd->m_SoftInt.is_Node.ln_Pri  = 32;
-        pd->m_SoftInt.is_Node.ln_Name = "NallePUH Level 4 emulation";
-        pd->m_SoftInt.is_Data         = pd;
-        pd->m_SoftInt.is_Code         = (void(*)(void)) PUHSoftInt;
+        // PAL
+        pd->m_ChipFreq = 3546895;
       }
+    
+      pd->m_Intercepted          = (void*) 0xdff000;
+      pd->m_CustomDirect         = location;
+
+      pd->m_UserContext          = uctx;        
+      pd->m_SuperContext         = sctx;
+
+      pd->m_UserException        = NULL;        
+      pd->m_SuperException       = NULL;
+
+      pd->m_ROM                  = rom_start;
+      pd->m_ROMShadowBuffer      = NULL;
+
+      pd->m_ROMSize              = rom_size;
+      pd->m_CustomSize           = size;
+
+      pd->m_SoftInt.is_Node.ln_Type = NT_INTERRUPT;
+      pd->m_SoftInt.is_Node.ln_Pri  = 32;
+      pd->m_SoftInt.is_Node.ln_Name = "NallePUH Level 4 emulation";
+      pd->m_SoftInt.is_Data         = pd;
+      pd->m_SoftInt.is_Code         = (void(*)(void)) PUHSoftInt;
     }
   }
 
@@ -336,11 +323,6 @@ FreePUH( struct PUHData* pd )
   {
     DeactivatePUH( pd );
 
-    if( pd->m_CustomShadowBuffer != NULL )
-    {
-      FreeMem( pd->m_CustomShadowBuffer, pd->m_CustomSize );
-    }
-    
     FreeVec( pd );
   }
 }
@@ -614,10 +596,6 @@ RemapMemory( struct PUHData* pd )
   pd->m_Properties.m_UserCustom = 
       GetProperties( pd->m_UserContext, (ULONG) 0xdff000, TAG_DONE );
 
-  pd->m_Properties.m_UserCustomShadow = 
-      GetProperties( pd->m_UserContext, (ULONG) pd->m_CustomShadowBuffer, TAG_DONE );
-
-
   pd->m_Properties.m_SuperROM =
       GetProperties( pd->m_SuperContext, (ULONG) pd->m_ROM, TAG_DONE );
 
@@ -626,10 +604,6 @@ RemapMemory( struct PUHData* pd )
 
   pd->m_Properties.m_SuperCustom = 
       GetProperties( pd->m_SuperContext, (ULONG) 0xdff000, TAG_DONE );
-
-  pd->m_Properties.m_SuperCustomShadow = 
-      GetProperties( pd->m_SuperContext, (ULONG) pd->m_CustomShadowBuffer, TAG_DONE );
-
 
   if( ( pd->m_Properties.m_UserCustom  & MAPP_REPAIRABLE ) ||
       ( pd->m_Properties.m_SuperCustom & MAPP_REPAIRABLE ) )
@@ -662,7 +636,7 @@ RemapMemory( struct PUHData* pd )
                            ( pd->m_Properties.m_UserCustom | 
                              MAPP_REMAPPED ),
                            ~0UL,
-                           (ULONG) pd->m_CustomShadowBuffer, 
+                           (ULONG) pd->m_CustomDirect, 
                            pd->m_CustomSize,
                            MAPTAG_DESTINATION, 0xdff000,
                            TAG_DONE ) ||
@@ -670,7 +644,7 @@ RemapMemory( struct PUHData* pd )
                            ( pd->m_Properties.m_SuperCustom | 
                              MAPP_REMAPPED ),
                            ~0UL,
-                           (ULONG) pd->m_CustomShadowBuffer, 
+                           (ULONG) pd->m_CustomDirect, 
                            pd->m_CustomSize,
                            MAPTAG_DESTINATION, 0xdff000,
                            TAG_DONE ) )
@@ -679,20 +653,12 @@ RemapMemory( struct PUHData* pd )
       }
       else
       {
-        ULONG address;
-
-#ifdef TEST_MODE
-        address = (ULONG) pd->m_CustomShadowBuffer;
-#else
-        address = 0xdff000;
-#endif
-
         if( ! SetProperties( pd->m_UserContext,
                              ( pd->m_Properties.m_UserCustom | 
                                MAPP_SINGLEPAGE |
                                MAPP_REPAIRABLE ),
                              ~0UL,
-                             address, 
+                             0xdff000, 
                              pd->m_CustomSize,
                              TAG_DONE ) ||
             ! SetProperties( pd->m_SuperContext,
@@ -700,7 +666,7 @@ RemapMemory( struct PUHData* pd )
                                MAPP_SINGLEPAGE |
                                MAPP_REPAIRABLE ),
                              ~0UL,
-                             address, 
+                             0xdff000, 
                              pd->m_CustomSize,
                              TAG_DONE ) )
         {
@@ -802,6 +768,10 @@ RemapMemory( struct PUHData* pd )
 ** Restore MMU ****************************************************************
 ******************************************************************************/
 
+// Note that this code will NOT restore the attributes for
+// pd->m_CustomDirect, since the patched instructions in application code
+// needs it even after Nalle PUH has terminated.
+
 static BOOL
 RestoreMemory( struct PUHData* pd )
 {
@@ -825,101 +795,86 @@ RestoreMemory( struct PUHData* pd )
   else
   {
     if( ! SetProperties( pd->m_UserContext,
-                         pd->m_Properties.m_UserCustomShadow, ~0UL,
-                         (ULONG) pd->m_CustomShadowBuffer, 
-                         pd->m_CustomSize,
+                         pd->m_Properties.m_UserCustom, ~0UL,
+                         0xdff000, pd->m_CustomSize,
                          TAG_DONE ) ||
         ! SetProperties( pd->m_SuperContext,
-                         pd->m_Properties.m_SuperCustomShadow, ~0UL,
-                         (ULONG) pd->m_CustomShadowBuffer,
-                         pd->m_CustomSize,
+                         pd->m_Properties.m_SuperCustom, ~0UL,
+                         0xdff000, pd->m_CustomSize,
                          TAG_DONE ) )
     {
-      printf( "Failed to set properties for for re-mapped area.\n" );
+      printf( "Failed to set properties for custom chip register area.\n" );
     }
     else
     {
-      if( ! SetProperties( pd->m_UserContext,
-                           pd->m_Properties.m_UserCustom, ~0UL,
-                           0xdff000, pd->m_CustomSize,
-                           TAG_DONE ) ||
-          ! SetProperties( pd->m_SuperContext,
-                           pd->m_Properties.m_SuperCustom, ~0UL,
-                           0xdff000, pd->m_CustomSize,
-                           TAG_DONE ) )
+      BOOL activate = TRUE;
+      
+      if( pd->m_ROMShadowBuffer != NULL )
       {
-        printf( "Failed to set properties for custom chip register area.\n" );
-      }
-      else
-      {
-        BOOL activate = TRUE;
-        
-        if( pd->m_ROMShadowBuffer != NULL )
+        if( ! SetProperties( pd->m_UserContext,
+                             pd->m_Properties.m_UserROMShadow, ~0UL,
+                             (ULONG) pd->m_ROMShadowBuffer, 
+                             pd->m_ROMSize,
+                             TAG_DONE ) ||
+            ! SetProperties( pd->m_SuperContext,
+                             pd->m_Properties.m_SuperROMShadow, ~0UL,
+                             (ULONG) pd->m_ROMShadowBuffer,
+                             pd->m_ROMSize,
+                             TAG_DONE ) )
+        {
+          printf( "Failed to set properties for for patched ROM area.\n" );
+          activate = FALSE;
+        }
+        else
         {
           if( ! SetProperties( pd->m_UserContext,
-                               pd->m_Properties.m_UserROMShadow, ~0UL,
-                               (ULONG) pd->m_ROMShadowBuffer, 
+                               pd->m_Properties.m_UserROM, ~0UL,
+                               (ULONG) pd->m_ROM, 
                                pd->m_ROMSize,
                                TAG_DONE ) ||
               ! SetProperties( pd->m_SuperContext,
-                               pd->m_Properties.m_SuperROMShadow, ~0UL,
-                               (ULONG) pd->m_ROMShadowBuffer,
+                               pd->m_Properties.m_SuperROM, ~0UL,
+                               (ULONG) pd->m_ROM,
                                pd->m_ROMSize,
                                TAG_DONE ) )
           {
-            printf( "Failed to set properties for for patched ROM area.\n" );
+            printf( "Failed to set properties for for ROM area.\n" );
             activate = FALSE;
-          }
-          else
-          {
-            if( ! SetProperties( pd->m_UserContext,
-                                 pd->m_Properties.m_UserROM, ~0UL,
-                                 (ULONG) pd->m_ROM, 
-                                 pd->m_ROMSize,
-                                 TAG_DONE ) ||
-                ! SetProperties( pd->m_SuperContext,
-                                 pd->m_Properties.m_SuperROM, ~0UL,
-                                 (ULONG) pd->m_ROM,
-                                 pd->m_ROMSize,
-                                 TAG_DONE ) )
-            {
-              printf( "Failed to set properties for for ROM area.\n" );
-              activate = FALSE;
-            }
-          }
-        }
-
-        if( activate )
-        {
-          struct MMUContext* ctxs[ 3 ] = 
-          {
-            pd->m_UserContext,
-            pd->m_SuperContext,
-            NULL
-          };
-
-          // We need to disable, since we may have patched exec.library!
-
-          Disable();
-          rc = RebuildTreesA( ctxs );
-          Enable();
-
-          if( ! rc )
-          {
-            printf( "Failed to rebuild MMU trees.\n" );
           }
         }
       }
-    }
 
-    if( ! rc )
-    {
-      // Roll-back!
+      if( activate )
+      {
+        struct MMUContext* ctxs[ 3 ] = 
+        {
+          pd->m_UserContext,
+          pd->m_SuperContext,
+          NULL
+        };
 
-      SetPropertyList( pd->m_UserContext, user_mapping );
-      SetPropertyList( pd->m_SuperContext, super_mapping );
+        // We need to disable, since we may have patched exec.library!
+
+        Disable();
+        rc = RebuildTreesA( ctxs );
+        Enable();
+
+        if( ! rc )
+        {
+          printf( "Failed to rebuild MMU trees.\n" );
+        }
+      }
     }
   }
+
+  if( ! rc )
+  {
+    // Roll-back!
+
+    SetPropertyList( pd->m_UserContext, user_mapping );
+    SetPropertyList( pd->m_SuperContext, super_mapping );
+  }
+  
 
   if( user_mapping != NULL )
   {
@@ -1017,7 +972,7 @@ PatchROMShadowBuffer( struct PUHData* pd )
 
     if( ( *ptr.m_Long & ~0x1ff ) == 0xdff000 )
     {
-      *ptr.m_Long = (ULONG) pd->m_Custom + ( *ptr.m_Long & 0xfff );
+      *ptr.m_Long = (ULONG) pd->m_CustomDirect + ( *ptr.m_Long & 0xfff );
 
       ++patches;
     }
@@ -1028,7 +983,6 @@ PatchROMShadowBuffer( struct PUHData* pd )
   }
 }
 
-int cp = 0;
 
 /******************************************************************************
 ** MMU exception handler ******************************************************
@@ -1078,6 +1032,7 @@ PUHHandler( REG( a0, struct ExceptionData* ed ),
     size = (ULONG) ed->exd_NextFaultAddress - (ULONG) ed->exd_FaultAddress;
     reg  = (ULONG) ed->exd_FaultAddress - (ULONG) pd->m_Intercepted;
 
+    // We must initialize handled, since it is only set to TRUE, never FALSE
     handled = FALSE;
 
     if( ed->exd_Flags & EXDF_WRITE )
@@ -1143,17 +1098,74 @@ PUHHandler( REG( a0, struct ExceptionData* ed ),
       }
     }
 
-#if 1
-    if( ! handled )
+    if( ! handled && ( pd->m_Flags & PUHF_PATCH_APPS ) )
     {
-      // Patch "misses" some so they won't bother us again
-//      if( ( ReadLong( (ULONG) ed->exd_ReturnPC + 4 ) & ~0x1ffUL ) ==
-//          (ULONG) pd->m_Intercepted )
+      if( ed->exd_ReturnPC < pd->m_ROM || 
+          ed->exd_ReturnPC >= ( pd->m_ROM + pd->m_ROMSize ) )
+//      if( cp < 10 )
       {
-        KPrintF( "." );
+        UWORD op_code;
+        ULONG address;
+
+        ++cp;
+        KPrintF( "Unhandled hit at $%08lx\n", ed->exd_ReturnPC );
+        
+        op_code = ReadWord( ed->exd_ReturnPC );
+
+        if( op_code == 0x33fc )
+        {
+          // move.w #$xxxx,$xxxxxxxx
+
+          address = ReadLong( ed->exd_ReturnPC + 4 );
+
+          if( ( address & ~0x1ffUL ) == (ULONG) pd->m_Intercepted )
+          {
+            KPrintF( "***Patched 1: 0x%08lx\n", address );
+            WriteLong( ed->exd_ReturnPC + 4, 
+                       address - 0xdff000 + (ULONG) pd->m_CustomDirect );
+          }
+        }
+        else if( op_code == 0x23fc )
+        {
+          // move.l #$xxxxxxxx,$xxxxxxxx
+
+          address = ReadLong( ed->exd_ReturnPC + 6 );
+
+          if( ( address & ~0x1ffUL ) == (ULONG) pd->m_Intercepted )
+          {
+            KPrintF( "***Patched 2: 0x%08lx\n", address );
+            WriteLong( ed->exd_ReturnPC + 6,
+                       address - 0xdff000 + (ULONG) pd->m_CustomDirect );
+          }
+        }
+        else if( ( op_code & 0xcff0 ) == 0x03c0 )
+        {
+          // move.x xn,$xxxxxxxx
+
+          address = ReadLong( ed->exd_ReturnPC + 2 );
+
+          if( ( address & ~0x1ffUL ) == (ULONG) pd->m_Intercepted )
+          {
+            KPrintF( "***Patched 3: 0x%08lx\n", address );
+            WriteLong( ed->exd_ReturnPC + 2,
+                       address - 0xdff000 + (ULONG) pd->m_CustomDirect );
+          }
+        }
+        else if( ( op_code & 0xc1bf ) == 0x0039 )
+        {
+          // move.x xn,$xxxxxxxx
+
+          address = ReadLong( ed->exd_ReturnPC + 2 );
+
+          if( ( address & ~0x1ffUL ) == (ULONG) pd->m_Intercepted )
+          {
+            KPrintF( "***Patched 4: 0x%08lx\n", address );
+            WriteLong( ed->exd_ReturnPC + 2,
+                       address - 0xdff000 + (ULONG) pd->m_CustomDirect );
+          }
+        }
       }
     }
-#endif
 
     // Ok, we either emulated or simulated it;
     rc = 0;
@@ -1181,7 +1193,7 @@ PUHRead( UWORD            reg,
          struct ExecBase* SysBase )
 {
   UWORD  result;
-  UWORD* address = (UWORD*) ( (ULONG) pd->m_Custom + reg );
+  UWORD* address = (UWORD*) ( (ULONG) pd->m_CustomDirect + reg );
 
   switch( reg )
   {
@@ -1219,16 +1231,12 @@ PUHRead( UWORD            reg,
       result = ReadWord( address );
 
       KPrintF( "ADKCONR: $%04lx\n", result );
-
-      *handled = FALSE;
       break;
 
     default:
       // Just carry out the intercepted read operation
 
       result = ReadWord( address );
-
-      *handled = FALSE;
       break;
   }
 
@@ -1247,7 +1255,7 @@ PUHWrite( UWORD            reg,
           struct PUHData*  pd,
           struct ExecBase* SysBase )
 {
-  UWORD* address = (UWORD*) ( (ULONG) pd->m_Custom + reg );
+  UWORD* address = (UWORD*) ( (ULONG) pd->m_CustomDirect + reg );
 
   switch( reg )
   {
@@ -1419,8 +1427,7 @@ PUHWrite( UWORD            reg,
 
       WriteWord( address, value & ~INTF_AUDIO );
 
-      if( ( pd->m_INTENA & INTF_INTEN ) &&
-          ( pd->m_INTENA & pd->m_INTREQ & INTF_AUDIO ) &&
+      if( ( pd->m_INTENA & pd->m_INTREQ & INTF_AUDIO ) &&
           ! pd->m_CausePending )
       {
         pd->m_CausePending = TRUE;
@@ -1430,9 +1437,6 @@ PUHWrite( UWORD            reg,
       if( value & INTF_AUDIO )
       {
         *handled = TRUE;
-      else
-      {
-        *handled = FALSE;
       }
       break;
 
@@ -1454,8 +1458,7 @@ PUHWrite( UWORD            reg,
 
       WriteWord( address, value & ~INTF_AUDIO );
 
-      if( ( pd->m_INTENA & INTF_INTEN ) &&
-          ( pd->m_INTENA & pd->m_INTREQ & INTF_AUDIO ) &&
+      if( ( pd->m_INTENA & pd->m_INTREQ & INTF_AUDIO ) &&
           ! pd->m_CausePending )
       {
         pd->m_CausePending = TRUE;
@@ -1465,16 +1468,12 @@ PUHWrite( UWORD            reg,
       if( value & INTF_AUDIO )
       {
         *handled = TRUE;
-      else
-      {
-        *handled = FALSE;
       }
       break;
 
+
     case ADKCON:
       WriteWord( address, value );
-
-      *handled = FALSE;
       break;
 
     case AUD0LCH:
@@ -1624,8 +1623,7 @@ PUHWrite( UWORD            reg,
       {
         pd->m_INTREQ |= INTF_AUD0;
         
-        if( ( pd->m_INTENA & INTF_INTEN ) &&
-            ( pd->m_INTENA & INTF_AUD0 ) &&
+        if( ( pd->m_INTENA & INTF_AUD0 ) &&
             ! pd->m_CausePending )
         {
           pd->m_CausePending = TRUE;
@@ -1641,8 +1639,7 @@ PUHWrite( UWORD            reg,
       {
         pd->m_INTREQ |= INTF_AUD1;
         
-        if( ( pd->m_INTENA & INTF_INTEN ) &&
-            ( pd->m_INTENA & INTF_AUD1 ) &&
+        if( ( pd->m_INTENA & INTF_AUD1 ) &&
             ! pd->m_CausePending )
         {
           pd->m_CausePending = TRUE;
@@ -1658,8 +1655,7 @@ PUHWrite( UWORD            reg,
       {
         pd->m_INTREQ |= INTF_AUD2;
         
-        if( ( pd->m_INTENA & INTF_INTEN ) &&
-            ( pd->m_INTENA & INTF_AUD2 ) &&
+        if( ( pd->m_INTENA & INTF_AUD2 ) &&
             ! pd->m_CausePending )
         {
           pd->m_CausePending = TRUE;
@@ -1675,8 +1671,7 @@ PUHWrite( UWORD            reg,
       {
         pd->m_INTREQ |= INTF_AUD3;
         
-        if( ( pd->m_INTENA & INTF_INTEN ) &&
-            ( pd->m_INTENA & INTF_AUD3 ) &&
+        if( ( pd->m_INTENA & INTF_AUD3 ) &&
             ! pd->m_CausePending )
         {
           pd->m_CausePending = TRUE;
@@ -1691,8 +1686,6 @@ PUHWrite( UWORD            reg,
       // Just carry out the intercepted write operation
 
       WriteWord( address, value );
-
-      *handled = FALSE;
       break;
   }
 }
@@ -1815,14 +1808,13 @@ PUHSoundFunc( REG( a0, struct Hook*            hook ),
 
   pd->m_INTREQ |= ( 1 << ( INTB_AUD0 + msg->ahism_Channel ) );
 
-  if( ( pd->m_INTENA & INTF_INTEN ) &&
-      ( pd->m_INTENA & pd->m_INTREQ & INTF_AUDIO ) )
+  if( pd->m_INTENA & pd->m_INTREQ & INTF_AUDIO )
   {
     // KPrintF( "AHI generated interrupt for channel %ld\n", msg->ahism_Channel );
   
     stack = SuperState();
 
-    PUHSoftIntWrapper( 0, pd->m_Custom, pd, SysBase );
+    PUHSoftIntWrapper( 0, pd->m_CustomDirect, pd, SysBase );
 
     if( stack != NULL )
     {

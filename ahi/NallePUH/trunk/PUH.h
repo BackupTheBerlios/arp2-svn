@@ -71,8 +71,10 @@ WriteLong( void* address, ULONG value );
 
 #define PUHF_NONE       0L
 #define PUHF_PATCH_ROM	(1L << 0)
+#define PUHF_PATCH_APPS	(1L << 1)
 
 #define PUHB_PATCH_ROM	0
+#define PUHB_PATCH_APPS	1
 
 
 
@@ -101,7 +103,7 @@ struct PUHData
   UWORD                 m_SoundLength[ 4 ];
 
   void*                 m_Intercepted;
-  void*                 m_Custom;
+  void*                 m_CustomDirect;
 
   struct MMUContext*    m_UserContext;
   struct MMUContext*    m_SuperContext;
@@ -111,7 +113,6 @@ struct PUHData
 
   void*                 m_ROM;
   void*                 m_ROMShadowBuffer;
-  void*                 m_CustomShadowBuffer;
 
   ULONG	                m_ROMSize;
   ULONG	                m_CustomSize;
@@ -121,11 +122,9 @@ struct PUHData
     ULONG               m_UserROM;
     ULONG               m_UserROMShadow;
     ULONG               m_UserCustom;
-    ULONG               m_UserCustomShadow;
     ULONG               m_SuperROM;
     ULONG               m_SuperROMShadow;
     ULONG               m_SuperCustom;
-    ULONG               m_SuperCustomShadow;
   } m_Properties;
 
   struct Interrupt     m_SoftInt;
