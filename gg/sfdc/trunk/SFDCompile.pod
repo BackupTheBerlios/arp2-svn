@@ -359,3 +359,8 @@ for the arguments.
 
 B<sysv> now works correctly with varargs functions. B<gatestubs> work
 for m68k and i386 only for now.
+
+=item
+
+New B<--mode>: B<functable>. For proper code generation in AROS, make
+sure gateprotos are included before you include the functable.

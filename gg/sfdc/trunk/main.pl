@@ -219,7 +219,7 @@ if ($#ARGV < 0) {
 
 $mode = lc $mode;
 
-if (!($mode =~ /^(clib|dump|fd|libproto|lvo|macros|proto|pragmas|stubs|gateproto|gatestubs|verify)$/)) {
+if (!($mode =~ /^(clib|dump|fd|libproto|lvo|functable|macros|proto|pragmas|stubs|gateproto|gatestubs|verify)$/)) {
     pod2usage (-message => "Unknown mode specified. Use --help for a list.",
 	       -verbose => 0,
 	       -exitval => 10);
@@ -285,6 +285,11 @@ for my $i ( 0 .. $#ARGV ) {
 
 	/^lvo$/ && do {
 	    $obj = LVO->new( sfd => $sfd );
+	    last;
+	};
+
+	/^functable$/ && do {
+	    $obj = FuncTable->new( sfd => $sfd );
 	    last;
 	};
 
