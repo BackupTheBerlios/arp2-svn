@@ -9,10 +9,11 @@
 #include "sysconfig.h"
 #include "sysdeps.h"
 
-#include <X11/Xlib.h>
-#include <X11/Xutil.h>
-#include <X11/keysym.h>
-#include <X11/cursorfont.h>
+#include <glgfx.h>
+#include <glgfx_bitmap.h>
+#include <glgfx_input.h>
+#include <glgfx_view.h>
+#include <glgfx_viewport.h>
 
 #include <ctype.h>
 
@@ -39,28 +40,28 @@
  */
 static struct uae_hotkeyseq default_hotkeys[] =
 {
-    { MAKE_HOTKEYSEQ (XK_F12, XK_q, -1, -1,           INPUTEVENT_SPC_QUIT) },
-    { MAKE_HOTKEYSEQ (XK_F12, XK_r, -1, -1,           INPUTEVENT_SPC_WARM_RESET) },
-    { MAKE_HOTKEYSEQ (XK_F12, XK_Shift_L, XK_r, -1,   INPUTEVENT_SPC_COLD_RESET) },
-    { MAKE_HOTKEYSEQ (XK_F12, XK_d, -1, -1,           INPUTEVENT_SPC_ENTERDEBUGGER) },
-    { MAKE_HOTKEYSEQ (XK_F12, XK_s, -1, -1,           INPUTEVENT_SPC_TOGGLEFULLSCREEN) },
-    { MAKE_HOTKEYSEQ (XK_F12, XK_m, -1, -1,           INPUTEVENT_SPC_TOGGLEMOUSEMODE) },
-    { MAKE_HOTKEYSEQ (XK_F12, XK_g, -1, -1,           INPUTEVENT_SPC_TOGGLEMOUSEGRAB) },
-    { MAKE_HOTKEYSEQ (XK_F12, XK_i, -1, -1,           INPUTEVENT_SPC_INHIBITSCREEN) },
-    { MAKE_HOTKEYSEQ (XK_F12, XK_p, -1, -1,           INPUTEVENT_SPC_SCREENSHOT) },
-    { MAKE_HOTKEYSEQ (XK_F12, XK_a, -1, -1,           INPUTEVENT_SPC_SWITCHINTERPOL) },
-    { MAKE_HOTKEYSEQ (XK_F12, XK_KP_Add, -1, -1,      INPUTEVENT_SPC_INCRFRAMERATE) },
-    { MAKE_HOTKEYSEQ (XK_F12, XK_KP_Subtract, -1, -1, INPUTEVENT_SPC_DECRFRAMERATE) },
-    { MAKE_HOTKEYSEQ (XK_F12, XK_F1, -1, -1,	      INPUTEVENT_SPC_FLOPPY0) },
-    { MAKE_HOTKEYSEQ (XK_F12, XK_F2, -1, -1,	      INPUTEVENT_SPC_FLOPPY1) },
-    { MAKE_HOTKEYSEQ (XK_F12, XK_F3, -1, -1,	      INPUTEVENT_SPC_FLOPPY2) },
-    { MAKE_HOTKEYSEQ (XK_F12, XK_F4, -1, -1,	      INPUTEVENT_SPC_FLOPPY3) },
-    { MAKE_HOTKEYSEQ (XK_F12, XK_Shift_L, XK_F1, -1,  INPUTEVENT_SPC_EFLOPPY0) },
-    { MAKE_HOTKEYSEQ (XK_F12, XK_Shift_L, XK_F2, -1,  INPUTEVENT_SPC_EFLOPPY1) },
-    { MAKE_HOTKEYSEQ (XK_F12, XK_Shift_L, XK_F3, -1,  INPUTEVENT_SPC_EFLOPPY2) },
-    { MAKE_HOTKEYSEQ (XK_F12, XK_Shift_L, XK_F4, -1,  INPUTEVENT_SPC_EFLOPPY3) },
-    { MAKE_HOTKEYSEQ (XK_F12, XK_Return, -1, -1,      INPUTEVENT_SPC_ENTERGUI) },
-    { MAKE_HOTKEYSEQ (XK_F12, XK_f, -1, -1,           INPUTEVENT_SPC_FREEZEBUTTON) },
+    { MAKE_HOTKEYSEQ (glgfx_input_f12, glgfx_input_q, -1, -1,           INPUTEVENT_SPC_QUIT) },
+    { MAKE_HOTKEYSEQ (glgfx_input_f12, glgfx_input_r, -1, -1,           INPUTEVENT_SPC_WARM_RESET) },
+    { MAKE_HOTKEYSEQ (glgfx_input_f12, glgfx_input_lshift, glgfx_input_r, -1,   INPUTEVENT_SPC_COLD_RESET) },
+    { MAKE_HOTKEYSEQ (glgfx_input_f12, glgfx_input_d, -1, -1,           INPUTEVENT_SPC_ENTERDEBUGGER) },
+    { MAKE_HOTKEYSEQ (glgfx_input_f12, glgfx_input_s, -1, -1,           INPUTEVENT_SPC_TOGGLEFULLSCREEN) },
+    { MAKE_HOTKEYSEQ (glgfx_input_f12, glgfx_input_m, -1, -1,           INPUTEVENT_SPC_TOGGLEMOUSEMODE) },
+    { MAKE_HOTKEYSEQ (glgfx_input_f12, glgfx_input_g, -1, -1,           INPUTEVENT_SPC_TOGGLEMOUSEGRAB) },
+    { MAKE_HOTKEYSEQ (glgfx_input_f12, glgfx_input_i, -1, -1,           INPUTEVENT_SPC_INHIBITSCREEN) },
+    { MAKE_HOTKEYSEQ (glgfx_input_f12, glgfx_input_p, -1, -1,           INPUTEVENT_SPC_SCREENSHOT) },
+    { MAKE_HOTKEYSEQ (glgfx_input_f12, glgfx_input_a, -1, -1,           INPUTEVENT_SPC_SWITCHINTERPOL) },
+    { MAKE_HOTKEYSEQ (glgfx_input_f12, glgfx_input_npadd, -1, -1,      INPUTEVENT_SPC_INCRFRAMERATE) },
+    { MAKE_HOTKEYSEQ (glgfx_input_f12, glgfx_input_npsub, -1, -1, INPUTEVENT_SPC_DECRFRAMERATE) },
+    { MAKE_HOTKEYSEQ (glgfx_input_f12, glgfx_input_f1, -1, -1,	      INPUTEVENT_SPC_FLOPPY0) },
+    { MAKE_HOTKEYSEQ (glgfx_input_f12, glgfx_input_f2, -1, -1,	      INPUTEVENT_SPC_FLOPPY1) },
+    { MAKE_HOTKEYSEQ (glgfx_input_f12, glgfx_input_f3, -1, -1,	      INPUTEVENT_SPC_FLOPPY2) },
+    { MAKE_HOTKEYSEQ (glgfx_input_f12, glgfx_input_f4, -1, -1,	      INPUTEVENT_SPC_FLOPPY3) },
+    { MAKE_HOTKEYSEQ (glgfx_input_f12, glgfx_input_lshift, glgfx_input_f1, -1,  INPUTEVENT_SPC_EFLOPPY0) },
+    { MAKE_HOTKEYSEQ (glgfx_input_f12, glgfx_input_lshift, glgfx_input_f2, -1,  INPUTEVENT_SPC_EFLOPPY1) },
+    { MAKE_HOTKEYSEQ (glgfx_input_f12, glgfx_input_lshift, glgfx_input_f3, -1,  INPUTEVENT_SPC_EFLOPPY2) },
+    { MAKE_HOTKEYSEQ (glgfx_input_f12, glgfx_input_lshift, glgfx_input_f4, -1,  INPUTEVENT_SPC_EFLOPPY3) },
+    { MAKE_HOTKEYSEQ (glgfx_input_f12, glgfx_input_return, -1, -1,      INPUTEVENT_SPC_ENTERGUI) },
+    { MAKE_HOTKEYSEQ (glgfx_input_f12, glgfx_input_f, -1, -1,           INPUTEVENT_SPC_FREEZEBUTTON) },
     { HOTKEYS_END }
 };
 
@@ -71,20 +72,10 @@ static int picasso_has_invalid_lines;
 static int picasso_invalid_start, picasso_invalid_stop;
 static int picasso_maxw = 0, picasso_maxh = 0;
 
-static struct disp_info ami_dinfo, pic_dinfo;
-static Visual *vis;
-static XVisualInfo visualInfo;
-static int bitdepth, bit_unit;
-static Cursor blankCursor, xhairCursor;
-static int cursorOn;
-static int inverse_byte_order = 0;
-
-static int current_width, current_height;
-
-static int x11_init_ok;
-static int dgaavail = 0, vidmodeavail = 0, shmavail = 0;
-static int dgamode;
-static int grabbed;
+static struct glgfx_bitmap*   bitmap = NULL;
+static struct glgfx_rasinfo*  rasinfo = NULL;
+static struct glgfx_viewport* viewport = NULL;
+static struct glgfx_view*     view = NULL;
 
 void toggle_mousegrab (void);
 void framerate_up (void);
@@ -94,336 +85,154 @@ int xkeysym2amiga (int);
 int pause_emulation;
 
 
-void flush_line (int y)
-{
-    char *linebuf = gfxvidinfo.linemem;
-    int xs, xe;
-    int len;
-
-    if (linebuf == NULL)
-	linebuf = y*gfxvidinfo.rowbytes + gfxvidinfo.bufmem;
-
-#ifdef USE_DGA_EXTENSION
-    if (dgamode && need_dither) {
-	DitherLine ((unsigned char *)(fb_addr + fb_width*y),
-		    (uae_u16 *)linebuf, 0, y, gfxvidinfo.width, bit_unit);
-	return;
-    }
-#endif
-    xs = 0;
-    xe = gfxvidinfo.width - 1;
-
-    if (currprefs.x11_use_low_bandwidth) {
-	char *src, *dst;
-	switch (gfxvidinfo.pixbytes) {
-	 case 4:
-	    {
-		uae_u32 *newp = (uae_u32 *)linebuf;
-		uae_u32 *oldp = (uae_u32 *)((uae_u8 *)ami_dinfo.image_mem + y*ami_dinfo.ximg->bytes_per_line);
-		while (newp[xs] == oldp[xs]) {
-		    if (xs == xe)
-			return;
-		    xs++;
-		}
-		while (newp[xe] == oldp[xe]) xe--;
-
-		dst = (char *)(oldp + xs); src = (char *)(newp + xs);
-	    }
-	    break;
-	 case 2:
-	    {
-		uae_u16 *newp = (uae_u16 *)linebuf;
-		uae_u16 *oldp = (uae_u16 *)((uae_u8 *)ami_dinfo.image_mem + y*ami_dinfo.ximg->bytes_per_line);
-		while (newp[xs] == oldp[xs]) {
-		    if (xs == xe)
-			return;
-		    xs++;
-		}
-		while (newp[xe] == oldp[xe]) xe--;
-
-		dst = (char *)(oldp + xs); src = (char *)(newp + xs);
-	    }
-	    break;
-	 case 1:
-	    {
-		uae_u8 *newp = (uae_u8 *)linebuf;
-		uae_u8 *oldp = (uae_u8 *)((uae_u8 *)ami_dinfo.image_mem + y*ami_dinfo.ximg->bytes_per_line);
-		while (newp[xs] == oldp[xs]) {
-		    if (xs == xe)
-			return;
-		    xs++;
-		}
-		while (newp[xe] == oldp[xe]) xe--;
-
-		dst = (char *)(oldp + xs); src = (char *)(newp + xs);
-	    }
-	    break;
-
-	 default:
-	    abort ();
-	    break;
-	}
-
-	len = xe - xs + 1;
-	memcpy (dst, src, len * gfxvidinfo.pixbytes);
-    } else if (need_dither) {
-	uae_u8 *target = (uae_u8 *)ami_dinfo.image_mem + ami_dinfo.ximg->bytes_per_line * y;
-	len = currprefs.gfx_width_win;
-	DitherLine (target, (uae_u16 *)linebuf, 0, y, gfxvidinfo.width, bit_unit);
-    } else {
-	write_log ("Bug!\n");
-	abort();
-    }
-
-    DO_PUTIMAGE (ami_dinfo.ximg, xs, y, xs, y, len, 1);
+void flush_line (int y) {
+  printf("flush_line(%d)\n", y);
 }
 
 void flush_block (int ystart, int ystop) {
+//  printf("flush_block(%d, %d)\n", ystart, ystop);
 }
 
 void flush_screen (int ystart, int ystop) {
+//  printf("flush_screen(%d, %d)\n", ystart, ystop);
+  glgfx_view_render(view);
+  glgfx_monitor_waittof(glgfx_monitors[0]);
 }
 
 void flush_clear_screen (void) {
+  printf("flush_clear_screen()\n");
 }
-
-
-static unsigned long pixel_return[256];
-static XColor parsed_xcolors[256];
-static int ncolors = 0;
-
-static int blackval = 32767;
-static int whiteval = 0;
-
 
 
 int graphics_setup (void) {
-    return 1;
+  printf("graphics_setup()\n");
+
+  if (glgfx_create_monitors()) {
+    uint32_t width, height;
+
+    if (glgfx_monitor_getattr(glgfx_monitors[0], glgfx_monitor_width, &width) &&
+	glgfx_monitor_getattr(glgfx_monitors[0], glgfx_monitor_height, &height)) {
+
+      viewport = glgfx_viewport_create(width, height, 0, 0);
+
+      if (viewport != NULL) {
+	view = glgfx_view_create(glgfx_monitors[0]);
+
+	if (view != NULL) {
+	  if (glgfx_view_addviewport(view, viewport)) {
+	    return 1;
+	  }
+	}
+      }
+    }
+  }
+
+  return 0;
+}
+
+static int viewport_setup(void) {
+  int32_t res;
+
+  bitmap = glgfx_bitmap_create(currprefs.gfx_width_win,
+			       currprefs.gfx_height_win,
+			       16, 0, NULL, glgfx_pixel_r5g6b5,
+//			       16, 0, NULL, glgfx_pixel_a4r4g4b4,
+			       glgfx_monitors[0]);
+
+  if (bitmap == NULL) {
+    return 0;
+  }
+  
+  if (glgfx_bitmap_getattr(bitmap, glgfx_bitmap_width, &res)) {
+    gfxvidinfo.width = res;
+  }
+
+  if (glgfx_bitmap_getattr(bitmap, glgfx_bitmap_height, &res)) {
+    gfxvidinfo.height = res;
+//    gfxvidinfo.maxblocklines = 1000;
+    gfxvidinfo.maxblocklines = res + 1;
+  }
+
+  if (glgfx_bitmap_getattr(bitmap, glgfx_bitmap_bytesperpixel, &res)) {
+    gfxvidinfo.pixbytes = res;
+  }
+
+  if (glgfx_bitmap_getattr(bitmap, glgfx_bitmap_bytesperrow, &res)) {
+    gfxvidinfo.rowbytes = res;
+  }
+
+  rasinfo = glgfx_viewport_addbitmap(viewport, bitmap, 0, 0,
+				     gfxvidinfo.width, gfxvidinfo.height);
+
+  if (rasinfo == NULL) {
+    return 0;
+  }
+
+  gfxvidinfo.emergmem = malloc(gfxvidinfo.rowbytes);
+  gfxvidinfo.linemem = NULL;
+
+  inputdevice_release_all_keys ();
+  reset_hotkeys ();
+
+  printf("bufmem: %x\n", gfxvidinfo.bufmem);
+  printf("linemem: %x\n", gfxvidinfo.linemem);
+  printf("emergmem: %x\n", gfxvidinfo.emergmem);
+  printf("rowbytes: %d\n", gfxvidinfo.rowbytes);
+  printf("pixbytes: %d\n", gfxvidinfo.pixbytes);
+  printf("width: %d\n", gfxvidinfo.width);
+  printf("height: %d\n", gfxvidinfo.height);
+  printf("maxblocklines: %d\n", gfxvidinfo.maxblocklines);
+  printf("can_double: %d\n", gfxvidinfo.can_double);
+  
+  return 1;
 }
 
 
+static void viewport_shutdown(void) {
+  if (gfxvidinfo.emergmem != NULL) {
+    free(gfxvidinfo.emergmem);
+  }
 
-static void graphics_subinit (void)
-{
-    int i, j;
-    XSetWindowAttributes wattr;
-    XClassHint classhint;
-    XWMHints *hints;
-    unsigned long valuemask;
+  if (rasinfo != NULL) {
+    glgfx_viewport_rembitmap(viewport, rasinfo);
+    rasinfo = NULL;
+  }
 
-    dgamode = screen_is_picasso ? currprefs.gfx_pfullscreen : currprefs.gfx_afullscreen;
-    dgamode = dgamode && dgaavail;
+  if (bitmap != NULL) {
+    glgfx_bitmap_destroy(bitmap);
+    bitmap = NULL;
+  }
 
-    wattr.background_pixel = /*black.pixel*/0;
-    wattr.backing_store = Always;
-    wattr.backing_planes = bitdepth;
-    wattr.border_pixmap = None;
-    wattr.border_pixel = /*black.pixel*/0;
-    wattr.colormap = cmap;
-    valuemask = (CWEventMask | CWBackPixel | CWBorderPixel
-		 | CWBackingStore | CWBackingPlanes | CWColormap);
-
-    if (dgamode) {
-	wattr.event_mask = DGA_EVENTMASK;
-	wattr.override_redirect = 1;
-	valuemask |= CWOverrideRedirect;
-    } else
-	wattr.event_mask = EVENTMASK;
-
-    XSync (display, 0);
-
-    delete_win = XInternAtom(display, "WM_DELETE_WINDOW", False);
-    mywin = XCreateWindow (display, rootwin, 0, 0, current_width, current_height,
-			   0, bitdepth, InputOutput, vis, valuemask, &wattr);
-    XSetWMProtocols (display, mywin, &delete_win, 1);
-    XSync (display, 0);
-    XStoreName (display, mywin, PACKAGE_NAME);
-    XSetIconName (display, mywin, "UAE Screen");
-
-    /* set class hint */
-    classhint.res_name = "UAE";
-    classhint.res_class = "UAEScreen";
-    XSetClassHint(display, mywin, &classhint);
-
-    hints = XAllocWMHints();
-    /* Set window group leader to self to become an application
-     * that can be hidden by e.g. WindowMaker.
-     * Would be more useful if we could find out what the
-     * (optional) GTK+ window ID is :-/ */
-    hints->window_group = mywin;
-    hints->flags = WindowGroupHint;
-    XSetWMHints(display, mywin, hints);
-
-    XMapRaised (display, mywin);
-    XSync (display, 0);
-    mygc = XCreateGC (display, mywin, 0, 0);
-
-    if (dgamode) {
-#ifdef USE_DGA_EXTENSION
-	enter_dga_mode ();
-	/*setuid(getuid());*/
-	picasso_vidinfo.rowbytes = fb_width * picasso_vidinfo.pixbytes;
-#endif
-    } else {
-	get_image (current_width, current_height, &ami_dinfo);
-	if (screen_is_picasso) {
-	    get_image (current_width, current_height, &pic_dinfo);
-	    picasso_vidinfo.rowbytes = pic_dinfo.ximg->bytes_per_line;
-	}
-    }
-
-    picasso_vidinfo.extra_mem = 1;
-
-    if (need_dither) {
-	gfxvidinfo.maxblocklines = 0;
-	gfxvidinfo.rowbytes = gfxvidinfo.pixbytes * currprefs.gfx_width_win;
-	gfxvidinfo.linemem = (char *)malloc (gfxvidinfo.rowbytes);
-    } else if (! dgamode) {
-	gfxvidinfo.emergmem = 0;
-	gfxvidinfo.linemem = 0;
-	gfxvidinfo.bufmem = ami_dinfo.image_mem;
-	gfxvidinfo.rowbytes = ami_dinfo.ximg->bytes_per_line;
-	if (currprefs.x11_use_low_bandwidth) {
-	    gfxvidinfo.maxblocklines = 0;
-	    gfxvidinfo.rowbytes = ami_dinfo.ximg->bytes_per_line;
-	    gfxvidinfo.linemem = (char *)malloc (gfxvidinfo.rowbytes);
-	} else {
-	    gfxvidinfo.maxblocklines = 100; /* whatever... */
-	}
-    }
-
-    if (visualInfo.VI_CLASS != TrueColor && ! screen_is_picasso) {
-	int i;
-	for (i = 0; i < 256; i++)
-	    XStoreColor (display, cmap, parsed_xcolors + i);
-    }
-
-#ifdef USE_DGA_EXTENSION
-    if (dgamode) {
-	dga_colormap_installed = 0;
-	XF86DGAInstallColormap (display, screen, cmap2);
-	XF86DGAInstallColormap (display, screen, cmap);
-    }
-#endif
-
-    if (! dgamode) {
-	if (! currprefs.x11_hide_cursor)
-	    XDefineCursor (display, mywin, xhairCursor);
-	else
-	    XDefineCursor (display, mywin, blankCursor);
-	cursorOn = 1;
-    }
-
-    if (screen_is_picasso) {
-	picasso_has_invalid_lines = 0;
-	picasso_invalid_start = picasso_vidinfo.height + 1;
-	picasso_invalid_stop = -1;
-	memset (picasso_invalid_lines, 0, sizeof picasso_invalid_lines);
-    }
-
-    inwindow = 0;
-    inputdevice_release_all_keys ();
-    reset_hotkeys ();
+  gfxvidinfo.width = 0;
+  gfxvidinfo.height = 0;
+  gfxvidinfo.maxblocklines = 0;
+  gfxvidinfo.pixbytes = 0;
+  gfxvidinfo.rowbytes = 0;
+  gfxvidinfo.can_double = 0;
 }
-
-
 
 int graphics_init (void)
 {
-    int i,j;
-    XPixmapFormatValues *xpfvs;
+  printf("graphics_init()\n");
 
-    if (currprefs.x11_use_mitshm && ! shmavail) {
-	write_log ("MIT-SHM extension not supported by X server.\n");
-    }
-    if (currprefs.color_mode > 5)
-	write_log ("Bad color mode selected. Using default.\n"), currprefs.color_mode = 0;
-
-    x11_init_ok = 0;
-    need_dither = 0;
-    screen_is_picasso = 0;
-    dgamode = 0;
-
-    init_dispinfo (&ami_dinfo);
-    init_dispinfo (&pic_dinfo);
-
-    screen = XDefaultScreen (display);
-    rootwin = XRootWindow (display, screen);
-
-    if (!get_best_visual (&visualInfo)) return 0;
-
-    vis = visualInfo.visual;
-    bitdepth = visualInfo.depth;
-
-    if (!(bit_unit = get_visual_bit_unit (&visualInfo, bitdepth))) return 0;
-
-    write_log ("Using %d bit visual, %d bits per pixel\n", bitdepth, bit_unit);
-
-    fixup_prefs_dimensions (&currprefs);
-
-    gfxvidinfo.width = currprefs.gfx_width_win;
-    gfxvidinfo.height = currprefs.gfx_height_win;
-    current_width = currprefs.gfx_width_win;
-    current_height = currprefs.gfx_height_win;
-
-    cmap = XCreateColormap (display, rootwin, vis, AllocNone);
-    cmap2 = XCreateColormap (display, rootwin, vis, AllocNone);
-    if (visualInfo.VI_CLASS == GrayScale || visualInfo.VI_CLASS == PseudoColor) {
-	XAllocColorCells (display, cmap, 0, 0, 0, pixel_return, 1 << bitdepth);
-	XAllocColorCells (display, cmap2, 0, 0, 0, pixel_return, 1 << bitdepth);
-    }
-
-    if (bitdepth < 8 || (bitdepth == 8 && currprefs.color_mode == 3)) {
-	gfxvidinfo.pixbytes = 2;
-	currprefs.x11_use_low_bandwidth = 0;
-	need_dither = 1;
-    } else {
-	gfxvidinfo.pixbytes = bit_unit >> 3;
-    }
-
-    if (! init_colors ())
-	return 0;
-
-    blankCursor = XCreatePixmapCursor (display,
-				       XCreatePixmap (display, rootwin, 1, 1, 1),
-				       XCreatePixmap (display, rootwin, 1, 1, 1),
-				       &black, &white, 0, 0);
-    xhairCursor = XCreateFontCursor (display, XC_crosshair);
-
-    graphics_subinit ();
-
-    grabbed = 0;
-
-    return x11_init_ok = 1;
+  return viewport_setup();
 }
 
-
-static void graphics_subshutdown (void)
-{
-    XSync (display, 0);
-#ifdef USE_DGA_EXTENSION
-    if (dgamode)
-	leave_dga_mode ();
-#endif
-
-    destroy_dinfo (&ami_dinfo);
-    destroy_dinfo (&pic_dinfo);
-
-    if (mywin) {
-	XDestroyWindow (display, mywin);
-	mywin = 0;
-    }
-
-    if (gfxvidinfo.linemem != NULL)
-	free (gfxvidinfo.linemem);
-    if (gfxvidinfo.emergmem != NULL)
-	free (gfxvidinfo.emergmem);
-}
 
 void graphics_leave (void) {
+  printf("graphics_leave()\n");
+  viewport_shutdown();
 
-  graphics_subshutdown ();
+  if (view != NULL) {
+    if (viewport != NULL) {
+      glgfx_view_remviewport(view, viewport);
+      glgfx_viewport_destroy(viewport);
+    }
 
+    glgfx_view_destroy(view);
+  }
+  
+  glgfx_destroy_monitors();
   dumpcustom ();
 }
 
@@ -433,241 +242,22 @@ static int refresh_necessary = 0;
 
 void handle_events (void)
 {
-    gui_handle_events ();
+//  printf("handle_events()\n");
+  gui_handle_events ();
 
-    for (;;) {
-	XEvent event;
-#if 0
-	if (! XCheckMaskEvent (display, eventmask, &event))
-	    break;
-#endif
-	if (! XPending (display))
-	    break;
-
-	XNextEvent (display, &event);
-
-	switch (event.type) {
-	 case KeyPress:
-	 case KeyRelease: {
-	    int state = (event.type == KeyPress);
-	    KeySym keysym;
-	    int index = 0;
-	    int ievent, amiga_keycode;
-	    do {
-		keysym = XLookupKeysym ((XKeyEvent *)&event, index);
-		if ((ievent = match_hotkey_sequence (keysym, state))) {
-		    handle_hotkey_event (ievent, state);
-		    break;
-		} else
-		    if ((amiga_keycode = xkeysym2amiga (keysym)) >= 0) {
-			inputdevice_do_keyboard (amiga_keycode, state);
-			break;
-		    }
-		index++;
-	    } while (keysym != NoSymbol);
-	    break;
-	 }
-	 case ButtonPress:
-	 case ButtonRelease: {
-	    int state = (event.type == ButtonPress);
-	    int buttonno = -1;
-	    switch ((int)((XButtonEvent *)&event)->button) {
-		case 1:  buttonno = 0; break;
-		case 2:  buttonno = 2; break;
-		case 3:  buttonno = 1; break;
-		/* buttons 4 and 5 report mousewheel events */
-		case 4:  if (state) record_key (0x7a << 1); break;
-		case 5:  if (state) record_key (0x7b << 1); break;
-	    }
-            if (buttonno >=0)
-		setmousebuttonstate(0, buttonno, state);
-	    break;
-	 }
-	 case MotionNotify:
-	    if (dgamode) {
-		int tx = ((XMotionEvent *)&event)->x_root;
-		int ty = ((XMotionEvent *)&event)->y_root;
-		printf("DGA: tx: %d; ty: %d\n", tx, ty);
-		setmousestate (0, 0, tx, 0);
-		setmousestate (0, 1, ty, 0);
-	    } else if (grabbed) {
-		int realmove = 0;
-		int tx, ty,ttx,tty;
-
-		tx = ((XMotionEvent *)&event)->x;
-		ty = ((XMotionEvent *)&event)->y;
-
-		printf("grabbed: tx: %d; ty: %d\n", tx, ty);
-		if (! event.xmotion.send_event) {
-		    setmousestate( 0,0,tx-oldx,0);
-		    setmousestate( 0,1,ty-oldy,0);
-		    realmove = 1;
-#undef ABS
-#define ABS(a) (((a)<0) ? -(a) : (a) )
-		    if (ABS(current_width / 2 - tx) > 3 * current_width / 8
-			|| ABS(current_height / 2 - ty) > 3 * current_height / 8)
-		    {
-#undef ABS
-			XEvent event;
-			ttx = current_width / 2;
-			tty = current_height / 2;
-			event.type = MotionNotify;
-			event.xmotion.display = display;
-			event.xmotion.window = mywin;
-			event.xmotion.x = ttx;
-			event.xmotion.y = tty;
-			XSendEvent (display, mywin, False,
-				    PointerMotionMask, &event);
-			XWarpPointer (display, None, mywin, 0, 0, 0, 0, ttx, tty);
-		    }
-		} else {
-		    tx=event.xmotion.x;
-		    ty=event.xmotion.y;
-		printf("grabbed nosend: tx: %d; ty: %d\n", tx, ty);
-		}
-		oldx = tx;
-		oldy = ty;
-	    } else if (inwindow) {
-		int tx = ((XMotionEvent *)&event)->x;
-		int ty = ((XMotionEvent *)&event)->y;
-		printf("ungrabbed nosend: tx: %d; ty: %d\n", tx, ty);
-		setmousestate(0,0,tx,1);
-		setmousestate(0,1,ty,1);
-		if (! cursorOn && !currprefs.x11_hide_cursor) {
-		    XDefineCursor(display, mywin, xhairCursor);
-		    cursorOn = 1;
-		}
-		gettimeofday(&lastMotionTime, NULL);
-	    }
-	    break;
-	 case EnterNotify:
-	    {
-		int tx = ((XCrossingEvent *)&event)->x;
-		int ty = ((XCrossingEvent *)&event)->y;
-		setmousestate(0,0,tx,1);
-		setmousestate(0,1,ty,1);
-	    }
-	    inwindow = 1;
-	    break;
-	 case LeaveNotify:
-	    inwindow = 0;
-	    break;
-	 case FocusIn:
-	    if (! autorepeatoff)
-		XAutoRepeatOff (display);
-	    autorepeatoff = 1;
-	    break;
-	 case FocusOut:
-	    if (autorepeatoff)
-		XAutoRepeatOn (display);
-	    autorepeatoff = 0;
-	    break;
-	 case Expose:
-	    refresh_necessary = 1;
-	    break;
-         case ClientMessage:
-            if (((Atom)event.xclient.data.l[0]) == delete_win) {
-		uae_quit ();
-            }
-            break;
-	}
-    }
-
-#if defined PICASSO96
-    if (! dgamode) {
-	if (screen_is_picasso && refresh_necessary) {
-	    DO_PUTIMAGE (pic_dinfo.ximg, 0, 0, 0, 0,
-			 picasso_vidinfo.width, picasso_vidinfo.height);
-	    refresh_necessary = 0;
-	    memset (picasso_invalid_lines, 0, sizeof picasso_invalid_lines);
-	} else if (screen_is_picasso && picasso_has_invalid_lines) {
-	    int i;
-	    int strt = -1;
-
-	    picasso_invalid_lines[picasso_vidinfo.height] = 0;
-	    for (i = picasso_invalid_start; i < picasso_invalid_stop + 2; i++) {
-		if (picasso_invalid_lines[i]) {
-		    picasso_invalid_lines[i] = 0;
-		    if (strt != -1)
-			continue;
-		    strt = i;
-		} else {
-		    if (strt == -1)
-			continue;
-		    DO_PUTIMAGE (pic_dinfo.ximg, 0, strt, 0, strt,
-				 picasso_vidinfo.width, i - strt);
-		    strt = -1;
-		}
-	    }
-	    if (strt != -1)
-		abort ();
-	}
-    }
-    picasso_has_invalid_lines = 0;
-    picasso_invalid_start = picasso_vidinfo.height + 1;
-    picasso_invalid_stop = -1;
-#endif
-
-    if (! dgamode) {
-	if (! screen_is_picasso && refresh_necessary) {
-	    DO_PUTIMAGE (ami_dinfo.ximg, 0, 0, 0, 0, currprefs.gfx_width_fs, currprefs.gfx_height_fs);
-	    refresh_necessary = 0;
-	}
-	if (cursorOn && !currprefs.x11_hide_cursor) {
-	    struct timeval now;
-	    int diff;
-	    gettimeofday(&now, NULL);
-	    diff = (now.tv_sec - lastMotionTime.tv_sec) * 1000000 +
-		(now.tv_usec - lastMotionTime.tv_usec);
-	    if (diff > 1000000) {
-		XDefineCursor (display, mywin, blankCursor);
-		cursorOn = 0;
-	    }
-	}
-    }
+/*   for (;;) { */
+/*   } */
 }
 
 int check_prefs_changed_gfx (void)
 {
-    if (changed_prefs.gfx_width_win != currprefs.gfx_width_win
-	|| changed_prefs.gfx_height_win != currprefs.gfx_height_win)
-	fixup_prefs_dimensions (&changed_prefs);
+//  printf("check_prefs_changed_gfx ()\n");
+  gui_update_gfx ();
 
-    if (changed_prefs.gfx_width_win == currprefs.gfx_width_win
-	&& changed_prefs.gfx_height_win == currprefs.gfx_height_win
-	&& changed_prefs.gfx_lores == currprefs.gfx_lores
-	&& changed_prefs.gfx_linedbl == currprefs.gfx_linedbl
-	&& changed_prefs.gfx_correct_aspect == currprefs.gfx_correct_aspect
-	&& changed_prefs.gfx_xcenter == currprefs.gfx_xcenter
-	&& changed_prefs.gfx_ycenter == currprefs.gfx_ycenter
-	&& changed_prefs.gfx_afullscreen == currprefs.gfx_afullscreen
-	&& changed_prefs.gfx_pfullscreen == currprefs.gfx_pfullscreen)
-	return 0;
 
-    graphics_subshutdown ();
-    currprefs.gfx_width_win = changed_prefs.gfx_width_win;
-    currprefs.gfx_height_win = changed_prefs.gfx_height_win;
-    currprefs.gfx_lores = changed_prefs.gfx_lores;
-    currprefs.gfx_linedbl = changed_prefs.gfx_linedbl;
-    currprefs.gfx_correct_aspect = changed_prefs.gfx_correct_aspect;
-    currprefs.gfx_xcenter = changed_prefs.gfx_xcenter;
-    currprefs.gfx_ycenter = changed_prefs.gfx_ycenter;
-    currprefs.gfx_afullscreen = changed_prefs.gfx_afullscreen;
-    currprefs.gfx_pfullscreen = changed_prefs.gfx_pfullscreen;
+  notice_screen_contents_lost ();
 
-    gui_update_gfx ();
-
-    graphics_subinit ();
-
-    if (! inwindow)
-	XWarpPointer (display, None, mywin, 0, 0, 0, 0,
-		      current_width / 2, current_height / 2);
-
-    notice_screen_contents_lost ();
-    init_row_map ();
-    if (screen_is_picasso)
-	picasso_enablescreen (1);
-    return 0;
+  return 0;
 }
 
 int debuggable (void) {
@@ -679,6 +269,7 @@ int needmousehack (void) {
 }
 
 void LED (int on) {
+  printf("LED(%d)\n", on);
 }
 
 #ifdef PICASSO96
@@ -923,34 +514,74 @@ void gfx_unlock_picasso (void) {
 #endif
 
 int lockscr (void) {
-    return 1;
+  printf("lockscr()\n");
+
+  if (glgfx_bitmap_lock(bitmap, false, true)) {
+    gfxvidinfo.bufmem = glgfx_bitmap_map(bitmap);
+
+    if (gfxvidinfo.bufmem != NULL) {
+      static void* old_addr = NULL;
+      
+      if (gfxvidinfo.bufmem != old_addr) {
+	init_row_map();
+	old_addr = gfxvidinfo.bufmem;
+      }
+
+      return 1;
+    }
+  }
+
+  return 0;
 }
 
 void unlockscr (void) {
+  printf("unlockscr()\n");
+
+  if (gfxvidinfo.bufmem != NULL) {
+      int x,y;
+      for(y = 0; y < 100; ++y) {
+	for(x = 0; x < 100; ++x) {
+	  unsigned short* p = gfxvidinfo.bufmem;
+
+	  p[y*gfxvidinfo.width+x] = -1;
+	}
+      }
+    glgfx_bitmap_unmap(bitmap);
+    gfxvidinfo.bufmem = NULL;
+  }
+
+  glgfx_bitmap_unlock(bitmap);
 }
 
+
 void toggle_mousegrab (void) {
+  printf("toggle_mousegrab()\n");
 }
 
 void framerate_up (void) {
-    if (currprefs.gfx_framerate < 20)
-	changed_prefs.gfx_framerate = currprefs.gfx_framerate + 1;
+  printf("framerate_up()\n");
+  if (currprefs.gfx_framerate < 20)
+    changed_prefs.gfx_framerate = currprefs.gfx_framerate + 1;
 }
 
 void framerate_down (void) {
-    if (currprefs.gfx_framerate > 1)
-	changed_prefs.gfx_framerate = currprefs.gfx_framerate - 1;
+  printf("framerate_down()\n");
+  if (currprefs.gfx_framerate > 1)
+    changed_prefs.gfx_framerate = currprefs.gfx_framerate - 1;
 }
 
 int is_fullscreen (void) {
+  printf("is_fullscreen() -> 1\n");
   return 1;
 }
 
 void toggle_fullscreen (void) {
+  printf("toggle_fullscreen()\n");
 }
 
 void screenshot (int type) {
-    write_log ("Screenshot not implemented yet\n");
+  printf("screenshot(%d)\n", type);
+  write_log ("Screenshot not implemented yet\n");
 }
 
 /*
@@ -1103,6 +734,7 @@ void gfx_save_options (FILE *f, struct uae_prefs *p) {
 }
 
 int gfx_parse_option (struct uae_prefs *p, char *option, char *value) {
+  return 0;
 }
 
 void gfx_default_options (struct uae_prefs *p) {
