@@ -19,7 +19,7 @@ struct glgfx_monitor* glgfx_monitor_create(char const*  display_name,
 					   struct glgfx_monitor const* friend) {
   struct glgfx_monitor* monitor;
   sigjmp_buf jmpbuf;
-  void* oldhandler;
+  struct sigaction sa, old_sa;
 
   errno = EAGAIN;
 
@@ -37,13 +37,17 @@ struct glgfx_monitor* glgfx_monitor_create(char const*  display_name,
   monitor->name = strdup(display_name);
   monitor->xa_win_state = None;
   
-  oldhandler = signal(SIGALRM, handler);
+  sa.sa_handler = (__sighandler_t) handler;
+  sigemptyset(&sa.sa_mask);
+  sa.sa_flags = 0;
+
+  sigaction(SIGALRM, &sa, &old_sa);
 
   // Don't spend more than one second trying to find a display
   // Yeah ... it's ugly and might cause resource leaks.
   alarm(1);
 
-  if (sigsetjmp(jmpbuf, 0) == 0) {
+  if (sigsetjmp(jmpbuf, 1) == 0) {
     monitor->display = XOpenDisplay(display_name);
   }
   else {
@@ -51,8 +55,8 @@ struct glgfx_monitor* glgfx_monitor_create(char const*  display_name,
   }
 
   alarm(0);
-  signal(SIGALRM, oldhandler);
-  
+  sigaction(SIGALRM, &old_sa, NULL);
+
   if (monitor->display == NULL) {
     glgfx_monitor_destroy(monitor);
     errno = ENXIO;
