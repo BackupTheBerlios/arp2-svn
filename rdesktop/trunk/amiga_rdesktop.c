@@ -228,8 +228,7 @@ static struct {
   { "br2",		0x00416 },		// ??? Portuguese (Brazil)
   { "br3-ABNT2",	0x00416 },		// ??? Portuguese (Brazil)
   { "cat",		0x00403 },		// ??? Catalan
-  { "cdn",		0x00c0c },		// ??? French Canadian
-  { "cdn2",		0x00c0c },		// ???
+  { "cdn",		0x00c0c },		// French Canadian
   { "ch1",		0x0100c },		// Swiss French
   { "ch2",		0x00807 },		// Swiss German
   { "d",		0x00407 },		// German (Standard)
