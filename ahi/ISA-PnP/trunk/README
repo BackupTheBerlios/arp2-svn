@@ -39,6 +39,11 @@ tooltype (that BindDrivers uses)
   Disables a logical device.  No resources will be assigned this device
   during the resource allocation phase.
 
+* LEGACY_DEVICE=<device id> [ IO=<address>/<length> [ IO=...] ... ]
+                [ DMA=<channel> [DMA=...] ... ] [ IRQ=<int> [IRQ=...] ... ]
+
+  Adds a non-PnP device to the resource database. All non-PnP devices must
+  be registered in order to avoid resource allocation conflicts.
 
 The ISA-PnP binary itself can also be run from the command line.  It uses
 the following template:

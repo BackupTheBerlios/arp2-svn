@@ -37,6 +37,8 @@
 #include <proto/intuition.h>
 #include <proto/utility.h>
 
+#include <stdlib.h>
+
 #include "include/resources/isapnp.h"
 #include "isapnp_private.h"
 #include "version.h"
@@ -48,8 +50,9 @@
 
 
 static BOOL
-HandleToolTypes( UBYTE**            tool_types, 
-                 struct ISAPNPBase* res );
+HandleToolTypes( UBYTE**             tool_types, 
+                 struct ISAPNP_Card* card,
+                 struct ISAPNPBase*  res );
 
 void
 ReqA( const char* text, APTR args );
@@ -208,39 +211,72 @@ initRoutine( REG( d0, struct ISAPNPBase* res ),
 
             res->m_ConfigDev   = cd;
 
-
             if( ! ISAPNP_ScanCards( res ) )
             {
               // No cards found
 
               Req( "No PnP ISA cards found." );
+              FreeISAPNPBase( res );
             }
             else
             {
-              // Let's see if we're to disable any cards or devices
+              struct ISAPNP_Card* card;
 
-              if( ! HandleToolTypes( current_binding.cb_ToolTypes, res ) )
+              card = ISAPNP_AllocCard( res );
+
+              if( card == NULL )
               {
-                // Error requester already displayed.
+                Req( "Out of memory!" );
+                FreeISAPNPBase( res );
               }
               else
               {
-                if( ! ISAPNP_ConfigureCards( res ) )
+                static const char descr[] = "Non-PnP devices";
+                char*             d;                
+                
+                d = AllocVec( sizeof( descr ), MEMF_PUBLIC );
+                
+                if( d != NULL )
                 {
-                  // Unable to configure cards
+                  CopyMem( (void*) descr, d, sizeof( descr ) );
+                  card->isapnpc_Node.ln_Name = d;
+                }
 
-                  Req( "Unable to configure the cards. This is most likely\n"
-                       "becaues of an unresolvable hardware conflict.\n\n"
-                       "Use the DISABLE_DEVICE tool type to disable one of\n"
-                       "the devices in conflict." );
+                card->isapnpc_ID.isapnpid_Vendor[ 0 ] = '?';
+                card->isapnpc_ID.isapnpid_Vendor[ 1 ] = '?';
+                card->isapnpc_ID.isapnpid_Vendor[ 2 ] = '?';
+                card->isapnpc_SerialNumber = -1;
+
+                // Add *first*
+                AddHead( &res->m_Cards, (struct Node*) card );
+
+                // Let's see if we're to disable any cards or devices etc
+
+                if( ! HandleToolTypes( current_binding.cb_ToolTypes, 
+                                       card, res ) )
+                {
+                  // Error requester already displayed.
+                  FreeISAPNPBase( res );
                 }
                 else
                 {
+                  if( ! ISAPNP_ConfigureCards( res ) )
+                  {
+                    // Unable to configure cards
 
-                  cd->cd_Flags  &= ~CDF_CONFIGME;
-                  cd->cd_Driver  = res;
+                    Req( "Unable to configure the cards. This is most likely\n"
+                         "because of an unresolvable hardware conflict.\n\n"
+                         "Use the DISABLE_DEVICE tool type to disable one of\n"
+                         "the devices in conflict." );
+                    FreeISAPNPBase( res );
+                  }
+                  else
+                  {
+                    cd->cd_Flags  &= ~CDF_CONFIGME;
+                    cd->cd_Driver  = res;
 
-                  ISAPNPBase = res;
+                    ISAPNPBase = res;
+                  }
                 }
               }
             }
@@ -251,6 +287,22 @@ initRoutine( REG( d0, struct ISAPNPBase* res ),
   }
 
   return ISAPNPBase;
+}
+
+
+/******************************************************************************
+** Free all resources from ISAPNPBase *****************************************
+******************************************************************************/
+
+void
+FreeISAPNPBase( struct ISAPNPBase* res )
+{
+  struct ISAPNP_Card* card;
+
+  while( ( card = (struct ISAPNP_Card*) RemHead( &res->m_Cards ) ) )
+  {
+    ISAPNP_FreeCard( card, ISAPNPBase );
+  }
 }
 
 
@@ -449,13 +501,15 @@ HexToInt( UBYTE c )
 
 // CTL0048/1236 => "CTL\0" 4 8 1236
 
-static BOOL
+static int
 ParseID( UBYTE* string,
          LONG*  manufacturer,
          WORD*  product,
          BYTE*  revision,
          LONG*  serial )
 {
+  int chars = 0;
+
   *manufacturer = ISAPNP_MAKE_ID( ToUpper( string[ 0 ] ),
                                   ToUpper( string[ 1 ] ),
                                   ToUpper( string[ 2 ] ) );
@@ -467,49 +521,58 @@ ParseID( UBYTE* string,
 
   if( *product == -1 )
   {
-    return FALSE;
+    return 0;
   }
 
   *revision = HexToInt( string[ 6 ] );
 
   if( *revision == -1 )
   {
-    return FALSE;
+    return 0;
   }
+
+  chars = 7;
   
   if( serial != NULL )
   {
     if( string[ 7 ] == '/' )
     {
-      if( StrToLong( string + 8, serial ) == -1 )
+      int conv = StrToLong( string + 8, serial );
+      
+      if( conv == -1 )
       {
-        return FALSE;
+        return 0;
+      }
+      else
+      {
+        chars += conv;
       }
     }
-    else if( string[ 7 ] == 0 )
+    else if( string[ 7 ] == 0 || string[ 7 ] != ' ' )
     {
       *serial = -1;
     }
     else
     {
-      return FALSE;
+      return 0;
     }
   }
   else
   {
-    if( string[ 7 ] != 0 )
+    if( string[ 7 ] != 0 && string[ 7 ] != ' ' )
     {
-      return FALSE;
+      return 0;
     }
   }
 
-  return TRUE;
+  return chars;
 }
 
 
 static BOOL
-HandleToolTypes( UBYTE**            tool_types, 
-                 struct ISAPNPBase* res )
+HandleToolTypes( UBYTE**             tool_types, 
+                 struct ISAPNP_Card* card,
+                 struct ISAPNPBase*  res )
 {
   while( *tool_types )
   {
@@ -537,7 +600,7 @@ HandleToolTypes( UBYTE**            tool_types,
       }
       else
       {
-        Req( "Illegal tool type: %s\n", *tool_types );
+        Req( "Illegal tool type: %s\n", (ULONG) *tool_types );
         return FALSE;
       }
     }
@@ -563,7 +626,217 @@ HandleToolTypes( UBYTE**            tool_types,
       }
       else
       {
-        Req( "Illegal tool type value: %s\n", *tool_types );
+        Req( "Illegal tool type value: %s\n", (ULONG) *tool_types );
+        return FALSE;
+      }
+    }
+    else if( Strnicmp( *tool_types, "LEGACY_DEVICE=", 14 ) == 0 )
+    {
+      UBYTE* str;
+      int    conv;
+      LONG   manufacturer;
+      WORD   product;
+      BYTE   revision;
+      UWORD  dev_num = 0;
+
+      str  = *tool_types + 14;
+      conv = ParseID( str,  &manufacturer, &product, &revision, NULL );
+
+      str += conv;
+
+      if( conv != 0 )
+      {
+        struct ISAPNP_Device*     dev;
+        struct ISAPNP_Identifier* id;
+
+        dev = ISAPNP_AllocDevice( res );
+
+        if( dev == NULL )
+        {
+          Req( "Out of memory!" );
+          return FALSE;
+        }
+
+        dev->isapnpd_Card = card;
+        
+        id  = AllocVec( sizeof( *id ), MEMF_PUBLIC | MEMF_CLEAR );
+        
+        if( id == NULL )
+        {
+          Req( "Out of memory!" );
+          ISAPNP_FreeDevice( dev, res );
+          return FALSE;
+        }
+
+        id->isapnpid_Vendor[ 0 ]  = ( manufacturer >> 24 ) & 0xff;
+        id->isapnpid_Vendor[ 1 ]  = ( manufacturer >> 16 ) & 0xff;
+        id->isapnpid_Vendor[ 2 ]  = ( manufacturer >>  8 ) & 0xff;
+        id->isapnpid_Vendor[ 3 ]  = 0;
+
+        id->isapnpid_ProductID    = product;
+        id->isapnpid_Revision     = revision;
+        
+        AddTail( (struct List*) &dev->isapnpd_IDs, (struct Node*) id );
+        
+        if( card->isapnpc_Devices.lh_Head->ln_Succ != NULL )
+        {
+          dev_num = ( (struct ISAPNP_Device*) 
+                      card->isapnpc_Devices.lh_TailPred )->isapnpd_DeviceNumber;
+          ++dev_num;
+        }
+        
+        dev->isapnpd_DeviceNumber = dev_num;
+
+        AddTail( &card->isapnpc_Devices, (struct Node*) dev );
+        
+        while( *str != 0 )
+        {
+          if( *str != ' ' )
+          {
+            if( Strnicmp( str, "IRQ=", 4 ) == 0 )
+            {
+              int irq;
+            
+              irq = strtol( str + 4, (char**) &str, 0 );
+            
+              if( irq <= 0 || irq >= 16 )
+              {
+                Req( "Invalid IRQ value '%ld' in tooltype line\n"
+                     "'%s'",
+                     irq,
+                     (ULONG) *tool_types );
+                return FALSE;
+              }
+              else
+              {
+                struct ISAPNP_IRQResource* r;
+        
+                r = (struct ISAPNP_IRQResource*) 
+                    ISAPNP_AllocResource( ISAPNP_NT_IRQ_RESOURCE, res );
+            
+                if( r == NULL )
+                {
+                  Req( "Out of memory!" );
+                  return FALSE;
+                }
+
+                r->isapnpirqr_IRQMask = 1 << irq;
+                r->isapnpirqr_IRQType = ISAPNP_IRQRESOURCE_ITF_HIGH_EDGE;
+          
+                AddTail( (struct List*) &dev->isapnpd_Options->isapnprg_Resources,
+                         (struct Node*) r );
+              }
+            }
+            else if( Strnicmp( str, "DMA=", 4 ) == 0 )
+            {
+              int dma;
+            
+              dma = strtol( str + 4, (char**) &str, 0 );
+            
+              if( dma <= 0 || dma >= 8 )
+              {
+                Req( "Invalid DMA value '%ld' in tooltype line\n"
+                     "'%s'",
+                     dma,
+                     (ULONG) *tool_types );
+                return FALSE;
+              }
+              else
+              {
+                struct ISAPNP_DMAResource* r;
+        
+                r = (struct ISAPNP_DMAResource*) 
+                    ISAPNP_AllocResource( ISAPNP_NT_DMA_RESOURCE, res );
+            
+                if( r == NULL )
+                {
+                  Req( "Out of memory!" );
+                  return FALSE;
+                }
+
+                r->isapnpdmar_ChannelMask = 1 << dma;
+                r->isapnpdmar_Flags       = 0;
+          
+                AddTail( (struct List*) &dev->isapnpd_Options->isapnprg_Resources,
+                         (struct Node*) r );
+              }
+            }
+            else if( Strnicmp( str, "IO=", 3 ) == 0 )
+            {
+              int base;
+              int length;
+
+              struct ISAPNP_IOResource* r;
+            
+              base = strtol( str + 3, (char**) &str, 0 );
+
+              if( *str != '/' )
+              {
+                Req( "Length missing from IO value in tooltype line\n"
+                     "'%s'",
+                     (ULONG) *tool_types );
+                return FALSE;
+              }
+
+              ++str;
+
+              length = strtol( str, (char**) &str, 0 );
+
+              if( base <= 0 || base >= 0xffff )
+              {
+                Req( "Invalid IO base value '%ld' in tooltype line\n"
+                     "'%s'",
+                     base,
+                     (ULONG) *tool_types );
+                return FALSE;
+              }
+
+              if( length <= 0 || length >= 0xffff )
+              {
+                Req( "Invalid IO length value '%ld' in tooltype line\n"
+                     "'%s'",
+                     length,
+                     (ULONG) *tool_types );
+                return FALSE;
+              }
+
+              r = (struct ISAPNP_IOResource*) 
+                  ISAPNP_AllocResource( ISAPNP_NT_IO_RESOURCE, res );
+            
+              if( r == NULL )
+              {
+                Req( "Out of memory!" );
+                return FALSE;
+              }
+
+              r->isapnpior_MinBase   = base;
+              r->isapnpior_MaxBase   = base;
+              r->isapnpior_Length    = length;
+              r->isapnpior_Alignment = 1;
+          
+              AddTail( (struct List*) &dev->isapnpd_Options->isapnprg_Resources,
+                       (struct Node*) r );
+            }
+            else
+            {
+              Req( "Parse error near '%s'\n"
+                   "in tooltype line\n"
+                   "'%s'",
+                   (ULONG) str,
+                   (ULONG) *tool_types );
+              return FALSE;
+            }
+          }
+          
+          if( *str )
+          {
+            ++str;
+          }
+        }
+      }
+      else
+      {
+        Req( "Illegal tool type: '%s'\n", (ULONG) *tool_types );
         return FALSE;
       }
     }

@@ -918,107 +918,112 @@ ProgramConfiguration( struct ISAPNPBase* res )
     UBYTE int_reg = PNPISA_REG_INTERRUPT_REQUEST_LEVEL_SELECT_0;
     UBYTE dma_reg = PNPISA_REG_DMA_CHANNEL_SELECT_0;
 
-    if( dev->isapnpd_Card->isapnpc_CSN != csn )
+    if( dev->isapnpd_Card->isapnpc_CSN != 0 )
     {
-      csn = dev->isapnpd_Card->isapnpc_CSN;
+      // Don't program non-pnp devices!
 
-      // Wake the new card
+      if( dev->isapnpd_Card->isapnpc_CSN != csn )
+      {
+        csn = dev->isapnpd_Card->isapnpc_CSN;
 
+        // Wake the new card
+  
 //KPrintF( "Woke up card %ld\n", dev->isapnpd_Card->isapnpc_CSN );
-      SetPnPReg( PNPISA_REG_WAKE, dev->isapnpd_Card->isapnpc_CSN, res );
-    }
+        SetPnPReg( PNPISA_REG_WAKE, dev->isapnpd_Card->isapnpc_CSN, res );
+      }
 
-    // Select logical device
+      // Select logical device
 
 //KPrintF( "Selected device %ld\n", dev->isapnpd_DeviceNumber );
-    SetPnPReg( PNPISA_REG_LOGICAL_DEVICE_NUMBER, dev->isapnpd_DeviceNumber, res );
-
-    for( resource = (struct ISAPNP_Resource*) dev->isapnpd_Resources.mlh_Head;
-         resource->isapnpr_MinNode.mln_Succ != NULL;
-         resource = (struct ISAPNP_Resource*) resource->isapnpr_MinNode.mln_Succ )
-    {
-      switch( resource->isapnpr_Type )
+      SetPnPReg( PNPISA_REG_LOGICAL_DEVICE_NUMBER, dev->isapnpd_DeviceNumber, res );
+  
+      for( resource = (struct ISAPNP_Resource*) dev->isapnpd_Resources.mlh_Head;
+           resource->isapnpr_MinNode.mln_Succ != NULL;
+           resource = (struct ISAPNP_Resource*) resource->isapnpr_MinNode.mln_Succ )
       {
-        case ISAPNP_NT_IRQ_RESOURCE:
+        switch( resource->isapnpr_Type )
         {
-          struct ISAPNP_IRQResource* r = (struct ISAPNP_IRQResource*) resource;
-          int                        b;
-      
-          for( b = 0; b < 16; ++b )
+          case ISAPNP_NT_IRQ_RESOURCE:
           {
-            if( r->isapnpirqr_IRQMask & ( 1 << b ) )
-            {
-//KPrintF( "Programmed interrupt %ld in %lx\n", b, int_reg );
-              SetPnPReg( int_reg, b, res);
-              break;
-            }
-          }
-
-          b = 0;
-          
-          if( ( r->isapnpirqr_IRQType & ISAPNP_IRQRESOURCE_ITF_HIGH_EDGE ) ||
-              ( r->isapnpirqr_IRQType & ISAPNP_IRQRESOURCE_ITF_HIGH_LEVEL ) )
-          {
-            b |= 2;
-          }
-          
-          if( ( r->isapnpirqr_IRQType & ISAPNP_IRQRESOURCE_ITF_HIGH_LEVEL ) ||
-              ( r->isapnpirqr_IRQType & ISAPNP_IRQRESOURCE_ITF_LOW_LEVEL ) )
-          {
-            b |= 1;
-          }
-
-//KPrintF( "Programmed interrupt mode %ld in %lx\n", b, int_reg + 1 );
-          SetPnPReg( int_reg + 1, b, res );
-          
-          int_reg += 2;
-
-          break;
-        }
-
-        case ISAPNP_NT_DMA_RESOURCE:
-        {
-          struct ISAPNP_DMAResource* r = (struct ISAPNP_DMAResource*) resource;
-          int                        b;
-      
-          for( b = 0; b < 8; ++b )
-          {
-            if( r->isapnpdmar_ChannelMask & ( 1 << b ) )
-            {
-//KPrintF( "Programmed dma channel %ld in %lx\n", b, dma_reg );
-              SetPnPReg( dma_reg, b, res );
-              break;
-            }
-          }
-
-          dma_reg += 1;
-
-          break;
-        }
-
-        case ISAPNP_NT_IO_RESOURCE:
-        {
-          struct ISAPNP_IOResource* r = (struct ISAPNP_IOResource*) resource;
-
-//KPrintF( "Programmed IO base %04lx in %lx\n", r->isapnpior_MinBase, io_reg );
-
-          SetPnPReg( io_reg, r->isapnpior_MinBase >> 8, res );
-          SetPnPReg( io_reg + 1, r->isapnpior_MinBase & 0xff, res );
-
-          io_reg += 2;
-
-          break;
-        }
+            struct ISAPNP_IRQResource* r = (struct ISAPNP_IRQResource*) resource;
+            int                        b;
         
-        default:
-          KPrintF( "Unsupported resource!\n" );
-          return FALSE;
+            for( b = 0; b < 16; ++b )
+            {
+              if( r->isapnpirqr_IRQMask & ( 1 << b ) )
+              {
+//KPrintF( "Programmed interrupt %ld in %lx\n", b, int_reg );
+                SetPnPReg( int_reg, b, res);
+                break;
+              }
+            }
+  
+            b = 0;
+            
+            if( ( r->isapnpirqr_IRQType & ISAPNP_IRQRESOURCE_ITF_HIGH_EDGE ) ||
+                ( r->isapnpirqr_IRQType & ISAPNP_IRQRESOURCE_ITF_HIGH_LEVEL ) )
+            {
+              b |= 2;
+            }
+            
+            if( ( r->isapnpirqr_IRQType & ISAPNP_IRQRESOURCE_ITF_HIGH_LEVEL ) ||
+                ( r->isapnpirqr_IRQType & ISAPNP_IRQRESOURCE_ITF_LOW_LEVEL ) )
+            {
+              b |= 1;
+            }
+  
+//KPrintF( "Programmed interrupt mode %ld in %lx\n", b, int_reg + 1 );
+            SetPnPReg( int_reg + 1, b, res );
+            
+            int_reg += 2;
+  
+            break;
+          }
+  
+          case ISAPNP_NT_DMA_RESOURCE:
+          {
+            struct ISAPNP_DMAResource* r = (struct ISAPNP_DMAResource*) resource;
+            int                        b;
+        
+            for( b = 0; b < 8; ++b )
+            {
+              if( r->isapnpdmar_ChannelMask & ( 1 << b ) )
+              {
+//KPrintF( "Programmed dma channel %ld in %lx\n", b, dma_reg );
+                SetPnPReg( dma_reg, b, res );
+                break;
+              }
+            }
+  
+            dma_reg += 1;
+  
+            break;
+          }
+  
+          case ISAPNP_NT_IO_RESOURCE:
+          {
+            struct ISAPNP_IOResource* r = (struct ISAPNP_IOResource*) resource;
+  
+//KPrintF( "Programmed IO base %04lx in %lx\n", r->isapnpior_MinBase, io_reg );
+  
+            SetPnPReg( io_reg, r->isapnpior_MinBase >> 8, res );
+            SetPnPReg( io_reg + 1, r->isapnpior_MinBase & 0xff, res );
+  
+            io_reg += 2;
+  
+            break;
+          }
+          
+          default:
+            KPrintF( "Unsupported resource!\n" );
+            return FALSE;
+        }
       }
-    }
-
-    // Activate the device
+  
+      // Activate the device
 //KPrintF( "Activated the device\n" );
-    SetPnPReg( PNPISA_REG_ACTIVATE, 1, res );
+      SetPnPReg( PNPISA_REG_ACTIVATE, 1, res );
+    }
   }
 
   // Move all cards to the wfk state

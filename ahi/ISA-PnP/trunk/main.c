@@ -101,12 +101,7 @@ ResourceEntry( void )
       {
         // Dangerous! Only for debugging
 
-        struct ISAPNP_Card* card;
-
-        while( ( card = (struct ISAPNP_Card*) RemHead( &ISAPNPBase->m_Cards ) ) )
-        {
-          ISAPNP_FreeCard( card, ISAPNPBase );
-        }
+        FreeISAPNPBase( ISAPNPBase );
 
         ISAPNPBase->m_ConfigDev->cd_Flags  |= CDF_CONFIGME;
         ISAPNPBase->m_ConfigDev->cd_Driver  = NULL;

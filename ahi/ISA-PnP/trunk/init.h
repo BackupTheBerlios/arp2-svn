@@ -27,6 +27,9 @@
 
 #include <exec/types.h>
 
+void
+FreeISAPNPBase( struct ISAPNPBase* res );
+
 BOOL
 OpenLibs( void );
 
