@@ -1119,10 +1119,9 @@ amiga_translate_key( int code, ULONG qualifier )
       
     case 0x77:    // MOS/CDTV ff
       return 0x30 | 0x80;             // Map to volume up
-      
-    default:
-      return 0;
   }
+
+  return 0;
 }
 
 
