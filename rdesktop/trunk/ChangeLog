@@ -1,3 +1,17 @@
+2005-01-26  Martin Blom  <martin@blom.org>
+
+	* When checking for RAmiga-Q, use MapRawKey() instead of raw key
+	code. [Stéphane Guillard]
+
+	* Added the KEYMAP command line switch and tool type.
+
+	* Automatically sets the keyboard layout on the Windows side,
+	based on the Amiga layout. If you have one of the following
+	layouts, you may want to verify that the correct Windows layout is
+	used in amiga_rdesktop.c, since I had to guess a lot:
+	1251Q_US_RUS, 1251_GB1_RUS, 1251_GB_RUS, a, be, br, br2,
+	br3-ABNT2, cat, cdn, cdn2, e, gr, oe, Russian, si, türkçe.
+
 2005-01-17  Martin Blom  <martin@blom.org>
 
 	* <itix> HammerD: btw, TAG_MORE is "jmp", not "jsr"

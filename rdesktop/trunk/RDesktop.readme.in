@@ -12,13 +12,14 @@ Format:         RDESKTOP [USER=<name>] [DOMAIN=<domain>] [PASSWORD=<pwd>|-]
                 [W|WIDTH=<n>] [H|HEIGHT=<n>] [D|DEPTH=<bpp>] [PUBSCREEN=<name>]
                 [TITLE=<title>] [FS|FULLSCREEN] [SCREENMODE=<modenum>]
                 [AUDIO=<unit>] [REMOTEAUDIO] [BITMAPSONLY] [NOMOUSE]
-                [EXP|EXPERIENCE=28K8|56K|DSL|LAN] [RDP4] [SERVER] <server>
+                [EXP|EXPERIENCE=28K8|56K|DSL|LAN] [RDP4] [KEYMAP=<num>]
+		[SERVER] <server>
 
 Template:       SERVER/A,USER/K,DOMAIN/K,PASSWORD/K,CLIENT/K,CONSOLE/S,FRENCH/S,
                 NOENC=NOENCRYPTION/S,SHELL/K,DIR=DIRECTORY/K,LEFT/K/N,TOP/K/N,
                 W=WIDTH/K/N,H=HEIGHT/K/N,D=DEPTH/K/N,PUBSCREEN/K,TITLE/K,
                 FS=FULLSCREEN/S,SCREENMODE/K/N,AUDIO/K/N,REMOTEAUDIO/S,
-                BITMAPSONLY/S,NOMOUSE/S,EXP=EXPERIENCE/K,RDP4/S"
+                BITMAPSONLY/S,NOMOUSE/S,EXP=EXPERIENCE/K,RDP4/S,KEYMAP/K/N"
 
 Purpose:        To connect to a Windows NT Terminal Server
 
@@ -74,6 +75,11 @@ useful when running in window mode on a true-color public
 screen. Valid values are 8, 15, 16 or 24. LEFT and TOP specify the
 position of the window, in pixels, from the left and top edges of the
 screen, respectively.
+
+When logging in, the Windows keymap is set to the most appropriate
+based on the currently selected Amiga keymap. You can override this by
+using the KEYMAP argument, which takes the Windows keymap code [3] as
+an argument.
 
 The public screen to open on is specified by using the PUBSCREEN
 argument. The window title can be set by using the TITLE argument.
@@ -174,3 +180,4 @@ displays 32 colors. Don't expect miracles.
 -------------------------------------------------------------------------------
 [1] http://www.rdesktop.org/
 [2] http://www.jacco2.dds.nl/rdesktop/
+[3] See http://www.science.co.il/Language/Locale-Codes.asp for example

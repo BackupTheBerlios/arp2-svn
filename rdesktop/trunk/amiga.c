@@ -77,6 +77,7 @@
 #undef GetOutlinePen // I get an annoying warning if this is defined
 #include <proto/graphics.h>
 #include <proto/intuition.h>
+#include <proto/keymap.h>
 #include <proto/layers.h>
 #include <proto/wb.h>
 
@@ -1718,6 +1719,11 @@ ui_select(int rdp_socket)
 	  ( mask & ( 1UL << amiga_window->UserPort->mp_SigBit ) ) )
       {
 	struct IntuiMessage* msg;
+	struct InputEvent ie;
+	char   q_buffer[8];
+
+	ie.ie_Class = IECLASS_RAWKEY;
+	ie.ie_SubClass = 0;
 
 	while( ( msg = (struct IntuiMessage*) 
 		 GetMsg( amiga_window->UserPort ) ) != NULL )
@@ -1842,7 +1848,14 @@ ui_select(int rdp_socket)
 #endif
 
 	      // RAmiga-Q quits.
-	      if( msg->Code == 0x10 &&
+	      ie.ie_Code = msg->Code;
+	      ie.ie_Qualifier = msg->Qualifier;
+	      /* recover dead key codes & qualifiers */
+	      ie.ie_EventAddress = (APTR*) *((ULONG*) msg->IAddress);
+
+	      q_buffer[0] = 0;
+	      if( MapRawKey(&ie, q_buffer, sizeof (q_buffer), NULL) == 1 &&
+		  q_buffer[0] == 'q' &&
 		  (msg->Qualifier & (IEQUALIFIER_LSHIFT |
 				     IEQUALIFIER_RSHIFT |
 				     IEQUALIFIER_CAPSLOCK |
@@ -1852,7 +1865,7 @@ ui_select(int rdp_socket)
 				     IEQUALIFIER_LCOMMAND |
 				     IEQUALIFIER_RCOMMAND |
 				     IEQUALIFIER_NUMERICPAD))
-		   == IEQUALIFIER_RCOMMAND) {
+		  == IEQUALIFIER_RCOMMAND) {
 		quit = TRUE;
 		break;
 	      }

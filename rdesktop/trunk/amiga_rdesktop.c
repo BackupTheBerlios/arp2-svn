@@ -35,6 +35,7 @@
 #include <proto/icon.h>
 #include <proto/iffparse.h>
 #include <proto/intuition.h>
+#include <proto/keymap.h>
 #include <proto/layers.h>
 #include <proto/utility.h>
 #include <proto/wb.h>
@@ -92,6 +93,10 @@ extern RDPDR_DEVICE g_rdpdr_device[];
 extern uint32 g_num_devices;
 extern char *g_rdpdr_clientname;
 
+#ifndef ForeachNode
+#define ForeachNode(list,node) for (node = ((struct List*) list)->lh_Head; node->ln_Succ != NULL; node = node->ln_Succ)
+#endif
+
 const char version[] = "$VER: RDesktop 1.3.1cvs-"
 #ifdef __MORPHOS__
                               "MorphOS"
@@ -103,69 +108,72 @@ const char version[] = "$VER: RDesktop 1.3.1cvs-"
                               "©1999-2004 Matthew Chapman et al.";
 
 #ifdef __amigaos4__
-struct LayersIFace    *ILayers       = NULL;
-struct CyberGfxIFace  *ICyberGfx     = NULL;
-struct SocketIFace    *ISocket       = NULL;
-struct UserGroupIFace *IUserGroup    = NULL;
-struct AmiSSLIFace    *IAmiSSL       = NULL;
+struct LayersIFace    *ILayers        = NULL;
+struct CyberGfxIFace  *ICyberGfx      = NULL;
+struct SocketIFace    *ISocket        = NULL;
+struct UserGroupIFace *IUserGroup     = NULL;
+struct AmiSSLIFace    *IAmiSSL        = NULL;
 uint32 AmiSSL_initialized = FALSE;
 #else
-struct Library*        AslBase       = NULL;
-struct GfxBase*        GfxBase       = NULL;
-struct Library*        IFFParseBase  = NULL;
-struct Library*        IconBase      = NULL;
-struct IntuitionBase*  IntuitionBase = NULL;
-struct UtilityBase*    UtilityBase   = NULL;
-struct Library*        WorkbenchBase = NULL;
+struct Library*        AslBase        = NULL;
+struct GfxBase*        GfxBase        = NULL;
+struct Library*        IFFParseBase   = NULL;
+struct Library*        IconBase       = NULL;
+struct Library*        KeymapBase     = NULL;
+struct KeyMapResource* KeymapResource = NULL;
+struct IntuitionBase*  IntuitionBase  = NULL;
+struct UtilityBase*    UtilityBase    = NULL;
+struct Library*        WorkbenchBase  = NULL;
 #endif
-struct Library*        CyberGfxBase  = NULL;
-struct Library*        LayersBase    = NULL;
+struct Library*        CyberGfxBase   = NULL;
+struct Library*        LayersBase     = NULL;
 
 static const char template[] =
 "SERVER/A,USER/K,DOMAIN/K,PASSWORD/K,CLIENT/K,CONSOLE/S,FRENCH/S,"
 "NOENC=NOENCRYPTION/S,SHELL/K,DIR=DIRECTORY/K,LEFT/K/N,TOP/K/N,"
 "W=WIDTH/K/N,H=HEIGHT/K/N,D=DEPTH/K/N,PUBSCREEN/K,TITLE/K,"
 "FS=FULLSCREEN/S,SCREENMODE/K/N,AUDIO/K/N,REMOTEAUDIO/S,"
-"BITMAPSONLY/S,NOMOUSE/S,EXP=EXPERIENCE/K,RDP4/S";
+"BITMAPSONLY/S,NOMOUSE/S,EXP=EXPERIENCE/K,RDP4/S,KEYMAP/K/N";
 
 static const char wbtemplate[] =
 "SERVER/A/K,USER/K,DOMAIN/K,PASSWORD/K,CLIENT/K,CONSOLE/S,FRENCH/S,"
 "NOENC=NOENCRYPTION/S,SHELL/K,DIR=DIRECTORY/K,LEFT/K/N,TOP/K/N,"
 "W=WIDTH/K/N,H=HEIGHT/K/N,D=DEPTH/K/N,PUBSCREEN/K,TITLE/K,"
 "FS=FULLSCREEN/S,SCREENMODE/K/N,AUDIO/K/N,REMOTEAUDIO/S,"
-"BITMAPSONLY/S,NOMOUSE/S,EXP=EXPERIENCE/K,RDP4/S,IGNORE/F";
+"BITMAPSONLY/S,NOMOUSE/S,EXP=EXPERIENCE/K,RDP4/S,KEYMAP/K/N,IGNORE/F";
 
 static LONG  def_size  = 0;
 static LONG  def_depth = 0;
 
 static struct
 {
-   STRPTR a_server;
-   STRPTR a_user;
-   STRPTR a_domain;
-   STRPTR a_password;
-   STRPTR a_client;
-   ULONG  a_console;
-   ULONG  a_french;
-   ULONG  a_noenc;
-   STRPTR a_shell;
-   STRPTR a_dir;
-   ULONG* a_left;
-   ULONG* a_top;
-   LONG*  a_width;
-   LONG*  a_height;
-   ULONG* a_depth;
-   STRPTR a_pubscreen;
-   STRPTR a_title;
-   ULONG  a_fullscreen;
-   ULONG* a_screenmode;
-   ULONG* a_audio;
-   ULONG  a_remoteaudio;
-   ULONG  a_bitmapsonly;
-   ULONG  a_nomouse;
-   STRPTR a_experience;
-   ULONG  a_rdp4;
-   STRPTR a_ignore;
+    STRPTR a_server;
+    STRPTR a_user;
+    STRPTR a_domain;
+    STRPTR a_password;
+    STRPTR a_client;
+    ULONG  a_console;
+    ULONG  a_french;
+    ULONG  a_noenc;
+    STRPTR a_shell;
+    STRPTR a_dir;
+    ULONG* a_left;
+    ULONG* a_top;
+    LONG*  a_width;
+    LONG*  a_height;
+    ULONG* a_depth;
+    STRPTR a_pubscreen;
+    STRPTR a_title;
+    ULONG  a_fullscreen;
+    ULONG* a_screenmode;
+    ULONG* a_audio;
+    ULONG  a_remoteaudio;
+    ULONG  a_bitmapsonly;
+    ULONG  a_nomouse;
+    STRPTR a_experience;
+    ULONG  a_rdp4;
+    ULONG* a_keymap;
+    STRPTR a_ignore;
 } a_args =
 {
    NULL,
@@ -193,10 +201,60 @@ static struct
    FALSE,
    "56K",
    FALSE,
+   &def_depth,
    NULL
 };
 
 static struct WBStartup*  wb_msg = NULL;
+
+
+// Windows keymap codes:
+// rdesktop-*/doc/keymap-names.txt
+// http://www.science.co.il/Language/Locale-Codes.asp
+//
+// Amiga keymap codes:
+// No idea. Mail me if the following table is incorrect!
+
+static struct {
+    char const* name;
+    int         win_code;
+} keymap_codes[] = {
+  { "1251Q_US_RUS",	0x00419 },		// ??? Russian
+  { "1251_GB1_RUS",	0x00419 },		// ??? Russian
+  { "1251_GB_RUS",	0x00419 },		// ??? Russian
+  { "a",		0x00409 },		// ??? 
+  { "be",		0x0080c },		// ??? French (Belgium)
+  { "br",		0x00416 },		// ??? Portuguese (Brazil)
+  { "br2",		0x00416 },		// ??? Portuguese (Brazil)
+  { "br3-ABNT2",	0x00416 },		// ??? Portuguese (Brazil)
+  { "cat",		0x00403 },		// ??? Catalan
+  { "cdn",		0x00c0c },		// ??? French Canadian
+  { "cdn2",		0x00c0c },		// ???
+  { "ch1",		0x0100c },		// Swiss French
+  { "ch2",		0x00807 },		// Swiss German
+  { "d",		0x00407 },		// German (Standard)
+  { "d_pc",		0x00407 },		// German (Standard)
+  { "dk",		0x00406 },		// Danish
+  { "e",		0x00c0a },		// ??? Spanish (Modern)
+  { "f",		0x0040c },		// French
+  { "gb",		0x00809 },		// British
+  { "gr",		0x00408 },		// ??? Greek
+  { "i",		0x00410 },		// Italian
+  { "n",		0x00414 },		// Norwegian
+  { "oe",		0x00409 },		// ???
+  { "po",		0x00816 },		// Portuguese (Portugal)
+  { "Russian",		0x00419 },		// ??? Russian
+  { "s",		0x0041d },		// Swedish
+  { "si",		0x00409 },		// ???
+  { "su",		0x0040b },		// Finnish
+  { "türkçe",		0x0041f },		// ??? Turkish (Q type)
+  { "usa",		0x00409 },		// United States 101
+  { "usa0",		0x00409 },		// United States 101
+  { "usa1",		0x00409 },		// United States 101
+  { "usa2",		0x20409 },		// United States-Dvorak
+  { "usa3",		0x00409 },		// United States 101
+  { NULL, 		0       }
+};
 
 static Bool
 read_password(char *password, int size)
@@ -324,6 +382,9 @@ cleanup(void)
 
   CloseLibrary( IconBase );
   IconBase = NULL;
+
+  CloseLibrary( KeymapBase );
+  KeymapBase = NULL;
 #endif
   
 #ifdef __amigaos4__
@@ -356,6 +417,9 @@ main(int argc, char *argv[])
   struct passwd *pw;
   uint32 flags;
   char *p;
+  struct Node* node;
+  struct KeyMap* default_keymap;
+  
 
   char pubscreen[64];
   struct RDArgs* rdargs = NULL;
@@ -380,6 +444,21 @@ main(int argc, char *argv[])
     error( "Unable to open '%s'.\n", "graphics.library" );
     return RETURN_FAIL;
   }
+
+  KeymapBase = OpenLibrary("keymap.library", 36);
+
+  if( KeymapBase == NULL )
+  {
+    error( "Unable to open '%s'.\n", "keymap.library" );
+  }
+
+  KeymapResource = OpenResource("keymap.resource"); 
+
+  if( KeymapResource == NULL )
+  {
+    error( "Unable to open '%s'.\n", "keymap.resource" );
+  }
+ 
 
   IconBase = OpenLibrary("icon.library", 0);
 
@@ -533,6 +612,25 @@ main(int argc, char *argv[])
     a_args.a_client = fullhostname;
   }
 
+  Forbid();
+  // According to RKRM, it's ok to check this against the keymap list
+  default_keymap = AskKeyMapDefault();
+
+  ForeachNode (&KeymapResource->kr_List, node) {
+    struct KeyMapNode* keymapnode = (struct KeyMapNode*) node;
+
+    if (default_keymap == &keymapnode->kn_KeyMap) {
+      int i;
+
+      for (i = 0; keymap_codes[i].name != NULL; ++i) {
+	if (Stricmp(keymapnode->kn_Node.ln_Name, keymap_codes[i].name) == 0) {
+	  keylayout = keymap_codes[i].win_code;
+	}
+      }
+    }
+  }
+  Permit();
+  
   if (argc == 0)
   {
     struct DiskObject* icon;
@@ -804,6 +902,8 @@ main(int argc, char *argv[])
 		
   g_console_session = a_args.a_console;
   g_use_rdp5 = ! a_args.a_rdp4;
+
+  if (a_args.a_keymap != NULL) keylayout = *a_args.a_keymap;
 
   if (server[0] == 0)
   {
