@@ -1,0 +1,289 @@
+## version $VER: flexcat.catalog 2.2 (10.4.99)
+## language español
+## codeset 0
+## chunk AUTH Sergio Martín «smartin@kaos.es» (ATO-ES)
+## chunk AUTH Tomás J. Cantó «tjcanto@redestb.es» (ATO-ES)
+;
+;   Error message: Out of memory.
+msgMemoryError
+¡No queda memoria!
+; Out of memory!
+;
+;   Warning message; must contain one %s (file), one %d (line number)
+;   DON'T EAT THE TRAILING SPACE HERE!
+msgWarning
+%s, línea %d; aviso: 
+; %s, Line %d; warning: \
+; 
+;
+;   Warning message: Expected hex character.
+msgExpectedHex
+Se esperaba un carácter hexadecimal (entre [0-9a-fA-F]).
+; Expected hex character (one of [0-9a-fA-F]).
+;
+;   Warning message: Expected octal character.
+msgExpectedOctal
+Se esperaba un carácter octal (entre [0-7]).
+; Expected octal character (one of [0-7]).
+;
+;   Error message: Cannot open catalog description; must contain one %s
+;   (file name)
+msgNoCatalogDescription
+No puedo abrir el archivo de descripción (.cd) %s.
+; Cannot open catalog description %s.
+;
+;   Warning message: Too much Lengthbytes; must contain one %d (maximum).
+msgNoLengthBytes
+Es imposible que LengthBytes > %d (sizeof long).
+; LengthBytes > %d (sizeof long) not possible.
+;
+;   Warning message: Unknown catalog description command.
+msgUnknownCDCommand
+Comando desconocido en el archivo de descripción (.cd)
+; Unknown catalog description command
+;
+;   Warning message: Unexpected blank.
+msgUnexpectedBlanks
+Espacios en blanco imprevistos.
+; Unexpected blanks.
+;
+;   Warning message: Identifier expected.
+msgNoIdentifier
+Falta el identificador.
+; Missing identifier.
+;
+;   Warning message: '(' expected.
+msgNoLeadingBracket
+Falta '('.
+; Missing '('.
+;
+;   Warning message: Identifier number redeclared.
+msgDoubleID
+Número ID duplicado.
+; ID number used twice.
+;
+;   Warning message: Identifier redeclared.
+msgDoubleIdentifier
+Identificador ya declarado.
+; Identifier redeclared.
+;
+;   Warning message: '/' expected (MinLen).
+msgNoMinLen
+Se esperaba MinLen (carácter '/'). 
+; Expected MinLen (character '/').
+;
+;   Warning message: '/' expected (MaxLen).
+msgNoMaxLen
+Se esperaba MaxLen (carácter '/').
+; Expected MaxLen (character '/').
+;
+;   Warning message: ')' expected.
+msgNoTrailingBracket
+Se esperaba ')'.
+; Expected ')'.
+;
+;   Warning message: Extra characters
+msgExtraCharacters
+Caracteres extra al final de la línea.
+; Extra characters at the end of the line.
+;
+;   Warning message: Missing catalog string
+msgNoString
+Final de archivo inesperado (faltan cadenas en el catálogo).
+; Unexpected end of file (missing catalog string).
+;
+;   Warning message: String too short.
+msgShortString
+Cadena demasiado corta.
+; String too short.
+;
+;   Warning message: String too long.
+msgLongString
+Cadena demasiado larga.
+; String too long.
+;
+;   Error message: No catalog translation file; must contain one %s (file
+;   name).
+msgNoCatalogTranslation
+No puedo abrir el archivo de traducción (.ct) %s.
+; Cannot open catalog translation file %s.
+;
+;   Warning message: Missing catalog translation command.
+msgNoCTCommand
+Falta un comando en el archivo de traducción (.ct). (Se esperaba un segundo '#').
+; Missing catalog translation command. (Expected second '#'.)
+;
+;   Warning message: Unknown catalog translation command.
+msgUnknownCTCommand
+Comando desconocido en el archivo de traducción (.ct).
+; Unknown catalog translation command.
+;
+;   Error message: Missing catalog translation version.
+msgNoCTVersion
+Falta la versión del archivo de traducción (.ct); usa ##version\n\
+o bien ##rcsid y ##name.
+; Missing catalog translation version; use either ##version\n\
+; or ##rcsid and ##name.
+;
+;   Error message: Missing catalog translation language.
+msgNoCTLanguage
+Falta el idioma del archivo de traducción (.ct).
+; Missing catalog translation language.
+;
+;   Error message: Cannot open catalog file. Must contain one %s (file name).
+msgNoCatalog
+No puedo abrir el catálogo %s.
+; Cannot open catalog file %s.
+;
+;   Error message: Cannot create catalog translation file. Must contain
+;   one %s (file name).
+msgNoNewCTFile
+No puedo crear el archivo de traducción (.ct) %s.
+; Cannot create catalog translation file %s.
+;
+;   Warning message: Unknown identifier. Must contain one %s (identifier).
+msgUnknownIdentifier
+Falta %s en el archivo de descripción (.cd).
+; %s missing in catalog description.
+;
+;   Error message: No source description file. Must contain one %s (file
+;   name).
+msgNoSourceDescription
+No puedo abrir el archivo de descripción (.cd) fuente %s.
+; Cannot open source description file %s.
+;
+;   Error message: No source file. Must contain one %s (file name).
+msgNoSource
+No puedo abrir el archivo fuente %s.
+; Cannot open source file %s.
+;
+;   Warning message: Unknown string type
+msgUnknownStringType
+Tipo de cadena desconocida.
+; Unknown string type.
+;
+;   Warning message: Missing trailing ')' in %(..).
+msgNoTerminateBracket
+Fin de línea inesperado. (Falta ')').
+; Unexpected end of line. (Missing ')')
+;
+;   Usage message
+msgUsage
+   CDFILE        Archivo de descripción (.cd) a explorar\n\
+   CTFILE        Archivo de traducción (.ct) a explorar\n\
+   CATALOG       Catálogo a crear\n\
+   NEWCTFILE     Archivo de traducción (.ct) a crear\n\
+   SOURCES       Archivos fuente a crear; ha de ser algo como\n\
+                 A_F=A_DF, siendo A_F el archivo fuente y A_DF\n\
+                 el archivo de descripción (.cd) fuente\n\
+   WARNCTGAPS    Avisar si faltan símbolos en el archivo .ct\n\
+   NOOPTIM       Incluir las cadenas inmodificadas (iguales en #?.cd y #?.ct)\n\
+   FILL          Usar textos descriptores si falta la traducción\n\
+   FLUSH         Liberar la memoria cuando el catálogo esté escrito\n\
+   NOBEEP        Suprimir la alarma DisplayBeep() para errores y avisos\n\
+   QUIET         Suprimir los mensajes de advertencia
+;   CDFILE        Catalog description file to scan\n\
+;   CTFILE        Catalog translation file to scan\n\
+;   CATALOG       Catalog file to create\n\
+;   NEWCTFILE     Catalog translation file to create\n\
+;   SOURCES       Sources to create; must be something like sfile=sdfile,\n\
+;                 where sfile is a sourcefile and sdfile is a source\n\
+;                 description file\n\
+;   WARNCTGAPS    Warn symbols missing in CT file\n\
+;   NOOPTIM       Do not skip unchanged strings (equal in both #?.cd and #?.ct)\n\
+;   FILL          Use descriptor texts if translation are missing\n\
+;   FLUSH         Flush memory when catalog is written\n\
+;   NOBEEP        Suppress DisplayBeep()'s on error and warnings\n\
+;   QUIET         Suppress warning messages
+;
+;   Error message: No catalog translation argument
+msgNoCTArgument
+Para crear un catálogo se necesita un archivo de traducción (.ct) como argumento.\n\
+
+; Creating a catalog needs a catalog translation file as argument.\n
+;
+;   Warning message: No binary characters.
+msgNoBinChars
+Caracteres binarios en tipo de cadena: ninguno.
+; Binary characters in stringtype None.
+;
+;   Warning message: Gap in CT file.
+msgCTGap
+Falta identificador %s en el archivo CT.
+; ID %s missing in CT file.
+;
+;   Warning: Catalog language declared twice
+msgDoubleCTLanguage
+Lenguaje del catálogo duplicado.
+; Catalog language declared twice.
+;
+;   Warning: Catalog version declared twice
+msgDoubleCTVersion
+Versión del catálogo duplicada.
+; Catalog version declared twice.
+;
+;   Warning: Wrong Rcs ID
+msgWrongRcsId
+rcs ID erróneo (ha de ser similar a\n\
+'$Date: 1999/08/18 14:33:02 $ $Revision: 1.1.1.1 $').
+; Incorrect rcs ID (must be similar to\n\
+; '$Date: 1999/08/18 14:33:02 $ $Revision: 1.1.1.1 $')
+;
+;
+; NEW IN 1.9
+;
+msgUsageHead
+Utilización
+; Usage
+;
+msgPrefsError
+Error procesando la variable FlexCat.prefs, se utilizarán los valores por defecto.\n\
+Plantilla de preferencias:
+; Error processing FlexCat.prefs variable, falling back to defaults.\n\
+; Preferences template: \
+; 
+;
+;
+; NEW IN 2.0
+;
+; NOTE: This string is concatenated with msgUsage, so make sure you
+;       indented it the same way etc. And DON'T MISS trailing LF here!
+;       Type FLEXCAT and check how it looks.
+;
+msgUsage_2
+   NOLANGTOLOWER Evita que el nombre del #lenguage se pase a minúsculas\n\
+   NOBUFFEREDIO  Desactiva los tampones de E/S\n\
+   MODIFIED      Crea el catálogo sólo si se cambiaron los archivos #?.c(d|t)\n\
+
+;   NOLANGTOLOWER Prevents #language name from being lowercased\n\
+;   NOBUFFEREDIO  Disables IO buffers\n\
+;   MODIFIED      Creates the catalog only when #?.c(d|t) files were changed\n
+;
+;
+;
+; NEW IN 2.0
+;
+msgUpToDate
+El archivo %s ya está actualizado
+; File %s is up to date
+;
+msgCantCheckDate
+No puedo obtener la fecha de %s
+; Cannot get the datestamp of %s
+;
+;
+; NEW IN 2.2
+;
+msgUsage_3
+   COPYMSGNEW    Activa la copia **NUEVO** de los marcadores al actualizar un archivo #?.ct\n\
+   OLDNEWMSG     Si el antiguo archivo #?.ct usa otro marcador, especifiquela aquí
+;   COPYMSGNEW    Turns on copying **NEW** markers while updating #?.ct file\n\
+;   OLDNEWMSG     If old #?.ct file is using other marker, specify it here
+;
+msgTrailingEllipsis
+La cadena original tiene una elipsis al final (...)
+;Original string has a trailing ellipsis (...)
+;
+msgTrailingSpaces
+La cadena original tiene espacios en blanco al final
+;Original string has a trailing spaces
