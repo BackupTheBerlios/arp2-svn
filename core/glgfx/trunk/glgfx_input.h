@@ -1,7 +1,8 @@
 #ifndef ARP2_glgfx_glgfx_input_h
 #define ARP2_glgfx_glgfx_input_h
 
-#include "glgfx.h"
+#include <glgfx-config.h>
+#include <glgfx.h>
 
 enum glgfx_input_code {
   glgfx_input_none         = 0x00000000,

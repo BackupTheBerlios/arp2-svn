@@ -1,7 +1,7 @@
 #ifndef ARP2_glgfx_glgfx_h
 #define ARP2_glgfx_glgfx_h
 
-#define HAVE_STDBOOL_H
+#include <glgfx-config.h>
 
 #ifdef HAVE_STDBOOL_H
 # include <stdbool.h>
