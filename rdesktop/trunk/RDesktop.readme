@@ -69,13 +69,13 @@ argument.  The window title can be set by using the TITLE argument.
 By using the FULLSCREEN switch, RDESKTOP will open a screen of its
 own. Unless SCREENMODE is also used to specify the mode number (in
 decimal or hex using the '0x' prefix), a screen mode requester will
-appear before connecting to the server. DEPTH is automatically taked
-form the requester or, if a true-color screen mode is specified, the
+appear before connecting to the server. DEPTH is automatically taken
+from the requester or, if a true-color screen mode is specified, the
 screen mode.
 
-To enable audio redirection, use the AUDIO argument to specify the AHI
-unit to use (normally 0). The REMOTEAUDIO switch can be used to leave
-audio enabled on the remote side instead.
+Audio will be redirected automatically. Use the AUDIO argument to
+specify the AHI unit to use (default is 0). The REMOTEAUDIO switch can
+be used to leave audio enabled on the remote side instead.
 
 The user name can be specified by using the USER argument and the
 windows domain by using the DOMAIN argument. The password can be set
