@@ -74,10 +74,10 @@ my @lf =
  '                        BPTR seglist,' .
  '                        struct ExecBase* SysBase)' .
  '                       (d0,a0,a6)',
- 'struct Library* LibOpen() ()',
- 'BPTR LibClose()()',
- 'BPTR LibExpunge()()',
- 'ULONG LibNull()()'
+ 'struct Library* LibOpen(ULONG version) (d0)',
+ 'BPTR LibClose() ()',
+ 'BPTR LibExpunge() ()',
+ 'ULONG LibNull() ()'
  ];
 
 my @df  =
@@ -102,11 +102,11 @@ my @bf  =
  '                               BPTR seglist,' .
  '                               struct ExecBase* SysBase)' .
  '                              (d0,a0,a6)',
- 'struct ClassLibrary* ClassOpen() ()',
- 'BPTR ClassClose()()',
- 'BPTR ClassExpunge()()',
- 'ULONG ClassNull()()',
- 'Class* ObtainEngine()()',
+ 'struct ClassLibrary* ClassOpen(ULONG version) (d0)',
+ 'BPTR ClassClose() ()',
+ 'BPTR ClassExpunge() ()',
+ 'ULONG ClassNull() ()',
+ 'Class* ObtainEngine() ()',
  ];
 
 my %targets = (
