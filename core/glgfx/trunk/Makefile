@@ -4,10 +4,13 @@ CFLAGS		= -O2 -pthread $(shell pkg-config glib-2.0 --cflags)
 LDLIBS		= -L/usr/X11R6/lib -lX11 -lXxf86vm -lXext -ldl -lGL -lglut $(shell pkg-config glib-2.0 --libs)
 
 GLGFX_OBJECTS	= glgfx.o glgfx_monitor.o glgfx_view.o glgfx_viewport.o glgfx_bitmap.o
-GLGFX_TARGET	= glgfx
+GLGFX_TARGET	= libglgfx.a
 
-OBJECTS		= $(GLGFX_OBJECTS)
-TARGETS		= $(GLGFX_TARGET)
+TEST_OBJECTS	= test.o
+TEST_TARGET	= test
+
+OBJECTS		= $(TEST_OBJECT) $(GLGFX_OBJECTS)
+TARGETS		= $(TEST_TARGET) $(GLGFX_TARGET)
 
 all:		$(TARGETS)
 
@@ -20,6 +23,9 @@ Makefile.dep:	$(GLGFX_OBJECTS:%.o=%.c)
 include Makefile.dep
 
 $(GLGFX_TARGET):	$(GLGFX_OBJECTS)
+	$(AR) cru $@ $^
+
+$(TEST_TARGET):	$(TEST_OBJECTS) $(GLGFX_TARGET)
 	$(CC) $(LDFLAGS) $^ $(LDLIBS) $(OUTPUT_OPTION)
 
 #glopen.o:	glfuncs.h
