@@ -12,8 +12,8 @@
  *    documentation and/or other materials provided with the distribution.
  * 3. All advertising materials mentioning features or use of this software
  *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
+ *      This product includes software developed by the University of
+ *      California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -37,6 +37,7 @@ static char sccsid[] = "@(#)syslog.c    5.34 (Berkeley) 6/26/91";
 
 #define _KERNEL
 #include "ixemul.h"
+#include "my_varargs.h"
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/file.h>
@@ -45,7 +46,6 @@ static char sccsid[] = "@(#)syslog.c    5.34 (Berkeley) 6/26/91";
 #include <sys/errno.h>
 #include <netdb.h>
 #include <string.h>
-#include <stdarg.h>
 #include <time.h>
 #include <unistd.h>
 #include <paths.h>
@@ -57,13 +57,20 @@ static char sccsid[] = "@(#)syslog.c    5.34 (Berkeley) 6/26/91";
 #define LogFacility (u.u_LogFacility)
 #define LogMask (u.u_LogMask)
 
+#ifdef NATIVE_MORPHOS
+#define vsyslog my_vsyslog
+#define vsprintf my_vsprintf
+void vsyslog(int pri, const char *fmt, my_va_list ap);
+int vsprintf(char *, const char *fmt0, my_va_list ap);
+#endif
+
 /*
  * syslog, vsyslog --
- *	print message on log file; output is intended for syslogd(8).
+ *      print message on log file; output is intended for syslogd(8).
  */
 
 void
-vsyslog(int pri, const char *fmt, va_list ap)
+vsyslog(int pri, const char *fmt, my_va_list ap)
 {
     usetup;
     register int cnt;
@@ -116,11 +123,11 @@ vsyslog(int pri, const char *fmt, va_list ap)
 	    register char ch, *t1, *t2;
 	    char *strerror();
 
-            for (t1 = fmt_cpy; (ch = *fmt); ++fmt)
+	    for (t1 = fmt_cpy; (ch = *fmt); ++fmt)
 		if (ch == '%' && fmt[1] == 'm') {
 		    ++fmt;
 		    for (t2 = strerror(saved_errno);
-                        (*t1 = *t2++); ++t1);
+			(*t1 = *t2++); ++t1);
 		}
 		else
 		    *t1++ = ch;
@@ -165,12 +172,43 @@ vsyslog(int pri, const char *fmt, va_list ap)
 void
 syslog(int pri, const char *fmt, ...)
 {
-	va_list ap;
+	my_va_list ap;
 
-	va_start(ap, fmt);
+	my_va_start(ap, fmt);
 	vsyslog(pri, fmt, ap);
-	va_end(ap);
+	my_va_end(ap);
 }
+
+#ifdef NATIVE_MORPHOS
+
+void
+_varargs68k_syslog(int pri, const char *fmt, char *ap1)
+{
+	my_va_list ap;
+
+	my_va_init_68k(ap, ap1);
+	vsyslog(pri, fmt, ap);
+}
+
+#undef vsyslog
+
+void
+vsyslog(int pri, const char *fmt, va_list ap1)
+{
+	my_va_list ap;
+	my_va_init_ppc(ap, ap1);
+	my_vsyslog(pri, fmt, ap);
+}
+
+void
+_varargs68k_vsyslog(int pri, const char *fmt, char *ap1)
+{
+	my_va_list ap;
+	my_va_init_68k(ap, ap1);
+	my_vsyslog(pri, fmt, ap);
+}
+
+#endif
 
 void
 openlog(const char *ident, int logstat, int logfac)

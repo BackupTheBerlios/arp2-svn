@@ -34,6 +34,10 @@
 static int
 __mkdir_func (struct lockinfo *info, void *dummy, int *error)
 {
+#ifdef __pos__
+  info->result = (BPTR)pOS_CreateDirectory((void *)info->parent_lock, info->bstr);
+  *error = info->result == 0;
+#else
   struct StandardPacket *sp = &info->sp;
 
   sp->sp_Pkt.dp_Type = ACTION_CREATE_DIR;
@@ -45,6 +49,7 @@ __mkdir_func (struct lockinfo *info, void *dummy, int *error)
   info->result = sp->sp_Pkt.dp_Res1;
 
   *error = info->result == 0;
+#endif
     
   /* continue if we failed because of symlink - reference */
   return 1;
@@ -69,13 +74,13 @@ mkdir (const char *path, mode_t perm)
       result = syscall (SYS_chmod, path, (int)(perm & ~u.u_cmask));
 
       if (!muBase)
-        {
-          uid_t uid = geteuid();
-          gid_t gid = getegid();
+	{
+	  uid_t uid = geteuid();
+	  gid_t gid = getegid();
 
-          if (uid != (uid_t)(-2) || gid != (gid_t)(-2))
-            syscall (SYS_chown, path, uid, gid);
-        }
+	  if (uid != (uid_t)(-2) || gid != (gid_t)(-2))
+	    syscall (SYS_chown, path, uid, gid);
+	}
     }
   syscall (SYS_sigsetmask, omask);
 

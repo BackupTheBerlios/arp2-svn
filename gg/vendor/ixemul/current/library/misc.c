@@ -29,7 +29,7 @@
 int
 getpid(void)
 {
-  return (int)FindTask (0);
+  return (int)SysBase->ThisTask;
 }
 
 int
@@ -179,20 +179,124 @@ mknod (const char *path, mode_t mode, dev_t dev)
   return -1;
 }
 
-void __flush_cache(void *adr, int len)
-{
-  CacheClearE(adr, len, CACRF_ClearI | CACRF_ClearD);
-}
+#if 0 //def NATIVE_MORPHOS
+asm("
+	.section \".text\"
+	.globl	__flush_cache
+	.type	__flush_cache,@function
+__flush_cache:
+	cmpwi	0,4,0
+	addi	4,4,31
+	mr	5,3
+	srwi    4,4,5
+	mtctr	4
+	beqlr
+l1:
+	dcbf	0,3	/* flush data cache lines */
+	addi	3,3,32
+	bdnz	l1
 
-void ix_flush_insn_cache(void *adr, int len)
-{
-  CacheClearE(adr, len, CACRF_ClearI);
-}
+	sync
+	mtctr	4
+l2:
+	icbi	0,5	/* invalidate insn cache lines */
+	addi	5,5,32
+	bdnz	l2
 
-void ix_flush_data_cache(void *adr, int len)
+	sync
+	isync
+	blr
+__end_flush_cache:
+	.size	__flush_cache,__end_flush_cache-__flush_cache
+");
+
+#else
+void __flush_cache(void *addr, int len)
 {
-  CacheClearE(adr, len, CACRF_ClearD);
+#ifdef NATIVE_MORPHOS
+  CacheFlushDataInstArea(addr, len);
+#else
+  CacheClearE(addr, len, CACRF_ClearI | CACRF_ClearD);
+#endif
 }
+#endif
+
+
+#if 0 //def NATIVE_MORPHOS
+asm("
+	.section \".text\"
+	.globl	ix_flush_insn_cache
+	.type	ix_flush_insn_cache,@function
+ix_flush_insn_cache:
+	cmpwi	0,4,0
+	addi	4,4,31
+	mr	5,3
+	srwi    4,4,5
+	mtctr	4
+	beqlr
+l3:
+	dcbst	0,3	/* store dirty data cache lines */
+	addi	3,3,32
+	bdnz	l3
+
+	sync
+	mtctr	4
+l4:
+	icbi	0,5	/* invalidate insn cache lines */
+	addi	5,5,32
+	bdnz	l4
+
+	sync
+        isync
+	blr
+__end_ix_flush_insn_cache:
+	.size	ix_flush_insn_cache,__end_ix_flush_insn_cache-ix_flush_insn_cache
+");
+
+#else
+void ix_flush_insn_cache(void *addr, int len)
+{
+#ifdef NATIVE_MORPHOS
+  CacheInvalidInstArea(addr, len);
+#else
+  CacheClearE(addr, len, CACRF_ClearI);
+#endif
+}
+#endif
+
+#if 0 //def NATIVE_MORPHOS
+asm("
+	.section \".text\"
+	.globl	ix_flush_data_cache
+	.type	ix_flush_data_cache,@function
+ix_flush_data_cache:
+	cmpwi	0,4,0
+	addi	4,4,31
+	mr	5,3
+	srwi    4,4,5
+	mtctr	4
+	beqlr
+l5:
+	dcbf    0,3	/* flush data cache lines */
+	addi	3,3,32
+	bdnz	l5
+
+	sync
+	blr
+__end_ix_flush_data_cache:
+	.size	ix_flush_data_cache,__end_ix_flush_data_cache-ix_flush_data_cache
+");
+
+#else
+void ix_flush_data_cache(void *addr, int len)
+{
+#ifdef NATIVE_MORPHOS
+  CacheFlushDataArea(addr, len);
+#else
+  CacheClearE(addr, len, CACRF_ClearD);
+#endif
+}
+#endif
 
 void ix_flush_caches(void)
 {

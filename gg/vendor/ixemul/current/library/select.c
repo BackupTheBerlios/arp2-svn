@@ -47,10 +47,17 @@ static void handle_select_port(void)
 {
   usetup;
 
+#ifdef __pos__
+  struct pOS_DosIOReq *nio;
+
+  while ((nio = (void *)GetMsg(u.u_select_mp)))
+    nio->dr_Message.mn_ReplyPort = 0;
+#else
   struct StandardPacket *prw;
 
   while ((prw = GetPacket(u.u_select_mp)))
       prw->sp_Pkt.dp_Port = 0;
+#endif
 }
 
 static void inline setcopy(int nfd, u_int *ifd, u_int *ofd)
@@ -135,7 +142,7 @@ ix_select(int nfd, fd_set *ifd, fd_set *ofd, fd_set *efd, struct timeval *timeou
   for (skipped_wait = 0; ; skipped_wait=1)
     {
       fd_set readyin, readyout, readyexc;
-      fd_set netin, netout, netexc;		/* used by ixnet.library */
+      fd_set netin, netout, netexc;             /* used by ixnet.library */
       int tout, readydesc, cmd;
 
       FD_ZERO(&readyin);
@@ -143,12 +150,12 @@ ix_select(int nfd, fd_set *ifd, fd_set *ofd, fd_set *efd, struct timeval *timeou
       FD_ZERO(&readyexc);
       
       if (u.u_ixnetbase)
-        {
-          FD_ZERO(&netin);
-          FD_ZERO(&netout);
-          FD_ZERO(&netexc);
-          net_nfds = 0;
-        }
+	{
+	  FD_ZERO(&netin);
+	  FD_ZERO(&netout);
+	  FD_ZERO(&netexc);
+	  net_nfds = 0;
+	}
 
       tout = readydesc = 0;
 
@@ -166,42 +173,42 @@ ix_select(int nfd, fd_set *ifd, fd_set *ofd, fd_set *efd, struct timeval *timeou
 	    {
 	      __time_req->tr_time.tv_sec = timeout->tv_sec;
 	      __time_req->tr_time.tv_usec = timeout->tv_usec;
-              __time_req->tr_node.io_Command = TR_ADDREQUEST;
-              SendIO((struct IORequest *)__time_req);
-              /* clear the bit, it's used for sync packets too, and might be set */
-              SetSignal (0, 1 << __tport->mp_SigBit);
+	      __time_req->tr_node.io_Command = TR_ADDREQUEST;
+	      SendIO((struct IORequest *)__time_req);
+	      /* clear the bit, it's used for sync packets too, and might be set */
+	      SetSignal (0, 1 << __tport->mp_SigBit);
 	      wait_sigs |= 1 << __tport->mp_SigBit;
 	    }
 
 	  /* have all watched files get prepared for selecting */
-          for (i = 0; i < nfd; i++)
+	  for (i = 0; i < nfd; i++)
 	    {
 	      if (ifd && FD_ISSET (i, ifd) && (f = p->u_ofile[i]))
-	        wait_sigs |= f->f_select (f, SELCMD_PREPARE, SELMODE_IN, &netin, &net_nfds);
+		wait_sigs |= f->f_select (f, SELCMD_PREPARE, SELMODE_IN, &netin, &net_nfds);
 	      if (ofd && FD_ISSET (i, ofd) && (f = p->u_ofile[i]))
-	        wait_sigs |= f->f_select (f, SELCMD_PREPARE, SELMODE_OUT, &netout, &net_nfds);
+		wait_sigs |= f->f_select (f, SELCMD_PREPARE, SELMODE_OUT, &netout, &net_nfds);
 	      if (efd && FD_ISSET (i, efd) && (f = p->u_ofile[i]))
-	        wait_sigs |= f->f_select (f, SELCMD_PREPARE, SELMODE_EXC, &netexc, &net_nfds);
+		wait_sigs |= f->f_select (f, SELCMD_PREPARE, SELMODE_EXC, &netexc, &net_nfds);
 	    }
 	  if (!(u.p_sigignore & sigmask (SIGIO)))
 	    {
 	      struct file **f = u.u_ofile;
 
 	      for (i = 0; i < u.u_lastfile; i++)
-	        if (f[i] && (f[i]->f_flags & FASYNC) && !(ifd && FD_ISSET(i, ifd)))
+		if (f[i] && (f[i]->f_flags & FASYNC) && !(ifd && FD_ISSET(i, ifd)))
 		  wait_sigs |= f[i]->f_select (f[i], SELCMD_PREPARE, SELMODE_IN, &netin, &net_nfds);
 	    }
 
-          /* now wait for all legally possible signals, this includes BSD
-           * signals (but want at least one signal set!) */
+	  /* now wait for all legally possible signals, this includes BSD
+	   * signals (but want at least one signal set!) */
 	  if (u.u_ixnetbase)
-            recv_wait_sigs = netcall(NET_waitselect, wait_sigs,
+	    recv_wait_sigs = netcall(NET_waitselect, wait_sigs,
 			 &netin, &netout, &netexc, net_nfds);
 	  else
-            while (!(recv_wait_sigs = Wait (wait_sigs))) ;
+	    while (!(recv_wait_sigs = Wait (wait_sigs))) ;
 
-          if (mask)
-            *mask = recv_wait_sigs & origmask;
+	  if (mask)
+	    *mask = recv_wait_sigs & origmask;
 
 	  if (dotout)
 	    {
@@ -210,14 +217,14 @@ ix_select(int nfd, fd_set *ifd, fd_set *ofd, fd_set *efd, struct timeval *timeou
 	       *            as a packet... */
 
 	      if (!CheckIO ((struct IORequest *)__time_req))
-                AbortIO ((struct IORequest *)__time_req);
-              else
-                recv_wait_sigs |= 1 << __tport->mp_SigBit;
-              WaitIO ((struct IORequest *)__time_req);
-            }
+		AbortIO ((struct IORequest *)__time_req);
+	      else
+		recv_wait_sigs |= 1 << __tport->mp_SigBit;
+	      WaitIO ((struct IORequest *)__time_req);
+	    }
 
-          handle_select_port();
-        }
+	  handle_select_port();
+	}
       else
 	cmd = SELCMD_POLL;
 
@@ -240,7 +247,7 @@ ix_select(int nfd, fd_set *ifd, fd_set *ofd, fd_set *efd, struct timeval *timeou
 	      ++ readydesc;
 	    }
 	  if (efd && FD_ISSET (i, efd) && (f = p->u_ofile[i])
-              && f->f_select (f, cmd, SELMODE_EXC, &netexc, NULL))
+	      && f->f_select (f, cmd, SELMODE_EXC, &netexc, NULL))
 	    {
 	      FD_SET (i, &readyexc);
 	      ++ readydesc;
@@ -250,18 +257,18 @@ ix_select(int nfd, fd_set *ifd, fd_set *ofd, fd_set *efd, struct timeval *timeou
       /* we have a timeout condition, if readydesc == 0, dotout == 1 and 
        * end_time < current time */
       if (!readydesc && dotout)
-        tout = recv_wait_sigs & (1 << __tport->mp_SigBit);
+	tout = recv_wait_sigs & (1 << __tport->mp_SigBit);
 
       sigio = 0;
       if (!(u.p_sigignore & sigmask (SIGIO)))
-        {
-          struct file **f = u.u_ofile;
+	{
+	  struct file **f = u.u_ofile;
 
-          for (i = 0; i < u.u_lastfile; i++)
-            if (f[i] && (f[i]->f_flags & FASYNC) && !(ifd && FD_ISSET(i, ifd)))
-    	      if (f[i]->f_select (f[i], cmd, SELMODE_IN, &netin, NULL))
-    	        sigio = 1;
-        }
+	  for (i = 0; i < u.u_lastfile; i++)
+	    if (f[i] && (f[i]->f_flags & FASYNC) && !(ifd && FD_ISSET(i, ifd)))
+	      if (f[i]->f_select (f[i], cmd, SELMODE_IN, &netin, NULL))
+		sigio = 1;
+	}
 
       if (readydesc || tout || (timeout && !timerisset(timeout)))
 	{
@@ -273,10 +280,10 @@ ix_select(int nfd, fd_set *ifd, fd_set *ofd, fd_set *efd, struct timeval *timeou
 	}
 
       if (sigio || (recv_wait_sigs & (SIGBREAKF_CTRL_C | (1 << p->u_sleep_sig) | origmask)))
-        {
-          result = -1;
-          break;
-        }
+	{
+	  result = -1;
+	  break;
+	}
     }
 
   p->p_wchan = 0;
@@ -287,10 +294,10 @@ ix_select(int nfd, fd_set *ifd, fd_set *ofd, fd_set *efd, struct timeval *timeou
   /* need special processing for ^C here, as that is completely disabled
      when we're SSLEEPing */
   if (recv_wait_sigs & SIGBREAKF_CTRL_C)
-    _psignal(FindTask(0), SIGINT);
+    _psignal(SysBase->ThisTask, SIGINT);
   if (sigio)
-    _psignal(FindTask(0), SIGIO);
-  setrun(FindTask(0));
+    _psignal(SysBase->ThisTask, SIGIO);
+  setrun(SysBase->ThisTask);
 
   if (result == -1)
     /* have to set this here, since errno can be changed in signal handlers */

@@ -31,8 +31,28 @@
 #include "ixemul.h"
 #include <exec/ports.h>
 
+#ifdef NATIVE_MORPHOS
+
+void DeletePort(struct MsgPort *port)
+{ int i;
+
+  if (port->mp_Node.ln_Name != NULL)
+    RemPort(port);
+  i=-1;
+  port->mp_Node.ln_Type=i;
+  port->mp_MsgList.lh_Head=(struct Node *)i;
+  FreeSignal(port->mp_SigBit);
+  FreeMem(port,sizeof(struct MsgPort));
+}
+
+#endif
+
 void
 ix_delete_port (struct MsgPort *port)
 {
+#ifdef __pos__
+  pOS_DeletePort((void *)port);
+#else
   DeletePort(port);
+#endif
 }

@@ -51,6 +51,10 @@
 
 #include <sys/tracecntl.h>
 
+#ifdef __pos__
+#include <pProto/pList.h>
+#endif
+
 #ifdef TRACE_LIBRARY
 
 static struct List packets = {
@@ -64,7 +68,7 @@ static struct ix_mutex psem;
    If trace_entry() returns false, trace_exit() is not invoked.
 
    NOTE: having setjmp, vfork and the like invoke trace_exit will *NOT*
-         work and will cause crashes!!
+	 work and will cause crashes!!
 
    Since I consider placing break points just to get the return value
    a bit overkill, I'll take a less optimal solution: I copy 16 args, this
@@ -78,12 +82,16 @@ trace_entry (int scall, int (*func)(int, ...),
 	     int a9, int aa, int ab, int ac, int ad, int ae, int af)
 {
   struct trace_packet *tp, *ntp;
-  struct Task *me = FindTask (0);
+  struct Task *me = SysBase->ThisTask;
   struct user *u_ptr = getuser(me);
   int te_action, handler_active;
 
   /* for safety, don't do anything if running in Forbid() or Disable() */
+#ifdef __pos__
+  if (me->tc_TDNestCnt >= 0 || me->tc_IDNestCnt >= 0)
+#else
   if (SysBase->TDNestCnt >= 0 || SysBase->IDNestCnt >= 0)
+#endif
     return TRACE_ACTION_JMP;
 
   /* have to do this here, or the handler may get into a deadlock
@@ -97,32 +105,32 @@ trace_entry (int scall, int (*func)(int, ...),
       case SYS_abort:
       case SYS_exit:
       case SYS_longjmp:
-      case SYS_setjmp:		/* can return twice ! */
+      case SYS_setjmp:          /* can return twice ! */
       case SYS_siglongjmp:
       case SYS_sigreturn:
-      case SYS_sigsetjmp:	/* "" */
+      case SYS_sigsetjmp:       /* "" */
       case SYS__exit:
       case SYS__longjmp:
-      case SYS__setjmp:		/* "" */
-      case SYS_vfork:		/* "" */
-      case SYS_ix_vfork:	/* "" */
-      case SYS_ix_vfork_resume:	/* does longjmp-y thing... */
+      case SYS__setjmp:         /* "" */
+      case SYS_vfork:           /* "" */
+      case SYS_ix_vfork:        /* "" */
+      case SYS_ix_vfork_resume: /* does longjmp-y thing... */
       case SYS_execve:
-      case SYS_ix_geta4:	/* special, result is in A4, not D0 ;-)) */
-      case SYS_ix_check_cpu:	/* may not return (but isn't used currently ;-)) */
-      case SYS_ix_startup:	/* those two call longjmp thru _exit */
+      case SYS_ix_geta4:        /* special, result is in A4, not D0 ;-)) */
+      case SYS_ix_check_cpu:    /* may not return (but isn't used currently ;-)) */
+      case SYS_ix_startup:      /* those two call longjmp thru _exit */
       case SYS_ix_exec_entry:
       case SYS_fork:
-      case SYS_floor:		/* have all functions returning more than */
-      case SYS_ceil:		/* 4 bytes be called JMP'y */
+      case SYS_floor:           /* have all functions returning more than */
+      case SYS_ceil:            /* 4 bytes be called JMP'y */
       case SYS_atof:
       case SYS_frexp:
       case SYS_modf:      
       case SYS_ldexp:
-      case SYS_ldiv:		/* functions returning a pointer to a struct in a1 */
+      case SYS_ldiv:            /* functions returning a pointer to a struct in a1 */
       case SYS_div:
       case SYS_inet_makeaddr:
-      case SYS_atan ... SYS_fabs:	/* all the trigo stuff from *transbase.. */
+      case SYS_atan ... SYS_fabs:       /* all the trigo stuff from *transbase.. */
       case SYS_strtod:
 	te_action = TRACE_ACTION_JMP;
 	break;
@@ -140,7 +148,7 @@ trace_entry (int scall, int (*func)(int, ...),
        tp  = ntp)
     {
       if ((!tp->tp_pid || tp->tp_pid == (pid_t) me) &&
-      	  (!tp->tp_syscall || tp->tp_syscall == scall))
+	  (!tp->tp_syscall || tp->tp_syscall == scall))
 	{
 	  Remove ((struct Node *) tp);
 
@@ -153,7 +161,7 @@ trace_entry (int scall, int (*func)(int, ...),
 	     deadlock situations when the port is used for packets.. */
 	  tp->tp_message.mn_ReplyPort = (struct MsgPort *) me;
 	  SetSignal (0, SIGBREAKF_CTRL_E);
-          PutMsg (tp->tp_tracer_port, (struct Message *) tp);
+	  PutMsg (tp->tp_tracer_port, (struct Message *) tp);
 	  Wait (SIGBREAKF_CTRL_E);
 	  /* the last handler wins ;-)) */
 	  te_action = tp->tp_action;
@@ -179,11 +187,11 @@ trace_entry (int scall, int (*func)(int, ...),
       
     case TRACE_ACTION_JSR:
       {
-        int result, error;
+	int result, error;
 
-        /* we now know that there is at least one trace handler
-           interested in this result, so do the extra overhead of
-           calling with (excess) argument copying */
+	/* we now know that there is at least one trace handler
+	   interested in this result, so do the extra overhead of
+	   calling with (excess) argument copying */
 	result = func (a1, a2, a3, a4, a5, a6, a7, a8, a9, aa, ab, ac, ad, ae, af);
 	error  = errno;
 
@@ -191,15 +199,15 @@ trace_entry (int scall, int (*func)(int, ...),
 	*(int *)&func = result;
 	
 	/* and repeat the process of calling the trace handler(s) */
-        ix_mutex_lock(&psem);
-        for (tp  = (struct trace_packet *) packets.lh_Head;
-             (ntp = (struct trace_packet *) tp->tp_message.mn_Node.ln_Succ);
-             tp  = ntp)
-          {
-            if ((!tp->tp_pid || tp->tp_pid == (pid_t) me) &&
-      	        (!tp->tp_syscall || tp->tp_syscall == scall))
+	ix_mutex_lock(&psem);
+	for (tp  = (struct trace_packet *) packets.lh_Head;
+	     (ntp = (struct trace_packet *) tp->tp_message.mn_Node.ln_Succ);
+	     tp  = ntp)
+	  {
+	    if ((!tp->tp_pid || tp->tp_pid == (pid_t) me) &&
+		(!tp->tp_syscall || tp->tp_syscall == scall))
 	      {
-	        Remove ((struct Node *) tp);
+		Remove ((struct Node *) tp);
 
 		tp->tp_is_entry = 0;
 		tp->tp_argv = &scall;

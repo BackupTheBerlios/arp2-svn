@@ -16,7 +16,7 @@
  *  License along with this library; if not, write to the Free
  *  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- *  12/6/97 :	Add OS release check routine
+ *  12/6/97 :   Add OS release check routine
  *             Add machine check routine
  *             David Zaroski <cz253@cleveland.freenet.edu>
  *
@@ -32,8 +32,15 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <exec/resident.h>
 
+#ifdef __pos__
+static char sysname[] = "pOS";
+#elif defined(__MORPHOS__)
+static char sysname[] = "MorphOS";
+#else
 static char sysname[] = "AmigaOS";
+#endif
 static char version[__SYS_NMLN] = "1";
 
 int
@@ -45,52 +52,67 @@ uname (struct utsname *name)
   char machine[__SYS_NMLN] = "";
   int res = -1, err = EFAULT;
   UWORD attnflags;
+  struct Resident *m_res;
 
   if (name)
     {
 
       if (gethostname(&host[0],__SYS_NMLN) == 0)
 	{
-	  sprintf(version, "%d.%d", SysBase->LibNode.lib_Version, SysBase->SoftVer);
-	  attnflags = SysBase->AttnFlags;
-/*
- * Check to see if a "m68k" is present
- */
-	  if (attnflags & 255) sprintf(machine, "%s", "m68k");
+	  
+	  if (m_res = FindResident("MorphOS"))
+	    {
+	      strncpy (name->sysname, "MorphOS", __SYS_NMLN);
+	      strcpy(release, "0.1"); /* shrug */
+	      sprintf(version, "%hd", m_res->rt_Version);
+	      strcpy(machine, "powerpc");
+	    }
+	  else
+	    {
+	      sprintf(version, "%d.%d", SysBase->LibNode.lib_Version, SysBase->SoftVer);
+	      attnflags = SysBase->AttnFlags;
+		
+	      /*
+	       * Check to see if a "m68k" is present
+	       */
+		
+	      if (attnflags & 255) sprintf(machine, "%s", "m68k");
 
-	  switch (SysBase->LibNode.lib_Version)
-	  {
-		case 34:
-			sprintf(release, "%s","1.3");
-			break;
-		case 35:
-			sprintf(release,"%s","1.3");
-			break;
-		case 36:
-			sprintf(release,"%s","2.0");
-			break;
-		case 37:
-			sprintf(release,"%s","2.04");
-			break;
-		case 38:
-			sprintf(release,"%s","2.1");
-			break;
-		case 39:
-			sprintf(release,"%s","3.0");
-			break;
-		case 40:
-			sprintf(release,"%s","3.1");
-			break;
+	      switch (SysBase->LibNode.lib_Version)
+		{
+		  case 34:
+		    sprintf(release, "%s","1.3");
+		    break;
+		  case 35:
+		    sprintf(release,"%s","1.3");
+		    break;
+		  case 36:
+		    sprintf(release,"%s","2.0");
+		    break;
+		  case 37:
+		    sprintf(release,"%s","2.04");
+		    break;
+		  case 38:
+		    sprintf(release,"%s","2.1");
+		    break;
+		  case 39:
+		    sprintf(release,"%s","3.0");
+		    break;
+		  case 40:
+		    sprintf(release,"%s","3.1");
+		    break;
 
-		default:
-			sprintf(release,"%s","unknown");
-			break;
-	  }
-	  strncpy (name->sysname, sysname,__SYS_NMLN);
+		  default:
+		    sprintf(release,"%s","unknown");
+		    break;
+		}
+ 
+	      strncpy (name->sysname, sysname,__SYS_NMLN);
+	    }
 	  strncpy (name->nodename, &host[0],__SYS_NMLN);
-	  strncpy (name->release, release,__SYS_NMLN);
 	  strncpy (name->version, version,__SYS_NMLN);
 	  strncpy (name->machine, machine,__SYS_NMLN);
+	  strncpy (name->release, release,__SYS_NMLN);
 	  res = err = 0;
 	}
     }

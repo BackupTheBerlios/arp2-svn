@@ -17,9 +17,24 @@
  *  License along with this library; if not, write to the Free
  *  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- *  $Id: open.c,v 1.4 1994/06/19 15:14:07 rluebbert Exp $
+ *  $Id: open.c,v 1.2 2000/10/04 17:53:53 emm Exp $
  *
  *  $Log: open.c,v $
+ *  Revision 1.2  2000/10/04 17:53:53  emm
+ *  * Fixed various problems with 68k ixemul programs
+ *  * Completed support for 68k stack management
+ *  * Improved configure/make
+ *  * Fixed some includes bugs
+ *  * Added support for ctors/dtors in crt0.o
+ *  * Added the missing _err/_warn
+ *  * Compiled the ixpipe: handler and some tools
+ *
+ *  Revision 1.1.1.1  2000/05/07 19:38:24  emm
+ *  Imported sources
+ *
+ *  Revision 1.1.1.1  2000/04/29 00:46:46  nobody
+ *  Initial import
+ *
  *  Revision 1.4  1994/06/19  15:14:07  rluebbert
  *  *** empty log message ***
  *
@@ -102,24 +117,26 @@ open(char *name, int mode, int perms)
 	  f->f_stb.st_mode = (perms & ~u.u_cmask);
 	  f->f_stb_dirty |= FSDF_MODE;
 
-          if (!muBase)
-            {
-              f->f_stb.st_uid = geteuid();
-              f->f_stb.st_gid = getegid();
-              if (f->f_stb.st_uid != (uid_t)(-2) ||
-                  f->f_stb.st_gid != (gid_t)(-2))
-                f->f_stb_dirty |= FSDF_OWNER;
-            }
+	  if (!muBase)
+	    {
+	      f->f_stb.st_uid = geteuid();
+	      f->f_stb.st_gid = getegid();
+	      if (f->f_stb.st_uid != (uid_t)(-2) ||
+		  f->f_stb.st_gid != (gid_t)(-2))
+		f->f_stb_dirty |= FSDF_OWNER;
+	    }
 	}
     }
 
   f->f_flags = mode & FMASK;
   f->f_ttyflags = IXTTY_ICRNL | IXTTY_OPOST | IXTTY_ONLCR;
 
+#ifndef __pos__
   /* initialise the packet. The only thing needed at this time is its
    * header, filling in of port, action & args will be done when it's
    * used */
   __init_std_packet (&f->f_sp);
+#endif
   __init_std_packet ((void *)&f->f_select_sp);
 
   /* check for case-sensitive filename */
@@ -135,12 +152,12 @@ open(char *name, int mode, int perms)
   if (!late_stat && S_ISDIR (f->f_stb.st_mode) && !(mode & FWRITE))
     {
       if (convert_dir (f, name, omask))
-        {
-          ix_mutex_unlock(&open_sem);
-          goto ret_ok;
-        }
+	{
+	  ix_mutex_unlock(&open_sem);
+	  goto ret_ok;
+	}
       else
-        {
+	{
 	  goto error;
 	}
     }
@@ -157,7 +174,7 @@ open(char *name, int mode, int perms)
     case O_CREAT|O_EXCL:
     case O_CREAT|O_EXCL|O_TRUNC:
       if (! late_stat)
-        {
+	{
 	  error = EEXIST;
 	  goto error;
 	}
@@ -180,11 +197,11 @@ open(char *name, int mode, int perms)
       ptyindex = (name[9] - 'p') * 16 + name[10] - (name[10] >= 'a' ? 'a' - 10 : '0');
       ix_lock_base();
       if (ix.ix_ptys[ptyindex] & mask)
-        {
-          ix_unlock_base();
-          error = EIO;
-          goto error;
-        }
+	{
+	  ix_unlock_base();
+	  error = EIO;
+	  goto error;
+	}
       ptymask = mask;
       ix.ix_ptys[ptyindex] |= (mask & IX_PTY_OPEN); /* mark pty in use */
       ix_unlock_base();
@@ -203,18 +220,18 @@ open(char *name, int mode, int perms)
 
     if (! fh)
       {
-        int err = IoErr();
+	int err = IoErr();
 
-        /* For those handlers that do not understand MODE_READWRITE (e.g. PAR: ) */
-        if (err == ERROR_ACTION_NOT_KNOWN && amode == MODE_READWRITE)
-        {
-          amode = MODE_NEWFILE;
-        }
-        else
-        {
-          error = __ioerr_to_errno (err);
-          goto error;
-        }
+	/* For those handlers that do not understand MODE_READWRITE (e.g. PAR: ) */
+	if (err == ERROR_ACTION_NOT_KNOWN && amode == MODE_READWRITE)
+	{
+	  amode = MODE_NEWFILE;
+	}
+	else
+	{
+	  error = __ioerr_to_errno (err);
+	  goto error;
+	}
       }
   } while (!fh);
 
@@ -252,20 +269,20 @@ ret_ok:
       && f->f_stb.st_size < ix.ix_membuf_limit && mode == FREAD)
     {
       void *buf;
-      
+
       /* try to obtain the needed memory */
       buf = (void *) kmalloc (f->f_stb.st_size);
       if (buf)
 	if (syscall (SYS_read, fd, buf, f->f_stb.st_size) == f->f_stb.st_size)
 	  {
 	    __Close (CTOBPTR (f->f_fh));
-	    f->f_type 		= DTYPE_MEM;
-	    f->f_mf.mf_offset 	= 0;
-	    f->f_mf.mf_buffer 	= buf;
-	    f->f_read		= __mread;
-	    f->f_close 		= __mclose;
-	    f->f_ioctl		= 0;
-	    f->f_select		= __mselect;
+	    f->f_type           = DTYPE_MEM;
+	    f->f_mf.mf_offset   = 0;
+	    f->f_mf.mf_buffer   = buf;
+	    f->f_read           = __mread;
+	    f->f_close          = __mclose;
+	    f->f_ioctl          = 0;
+	    f->f_select         = __mselect;
 	  }
 	else
 	  kfree (buf);

@@ -17,9 +17,18 @@
  *  License along with this library; if not, write to the Free
  *  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- *  $Id: mathsup.c,v 1.6 1994/06/25 12:15:02 rluebbert Exp $
+ *  $Id: mathsup.c,v 1.2 2001/03/28 20:37:15 emm Exp $
  *
  *  $Log: mathsup.c,v $
+ *  Revision 1.2  2001/03/28 20:37:15  emm
+ *  Fixed math functions.
+ *
+ *  Revision 1.1.1.1  2000/05/07 19:38:21  emm
+ *  Imported sources
+ *
+ *  Revision 1.1.1.1  2000/04/29 00:47:24  nobody
+ *  Initial import
+ *
  *  Revision 1.6  1994/06/25  12:15:02  rluebbert
  *  removed errno from pow. Probably not a good idea,
  *  but I'm tired of patching stuff right now.
@@ -36,7 +45,152 @@
  *
  */
 
-#ifndef __HAVE_68881__
+#ifdef __MORPHOS__
+
+#include <ixemul.h>
+#include <ixmath.h>
+
+double sincos(double* pf2, double parm)
+{
+    *(double*)&REG_D0 = parm;
+    REG_A0 = (LONG)pf2;
+    REG_A6 = (LONG)MathIeeeDoubTransBase;
+    REG_D0 = MyEmulHandle->EmulCallDirectOS(-0x36);
+    return *(double*)&REG_D0;
+}
+
+/* GRRRR Commodore does it the other way round... */
+double const pow(double arg, double exp)
+{
+    *(double*)&REG_D0 = arg;
+    *(double*)&REG_D2 = exp;
+    REG_A6 = (LONG)MathIeeeDoubTransBase;
+    REG_D0 = MyEmulHandle->EmulCallDirectOS(-0x5a);
+    return *(double*)&REG_D0;
+}
+
+double const atan(double parm)
+{
+    *(double*)&REG_D0 = parm;
+    REG_A6 = (LONG)MathIeeeDoubTransBase;
+    REG_D0 = MyEmulHandle->EmulCallDirectOS(-0x1e);
+    return *(double*)&REG_D0;
+}
+
+double const sin(double parm)
+{
+    *(double*)&REG_D0 = parm;
+    REG_A6 = (LONG)MathIeeeDoubTransBase;
+    REG_D0 = MyEmulHandle->EmulCallDirectOS(-0x24);
+    return *(double*)&REG_D0;
+}
+
+double const cos(double parm)
+{
+    *(double*)&REG_D0 = parm;
+    REG_A6 = (LONG)MathIeeeDoubTransBase;
+    REG_D0 = MyEmulHandle->EmulCallDirectOS(-0x2a);
+    return *(double*)&REG_D0;
+}
+
+double const tan(double parm)
+{
+    *(double*)&REG_D0 = parm;
+    REG_A6 = (LONG)MathIeeeDoubTransBase;
+    REG_D0 = MyEmulHandle->EmulCallDirectOS(-0x30);
+    return *(double*)&REG_D0;
+}
+
+double const sinh(double parm)
+{
+    *(double*)&REG_D0 = parm;
+    REG_A6 = (LONG)MathIeeeDoubTransBase;
+    REG_D0 = MyEmulHandle->EmulCallDirectOS(-0x3c);
+    return *(double*)&REG_D0;
+}
+
+double const cosh(double parm)
+{
+    *(double*)&REG_D0 = parm;
+    REG_A6 = (LONG)MathIeeeDoubTransBase;
+    REG_D0 = MyEmulHandle->EmulCallDirectOS(-0x42);
+    return *(double*)&REG_D0;
+}
+
+double const tanh(double parm)
+{
+    *(double*)&REG_D0 = parm;
+    REG_A6 = (LONG)MathIeeeDoubTransBase;
+    REG_D0 = MyEmulHandle->EmulCallDirectOS(-0x48);
+    return *(double*)&REG_D0;
+}
+
+double const exp(double parm)
+{
+    *(double*)&REG_D0 = parm;
+    REG_A6 = (LONG)MathIeeeDoubTransBase;
+    REG_D0 = MyEmulHandle->EmulCallDirectOS(-0x4e);
+    return *(double*)&REG_D0;
+}
+
+double const log(double parm)
+{
+    *(double*)&REG_D0 = parm;
+    REG_A6 = (LONG)MathIeeeDoubTransBase;
+    REG_D0 = MyEmulHandle->EmulCallDirectOS(-0x54);
+    return *(double*)&REG_D0;
+}
+
+double const sqrt(double parm)
+{
+    *(double*)&REG_D0 = parm;
+    REG_A6 = (LONG)MathIeeeDoubTransBase;
+    REG_D0 = MyEmulHandle->EmulCallDirectOS(-0x60);
+    return *(double*)&REG_D0;
+}
+
+double const asin(double parm)
+{
+    *(double*)&REG_D0 = parm;
+    REG_A6 = (LONG)MathIeeeDoubTransBase;
+    REG_D0 = MyEmulHandle->EmulCallDirectOS(-0x72);
+    return *(double*)&REG_D0;
+}
+
+double const acos(double parm)
+{
+    *(double*)&REG_D0 = parm;
+    REG_A6 = (LONG)MathIeeeDoubTransBase;
+    REG_D0 = MyEmulHandle->EmulCallDirectOS(-0x78);
+    return *(double*)&REG_D0;
+}
+
+double const log10(double parm)
+{
+    *(double*)&REG_D0 = parm;
+    REG_A6 = (LONG)MathIeeeDoubTransBase;
+    REG_D0 = MyEmulHandle->EmulCallDirectOS(-0x7e);
+    return *(double*)&REG_D0;
+}
+
+double const floor(double parm)
+{
+    *(double*)&REG_D0 = parm;
+    REG_A6 = (LONG)MathIeeeDoubBasBase;
+    REG_D0 = MyEmulHandle->EmulCallDirectOS(-0x5a);
+    return *(double*)&REG_D0;
+}
+
+double const ceil(double parm)
+{
+    *(double*)&REG_D0 = parm;
+    REG_A6 = (LONG)MathIeeeDoubBasBase;
+    REG_D0 = MyEmulHandle->EmulCallDirectOS(-0x60);
+    return *(double*)&REG_D0;
+}
+
+
+#elif !defined(__HAVE_68881__)
 
 #include <ixemul.h>
 #include <ixmath.h>
@@ -322,7 +476,7 @@ const double pow(double x, double y)
     }
 
    __asm ("fintrz%.x %1,%0"
-	   : "=f" (value)			/* integer-valued float */
+	   : "=f" (value)                       /* integer-valued float */
 	   : "f" (y));
 
    if (y != value)

@@ -2,7 +2,7 @@
  * Copyright (c) 1995 Leonard Norrgard.  All rights reserved.
  * Copyright (c) 1994 Christopher G. Demetriou.  All rights reserved.
  * Copyright (c) 1982, 1986, 1989, 1993
- *	The Regents of the University of California.  All rights reserved.
+ *      The Regents of the University of California.  All rights reserved.
  * (c) UNIX System Laboratories, Inc.
  * All or some portions of this file are derived from material licensed
  * to the University of California by American Telephone and Telegraph
@@ -19,8 +19,8 @@
  *    documentation and/or other materials provided with the distribution.
  * 3. All advertising materials mentioning features or use of this software
  *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
+ *      This product includes software developed by the University of
+ *      California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -37,15 +37,15 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- *	from: @(#)sys_process.c	8.1 (Berkeley) 6/10/93
+ *      from: @(#)sys_process.c 8.1 (Berkeley) 6/10/93
  */
 
 /*
  * References:
- *	(1) Bach's "The Design of the UNIX Operating System",
- *	(2) sys/miscfs/procfs from UCB's 4.4BSD-Lite distribution,
- *	(3) the "4.4BSD Programmer's Reference Manual" published
- *		by USENIX and O'Reilly & Associates.
+ *      (1) Bach's "The Design of the UNIX Operating System",
+ *      (2) sys/miscfs/procfs from UCB's 4.4BSD-Lite distribution,
+ *      (3) the "4.4BSD Programmer's Reference Manual" published
+ *              by USENIX and O'Reilly & Associates.
  * The 4.4BSD PRM does a reasonably good job of documenting what the various
  * ptrace() requests should actually do, and its text is quoted several times
  * in this file.
@@ -62,6 +62,9 @@
 #include <sys/wait.h>
 #include <exec/execbase.h>
 
+#ifdef __pos__
+#define TypeOfMem(a) pOS_TypeOfMem((a), TOMEMMD_Physics)
+#endif
 
 int process_read_regs (struct user *p, struct reg *regs)
 {
@@ -124,8 +127,8 @@ int process_sstep (struct user *t, int sstep)
   if (sstep)
     if (t->u_regs == NULL)
       {
-        errno = EIO;
-        return -1;
+	errno = EIO;
+	return -1;
       }
     else
       t->u_regs->r_sr |= 0x8000;
@@ -147,6 +150,7 @@ int process_set_pc (struct user *t, caddr_t addr)
   return -1;
 }
 
+#if !defined(NATIVE_MORPHOS) && !defined(MORPHOS)
 static void ptrace_install_vector(void)
 {
   extern void install_vector(void);  /* trap.s */
@@ -160,10 +164,11 @@ static void ptrace_restore_vector(void)
 
   Supervisor((void *)restore_vector);
 }
+#endif
 
 int ptrace (int request, pid_t pid, caddr_t addr, int data)
 {
-  struct Task *task, *me = FindTask(0);
+  struct Task *task, *me = SysBase->ThisTask;
   struct user *t, *u_ptr = getuser(me);
   int step;
   int error;
@@ -174,28 +179,30 @@ int ptrace (int request, pid_t pid, caddr_t addr, int data)
 	struct Library     ixnet_lib;
 	unsigned char      ix_myflags;
 	unsigned char      ix_pad;
-	BPTR		   ix_seg_list;
+	BPTR               ix_seg_list;
       };
 
       static struct ixinfo info;
-      extern void sig_trampoline();
-      extern void sig_launch();
-        
+      /*extern void sig_trampoline();
+      extern void sig_launch();*/
+	
       info.version = 1;
       info.ixemul_seglist = ix.ix_seg_list;
       info.ixnet_seglist = (u.u_ixnetbase ? ((struct small_ixnet_base *)(u.u_ixnetbase))->ix_seg_list : NULL);
-      info.sigtramp_start = (long)sig_trampoline;
-      info.sigtramp_end = (long)sig_launch;
+      info.sigtramp_start = 0/*(long)sig_trampoline*/;
+      info.sigtramp_end = 0/*(long)sig_launch*/;
+#if !defined(NATIVE_MORPHOS) && !defined(MORPHOS)
       if (has_68020_or_up)
-        {
-          info.install_vector = ptrace_install_vector;
-          info.restore_vector = ptrace_restore_vector;
-        }
+	{
+	  info.install_vector = ptrace_install_vector;
+	  info.restore_vector = ptrace_restore_vector;
+	}
       else
-        {
-          info.install_vector = NULL;
-          info.restore_vector = NULL;
-        }
+#endif
+	{
+	  info.install_vector = NULL;
+	  info.restore_vector = NULL;
+	}
       return (int)&info;
     }
   else if (request == PT_TRACE_ME)
@@ -204,10 +211,10 @@ int ptrace (int request, pid_t pid, caddr_t addr, int data)
     { 
       /* have to check if the task really exists */
       if (pid == 0 || (task = pfind(pid)) == NULL)
-        {
-          errno = ESRCH;
-          return -1;
-        }
+	{
+	  errno = ESRCH;
+	  return -1;
+	}
     }
   else
     task = (struct Task *) pid;
@@ -250,8 +257,8 @@ int ptrace (int request, pid_t pid, caddr_t addr, int data)
       case PT_KILL:
       case PT_CONTINUE:
       case PT_STEP:
-        KPrintF("ptrace (%s, pid=%lx, addr=%lx , data=%lx);\n",
-	        req, pid, addr, data);
+	KPrintF("ptrace (%s, pid=%lx, addr=%lx , data=%lx);\n",
+		req, pid, addr, data);
       }
   }
 #endif
@@ -274,17 +281,17 @@ int ptrace (int request, pid_t pid, caddr_t addr, int data)
       /* You can't attach to a process if:
 	 (1) it's the process that's doing the attaching or  */
       if (t == &u)
-        {
-          errno = EPERM;
-          return -1;
-        }
+	{
+	  errno = EPERM;
+	  return -1;
+	}
 
       /* (2) it's already being traced.  */
       if (t->p_flag & STRC)
-        {
-          errno = EPERM;
-          return -1;
-        }
+	{
+	  errno = EPERM;
+	  return -1;
+	}
       break;
 
     case PT_READ_I:
@@ -301,33 +308,33 @@ int ptrace (int request, pid_t pid, caddr_t addr, int data)
 
       /* (1) It's not being traced at all,  */
       if (!(t->p_flag & STRC))
-        {
-          errno = EPERM;
-          return -1;
-        }
+	{
+	  errno = EPERM;
+	  return -1;
+	}
 
       /* (2) it's not being traced by _you_, or  */
       if (getuser(t->p_pptr) != &u)
-        {
-          errno = EPERM;
-          return -1;
-        }
+	{
+	  errno = EPERM;
+	  return -1;
+	}
 
       /* (3) it's not currently stopped.  */
       if (t->p_stat != SSTOP
 	  || !(t->p_flag & SWTED))
-        {
-          errno = EPERM;
-          return -1;
-        }
+	{
+	  errno = EPERM;
+	  return -1;
+	}
       break;
 
     case PT_STEP:
     case PT_GETREGS:
     case PT_SETREGS:
-    case PT_GETSEGS:	/* you can always do this */
-    case PT_GETEXENAME:	/* you can always do this */
-    case PT_GETA4:	/* you can always do this */
+    case PT_GETSEGS:    /* you can always do this */
+    case PT_GETEXENAME: /* you can always do this */
+    case PT_GETA4:      /* you can always do this */
       break;
 
     default:
@@ -350,22 +357,22 @@ int ptrace (int request, pid_t pid, caddr_t addr, int data)
     case PT_READ_D:
       /* Check whether this is valid memory */
       if (((int)addr & 1) || addr == 0 || ((TypeOfMem(addr)) == 0))
-        {
-          errno = EIO;
-          return -1;
-        }
+	{
+	  errno = EIO;
+	  return -1;
+	}
       return *((int *)addr);
 
     case PT_WRITE_I:
     case PT_WRITE_D:
       /* Check whether this is valid memory */
       if (((int)addr & 1) || addr == 0 || ((TypeOfMem(addr)) == 0))
-        {
-          errno = EIO;
-          return -1;
-        }
+	{
+	  errno = EIO;
+	  return -1;
+	}
       *((int *)addr) = data;
-      CacheClearE(addr, 4, CACRF_ClearI | CACRF_ClearD);
+      __flush_cache(addr, 4);
       return 0;
 
     case PT_GETSEGS:
@@ -402,10 +409,10 @@ int ptrace (int request, pid_t pid, caddr_t addr, int data)
 
       /* Check that data is a valid signal number or zero.  */
       if (data < 0 || data >= NSIG)
-        {
-          errno = EIO;
-          return -1;
-        }
+	{
+	  errno = EIO;
+	  return -1;
+	}
 
       /* Arrange for a single-step, if that's requested and possible.  */
       if ((error = process_sstep (t, step)))
@@ -465,7 +472,7 @@ int ptrace (int request, pid_t pid, caddr_t addr, int data)
 
 	/* give process back to original parent */
 	if (t->p_opptr != t->p_pptr)
-        {
+	{
 	  if (t->p_opptr && pfind((pid_t)t->p_opptr))
 	    proc_reparent((struct Process *)task, t->p_opptr);
 	}
@@ -486,5 +493,5 @@ int ptrace (int request, pid_t pid, caddr_t addr, int data)
       errno = EIO;
       return -1;
     }
-  return 0;	/* correct return value? */
+  return 0;     /* correct return value? */
 }

@@ -39,6 +39,9 @@ struct lock_vec {
 static int
 __lock_func (struct lockinfo *info, struct lock_vec *lv, int *error)
 {
+#ifdef __pos__
+  info->result = (BPTR)pOS_LockObject((void *)info->parent_lock, info->bstr, lv->mode);
+#else
   struct StandardPacket *sp = &info->sp;
 
   sp->sp_Pkt.dp_Type = ACTION_LOCATE_OBJECT;
@@ -49,6 +52,7 @@ __lock_func (struct lockinfo *info, struct lock_vec *lv, int *error)
   PutPacket (info->handler, sp);
   __wait_sync_packet (sp);
   info->result = sp->sp_Pkt.dp_Res1;
+#endif
 
   *error = info->result <= 0;
   

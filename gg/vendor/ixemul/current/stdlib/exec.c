@@ -12,8 +12,8 @@
  *    documentation and/or other materials provided with the distribution.
  * 3. All advertising materials mentioning features or use of this software
  *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
+ *      This product includes software developed by the University of
+ *      California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -32,12 +32,13 @@
  */
 
 #if defined(LIBC_SCCS) && !defined(lint)
-static char sccsid[] = "@(#)exec.c	5.9 (Berkeley) 6/17/91";
+static char sccsid[] = "@(#)exec.c      5.9 (Berkeley) 6/17/91";
 #endif /* LIBC_SCCS and not lint */
 
 #define _KERNEL
 #include "ixemul.h"
 #include "kprintf.h"
+#include "my_varargs.h"
 
 #include <errno.h>
 #include <unistd.h>
@@ -45,15 +46,9 @@ static char sccsid[] = "@(#)exec.c	5.9 (Berkeley) 6/17/91";
 #include <string.h>
 #include <paths.h>
 
-#ifdef __STDC__
-#include <stdarg.h>
-#else
-#include <varargs.h>
-#endif
-
 static char **
 buildargv(ap, arg, envpp)
-	va_list ap;
+	my_va_list ap;
 	const char *arg;
 	char ***envpp;
 {
@@ -62,8 +57,8 @@ buildargv(ap, arg, envpp)
 
 	for (off = max = 0;; ++off) {
 		if (off >= max) {
-			max += 50;	/* Starts out at 0. */
-			max *= 2;	/* Ramp up fast. */
+			max += 50;      /* Starts out at 0. */
+			max *= 2;       /* Ramp up fast. */
 			if (!(argv = realloc(argv, max * sizeof(char *))))
 				return(NULL);
 			if (off == 0) {
@@ -71,62 +66,104 @@ buildargv(ap, arg, envpp)
 				off = 1;
 			}
 		}
-		if (!(argv[off] = va_arg(ap, char *)))
+		if (!(argv[off] = my_va_arg(ap, char *)))
 			break;
 	}
 	/* Get environment pointer if user supposed to provide one. */
 	if (envpp)
-		*envpp = va_arg(ap, char **);
+		*envpp = my_va_arg(ap, char **);
 	return(argv);
 }
 
 int execl(const char *name, const char *arg, ...)
 {
-        usetup;
-	va_list ap;
+	usetup;
+	my_va_list ap;
 	int sverrno;
 	char **argv;
 
-	va_start(ap, arg);
+	my_va_start(ap, arg);
 	if ((argv = buildargv(ap, arg, (char ***)NULL)))
 		(void)execve(name, argv, *u.u_environ);
-	va_end(ap);
+	my_va_end(ap);
 	sverrno = errno;
 	free(argv);
 	errno = sverrno;
 	KPRINTF (("&errno = %lx, errno = %ld\n", &errno, errno));
 	return(-1);
 }
+
+#ifdef NATIVE_MORPHOS
+
+int _varargs68k_execl(const char *name, const char *arg, char *ap1)
+{
+	usetup;
+	my_va_list ap;
+	int sverrno;
+	char **argv;
+
+	my_va_init_68k(ap, ap1);
+	if ((argv = buildargv(ap, arg, (char ***)NULL)))
+		(void)execve(name, argv, *u.u_environ);
+	sverrno = errno;
+	free(argv);
+	errno = sverrno;
+	KPRINTF (("&errno = %lx, errno = %ld\n", &errno, errno));
+	return(-1);
+}
+
+#endif
 
 int execle(const char *name, const char *arg, ...)
 {
-        usetup;
-	va_list ap;
+	usetup;
+	my_va_list ap;
 	int sverrno;
 	char **argv, **envp;
 
-	va_start(ap, arg);
+	my_va_start(ap, arg);
 	if ((argv = buildargv(ap, arg, &envp)))
 		(void)execve(name, argv, envp);
-	va_end(ap);
+	my_va_end(ap);
 	sverrno = errno;
 	free(argv);
 	errno = sverrno;
 	KPRINTF (("&errno = %lx, errno = %ld\n", &errno, errno));
 	return(-1);
 }
+
+#ifdef NATIVE_MORPHOS
+
+int _varargs68k_execle(const char *name, const char *arg, char *ap1)
+{
+	usetup;
+	my_va_list ap;
+	int sverrno;
+	char **argv, **envp;
+
+	my_va_init_68k(ap, ap1);
+	if ((argv = buildargv(ap, arg, &envp)))
+		(void)execve(name, argv, envp);
+	sverrno = errno;
+	free(argv);
+	errno = sverrno;
+	KPRINTF (("&errno = %lx, errno = %ld\n", &errno, errno));
+	return(-1);
+}
+
+#endif
 
 int execlp(const char *name, const char *arg, ...)
 {
-        usetup;
-	va_list ap;
+	usetup;
+	my_va_list ap;
 	int sverrno;
 	char **argv;
 
-	va_start(ap, arg);
+	my_va_start(ap, arg);
 	if ((argv = buildargv(ap, arg, (char ***)NULL)))
 		(void)execvp(name, argv);
-	va_end(ap);
+	my_va_end(ap);
 	sverrno = errno;
 	free(argv);
 	errno = sverrno;
@@ -134,9 +171,30 @@ int execlp(const char *name, const char *arg, ...)
 	return(-1);
 }
 
+#ifdef NATIVE_MORPHOS
+
+int _varargs68k_execlp(const char *name, const char *arg, char *ap1)
+{
+	usetup;
+	my_va_list ap;
+	int sverrno;
+	char **argv;
+
+	my_va_init_68k(ap, ap1);
+	if ((argv = buildargv(ap, arg, (char ***)NULL)))
+		(void)execvp(name, argv);
+	sverrno = errno;
+	free(argv);
+	errno = sverrno;
+	KPRINTF (("&errno = %lx, errno = %ld\n", &errno, errno));
+	return(-1);
+}
+
+#endif
+
 int execv(const char *name, char * const *argv)
 {
-        usetup;
+	usetup;
 
 	execve(name, argv, *u.u_environ);
 	return(-1);
@@ -144,11 +202,13 @@ int execv(const char *name, char * const *argv)
 
 int execvp(const char *name, char * const *argv)
 {
-        usetup;
+	usetup;
 	register int lp, ln;
 	register char *p;
 	int eacces, etxtbsy;
 	char *bp, *cur, *path, buf[MAXPATHLEN];
+
+	KPRINTF(("execvp(%s)\n", name));
 
 	eacces = etxtbsy = 0;
 	/* If it's an absolute or relative path name, it's easy. */
@@ -166,9 +226,13 @@ int execvp(const char *name, char * const *argv)
 	execv (name, argv);
 	/* if we get here, the execv() failed. So start magic ;-)) */
 	
+	KPRINTF(("execv failed\n"));
+
 	/* only continue if execv didn't find the program. */
 	if (errno != ENOENT)
 	  return -1;
+
+	KPRINTF(("searching path\n"));
 
 	/* Get the path we're searching. */
 	if (!(path = getenv("PATH")))
@@ -202,7 +266,7 @@ int execvp(const char *name, char * const *argv)
 		buf[lp] = '/';
 		bcopy(name, buf + lp + 1, ln);
 		buf[lp + ln + 1] = '\0';
-retry:		execve(bp, argv, *u.u_environ);
+retry:          execve(bp, argv, *u.u_environ);
 		switch(errno) {
 		case EACCES:
 			eacces = 1;
@@ -236,7 +300,7 @@ retry:		execve(bp, argv, *u.u_environ);
 	else if (!errno)
 		errno = ENOENT;
 	KPRINTF (("&errno = %lx, errno = %ld\n", &errno, errno));
-done:	if (path)
+done:   if (path)
 		free(path);
 	return(-1);
 }

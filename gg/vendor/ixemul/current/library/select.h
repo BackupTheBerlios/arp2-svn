@@ -51,22 +51,26 @@
  * Return a signal-mask to be used in Wait() that indicates that this file
  * has changed mode.
  */
-#define SELCMD_PREPARE	1
+#define SELCMD_PREPARE  1
 
 /* return whether io_mode on this file won't block */
-#define SELCMD_CHECK	2
+#define SELCMD_CHECK    2
 
 /* same thing, but for a poll */
-#define SELCMD_POLL	10
+#define SELCMD_POLL     10
 
 /*
  * possible values for io_mode
  */
 
-#define SELMODE_IN	0
-#define SELMODE_OUT	1
-#define SELMODE_EXC	2
+#define SELMODE_IN      0
+#define SELMODE_OUT     1
+#define SELMODE_EXC     2
 
+#ifdef __pos__
+#define SELPKT_IN_USE(f) ((f)->f_select_sp.dr_Message.mn_ReplyPort)
+#else
 #define SELPKT_IN_USE(f) ((f)->f_select_sp.sp_Pkt.dp_Port)
+#endif
 
 #endif

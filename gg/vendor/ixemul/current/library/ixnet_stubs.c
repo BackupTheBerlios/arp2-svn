@@ -16,9 +16,15 @@
  *  License along with this library; if not, write to the Free
  *  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- *  $Id:$
+ *  $Id: ixnet_stubs.c,v 1.1.1.1 2000/05/07 19:38:12 emm Exp $
  *
- *  $Log:$
+ *  $Log: ixnet_stubs.c,v $
+ *  Revision 1.1.1.1  2000/05/07 19:38:12  emm
+ *  Imported sources
+ *
+ *  Revision 1.1.1.1  2000/04/29 00:47:47  nobody
+ *  Initial import
+ *
  */
 
 
@@ -36,8 +42,8 @@
  *    documentation and/or other materials provided with the distribution.
  * 3. All advertising materials mentioning features or use of this software
  *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
+ *      This product includes software developed by the University of
+ *      California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -169,7 +175,7 @@ setservent(int f)
     if (u.u_serv_fp == NULL) {
       u.u_serv_fp = fopen(_PATH_SERVICES, "r" );
       if (!u.u_serv_fp)
-        return;
+	return;
     }
     else
       rewind(u.u_serv_fp);
@@ -214,8 +220,8 @@ getservent(void)
       u.u_serv_aliases = malloc(MAXALIASES * sizeof(char *));
     if (u.u_serv_line == NULL || u.u_serv_aliases == NULL)
       {
-        errno = ENOMEM;
-        return NULL;
+	errno = ENOMEM;
+	return NULL;
       }
     if (u.u_serv_fp == NULL && (u.u_serv_fp = fopen(_PATH_SERVICES, "r" )) == NULL) {
       return NULL;
@@ -254,14 +260,14 @@ again1:
 
     while (cp && *cp) {
       if (*cp == ' ' || *cp == '\t') {
-        cp++;
-        continue;
+	cp++;
+	continue;
       }
       if (q < &u.u_serv_aliases[MAXALIASES - 1])
-        *q++ = cp;
+	*q++ = cp;
       cp = strpbrk(cp, " \t");
       if (cp != NULL)
-        *cp++ = '\0';
+	*cp++ = '\0';
     }
     *q = NULL;
     return (&u.u_serv);
@@ -283,16 +289,16 @@ getservbyname(const char *name, const char *proto)
     setservent(u.u_serv_stayopen);
     while ((p = getservent())) {
       if (strcmp(name, p->s_name) == 0)
-        goto gotservname;
+	goto gotservname;
 
       for (cp = p->s_aliases; *cp; cp++)
-        if (strcmp(name, *cp) == 0)
-          goto gotservname;
+	if (strcmp(name, *cp) == 0)
+	  goto gotservname;
 
-        continue;
+	continue;
 gotservname:
       if (proto == 0 || strcmp(p->s_proto, proto) == 0)
-        break;
+	break;
     }
     if (!u.u_serv_stayopen)
     endservent();
@@ -384,7 +390,7 @@ getprotobyname(const char *name)
     usetup;
 
     if (u.u_ixnetbase) {
-        return (struct protoent *)netcall(NET_getprotobyname, name);
+	return (struct protoent *)netcall(NET_getprotobyname, name);
     }
     else {
 	register struct protoent *p;
@@ -451,15 +457,15 @@ getprotoent(void)
 	char *p;
 	register char *cp, **q;
 
-        if (u.u_proto_line == NULL)
-          u.u_proto_line = malloc(BUFSIZ + 1);
-        if (u.u_proto_aliases == NULL)
-          u.u_proto_aliases = malloc(MAXALIASES * sizeof(char *));
-        if (u.u_proto_line == NULL || u.u_proto_aliases == NULL)
-          {
-            errno = ENOMEM;
-            return NULL;
-          }
+	if (u.u_proto_line == NULL)
+	  u.u_proto_line = malloc(BUFSIZ + 1);
+	if (u.u_proto_aliases == NULL)
+	  u.u_proto_aliases = malloc(MAXALIASES * sizeof(char *));
+	if (u.u_proto_line == NULL || u.u_proto_aliases == NULL)
+	  {
+	    errno = ENOMEM;
+	    return NULL;
+	  }
 	if (u.u_proto_fp == NULL && (u.u_proto_fp = fopen(_PATH_PROTOCOLS, "r" )) == NULL) {
 		return (NULL);
 	}

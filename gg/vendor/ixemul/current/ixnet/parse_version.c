@@ -30,11 +30,11 @@ int main(int argc, char **argv)
 #ifndef __VERSION_H__
 #define __VERSION_H__
 
-#define IXNET_NAME	   \"ixnet.library\"
-#define IXNET_IDSTRING	   \"ixnet %d.%d [%s] (%d.%d.%d)\"
-#define IXNET_VERSION	   %d
-#define IXNET_REVISION	   %d
-#define IXNET_PRIORITY	   0
+#define IXNET_NAME         \"ixnet.library\"
+#define IXNET_IDSTRING     \"ixnet %d.%d [%s] (%d.%d.%d)\"
+#define IXNET_VERSION      %d
+#define IXNET_REVISION     %d
+#define IXNET_PRIORITY     0
 
 #endif
 ";
@@ -55,7 +55,11 @@ int main(int argc, char **argv)
   if (tmp[0])
     strcat(tmp, ", ");
 
-#if defined(mc68060)
+#if defined(CPU_604e)
+  strcat(tmp, "604e");
+#elif defined(CPU_603e)
+  strcat(tmp, "603e");
+#elif defined(mc68060)
   strcat(tmp, "68060");
 #elif defined(mc68040)
   strcat(tmp, "68040");
@@ -65,7 +69,13 @@ int main(int argc, char **argv)
   strcat(tmp, "68000");
 #endif
 
+#ifdef __pos__
+  strcat(tmp, ", pos");
+#elif defined(NATIVE_MORPHOS)
+  strcat(tmp, ", morphos");
+#else
   strcat(tmp, ", amigaos");
+#endif
 
   printf(format, major, minor, tmp, day, month, year, major, minor);
   return 0;

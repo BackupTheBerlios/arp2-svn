@@ -17,9 +17,24 @@
  *  License along with this library; if not, write to the Free
  *  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- *  $Id: ix_expunge.c,v 1.9 1994/07/07 15:08:35 rluebbert Exp $
+ *  $Id: ix_expunge.c,v 1.3 2001/06/01 17:40:10 emm Exp $
  *
  *  $Log: ix_expunge.c,v $
+ *  Revision 1.3  2001/06/01 17:40:10  emm
+ *  Simplified signal handling. Minor old fixes.
+ *
+ *  Revision 1.2  2000/06/20 22:17:21  emm
+ *  First attempt at a native MorphOS ixemul
+ *
+ *  Revision 1.1.1.1  2000/05/07 19:38:06  emm
+ *  Imported sources
+ *
+ *  Revision 1.2  2000/05/04 19:33:34  nobody
+ *  Replaced tc_Launch polling by exceptions
+ *
+ *  Revision 1.1.1.1  2000/04/29 00:48:10  nobody
+ *  Initial import
+ *
  *  Revision 1.9  1994/07/07  15:08:35  rluebbert
  *  10*NOFILE -> NOFILE
  *
@@ -49,24 +64,48 @@
 #define _KERNEL
 #include "ixemul.h"
 
+#ifndef NATIVE_MORPHOS
+void delete_framemsgs();
+#endif
+
 void ix_expunge (struct ixemul_base *ixbase)
 {
-  extern long vector_install_count;	/* from trap.s */
-  extern void *restore_vector;		/* from trap.s */
+  extern long vector_install_count;     /* from trap.s */
+  extern void *restore_vector;          /* from trap.s */
+  struct Task *task;
+  struct Task *me;
 
+#ifdef __pos__
+  if (ixbase->ix_added_notify)
+    pOS_DosEndNotify(&ixbase->ix_notify_request);
+  pOS_DestructDosNotify(&ixbase->ix_notify_request);
+#else
 //  RemIntServer(INTB_VERTB, &ixbase->ix_itimerint);
   EndNotify(&ixbase->ix_notify_request);
+#endif
 
+  task = ixbase->ix_task_switcher;
+  me = SysBase->ThisTask;
   Forbid();
-  ix_delete_task(ixbase->ix_task_switcher);
+  ixbase->ix_task_switcher = me;
+  Signal(task, SIGBREAKF_CTRL_C);
   Permit();
+
+  while (ixbase->ix_task_switcher == me)
+    Wait(SIGBREAKF_CTRL_C);
+
+#ifndef NATIVE_MORPHOS
+  delete_framemsgs();
+#endif
+
+  cleanup_buddy ();
 
   if (ixbase->ix_global_environment)
     {
       char **tmp = ixbase->ix_global_environment;
       
       while (*tmp)
-        kfree(*tmp++);
+	kfree(*tmp++);
       kfree(ixbase->ix_global_environment);
     }
 
@@ -74,9 +113,11 @@ void ix_expunge (struct ixemul_base *ixbase)
 
   FreeMem (ixbase->ix_file_tab, NOFILE * sizeof (struct file));
 
+#ifndef NATIVE_MORPHOS
   if (vector_install_count)
     {
-      vector_install_count = 1;		/* force restoration original bus error vector */
+      vector_install_count = 1;         /* force restoration original bus error vector */
       Supervisor(restore_vector);
     }
+#endif
 }

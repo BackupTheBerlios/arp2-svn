@@ -34,14 +34,17 @@
 #define NEW_NAME   1
 #define DONE       2
 
-static struct DevProc	*get_device_proc(char *, struct DevProc *, struct lockinfo *, void *);
-static void		unslashify(char *);
+static struct DevProc   *get_device_proc(char *, struct DevProc *, struct lockinfo *, void *);
+static void             unslashify(char *);
 static void             resolve_name(struct lockinfo *info, int (*last_func)(), void *last_arg);
 static int              get_component(struct lockinfo *info);
 static int              resolve_name_on_device(struct lockinfo *info, int (*last_func)(), void *last_arg);
 
 static BPTR lock(struct lockinfo *info)
 {
+#ifdef __pos__
+  return (BPTR)pOS_LockObject((void *)info->parent_lock, info->bstr, ACCESS_READ);
+#else
   struct StandardPacket *sp = &info->sp;
 
   sp->sp_Pkt.dp_Type = ACTION_LOCATE_OBJECT;
@@ -53,24 +56,35 @@ static BPTR lock(struct lockinfo *info)
   __wait_sync_packet(sp);
   SetIoErr(sp->sp_Pkt.dp_Res2);
   return sp->sp_Pkt.dp_Res1;
+#endif
 }
 
 static int readlink(struct lockinfo *info)
 {
+#ifdef __pos__
+  SetIoErr(ERROR_OBJECT_TOO_LARGE);
+  return 0;
+#else
   usetup;
   struct StandardPacket *sp = &info->sp;
+  char buf[256];
+
+  /* SFS doesn't like it if dp_Arg2==dp_Arg3. Copy the string */
+  strncpy(buf, info->str + 1, sizeof(buf) - 1);
+  buf[sizeof(buf) - 1] = '\0';
 
   sp->sp_Pkt.dp_Port = __srwport;
   sp->sp_Pkt.dp_Type = ACTION_READ_LINK;
   sp->sp_Pkt.dp_Arg1 = info->parent_lock;
-  sp->sp_Pkt.dp_Arg2 = (long)info->str + 1; /* read as cstr */
-  sp->sp_Pkt.dp_Arg3 = (long)info->str + 1; /* write as cstr, same place */
+  sp->sp_Pkt.dp_Arg2 = (long)buf; /* read as cstr */
+  sp->sp_Pkt.dp_Arg3 = (long)info->str + 1; /* write as cstr */
   sp->sp_Pkt.dp_Arg4 = 255; /* what a BSTR can address */
 
   PutPacket(info->handler, sp);
   __wait_sync_packet(sp);
   SetIoErr(sp->sp_Pkt.dp_Res2);
   return sp->sp_Pkt.dp_Res1;
+#endif
 }
 
 int is_pseudoterminal(char *name)
@@ -80,11 +94,11 @@ int is_pseudoterminal(char *name)
   if (!memcmp(name, "/dev/", 5) || !(i = memcmp(name, "dev:", 4)))
     {
       if (i)
-        name++;
+	name++;
       if ((name[4] == 'p' || name[4] == 't') && name[5] == 't'
-          && name[6] == 'y' && name[7] >= 'p' && name[7] <= 'u'
-          && strchr("0123456789abcdef", name[8]) && !name[9])
-        return i + 4;
+	  && name[6] == 'y' && name[7] >= 'p' && name[7] <= 'u'
+	  && strchr("0123456789abcdef", name[8]) && !name[9])
+	return i + 4;
     }
   return 0;
 }
@@ -105,7 +119,9 @@ __plock (const char *file_name, int (*last_func)(), void *last_arg)
   /* now get a LONG aligned packet */
   info = alloca(sizeof(*info) + 2);
   info = LONG_ALIGN(info);
+#ifndef __pos__
   __init_std_packet(&info->sp);
+#endif
 
   /* need to operate on a backup of the passed name, so I can do
    * /sys -> sys: conversion in place */
@@ -117,7 +133,11 @@ __plock (const char *file_name, int (*last_func)(), void *last_arg)
   else
     info->name++;
   info->link_levels = 0;
+#ifdef __pos__
+  info->bstr = info->str + 1;
+#else
   info->bstr = CTOBPTR(info->str);
+#endif
   
   // Turn the name into an AmigaOS name, except for . and ..
   if (ix.ix_flags & ix_translate_slash)
@@ -141,7 +161,13 @@ static void resolve_name(struct lockinfo *info, int (*last_func)(), void *last_a
   char *name = info->name;
   struct DevProc *dp = NULL;
   int done = FALSE;
+#ifdef __pos__
+  struct pOS_DosDevPathInfo PI = { 0 };
+  dosname_t NameBuffer[pOS_DosPathName_MAX];
+  char buf[64];
+#else
   char PI = 0;  // dummy
+#endif
 
   while (!done)
   {
@@ -150,25 +176,31 @@ static void resolve_name(struct lockinfo *info, int (*last_func)(), void *last_a
     if (!dp)
     {
       if (!strcasecmp(name, "nil:") || !strcasecmp(name, "/nil") ||
-          !strcmp(name, "/dev/null") || !strcmp(name, "dev:null"))
-        {
-          SetIoErr(4242); /* special special ;-) */
-          return;
-        }
+	  !strcmp(name, "/dev/null") || !strcmp(name, "dev:null"))
+	{
+	  SetIoErr(4242); /* special special ;-) */
+	  return;
+	}
       if (is_pseudoterminal(name))
-        {
-          SetIoErr(5252);	/* special special ;-) */
-          return;
-        }
+	{
+	  SetIoErr(5252);       /* special special ;-) */
+	  return;
+	}
       if (!strcmp(name, ":"))
-        {
-          SetIoErr(6262); /* another special special (the root directory) */
-          return;
-        }
+	{
+	  SetIoErr(6262); /* another special special (the root directory) */
+	  return;
+	}
   
       if (!strcasecmp(name, "console:") || !strcasecmp(name, "/console") || !strcmp(name, "/dev/tty"))
-        name = "*";
+	name = "*";
       bzero(&PI, sizeof(PI));
+#ifdef __pos__
+      PI.dopi_CurrDir = ((struct pOS_Process *)pOS_FindTask(NULL))->pr_CurrentDir;
+      PI.dopi_PathName = buf;
+      PI.dopi_Buffer = NameBuffer;
+      PI.dopi_BufSize = sizeof(NameBuffer);
+#endif
     }
 
     info->unlock_parent = 0;
@@ -177,8 +209,8 @@ static void resolve_name(struct lockinfo *info, int (*last_func)(), void *last_a
 
     if (!info->handler) 
       {
-        SetIoErr(ERROR_OBJECT_NOT_FOUND);
-        break;
+	SetIoErr(ERROR_OBJECT_NOT_FOUND);
+	break;
       }
 
     info->name = name;
@@ -186,21 +218,29 @@ static void resolve_name(struct lockinfo *info, int (*last_func)(), void *last_a
     switch (resolve_name_on_device(info, last_func, last_arg))
     {
       case NEW_NAME:
-        FreeDeviceProc(dp);
-        dp = NULL;
-        name = info->name;
-        break;
-        
+#ifdef __pos__
+	pOS_CloseDosDevice(&PI);
+#else
+	FreeDeviceProc(dp);
+#endif
+	dp = NULL;
+	name = info->name;
+	break;
+	
       case DONE:
-        done = TRUE;
-        break;
+	done = TRUE;
+	break;
     }
     if (info->unlock_parent)
       UnLock(info->parent_lock);
   }
 
   if (dp)
+#ifdef __pos__
+    pOS_CloseDosDevice(&PI);
+#else
     FreeDeviceProc(dp);
+#endif
 }
 
 static int get_component(struct lockinfo *info)
@@ -228,26 +268,26 @@ static int get_component(struct lockinfo *info)
       /* map foo/bar/ into foo/bar, but keep foo/bar// */
       if (sep && sep[1] == 0)
       {
-        is_last = 1;
-        next = sep + 1;
+	is_last = 1;
+	next = sep + 1;
       }
       else if (!sep)
       {
-        sep = name + strlen(name);
-        next = sep;
-        is_last = 1;
+	sep = name + strlen(name);
+	next = sep;
+	is_last = 1;
       }
       else
       {
-        if (ix.ix_flags & ix_translate_slash)
+	if (ix.ix_flags & ix_translate_slash)
 	  for (next = sep + 1; *next == '/'; next++) ;
 	else
 	  next = sep + 1;
 	
-        /* if the slash is the first character, it means "parent",
-         * so we have to pass it literally to Lock() */
-        if (sep == name)
-          sep = next;
+	/* if the slash is the first character, it means "parent",
+	 * so we have to pass it literally to Lock() */
+	if (sep == name)
+	  sep = next;
       }
     }
   }
@@ -274,14 +314,16 @@ static int get_component(struct lockinfo *info)
   {
     str[0] = 0; str[1] = 0;
   }
-        
+	
   info->name = next;
   return is_last;
 }
 
 static int resolve_name_on_device(struct lockinfo *info, int (*last_func)(), void *last_arg)
 {
+#ifndef __pos__
   usetup;
+#endif
   int is_last = FALSE;
   int error = FALSE;
   int res = 0;
@@ -302,7 +344,9 @@ static int resolve_name_on_device(struct lockinfo *info, int (*last_func)(), voi
     }
 
     is_last = get_component(info);
+#ifndef __pos__
     info->sp.sp_Pkt.dp_Port = __srwport;
+#endif
     error = FALSE;
 
     if (!is_last)
@@ -311,55 +355,57 @@ static int resolve_name_on_device(struct lockinfo *info, int (*last_func)(), voi
 
       if ((new_parent = lock(info)))
       {
-        if (info->unlock_parent)
-        {
-          int err = IoErr();
+	if (info->unlock_parent)
+	{
+	  int err = IoErr();
 
-          UnLock(info->parent_lock);
-          SetIoErr(err);
-        }
-        info->parent_lock = new_parent;
-        info->unlock_parent = TRUE;
+	  UnLock(info->parent_lock);
+	  SetIoErr(err);
+	}
+	info->parent_lock = new_parent;
+	info->unlock_parent = TRUE;
       }
       else
       {
-        error = TRUE;
-        res = 1;
+	error = TRUE;
+	res = 1;
       }
     }
     else
     {
       res = (*last_func)(info, last_arg, &error);
+#ifndef __pos__
       if (error)
-        SetIoErr(info->sp.sp_Pkt.dp_Res2);
+	SetIoErr(info->sp.sp_Pkt.dp_Res2);
+#endif
     }
 
     if (info->is_fs && IoErr() == ERROR_OBJECT_NOT_FOUND &&
-        ((!*str && info->is_root) || !strcmp(str + 1, "/")))
+	((!*str && info->is_root) || !strcmp(str + 1, "/")))
     {
       info->is_root = 1;
 
       while (!strncmp(info->name, "./", 2) || !strncmp(info->name, "../", 3))
       {
-        info->name = index(info->name, '/') + 1;
+	info->name = index(info->name, '/') + 1;
       }
       if (!strcmp(info->name, ".") || !strcmp(info->name, ".."))
       {
-        info->name = index(info->name, 0);
+	info->name = index(info->name, 0);
       }
 
       if (*info->name)
       {
 	sep = index(info->name, '/');
-        if (!sep)
-        {
+	if (!sep)
+	{
 	  sep = index(info->name, 0);
-          sep[1] = 0;
-        }
-        *sep = ':';
+	  sep[1] = 0;
+	}
+	*sep = ':';
       }
       else {
-        *--info->name = ':';
+	*--info->name = ':';
       }
       return NEW_NAME;
     }
@@ -388,20 +434,19 @@ static int resolve_name_on_device(struct lockinfo *info, int (*last_func)(), voi
     if (info->name)
     {
       char buf[1024], *p;
-      
       res = a2u(buf, str + 1);
       if (buf[res - 1] != '/')
-        strcat(buf, "/");
+	strcat(buf, "/");
       strcat(buf, info->name);
       if (buf[0] == '/')
       {
-        strcpy(info->buf, buf + 1);
-        if ((p = strchr(info->buf, '/')))
-          *p = ':';
+	strcpy(info->buf, buf + 1);
+	if ((p = strchr(info->buf, '/')))
+	  *p = ':';
       }
       else
       {
-        strcpy(info->buf, buf);
+	strcpy(info->buf, buf);
       }
     }
     else
@@ -434,7 +479,7 @@ get_device_proc (char *name, struct DevProc *prev, struct lockinfo *info, void *
 
   if (ix.ix_flags & ix_no_insert_disk_requester)
     {
-      this_proc = (struct Process *)FindTask (0);
+      this_proc = (struct Process *)SysBase->ThisTask;
       oldwin = this_proc->pr_WindowPtr;
       this_proc->pr_WindowPtr = (APTR)-1;
     }
@@ -449,10 +494,31 @@ get_device_proc (char *name, struct DevProc *prev, struct lockinfo *info, void *
   if (prev == NULL)
     info->is_fs = p ? IsFileSystem(name) : 1;
 
+#ifdef __pos__
+  if (prev)
+    dp = (void *)(int)pOS_GetNextDosDevice(PI);
+  else
+  {
+    strcpy((char *)((struct pOS_DosDevPathInfo *)PI)->dopi_PathName, name);
+    dp = (void *)(int)pOS_OpenDosDevice(PI);
+  }
+  info->handler = (void *)dp;
+  if (dp)
+  {
+    info->parent_lock = (p ? (BPTR)((struct pOS_DosDevPathInfo *)PI)->dopi_ResDir :
+			 (BPTR)((struct pOS_Process *)pOS_FindTask(NULL))->pr_CurrentDir);
+    if (p && info->parent_lock == 0)
+    {
+      info->parent_lock = Lock(name, ACCESS_READ);
+      info->unlock_parent = 1;
+    }
+  }
+#else
   dp = GetDeviceProc(name, prev);
   info->handler = dp ? dp->dvp_Port : 0;
   if (dp)
     info->parent_lock = dp->dvp_Lock;
+#endif
 
   if (p)
     p[1] = old;
@@ -470,7 +536,7 @@ static void unslashify(char *name)
     return;
 
   while (oname[0] == '/' &&
-         (oname[1] == '/' || !memcmp(oname + 1, "./", 2) || !memcmp(oname + 1, "../", 3)))
+	 (oname[1] == '/' || !memcmp(oname + 1, "./", 2) || !memcmp(oname + 1, "../", 3)))
     while (*++oname == '.') ;
 
   if (!strcmp(oname, "/.") || !strcmp(oname, "/.."))
@@ -496,19 +562,19 @@ static void unslashify(char *name)
       /* if there is a separating (and not terminating) slash, shift a bit ;-) */
       if (cp)
 	while (*cp == '/')
-          {
-            shift++;
+	  {
+	    shift++;
 	    cp++;
 	  }
 
       /* is it a terminator (then discard it) or a separator ? */
       if (!cp || !*cp)
-        {
+	{
 	  /* terminator */
-          cp = name + strlen(name);
-          bcopy(name + 1, name, cp - name);
-          cp[-1 - shift] = ':';
-          cp[-shift] = 0;
+	  cp = name + strlen(name);
+	  bcopy(name + 1, name, cp - name);
+	  cp[-1 - shift] = ':';
+	  cp[-shift] = 0;
 	}
       else
 	{

@@ -1,4 +1,4 @@
-/*	$NetBSD: stdlib.h,v 1.24 1995/03/22 01:08:31 jtc Exp $	*/
+/*      $NetBSD: stdlib.h,v 1.24 1995/03/22 01:08:31 jtc Exp $  */
 
 /*-
  * Copyright (c) 1990 The Regents of the University of California.
@@ -14,8 +14,8 @@
  *    documentation and/or other materials provided with the distribution.
  * 3. All advertising materials mentioning features or use of this software
  *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
+ *      This product includes software developed by the University of
+ *      California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -32,92 +32,92 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- *	@(#)stdlib.h	5.13 (Berkeley) 6/4/91
+ *      @(#)stdlib.h    5.13 (Berkeley) 6/4/91
  */
 
 #ifndef _STDLIB_H_
 #define _STDLIB_H_
 #include <machine/ansi.h>
 
-#if !defined(_ANSI_SOURCE)	/* for quad_t, etc. */
+#if !defined(_ANSI_SOURCE)      /* for quad_t, etc. */
 #include <sys/types.h>
 #endif
 
-#ifdef	_BSD_SIZE_T_
-typedef	_BSD_SIZE_T_	size_t;
-#undef	_BSD_SIZE_T_
+#ifdef  _BSD_SIZE_T_
+typedef _BSD_SIZE_T_    size_t;
+#undef  _BSD_SIZE_T_
 #endif
 
-#ifdef	_BSD_WCHAR_T_
-typedef	_BSD_WCHAR_T_	wchar_t;
-#undef	_BSD_WCHAR_T_
+#ifdef  _BSD_WCHAR_T_
+typedef _BSD_WCHAR_T_   wchar_t;
+#undef  _BSD_WCHAR_T_
 #endif
 
 typedef struct {
-	int quot;		/* quotient */
-	int rem;		/* remainder */
+	int quot;               /* quotient */
+	int rem;                /* remainder */
 } div_t;
 
 typedef struct {
-	long quot;		/* quotient */
-	long rem;		/* remainder */
+	long quot;              /* quotient */
+	long rem;               /* remainder */
 } ldiv_t;
 
 #if !defined(_ANSI_SOURCE)
 typedef struct {
-	quad_t quot;		/* quotient */
-	quad_t rem;		/* remainder */
+	quad_t quot;            /* quotient */
+	quad_t rem;             /* remainder */
 } qdiv_t;
 #endif
 
 
-#ifndef	NULL
-#define	NULL	0
+#ifndef NULL
+#define NULL    0
 #endif
 
-#define	EXIT_FAILURE	1
-#define	EXIT_SUCCESS	0
+#define EXIT_FAILURE    1
+#define EXIT_SUCCESS    0
 
-#define	RAND_MAX	0x7fffffff
+#define RAND_MAX        0x7fffffff
 
-#define	MB_CUR_MAX	1	/* XXX */
+#define MB_CUR_MAX      1       /* XXX */
 
 #include <sys/cdefs.h>
 
 __BEGIN_DECLS
-void	 abort __P((void));
-int	 abs __P((int));
-int	 atexit __P((void (*)(void)));
-double	 atof __P((const char *));
-int	 atoi __P((const char *));
-long	 atol __P((const char *));
-void	*bsearch __P((const void *, const void *, size_t,
+void     abort __P((void));
+int      abs __P((int));
+int      atexit __P((void (*)(void)));
+double   atof __P((const char *));
+int      atoi __P((const char *));
+long     atol __P((const char *));
+void    *bsearch __P((const void *, const void *, size_t,
 	    size_t, int (*)(const void *, const void *)));
-void	*calloc __P((size_t, size_t));
-div_t	 div __P((int, int));
-void	 exit __P((int));
-void	 free __P((void *));
-char	*getenv __P((const char *));
-long	 labs __P((long));
-ldiv_t	 ldiv __P((long, long));
-void	*malloc __P((size_t));
-void	 qsort __P((void *, size_t, size_t,
+void    *calloc __P((size_t, size_t));
+div_t    div __P((int, int));
+void     exit __P((int));
+void     free __P((void *));
+char    *getenv __P((const char *));
+long     labs __P((long));
+ldiv_t   ldiv __P((long, long));
+void    *malloc __P((size_t));
+void     qsort __P((void *, size_t, size_t,
 	    int (*)(const void *, const void *)));
-int	 rand __P((void));
-void	*realloc __P((void *, size_t));
-void	 srand __P((unsigned));
-double	 strtod __P((const char *, char **));
-long	 strtol __P((const char *, char **, int));
+int      rand __P((void));
+void    *realloc __P((void *, size_t));
+void     srand __P((unsigned));
+double   strtod __P((const char *, char **));
+long     strtol __P((const char *, char **, int));
 unsigned long
 	 strtoul __P((const char *, char **, int));
-int	 system __P((const char *));
+int      system __P((const char *));
 
 /* these are currently just stubs */
-int	 mblen __P((const char *, size_t));
-size_t	 mbstowcs __P((wchar_t *, const char *, size_t));
-int	 wctomb __P((char *, wchar_t));
-int	 mbtowc __P((wchar_t *, const char *, size_t));
-size_t	 wcstombs __P((char *, const wchar_t *, size_t));
+int      mblen __P((const char *, size_t));
+size_t   mbstowcs __P((wchar_t *, const char *, size_t));
+int      wctomb __P((char *, wchar_t));
+int      mbtowc __P((wchar_t *, const char *, size_t));
+size_t   wcstombs __P((char *, const wchar_t *, size_t));
 
 #if !defined(_ANSI_SOURCE) && !defined(_POSIX_SOURCE)
 #if defined(alloca) && (alloca == __builtin_alloca) && (__GNUC__ < 2)
@@ -126,70 +126,70 @@ void  *alloca __P((int));     /* built-in for gcc */
 void  *alloca __P((size_t)); 
 #endif /* __GNUC__ */ 
 
-char	*getbsize __P((int *, long *));
-char	*cgetcap __P((char *, char *, int));
-int	 cgetclose __P((void));
-int	 cgetent __P((char **, char **, char *));
-int	 cgetfirst __P((char **, char **));
-int	 cgetmatch __P((char *, char *));
-int	 cgetnext __P((char **, char **));
-int	 cgetnum __P((char *, char *, long *));
-int	 cgetset __P((char *));
-int	 cgetstr __P((char *, char *, char **));
-int	 cgetustr __P((char *, char *, char **));
+char    *getbsize __P((int *, long *));
+char    *cgetcap __P((char *, char *, int));
+int      cgetclose __P((void));
+int      cgetent __P((char **, char **, char *));
+int      cgetfirst __P((char **, char **));
+int      cgetmatch __P((char *, char *));
+int      cgetnext __P((char **, char **));
+int      cgetnum __P((char *, char *, long *));
+int      cgetset __P((char *));
+int      cgetstr __P((char *, char *, char **));
+int      cgetustr __P((char *, char *, char **));
 
-int	 daemon __P((int, int));
-char	*devname __P((int, int));
-int	 getloadavg __P((double [], int));
+int      daemon __P((int, int));
+char    *devname __P((int, int));
+int      getloadavg __P((double [], int));
 
-long	 a64l __P((const char *));
-char	*l64a __P((long));
+long     a64l __P((const char *));
+char    *l64a __P((long));
 
-void	 cfree __P((void *));
+void     cfree __P((void *));
 
-int	 getopt __P((int, char * const *, const char *));
-extern	 char *optarg;			/* getopt(3) external variables */
-extern	 int opterr;
-extern	 int optind;
-extern	 int optopt;
-extern	 int optreset;
-int	 getsubopt __P((char **, char * const *, char **));
-extern	 char *suboptarg;		/* getsubopt(3) external variable */
+int      getopt __P((int, char * const *, const char *));
+extern   char *optarg;                  /* getopt(3) external variables */
+extern   int opterr;
+extern   int optind;
+extern   int optopt;
+extern   int optreset;
+int      getsubopt __P((char **, char * const *, char **));
+extern   char *suboptarg;               /* getsubopt(3) external variable */
 
-int	 heapsort __P((void *, size_t, size_t,
+int      heapsort __P((void *, size_t, size_t,
 	    int (*)(const void *, const void *)));
-int	 mergesort __P((void *, size_t, size_t,
+int      mergesort __P((void *, size_t, size_t,
 	    int (*)(const void *, const void *)));
-int	 radixsort __P((const unsigned char **, int, const unsigned char *,
+int      radixsort __P((const unsigned char **, int, const unsigned char *,
 	    unsigned));
-int	 sradixsort __P((const unsigned char **, int, const unsigned char *,
+int      sradixsort __P((const unsigned char **, int, const unsigned char *,
 	    unsigned));
 
-char	*initstate __P((unsigned, char *, int));
-long	 random __P((void));
-char	*realpath __P((const char *, char *));
-char	*setstate __P((char *));
-void	 srandom __P((unsigned));
+char    *initstate __P((unsigned, char *, int));
+long     random __P((void));
+char    *realpath __P((const char *, char *));
+char    *setstate __P((char *));
+void     srandom __P((unsigned));
 
-int	 putenv __P((const char *));
-int	 setenv __P((const char *, const char *, int));
-void	 unsetenv __P((const char *));
-void	 setproctitle __P((const char *, ...));
+int      putenv __P((const char *));
+int      setenv __P((const char *, const char *, int));
+void     unsetenv __P((const char *));
+void     setproctitle __P((const char *, ...));
 
-quad_t	 qabs __P((quad_t));
-qdiv_t	 qdiv __P((quad_t, quad_t));
-quad_t	 strtoq __P((const char *, char **, int));
+quad_t   qabs __P((quad_t));
+qdiv_t   qdiv __P((quad_t, quad_t));
+quad_t   strtoq __P((const char *, char **, int));
 u_quad_t strtouq __P((const char *, char **, int));
 
-double	 drand48 __P((void));
-double	 erand48 __P((unsigned short[3]));
-long	 jrand48 __P((unsigned short[3]));
-void	 lcong48 __P((unsigned short[7]));
-long	 lrand48 __P((void));
-long	 mrand48 __P((void));
-long	 nrand48 __P((unsigned short[3]));
+double   drand48 __P((void));
+double   erand48 __P((unsigned short[3]));
+long     jrand48 __P((unsigned short[3]));
+void     lcong48 __P((unsigned short[7]));
+long     lrand48 __P((void));
+long     mrand48 __P((void));
+long     nrand48 __P((unsigned short[3]));
 unsigned short *seed48 __P((unsigned short[3]));
-void	 srand48 __P((long));
+void     srand48 __P((long));
 #endif /* !_ANSI_SOURCE && !_POSIX_SOURCE */
 
 __END_DECLS

@@ -51,8 +51,12 @@ __fstat(struct file *f)
 {
   long len, pos, bytesperblock;
   struct FileInfoBlock *fib;
+#ifdef __pos__
+  struct pOS_DosInfoData *info;
+#else
   struct InfoData *info;
   BPTR lock;
+#endif
   int omask;
   BOOL res;
   int is_interactive = IsInteractive(CTOBPTR(f->f_fh));
@@ -87,31 +91,35 @@ __fstat(struct file *f)
    * new ACTION_EXAMINE_FH packet, or we have to do some guesses at fields.. */
   if (ExamineFH(CTOBPTR(f->f_fh), fib))
     {
-      int mode = fill_stat_mode(st, fib);	/* see stat.c */
+      int mode = fill_stat_mode(st, fib);       /* see stat.c */
 
       /* read the uid/gid data */
       if (!(f->f_stb_dirty & FSDF_OWNER))
-        {
-          st->st_uid = __amiga2unixid(fib->fib_OwnerUID);
-          st->st_gid = __amiga2unixid(fib->fib_OwnerGID);
-        }
+	{
+	  st->st_uid = __amiga2unixid(fib->fib_OwnerUID);
+	  st->st_gid = __amiga2unixid(fib->fib_OwnerGID);
+	}
 
       if (!(f->f_stb_dirty & FSDF_MODE))
-        st->st_mode = mode;
+	st->st_mode = mode;
       else
-        st->st_mode |= (mode & 0170000);
+	st->st_mode |= (mode & 0170000);
   
       /* ARGLLLLL !!!
-         Some (newer, hi Bill Hawes ;-)) handlers support EXAMINE_FH, but
-         don't know yet about ST_PIPEFILE. So console windows claim they're
-         plain files... Until this problem is fixed in a majority of
-         handlers, do an explicit SEEK here to find those fakers.. */
+	 Some (newer, hi Bill Hawes ;-)) handlers support EXAMINE_FH, but
+	 don't know yet about ST_PIPEFILE. So console windows claim they're
+	 plain files... Until this problem is fixed in a majority of
+	 handlers, do an explicit SEEK here to find those fakers.. */
       if (is_interactive || Seek(CTOBPTR(f->f_fh), 0, OFFSET_CURRENT) == -1)
-        st->st_mode = (st->st_mode & ~S_IFREG) | S_IFCHR;
+	st->st_mode = (st->st_mode & ~S_IFREG) | S_IFCHR;
 
       /* some kind of a default-size for directories... */
       st->st_size = fib->fib_DirEntryType < 0 ? fib->fib_Size : 1024; 
+#ifdef __pos__
+      st->st_handler = (long)f->f_fh->fh_DosDev;
+#else
       st->st_handler = (long)f->f_fh->fh_Type;
+#endif
       st->st_dev = (dev_t)st->st_handler; /* trunc to 16 bit */
       st->st_ino = get_unique_id(NULL, f->f_fh);
       st->st_atime =
@@ -131,25 +139,29 @@ __fstat(struct file *f)
       /* seek to EOF */
       pos = (is_interactive ? -1 : Seek(CTOBPTR(f->f_fh), 0, OFFSET_END));
       if (pos >= 0)
-        len = Seek(CTOBPTR(f->f_fh), pos, OFFSET_BEGINNING);
+	len = Seek(CTOBPTR(f->f_fh), pos, OFFSET_BEGINNING);
       else
-        len = 0;
+	len = 0;
 
       bzero (st, sizeof(struct stat));
 
       if (!(f->f_stb_dirty & FSDF_OWNER))
-        {
-          st->st_uid = syscall(SYS_geteuid);
-          st->st_gid = syscall(SYS_getegid);
-        }
+	{
+	  st->st_uid = syscall(SYS_geteuid);
+	  st->st_gid = syscall(SYS_getegid);
+	}
 
       if (!(f->f_stb_dirty & FSDF_MODE))
-        {
-          st->st_mode = (len >= 0 && !is_interactive) ?
-                        S_IFREG | (0666 & ~u.u_cmask) : S_IFCHR | 0777;
-        }
+	{
+	  st->st_mode = (len >= 0 && !is_interactive) ?
+			S_IFREG | (0666 & ~u.u_cmask) : S_IFCHR | 0777;
+	}
 
+#ifdef __pos__
+      st->st_handler = (long)f->f_fh->fh_DosDev;
+#else
       st->st_handler = (long)f->f_fh->fh_Type;
+#endif
       /* the following is a limited try to support programs, that assume that
        * st_dev is always valid */
       st->st_dev = (dev_t)(long)st->st_handler; /* truncate to 16 bit */
@@ -176,14 +188,20 @@ __fstat(struct file *f)
   bytesperblock = 0;
   if (S_ISREG(st->st_mode))
   {
+#ifdef __pos__
+    res = pOS_GetDosInfoDataFH(f->f_fh, (void *)info);
+    if (res && info->id_Mount && info->id_Mount->dmd_Type == DMDTYP_BOD)
+      bytesperblock = info->id_Mount->dmd_U.dmd_BOD.dmbod_BytesPerBlock;
+#else
     lock = DupLockFromFH(CTOBPTR(f->f_fh));
     if (lock)
       {
-        res = Info(lock, (void *)info);
-        UnLock(lock);
+	res = Info(lock, (void *)info);
+	UnLock(lock);
       }
     if (res && info->id_BytesPerBlock)
       bytesperblock = info->id_BytesPerBlock;
+#endif
   }
 
   st->st_blksize = 0;
@@ -195,7 +213,7 @@ __fstat(struct file *f)
       if (!st->st_blocks) 
 	st->st_blocks = ((st->st_size + bytesperblock - 1) / bytesperblock);
       else
-        st->st_blocks = (st->st_blocks * bytesperblock) / 512;
+	st->st_blocks = (st->st_blocks * bytesperblock) / 512;
     }
   if (!st->st_blksize) 
     {

@@ -34,34 +34,60 @@ double frexp(double value, int *eptr)
   return 0.0;
 }
 
+#ifdef __PPC__
+#undef _ENTRY
+#undef ENTRY
+#undef _C_LABEL
+#define ENTRY(name) asm(".text; .globl " #name "; " #name ":");
+
 /* fabs(double) */
 ENTRY(fabs)
 asm("
-	movel	sp@(4),d0
-	movel	sp@(8),d1
-	bclr	#31,d0
+	fabs    3,3
+	blr
+");
+
+/* -double */
+ENTRY(__negdf2)
+asm("
+	fneg    3,3
+");
+
+/* -single */
+ENTRY(__negsf2)
+asm("
+	fneg    3,3
+");
+
+#else
+/* fabs(double) */
+ENTRY(fabs)
+asm("
+	movel   sp@(4),d0
+	movel   sp@(8),d1
+	bclr    #31,d0
 	rts
 ");
 
 /* -double */
 ENTRY(__negdf2)
 asm("
-	movel	sp@(4),d0
-	movel	sp@(8),d1
-	bchg	#31,d0
+	movel   sp@(4),d0
+	movel   sp@(8),d1
+	bchg    #31,d0
 	rts
 ");
 
 /* -single */
 ENTRY(__negsf2)
 asm("
-	movel	sp@(4),d0
-	bchg	#31,d0
+	movel   sp@(4),d0
+	bchg    #31,d0
 	rts
 ");
+#endif
 
-
-#if defined(mc68020) || defined(mc68030) || defined(mc68040) || defined(mc68060)
+#if defined(__PPC__) || defined(mc68020) || defined(mc68030) || defined(mc68040) || defined(mc68060)
 
 // Let the compiler do the hard work :-)
 
@@ -155,7 +181,7 @@ unsigned SItype __umodsi3(unsigned SItype a, unsigned SItype b)
 
 
 
-#ifdef __HAVE_68881__
+#if defined(__HAVE_68881__) || defined(__PPC__)
 
 // Let the compiler to the hard work :-)
 
@@ -241,19 +267,33 @@ float __addsf3(float a, float b)
   return a + b;
 }
 
+#ifdef __PPC__
+
+int __cmpdf2(double a, double  b)
+{
+  return a < b ? -1 : (a == b ? 0 : 1);
+}
+
+int __cmpsf2(float a, float  b)
+{
+  return a < b ? -1 : (a == b ? 0 : 1);
+}
+
+#else
+
 /* double > double: 1 */
 /* double < double: -1 */
 /* double == double: 0 */
 ENTRY(__cmpdf2)
 asm("
-	fmoved	sp@(4),fp0
-	fcmpd	sp@(12),fp0
-	fbgt	Lagtb1
-	fslt	d0
-	extbl	d0
+	fmoved  sp@(4),fp0
+	fcmpd   sp@(12),fp0
+	fbgt    Lagtb1
+	fslt    d0
+	extbl   d0
 	rts
 Lagtb1:
-	moveq	#1,d0
+	moveq   #1,d0
 	rts
 ");
 
@@ -262,16 +302,18 @@ Lagtb1:
 /* single == single: 0 */
 ENTRY(__cmpsf2)
 asm("
-	fmoves	sp@(4),fp0
-	fcmps	sp@(8),fp0
-	fbgt	Lagtb2
-	fslt	d0
-	extbl	d0
+	fmoves  sp@(4),fp0
+	fcmps   sp@(8),fp0
+	fbgt    Lagtb2
+	fslt    d0
+	extbl   d0
 	rts
 Lagtb2:
-	moveq	#1,d0
+	moveq   #1,d0
 	rts
 ");
+
+#endif
 
 /* double / double */
 double __divdf3(double a, double b)
@@ -333,43 +375,10 @@ double __floatsidf(SItype a)
   return a;
 }
 
-/*
- * double ldexp(val, exp)
- * returns: val * (2**exp), for integer exp
- */
-ENTRY(ldexp)
-asm("
-	fmoved		sp@(4),fp0
-	fbeq		Ldone
-	ftwotoxl	sp@(12),fp1
-	fmulx		fp1,fp0
-Ldone:
-	fmoved		fp0,sp@-
-	movel		sp@+,d0
-	movel		sp@+,d1
-	rts
-");
-
-/*
- * double modf(val, iptr)
- * returns: xxx and n (in *iptr) where val == n.xxx
- */
-ENTRY(modf)
-asm("
-	fmoved	sp@(4),fp0
-	movel	sp@(12),a0
-	fintrzx	fp0,fp1
-	fmoved	fp1,a0@
-	fsubx	fp1,fp0
-	fmoved	fp0,sp@-
-	movel	sp@+,d0
-	movel	sp@+,d1
-	rts
-");
 
 
 
-#else /* __HAVE_68881__ */
+#else /* __HAVE_68881__ or __PPC__ */
 
 
 
@@ -567,6 +576,45 @@ double __floatsidf(SItype a)
 {
   return IEEEDPFlt(a);
 }
+#endif /* __HAVE_68881__ or __PPC__ */
+
+#ifdef __HAVE_68881__
+
+/*
+ * double ldexp(val, exp)
+ * returns: val * (2**exp), for integer exp
+ */
+ENTRY(ldexp)
+asm("
+	fmoved          sp@(4),fp0
+	fbeq            Ldone
+	ftwotoxl        sp@(12),fp1
+	fmulx           fp1,fp0
+Ldone:
+	fmoved          fp0,sp@-
+	movel           sp@+,d0
+	movel           sp@+,d1
+	rts
+");
+
+/*
+ * double modf(val, iptr)
+ * returns: xxx and n (in *iptr) where val == n.xxx
+ */
+ENTRY(modf)
+asm("
+	fmoved  sp@(4),fp0
+	movel   sp@(12),a0
+	fintrzx fp0,fp1
+	fmoved  fp1,a0@
+	fsubx   fp1,fp0
+	fmoved  fp0,sp@-
+	movel   sp@+,d0
+	movel   sp@+,d1
+	rts
+");
+
+#else /* __HAVE_68881__ */
 
 /*
  * ldexp returns the quanity "value" * 2 ^ "exp"
@@ -588,13 +636,13 @@ double __floatsidf(SItype a)
  *
  */
 
-#define MANT_MASK 0x800FFFFF	/* Mantissa extraction mask     */
-#define ZPOS_MASK 0x3FF00000	/* Positive # mask for exp = 0  */
-#define ZNEG_MASK 0x3FF00000	/* Negative # mask for exp = 0  */
+#define MANT_MASK 0x800FFFFF    /* Mantissa extraction mask     */
+#define ZPOS_MASK 0x3FF00000    /* Positive # mask for exp = 0  */
+#define ZNEG_MASK 0x3FF00000    /* Negative # mask for exp = 0  */
 
-#define EXP_MASK 0x7FF00000	/* Mask for exponent            */
-#define EXP_SHIFTS 20		/* Shifts to get into LSB's     */
-#define EXP_BIAS 1023		/* Exponent bias                */
+#define EXP_MASK 0x7FF00000     /* Mask for exponent            */
+#define EXP_SHIFTS 20           /* Shifts to get into LSB's     */
+#define EXP_BIAS 1023           /* Exponent bias                */
 
 union dtol
 {

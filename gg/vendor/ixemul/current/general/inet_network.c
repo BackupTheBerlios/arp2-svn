@@ -12,8 +12,8 @@
  *    documentation and/or other materials provided with the distribution.
  * 3. All advertising materials mentioning features or use of this software
  *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
+ *      This product includes software developed by the University of
+ *      California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -34,6 +34,9 @@
 #if defined(LIBC_SCCS) && !defined(lint)
 static char sccsid[] = "@(#)inet_addr.c 5.10 (Berkeley) 2/24/91";
 #endif /* LIBC_SCCS and not lint */
+
+#define _KERNEL
+#include "ixemul.h"
 
 #include <sys/param.h>
 #include <netinet/in.h>
@@ -88,9 +91,9 @@ inet_aton(cp, addr)
 		if (*cp == '.') {
 			/*
 			 * Internet format:
-			 *	a.b.c.d
-			 *	a.b.c	(with c treated as 16-bits)
-			 *	a.b	(with b treated as 24 bits)
+			 *      a.b.c.d
+			 *      a.b.c   (with c treated as 16-bits)
+			 *      a.b     (with b treated as 24 bits)
 			 */
 			if (pp >= parts + 3 || val > 0xff)
 				return (0);
@@ -110,22 +113,22 @@ inet_aton(cp, addr)
 	n = pp - parts + 1;
 	switch (n) {
 
-	case 1: 			/* a -- 32 bits */
+	case 1:                         /* a -- 32 bits */
 		break;
 
-	case 2: 			/* a.b -- 8.24 bits */
+	case 2:                         /* a.b -- 8.24 bits */
 		if (val > 0xffffff)
 			return (0);
 		val |= parts[0] << 24;
 		break;
 
-	case 3: 			/* a.b.c -- 8.8.16 bits */
+	case 3:                         /* a.b.c -- 8.8.16 bits */
 		if (val > 0xffff)
 			return (0);
 		val |= (parts[0] << 24) | (parts[1] << 16);
 		break;
 
-	case 4: 			/* a.b.c.d -- 8.8.8.8 bits */
+	case 4:                         /* a.b.c.d -- 8.8.8.8 bits */
 		if (val > 0xff)
 			return (0);
 		val |= (parts[0] << 24) | (parts[1] << 16) | (parts[2] << 8);
@@ -264,7 +267,7 @@ char *
 inet_ntoa(in)
 	struct in_addr in;
 {
-        usetup;
+	usetup;
 	char *p = (char *)&in;
 
 #define UC(b)   (((int)b)&0xff)

@@ -33,7 +33,7 @@ void set_dir_name_from_lock(BPTR lock)
        *       same, and a shell that wants to be smart about symlinks,
        *       has to track chdir()s itself as well */
       if (NameFromLock (lock, buf, MAXPATHLEN))
-        SetCurrentDirName (buf);
+	SetCurrentDirName (buf);
 
       kfree (buf);
     }
@@ -57,6 +57,32 @@ dirisparent (char *name1, char *name2)
 
 	lock2 = Lock (name2, SHARED_LOCK);
 	if (lock2) {
+#ifdef __pos__
+	    switch (pOS_SameDosObject((const struct pOS_FileLock *)lock1, (const struct pOS_FileLock *)lock2)) {
+		case FILELKSF_Different:
+		    break;
+
+		case FILELKSF_Same:
+		    ret = 2;
+		    break;
+
+		case FILELKSF_Volume:
+		{
+		    BPTR l;
+
+		    while (lock2) {
+			l = lock2;
+			lock2 = ParentDir (l);
+			UnLock (l);
+			if (pOS_SameDosObject((const struct pOS_FileLock *)lock1, (const struct pOS_FileLock *)lock2) == FILELKSF_Same) {
+			    ret = 1;
+			    break;
+			}
+		    }
+		    break;
+		}
+	    }
+#else
 	    switch (SameLock (lock1, lock2)) {
 
 		case LOCK_DIFFERENT:
@@ -82,6 +108,7 @@ dirisparent (char *name1, char *name2)
 		    break;
 		}
 	    }
+#endif
 	    UnLock (lock2);
 	}
 	UnLock (lock1);
@@ -152,9 +179,9 @@ int chdir (char *path)
       oldlock = CurrentDir (newlock);
 
       if (u.u_startup_cd == (BPTR)-1)
-        u.u_startup_cd = oldlock;
+	u.u_startup_cd = oldlock;
       else
-        __unlock (oldlock);
+	__unlock (oldlock);
 
       set_dir_name_from_lock(newlock);
 

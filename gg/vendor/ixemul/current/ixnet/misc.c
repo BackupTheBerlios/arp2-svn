@@ -16,9 +16,18 @@
  *  License along with this library; if not, write to the Free
  *  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- *  $Id: $
+ *  $Id: misc.c,v 1.1.1.1 2000/05/07 19:37:46 emm Exp $
  *
- *  $Log:$
+ *  $Log: misc.c,v $
+ *  Revision 1.1.1.1  2000/05/07 19:37:46  emm
+ *  Imported sources
+ *
+ *  Revision 1.2  2000/05/07 20:59:28  nobody
+ *  Included Zapek fixes.
+ *
+ *  Revision 1.1.1.1  2000/04/29 00:44:36  nobody
+ *  Initial import
+ *
  *
  */
 
@@ -27,7 +36,7 @@
 
 #define _KERNEL
 #include "ixnet.h"
-#include "kprintf.h"
+//#include "kprintf.h"
 #include <string.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -49,18 +58,18 @@ int gethostname (char *name, int namelen)
 	    host = getenv("HOSTNAME");
 	    if (host || (host = getenv("hostname")))
 	    {
-                char domain[257];
+		char domain[257];
 
-	        if (!strchr(host, '.'))
-	        {
-	            int len;
-	          
-	            strcpy(domain, host);
-	            len = strlen(domain);
-	            domain[len] = '.';
-	            if (!getdomainname(domain + len + 1, sizeof(domain) - 1 - len))
-	                host = domain;
-	        }
+		if (!strchr(host, '.'))
+		{
+		    int len;
+		  
+		    strcpy(domain, host);
+		    len = strlen(domain);
+		    domain[len] = '.';
+		    if (!getdomainname(domain + len + 1, sizeof(domain) - 1 - len))
+			host = domain;
+		}
 		strncpy (name, host, namelen);
 	    }
 	    else
@@ -102,14 +111,14 @@ umask (mode_t mode)
     register struct ixnet *p = (struct ixnet *)u.u_ixnet;
 
     if (p->u_networkprotocol == IX_NETWORK_AMITCP) {
-        return UG_umask(mode);
+	return UG_umask(mode);
     }
     else {
-        int md = (int)mode;
-        mode_t res;
-        if (md < 0 || (int)md > 0777) {
+	int md = (int)mode;
+	mode_t res;
+	if (md < 0 || (int)md > 0777) {
 	    errno = EINVAL;
-	    KPRINTF (("&errno = %lx, errno = %ld\n", &errno, errno));
+//		  KPRINTF (("&errno = %lx, errno = %ld\n", &errno, errno));
 	    return -1;
 	}
 

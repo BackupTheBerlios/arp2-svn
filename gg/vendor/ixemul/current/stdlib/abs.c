@@ -25,11 +25,16 @@
 
 #include "defs.h"
 
+#ifndef mc68000
+int abs(int j)
+{ return j>=0?j:-j; }
+#else
 ENTRY(abs)
 asm("
-	movl	sp@(4),d0
-	jge	L1
-	negl	d0
+	movl    sp@(4),d0
+	jge     L1
+	negl    d0
 L1:
 	rts
 ");
+#endif

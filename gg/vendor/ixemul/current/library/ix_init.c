@@ -30,29 +30,39 @@
 #include <unistd.h>
 
 /* not changed after the library is initialized */
-struct ixemul_base		*ixemulbase = NULL;
+struct ixemul_base              *ixemulbase = NULL;
 
-struct ExecBase			*SysBase = NULL;
-struct DosLibrary		*DOSBase = NULL;
+#ifdef __pos__
+struct pOS_ExecBase             *SysBase = NULL;
+struct pOS_ExecLibFunction      *gb_ExecLib = NULL;
+struct pOS_DosBase              *DOSBase = NULL;
+#else
+struct ExecBase                 *SysBase = NULL;
+struct DosLibrary               *DOSBase = NULL;
+#endif
 
 #ifndef __HAVE_68881__
-struct MathIeeeSingBasBase	*MathIeeeSingBasBase = NULL;
-struct MathIeeeDoubBasBase	*MathIeeeDoubBasBase = NULL;
-struct MathIeeeDoubTransBase	*MathIeeeDoubTransBase = NULL;
+struct MathIeeeSingBasBase      *MathIeeeSingBasBase = NULL;
+struct MathIeeeDoubBasBase      *MathIeeeDoubBasBase = NULL;
+struct MathIeeeDoubTransBase    *MathIeeeDoubTransBase = NULL;
 #endif
 
 struct Library                  *muBase = NULL;
 
 static struct
 {
-  void		**base;
-  char		*name;
+  void          **base;
+  char          *name;
   ULONG         minver;  /* minimal version          */
   BOOL          opt;     /* no fail if not available */
 }
 ix_libs[] =
 {
+#ifdef __pos__
+  { (void **)&DOSBase, "pdos.library", 0 },
+#else
   { (void **)&DOSBase, "dos.library", 37 },
+#endif
 #ifndef __HAVE_68881__
   { (void **)&MathIeeeSingBasBase, "mathieeesingbas.library" },
   { (void **)&MathIeeeDoubBasBase, "mathieeedoubbas.library" },
@@ -67,29 +77,79 @@ struct ixlist timer_ready_queue;
 struct ixlist timer_task_list;
 ULONG timer_resolution;
 
+#ifndef NATIVE_MORPHOS
+struct framemsg;
+void handle_framemsg(struct framemsg *);
+#endif
+
 static void ix_task_switcher(void)
 {
   unsigned long sigs = 0;
-
+  struct framemsg *msg;
+  struct Task *me = SysBase->ThisTask;
+  struct Task *caller = (void*) ix.ix_task_switcher_port;
   AllocSignal(29);
   AllocSignal(30);
-  AllocSignal(31);
 
-  // Signals:
-  //
-  // 1 << 29: Timer finished
-  // 1 << 30: Global environment has changed
-  // 1 << 31: Task switch
+  ix.ix_task_switcher      = me;
+#ifndef NATIVE_MORPHOS
+  ix.ix_task_switcher_port = CreateMsgPort();
+#else
+  ix.ix_task_switcher_port = NULL;
+#endif
+  Signal(caller, SIGBREAKF_CTRL_C);
 
-  while (!(sigs & (1 << 29)))
-  {
-    sigs = Wait(0x7 << 29);
-    if (sigs & (1 << 30))
-      ix.ix_env_has_changed = 1;
-    if (sigs & (1 << 28))
+  if (ix.ix_task_switcher_port)
     {
+      // Signals:
+      //
+      // 1 << 29: Timer finished
+      // 1 << 30: Global environment has changed
+
+      /*
+	This loop must not be interrupted by any other ixemul task
+	outside of the Wait(), and this task must be scheduled
+	right away when an ixemul task Signal()s it.
+	However, Forbid()/Permit() is not necessary since the
+	higher priority of this task has this effect.
+      */
+      /*Forbid();*/
+
+      while (ix.ix_task_switcher == me)
+      {
+	KPRINTF(("Task switcher: waiting\n"));
+	sigs = Wait((1 << ix.ix_task_switcher_port->mp_SigBit) |
+		    (1 << 29) | (1 << 30) | SIGBREAKF_CTRL_C);
+
+	KPRINTF(("Task switcher: got sigs %08lx\n", sigs));
+	if (sigs & (1 << 30))
+	  ix.ix_env_has_changed = 1;
+
+#ifndef NATIVE_MORPHOS
+	while (msg = (struct framemsg *)GetMsg(ix.ix_task_switcher_port))
+	  {
+	    KPRINTF(("Task switcher: handling framemsg\n"));
+	    handle_framemsg(msg);
+	  }
+#endif
+      }
+
+      /*Permit();*/
+
+      /*while (GetMsg(ix.ix_task_switcher_port));*/
+#ifndef NATIVE_MORPHOS
+      DeleteMsgPort(ix.ix_task_switcher_port);
+#endif
     }
-  }
+  else
+    {
+      while (ix.ix_task_switcher == me)
+	Wait(SIGBREAKF_CTRL_C);
+    }
+
+  Forbid();
+  Signal(ix.ix_task_switcher, SIGBREAKF_CTRL_C);
+  ix.ix_task_switcher = NULL;
 }
 
 int open_libraries(void)
@@ -98,7 +158,7 @@ int open_libraries(void)
 
   for (i = 0; ix_libs[i].base; i++)
     if (!(*(ix_libs[i].base) = (void *)OpenLibrary(ix_libs[i].name, ix_libs[i].minver))
-        && !ix_libs[i].opt)
+	&& !ix_libs[i].opt)
       {
 	ix_panic("%s required!", ix_libs[i].name);
 	return 0;
@@ -120,6 +180,10 @@ struct ixemul_base *ix_init (struct ixemul_base *ixbase)
   int i;
   char buf[256];
   extern char hostname[];  /* in getcrap.c */
+  struct Task *me = SysBase->ThisTask;
+  struct Task *task_switcher;
+
+  ixbase->ix_debug_flag = 1;
 
   if (!open_libraries())
     {
@@ -139,7 +203,11 @@ struct ixemul_base *ix_init (struct ixemul_base *ixbase)
   ixnewlist(&timer_task_list);
   ixnewlist(&ixbase->ix_detached_processes);
 
+#ifdef __pos__
+  timer_resolution = 1000000 / 50;
+#else
   timer_resolution = 1000000 / SysBase->VBlankFrequency;
+#endif
 
   /* Read the GMT offset. This environment variable is 5 bytes long. The
      first 4 form a long that contains the offset in seconds and the fifth
@@ -158,24 +226,41 @@ struct ixemul_base *ix_init (struct ixemul_base *ixbase)
   if (GetVar("HOSTNAME", buf, 64, 0) > 0)
     strcpy(hostname, buf);
 
+#ifndef __pos__
   if (ixbase->ix_flags & ix_support_mufs)
     muBase = OpenLibrary("multiuser.library", 39);
+#endif
 
   /* initialize the list structures for the allocator */
   init_buddy ();
 
-  ixbase->ix_task_switcher = (struct Task *)ix_create_task("ixemul task switcher", 9, ix_task_switcher, 2048);
+  NewList(&ixbase->ix_framemsg_list);
+  ixbase->ix_task_switcher_port = (void*) me;
+  task_switcher = (struct Task *)ix_create_task("ixemul task switcher", 9, ix_task_switcher, 2048);
+  KPRINTF(("created task %lx\n", task_switcher));
+  if (task_switcher)
+    {
+      while (ixbase->ix_task_switcher_port == (void*) me)
+	Wait(SIGBREAKF_CTRL_C);
+    }
 
+  KPRINTF(("Task switcher      = %lx\n", ixbase->ix_task_switcher));
+  KPRINTF(("Task switcher port = %lx\n", ixbase->ix_task_switcher_port));
+
+#ifdef __pos__
+  pOS_ConstructDosSigNotify(&ixbase->ix_notify_request, "ENV:", 0, (struct pOS_Task *)ixbase->ix_task_switcher, 30);
+#else
   ixbase->ix_notify_request.nr_stuff.nr_Signal.nr_Task = ixbase->ix_task_switcher;
   ixbase->ix_notify_request.nr_stuff.nr_Signal.nr_SignalNum = 30;
   ixbase->ix_notify_request.nr_Name = "ENV:";
   ixbase->ix_notify_request.nr_Flags = NRF_SEND_SIGNAL;
+#endif
 
   /* initialize port number for AF_UNIX(localhost) sockets */
   ixbase->ix_next_free_port = 1024;
 
-#if 0 
-/* TODO */
+#if 0
+ndef __pos__ /* TODO */
   if (ixbase->ix_task_switcher)
     {
       extern int ix_timer();
@@ -190,17 +275,23 @@ struct ixemul_base *ix_init (struct ixemul_base *ixbase)
     }
 #endif
 
-  if (ixbase->ix_file_tab)
+  if (ixbase->ix_file_tab
+#ifndef NATIVE_MORPHOS
+      && ixbase->ix_task_switcher_port
+#endif
+      )
     {
-      configure_context_switch ();
-
       for (i = 0; i < IX_NUM_SLEEP_QUEUES; i++)
-        ixnewlist ((struct ixlist *)&ixbase->ix_sleep_queues[i]);
+	ixnewlist ((struct ixlist *)&ixbase->ix_sleep_queues[i]);
 
       ixbase->ix_global_environment = NULL;
       ixbase->ix_env_has_changed = 0;
 
+#ifdef __pos__
+      ixbase->ix_added_notify = pOS_DosStartNotify(&ixbase->ix_notify_request);
+#else
       StartNotify(&ixbase->ix_notify_request);
+#endif
       seminit();
 
       return ixbase;
@@ -209,12 +300,17 @@ struct ixemul_base *ix_init (struct ixemul_base *ixbase)
   if (ixbase->ix_task_switcher)
     {
 #if 0
+ndef __pos__
       RemIntServer(INTB_VERTB, &ixbase->ix_itimerint);
 #endif
 
       Forbid();
-      ix_delete_task(ixbase->ix_task_switcher);
+      ixbase->ix_task_switcher = me;
+      Signal(task_switcher, SIGBREAKF_CTRL_C);
       Permit();
+
+      while (ixbase->ix_task_switcher == me)
+	Wait(SIGBREAKF_CTRL_C);
     }
 
   if (ixbase->ix_file_tab)

@@ -37,6 +37,7 @@ close (int fd)
   usetup;
   struct file **fp = &u.u_ofile[fd];
 
+KPRINTF(("close(%d)\n", fd));
   /* if this is an open fd */
   if (fd >= 0 && fd < NOFILE && *fp)
     {
@@ -44,7 +45,7 @@ close (int fd)
       /* free the slot in the user table */
       *fp = 0;
       if (f->f_close)
-        return (*f->f_close)(f);
+	return (*f->f_close)(f);
       else
 	{
 	  errno = EIO;

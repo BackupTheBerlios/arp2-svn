@@ -40,8 +40,8 @@ __mclose(struct file *f)
   if (f->f_count == 0)
     {
       if (!(f->f_flags & FEXTOPEN) && f->f_name) 
-        {
-          KPRINTF (("f->f_name (%s) ", f->f_name));
+	{
+	  KPRINTF (("f->f_name (%s) ", f->f_name));
 	  kfree (f->f_name);
 	}
       KPRINTF (("f->f_mf.mf_buffer "));

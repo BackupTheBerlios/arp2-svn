@@ -42,6 +42,9 @@ struct link_vec {
 static int
 __link_func (struct lockinfo *info, struct link_vec *lv, int *error)
 {
+#ifdef __pos__
+  info->result = 0;
+#else
   struct StandardPacket *sp = &info->sp;
 
   sp->sp_Pkt.dp_Type = ACTION_MAKE_LINK;
@@ -53,6 +56,7 @@ __link_func (struct lockinfo *info, struct link_vec *lv, int *error)
   PutPacket (info->handler, sp);
   __wait_sync_packet (sp);
   info->result = sp->sp_Pkt.dp_Res1;
+#endif
   
   *error = info->result != -1;
   

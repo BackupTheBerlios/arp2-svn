@@ -1,6 +1,6 @@
 /*
-    Ixprefs v.2.8--ixemul.library configuration program
-    Copyright © 1995-2001 Kriton Kyrimis
+    Ixprefs v.2.7--ixemul.library configuration program
+    Copyright © 1995,1996 Kriton Kyrimis
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -17,7 +17,7 @@
     Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
-#define IXPREFS_VERSION "2.8"
+#define IXPREFS_VERSION "2.7"
 #define CONFIGFILE "ENVARC:" IX_ENV_SETTINGS
 #define ENVFILE "ENV:" IX_ENV_SETTINGS
 #define MIN_IXEMUL_VERSION_SUPPORTED 47
@@ -50,3 +50,10 @@ extern int AmigaOSGUI(void);
 extern void EraseGadget(struct Window *, struct Gadget *);
 extern void ShowChecked(int, int);
 #endif /* NO_AMIGAOS_SUPPORT */
+
+#ifndef NO_POS_SUPPORT
+extern int OpenPOSLibraries(void);
+extern void ClosePOSLibraries(void);
+extern void POSCleanup(void);
+extern int POSGUI(void);
+#endif /* NO_POS_SUPPORT */

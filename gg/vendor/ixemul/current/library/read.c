@@ -40,7 +40,7 @@ ssize_t read(int fd, void *buf, size_t len)
   /* if this is an open fd */
   if (fd >= 0 && fd < NOFILE && f)
       if (f->f_read)
-        return (*f->f_read)(f, buf, len);
+	return (*f->f_read)(f, buf, len);
       else
 	{
 	  errno = EIO;

@@ -21,20 +21,40 @@
  * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+#ifndef mc68000
+#include <string.h>
+
+char *rindex(const char *a, int b)
+{
+  return (char *)strrchr(a,b);
+}
+
+char *strrchr(const char *s, int c)
+{
+  char *c1 = NULL;
+  do
+    if (*s == (char)c)
+      c1 = (char *)s;
+  while (*s++ != '\0');
+  return c1;
+}
+
+#else
 #include "defs.h"
 
 ENTRY(rindex)
 ENTRY(strrchr)
 asm("
-	movl	sp@(4),a1	/* string */
-	movb	sp@(11),d1	/* char to look for */
-	moveq	#0,d0		/* clear rindex pointer */
+	movl    sp@(4),a1       /* string */
+	movb    sp@(11),d1      /* char to look for */
+	moveq   #0,d0           /* clear rindex pointer */
 rixloop:
-	cmpb	a1@,d1		/* found our char? */
-	jne	rixnope		/* no, check for null */
-	movl	a1,d0		/* yes, remember location */
+	cmpb    a1@,d1          /* found our char? */
+	jne     rixnope         /* no, check for null */
+	movl    a1,d0           /* yes, remember location */
 rixnope:
-	tstb	a1@+		/* null? */
-	jne	rixloop		/* no, keep going */
+	tstb    a1@+            /* null? */
+	jne     rixloop         /* no, keep going */
 	rts
 ");
+#endif

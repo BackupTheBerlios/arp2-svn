@@ -20,96 +20,116 @@
 #define _KERNEL
 #include "ixemul.h"
 #include "kprintf.h"
+#ifndef __pos__
 #include <hardware/intbits.h>
+#endif
 #include "multiuser.h"
 #include <string.h>
 
+#ifndef __pos__  
 void
 __ix_close_muFS( struct user *ix_u )
 {
   if (muBase)
     {
       if (ix_u->u_UserInfo)
-        {
-          muFreeUserInfo(ix_u->u_UserInfo);
-          ix_u->u_UserInfo = NULL;
-        }
+	{
+	  muFreeUserInfo(ix_u->u_UserInfo);
+	  ix_u->u_UserInfo = NULL;
+	}
 
       if (ix_u->u_fileUserInfo)
-        {
-          muFreeUserInfo(ix_u->u_fileUserInfo);
-          ix_u->u_fileUserInfo = NULL;
-        }
+	{
+	  muFreeUserInfo(ix_u->u_fileUserInfo);
+	  ix_u->u_fileUserInfo = NULL;
+	}
 
       if (ix_u->u_GroupInfo)
-        {
-          muFreeGroupInfo(ix_u->u_GroupInfo);
-         ix_u->u_GroupInfo = NULL;
-        }
+	{
+	  muFreeGroupInfo(ix_u->u_GroupInfo);
+	 ix_u->u_GroupInfo = NULL;
+	}
 
       if (ix_u->u_fileGroupInfo)
-        {
-          muFreeGroupInfo(ix_u->u_fileGroupInfo);
-          ix_u->u_fileGroupInfo = NULL;
-        }
+	{
+	  muFreeGroupInfo(ix_u->u_fileGroupInfo);
+	  ix_u->u_fileGroupInfo = NULL;
+	}
 
       /* log me out */
       while (ix_u->u_setuid--)
-        muLogout(muT_Quiet, TRUE, TAG_DONE);
+	muLogout(muT_Quiet, TRUE, TAG_DONE);
     }
 }
+#endif
 
 void ix_stack_usage(void)
 {
   if (ix.ix_flags & ix_show_stack_usage)
     {
-      struct Task *me = FindTask(0);
+      struct Task *me = SysBase->ThisTask;
       BPTR lock = GetProgramDir();
       struct SUMessage sum;
       struct MsgPort *port, *reply;
       u_char *tmp;
 
       if ((reply = (struct MsgPort *)ix_create_port(0, 0)))
-        {
-          bzero(&sum, sizeof(sum));
-          if (lock)
-            NameFromLock(lock, sum.name, sizeof(sum.name) - 40);
-          tmp = me->tc_SPLower;
-          while (*++tmp == 0xdb);
-          if (lock)
-            strcat(sum.name, "/");
-          GetProgramName(sum.name + strlen(sum.name), 39);
-          sum.stack_size = (u_long)me->tc_SPUpper - (u_long)me->tc_SPLower;
-          sum.stack_usage = (u_long)me->tc_SPUpper - (u_long)tmp;
-          sum.msg.mn_Node.ln_Type = NT_MESSAGE;
-          sum.msg.mn_Length = sizeof(sum);
-          sum.msg.mn_ReplyPort = reply;
-          Forbid();
-          port = FindPort("ixstack port");
-          if (port)
-            PutMsg(port, (struct Message *)&sum);
-          Permit();
-          if (port)
-            WaitPort(reply);
-          ix_delete_port(reply);
-        }
+	{
+	  bzero(&sum, sizeof(sum));
+	  if (lock)
+	    NameFromLock(lock, sum.name, sizeof(sum.name) - 40);
+	  tmp = me->tc_SPLower;
+	  while (*++tmp == 0xdb);
+	  if (lock)
+	    strcat(sum.name, "/");
+	  GetProgramName(sum.name + strlen(sum.name), 39);
+	  sum.stack_size = (u_long)me->tc_SPUpper - (u_long)me->tc_SPLower;
+	  sum.stack_usage = (u_long)me->tc_SPUpper - (u_long)tmp;
+#ifdef NATIVE_MORPHOS
+	  /* ToDo: add ppc stack information */
+#endif
+	  sum.msg.mn_Node.ln_Type = NT_MESSAGE;
+	  sum.msg.mn_Length = sizeof(sum);
+	  sum.msg.mn_ReplyPort = reply;
+	  Forbid();
+	  port = FindPort("ixstack port");
+	  if (port)
+	    PutMsg(port, (struct Message *)&sum);
+	  Permit();
+	  if (port)
+	    WaitPort(reply);
+	  ix_delete_port(reply);
+	}
     }
 }
 
 void
 ix_close (struct ixemul_base *ixbase)
 {
-  struct Task           *me = FindTask(0);
+  struct Task           *me = SysBase->ThisTask;
   struct user           *u_ptr = getuser(me);
-  struct user 		*ix_u =	&u;
-  struct Process	*child;
-  struct user		*cu;
-  struct ixnode		*dm;	/* really struct death_msg * */
+  struct user           *ix_u = &u;
+  struct Process        *child;
+  struct user           *cu;
+  struct ixnode         *dm;    /* really struct death_msg * */
+  struct Message	*wb_msg;
+
+  KPRINTF(("closing ixemul...\n"));
 
   Disable();
   ixremove(&timer_task_list, &ix_u->u_user_node);
   Enable();
+#ifdef __pos__
+  if (ix_u->IRQBase)
+    {
+      struct pOS_StdIRQResourceMFunction *const IRQ = _pOS_GetIRQResourceFunction(ix_u->IRQBase);
+
+      (*IRQ->pOS_RemIRQServer_func)(ix_u->IRQBase, IRQTYP_VBlank, &ix_u->u_itimerint);
+      pOS_CloseResource(ix_u->IRQBase);
+    }
+#else
   RemIntServer (INTB_VERTB, &ix_u->u_itimerint);
+#endif
 
   Forbid();
   semexit(me);
@@ -120,42 +140,66 @@ ix_close (struct ixemul_base *ixbase)
    * to loop infinitely if one of the following functions should crash */
   me->tc_TrapCode = ix_u->u_otrap_code;
 #endif
-  
+
   freestack();
   shmexit(ix_u);
 
   /* had to move this block after the SYS_close's, since close() might have
      to wait for a packet, and then it's essential that our switch/launch
      handlers are still active */
-  me->tc_Flags    = ix_u->u_otask_flags;
-  me->tc_Launch	  = ix_u->u_olaunch;
-  me->tc_Switch   = ix_u->u_oswitch;
+  SetExcept(0,~0);
+  me->tc_ExceptCode = ix_u->u_oexcept_code;
+  SetExcept(ix_u->u_oexcept_sigs, ~0);
+
+  /* Make sure there is no exception pending. This can only happen if we
+     are in Forbid or Disable state. */
+  if (SysBase->TDNestCnt >= 0 || SysBase->IDNestCnt >= 0)
+      me->tc_Flags &= ~TF_EXCEPT;
+
+  KPRINTF(("TDNestCnt = %ld, IDNestCnt = %ld, SigExcept = %08lx, Flags = %lx\n",
+	   SysBase->TDNestCnt, SysBase->IDNestCnt, me->tc_SigExcept, me->tc_Flags));
+
   FreeSignal (ix_u->u_sleep_sig);
   FreeSignal (ix_u->u_pipe_sig);
 
   if (ix_u->u_ixnetbase)
-    CloseLibrary (ix_u->u_ixnetbase);
+    {
+      KPRINTF(("closing ixnet\n"));
+      CloseLibrary (ix_u->u_ixnetbase);
+    }
 
+  KPRINTF(("closing timer.device\n"));
   CloseDevice ((struct IORequest *) ix_u->u_time_req);
+  KPRINTF(("delete timer req\n"));
   ix_delete_extio((struct IORequest *)ix_u->u_time_req);
   
   if (ix_u->u_startup_cd != (BPTR) -1)
     {
+      KPRINTF(("UnLock current dir\n"));
       __unlock (CurrentDir (ix_u->u_startup_cd));
+      KPRINTF(("set dir name\n"));
       set_dir_name_from_lock(ix_u->u_startup_cd);
     }
 
   ix_u->u_trace_flags = 1;
+  KPRINTF(("delete select port\n"));
   ix_delete_port(ix_u->u_select_mp);
+  KPRINTF(("delete sync port\n"));
   ix_delete_port(ix_u->u_sync_mp);
 
+#ifndef __pos__
   /* try to free it here */
+  KPRINTF(("closing mufs\n")); 
   __ix_close_muFS(ix_u);
+#endif
 
+  KPRINTF(("relinking processes\n"));
   Forbid();
   for ((child = ix_u->p_cptr); child; (child = cu->p_osptr))
     {
+KPRINTF(("child = %lx\n", child));
       cu = safe_getuser(child);
+KPRINTF(("user = %lx\n", cu));
       cu->p_pptr = (struct Process *) 1;
     }
 
@@ -165,29 +209,37 @@ ix_close (struct ixemul_base *ixbase)
   if (ix_u->u_session)
     {
       if (ix_u->u_session->pgrp == (int)me)
-        ix_u->u_session->pgrp = 0;
+	ix_u->u_session->pgrp = 0;
       if (ix_u->u_session->s_count-- <= 1)
-        kfree(ix_u->u_session);
+	kfree(ix_u->u_session);
     }
   
+KPRINTF(("ysptr = %lx\n", ix_u->p_ysptr));
   if (ix_u->p_ysptr)
     safe_getuser(ix_u->p_ysptr)->p_osptr = ix_u->p_osptr;
 
+KPRINTF(("osptr = %lx\n", ix_u->p_osptr));
   if (ix_u->p_osptr)
     safe_getuser(ix_u->p_osptr)->p_ysptr = ix_u->p_ysptr;
 
+KPRINTF(("pptr = %lx\n", ix_u->p_pptr));
   if (ix_u->p_pptr && ix_u->p_pptr != (struct Process *)1)
     {
       struct user *u_ptr = safe_getuser(ix_u->p_pptr);
+KPRINTF(("user = %lx\n", u_ptr));
       if (u_ptr->p_cptr == (struct Process *)me)
 	u_ptr->p_cptr = ix_u->p_osptr;
     }
   Permit();
 
   if (ix_u->p_flag & SFREEA4)
-    kfree ((void *)(ix_u->u_a4 - 0x7ffe));
+    {
+      KPRINTF(("Freeing data\n"));
+      kfree (ix_u->u_sdata_ptr);
+    }
 
-  for (dm = (struct ixnode *)ix_u->p_zombies.head; dm;)
+  KPRINTF(("waking up zombies\n"));
+  for (dm = (struct ixnode *)ix_u->p_zombies.head; dm; )
     {
       struct ixnode *tmp = dm;
       dm = dm->next;
@@ -201,6 +253,7 @@ ix_close (struct ixemul_base *ixbase)
   if ((ix_u->p_flag & SUSAGE) == 0)
     ix_stack_usage();
 
+  KPRINTF(("Freeing all memory\n"));
   all_free ();
 
 #ifndef NOTRAP
@@ -209,5 +262,14 @@ ix_close (struct ixemul_base *ixbase)
   getuser(me) = ix_u->u_otrap_data;
 #endif
 
+  wb_msg = ix_u->u_wbmsg;
   kfree (((char *)ix_u) - ix_u->u_a4_pointers_size * 4);
+
+  if (wb_msg)
+    {
+      Forbid();
+      ReplyMsg(wb_msg);
+    }
+
+  KPRINTF(("done.\n"));
 }

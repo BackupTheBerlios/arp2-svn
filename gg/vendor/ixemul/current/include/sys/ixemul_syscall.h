@@ -17,21 +17,26 @@
  *  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#ifndef _SYS_SYSCALL_H
-#define _SYS_SYSCALL_H
+#ifndef _SYS_IXEMUL_SYSCALL_H
+#define _SYS_IXEMUL_SYSCALL_H
 
-#define SYSTEM_CALL(func, vec) SYS_##func = vec,
+#define SYSTEM_CALL(func, vec, args) SYS_##func = vec,
 
 enum _syscall_ {
-#include <sys/syscall.def>
+#include <sys/ixemul_syscall.def>
 #undef SYSTEM_CALL
 };
 
 #ifndef _KERNEL
+#ifdef NATIVE_MORPHOS
+extern int (**_ixbasearray)();
+#define syscall(vec, args...) \
+  ((_ixbasearray[vec-1])(args))
+#else
 extern void *ixemulbase;
-
 #define syscall(vec, args...) \
   ({register int (*_sc)()=(void *)(&((char *)ixemulbase)[-((vec)+4)*6]); _sc(args);})
+#endif
 #endif
 
 #endif /* _SYS_SYSCALL_H */

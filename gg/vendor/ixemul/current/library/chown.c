@@ -27,6 +27,9 @@
 int
 __chown_func (struct lockinfo *info, int ugid, int *error)
 {
+#ifdef __pos__ /* TODO */
+  info->result = 0;
+#else
   struct StandardPacket *sp = &info->sp;
 
   sp->sp_Pkt.dp_Type = ACTION_SET_OWNER;
@@ -39,6 +42,7 @@ __chown_func (struct lockinfo *info, int ugid, int *error)
   __wait_sync_packet (sp);
 
   info->result = sp->sp_Pkt.dp_Res1;
+#endif
   *error = info->result != -1;
   return 1;
 }
@@ -69,7 +73,7 @@ chown(const char *name, uid_t uid, gid_t gid)
       
       // If device doesn't support this action, then just let it succeed
       if (errno == ENODEV)
-        return 0;
+	return 0;
       KPRINTF (("&errno = %lx, errno = %ld\n", &errno, errno));
     }
 

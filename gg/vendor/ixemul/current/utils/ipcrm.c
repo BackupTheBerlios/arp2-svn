@@ -12,7 +12,7 @@
  *    documentation and/or other materials provided with the distribution.
  * 3. All advertising materials mentioning features or use of this software
  *    must display the following acknowledgement:
- *	This product includes software developed by Adam Glass.
+ *      This product includes software developed by Adam Glass.
  * 4. The name of the Author may not be used to endorse or promote products
  *    derived from this software without specific prior written permission.
  *
@@ -28,10 +28,11 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: ipcrm.c,v 1.4 1994/08/07 18:27:42 glass Exp $
+ * $Id: ipcrm.c,v 1.2 2000/10/04 17:54:25 emm Exp $
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <err.h>
 #include <signal.h>
@@ -49,7 +50,7 @@ int signaled;
 
 void usage()
 {
-        fprintf(stderr, "usage: ipcrm [ [-q msqid] [-m shmid] [-s semid]\n");
+	fprintf(stderr, "usage: ipcrm [ [-q msqid] [-m shmid] [-s semid]\n");
 	fprintf(stderr, "        [-Q msgkey] [-M shmkey] [-S semkey] ...]\n");
 	exit(1);
 }

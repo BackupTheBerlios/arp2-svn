@@ -26,6 +26,10 @@
 int
 __chmod_func (struct lockinfo *info, int mask, int *error)
 {
+#ifdef __pos__
+  info->result = pOS_SetObjectProtectionName((void *)info->parent_lock, info->bstr, mask);
+  *error = info->result == 0;
+#else
   struct StandardPacket *sp = &info->sp;
 
   sp->sp_Pkt.dp_Type = ACTION_SET_PROTECT;
@@ -39,6 +43,7 @@ __chmod_func (struct lockinfo *info, int mask, int *error)
   
   info->result = sp->sp_Pkt.dp_Res1;
   *error = info->result != -1;
+#endif
   return 1;
 }
 
@@ -65,8 +70,10 @@ chmod(const char *name, mode_t mode)
   if (mode & S_ISUID) amiga_mode |= muFIBF_SET_UID;
   if (mode & S_ISGID) amiga_mode |= muFIBF_SET_GID;
 
+#ifndef __pos__
   /* RWED-permissions are "lo-active", if cleared they allow the operation */
   amiga_mode ^= FIBF_READ|FIBF_WRITE|FIBF_DELETE|FIBF_EXECUTE;
+#endif
 
   result = __plock (name, __chmod_func, (void *)amiga_mode);
   if (result == 0)
@@ -82,11 +89,11 @@ chmod(const char *name, mode_t mode)
        * open, and set its mode */
       ix_lock_base();
       for (fp = ix.ix_file_tab; fp < ix.ix_fileNFILE; fp++)
-        if (fp->f_count && fp->f_name && !strcmp(fp->f_name, name))
-          {
-            fp->f_stb.st_mode = mode;
-            fp->f_stb_dirty |= FSDF_MODE;
-          }
+	if (fp->f_count && fp->f_name && !strcmp(fp->f_name, name))
+	  {
+	    fp->f_stb.st_mode = mode;
+	    fp->f_stb_dirty |= FSDF_MODE;
+	  }
       ix_unlock_base();
     }
   return result ? 0 : -1;

@@ -7,12 +7,25 @@
 #define str(s) #s
 #define sstr(s) str(s)
 
+#ifdef __m68000__
 asm("
 	.data
 	.even
-	.globl	___stack
-	.ascii	\"StCk\"	| Magic cookie
+	.globl  ___stack
+	.ascii  \"StCk\"        | Magic cookie
 ___stack:
-	.long	" sstr(STACKSIZE) "
-	.ascii	\"sTcK\"	| Magic cookie
+	.long   " sstr(STACKSIZE) "
+	.ascii  \"sTcK\"        | Magic cookie
 ");
+#else
+asm("
+	.section \".data\"
+	.align  2
+	.globl  __stack
+	.ascii  \"StCk\"        /* Magic cookie */
+__stack:
+	.long   " sstr(STACKSIZE * 2) "
+	.ascii  \"sTcK\"        /* Magic cookie */
+");
+
+#endif

@@ -32,10 +32,12 @@
    | The first executable location.  This should return an error
    | in case someone tried to run you as a program (instead of
    | loading you as a library).
-	.globl	Start		| we use this to force inclusion of start.s
+	.globl  Start           | we use this to force inclusion of start.s
 Start:
+#ifndef __pos__
    movel   #-1,d0
    rts
+#endif
 
 |-----------------------------------------------------------------------
 | A romtag structure.  Both "exec" and "ramlib" look for
@@ -44,17 +46,26 @@ Start:
 |-----------------------------------------------------------------------
 
 initDDescrip:
-               |STRUCTURE RT,0
+	       |STRUCTURE RT,0
      .word    RTC_MATCHWORD      | UWORD RT_MATCHWORD
      .long    initDDescrip       | APTR  RT_MATCHTAG
      .long    EndCode            | APTR  RT_ENDSKIP
+#ifdef __pos__
+     .long    RTF_AUTOINIT       | UBYTE RT_FLAGS
+     .word    IX_VERSION         | UBYTE RT_VERSION
+     .word    IX_REVISION        | UBYTE RT_VERSION
+#else
      .byte    RTF_AUTOINIT       | UBYTE RT_FLAGS
      .byte    IX_VERSION         | UBYTE RT_VERSION
+#endif
      .byte    NT_LIBRARY         | UBYTE RT_TYPE
      .byte    IX_PRIORITY        | BYTE  RT_PRI
-     .long    ixName        	 | APTR  RT_NAME
+     .long    ixName             | APTR  RT_NAME
      .long    idString           | APTR  RT_IDSTRING
      .long    Init               | APTR  RT_INIT
+#ifdef __pos__
+     .long    LibraryDescribe    | APTR  RT_DESCRIBE
+#endif
 
 | this is just fool proof, and this library will never make it to ROM
 | anyway, so resident tags are not that important ;-)
@@ -76,6 +87,12 @@ idString:
    | force word alignment
    .even
 
+#ifdef __pos__
+LibraryDescribe:
+	.long   EXTSTTAG_MainOSID
+	.long   pOS_MAINOSID
+	.long   TAG_END
+#endif
 
    | The romtag specified that we were "RTF_AUTOINIT".  This means
    | that the RT_INIT structure member points to one of these
@@ -83,10 +100,10 @@ idString:
    | would point to a routine to run.
 
 Init:
-   .long   IXBASE_SIZEOF	| size of library base data space
-   .long   funcTable		| pointer to function initializers
+   .long   IXBASE_SIZEOF        | size of library base data space
+   .long   funcTable            | pointer to function initializers
    .long   dataTable            | pointer to data initializers
-   .long   _initRoutine	        | routine to run
+   .long   _initRoutine         | routine to run
 
 
 funcTable:
@@ -95,7 +112,18 @@ funcTable:
    .long   _libOpen
    .long   _libClose
    .long   _libExpunge
+#ifdef __pos__
+   .long   _libReserved
+   .long   _libReserved
+   .long   _libReserved
+   .long   _libReserved
+   .long   _libReserved
+   .long   _libReserved
+   .long   _libReserved
+   .long   _libReserved
+#else
    .long   Null
+#endif
 
    |------ my libraries definitions
 
@@ -164,39 +192,49 @@ funcTable:
 #define ___must_recompile530 ___must_recompile
 #define ___must_recompile570 ___must_recompile
 
-
-#ifdef TRACE_LIBRARY
-#define SYSTEM_CALL(func, vec) .long trace_/**/func
-#else
-#define SYSTEM_CALL(func, vec) .long _/**/func
-#endif
-#include <sys/syscall.def>
-#undef SYSTEM_CALL
-
+#ifdef __pos__
    |------ function table end marker
    .long   -1
+
+   .globl  _posFuncTable
+
+_posFuncTable:
+#endif
+
+#ifdef TRACE_LIBRARY
+#define SYSTEM_CALL(func, vec, args) .long trace_/**/func
+#else
+#define SYSTEM_CALL(func, vec, args) .long _/**/func
+#endif
+#include <sys/ixemul_syscall.def>
+#undef SYSTEM_CALL
+
+#ifndef __pos__
+   |------ function table end marker
+   .long   -1
+#endif
 
 #ifdef TRACE_LIBRARY
 
 # Make sure tracing doesn't clobber A1, as that will be used to return a
 # pointer to a structure.
 
-#define SYSTEM_CALL(func, vec) \
-trace_/**/func: ;						\
-	moveml d0/d1/a0/a1,sp@-;				\
-	pea _/**/func;						\
-	pea vec; 						\
-	jsr _trace_entry;					\
-	lea sp@(8),sp;						\
-	tstl d0;						\
-	beq  1f;		/* jump directly there */	\
-	moveml sp@+,d0/d1/a0/a1;				\
-	/* in that case, trace_entry already provided the result */	\
-	movel sp@(-20),d0;					\
-	rts;							\
-1:	moveml sp@+,d0/d1/a0/a1;				\
+#define SYSTEM_CALL(func, vec, args) \
+trace_/**/func: ;                                               \
+	moveml d0/d1/a0/a1,sp@-;                                \
+	pea _/**/func;                                          \
+	pea vec;                                                \
+	jsr _trace_entry;                                       \
+	lea sp@(8),sp;                                          \
+	tstl d0;                                                \
+	beq  1f;                /* jump directly there */       \
+	moveml sp@+,d0/d1/a0/a1;                                \
+	/* in that case, trace_entry already provided the result */     \
+	movel sp@(-20),d0;                                      \
+	rts;                                                    \
+1:      moveml sp@+,d0/d1/a0/a1;                                \
 	jmp _/**/func;
-#include <sys/syscall.def>
+#include <sys/ixemul_syscall.def>
 #undef SYSTEM_CALL
 #endif
 
@@ -212,14 +250,15 @@ trace_/**/func: ;						\
    | NOTE - LN_TYPE below is a correction - old example had LH_TYPE
 
 dataTable:
-	INITBYTE (LN_TYPE, 		NT_LIBRARY)
-	INITLONG (LN_NAME, 		ixName)
-	INITBYTE (IXBASE_FLAGS, 	0x6) |LIBF_CHANGED_SUMUSED
-	INITWORD (IXBASE_VERSION, 	IX_VERSION)
-	INITWORD (IXBASE_REVISION, 	IX_REVISION)
-	INITLONG (IXBASE_IDSTRING, 	idString)
+	INITBYTE (LN_TYPE,              NT_LIBRARY)
+	INITLONG (LN_NAME,              ixName)
+	INITBYTE (IXBASE_FLAGS,         0x6) |LIBF_CHANGED_SUMUSED
+	INITWORD (IXBASE_VERSION,       IX_VERSION)
+	INITWORD (IXBASE_REVISION,      IX_REVISION)
+	INITLONG (IXBASE_IDSTRING,      idString)
 	.long   0
 
+#ifndef __pos__
    | This routine gets called after the library has been allocated.
    | The library pointer is in D0.  The segment list is in A0.
    | If it returns non-zero then the library will be linked into
@@ -237,8 +276,8 @@ _initRoutine:
    |------ the ix_init_glue() function checks if the hardware is supported
    |------ (using 68000 instructions only) and if so will call ix_init()
    |------ for the main initialization.
-   pea	   a5@
-   jsr	   _ix_init_glue
+   pea     a5@
+   jsr     _ix_init_glue
    addqw   #4,sp
 
    movel   sp@+,a5
@@ -275,9 +314,10 @@ _libOpen:      | ( libptr:a6, version:d0 )
    bclr    #LIBB_DELEXP,a6@(IXBASE_FLAGS)
 
    |------ do other things in C
-   pea	   a6@
-   jsr	   _ix_open
+   pea     a6@
+   jsr     _ix_open
    addqw   #4,sp
+   tstl    d0
    beq     OpenFailed
    |--- ix_open() should return the library base, if all ok
 
@@ -296,8 +336,8 @@ OpenFailed:
 _libClose:      | ( libptr:a6 )
 
    |------ do any cleanups needed in C
-   pea	   a6@
-   jsr	   _ix_close
+   pea     a6@
+   jsr     _ix_close
    addqw   #4,sp
 
    |------ mark us as having one fewer openers
@@ -307,7 +347,7 @@ _libClose:      | ( libptr:a6 )
    bne     Null
 
    |------ see if we have a delayed expunge pending
-   btst    #LIBB_DELEXP,a6@(IXBASE_FLAGS)	| SEE ABOVE!
+   btst    #LIBB_DELEXP,a6@(IXBASE_FLAGS)       | SEE ABOVE!
    bne     _libExpunge
 
    | reserved entry
@@ -332,7 +372,7 @@ _libExpunge:   | ( libptr: a6 )
 
    |------ assume we can't expunge
    subal   a2,a2
-   bset    #LIBB_DELEXP,a5@(IXBASE_FLAGS)	| SEE ABOVE !!
+   bset    #LIBB_DELEXP,a5@(IXBASE_FLAGS)       | SEE ABOVE !!
 
    |------ see if anyone has us open
    tstw    a5@(IXBASE_OPENCNT)
@@ -344,13 +384,13 @@ _libExpunge:   | ( libptr: a6 )
 
    |------ unlink from library list
    movel   a5,a1
-   jsr	   a6@(_LVORemove)
+   jsr     a6@(_LVORemove)
 
    |
    | device specific closings here...
    |
-   pea	   a5@
-   jsr	   _ix_expunge
+   pea     a5@
+   jsr     _ix_expunge
    addqw   #4,sp
 
    |------ free our memory
@@ -359,10 +399,12 @@ _libExpunge:   | ( libptr: a6 )
    movew   a5@(IXBASE_NEGSIZE),d0
    subl    d0,a1
    addw    a5@(IXBASE_POSSIZE),d0
-   jsr	   a6@(_LVOFreeMem)
+   jsr     a6@(_LVOFreeMem)
 
 L21:       |------ set up our return value
    movel   a2,d0
 
    moveml  sp@+,a2/a5/a6
    rts
+
+#endif /* __pos__ */

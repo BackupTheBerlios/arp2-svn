@@ -16,11 +16,15 @@
  *  License along with this library; if not, write to the Free
  *  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- *  machdep.c,v 1.1.1.1 1994/04/04 04:30:40 amiga Exp
+ *  $Id: machdep.c,v 1.10 2001/07/02 16:24:16 emm Exp $
  *
  *  machdep.c,v
- * Revision 1.1.1.1  1994/04/04  04:30:40  amiga
- * Initial CVS check in.
+ *
+ *  Revision ??? emm
+ *  Replaced the launch() polling by task exceptions.
+ *
+ *  Revision 1.1.1.1  1994/04/04  04:30:40  amiga
+ *  Initial CVS check in.
  *
  *  Revision 1.5  1993/11/05  21:59:18  mwild
  *  add code to deal with inet.library
@@ -35,8 +39,8 @@
  *  add yet another state in which not to force a context switch.
  *  Probably unnecessary paranoia...
  *
- * Revision 1.1  1992/05/14  19:55:40  mwild
- * Initial revision
+ *  Revision 1.1  1992/05/14  19:55:40  mwild
+ *  Initial revision
  *
  */
 
@@ -47,171 +51,547 @@
 
 #include <string.h>
 #include <exec/execbase.h>
-
-/* jump to pc in supervisor mode, usp is set to USP before */
-extern void volatile supervisor (u_int pc, u_int usp);
-
-/* context restore functions for 68000 and 68020 rsp */
-
-/* takes the sigcontext * from the usp and restores it 
- * Assumes it's called by Supervisor(), ie. with an exception frame
- */
-extern void volatile do_sigreturn (void);
-
-/*
- * These two are callable with jsr from supervisor mode, and then
- * set up a fake exception frame and call do_sigreturn().
- */
-extern void volatile sup00_do_sigreturn_ssp (u_int ssp);
-extern void volatile sup00_do_sigreturn (void);
-extern void volatile sup00_do_sigresume (void);
-extern void volatile restore_00 ();
-extern void volatile sup20_do_sigreturn_ssp (u_int ssp);
-extern void volatile sup20_do_sigreturn (void);
-extern void volatile sup20_do_sigresume (void);
-extern void volatile restore_20 ();
-/*
- * Either one of sup{00,20}_do_sigreturn, set by configure_context_switch ();
- */
-static void volatile (*sup_do_sigresume) (void);
-static void volatile (*sup_do_sigreturn) (void);
-static void volatile (*sup_do_sigreturn_ssp) (u_int ssp);
+#include <exec/ports.h>
+#include <exec/memory.h>
+#include <exec/tasks.h>
 
 void setrun (struct Task *t);
 void sendsig(struct user *p, sig_t catcher, int sig, int mask, unsigned code, void *addr);
+void resume_signal_check(void);
 
-struct sigframe {
-  int			sf_signum;	/* signo for handler */
-  int			sf_code;	/* additional info for handler */
-  void			*sf_addr;	/* yet another info for handler ;-)) */
-  sig_t			sf_handler;	/* handler addr for u_sigc */
-  struct sigcontext 	sf_sc;		/* actual context */
+/* The signal handling is completely different than the one in previous versions.
+ * It works in the following way:
+ * A task exception handler is set during is_open() to catch all user
+ * signals. If this exception handler decides that an Amiga signal should
+ * result in a sighandler execution, it sends a message to the task switcher,
+ * and exits.
+ * Since the task switcher has a high priority, it is scheduled immediately.
+ * The task switcher adds a new stack frame on the top of the old one,
+ * with PC set to a trampoline function.
+ * The task switcher then goes to sleep, and the task is rescheduled.
+ * It executes the sighandler. The sighandler exits normally (i.e.
+ * no longjmp() back), the trampoline tells the task switcher to
+ * remove the added frame.
+ */
+
+#ifndef NATIVE_MORPHOS
+/* messages that are sent by the exception handler to the task switcher task. */
+struct framemsg {
+  struct Message        fm_message;
+  struct Task           *fm_task;       /* task to add a frame to */
+  int                   fm_signum;      /* signo for handler */
+  int                   fm_code;        /* additional info for handler */
+  void                  *fm_addr;       /* yet another info for handler ;-)) */
+  sig_t                 fm_handler;     /* handler addr for u_sigc */
+  /*void                  *fm_sp;         /* sp to restore */
+  int                   fm_state;       /* task state to restore */
+  sigset_t              fm_waitsigs;    /* waiting signals to restore */
+  struct sigcontext     fm_context;     /* context to restore */
 };
 
-void
-configure_context_switch (void)
+/* Stack frames used to save the state of a task when it is rescheduled. */
+struct frame_68000 {
+    ULONG pc;
+    UWORD sr;
+    ULONG d[8];
+    ULONG a[7];
+};
+
+struct frame_68060_idle_fpu {
+    ULONG mode; /* 0x0 */
+    ULONG pad0; /* 0x0 */
+    ULONG pad1; /* 0x0 */
+    ULONG pc;
+    UWORD sr;
+    ULONG d[8];
+    ULONG a[7];
+};
+
+struct frame_68060_busy_fpu {
+    ULONG  mode; /* 0xffffffff */
+    ULONG  fpcr;
+    ULONG  fpsr;
+    ULONG  fpiar;
+    ULONG  fp[3*8];
+    ULONG  fpframe[3];
+    ULONG  pc;
+    UWORD  sr;
+    ULONG  d[8];
+    ULONG  a[7];
+};
+
+struct frame_idle_fpu {
+    UWORD mode; /* 0x0 */
+    UWORD pad;  /* 0x0 */
+    ULONG pc;
+    UWORD sr;
+    ULONG d[8];
+    ULONG a[7];
+};
+
+struct frame_busy_fpu {
+    UWORD mode; /* 0xffff */
+    ULONG fpcr;
+    ULONG fpsr;
+    ULONG fpiar;
+    ULONG fp[3*8];
+    UWORD fpframe[3];
+    ULONG pc;
+    UWORD sr;
+    ULONG d[8];
+    ULONG a[7];
+};
+
+/* Functions used for messages management. The error handling
+ * currently sucks. */
+struct framemsg *
+create_framemsg()
 {
-  /* The stack frame of the 68010 is identical to the 68020! */
-  if (has_68010_or_up)
+  /* no ReplyPort, those messages won't be replied */
+  return AllocMem(sizeof(struct framemsg), MEMF_PUBLIC | MEMF_CLEAR);
+}
+
+void
+delete_framemsgs()
+{
+  struct Node *node;
+  while ((node = ix.ix_framemsg_list.lh_Head)->ln_Succ)
     {
-      sup_do_sigresume = sup20_do_sigresume;
-      sup_do_sigreturn = sup20_do_sigreturn;
-      sup_do_sigreturn_ssp = sup20_do_sigreturn_ssp;
+      Remove(node);
+      FreeMem(node, sizeof(struct framemsg));
+    }
+}
+
+struct framemsg *
+get_framemsg()
+{
+  struct framemsg *fm;
+
+  Forbid(); /* fixme: semaphores+signal mask would be better */
+
+  if (IsListEmpty(&ix.ix_framemsg_list))
+    {
+      fm = create_framemsg();
     }
   else
     {
-      sup_do_sigresume = sup00_do_sigresume;
-      sup_do_sigreturn = sup00_do_sigreturn;
-      sup_do_sigreturn_ssp = sup00_do_sigreturn_ssp;
+      fm = (struct framemsg *)ix.ix_framemsg_list.lh_Head;
+      Remove(&fm->fm_message.mn_Node);
     }
+
+  Permit();
+  /* KPRINTF(("get_framemsg() = %lx\n", fm)); */
+  return fm;
 }
 
-void volatile
-sigreturn (struct sigcontext *sc)
+
+void
+release_framemsg(struct framemsg *fm)
 {
-  supervisor ((u_int) do_sigreturn, (u_int) sc);
+  /* KPRINTF(("release_framemsg(%lx)\n", fm)); */
+  Forbid(); /* fixme: semaphores would be better */
+  AddTail(&ix.ix_framemsg_list, &fm->fm_message.mn_Node);
+  Permit();
 }
 
+
+/* this function is the one called by the new created frame. */
 void volatile
-sig_trampoline (struct sigframe sf)
+sig_trampoline (struct framemsg *fm
+#ifndef NATIVE_MORPHOS
+				     asm("a0")
+#endif
+					       )
 {
-  usetup;
+  struct Task      *me       = fm->fm_task;
+  int               state    = fm->fm_state;
+  sigset_t          waitsigs = fm->fm_waitsigs;
+  int               signum   = fm->fm_signum;
+  int               code     = fm->fm_code;
+  void             *addr     = fm->fm_addr;
+  sig_t             handler  = fm->fm_handler;
+  struct sigcontext sc       = fm->fm_context;
+  struct user      *u_ptr    = getuser(me);
+
+  KPRINTF(("sig_trampoline(%lx, u = %lx) TDNestCnt=%ld IDNestCnt=%ld SR=%04lx\n", fm, u_ptr, SysBase->TDNestCnt, SysBase->IDNestCnt, REG_SR));
+
+  release_framemsg(fm);
+
+  KPRINTF(("handler = %lx\n", handler));
+
+#ifdef NATIVE_MORPHOS
+
+  if ((int)handler & 1)
+    {
+      GETEMULHANDLE
+      struct EmulCaos caos;
+      static const u_short glue[] = {
+	  /* code for:
+		movem.l d0/d1/a0/a1,-(sp)
+		jsr     (a2)
+		lea     16(sp),sp
+		rts
+	  */
+	  0x48E7, 0xC0C0, 0x4E92, 0x4FEF, 0x0010, 0x4E75
+      };
+      caos.caos_Un.Function = &glue;
+      caos.reg_d0 = signum;
+      caos.reg_d1 = code;
+      caos.reg_a0 = (ULONG)addr;
+      caos.reg_a1 = (ULONG)&sc;
+      caos.reg_a2 = (APTR)((int)handler & ~1);
+      caos.reg_a4 = u.u_a4;
+      MyEmulHandle->EmulCall68k(&caos);
+    }
+  else
+    {
+      KPRINTF(("is_ppc = %ld, r13 = %lx\n", u.u_is_ppc, u.u_r13));
+      if (u.u_is_ppc && u.u_r13)
+	  asm ("mr 13,%0" : : "r" (u.u_r13));
+      ((void (*)())handler) (signum, code, addr, &sc);
+    }
+
+#else
 
   if (u.u_a4)
     asm ("movel %0,a4" : : "g" (u.u_a4));
-  ((void (*)())sf.sf_handler) (sf.sf_signum, sf.sf_code, sf.sf_addr, & sf.sf_sc);
 
-  sigreturn (& sf.sf_sc);
+  ((void (*)())handler) (signum, code, addr, &sc);
+
+#endif
+
+
+  if (handler == (sig_t)stopped_process_handler)
+    resume_signal_check(); /* might lead to stack overflow ?? */
+
+  u.u_onstack = sc.sc_onstack;
+  u.p_sigmask = sc.sc_mask;
+
+#ifndef NATIVE_MORPHOS
+  /* tell the task switcher to restore the frame */
+  while (!(fm = get_framemsg()))
+    {
+      /* Fixme: What else to do ? */
+      /* Waiting is not safe, because we might break a Forbid,
+	 but well... */
+      KPRINTF(("Can't send signal\n"));
+      Delay(100);
+    }
+
+  fm->fm_task          = me;
+  fm->fm_handler       = NULL;
+  fm->fm_context.sc_sp = sc.sc_sp;
+  fm->fm_state         = state;
+  fm->fm_waitsigs      = waitsigs;
+
+  PutMsg(ix.ix_task_switcher_port, &fm->fm_message);
+  Wait(0); /* In theory, this is never reached, but who knows... */
+#else
+  /**(int*)&me->tc_Flags = sc.sc_ap;*/
+  me->tc_SigWait = waitsigs;
+#endif
+/*KPRINTF(("SR=%lx, type=%lx, flags=%lx\n",MyEmulHandle->SR,MyEmulHandle->Type,MyEmulHandle->Flags));
+Disable();
+{ struct Task * t;
+for(t=(APTR)SysBase->TaskReady.lh_Head;t->tc_Node.ln_Succ;t=(APTR)t->tc_Node.ln_Succ)
+    KPRINTF(("%lx: %s state=%ld pri=%ld sigwait=%lx sigreceived=%lx\n",t,t->tc_Node.ln_Name,t->tc_State,t->tc_Node.ln_Pri,t->tc_SigWait,t->tc_SigRecvd));
+} Enable();*/
+
+  KPRINTF(("end_sig_trampoline. TDNestCnt=%ld IDNestCnt=%ld\n", SysBase->TDNestCnt, SysBase->IDNestCnt));
 }
+
+/* This functions builds a new stack frame, according to the framemsg.
+ * It is called by the task switcher. */
+void
+setup_frame(struct framemsg *fm)
+{
+  struct Task *task  = fm->fm_task;
+  struct user *u_ptr = getuser(task);
+
+  KPRINTF(("set_frame(task=%lx) TDNestCnt=%ld IDNestCnt=%ld\n", task, task->tc_TDNestCnt, task->tc_IDNestCnt));
+
+  /* Save the current task state. */
+  fm->fm_context.sc_sp      = (int)task->tc_SPReg;
+  fm->fm_context.sc_ap      = *(u_int *)&task->tc_Flags;
+  fm->fm_state              = task->tc_State;
+  fm->fm_waitsigs           = task->tc_SigWait;
+
+  /* Add the new frame. */
+  /* We need to set pc, sr, fp control words, and a4 (for baserel support). */
+  /* Also set fp data registers to 0, to avoid a possible exception if random */
+  /* data are loaded into them. */
+  /* In addition, a0 will be set to fm. */
+  /* Other registers don't matter. */
+#ifdef NATIVE_MORPHOS
+    {
+      struct TaskFrame68k frame;
+      KPRINTF(("MorphOS PPC frame\n"));
+      frame.PC = (void*)sig_trampoline;
+      frame.SR = 0;
+      frame.Xn[12] = u.u_a4;
+      NewSetTaskAttrs(task, &frame, 0,
+		      TASKINFOTYPE_PPC_NEWFRAME,
+		      TASKTAG_PC, sig_trampoline,
+		      TASKTAG_PPC_ARG1, fm,
+		      TAG_END);
+    }
+
+#else
+  if (has_fpu)
+    {
+      if (has_68060_or_up)
+	{
+	  if (*(int *)task->tc_SPReg == 0)
+	    {
+	      struct frame_68060_idle_fpu *q = task->tc_SPReg;
+	      KPRINTF(("68060 idle fpu frame\n"));
+	      --q;
+	      q->mode = 0;
+	      q->pad0 = 0;
+	      q->pad1 = 0;
+	      q->pc   = (int)sig_trampoline;
+	      q->sr   = q[1].sr;
+	      q->a[0] = (int)fm;
+	      q->a[4] = u.u_a4;
+	      task->tc_SPReg = q;
+	    }
+	  else
+	    {
+	      struct frame_68060_busy_fpu *q = task->tc_SPReg;
+	      KPRINTF(("68060 busy fpu frame\n"));
+	      --q;
+	      q->mode       = 0xffffffff;
+	      q->fpcr       = q[1].fpcr;
+	      q->fpsr       = q[1].fpsr;
+	      q->fpiar      = q[1].fpiar;
+	      q->fpframe[0] = q[1].fpframe[0];
+	      q->fpframe[1] = q[1].fpframe[1];
+	      q->fpframe[2] = q[1].fpframe[2];
+	      memset(q->fp, 0, sizeof(q->fp));
+	      q->pc         = (int)sig_trampoline;
+	      q->sr         = q[1].sr;
+	      q->a[0]       = (int)fm;
+	      q->a[4]       = u.u_a4;
+	      task->tc_SPReg = q;
+	    }
+	}
+      else
+	{
+	  if (*(short *)task->tc_SPReg == 0)
+	    {
+	      struct frame_idle_fpu *q = task->tc_SPReg;
+	      KPRINTF(("idle fpu frame\n"));
+	      --q;
+	      q->mode = 0;
+	      q->pad  = 0;
+	      q->pc   = (int)sig_trampoline;
+	      q->sr   = q[1].sr;
+	      q->a[0] = (int)fm;
+	      q->a[4] = u.u_a4;
+	      task->tc_SPReg = q;
+	    }
+	  else
+	    {
+	      struct frame_busy_fpu *q = task->tc_SPReg;
+	      KPRINTF(("busy fpu frame\n"));
+	      --q;
+	      q->mode       = 0xffff;
+	      q->fpcr       = q[1].fpcr;
+	      q->fpsr       = q[1].fpsr;
+	      q->fpiar      = q[1].fpiar;
+	      q->fpframe[0] = q[1].fpframe[0];
+	      q->fpframe[1] = q[1].fpframe[1];
+	      q->fpframe[2] = q[1].fpframe[2];
+	      memset(q->fp, 0, sizeof(q->fp));
+	      q->pc         = (int)sig_trampoline;
+	      q->sr         = q[1].sr;
+	      q->a[0]       = (int)fm;
+	      q->a[4]       = u.u_a4;
+	      task->tc_SPReg = q;
+	    }
+	}
+    }
+  else
+    {
+      struct frame_68000 *q = task->tc_SPReg;
+      KPRINTF(("no-fpu frame\n"));
+      --q;
+      q->pc         = (int)sig_trampoline;
+      q->sr         = q[1].sr;
+      q->a[0]       = (int)fm;
+      q->a[4]       = u.u_a4;
+      task->tc_SPReg = q;
+    }
+
+  if (task->tc_State == TS_WAIT)
+    {
+      /* if the task is in a waiting state, it should be
+	 waked up, otherwise the callback will not be
+	 called immediately */
+
+      KPRINTF(("waking up task %lx\n", task));
+      Disable();
+      Remove(&task->tc_Node);
+      Enqueue(&SysBase->TaskReady, &task->tc_Node);
+      task->tc_State = TS_RUN;
+      Enable();
+      KPRINTF(("done\n"));
+    }
+#endif
+}
+
+/* Remove the stack frame built above. This is just a matter
+ * of resetting SP, and putting the task back to sleep if needed. */
+/* This function is not used for MorphOS */
+void
+restore_frame(struct framemsg *fm)
+{
+  struct Task  *task = fm->fm_task;
+
+  KPRINTF(("restore_frame(%lx)\n", task));
+  task->tc_SPReg = (void*)fm->fm_context.sc_sp;
+
+  if (fm->fm_state == TS_WAIT)
+    {
+      /* If task1 was waiting, it should be put back
+	 to sleep, so as to avoid confusing Wait(). */
+
+      KPRINTF(("putting task %lx back to sleep\n", task));
+      Disable();
+      Remove(&task->tc_Node);
+      Enqueue(&SysBase->TaskWait, &task->tc_Node);
+      task->tc_State = TS_WAIT;
+      task->tc_SigWait = fm->fm_waitsigs;
+      /* If waited signals occured during the exception, resend them */
+      if ((task->tc_SigWait|task->tc_SigExcept) & task->tc_SigRecvd)
+	Signal(task, task->tc_SigRecvd);
+      Enable();
+      KPRINTF(("done\n"));
+    }
+}
+
+/* function called by the task switcher when it receives a framemsg */
+void
+handle_framemsg(struct framemsg *fm)
+{
+  if (fm->fm_handler)
+    setup_frame(fm);
+#ifndef NATIVE_MORPHOS
+  else
+    restore_frame(fm);
+#endif
+}
+#endif
 
 // Utility function for trap.s
-struct Task *get_current_task(void)
+struct Task *
+get_current_task(void)
 {
-  return FindTask(0);
+  return SysBase->ThisTask;
 }
 
+
 /*
- * This one is executed in Supervisor mode, just before dispatching this
- * task, so be as quick as possible here !
+ * Task exception handler. Called in user mode.
  */
-void
-sig_launch (void) 
+#ifdef NATIVE_MORPHOS
+sigset_t except_handler_func(void);
+
+struct EmulLibEntry except_handler = {
+  TRAP_LIB, 0, (void(*)()) except_handler_func
+};
+
+sigset_t
+except_handler_func()
 {
-  struct Task 		*me 		= FindTask(0);
-  struct user 		*u_ptr 		= getuser(me);
-  sigset_t 		sigmsg 		= sigmask (SIGMSG);
-  sigset_t		sigint 		= sigmask (SIGINT);
-  sigset_t 		newsigs;
-  int 			i;
-  u_int			usp = 0, orig_usp;
-  struct sigcontext 	*sc;
-  u_int			ret_pc, ret_ssp;
+  sigset_t sigs = REG_D0;
+#else
+sigset_t
+except_handler(sigset_t sigs asm("d0"))
+{
+#endif
+  struct Task           *me             = SysBase->ThisTask;
+  struct user           *u_ptr          = getuser(me);
+  sigset_t              sigmsg          = sigmask (SIGMSG);
+  sigset_t              sigint          = sigmask (SIGINT);
+  sigset_t              newsigs;
+  sigset_t		oldsigwait;
+  sigset_t		oldexceptsigs;
+  int                   i;
+  int                   onstack;
+  int                   sigmask;
 
-  /* GCC supports nested functions, and that's just what I need! */
+#ifdef NATIVE_MORPHOS
+  Disable();
+  me->tc_SigRecvd |= sigs;
+  Enable();
+#else
+  me->tc_SigRecvd |= sigs;
+#endif
 
-  void setup_sigcontext(void)
-  {
-    usp = orig_usp = get_usp () + 8; 	/* set up by our glue_launch() stub */
-    
-    /* the glue passes us the values of the pc and ssp to restore, if we should
-     * decide to sup_do_sigreturn_ssp() out of here, instead of leaving harmlessly..
-     */
-    ret_pc  = ((u_int *)usp)[-2];
-    ret_ssp = ((u_int *)usp)[-1];
-    
-    /* push a sigcontext that will get us back if no other signals
-     * were produced */
-    usp -= sizeof (struct sigcontext);
-    sc = (struct sigcontext *) usp;
-    set_usp (usp);
-    
-    sc->sc_onstack = u.u_onstack;
-    sc->sc_mask	 = u.p_sigmask;
-    sc->sc_sp	 = orig_usp;
-
-    /* the OS context restore function expects a5 to contain the usp, so
-     * we have to obey.. */
-    sc->sc_fp	 = orig_usp;
-    sc->sc_ap	 = *(u_int *)&me->tc_Flags;
-    sc->sc_pc	 = ret_pc;
-    sc->sc_ps	 = get_sr();
-  
-    u.u_regs = NULL;
-    u.u_fpregs = NULL;
-  };
-
+  KPRINTF(("Exception handler entered (%08lx, %08lx, %ld, %ld) SR = %04lx\n",
+	   sigs, me->tc_SigExcept, SysBase->TDNestCnt, SysBase->IDNestCnt, REG_SR));
   if (u.u_mask_state) /* do not handle signals while the stop-handler is running */
-    return;
+    goto out2;
 
   /* if we're inside ix_sleep, no signal processing is done to break the
      Wait there as soon as possible. Signals resume on return of ix_sleep */
   /* Likewise if the process is stopped for debugging (SSTOP).  */
   if (u.p_stat == SSLEEP || u.p_stat == SSTOP)
-    return;
+    goto out2;
+
+  oldsigwait = me->tc_SigWait;
+  oldexceptsigs = u.u_exceptsigs;
+  u.u_exceptsigs = sigs;
+  onstack = u.u_onstack;
+  sigmask = u.p_sigmask;
 
   /* special processing for Wait()ing in Commodore inet.library. They
      do reasonable interrupt checking, but only on SIGBREAKF_CTRL_C. So
      whenever we have a signal to deliver, send ^C.. */
   if (u.p_stat == SWAIT)
     {
-      setup_sigcontext();
+
+      KPRINTF(("Sending CTRL-C\n"));
+
+      /* Forbid should be enough, but exec doesn't reschedule when
+	 the handler exits, so if an interrupt activates a high priority
+	 task while we are in Forbid state, when the exception handler
+	 exits, the readylist is in an inconsistent state */
+#ifdef NATIVE_MORPHOS
+      Forbid();
+#else
+      Disable();
+#endif
+
+      //onstack = u.u_onstack;
+      //sigmask = u.p_sigmask;
       if (CURSIG(&u))
-        Signal (me, SIGBREAKF_CTRL_C);
+	Signal (me, SIGBREAKF_CTRL_C);
       goto out;
     }
 
   /* smells kludgy I know...... */
+  /* Emm: we can't enter an exception handler in Forbid/Disable state
   if (me->tc_TDNestCnt >= 0 || me->tc_IDNestCnt >= 0)
-    return;
-
-  setup_sigcontext();
+    goto out2;
+  */
 
   /*
    * first check AmigaOS signals. If SIGMSG is set to SIG_IGN or SIG_DFL, 
    * we do our default mapping of SIGBREAKF_CTRL_C into SIGINT.
    */
-  newsigs = me->tc_SigRecvd & ~u.u_lastrcvsig;
-  u.u_lastrcvsig = me->tc_SigRecvd;
+  newsigs = sigs & ~u.u_lastrcvsig;
+  u.u_lastrcvsig |= sigs;
+
+  KPRINTF(("ignore = %08lx, catch = %08lx, newsigs = %08lx\n",
+	   u.p_sigignore, u.p_sigcatch, newsigs));
+
+#ifdef NATIVE_MORPHOS
+  Forbid();
+#else
+  Disable();
+#endif
 
   if (u.u_ixnetbase)
     netcall(NET__siglaunch, newsigs);
@@ -221,29 +601,39 @@ sig_launch (void)
     {
       /* in that case send us a SIGINT, if it's not ignored */
       if (!(u.p_sigignore & sigint))
-        {
+	{
 	  struct Process *proc = (struct Process *)(u.u_session ? u.u_session->pgrp : (int)me);
-          _psignalgrp(proc, SIGINT);
-        }
-        
+	  _psignalgrp(proc, SIGINT);
+	}
+	
       /* in this mode we fully handle and use SIGBREAKF_CTRL_C, so remove it
        * from the Exec signal mask */
        
+#ifdef NATIVE_MORPHOS
+      Disable();
+#endif
       me->tc_SigRecvd &= ~SIGBREAKF_CTRL_C;
       u.u_lastrcvsig &= ~SIGBREAKF_CTRL_C;
+#ifdef NATIVE_MORPHOS
+      Enable();
+#endif
     }
   else if (newsigs && (u.p_sigcatch & sigmsg))
     {
       /* if possible, deliver the signal directly to get a code argument */
       if (!(u.p_flag & STRC) && !(u.p_sigmask & sigmsg))
-        {
-          u.u_ru.ru_nsignals++;
-          sendsig(&u, u.u_signal[SIGMSG], SIGMSG, u.p_sigmask, newsigs, 0);
-          u.p_sigmask |= u.u_sigmask[SIGMSG] | sigmsg;
-          setrun (me);
-        }
+	{
+	  u.u_ru.ru_nsignals++;
+
+	  KPRINTF(("reenable $%08lx\n", sigs));
+
+	  sendsig(&u, u.u_signal[SIGMSG], SIGMSG, u.p_sigmask, newsigs, 0);
+	  u.p_sigmask |= u.u_sigmask[SIGMSG] | sigmsg;
+
+	  //setrun (me);
+	}
       else
-        _psignal (me, SIGMSG);
+	_psignal (me, SIGMSG);
     }
 
   if ((i = CURSIG(&u)))
@@ -252,100 +642,130 @@ sig_launch (void)
     }
 
 out:
-  /* now try to optimize. We could always call sup_do_sigreturn here, but if no
-   * signals generated frames, we can just as well simply return, after having
-   * restored our usp */
-  if (usp == get_usp ())
-    {
-      /* this is probably not even necessary, since after processing sig_launch
-       * the OS reinstalls the usp as me->tc_SPReg, but I guess it's cleaner to
-       * do it explicitly here, to show that we reset usp to what it was before
-       */
-      set_usp (orig_usp);
-      return;
-    }
-  sup_do_sigreturn_ssp (ret_ssp);
-}
-
-
-void
-switch_glue (void)
-{
+  u.u_exceptsigs = oldexceptsigs;
+  me->tc_SigWait = oldsigwait;
+  u.u_onstack = onstack;
+  u.p_sigmask = sigmask;
+out2:
+/*KPRINTF(("SR=%lx, type=%lx, flags=%lx\n",MyEmulHandle->SR,MyEmulHandle->Type,MyEmulHandle->Flags));
+Disable();
+{ struct Task *t;
+for(t=(APTR)SysBase->TaskReady.lh_Head;t->tc_Node.ln_Succ;t=(APTR)t->tc_Node.ln_Succ)
+    KPRINTF(("%lx: %s state=%ld pri=%ld sigwait=%lx sigreceived=%lx\n",t,t->tc_Node.ln_Name,t->tc_State,t->tc_Node.ln_Pri,t->tc_SigWait,t->tc_SigRecvd));
+} Enable();*/
+  KPRINTF(("Exception handler exiting (%ld, %ld).\n", SysBase->TDNestCnt, SysBase->IDNestCnt));
+  return sigs;
 }
 
 /*
  * Send an interrupt to process.
  * Called from psig() which is called from sig_launch, thus we are in
- * SUPERVISOR .
+ * an exception handler, in user mode, and in Forbid() state.
  */
 void
-sendsig (struct user *p, sig_t catcher, int sig, int mask, unsigned code, void *addr)
+sendsig (struct user *p, sig_t handler, int sig, int mask, unsigned code, void *addr)
 {
-  struct Task		*me = FindTask(0);
-  u_int 		usp, orig_usp;
-  struct sigframe 	*sf;
-  struct sigcontext	*sc;
-  int			oonstack;
-  int			to_stopped_handler = (catcher == (sig_t)stopped_process_handler);
-  int 			*dummy_frame;
+  struct Task           *me = SysBase->ThisTask;
+  struct framemsg       *fm;
+  int                   oonstack;
+  struct sigcontext     sc;
+  struct user           *u_ptr = getuser(me);
+  sigset_t		exceptsigs;
 
-  orig_usp = get_usp();	/* get value to restore later */
+  KPRINTF(("sendsig(%lx, %08lx, %ld, %lx)\n", sig, mask, code, addr));
+  KPRINTF(("TDNestCnt = %ld, IDNestCnt = %ld, pri=%ld\n", SysBase->TDNestCnt, SysBase->IDNestCnt, me->tc_Node.ln_Pri));
 
   oonstack = p->u_onstack;
 
   if (!p->u_onstack && (p->u_sigonstack & sigmask(sig)))
+    p->u_onstack = 1;
+
+#ifdef NATIVE_MORPHOS 
+
+  sc.sc_onstack = oonstack;
+  sc.sc_mask = mask;
+
+  exceptsigs = u.u_exceptsigs;
+  u.u_exceptsigs = 0;
+  me->tc_SigExcept |= exceptsigs;
+
+  Permit();
+
+  if ((int)handler & 1)
     {
-      p->u_onstack = 1;
-      usp = (u_int) p->u_sigsp;
+      struct EmulCaos caos;
+      static const u_short glue[] = {
+	  /* code for:
+		movem.l d0/d1/a0/a1,-(sp)
+		jsr     (a2)
+		lea     16(sp),sp
+		rts
+	  */
+	  0x48E7, 0xC0C0, 0x4E92, 0x4FEF, 0x0010, 0x4E75
+      };
+      caos.caos_Un.Function = &glue;
+      caos.reg_d0 = sig;
+      caos.reg_d1 = code;
+      caos.reg_a0 = (ULONG)addr;
+      caos.reg_a1 = (ULONG)&sc;
+      caos.reg_a2 = (APTR)((int)handler & ~1);
+      caos.reg_a4 = u.u_a4;
+      MyEmulHandle->EmulCall68k(&caos);
     }
   else
-    usp = orig_usp;
-  
+    {
+      int old_r13;
+      KPRINTF(("is_ppc = %ld, r13 = %lx\n", u.u_is_ppc, u.u_r13));
+      if (u.u_is_ppc && u.u_r13)
+	  asm volatile ("mr %0,13; mr 13,%1" : "=&r" (old_r13) : "r" (u.u_r13) : "r13");
+      ((void (*)())handler) (sig, code, addr, &sc);
+      if (u.u_is_ppc && u.u_r13)
+	  asm volatile ("mr 13,%0" : : "r" (old_r13) : "r13");
+    }
+
+  Forbid();
+
+  me->tc_SigExcept &= ~exceptsigs;
+  u.u_exceptsigs = exceptsigs;
+
+  u.u_onstack = sc.sc_onstack;
+  u.p_sigmask = sc.sc_mask;
+
+#else
   /* make room for dummy stack frame (used by GDB) */
-  usp -= 8;
-  dummy_frame = (int *)usp;
-  /* push signal frame */
-  usp -= sizeof (struct sigframe);
-  sf = (struct sigframe *) usp;
-  
+  /******usp -= 8;
+  dummy_frame = (int *)usp;*/
+
+  while (!(fm = get_framemsg()))
+    {
+      /* Fixme: What to do ? */
+      /* Ignoring the signal is not safe... */
+      /* Waiting is not safe either, because we are in an exception
+	 handler, and also because we might break a Forbid, but well... */
+      KPRINTF(("Can't send signal\n"));
+      Delay(100);
+    }
+
   /* fill out the frame */
-  sf->sf_signum        = sig;
-  sf->sf_code          = code;
-  sf->sf_addr	       = addr;
-  sf->sf_handler       = catcher;
-  sf->sf_sc.sc_onstack = oonstack;
-  sf->sf_sc.sc_mask    = mask;
-  sf->sf_sc.sc_sp      = (int) orig_usp;	/* previous sigcontext */
-  sf->sf_sc.sc_fp      = p->u_regs ? p->u_regs->r_regs[13] : 0;
-  sf->sf_sc.sc_ap      = *(u_int *)&me->tc_Flags;
-  sf->sf_sc.sc_ps      = get_sr() & ~0x8000;	/* we're in supervisor then */
-  /* this pc will restore it */
-  sf->sf_sc.sc_pc      = (int)(to_stopped_handler ? sup_do_sigresume : sup_do_sigreturn);
+  fm->fm_task               = me;
+  fm->fm_signum             = sig;
+  fm->fm_code               = code;
+  fm->fm_addr               = addr;
+  fm->fm_handler            = handler;
+  fm->fm_context.sc_onstack = oonstack;
+  fm->fm_context.sc_mask    = mask;
+  KPRINTF(("Sending message %lx\n", fm));
+  PutMsg(ix.ix_task_switcher_port, &fm->fm_message);
 
-  /* push a signal context to call sig_trampoline */
-  usp -= sizeof (struct sigcontext);
-  sc = (struct sigcontext *) usp;
+/*KPRINTF(("SR=%lx, type=%lx, flags=%lx\n",MyEmulHandle->SR,MyEmulHandle->Type,MyEmulHandle->Flags));
+Disable();
+{ struct Task *t;
+for(t=(APTR)SysBase->TaskReady.lh_Head;t->tc_Node.ln_Succ;t=(APTR)t->tc_Node.ln_Succ)
+    KPRINTF(("%lx: %s state=%ld pri=%ld sigwait=%lx sigreceived=%lx\n",t,t->tc_Node.ln_Name,t->tc_State,t->tc_Node.ln_Pri,t->tc_SigWait,t->tc_SigRecvd));
+} Enable();*/
+#endif
 
-  /*
-   * NOTE: we set the default of a handler to Permit(), Enable(). I guess this
-   *       makes sense, since if either Forbid() or Disable() is active, it
-   *	   shouldn't be possible to invoke a signal anyway, EXCEPT if the
-   *	   task is Wait()ing, then the OS calls Switch() directly while
-   *	   either Disable() or Forbid() is active (depends on OS version).
-   */
-
-  sc->sc_onstack = p->u_onstack;
-  sc->sc_mask    = p->p_sigmask;
-  sc->sc_sp	 = ((int) sf) - 4; /* so that sp@(4) is the argument */
-  dummy_frame[0] = (int)(p->u_regs ? p->u_regs->r_regs[13] : 0);
-  dummy_frame[1] = (int)(p->u_regs ? p->u_regs->r_pc : 0);
-  sc->sc_fp	 = (int)dummy_frame;
-  sc->sc_ap	 = (me->tc_Flags << 24) | (me->tc_State << 16) |
-  		   ((u_char)(-1) << 8) | (u_char)(-1);
-  sc->sc_ps	 = ((to_stopped_handler || !p->u_regs) ? 0 : (p->u_regs->r_sr & ~0x2000));
-  sc->sc_pc	 = (int) sig_trampoline;
-  
-  set_usp (usp);
+  KPRINTF(("end sendsig()\n"));
 }
 
 
@@ -364,16 +784,21 @@ sig_exit (unsigned int code)
 
   extern char *sys_siglist[NSIG];
   extern void exit2(int);
-  struct Process *me = (struct Process *)FindTask(0);
+  struct Process *me = (struct Process *)SysBase->ThisTask;
   struct user *u_ptr = getuser(me);
   char err_buf[255];
+#ifndef __pos__
   struct CommandLineInterface *cli;
+#endif
   char process_name[255];
   int is_fg;
+
+  KPRINTF(("sig_exit(%ld)\n", code));
 
   /* make sure we're not interrupted in this last step.. */
   u.p_flag &= ~STRC;    /* disable tracing */
   syscall (SYS_sigsetmask, ~0);
+#ifdef mc68000
   if ((ix.ix_flags & ix_create_enforcer_hit) && has_68020_or_up)
     {
       /* This piece of assembly will skip all the saved registers, signal
@@ -388,35 +813,48 @@ sig_exit (unsigned int code)
 	 pipelining of a 68040 the SP was already updated before Enforcer could
 	 read the value of the SP. More nops may be needed for the 68060 CPU. */
 
+      Forbid();
       asm ("movel %0,d0
-            addw  #700,sp
-            movel d0,0xdeaddead
-            nop
-            addqw #2,sp
-            movel d0,0xdeaddead
-            nop
-            addaw #-702,sp" : /* no output */ : "a" (code));
+	    addw  #700,sp
+	    movel d0,0xdeaddead
+	    nop
+	    addqw #2,sp
+	    movel d0,0xdeaddead
+	    nop
+	    addaw #-702,sp" : /* no output */ : "a" (code));
+      Permit();
     }
-  
+#endif
+
   /* output differs depending on
    *  o  whether we're a CLI or a WB process (stderr or requester)
    *  o  whether this is a foreground or background process
    *  o  whether this is SIGINT or not
    */
 
+#ifdef __pos__
+  if (1)
+    {
+      if (!pOS_GetProgramName(process_name, sizeof(process_name)))
+	process_name[0] = 0;
+
+      is_fg = 1;
+    }
+#else
   if ((cli = BTOCPTR (me->pr_CLI)))
     {
       if (!GetProgramName(process_name, sizeof(process_name)))
-        process_name[0] = 0;
+	process_name[0] = 0;
 
       is_fg = cli->cli_Interactive && !cli->cli_Background;
     }
+#endif
   else
     {
       process_name[0] = 0;
       if (me->pr_Task.tc_Node.ln_Name)
-        strncpy (process_name, me->pr_Task.tc_Node.ln_Name, sizeof (process_name) - 1);
-        
+	strncpy (process_name, me->pr_Task.tc_Node.ln_Name, sizeof (process_name) - 1);
+	
       /* no WB process is ever considered fg */
       is_fg = 0;
     }
@@ -427,13 +865,15 @@ sig_exit (unsigned int code)
 
       /* if is_fg, don't display the job */
       if (! is_fg)
-        {
-          strcat (err_buf, " - ");
+	{
+	  strcat (err_buf, " - ");
 	  strcat (err_buf, process_name);
-          /* if we're a CLI we have an argument line saved, that we can print
-           * as well */
+	  /* if we're a CLI we have an argument line saved, that we can print
+	   * as well */
+#ifndef __pos__
 	  if (cli)
-      	    {
+#endif
+	    {
 	      int line_len;
 	      char *cp;
 	      
@@ -441,11 +881,11 @@ sig_exit (unsigned int code)
 	       * amiga CLI windows */
 	      line_len = 77 - strlen (err_buf) - 1;
 	      if (line_len > u.u_arglinelen)
-	        line_len = u.u_arglinelen;
+		line_len = u.u_arglinelen;
 
 	      if (line_len > 0 && u.u_argline)
-	        {
-	          strcat (err_buf, " ");
+		{
+		  strcat (err_buf, " ");
 		  strncat (err_buf, u.u_argline, line_len);
 		}
 
@@ -455,72 +895,68 @@ sig_exit (unsigned int code)
 	    }
 	}
 
+#ifdef __pos__
+      if (1)
+#else
       if (cli)
-        {
-          /* uniformly append ONE line feed */
+#endif
+	{
+	  /* uniformly append ONE line feed */
 	  strcat (err_buf, "\n");
-          syscall (SYS_write, 2, err_buf, strlen (err_buf));
-        }
+	  syscall (SYS_write, 2, err_buf, strlen (err_buf));
+	}
       else
-        ix_panic (err_buf);
+	ix_panic (err_buf);
     }
   else
     syscall (SYS_write, 2, "^C\n", 3);
 
+  KPRINTF(("Calling exit2()\n"));
   exit2(W_EXITCODE(0, code));
   /* not reached */
-}
-
-/* this quite brute-force method, but the only thing I could think of that
- * really guarantees that there was a context switch...
- */
-
-/* But I can think of something better: install a high-priority task when
- * the library is opened. That task always Wait()s on signal 1 << 31. So
- * when we want to make a context switch, we signal that task. Because of
- * the high priority of that task, exec.library switches to that task.
- * That task goes immediately back to Waiting for a signal, so
- * exec.library will go back to another task.
- *
- * Just in case this task has also a high priority, we keep around the
- * old method too.
- */
-void force_task_switch(void)
-{
-  int curr_disp = SysBase->DispCount;
-  Signal(ix.ix_task_switcher, 1 << 31);  /* signal the task switcher */
-  while (curr_disp == ((volatile struct ExecBase *)SysBase)->DispCount) ;
 }
 
 /*
  * This is used to awaken a possibly sleeping sigsuspend()
  * and to force a context switch, if we send a signal to ourselves
  */
+/* We no longer force a context switch, since tc_Launch is not used
+ * anymore. Instead, we call psig() directly.
+ */
+
 void
 setrun (struct Task *t)
 {
-  struct user *p = getuser(t);
-  struct Task *me = FindTask(0);
-  u_int	sr;
+  struct user *p  = getuser(t);
+  struct Task *me = SysBase->ThisTask;
+  u_int sr;
 
+  KPRINTF (("setrun(%lx, %ld)\n", t, p->p_stat));
+  KPRINTF (("p_stat = %ld, TDNestCnt = %ld, IDNestCnt = %ld\n", p->p_stat, SysBase->TDNestCnt, SysBase->IDNestCnt));
   /* NOTE: the context switch is done to make sure sig_launch() is called as
    *       soon as possible in the respective task. It's not nice if you can
    *       return from a kill() to yourself, before the signal handler had a
    *       chance to react accordingly to the signal..
    */
-  asm volatile (" 
-    movel a5,a0
-    lea	  L_get_sr,a5
-    movel 4:w,a6
-    jsr	  a6@(-0x1e)
-    movel a1,%0
-    bra	  L_skip
-L_get_sr:
-    movew sp@,a1	| get sr register from the calling function
-    rte
-L_skip:
-    movel a0,a5
-	" : "=g" (sr) : : "a0", "a1", "a6");
+#ifdef NATIVE_MORPHOS
+  sr = REG_SR;
+#else
+    {
+      asm volatile ("
+	movel a5,a0
+	lea   L_get_sr,a5
+	movel 4:w,a6
+	jsr   a6@(-0x1e)
+	movel a1,%0
+	bra   L_skip
+    L_get_sr:
+	movew sp@,a1        | get sr register from the calling function
+	rte
+    L_skip:
+	movel a0,a5
+	    " : "=g" (sr) : : "a0", "a1", "a6");
+    }
+#endif
 
   /* Don't force context switch if:
      o  running in Supervisor mode
@@ -531,8 +967,12 @@ L_skip:
       || p->p_stat == SSLEEP
       || p->p_stat == SWAIT
       || p->p_stat == SSTOP
+#ifdef NATIVE_MORPHOS
+      || p->u_exceptsigs == 0)
+#else
       || SysBase->TDNestCnt >= 0
       || SysBase->IDNestCnt >= 0)
+#endif
     {
       extern int select();
 
@@ -540,27 +980,46 @@ L_skip:
       Forbid();
 
       if (p->p_stat == SWAIT)
-        Signal (t, SIGBREAKF_CTRL_C);
+	{
+	  KPRINTF (("sending CTRL-C\n", t, p->p_stat));
+	  Signal (t, SIGBREAKF_CTRL_C);
+	}
       else if (p->p_stat == SSTOP)
-        {
-          p->p_stat = SRUN;
+	{
+	  p->p_stat = SRUN;
+	  KPRINTF (("sending zombie_sig\n", t, p->p_stat));
 	  Signal (t, 1 << p->p_zombie_sig);
-        }
+	}
       else if (p->p_wchan == (caddr_t) p)
 	{
 	  KPRINTF (("setrun $%lx\n", p));
-          ix_wakeup ((u_int)p);
-        }
+	  ix_wakeup ((u_int)p);
+	}
       else if (p->p_stat == SSLEEP || p->p_wchan == (caddr_t) select)
-        Signal (t, 1<<p->u_sleep_sig);
-        
-      Permit();
-      return;
-    }
+	{
+	  KPRINTF (("sending sleep_sig\n", t, p->p_stat));
+	  Signal (t, 1<<p->u_sleep_sig);
+	}
+      else if (t != me || p->u_exceptsigs == 0)
+	{
+	  KPRINTF (("signaling $%lx\n", t));
+	  Signal (t, SIGBREAKF_CTRL_F);
+	}
 
-  force_task_switch();
+      Permit();
+    }
+  /*else
+    {
+      int i;
+      if ((i = CURSIG(p)))
+	{
+	  psig(p, i);
+	}
+    }*/
+  KPRINTF (("end setrun()\n"));
 }
 
+#ifndef NOTRAP
 /*
  * Mapping from vector numbers into signals
  */
@@ -584,7 +1043,7 @@ const static int hwtraptable[256] = {
   SIGILL, /* 16 */
   SIGILL, /* 17 */
   SIGILL, /* 18 */
-  SIGILL, /* 19 */		/* unimplemented, reserved */
+  SIGILL, /* 19 */              /* unimplemented, reserved */
   SIGILL, /* 20 */
   SIGILL, /* 21 */
   SIGILL, /* 22 */
@@ -633,41 +1092,26 @@ const static int hwtraptable[256] = {
 void
 trap (void)
 {
-  u_int			format;
-  void			*addr;
-  struct reg		*regs;
-  struct fpreg		*fpregs;
-  struct Task 		*me = FindTask(0);
+  u_int                 format;
+  void                  *addr;
+  struct reg            *regs;
+  struct fpreg          *fpregs;
+  struct Task           *me = SysBase->ThisTask;
   /* precalculate struct user, so we don't have to go thru SysBase all the time */
-  struct user 		*p = getuser(me);
-  int 			sig;
-  u_int			usp, orig_usp;
-  struct sigcontext 	*sc;
-  u_int			ret_pc, ret_ssp;
-  extern long		vector_old_pc;
-  extern long		vector_nop;
+  struct user           *p = getuser(me);
+  int                   sig;
+  u_int                 usp, orig_usp;
+  extern long           vector_old_pc;
+  extern long           vector_nop;
 
-  usp = orig_usp = get_usp () + 8;	/* skip argument parameters */
+  KPRINTF (("trap()\n"));
+
+#if 0
+  usp = orig_usp = get_usp () ;/*+ 8;      /* skip argument parameters */
   format = ((u_int *)usp)[0];
   addr = (void *)((u_int *)usp)[1];
   regs = (struct reg *)((u_int *)usp)[2];
   fpregs = (struct fpreg *)((u_int *)usp)[3];
-
-  ret_pc  = ((u_int *)usp)[-2];
-  ret_ssp = ((u_int *)usp)[-1];
-  
-  /* push a sigcontext that will get us back here if no other signals
-   * were produced */
-  usp -= sizeof (struct sigcontext);
-  sc = (struct sigcontext *) usp;
-  set_usp (usp);
-  sc->sc_onstack = p->u_onstack;
-  sc->sc_mask	 = p->p_sigmask;
-  sc->sc_sp	 = orig_usp;
-  sc->sc_fp	 = regs->r_regs[13];
-  sc->sc_ap	 = *(u_int *)&me->tc_Flags;
-  sc->sc_pc	 = ret_pc;
-  sc->sc_ps	 = get_sr() & ~0x8000;
 
   if (regs->r_pc == (void *)(&vector_nop) + 2)
     {
@@ -680,29 +1124,27 @@ trap (void)
   sig = *(int *)((u_char *)hwtraptable + (format & 0x0fff));
   
   if (sig == SIGTRAP)
-    regs->r_sr &= ~0x8000;	/* turn off the trace flag */
+    regs->r_sr &= ~0x8000;      /* turn off the trace flag */
 
   trapsignal (me, sig, format, addr);
 
   if ((sig = CURSIG(p)))
     psig (p, sig);
+#endif
+  psig(p, SIGKILL);
 
-  /* now try to optimize. We could always call sup_do_sigreturn here, but if no
-   * signals generated frames, we can just as well simply return, after having
-   * restored our usp */
-  if (usp == get_usp ())
-    {
-      set_usp (orig_usp);
-      return;
-    }
-  sup_do_sigreturn_ssp (ret_ssp);
+  KPRINTF (("end trap()\n"));
 }
+#endif
+
+#ifndef NATIVE_MORPHOS
 
 void resume_signal_check(void)
 {
   int sig;
   usetup;
-
   if ((sig = issig(&u)))  /* always go through issig if we restart the process */
     psig (&u, sig);
 }
+
+#endif

@@ -35,6 +35,10 @@
 static int
 __delete_func (struct lockinfo *info, void *dummy, int *error)
 {
+#ifdef __pos__
+  info->result = pOS_DeleteObjectName((void *)info->parent_lock, info->bstr);
+  *error = info->result == 0;
+#else
   struct StandardPacket *sp = &info->sp;
 
   sp->sp_Pkt.dp_Type = ACTION_DELETE_OBJECT;
@@ -47,6 +51,7 @@ __delete_func (struct lockinfo *info, void *dummy, int *error)
   info->result = sp->sp_Pkt.dp_Res1;
 
   *error = info->result != -1;
+#endif
  
   /* stop if we failed because of symlink - reference */
   return 0;
@@ -66,9 +71,9 @@ unlink (char *name)
   for (fp = ix.ix_file_tab; fp < ix.ix_fileNFILE; fp++)
     if (fp->f_count && fp->f_name && !strcmp(fp->f_name, name))
       {
-        fp->f_flags |= FUNLINK;
-        ix_unlock_base();
-        return 0;
+	fp->f_flags |= FUNLINK;
+	ix_unlock_base();
+	return 0;
       }
   ix_unlock_base();
 
@@ -82,10 +87,10 @@ unlink (char *name)
   if (err == ERROR_DELETE_PROTECTED)
     {
       if (!syscall(SYS_chmod, name, st.st_mode | S_IWUSR)) 
-        if (__plock (name, __delete_func, 0))
-          err = 0;
-        else
-          err = IoErr();
+	if (__plock (name, __delete_func, 0))
+	  err = 0;
+	else
+	  err = IoErr();
     }
 
   if (err)

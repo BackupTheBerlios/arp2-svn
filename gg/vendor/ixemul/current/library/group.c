@@ -46,6 +46,7 @@ static const struct group builtin_nogroup =
 
 /* multiuser specific stuff */
 
+#ifndef __pos__
 static struct group *
 GroupInfo2grp (struct muGroupInfo *GI, struct muUserInfo *UI)
 {
@@ -64,11 +65,12 @@ GroupInfo2grp (struct muGroupInfo *GI, struct muUserInfo *UI)
   }
   return NULL;
 }
+#endif
 
 /* builtin group file parsing */
 
-#define MAXGRP		200
-#define MAXLINELENGTH	1024
+#define MAXGRP          200
+#define MAXLINELENGTH   1024
 #define UNIX_STRSEP     ":\n"
 #define AMIGAOS_STRSEP  "|\n"
 
@@ -131,11 +133,11 @@ grscan(int search, gid_t gid, char *name)
 
     for (m = u.u_group.gr_mem = u.u_members;; ++m) {
       if (m == &u.u_members[MAXGRP - 1]) {
-        *m = NULL;
+	*m = NULL;
 	break;
       }
       if ((*m = strsep(&bp, ", \n")) == NULL)
-        break;
+	break;
     }
     return 1;
   }
@@ -149,8 +151,10 @@ getgid (void)
 {
   usetup;
 
+#ifndef __pos__
   if (muBase)
     return (__amiga2unixid(muGetTaskOwner(NULL) & muMASK_GID));
+#endif
 
   return u.u_rgid;
 }
@@ -160,8 +164,10 @@ getegid (void)
 {
   usetup;
 
+#ifndef __pos__
   if (muBase)
     return (__amiga2unixid(muGetTaskOwner(NULL) & muMASK_GID));
+#endif
 
   return u.u_egid;
 }
@@ -171,11 +177,13 @@ setregid (int rgid, int egid)
 {
   usetup;
 
+#ifndef __pos__
   if (muBase)
     {
       errno = ENOSYS;
       return -1;
     }
+#endif
 
   if (rgid != -1)
     u.u_rgid = (gid_t)rgid;
@@ -210,6 +218,7 @@ struct group *getgrgid (gid_t gid)
   if (gid == (gid_t)(-2))
     return (struct group *)&builtin_nogroup; /* always handle nogroup */
 
+#ifndef __pos__
   if (muBase)
     {
       /* active multiuser */
@@ -221,6 +230,7 @@ struct group *getgrgid (gid_t gid)
 
       return GroupInfo2grp (GI, UI);       /* handles errors */
     }
+#endif
 
   if (u.u_ixnetbase && (gr = (struct group *)netcall(NET_getgrgid, (int)gid)))
     return gr;
@@ -231,7 +241,7 @@ struct group *getgrgid (gid_t gid)
 
       rval = grscan(1, gid, NULL);
       if (!u.u_grp_stayopen)
-        syscall(SYS_endgrent);
+	syscall(SYS_endgrent);
 
       return (rval ? &u.u_group : NULL);
     }
@@ -261,6 +271,7 @@ struct group *getgrnam (const char *name)
   if (!strcmp(name,"nogroup"))
     return (struct group *)&builtin_nogroup; /* always handle nogroup */
 
+#ifndef __pos__
   if (muBase)
     {
       /* active multiuser */
@@ -272,16 +283,17 @@ struct group *getgrnam (const char *name)
        */
 
       if (name == NULL)
-        return NULL;
+	return NULL;
 
       if ((muGROUPIDSIZE - 1) < strlen (name))
-        return NULL;
+	return NULL;
 
       strcpy (GI->GroupID, name);
       GI = muGetGroupInfo (GI, muKeyType_GroupID);
 
       return GroupInfo2grp (GI, UI);       /* handles errors */
     }
+#endif
 
   if (u.u_ixnetbase && (gr = (struct group *)netcall(NET_getgrnam, name)))
     return gr;
@@ -292,7 +304,7 @@ struct group *getgrnam (const char *name)
 
       rval = grscan(1, 0, (char *)name);
       if (!u.u_grp_stayopen)
-        syscall(SYS_endgrent);
+	syscall(SYS_endgrent);
 
       return (rval ? &u.u_group : NULL);
     }
@@ -320,6 +332,7 @@ getgrent(void)
   char *name;
   usetup;
 
+#ifndef __pos__
   if (muBase)
     {
       /* active multiuser */
@@ -331,6 +344,7 @@ getgrent(void)
 
       return GroupInfo2grp (GI, UI);       /* handles errors */
     }
+#endif
 
   if (u.u_ixnetbase)
     return (struct group *)netcall(NET_getgrent);
@@ -346,7 +360,7 @@ getgrent(void)
       u.u_nextgid = -2;
      
       if ((name = (char *)syscall(SYS_getenv, "GROUP")))
-        return (struct group *)syscall(SYS_getgrnam, name);
+	return (struct group *)syscall(SYS_getgrnam, name);
     case (gid_t)(-2):
       u.u_nextgid = -1;
       return (struct group *)&builtin_nogroup;
@@ -360,11 +374,13 @@ setgroupent(int stayopen)
 {
   usetup;
 
+#ifndef __pos__
   if (muBase)
     {
       u.u_groupfileopen = FALSE;
       return 1;
     }
+#endif
 
   if (u.u_ixnetbase)
     return netcall(NET_setgroupent, stayopen);
@@ -381,11 +397,13 @@ setgrent(void)
 {
   usetup;
 
+#ifndef __pos__
   if (muBase)
     {
       u.u_groupfileopen = FALSE;
       return 1;
     }
+#endif
 
   if (u.u_ixnetbase)
     return netcall(NET_setgrent);
@@ -402,11 +420,13 @@ endgrent(void)
 {
   usetup;
 
+#ifndef __pos__
   if (muBase)
     {
       u.u_groupfileopen = FALSE;
       return;
     }
+#endif
 
   if (u.u_ixnetbase)
     netcall(NET_endgrent);
@@ -424,8 +444,10 @@ setgroups (int ngroups, const int *gidset)
 {
   usetup;
 
+#ifndef __pos__
   if (muBase)
     return 0;
+#endif
 
   /* parameter check */
   if (gidset == NULL || ngroups < 0)
@@ -481,14 +503,14 @@ initgroups (const char *name, int basegid)
   while ((gr = (struct group *)syscall(SYS_getgrent)))
     {
       if (gr->gr_gid != (gid_t)basegid)
-        for (grm = gr->gr_mem; grm && *grm; grm++)
-          {
-            if (!strcmp(name,*grm))
-              {
-                gidset[ngroups++] = (int)(gr->gr_gid);
-                break;
-              }
-          }
+	for (grm = gr->gr_mem; grm && *grm; grm++)
+	  {
+	    if (!strcmp(name,*grm))
+	      {
+		gidset[ngroups++] = (int)(gr->gr_gid);
+		break;
+	      }
+	  }
       if (ngroups == NGROUPS_MAX) break;
     }
 
@@ -518,6 +540,7 @@ int getgroups(int gidsetlen, int *gidset)
       return -1;
     }
 
+#ifndef __pos__
   if (muBase)
     {
       /* muFS detected */
@@ -528,8 +551,8 @@ int getgroups(int gidsetlen, int *gidset)
       struct muExtOwner *me = muGetTaskExtOwner (NULL);
       if (me == 0)
       {
-        *gidset = -2;
-        return 1;             /* nobody */
+	*gidset = -2;
+	return 1;             /* nobody */
       }
 
       /* store primary group */
@@ -540,10 +563,10 @@ int getgroups(int gidsetlen, int *gidset)
       /* ensure enough place */
       if (gidsetlen < me->NumSecGroups)
       {
-        errno = EINVAL;
-        KPRINTF (("&errno = %lx, errno = %ld\n", &errno, errno));
+	errno = EINVAL;
+	KPRINTF (("&errno = %lx, errno = %ld\n", &errno, errno));
 
-        return -1;
+	return -1;
       }
 
       /* slow, but have to copy from UWORD[] --> int[] */
@@ -557,6 +580,7 @@ int getgroups(int gidsetlen, int *gidset)
 
       return i;
     }
+#endif
 
   if (gidsetlen < u.u_ngroups)
     {

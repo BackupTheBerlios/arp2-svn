@@ -34,6 +34,10 @@
 static int
 __utimes_func (struct lockinfo *info, struct DateStamp *ds, int *error)
 {
+#ifdef __pos__
+  info->result = pOS_SetObjectDateName((void *)info->parent_lock, info->bstr, (void *)ds);
+  *error = info->result == 0;
+#else
   struct StandardPacket *sp = &info->sp;
 
   sp->sp_Pkt.dp_Type = ACTION_SET_DATE;
@@ -48,6 +52,7 @@ __utimes_func (struct lockinfo *info, struct DateStamp *ds, int *error)
   info->result = sp->sp_Pkt.dp_Res1;
 
   *error = info->result != -1;
+#endif
 
   /* we want to set the date of the file pointed to, not that of the link */
   return 1;
@@ -82,7 +87,7 @@ utimes(char *name, struct timeval *tvp)
   ds->ds_Minute = tv.tv_sec / 60;
   tv.tv_sec    %= 60;
   ds->ds_Tick   = (tv.tv_sec * TICKS_PER_SECOND +
-	           (tv.tv_usec * TICKS_PER_SECOND)/1000000);
+		   (tv.tv_usec * TICKS_PER_SECOND)/1000000);
 
   result = __plock (name, __utimes_func, ds);
 

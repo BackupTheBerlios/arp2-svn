@@ -21,15 +21,27 @@
  * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+#ifndef mc68000
+#include <string.h>
+
+char *strcpy(char *s1,const char *s2)
+{ char *s=s1;
+  do
+    *s++=*s2;
+  while(*s2++!='\0');
+  return s1;
+}
+#else
 #include "defs.h"
 
 ENTRY(strcpy)
 asm("
-	movl	sp@(8),a0		/* a0 = fromaddr */
-	movl	sp@(4),d0		/* return value is toaddr */
-	movl	d0,a1			/* a1 = toaddr */
+	movl    sp@(8),a0               /* a0 = fromaddr */
+	movl    sp@(4),d0               /* return value is toaddr */
+	movl    d0,a1                   /* a1 = toaddr */
 strcpyloop:
-	movb	a0@+,a1@+		/* copy a byte */
-	jne	strcpyloop		/* copied non-null, keep going */
+	movb    a0@+,a1@+               /* copy a byte */
+	jne     strcpyloop              /* copied non-null, keep going */
 	rts
 ");
+#endif

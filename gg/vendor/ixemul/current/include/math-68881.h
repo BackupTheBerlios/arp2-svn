@@ -1,22 +1,22 @@
 /******************************************************************\
-*								   *
-*  <math-68881.h>		last modified: 18 May 1989.	   *
-*								   *
-*  Copyright (C) 1989 by Matthew Self.				   *
-*  You may freely distribute verbatim copies of this software	   *
+*                                                                  *
+*  <math-68881.h>               last modified: 18 May 1989.        *
+*                                                                  *
+*  Copyright (C) 1989 by Matthew Self.                             *
+*  You may freely distribute verbatim copies of this software      *
 *  provided that this copyright notice is retained in all copies.  *
 *  You may distribute modifications to this software under the     *
 *  conditions above if you also clearly note such modifications    *
-*  with their author and date.			   	     	   *
-*								   *
+*  with their author and date.                                     *
+*                                                                  *
 *  Note:  errno is not set to EDOM when domain errors occur for    *
-*  most of these functions.  Rather, it is assumed that the	   *
-*  68881's OPERR exception will be enabled and handled		   *
-*  appropriately by the	operating system.  Similarly, overflow	   *
-*  and underflow do not set errno to ERANGE.			   *
-*								   *
-*  Send bugs to Matthew Self (self@bayes.arc.nasa.gov).		   *
-*								   *
+*  most of these functions.  Rather, it is assumed that the        *
+*  68881's OPERR exception will be enabled and handled             *
+*  appropriately by the operating system.  Similarly, overflow     *
+*  and underflow do not set errno to ERANGE.                       *
+*                                                                  *
+*  Send bugs to Matthew Self (self@bayes.arc.nasa.gov).            *
+*                                                                  *
 \******************************************************************/
 
 /* Dec 1991  - mw - added support for -traditional mode */
@@ -34,14 +34,14 @@
 #endif
 
 #ifndef HUGE_VAL
-#define HUGE_VAL							\
-({									\
-  double huge_val;							\
+#define HUGE_VAL                                                        \
+({                                                                      \
+  double huge_val;                                                      \
 									\
-  __asm ("fmove%.d #0x7ff0000000000000,%0"	/* Infinity */		\
-	 : "=f" (huge_val)						\
-	 : /* no inputs */);						\
-  huge_val;								\
+  __asm ("fmove%.d #0x7ff0000000000000,%0"      /* Infinity */          \
+	 : "=f" (huge_val)                                              \
+	 : /* no inputs */);                                            \
+  huge_val;                                                             \
 })
 #endif
 
@@ -124,10 +124,10 @@ _DEFUN(atan2, (y, x),
 {
   double pi, pi_over_2;
 
-  __asm ("fmovecr%.x %#0,%0"		/* extended precision pi */
+  __asm ("fmovecr%.x %#0,%0"            /* extended precision pi */
 	 : "=f" (pi)
 	 : /* no inputs */ );
-  __asm ("fscale%.b %#-1,%0"		/* no loss of accuracy */
+  __asm ("fscale%.b %#-1,%0"            /* no loss of accuracy */
 	 : "=f" (pi_over_2)
 	 : "0" (pi));
   if (x > 0)
@@ -170,7 +170,7 @@ _DEFUN(atan2, (y, x),
 #endif
 
 	      errno = EDOM;
-	      __asm ("fmove%.d %#0rnan,%0" 	/* quiet NaN */
+	      __asm ("fmove%.d %#0rnan,%0"      /* quiet NaN */
 		     : "=f" (value)
 		     : /* no inputs */);
 	      return value;
@@ -324,41 +324,41 @@ _DEFUN(pow, (x, y),
 #endif
 
 	  errno = EDOM;
-	  __asm ("fmove%.d %#0rnan,%0"		/* quiet NaN */
+	  __asm ("fmove%.d %#0rnan,%0"          /* quiet NaN */
 		 : "=f" (value)
 		 : /* no inputs */);
 	  return value;
 	}
     }
-  else	/* x < 0 */
+  else  /* x < 0 */
     {
       double temp;
 
       __asm ("fintrz%.x %1,%0"
-	     : "=f" (temp)			/* integer-valued float */
+	     : "=f" (temp)                      /* integer-valued float */
 	     : "f" (y));
       if (y == temp)
-        {
+	{
 	  int i = (int) y;
 	  
-	  if ((i & 1) == 0)			/* even */
+	  if ((i & 1) == 0)                     /* even */
 	    return exp (y * log (-x));
 	  else
 	    return - exp (y * log (-x));
-        }
+	}
       else
-        {
+	{
 	  double value;
 #ifdef _KERNEL
 	  usetup;
 #endif
 
 	  errno = EDOM;
-	  __asm ("fmove%.d %#0rnan,%0"		/* quiet NaN */
+	  __asm ("fmove%.d %#0rnan,%0"          /* quiet NaN */
 		 : "=f" (value)
 		 : /* no inputs */);
 	  return value;
-        }
+	}
     }
 }
 
@@ -522,16 +522,16 @@ _DEFUN(frexp, (x, exp),
   double mantissa;
 
   __asm ("fgetexp%.x %1,%0"
-	 : "=f" (float_exponent) 	/* integer-valued float */
+	 : "=f" (float_exponent)        /* integer-valued float */
 	 : "f" (x));
   int_exponent = (int) float_exponent;
   __asm ("fgetman%.x %1,%0"
-	 : "=f" (mantissa)		/* 1.0 <= mantissa < 2.0 */
+	 : "=f" (mantissa)              /* 1.0 <= mantissa < 2.0 */
 	 : "f" (x));
   if (mantissa != 0)
     {
       __asm ("fscale%.b %#-1,%0"
-	     : "=f" (mantissa)		/* mantissa /= 2.0 */
+	     : "=f" (mantissa)          /* mantissa /= 2.0 */
 	     : "0" (mantissa));
       int_exponent += 1;
     }
@@ -547,7 +547,7 @@ _DEFUN(modf, (x, ip),
   double temp;
 
   __asm ("fintrz%.x %1,%0"
-	 : "=f" (temp)			/* integer-valued float */
+	 : "=f" (temp)                  /* integer-valued float */
 	 : "f" (x));
   *ip = temp;
   return x - temp;

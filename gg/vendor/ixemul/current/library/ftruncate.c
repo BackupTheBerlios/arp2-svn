@@ -51,7 +51,7 @@ ftruncate (int fd, off_t len)
     {
       if (f->f_type == DTYPE_FILE)
 	{
-          if (HANDLER_NIL (f))
+	  if (HANDLER_NIL (f))
 	    {
 	      errno = EINVAL;
 	      KPRINTF (("&errno = %lx, errno = %ld\n", &errno, errno));
@@ -61,11 +61,15 @@ ftruncate (int fd, off_t len)
 	  err = 0;
 	  omask = syscall (SYS_sigsetmask, ~0);
 	  __get_file (f);
+#ifdef __pos__
+	  res = pOS_SetFileSize((void *)f->f_fh, len);
+#else
 	  res = SetFileSize(CTOBPTR(f->f_fh), len, OFFSET_BEGINNING);
+#endif
 	  if (res == -1)
-            err = __ioerr_to_errno(IoErr());
-          else
-            err = 0;
+	    err = __ioerr_to_errno(IoErr());
+	  else
+	    err = 0;
 	  __release_file (f);
 	  syscall (SYS_sigsetmask, omask);
 	  errno = err;

@@ -41,6 +41,21 @@ struct rename_vec {
 static int
 __rename_func (struct lockinfo *info, struct rename_vec *rv, int *error)
 {
+#ifdef __pos__
+  char buf[1024];
+  int len;
+  
+  *error = pOS_NameFromObjectLock((void *)rv->target_dir_lock, buf, sizeof(buf)) == 0;
+  if (!*error)
+  {
+    len = strlen(buf);
+    if (len && buf[len - 1] != '/')
+      strcat(buf, "/");
+    strcat(buf, (char *)rv->target_name);
+    info->result = pOS_MoveObjectName((void *)info->parent_lock, info->bstr, buf, 0);
+    *error = info->result == 0;
+  }
+#else
   struct StandardPacket *sp = &info->sp;
 
   if (SameLock(info->parent_lock, rv->target_dir_lock) == LOCK_DIFFERENT)
@@ -62,6 +77,7 @@ __rename_func (struct lockinfo *info, struct rename_vec *rv, int *error)
 
   info->result = sp->sp_Pkt.dp_Res1;
   *error = info->result != -1;
+#endif
 
   /* retry if necessary */
   return 1;
@@ -70,6 +86,13 @@ __rename_func (struct lockinfo *info, struct rename_vec *rv, int *error)
 static int
 __get_target_data (struct lockinfo *info, struct rename_vec *rv, int *error)
 {
+#ifdef __pos__
+  rv->target_dir_lock = info->parent_lock;
+  rv->target_name = (BSTR)info->bstr;
+  
+  info->result = __plock (rv->source_name, __rename_func, rv);
+  *error = info->result == 0;
+#else
   struct StandardPacket *sp = &info->sp;
 
   rv->target_dir_lock = info->parent_lock;
@@ -79,6 +102,7 @@ __get_target_data (struct lockinfo *info, struct rename_vec *rv, int *error)
   sp->sp_Pkt.dp_Res2 = IoErr();
   
   *error = info->result != -1;
+#endif
   
   /* don't retry */
   return 0;

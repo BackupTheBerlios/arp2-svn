@@ -62,6 +62,6 @@ readdir (DIR *dp)
   if (dp->dd_ent.d_name [l-1])
     dp->dd_ent.d_namlen ++;
   dp->dd_ent.d_reclen = l + 8;
-  dp->dd_ent.d_namlen--;	/* don't count zero pad */
+  dp->dd_ent.d_namlen--;        /* don't count zero pad */
   return & dp->dd_ent;
 }

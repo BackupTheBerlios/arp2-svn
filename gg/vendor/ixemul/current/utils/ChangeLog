@@ -1,17 +1,3 @@
-2001-04-26  David Zaroski  <dez@gg.geekgadgets.org>
-
-	* Added the following changes made by Kriton Kyrimis:
-	* Changed the text of the "Check stack usage" button to
-	  "Show stack usage", to agree with the command line version of
-	  the
-	  option and the actual function of the option.
-	* Added the desription of the "Show stack usage option" in the
-	  documentation.
-
-2001-03-31  David Zaroski  <dez@gg.geekgadgets.org>
-
-	* pos.c: Removed
-
 Wed Jul  2 23:09:39 1997  [ixtrace]   	(cz253@cleveland.freenet.edu)
 
 	* Updated revision number to 1.470

@@ -1,5 +1,5 @@
 #if defined(LIBC_SCCS) && !defined(lint)
-static char sccsid[] = "@(#)memcpy.c	1.0 (mw)";
+static char sccsid[] = "@(#)memcpy.c    1.0 (mw)";
 #endif /* LIBC_SCCS and not lint */
 
 #define _KERNEL

@@ -51,7 +51,7 @@ static void socket_cleanup(int ostat)
   u.p_stat = ostat;
 
   if (errno == EINTR)
-    setrun (FindTask (0));
+    setrun (SysBase->ThisTask);
 
   KPRINTF (("&errno = %lx, errno = %ld\n", &errno, errno));
 }
@@ -67,10 +67,10 @@ static void socket_cleanup_epipe(int ostat)
 
   /* the library doesn't send this to us of course ;-) */
   if (errno == EPIPE)
-    _psignal (FindTask (0), SIGPIPE);
+    _psignal (SysBase->ThisTask, SIGPIPE);
 
   if (errno == EINTR)
-    setrun (FindTask (0));
+    setrun (SysBase->ThisTask);
 
   KPRINTF (("&errno = %lx, errno = %ld\n", &errno, errno));
 }
@@ -99,18 +99,18 @@ socket (int domain, int type, int protocol)
   do
     {
       if ((err = falloc (&fp, &fd)))
-        break;
+	break;
 
       fp->f_so = netcall(NET__socket, domain, type, protocol);
       err = (fp->f_so == -1) ? errno : 0;
 
       if (err)
-        {
+	{
 	  /* free the allocated fd */
-          u.u_ofile[fd] = 0;
-          fp->f_count = 0;
-          break;
-        }
+	  u.u_ofile[fd] = 0;
+	  fp->f_count = 0;
+	  break;
+	}
 
       _set_socket_params(fp, domain, type, protocol);
     }
@@ -184,19 +184,19 @@ accept (int s, struct sockaddr *name, int *namelen)
   do
     {
       /* first try to get a new descriptor. If that fails, don't even
-         bother to call the library */
+	 bother to call the library */
       if ((err = falloc (&fp2, &fd2)))
-        break;
+	break;
 
       fp2->f_so = netcall(NET__accept, fp, name, namelen);
       err = (fp2->f_so == -1) ? errno : 0;
       if (err)
-        {
-          /* the second file */
-          u.u_ofile[fd2] = 0;
-          fp2->f_count = 0;
-          break;
-        }
+	{
+	  /* the second file */
+	  u.u_ofile[fd2] = 0;
+	  fp2->f_count = 0;
+	  break;
+	}
       domain = (fp->f_type == DTYPE_SOCKET) ? AF_INET : AF_UNIX;
       _set_socket_params(fp2, domain, fp->f_socket_type, fp->f_socket_protocol);
     }
@@ -488,16 +488,16 @@ ix_release_socket(int fdes)
   if (fp->f_type == DTYPE_SOCKET)
     {
       /* If this socket has already been released before, then we just return the
-         previous result. This can happen if a socket was dupped. In that case both
-         file descriptors point to the same file structure and releasing one of the
-         two file descriptors will in fact release them both. */
+	 previous result. This can happen if a socket was dupped. In that case both
+	 file descriptors point to the same file structure and releasing one of the
+	 two file descriptors will in fact release them both. */
       if (fp->f_socket_id)
-        {
-          int retval = fp->f_socket_id;
-          
-          fp->f_socket_id = 0;
-          return retval;
-        }
+	{
+	  int retval = fp->f_socket_id;
+	  
+	  fp->f_socket_id = 0;
+	  return retval;
+	}
       ostat = u.p_stat;
       u.p_stat = SWAIT;
       err = netcall(NET_release_socket, fp);
@@ -639,7 +639,7 @@ soo_select(struct file *fp, int select_cmd, int io_mode,
 void _set_socket_params(struct file *fp, int domain, int type, int protocol)
 {
   fp->f_stb.st_mode = 0666 | S_IFSOCK; /* not always, but.. */
-  fp->f_stb.st_size = 128;	/* sizeof mbuf. */
+  fp->f_stb.st_size = 128;      /* sizeof mbuf. */
   fp->f_stb.st_blksize = 128;
   fp->f_flags = FREAD | FWRITE;
   fp->f_type = ((domain == AF_INET) ? DTYPE_SOCKET : DTYPE_USOCKET);

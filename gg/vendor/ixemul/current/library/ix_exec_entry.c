@@ -44,8 +44,14 @@ int
 ix_exec_entry (int argc, char **argv, char **environ, int *real_errno, 
 	       int (*main)(int, char **, char **))
 {
-  struct Process *me = (struct Process *)FindTask(0);
+  struct Process *me = (struct Process *)SysBase->ThisTask;
   struct user *u_ptr = getuser(me);
+  int exitcode;
+
+#ifdef NATIVE_MORPHOS
+  u.u_is_ppc = !((int)main & 1);
+  KPRINTF(("%lx: is_ppc = %ld, r1 = %lx\n", me, u.u_is_ppc, get_sp()));
+#endif
 
   /* we're coming from another process here, either after vfork() or from a
    * process that wants to `replace' itself with this program. Thus the fpu
@@ -85,9 +91,9 @@ ix_exec_entry (int argc, char **argv, char **environ, int *real_errno,
       syscall (SYS_sigsetmask, u.u_oldmask);
 
       /* this is not really the right thing to do, the user should call
-         ix_get_vars2 () to initialize environ to the address of the variable
-         in the calling program. However, this setting guarantees that 
-         the user area entry is valid for getenv() calls. */
+	 ix_get_vars2 () to initialize environ to the address of the variable
+	 in the calling program. However, this setting guarantees that 
+	 the user area entry is valid for getenv() calls. */
       u.u_environ = &environ;
 
       __ix_install_sigwinch ();
@@ -105,7 +111,35 @@ ix_exec_entry (int argc, char **argv, char **environ, int *real_errno,
 	     the debugger process has told us to continue.  */
 	}
       /* the first time thru call the program */
-      exit (main (argc, argv, environ));
+      KPRINTF(("calling main(): a4 = %lx\n", u_ptr->u_a4));
+#ifdef NATIVE_MORPHOS
+      if ((int)main & 1)
+	{
+	  /* code for:
+		movem.l d0-d2,-(sp)
+		jsr     (a0)
+		lea     12(sp),sp
+		rts
+	  */
+	  static const UWORD main_gate[] = {
+	    0x48E7,0xE000,0x4E90,0x4FEF,0x000C,0x4E75
+	  };
+	  struct EmulCaos caos;
+	  GETEMULHANDLE
+	  caos.caos_Un.Function = (APTR)main_gate;
+	  caos.reg_d0 = argc;
+	  caos.reg_d1 = (ULONG)argv;
+	  caos.reg_d2 = (ULONG)environ;
+	  caos.reg_a0 = (ULONG)main & ~1;
+	  caos.reg_a4 = u_ptr->u_a4;
+	  exitcode = MyEmulHandle->EmulCall68k(&caos);
+	}
+      else
+#endif
+	exitcode = main (argc, argv, environ);
+      KPRINTF(("main returned: %ld\n", exitcode));
+
+      exit (exitcode);
       /* not reached! */
     }
   /* we came from a longjmp-call */
@@ -124,8 +158,30 @@ int is_ixconfig(char *prog)
   if ((len = strlen(prog)) <= 8 || strchr("/:", prog[len - 9]))
     if (len >= 8 && !stricmp(&prog[len - 8], "ixconfig"))
       {
-        ix_panic("Please use ixprefs instead of ixconfig!");
-        return 1;
+	ix_panic("Please use ixprefs instead of ixconfig!");
+	return 1;
       }
   return 0;
 }
+
+#ifdef NATIVE_MORPHOS
+
+int
+_trampoline_ix_exec_entry (void)
+{
+  int *p = (int *)REG_A7;
+  int argc = p[1];
+  char **argv = (char **)p[2];
+  char **environ = (char **)p[3];
+  int *real_errno = (int *)p[4];
+  int (*main)(int, char **, char **) = (int(*)(int, char **, char **))(p[5]^1);
+
+  return ix_exec_entry(argc, argv, environ, real_errno, main);
+}
+
+struct EmulLibEntry _gate_ix_exec_entry = {
+  TRAP_LIB, 0, (void(*)())_trampoline_ix_exec_entry
+};
+
+#endif
+

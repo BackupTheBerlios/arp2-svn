@@ -16,9 +16,18 @@
  *  License along with this library; if not, write to the Free
  *  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- *  $Id:$
+ *  $Id: ixnet_open.c,v 1.2 2000/06/20 22:17:10 emm Exp $
  *
- *  $Log:$
+ *  $Log: ixnet_open.c,v $
+ *  Revision 1.2  2000/06/20 22:17:10  emm
+ *  First attempt at a native MorphOS ixemul
+ *
+ *  Revision 1.1.1.1  2000/05/07 19:37:46  emm
+ *  Imported sources
+ *
+ *  Revision 1.1.1.1  2000/04/29 00:44:34  nobody
+ *  Initial import
+ *
  */
 
 #define _KERNEL
@@ -32,6 +41,9 @@
 #include "ixprotos.h"
 
 extern struct ixemul_base *ixemulbase;
+#ifdef NATIVE_MORPHOS
+int (**_ixbasearray)();
+#endif
 
 struct ixnet_base *
 ixnet_open (struct ixnet_base *ixbase)
@@ -42,24 +54,27 @@ ixnet_open (struct ixnet_base *ixbase)
     struct ix_settings *settings; /* don't call this *ix there is a macro called ix!!! */
     int network_type;
 
-    me = FindTask(0);
+    me = SysBase->ThisTask;
     ix_u = getuser(me); /* already initialized by ixemul.library */
 
     /* need this here instead of ixnet_init.c */
     ixemulbase = ix_u->u_ixbase;
+#ifdef NATIVE_MORPHOS
+    _ixbasearray = ixemulbase->basearray;
+#endif
 
     if (ixnetbase->ixnet_lib.lib_Version != ixemulbase->ix_lib.lib_Version ||
-        ixnetbase->ixnet_lib.lib_Revision != ixemulbase->ix_lib.lib_Revision)
+	ixnetbase->ixnet_lib.lib_Revision != ixemulbase->ix_lib.lib_Revision)
       {
-        ix_panic(
+	ix_panic(
 "ixnet.library has version %ld.%ld while ixemul.library has version %ld.%ld.
 Both libraries should have the same version, therefore ixnet.library
 won't be used.", ixnetbase->ixnet_lib.lib_Version, ixnetbase->ixnet_lib.lib_Revision,
-                 ixemulbase->ix_lib.lib_Version, ixemulbase->ix_lib.lib_Revision);
+		 ixemulbase->ix_lib.lib_Version, ixemulbase->ix_lib.lib_Revision);
 	settings = ix_get_settings();
 	settings->network_type = IX_NETWORK_NONE;
 	ix_set_settings(settings);
-        return 0;
+	return 0;
       }
 
     p = ix_u->u_ixnet = (struct ixnet *)AllocMem(sizeof(struct ixnet),MEMF_PUBLIC|MEMF_CLEAR);
@@ -91,8 +106,8 @@ won't be used.", ixnetbase->ixnet_lib.lib_Version, ixnetbase->ixnet_lib.lib_Revi
 		    { TAG_END }
 		};
 
-		p->u_sigurg	 = AllocSignal (-1);
-		p->u_sigio	 = AllocSignal (-1);
+		p->u_sigurg      = AllocSignal (-1);
+		p->u_sigio       = AllocSignal (-1);
 
 		list[1].ti_Data = (1L << p->u_sigio);
 		list[2].ti_Data = (1L << p->u_sigurg);
@@ -130,8 +145,8 @@ won't be used.", ixnetbase->ixnet_lib.lib_Version, ixnetbase->ixnet_lib.lib_Revi
 	    p->u_SockBase = OpenLibrary("socket.library",3);
 
 	    if (p->u_SockBase) {
-		p->u_sigurg	 = AllocSignal (-1);
-		p->u_sigio	 = AllocSignal (-1);
+		p->u_sigurg      = AllocSignal (-1);
+		p->u_sigio       = AllocSignal (-1);
 		p->u_networkprotocol = IX_NETWORK_AS225;
 	     }
 	    break;

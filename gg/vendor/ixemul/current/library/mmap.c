@@ -125,7 +125,7 @@ int munmap(caddr_t addr, size_t len)
   for (m = u.u_mmap; m; m = m->next)
     {
       if ((caddr_t)m->addr <= addr && (caddr_t)m->addr + m->length > addr)
-        break;
+	break;
       prev = m;
     }
   if (!m)

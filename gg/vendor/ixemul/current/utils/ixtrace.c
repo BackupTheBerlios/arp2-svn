@@ -21,9 +21,10 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <proto/alib.h>
+#include <clib/alib_protos.h>
 #include <unistd.h>
 #include <string.h>
+#include <ctype.h>
 #include <sys/tracecntl.h>
 #include <signal.h>
 #include <fcntl.h>
@@ -39,7 +40,12 @@
 #include <ix.h>
 #include <proto/exec.h>
 
-#define OUT_WIDTH  80	/* big enough (>30) to hold first information */
+#ifdef __MORPHOS__
+#define CreatePort(x,y) CreateMsgPort()
+#define DeletePort 	DeleteMsgPort
+#endif
+
+#define OUT_WIDTH  80   /* big enough (>30) to hold first information */
 
 static void print_call (FILE *output, struct trace_packet *tp);
 static void show(struct trace_packet *tp, int in);
@@ -80,7 +86,7 @@ main (int argc, char *argv[])
 	in = 1;
 	break;
 
-      case 'l':					/* list system calls */
+      case 'l':                                 /* list system calls */
 	{
 		int i;
 
@@ -93,10 +99,10 @@ main (int argc, char *argv[])
 	}
 	break;
 
-      case 'c':					/* system call by name */
+      case 'c':                                 /* system call by name */
 	{
 		int i;
-		int notfound=1;	/* Just to make sure that we know if call is found */
+		int notfound=1; /* Just to make sure that we know if call is found */
 		char *callname;
 
 		callname=optarg;
@@ -104,10 +110,10 @@ main (int argc, char *argv[])
 		for(i=1;i<=MAXCALLS;i++)
 		{
 			if (!strcmp(callname, call_table[i].name))
-				{	tp.tp_syscall = i;
+				{       tp.tp_syscall = i;
 					notfound=0;
 					break;
-				}		
+				}               
 		}
 		if (notfound)
 		{
@@ -141,18 +147,18 @@ main (int argc, char *argv[])
       case 's':
 	if (!isdigit(optarg[0]))
 	{
-	  fprintf(stderr, "The -s option requires a number\n",MAXCALLS);
+	  fprintf(stderr, "The -s option requires a number\n");
 	  exit(1);
 	}
-        tp.tp_syscall = atoi (optarg);
+	tp.tp_syscall = atoi (optarg);
 	if (tp.tp_syscall > MAXCALLS)
 	{
 	  fprintf(stderr, "System call number is out of range 1-%d\n",MAXCALLS);
 	  exit(1);
 	}
-        break;
+	break;
 
-      case 'w':					/* Wipe out the calls you don't want */
+      case 'w':                                 /* Wipe out the calls you don't want */
 	{
 		int i;
 		char calls[80]="";
@@ -166,10 +172,10 @@ main (int argc, char *argv[])
 			for(i=1;i<=MAXCALLS;i++)
 			{
 				if (!strcmp(calls, call_table[i].name))
-					{	call_table[i].interesting=0;
+					{       call_table[i].interesting=0;
 						notfound=0;
 						break;
-					}		
+					}               
 			}
 			if (notfound) fprintf(stderr,"[%s] is unknown to ixtrace, try again\n"
 										, calls);
@@ -178,14 +184,14 @@ main (int argc, char *argv[])
 
 	}
 	break;
-      case 'z':					/* you name the calls --in testing-- */
+      case 'z':                                 /* you name the calls --in testing-- */
 	{
 		int i;
 		char calls[80]="";
 		int notfound=1;
 
 		/* Right now this is only the beginning, clear all systems calls.
-		   In other words, make them all non-interesting.  				  */
+		   In other words, make them all non-interesting.                                 */
 		for(i=1;i<=MAXCALLS;i++)
 		{
 		  call_table[i].interesting=0;
@@ -198,10 +204,10 @@ main (int argc, char *argv[])
 			for(i=1;i<=MAXCALLS;i++)
 			{
 				if (!strcmp(calls, call_table[i].name))
-					{	call_table[i].interesting=1;
+					{       call_table[i].interesting=1;
 						notfound=0;
 						break;
-					}		
+					}               
 			}
 			if (notfound) fprintf(stderr,"[%s] is unknown to ixtrace, try again\n"
 										, calls);
@@ -215,7 +221,7 @@ main (int argc, char *argv[])
 	  fprintf(stdout, "%s\n",VERSION+6); /* get rid of the first 7 chars */
 	  return 0;
 	}
-        break;
+	break;
 
       default:
 	fprintf (stderr, "%s [-a] [-m] [-l] [-v] [-z] [-c syscall-name] [-n N] [-o logfile] [-p pid] [-s syscall-number]\n", argv[0]);
@@ -232,7 +238,7 @@ main (int argc, char *argv[])
 	fprintf (stderr, "  -p  only trace process pid (default is to trace all processes)\n");
 	fprintf (stderr, "  -s  only trace this syscall (default is to trace all calls)\n");
 
-        return 1;
+	return 1;
       }
 
   if (logfile[0] == '-' && !logfile[1])
@@ -246,6 +252,7 @@ main (int argc, char *argv[])
       return 1;
     }
   show(&tp, in);
+  return 0;
 }
 
 static void show(struct trace_packet *tp, int in)
@@ -266,19 +273,19 @@ static void show(struct trace_packet *tp, int in)
 	      ix_wait(&sigs);
 	      while ((msg = GetMsg (mp)))
 		{
-	          if (msg != (struct Message *)tp)
+		  if (msg != (struct Message *)tp)
 		    {
 		      fprintf (stderr, "Got alien message! Don't do that ever again ;-)\n");
 		    } 
-	          else
+		  else
 		    {
 		      if (in)
 			tp->tp_action = TRACE_ACTION_JMP;
 		      if (! tp->tp_is_entry || tp->tp_action == TRACE_ACTION_JMP)
-		        print_call (output, tp);
+			print_call (output, tp);
 		    }
-	          Signal ((struct Task *) msg->mn_ReplyPort, SIGBREAKF_CTRL_E);
-	        }
+		  Signal ((struct Task *) msg->mn_ReplyPort, SIGBREAKF_CTRL_E);
+		}
 	      if (sigs & SIGBREAKF_CTRL_C)
 		break;
 	    }
@@ -308,23 +315,23 @@ static void show(struct trace_packet *tp, int in)
 void
 print_call (FILE *output, struct trace_packet *tp)
 {
-  char line[OUT_WIDTH+2];	/* for \n\0 */
+  char line[OUT_WIDTH+2];       /* for \n\0 */
   char *argfield;
   int space, len;
   struct call *c;
 
   space = sizeof (line) - 1;
   len = sprintf (line, "$%lx: %c", (unsigned long) tp->tp_message.mn_ReplyPort,
-  	         tp->tp_is_entry ? '>' : '<');
+		 tp->tp_is_entry ? '>' : '<');
   argfield = line + len;
   space -= len;
 
   if (TP_SCALL (tp) > sizeof (call_table) / sizeof (struct call))
     {
       if (tp->tp_is_entry)
-        sprintf (argfield, "SYS_%d()\n", TP_SCALL (tp));
+	sprintf (argfield, "SYS_%d()\n", TP_SCALL (tp));
       else
-        sprintf (argfield, "SYS_%d() = $%lx (%d)\n", 
+	sprintf (argfield, "SYS_%d() = $%lx (%d)\n", 
 		  TP_SCALL (tp), (unsigned long) TP_RESULT (tp), TP_ERROR (tp));
     }
   else
@@ -482,7 +489,7 @@ get_ioctl_cmd (int cmd)
 
     case FIOASYNC:
       /* not yet implemented, but important to know if some program tries
-         to use it ! */
+	 to use it ! */
       return "FIOASYNC";
 
     case TIOCGETA:
@@ -530,18 +537,18 @@ vp_fcntl (char *buf, int len, struct call *c, struct trace_packet *tp)
   if (tp->tp_is_entry)
     if (argv[1] == F_GETFL || argv[1] == F_SETFL)
       snprintf (buf, len+1, "fcntl(%d, %s, %s)",
-	        argv[0], get_fcntl_cmd (argv[1]), get_open_mode (argv[2]));
+		argv[0], get_fcntl_cmd (argv[1]), get_open_mode (argv[2]));
     else
       snprintf (buf, len+1, "fcntl(%d, %s, %d)",
-	        argv[0], get_fcntl_cmd (argv[1]), argv[2]);
+		argv[0], get_fcntl_cmd (argv[1]), argv[2]);
   else
     if (argv[1] == F_GETFL || argv[1] == F_SETFL)
       snprintf (buf, len+1, "fcntl(%d, %s, %s) = %d (%d)",
-	        argv[0], get_fcntl_cmd (argv[1]), 
+		argv[0], get_fcntl_cmd (argv[1]), 
 		get_open_mode (argv[2]), TP_RESULT (tp), TP_ERROR (tp));
     else
       snprintf (buf, len+1, "fcntl(%d, %s, %d) = %d (%d)",
-	        argv[0], get_fcntl_cmd (argv[1]), argv[2], 
+		argv[0], get_fcntl_cmd (argv[1]), argv[2], 
 		TP_RESULT (tp), TP_ERROR (tp));
 
   strcat (buf, "\n");

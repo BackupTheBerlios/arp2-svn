@@ -54,7 +54,7 @@
  * WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES OF
  * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  *
- *	@(#)kern_descrip.c	7.16 (Berkeley) 6/28/90
+ *      @(#)kern_descrip.c      7.16 (Berkeley) 6/28/90
  */
 
 #define _KERNEL
@@ -110,15 +110,15 @@ dup (unsigned i)
       int err;
 
       if ((err = falloc (&fp2, &fd2)))
-        errno_return(err, -1);
+	errno_return(err, -1);
 
       fp2->f_so = netcall(NET__dup, fp);
       if (fp2->f_so == -1)
       {
-        /* free the allocated fd */
-        u.u_ofile[fd2] = 0;
-        fp2->f_count = 0;
-        return -1;
+	/* free the allocated fd */
+	u.u_ofile[fd2] = 0;
+	fp2->f_count = 0;
+	return -1;
       }
       fp2->f_socket_domain = fp->f_socket_domain;
       fp2->f_socket_type = fp->f_socket_type;
@@ -176,7 +176,7 @@ dup2 (unsigned i, unsigned j)
   /*
    * dup2() must suceed even though the close had an error.
    */
-  errno = old_err;	/* XXX */
+  errno = old_err;      /* XXX */
   KPRINTF (("&errno = %lx, errno = %ld\n", &errno, errno));
   return (int)j;
 }
@@ -197,11 +197,11 @@ fcntl(int fdes, int cmd, int arg)
   if (cmd == F_INTERNALIZE)
     {
       if ((error = ufalloc (0, &i)))
-        {
-          errno = error;
+	{
+	  errno = error;
 	  KPRINTF (("&errno = %lx, errno = %ld\n", &errno, errno));
-          return -1;
-        }
+	  return -1;
+	}
       fp = (struct file *) arg;
       u.u_ofile[i] = fp;
       u.u_pofile[i] = 0;
@@ -264,10 +264,10 @@ fcntl(int fdes, int cmd, int arg)
 	return 0;
 
       case F_EXTERNALIZE:
-        return (int)fp;
+	return (int)fp;
 
       default:
-        errno = EINVAL;
+	errno = EINVAL;
 	KPRINTF (("&errno = %lx, errno = %ld\n", &errno, errno));
 	return -1;
     }
@@ -316,7 +316,7 @@ ufalloc(int want, int *result)
   for (; want < NOFILE; want++) 
     {
       if (u.u_ofile[want] == NULL) 
-        {
+	{
 	  u.u_pofile[want] = 0;
 	  if (want > u.u_lastfile) u.u_lastfile = want;
 			
@@ -369,7 +369,7 @@ slot:
   fp->f_stb_dirty = 0;
   fp->f_name = 0;
   fp->f_count = 1;
-  fp->f_type = 0;		/* inexistant type ;-) */
+  fp->f_type = 0;               /* inexistant type ;-) */
   memset(&fp->f__fh, 0, sizeof(fp->f__fh));
   ix.ix_lastf = fp + 1;
   if (resultfp)
@@ -393,6 +393,6 @@ do_ret:
 int
 flock (int fdes, int how)
 {
-  return 0;	/* always succeed */
+  return 0;     /* always succeed */
 }
 

@@ -21,25 +21,46 @@
  * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+#ifndef mc68000
+#include <string.h>
+
+char *strncpy(char *s1,const char *s2,size_t n)
+{
+  if (n != 0)
+  {
+    char *s=s1;
+    do {
+      if (!(*s++ = *s2++))
+      {
+	while (--n != 0)
+          *s++=0;
+	break;
+      }
+    } while (--n != 0);
+  }
+  return s1;
+}
+#else
 #include "defs.h"
 
 ENTRY(strncpy)
 asm("
-	movl	sp@(4),d0	/* return value is toaddr */
-	movl	sp@(12),d1	/* count */
-	jeq	strncpydone	/* nothing to do */
-	movl	sp@(8),a0	/* a0 = fromaddr */
-	movl	d0,a1		/* a1 = toaddr */
+	movl    sp@(4),d0       /* return value is toaddr */
+	movl    sp@(12),d1      /* count */
+	jeq     strncpydone     /* nothing to do */
+	movl    sp@(8),a0       /* a0 = fromaddr */
+	movl    d0,a1           /* a1 = toaddr */
 strncpyloop:
-	movb	a0@+,a1@+	/* copy a byte */
-	jeq	strncpyploop	/* copied null, go pad if necessary */
-	subql	#1,d1		/* adjust count */
-	jne	strncpyloop	/* more room, keep going */
+	movb    a0@+,a1@+       /* copy a byte */
+	jeq     strncpyploop    /* copied null, go pad if necessary */
+	subql   #1,d1           /* adjust count */
+	jne     strncpyloop     /* more room, keep going */
 strncpydone:
 	rts
 strncpyploop:
-	subql	#1,d1		/* adjust count */
-	jeq	strncpydone	/* no more room, all done */
-	clrb	a1@+		/* clear a byte */
-	jra	strncpyploop	/* keep going */
+	subql   #1,d1           /* adjust count */
+	jeq     strncpydone     /* no more room, all done */
+	clrb    a1@+            /* clear a byte */
+	jra     strncpyploop    /* keep going */
 ");
+#endif

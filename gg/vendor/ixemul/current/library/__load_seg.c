@@ -94,16 +94,20 @@ dirlock (char *tmp)
     cp = rindex (tmp, ':');
     if (cp)
       {
-        o = cp[1];
-        cp[1] = 0;
-        dir = __lock (tmp, ACCESS_READ);
-        cp[1] = o;
+	o = cp[1];
+	cp[1] = 0;
+	dir = __lock (tmp, ACCESS_READ);
+	cp[1] = o;
       }
     else {  /* duplicate the current directory lock for a simple pathname */
+#ifdef __pos__
+      dir = DupLock((int)((struct pOS_Process *)FindTask(0))->pr_CurrentDir);
+#else
       BPTR orig_dir = CurrentDir(NULL);
 
       dir = DupLock(orig_dir);
       CurrentDir(orig_dir);
+#endif
     }
   }
   return dir;
@@ -117,7 +121,11 @@ static struct my_seg *
 check_and_load_resident (char *filename)
 {
   struct my_seg *res = 0;
+#ifdef __pos__
+  struct pOS_SegmentLst *seg;
+#else
   struct Segment *seg;
+#endif
   char *base;
 
   /* big problem: Commo only stores the bare names in the resident
@@ -127,33 +135,45 @@ check_and_load_resident (char *filename)
 
   base = basename(filename);
   Forbid();
+#ifdef __pos__
+  seg = pOS_OpenSegment(base, 0);
+#else
   seg = FindSegment(base, 0, 0);
   if (seg)
     {
       /* strange they didn't provide a function for this... */
       if (seg->seg_UC >= 0) 
-        seg->seg_UC++;
+	seg->seg_UC++;
     }
+#endif
   Permit();
 
   if (seg) /* ok, we have the seg */
     {
       if ((res = (struct my_seg *)kmalloc(sizeof(*res) + strlen(filename) + 1)))
-        {
-          res->segment = seg->seg_Seg;
-          res->type    = RESSEG;
-          res->priv    = (u_int)seg;
-          res->programdir = NULL;         /* no possible programdir as Commo didn't provide for it */
-          res->name    = (char *)&res[1];
-          strcpy(res->name, filename);
-        }
+	{
+#ifdef __pos__
+	  res->segment = seg;
+#else
+	  res->segment = seg->seg_Seg;
+#endif
+	  res->type    = RESSEG;
+	  res->priv    = (u_int)seg;
+	  res->programdir = NULL;         /* no possible programdir as Commo didn't provide for it */
+	  res->name    = (char *)&res[1];
+	  strcpy(res->name, filename);
+	}
       else 
-        {     /* oops, we can't deal with it */
-          Forbid();
-          if (seg->seg_UC > 0)
+	{     /* oops, we can't deal with it */
+#ifdef __pos__
+	  pOS_CloseSegment(seg);
+#else
+	  Forbid();
+	  if (seg->seg_UC > 0)
 	    seg->seg_UC--;
-          Permit();
-        }
+	  Permit();
+#endif
+	}
     }
   return res;
 }
@@ -174,20 +194,24 @@ check_and_load_seg (char *filename)
   if (seg)
     {
       if ((res = kmalloc (sizeof (*res) + strlen(filename) + 1)))
-        {
-          res->segment = seg;
-          res->type    = LOADSEG;
-          res->priv    = seg;
-          res->programdir = dirlock(filename);
-          res->name    = (char *)&res[1];
-          strcpy(res->name, filename);
-        }
+	{
+#ifdef __pos__
+	  res->segment = (void *)seg;
+#else
+	  res->segment = seg;
+#endif
+	  res->type    = LOADSEG;
+	  res->priv    = seg;
+	  res->programdir = dirlock(filename);
+	  res->name    = (char *)&res[1];
+	  strcpy(res->name, filename);
+	}
       else
-        {
-          UnLoadSeg (seg);
-          errno = ENOMEM;
-          return NULL;
-        }
+	{
+	  UnLoadSeg (seg);
+	  errno = ENOMEM;
+	  return NULL;
+	}
     }
   err = IoErr();
   errno = (err ? __ioerr_to_errno(err) : ENOENT);
@@ -207,23 +231,27 @@ __free_seg (BPTR *seg)
   switch (ms->type)
     {
       case RESSEG:
-        {
-          struct Segment *s = (struct Segment *) ms->priv;
+#ifdef __pos__
+	pOS_CloseSegment((void *)ms->priv);
+#else
+	{
+	  struct Segment *s = (struct Segment *) ms->priv;
 
-          Forbid ();
-          if (s->seg_UC > 0)
+	  Forbid ();
+	  if (s->seg_UC > 0)
 	    s->seg_UC--;
-          Permit ();
-        }
-        break;
+	  Permit ();
+	}
+#endif
+	break;
 
       case LOADSEG:
-        UnLoadSeg (ms->priv);
-        break;
+	UnLoadSeg (ms->priv);
+	break;
 
       default:   /* unknown segment type -> this is not a struct my_seg ! */
-        ix_panic("Corrupted segment");
-        break;
+	ix_panic("Corrupted segment");
+	break;
     }
 
   /* we could unlock the programdir before, but this way, we gain the `dynamic
@@ -285,9 +313,9 @@ __load_seg (char *name, char **args)
       fib = alloca (sizeof(*fib) + 2);
       fib = LONG_ALIGN (fib);
       if (Examine (lock, fib))
-        seg = load_seg_or_script (parent, fib->fib_FileName, args, name);
+	seg = load_seg_or_script (parent, fib->fib_FileName, args, name);
       else
-        seg = load_seg_or_script (parent, basename(name), args, name);
+	seg = load_seg_or_script (parent, basename(name), args, name);
       err = errno;
 
       __unlock (parent);
@@ -295,7 +323,7 @@ __load_seg (char *name, char **args)
 
       errno = err;
       if (!seg && errno != ENOENT)
-        return 0;
+	return 0;
     }
 
   /* now we may have a valid segment */
@@ -312,43 +340,81 @@ __load_seg (char *name, char **args)
     }
 
   /* so the command is not directly addressable, but perhaps it's in our PATH? */
+#ifdef __pos__
   {
-    struct Process *me = (struct Process *)FindTask(0);
+    const struct pOS_ExList *pathlist = pOS_LockShellPathList();
+    struct pOS_ShellPath *node;
+    char progname[MAXPATHLEN];
+
+    if (pathlist)
+    {
+      for (node = (struct pOS_ShellPath *)pathlist->lh_Head;
+	   node;
+	   node = (struct pOS_ShellPath *)node->shp_Node.ln_Succ)
+	{
+	  BPTR ocd = CurrentDir(node->shp_Lock);
+
+	  if (NameFromLock(node->shp_Lock, progname, MAXPATHLEN) &&
+	      AddPart(progname, name, MAXPATHLEN))
+	    {
+	      seg = load_seg_or_script((BPTR)node->shp_Lock, name, args, name);
+	    }
+	  else
+	    {
+	      seg = 0;
+	      errno = ENOENT;
+	    }
+	  CurrentDir(ocd);
+	  if (seg)
+	    break;
+	  if (errno != ENOENT)
+	    {
+	      pOS_UnlockShellPathList(pathlist);
+	      return 0;
+	    }
+	}
+      pOS_UnlockShellPathList(pathlist);
+    }
+  }
+#else
+  {
+    struct Process *me = (struct Process *)SysBase->ThisTask;
     struct CommandLineInterface *cli;
 
     /* but we need a valid CLI then */
     if ((cli = BTOCPTR (me->pr_CLI)))
       {
 	struct path_element {
-	  BPTR	next;
-	  BPTR 	lock;
+	  BPTR  next;
+	  BPTR  lock;
 	} *lock_list;
 	BPTR ocd;
-        char progname[MAXPATHLEN];
+	char progname[MAXPATHLEN];
 
 	for (lock_list = BTOCPTR (cli->cli_CommandDir);
 	     lock_list;
 	     lock_list = BTOCPTR (lock_list->next))
 	  {
-            ocd = CurrentDir (lock_list->lock);
-            if (NameFromLock(lock_list->lock, progname, MAXPATHLEN) &&
-                AddPart(progname, name, MAXPATHLEN))
-              {
-	        seg = load_seg_or_script (lock_list->lock, name, args, progname);
-              }
-            else
-              {
-                seg = 0;
-                errno = ENOENT;
-    	      }
+	    ocd = CurrentDir (lock_list->lock);
+	    if (NameFromLock(lock_list->lock, progname, MAXPATHLEN) &&
+		AddPart(progname, name, MAXPATHLEN))
+	      {
+		seg = load_seg_or_script (lock_list->lock, name, args, progname);
+	      }
+	    else
+	      {
+		seg = 0;
+		errno = ENOENT;
+	      }
 	    CurrentDir(ocd);
 	    if (seg)
 	      break;
 	    if (errno != ENOENT)
-              return 0;
+	      return 0;
 	  }
       }
   }
+#endif
 
   if (seg)
     return (BPTR *)&seg->segment;
@@ -390,37 +456,37 @@ load_seg_or_script (BPTR parent, char *name, char **args, char *progname)
       if (syscall (SYS_stat, name, &stb) == 0 && S_ISREG (stb.st_mode))
 	{
 	  if ((fd = syscall (SYS_open, name, 0)) >= 0)
-            {
-              /*
-               *  If the .key line of an AmigaOS script isn't the first
-               *  line of the script, the AmigaOS shell gets very confused.
-               *  Therefore, we skip the first line if it begins with .key,
-               *  and we test the second line for #! or ;!.
-               */
+	    {
+	      /*
+	       *  If the .key line of an AmigaOS script isn't the first
+	       *  line of the script, the AmigaOS shell gets very confused.
+	       *  Therefore, we skip the first line if it begins with .key,
+	       *  and we test the second line for #! or ;!.
+	       */
 	      if ((n = syscall (SYS_read, fd, magic, 4)) == 4)
-	        {
-	          magic[4] = 0;
-	          if (!strcasecmp(magic, ".key"))
-	            {
-	              n = 0;
-	              /* skip this line */
-	              while (syscall (SYS_read, fd, magic, 1) == 1)
-	                if (magic[0] == '\n')
-	                  {
-	                    n = syscall (SYS_read, fd, magic, 4);
-	                    break;
-	                  }
-	            }
-	        }
+		{
+		  magic[4] = 0;
+		  if (!strcasecmp(magic, ".key"))
+		    {
+		      n = 0;
+		      /* skip this line */
+		      while (syscall (SYS_read, fd, magic, 1) == 1)
+			if (magic[0] == '\n')
+			  {
+			    n = syscall (SYS_read, fd, magic, 4);
+			    break;
+			  }
+		    }
+		}
 	      if (n >= 2 && (magic[0] == '#' || magic[0] == ';') && magic[1] == '!')
-	        {
-	          char interp[MAXINTERP + MAXPATHLEN + 2], *interp_start;
+		{
+		  char interp[MAXINTERP + MAXPATHLEN + 2], *interp_start;
 	      
-	          interp[0] = magic[2];
-	          interp[1] = magic[3];
-	          n -= 2;
-	          n = n + syscall (SYS_read, fd, interp + n, MAXINTERP - n);
-	          if (n > 0)
+		  interp[0] = magic[2];
+		  interp[1] = magic[3];
+		  n -= 2;
+		  n = n + syscall (SYS_read, fd, interp + n, MAXINTERP - n);
+		  if (n > 0)
 		    {
 		      char *cp, *cp2, ch;
 
@@ -428,8 +494,8 @@ load_seg_or_script (BPTR parent, char *name, char **args, char *progname)
 		      interp[n] = 0;
 		      for (interp_start = interp; isspace(*interp_start) && interp_start < interp + n; interp_start++);
 		      for (cp = interp_start; cp < interp + n; cp++)
-		        if (*cp == 0 || isspace (*cp))
-                          break;
+			if (*cp == 0 || isspace (*cp))
+			  break;
 		      ch = *cp;
 		      *cp = 0;
 
@@ -439,30 +505,30 @@ load_seg_or_script (BPTR parent, char *name, char **args, char *progname)
 		       * done the first time __load_seg() is called from
 		       * execve()
 		       */
-                      tmpcd = CurrentDir(ocd);
+		      tmpcd = CurrentDir(ocd);
 		      u.u_is_root = oroot;
 		      seg = (struct my_seg *) __load_seg (interp_start, 0);
-                      CurrentDir(tmpcd);
+		      CurrentDir(tmpcd);
 		      u.u_is_root = 0;
 
 		      if (!seg)
-		        goto fd_close;
+			goto fd_close;
 		  
 		      /* using \001 as seperator for progam|argument|script */
 		      *cp++ = '\001';
 
 		      if (ch && ch != '\n' && cp < interp + n)
 		      {
-		        cp2 = cp;
+			cp2 = cp;
 
-		        /* first skip intergap whitespace */
-                        while (isspace(*cp2) && *cp2 != '\n') cp2++;
-                       
-		        /* in this case, set the argument as well. */
-                        if (*cp2 && *cp2 != '\n')
+			/* first skip intergap whitespace */
+			while (isspace(*cp2) && *cp2 != '\n') cp2++;
+		       
+			/* in this case, set the argument as well. */
+			if (*cp2 && *cp2 != '\n')
 			{
 			  while (*cp2 && !isspace(*cp2) && *cp2 != '\n' && cp < interp + n)
-		            *cp++ = *cp2++;
+			    *cp++ = *cp2++;
 
 			  *cp++ = '\001';
 			}
@@ -472,18 +538,18 @@ load_seg_or_script (BPTR parent, char *name, char **args, char *progname)
 			{
 			  *cp++ = '/';
 			  strcpy (cp, progname);
-                          *index (cp, ':') = '/';
+			  *index (cp, ':') = '/';
 			}
 		      else
 			strcpy (cp, progname);
 
 		      *args = (char *) syscall (SYS_strdup, interp_start);
 		    }
-	        }
+		}
 fd_close:
 	      syscall (SYS_close, fd);
 	    }
-        }
+	}
     }
   CurrentDir (ocd);
   u.u_is_root = oroot;

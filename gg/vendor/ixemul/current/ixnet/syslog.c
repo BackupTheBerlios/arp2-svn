@@ -37,6 +37,7 @@ static char sccsid[] = "@(#)syslog.c    5.34 (Berkeley) 6/26/91";
 
 #define _KERNEL
 #include "ixnet.h"
+#include "my_varargs.h"
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/file.h>
@@ -57,6 +58,8 @@ static char sccsid[] = "@(#)syslog.c    5.34 (Berkeley) 6/26/91";
  *      print message on log file; output is intended for syslogd(8).
  */
 
+#ifndef NATIVE_MORPHOS
+
 void
 vsyslog(int pri, const char *fmt, va_list ap)
 {
@@ -65,16 +68,77 @@ vsyslog(int pri, const char *fmt, va_list ap)
     register int network_protocol = p->u_networkprotocol;
 
     if (network_protocol == IX_NETWORK_AMITCP) {
-        return TCP_SyslogA(pri,fmt,ap);
+	TCP_SyslogA(pri,fmt,ap);
     }
     else if (network_protocol == IX_NETWORK_AS225) {
-        static char buf[1024]; /* hopefully this is enough */
+	static char buf[1024]; /* hopefully this is enough */
 
-        vsprintf(buf,fmt,ap);
-        SOCK_syslog(pri,buf);
+	vsprintf(buf,fmt,ap);
+	SOCK_syslog(pri,buf);
     }
 }
 
+#else
+
+#include <sys/ixemul_syscall.h>
+
+void
+vsyslog(int pri, const char *fmt, va_list ap)
+{
+    usetup;
+    register struct ixnet *p = (struct ixnet *)u.u_ixnet;
+    register int network_protocol = p->u_networkprotocol;
+
+    static char buf[1024]; /* hopefully this is enough */
+
+    vsprintf(buf,fmt,ap);
+
+    if (network_protocol == IX_NETWORK_AMITCP)
+	TCP_SyslogA(pri,buf,NULL);
+    else
+	SOCK_syslog(pri,buf);
+}
+
+void
+_varargs68k_vsyslog(int pri, const char *fmt, char *ap)
+{
+    usetup;
+    register struct ixnet *p = (struct ixnet *)u.u_ixnet;
+    register int network_protocol = p->u_networkprotocol;
+
+    if (network_protocol == IX_NETWORK_AMITCP) {
+	TCP_SyslogA(pri,fmt,ap);
+    }
+    else if (network_protocol == IX_NETWORK_AS225) {
+	static char buf[1024]; /* hopefully this is enough */
+
+	/* call the 68k vprintf */
+
+	int (*_sc)()=(void *)(&((char *)ixemulbase)[-((SYS_vprintf)+4)*6]);
+
+	/* code for:
+		movem.l d0-d2,-(sp)
+		jsr     (a0)
+		lea.l   12(sp),sp
+		rts
+	*/
+	static const UWORD gate[] = {
+	    0x48E7,0xE000,0x4E90,0x4FEF,0x000C,0x4E75
+	};
+
+	struct EmulCaos caos;
+	caos.caos_Un.Function = (APTR)&gate;
+	caos.reg_d0 = (ULONG)buf;
+	caos.reg_d1 = (ULONG)fmt;
+	caos.reg_d2 = (ULONG)ap;
+	caos.reg_a0 = (ULONG)_sc;
+	MyEmulHandle->EmulCallOS(&caos);
+
+	SOCK_syslog(pri,buf);
+    }
+}
+
+#endif
 
 void
 openlog(const char *ident, int logstat, int logfac)
@@ -84,13 +148,13 @@ openlog(const char *ident, int logstat, int logfac)
     register int network_protocol = p->u_networkprotocol;
 
     if (network_protocol == IX_NETWORK_AMITCP) {
-        struct TagItem list[] = {
-            {SBTM_SETVAL(SBTC_LOGTAGPTR), (ULONG)ident},
-            {SBTM_SETVAL(SBTC_LOGSTAT), logstat},
-            {SBTM_SETVAL(SBTC_LOGFACILITY), logfac},
-            {TAG_END}
-        };
-        TCP_SocketBaseTagList(list);
+	struct TagItem list[] = {
+	    {SBTM_SETVAL(SBTC_LOGTAGPTR), (ULONG)ident},
+	    {SBTM_SETVAL(SBTC_LOGSTAT), logstat},
+	    {SBTM_SETVAL(SBTC_LOGFACILITY), logfac},
+	    {TAG_END}
+	};
+	TCP_SocketBaseTagList(list);
     }
 }
 
@@ -102,11 +166,11 @@ closelog(void)
     register int network_protocol = p->u_networkprotocol;
 
     if (network_protocol == IX_NETWORK_AMITCP) {
-        struct TagItem list[] = {
-            {SBTM_SETVAL(SBTC_LOGTAGPTR), NULL},
-            {TAG_END}
-        };
-        TCP_SocketBaseTagList(list);
+	struct TagItem list[] = {
+	    {SBTM_SETVAL(SBTC_LOGTAGPTR), NULL},
+	    {TAG_END}
+	};
+	TCP_SocketBaseTagList(list);
     }
 }
 
@@ -119,14 +183,14 @@ setlogmask(int pmask)
     register int network_protocol = p->u_networkprotocol;
 
     if (network_protocol == IX_NETWORK_AMITCP) {
-        struct TagItem lst[3]= {
-            {SBTM_GETVAL(SBTC_LOGMASK),NULL},
-            {SBTM_SETVAL(SBTC_LOGMASK), pmask},
-            {TAG_END}
-        };
+	struct TagItem lst[3]= {
+	    {SBTM_GETVAL(SBTC_LOGMASK),NULL},
+	    {SBTM_SETVAL(SBTC_LOGMASK), pmask},
+	    {TAG_END}
+	};
 
-        TCP_SocketBaseTagList(lst);
-        return (int)lst[0].ti_Data;
+	TCP_SocketBaseTagList(lst);
+	return (int)lst[0].ti_Data;
     }
     return 0;
 }

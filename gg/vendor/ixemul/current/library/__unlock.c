@@ -32,6 +32,17 @@ void __Close (BPTR fh)
   struct FileHandle *fhp = BTOCPTR (fh);
   
   /* only do this if not closing a dummy NIL: filehandle */
+#ifdef __pos__
+  if (fhp->fh_DosDev)
+    {
+      Close(fh);
+    }
+  else
+    {
+      kfree(fhp);
+      SetIoErr(0);
+    }
+#else
   usetup;
   struct StandardPacket *sp;
 
@@ -53,4 +64,5 @@ void __Close (BPTR fh)
   else
     SetIoErr(0);
   FreeDosObject (DOS_FILEHANDLE, fhp);
+#endif
 }

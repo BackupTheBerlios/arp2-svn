@@ -18,9 +18,27 @@
  *  License along with this library; if not, write to the Free
  *  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- *  $Id: ix_startup.c,v 1.5 1994/06/19 15:13:22 rluebbert Exp $
+ *  $Id: ix_startup.c,v 1.5 2000/09/18 21:28:19 emm Exp $
  *
  *  $Log: ix_startup.c,v $
+ *  Revision 1.5  2000/09/18 21:28:19  emm
+ *  Moved WB message handling in ix_open. Fixed a race condition in memory management.
+ *
+ *  Revision 1.4  2000/09/13 21:13:52  emm
+ *  Works on 68k again
+ *
+ *  Revision 1.3  2000/07/23 19:17:35  emm
+ *  Added ppc stack extension support. Improved glues. Fixed some bugs.
+ *
+ *  Revision 1.2  2000/06/20 22:17:24  emm
+ *  First attempt at a native MorphOS ixemul
+ *
+ *  Revision 1.1.1.1  2000/05/07 19:38:09  emm
+ *  Imported sources
+ *
+ *  Revision 1.1.1.1  2000/04/29 00:48:31  nobody
+ *  Initial import
+ *
  *  Revision 1.5  1994/06/19  15:13:22  rluebbert
  *  *** empty log message ***
  *
@@ -52,12 +70,17 @@ int
 ix_startup (char *aline, int alen,
 	    int expand, char *wb_default_window, u_int main, int *real_errno)
 {
-  struct Process *proc = (struct Process *)FindTask(0);
+  struct Process *proc = (struct Process *)SysBase->ThisTask;
   struct user *u_ptr = getuser(proc);
   int exit_val;
-  struct WBStartup *wb_msg = NULL;
   int fd;
   struct my_seg mySeg = { 0 };
+
+  KPRINTF(("ix_startup(\"%s\", %ld, %ld\n", aline, alen, expand));
+#ifdef NATIVE_MORPHOS
+  u.u_is_ppc = !(main & 1);
+#endif
+  KPRINTF(("%lx: is_ppc = %ld\n", proc, u.u_is_ppc));
 
   /*
    * The following code to reset the fpu might not be necessary, BUT since
@@ -71,16 +94,13 @@ ix_startup (char *aline, int alen,
   /* first deal with WB messages, since those HAVE to be answered properly,
    * even if we should fail later (memory, whatever..) */
 
-  if (!proc->pr_CLI)
+#ifndef __pos__
+  if (proc->pr_CLI)
+#endif
     {
-      /* we have been started by Workbench. Get the StartupMsg */
-      WaitPort (&proc->pr_MsgPort);
-      wb_msg = (struct WBStartup *) GetMsg (&proc->pr_MsgPort);
-      /* further processing in _main () */
-    }
-  else
-    {
+#ifndef __pos__
       struct CommandLineInterface *cli = (void *)BADDR(proc->pr_CLI);
+#endif
       long segs;
 
       /* for usage by sys_exit() for example */
@@ -89,11 +109,30 @@ ix_startup (char *aline, int alen,
       u.u_arglinelen = alen;
       u.u_segs = &mySeg;
       u.u_segs->name = NULL;
+#ifdef __pos__
+      segs = proc->pr_SegList;
+      u.u_segs->segment = (void *)segs;
+      {
+	struct pOS_SegmentInfo SI = { sizeof(struct pOS_SegmentInfo) };
+	struct pOS_Segment *Seg;
+    
+	for (Seg = &u.u_segs->segment->sel_Seg; Seg; Seg = Seg->seg_Next)
+	{
+	  if (pOS_GetSegmentPtrInfo(u.u_segs->segment, Seg, NULL, &SI) && SI.segi_HunkType == HUNKTYP_Code)
+	  {
+	    u.u_start_pc = (int)SI.segi_StartAddress;
+	    u.u_end_pc = SI.segi_SegmSize + u.u_start_pc;
+	    break;
+	  }
+	}
+      }
+#else
       segs = cli->cli_Module;
       u.u_segs->segment = segs;
       segs <<= 2;
       u.u_start_pc = segs + 4;
       u.u_end_pc = segs + *(long *)(segs - 4) - 8;
+#endif
     }
 
   u.u_expand_cmd_line = expand;
@@ -109,6 +148,13 @@ ix_startup (char *aline, int alen,
    }
 
   KPRINTF (("&errno = %lx\n", real_errno));
+/*{int* p=(int*)get_sp();
+KPRINTF(("r1=%lx: %08lx %08lx %08lx %08lx %08lx %08lx %08lx %08lx\n",
+	 p, p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7]));
+p=(int*)get_68k_sp();
+KPRINTF(("a7=%lx: %08lx %08lx %08lx %08lx %08lx %08lx %08lx %08lx\n",
+	 p, p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7]));
+}*/
   exit_val = _setjmp (u.u_jmp_buf);
 
   if (! exit_val)
@@ -117,14 +163,27 @@ ix_startup (char *aline, int alen,
       syscall (SYS_sigsetmask, 0);
       /* the first time thru call the program */
       KPRINTF (("calling __main()\n"));
+#ifdef __pos__
+      _main(aline, alen, main);
+#else
       if (proc->pr_CLI)
-        _main(aline, alen, main);
+	_main(aline, alen, main);
       else
-	_main(wb_msg, wb_default_window, main);
+	_main(u.u_wbmsg, wb_default_window, main);
+#endif
       /* NORETURN */
     }
   /* in this case we came from a longjmp-call */
   exit_val = u.p_xstat;
+
+  KPRINTF(("jumped back to ix_startup\n"));
+/*{int* p=(int*)get_sp();
+KPRINTF(("r1=%lx: %08lx %08lx %08lx %08lx %08lx %08lx %08lx %08lx\n",
+	 p, p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7]));
+p=(int*)get_68k_sp();
+KPRINTF(("a7=%lx: %08lx %08lx %08lx %08lx %08lx %08lx %08lx %08lx\n",
+	 p, p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7]));
+}*/
 
   __ix_remove_sigwinch ();
 
@@ -145,19 +204,42 @@ ix_startup (char *aline, int alen,
    * we need to unlink us from our parent and to give it a signal telling
    * it that we've died.
    */
-   Forbid();
-   if (u.p_pptr && u.p_pptr != (struct Process *) 1)
+  Forbid();
+  if (u.p_pptr && u.p_pptr != (struct Process *) 1)
     send_death_msg(&u);
-   Permit();
+  Permit();
 
-  /* if started from workbench, Forbid(), since on reply WB will deallocate
-   * our task... */
-  if (!proc->pr_CLI)
-    {
-      Forbid ();
-      wb_msg = *&wb_msg;  // Work around compiler warning
-      ReplyMsg ((struct Message *) wb_msg);
-    }
+  KPRINTF(("ix_startup: exiting\n"));
+/*{int* p=(int*)get_sp();
+KPRINTF(("r1=%lx: %08lx %08lx %08lx %08lx %08lx %08lx %08lx %08lx\n",
+	 p, p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7]));
+p=(int*)get_68k_sp();
+KPRINTF(("a7=%lx: %08lx %08lx %08lx %08lx %08lx %08lx %08lx %08lx\n",
+	 p, p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7]));
+}*/
 
   return WEXITSTATUS(exit_val);
 }
+
+#ifdef NATIVE_MORPHOS
+
+int
+_trampoline_ix_startup (void)
+{
+  int *p = (int *)REG_A7;
+  char *aline = (char *)p[1];
+  int alen = p[2];
+  int expand = p[3];
+  char *wb_default_window = (char *)p[4];
+  u_int main = p[5];
+  int *real_errno = p[6];
+
+  return ix_startup(aline, alen, expand, wb_default_window, main^1, real_errno);
+}
+
+struct EmulLibEntry _gate_ix_startup = {
+  TRAP_LIB, 0, (void(*)())_trampoline_ix_startup
+};
+
+#endif
+

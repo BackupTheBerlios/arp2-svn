@@ -34,15 +34,15 @@ int main(int argc, char **argv)
    to come last, and undef the sucker now! */
 #undef IX_VERSION
 
-#define IX_NAME		\"ixemul.library\"
+#define IX_NAME         \"ixemul.library\"
 #ifdef TRACE_LIBRARY
-#define IX_IDSTRING	\"ixemul %d.%d [trace, %s] (%d.%d.%d)\"
+#define IX_IDSTRING     \"ixemul %d.%d [trace, %s] (%d.%d.%d)\"
 #else
-#define IX_IDSTRING	\"ixemul %d.%d [%s] (%d.%d.%d)\"
+#define IX_IDSTRING     \"ixemul %d.%d [%s] (%d.%d.%d)\"
 #endif
-#define IX_VERSION	%d
-#define IX_REVISION	%d
-#define IX_PRIORITY	0
+#define IX_VERSION      %d
+#define IX_REVISION     %d
+#define IX_PRIORITY     0
 
 #endif
 ";
@@ -64,25 +64,37 @@ int main(int argc, char **argv)
   if (tmp[0])
     strcat(tmp, ", ");
 
-#if defined(mc68060)
+#if defined(CPU_604e)
+  strcat(tmp, "604e");
+#elif defined(CPU_603e)
+  strcat(tmp, "603e");
+#elif defined(CPU_68060)
   strcat(tmp, "68060");
-#elif defined(mc68040)
+#elif defined(CPU_68040)
   strcat(tmp, "68040");
-#elif defined(mc68020)
+#elif defined(CPU_68020)
   strcat(tmp, "68020");
 #else
   strcat(tmp, "68000");
 #endif
 
-#ifdef __HAVE_68881__
+#if !defined(CPU_604e) && !defined(CPU_603e)
+#ifdef FPU_68881
   strcat(tmp, ", fpu");
 #else
   strcat(tmp, ", soft-float");
 #endif
+#endif
 
+#ifdef __pos__
+  strcat(tmp, ", pos");
+#elif defined(NATIVE_MORPHOS)
+  strcat(tmp, ", morphos");
+#else
   strcat(tmp, ", amigaos");
+#endif
 
   printf(format, major, minor, tmp, day, month, year,
-	         major, minor, tmp, day, month, year, major, minor);
+		 major, minor, tmp, day, month, year, major, minor);
   return 0;
 }

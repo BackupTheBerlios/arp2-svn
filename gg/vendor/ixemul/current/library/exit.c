@@ -19,8 +19,8 @@
  *  exit.c,v 1.1.1.1 1994/04/04 04:30:48 amiga Exp
  *
  *  exit.c,v
- * Revision 1.1.1.1  1994/04/04  04:30:48  amiga
- * Initial CVS check in.
+ *  Revision 1.1.1.1  1994/04/04  04:30:48  amiga
+ *  Initial CVS check in.
  *
  *  Revision 1.1  1992/05/14  19:55:40  mwild
  *  Initial revision
@@ -42,6 +42,8 @@ void exit2(int retval)
 {
   usetup;
 
+  KPRINTF(("exit2\n"));
+
   /* ignore all signals from now on, as I don't think allowing signalling
      while running an exit-handler is such a good idea */
   u.p_sigignore = u.p_sigmask = ~0;
@@ -50,12 +52,32 @@ void exit2(int retval)
     {
       while (__atexit->ind)
 	{
-	   if (u.u_a4)
-	     asm volatile ("movel %0, a4" : : "g" (u.u_a4));
-	   __atexit->fns[--__atexit->ind] ();
+#ifndef NATIVE_MORPHOS
+	  if (u.u_a4)
+	    asm volatile ("movel %0, a4" : : "g" (u.u_a4));
+	  __atexit->fns[--__atexit->ind] ();
+#else
+	  if (u.u_is_ppc && u.u_r13)
+	    asm volatile ("mr 13, %0" : : "r" (u.u_r13));
+	  if (__atexit->fns[--__atexit->ind].is_68k)
+	    {
+	      struct EmulCaos caos;
+	      register struct EmulHandle *emul_handle __asm("r2");
+
+	      caos.caos_Un.Function = __atexit->fns[__atexit->ind].fn;
+	      caos.reg_a4 = u.u_a4;
+	      KPRINTF(("calling 68k dtor: %lx\n", caos.caos_Un.Function));
+	      emul_handle->EmulCall68k(&caos);
+	    }
+	  else
+{             KPRINTF(("calling ppc dtor: %lx\n", __atexit->fns[__atexit->ind].fn));
+	    __atexit->fns[__atexit->ind].fn(); }
+#endif
 	}
       __atexit = __atexit->next;
     }
+
+  KPRINTF(("longjmp\n"));
 
   u.p_xstat = retval;
   _longjmp (u.u_jmp_buf, 1);

@@ -58,15 +58,15 @@ __extend_file (struct file *f, int add_to_eof, int *err)
       bzero (buf, buf_size);
 
       for (written = 0; written < add_to_eof; )
-        {
+	{
 	  res = Write(CTOBPTR(f->f_fh), buf, buf_size);
-          if (res < 0)
-            {
+	  if (res < 0)
+	    {
               *err = __ioerr_to_errno (IoErr());
-              break;
-            }
-          written += res;
-          buf_size = add_to_eof - written > buf_size ? 
+	      break;
+	    }
+	  written += res;
+	  buf_size = add_to_eof - written > buf_size ? 
 		       buf_size : add_to_eof - written;
 	}
       kfree (buf);
@@ -102,11 +102,11 @@ lseek (int fd, off_t off, int dir)
     {
       if (f->f_type == DTYPE_FILE)
 	{
-          if (HANDLER_NIL(f))
+	  if (HANDLER_NIL(f))
 	    {
 	      /* This is always possible with /dev/null */
 	      if (off == 0)
-	        return 0;
+		return 0;
 	      errno = ESPIPE;
 	      KPRINTF (("&errno = %lx, errno = %ld\n", &errno, errno));
 	      return -1;
@@ -132,9 +132,9 @@ lseek (int fd, off_t off, int dir)
 	      /* first find out current position */
 	      previous_pos = Seek(CTOBPTR(f->f_fh), 0, OFFSET_CURRENT);
 	      if (previous_pos == -1)
-	        {
-	          err = __ioerr_to_errno(IoErr());
-	        }
+		{
+		  err = __ioerr_to_errno(IoErr());
+		}
 	      break;
 	      
 	    case SEEK_END:
@@ -142,9 +142,9 @@ lseek (int fd, off_t off, int dir)
 	      Seek(CTOBPTR(f->f_fh), 0, OFFSET_END);
 	      previous_pos = Seek(CTOBPTR(f->f_fh), 0, OFFSET_CURRENT);
 	      if (previous_pos == -1)
-	        {
-	          err = __ioerr_to_errno(IoErr());
-	        }
+		{
+		  err = __ioerr_to_errno(IoErr());
+		}
 	      break;
 	    }
 	  
@@ -152,7 +152,7 @@ lseek (int fd, off_t off, int dir)
 	  if (shouldbe_pos < 0)
 	    {
 	      /* that way we make sure that invalid seek errors later result
-	         from seeking past eof, so we can enlarge the file */
+		 from seeking past eof, so we can enlarge the file */
 
 	      err = EINVAL;
 	      res = -1;
@@ -161,38 +161,38 @@ lseek (int fd, off_t off, int dir)
 	    {
 	      res = Seek(CTOBPTR(f->f_fh), off, dir - 1);
 	      if (res == -1 && IoErr() == ERROR_SEEK_ERROR)
-	        {
-	          /* in this case, assume the user wanted to seek past eof.
-	             Thus get the current eof position, so that we can
-	             tell __extend_file how much to enlarge the file */
+		{
+		  /* in this case, assume the user wanted to seek past eof.
+		     Thus get the current eof position, so that we can
+		     tell __extend_file how much to enlarge the file */
 		  res = Seek(CTOBPTR(f->f_fh), 0, OFFSET_END);
-	        }
+		}
 	  
 	      if (res == -1)
-	        {
-	          err = __ioerr_to_errno(IoErr());
-	        }
+		{
+		  err = __ioerr_to_errno(IoErr());
+		}
 	      else
-	        {
-	          err = 0;
+		{
+		  err = 0;
 
-	          if (previous_pos != shouldbe_pos)
+		  if (previous_pos != shouldbe_pos)
 		    {
 		      res = Seek(CTOBPTR(f->f_fh), 0, OFFSET_CURRENT);
 		      if (res == -1)
-		        {
-	                  err = __ioerr_to_errno(IoErr());
-	                }
+			{
+			  err = __ioerr_to_errno(IoErr());
+			}
 
-	              if (res >= 0 && res < shouldbe_pos && (f->f_flags & FWRITE))
-	                {
-	                  /* extend the file... */
-		          res = __extend_file (f, shouldbe_pos - res, &err);
-		        }
+		      if (res >= 0 && res < shouldbe_pos && (f->f_flags & FWRITE))
+			{
+			  /* extend the file... */
+			  res = __extend_file (f, shouldbe_pos - res, &err);
+			}
 		    }
 		  else
 		    res = shouldbe_pos;
-	        }
+		}
 	    }
 	  else
 	    res = -1;

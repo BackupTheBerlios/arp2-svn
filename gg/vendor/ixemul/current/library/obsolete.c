@@ -22,24 +22,71 @@
  * PCC_STATIC_STRUCT_RETURN defined (i.e., upto and including GCC 2.7.2 Geek Gadgets
  * snapshot 960902).
  */
+#ifndef NATIVE_MORPHOS
 asm("
 .lcomm LF0,8
 .text
 	.even
-.globl	___obsolete_div
+.globl  ___obsolete_div
 ___obsolete_div:
-	movel	#LF0,a1
-	jmp	_div
+	movel   #LF0,a1
+	jmp     _div
 
 .lcomm LF1,8
-.globl	___obsolete_ldiv
+.globl  ___obsolete_ldiv
 ___obsolete_ldiv:
-	movel	#LF1,a1
-	jmp	_ldiv
+	movel   #LF1,a1
+	jmp     _ldiv
 
 .lcomm LF2,4
-.globl	___obsolete_inet_makeaddr
+.globl  ___obsolete_inet_makeaddr
 ___obsolete_inet_makeaddr:
-	movel	#LF2,a1
-	jmp	_inet_makeaddr
+	movel   #LF2,a1
+	jmp     _inet_makeaddr
 ");
+#else
+
+#include <stdlib.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <exec/types.h>
+#include <emul/emulinterface.h>
+#include <emul/emulregs.h>
+
+void *_trampoline___obsolete_div(void) {
+  GETEMULHANDLE
+  int *p = (int *)REG_A7;
+  static div_t r;
+  r = div(p[1], p[2]);
+  return &r;
+}
+
+struct EmulLibEntry _gate___obsolete_div = {
+  TRAP_LIB, 0, (void(*)())_trampoline___obsolete_div
+};
+
+void *_trampoline___obsolete_ldiv(void) {
+  GETEMULHANDLE
+  int *p = (int *)REG_A7;
+  static ldiv_t r;
+  r = ldiv(p[1], p[2]);
+  return &r;
+}
+
+struct EmulLibEntry _gate___obsolete_ldiv = {
+  TRAP_LIB, 0, (void(*)())_trampoline___obsolete_ldiv
+};
+
+void *_trampoline___obsolete_inet_makeaddr(void) {
+  GETEMULHANDLE
+  int *p = (int *)REG_A7;
+  static struct in_addr r;
+  r = inet_makeaddr(p[1], p[2]);
+  return &r;
+}
+
+struct EmulLibEntry _gate___obsolete_inet_makeaddr = {
+  TRAP_LIB, 0, (void(*)())_trampoline___obsolete_inet_makeaddr
+};
+
+#endif

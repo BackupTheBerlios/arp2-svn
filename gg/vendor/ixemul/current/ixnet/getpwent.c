@@ -16,9 +16,15 @@
  *  License along with this library; if not, write to the Free
  *  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- *  $Id:$
+ *  $Id: getpwent.c,v 1.1.1.1 2000/05/07 19:37:44 emm Exp $
  *
- *  $Log:$
+ *  $Log: getpwent.c,v $
+ *  Revision 1.1.1.1  2000/05/07 19:37:44  emm
+ *  Imported sources
+ *
+ *  Revision 1.1.1.1  2000/04/29 00:44:57  nobody
+ *  Initial import
+ *
  *
  */
 
@@ -114,7 +120,7 @@ getpwuid(uid_t uid)
 	}
     }
     else /*if (network_protocol == IX_NETWORK_AS225)*/  {
-        struct AS225_passwd *pwd = SOCK_getpwuid(uid);
+	struct AS225_passwd *pwd = SOCK_getpwuid(uid);
 
 	return (pwd ? __AS225InetPwd(pwd) : NULL);
     }

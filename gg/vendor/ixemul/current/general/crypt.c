@@ -12,6 +12,32 @@
 #include <unistd.h>
 #include <clib/alib_protos.h>
 
+#ifdef __PPC__
+
+#define BUFSIZE 12
+STRPTR ACrypt(STRPTR buf, CONST_STRPTR key, CONST_STRPTR settings)
+{
+  int i;
+  int k;
+  unsigned buf2[BUFSIZE];
+
+  for (i = 0; i < BUFSIZE; ++i)
+    buf2[i] = 'A' + (*key? *key++ : i) + (*settings? *settings++ : i);
+
+  for (i = 0; i < BUFSIZE; ++i)
+    {
+      for (k = 0; k < BUFSIZE; ++k)
+	{
+	  buf2[i] += buf2[BUFSIZE - k - 1];
+	  buf2[i] %= 53;
+	}
+      buf[i] = (char)buf2[i] + 'A' ;
+    }
+  buf[BUFSIZE - 1] = '\0';
+  return buf;
+}
+#endif
+
 /*
  * Return a pointer to static data consisting of the "setting"
  * followed by an encryption produced by the "key" and "setting".

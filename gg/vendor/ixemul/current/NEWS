@@ -1,20 +1,17 @@
-============
-VERSION 48.2
-============
-
-Removed all pOS code and references.
-
-Fixed error reporting in __extend_file().
-
-Fixed potential problem of reading from freed memory, and enforcer hits
-caused from running non-ixemul programs under ixemul control (ie. make).
-Patches supplied by Emmanuel Lesueur.
 
 ============
-VERSION 48.1
+VERSION 49.0
 ============
 
-Interim release.
+Fixed a race condition in wait4().
+
+New signal handling scheme. See machdep.c.
+
+First version supporting MorphOS.
+
+Includes reworked a bit to make use of _G_config.h. This
+helps preventing new warnings to appear when one switch
+compilers.
 
 ============
 VERSION 48.0

@@ -12,8 +12,8 @@
  *    documentation and/or other materials provided with the distribution.
  * 3. All advertising materials mentioning features or use of this software
  *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
+ *      This product includes software developed by the University of
+ *      California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -32,8 +32,8 @@
  */
 
 #if defined(LIBC_SCCS) && !defined(lint)
-/*static char *sccsid = "from: @(#)multibyte.c	5.1 (Berkeley) 2/18/91";*/
-static char *rcsid = "$Id: multibyte.c,v 1.4 1995/03/05 07:41:15 jtc Exp $";
+/*static char *sccsid = "from: @(#)multibyte.c  5.1 (Berkeley) 2/18/91";*/
+static char *rcsid = "$Id: multibyte.c,v 1.1.1.1 2000/05/07 19:41:24 emm Exp $";
 #endif /* LIBC_SCCS and not lint */
 
 #include <stdlib.h>

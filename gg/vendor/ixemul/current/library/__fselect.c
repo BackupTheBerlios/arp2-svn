@@ -57,11 +57,26 @@ __fselect (struct file *f, int select_cmd, int io_mode,
     {
       /* always possible... perhaps return ~0 in this case ???? */
       if (io_mode != SELMODE_IN) return 0;
+#ifdef __pos__
+      /* 10 seconds waittime */
+      if (!SELPKT_IN_USE(f))
+      {
+	f->f_tv.tv_Secs = 10;
+	f->f_tv.tv_Micro = 0;
+	pOS_InitDosIOReq(f->f_fh->fh_DosDev, &f->f_select_sp);
+	f->f_select_sp.dr_Message.mn_ReplyPort = (void *)__selport;
+	f->f_select_sp.dr_Command = DOSCMD_WaitForChar;
+	f->f_select_sp.dr_U.dr_WaitForChar.drwc_FH = f->f_fh;
+	f->f_select_sp.dr_U.dr_WaitForChar.drwc_Time = &f->f_tv;
+	pOS_SendIO((struct pOS_IORequest*)&f->f_select_sp);
+      }
+#else
       SelLastError(f) = 0;
 
       /* 10 seconds waittime */
       if (!SELPKT_IN_USE(f))
-        SelSendPacket1(f, __selport, ACTION_WAIT_CHAR, 10 * 1000000);
+	SelSendPacket1(f, __selport, ACTION_WAIT_CHAR, 10 * 1000000);
+#endif
       return 1 << __selport->mp_SigBit;
     }
   else if (select_cmd == SELCMD_CHECK)
@@ -70,7 +85,7 @@ __fselect (struct file *f, int select_cmd, int io_mode,
       if (io_mode != SELMODE_IN) return 1;
 
       if (SELPKT_IN_USE(f))
-        return 0;
+	return 0;
 
       /* there are two possible answers: error (packet not supported) 
        * and the `real' answer.
@@ -78,9 +93,13 @@ __fselect (struct file *f, int select_cmd, int io_mode,
        * indefinitely...
        * & 1 converts dos-true (-1) into normal true (1) ;-)
        */
+#ifdef __pos__
+      result = f->f_select_sp.dr_Error2 ? 1 : f->f_select_sp.dr_U.dr_WaitForChar.drwc_ResSize;
+#else
       result = SelLastError(f) ? 1 : (SelLastResult(f) & 1);
       /* don't make __write() think its last packet failed.. */
       SelLastError(f) = 0;
+#endif
       return result;
     }
   else if (select_cmd == SELCMD_POLL)

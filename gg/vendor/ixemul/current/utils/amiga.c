@@ -1,6 +1,6 @@
 /*
-    Ixprefs v.2.8--ixemul.library configuration program
-    Copyright © 1995-2001 Kriton Kyrimis
+    Ixprefs v.2.6--ixemul.library configuration program
+    Copyright © 1995,1996 Kriton Kyrimis
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by

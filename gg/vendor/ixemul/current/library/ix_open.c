@@ -21,17 +21,21 @@
 
 #define _KERNEL
 #include "ixemul.h"
+#include "../ixnet/ixnet.h"
 #include "kprintf.h"
 
+#ifndef __pos__
 #include <hardware/intbits.h>
+#endif
 #include <exec/memory.h>
 #include <string.h>
 
-extern void launch_glue (), switch_glue ();
+extern void except_handler();
 extern void trap_20 ();
 extern void trap_00 ();
 extern int ix_timer();
 
+#ifndef __pos__
 static BOOL
 __ix_open_muFS (struct user *ix_u)
 {
@@ -40,21 +44,22 @@ __ix_open_muFS (struct user *ix_u)
       /* set up multiuser data's */
       ix_u->u_UserInfo = muAllocUserInfo ();
       if (NULL == ix_u->u_UserInfo)
-        return FALSE;
+	return FALSE;
       ix_u->u_fileUserInfo = muAllocUserInfo ();
       if (NULL == ix_u->u_fileUserInfo)
-        return FALSE;
+	return FALSE;
 
       ix_u->u_GroupInfo = muAllocGroupInfo ();
       if (NULL == ix_u->u_GroupInfo)
-        return FALSE;
+	return FALSE;
       ix_u->u_fileGroupInfo = muAllocGroupInfo ();
       if (NULL == ix_u->u_fileGroupInfo)
-        return FALSE;
+	return FALSE;
     }
 
   return TRUE;
 }
+#endif
 
 struct ixemul_base *
 ix_open (struct ixemul_base *ixbase)
@@ -65,9 +70,18 @@ ix_open (struct ixemul_base *ixbase)
   static int default_errno;
   /* an h_errno for those that later don't set it in ix_startup() */
   static int default_h_errno;
-  struct Task *me = FindTask(0);
+  struct Task *me = SysBase->ThisTask;
   char *tmp;
   int a4_size = A4_POINTERS * 4;
+  struct WBStartup *wb_msg = NULL;
+
+  if (!((struct Process *)me)->pr_CLI)
+    {
+      /* we have been started by Workbench. Get the StartupMsg */
+      WaitPort (&((struct Process *)me)->pr_MsgPort);
+      wb_msg = (struct WBStartup *) GetMsg (&((struct Process *)me)->pr_MsgPort);
+      /* further processing in _main () */
+    }
 
   tmp = (char *)kmalloc(sizeof(struct user) + a4_size);
   if (tmp)  
@@ -76,12 +90,14 @@ ix_open (struct ixemul_base *ixbase)
       bzero (tmp, sizeof (struct user) + a4_size);
       ix_u = (struct user *)(tmp + a4_size);
 
+      /* save the Workbench message for ix_startup(), ix_close() */
+      ix_u->u_wbmsg = wb_msg;
+
       /* remember old state */
-      ix_u->u_otask_flags = me->tc_Flags;
-      ix_u->u_olaunch     = me->tc_Launch;
-      ix_u->u_oswitch     = me->tc_Switch;
-      ix_u->u_otrap_code  = me->tc_TrapCode;
-      ix_u->u_otrap_data  = getuser(me);
+      ix_u->u_oexcept_sigs = SetExcept(0, ~0);
+      ix_u->u_oexcept_code = me->tc_ExceptCode;
+      ix_u->u_otrap_code   = me->tc_TrapCode;
+      ix_u->u_otrap_data   = getuser(me);
     
       ixnewlist ((struct ixlist *)&ix_u->u_md.md_list);
 
@@ -90,29 +106,38 @@ ix_open (struct ixemul_base *ixbase)
       ix_u->u_task = me;
 
       if (ix.ix_flags & ix_show_stack_usage)      
-        {
-          tmp = (char *)(get_sp() - 64);  /* 64 bytes safety margin */
-          memset(me->tc_SPLower, 0xdb, (u_long)tmp - (u_long)me->tc_SPLower); 
-        }
+	{
+	  tmp = (char *)get_sp();
+#ifdef NATIVE_MORPHOS
+	  memset(me->tc_ETask->PPCSPLower, 0xdb, (u_long)tmp - (u_long)me->tc_ETask->PPCSPLower);
+	  tmp = (char *)REG_A7;
+#endif
+	  tmp -= 64;  /* 64 bytes safety margin */
+	  memset(me->tc_SPLower, 0xdb, (u_long)tmp - (u_long)me->tc_SPLower);
+	}
 
-      KPRINTF (("ix_open: ix_u = $%lx, ix_open @$lx\n", ix_u, ix_open));
+      KPRINTF (("ix_open: ix_u = $%lx, ix_open $%lx\n", ix_u, ix_open));
 
       getuser(me) = ix_u;
 
 #ifndef NOTRAP
+#ifdef mc68000
       /* The stackframe of the 68010 is identical to the 68020! */
       if (has_68010_or_up)
 	me->tc_TrapCode = trap_20;
       else
 	me->tc_TrapCode = trap_00;
 #endif
+#endif
 
       initstack();
 
+KPRINTF(("siginit\n"));	
       /* setup the p_sigignore mask correctly */
       siginit (ix_u);
       me->tc_SigRecvd &= 0x0fff;
 
+KPRINTF(("allocsig\n"));
       /* this library is a replacement for any c-library, thus we should be
        * started at the START of a program, and out of 16 available signals 
        * these calls simply have to succeed... I know I'm a lazy guy ;-) */
@@ -124,19 +149,60 @@ ix_open (struct ixemul_base *ixbase)
       ix_u->u_h_errno = &default_h_errno;
 
       /* ixnet.library is loaded iff ixbase->ix_network_type != IX_NETWORK_NONE */
+#ifdef __pos__ /* TODO */
+      ix_u->u_ixnetbase = NULL;
+#else
       if (ixbase->ix_network_type != IX_NETWORK_NONE)
-	ix_u->u_ixnetbase = OpenLibrary("ixnet.library", 44);  // Let ixnet check if the ixnet version matches ours
+	{
+	  KPRINTF(("open ixnet\n"));
+	  ix_u->u_ixnetbase = OpenLibrary("ixnet.library", 49);  // Let ixnet check if the ixnet version matches ours
+	  KPRINTF(("ixnet = %lx\n",ix_u->u_ixnetbase));
+#ifdef NATIVE_MORPHOS
+	  if (ix_u->u_ixnetbase)
+	    ixnetarray = ((struct ixnet_base *)ix_u->u_ixnetbase)->basearray;
+#endif
+	}
+#endif
 
-      me->tc_Launch    = launch_glue;
-      me->tc_Switch    = switch_glue;
-      me->tc_Flags    |= TF_LAUNCH | TF_SWITCH;
+      me->tc_ExceptCode  = (APTR)except_handler;
+      SetExcept(0xfffff000, 0xfffff000);
+
+      KPRINTF(("Installing interrupt server...\n"));
+#ifdef __pos__
+      ix_u->IRQBase = pOS_OpenResource("IRQ.resource");
+      if (ix_u->IRQBase)
+	{
+	  struct pOS_StdIRQResourceMFunction *const IRQ = _pOS_GetIRQResourceFunction(ix_u->IRQBase);
+	  
+	  ix_u->u_itimerint.is_Node.ln_Type = NTYP_INTERRUPT;
+	  ix_u->u_itimerint.is_Node.ln_Name = me->tc_Node.ln_Name;
+	  ix_u->u_itimerint.is_Node.ln_Pri  = 1;
+	  ix_u->u_itimerint.is_UserData[0]  = (LONG)me;
+	  ix_u->u_itimerint.is_Code         = (APTR)ix_timer;
+
+	  if (!(*IRQ->pOS_AddIRQServer_func)(ix_u->IRQBase, IRQTYP_VBlank, &ix_u->u_itimerint))
+	    {
+	      pOS_CloseResource(ix_u->IRQBase);
+	      ix_u->IRQBase = NULL;
+	    }
+	}
+#else
       ix_u->u_itimerint.is_Node.ln_Type = NT_INTERRUPT;
       ix_u->u_itimerint.is_Node.ln_Name = me->tc_Node.ln_Name;
       ix_u->u_itimerint.is_Node.ln_Pri  = 1;
       ix_u->u_itimerint.is_Data         = (APTR) me;
-      ix_u->u_itimerint.is_Code	        = (APTR) ix_timer;
+#ifdef NATIVE_MORPHOS
+      {
+	static struct EmulLibEntry gate = { TRAP_LIBSRNR, 0, (void(*)())ix_timer };
+	ix_u->u_itimerint.is_Code         = (APTR) &gate;
+      }
+#else
+      ix_u->u_itimerint.is_Code         = (APTR) ix_timer;
+#endif
 
       AddIntServer (INTB_VERTB, &ix_u->u_itimerint);
+#endif
+
       Disable();
       ixaddtail(&timer_task_list, &ix_u->u_user_node);
       Enable();
@@ -152,11 +218,12 @@ ix_open (struct ixemul_base *ixbase)
 
       /* each process starts out to be in its own process group. vfork()
        * scribbles over this to inherit the parents process group instead */
+      ix_u->p_stat = SRUN;
       ix_u->p_pgrp = (int) me;
-      ix_u->p_pptr = (struct Process *) 1;		/* hi init ;-)) */
+      ix_u->p_pptr = (struct Process *) 1;              /* hi init ;-)) */
       ix_u->p_cptr =
-        ix_u->p_osptr =
-          ix_u->p_ysptr = 0;			/* no children to start with */
+	ix_u->p_osptr =
+	  ix_u->p_ysptr = 0;                    /* no children to start with */
       ix_u->p_vfork_msg = 0;
       ix_u->p_zombie_sig = AllocSignal (-1);
       ix_u->u_rand_next = 1;
@@ -170,16 +237,20 @@ ix_open (struct ixemul_base *ixbase)
 
       ix_u->u_cmask = 0022; /* default, see manpage for umask() */
 
+#ifdef __pos__
+      if (ix_u->u_sync_mp && ix_u->u_select_mp && ix_u->IRQBase)
+#else
       if (ix_u->u_sync_mp && ix_u->u_select_mp)
-        {
-          ix_u->u_time_req = (struct timerequest *)
+#endif
+	{
+	  ix_u->u_time_req = (struct timerequest *)
 	    ix_create_extio(ix_u->u_sync_mp, sizeof (struct timerequest));
 	  
 	  if (ix_u->u_time_req)
 	    {
 	      if (!OpenDevice (TIMERNAME, UNIT_MICROHZ,
-	      		       (struct IORequest *) ix_u->u_time_req, 0))
-	        {
+			       (struct IORequest *) ix_u->u_time_req, 0))
+		{
 		  syscall (SYS_gettimeofday, &ix_u->u_start, 0);
 
 		  /* have to mask out ALL signals until ix_startup has had a
@@ -187,31 +258,50 @@ ix_open (struct ixemul_base *ixbase)
 		   * generate a longjmp-botch using a not initialized jmpbuf! */
 		  syscall (SYS_sigsetmask, ~0);
 
-                  if (__ix_open_muFS (ix_u))
-		    return ixbase;
-                  else
-                    {
-                      /* couldn't allocate muFS stuff */
-                      __ix_close_muFS (ix_u);
-                    }
+#ifdef __pos__
+		  return ixbase;
+#else
+		  if (__ix_open_muFS (ix_u))
+		    {
+		      KPRINTF(("ixemul opened: %lx\n", ixbase));
+		      return ixbase;
+		    }
+		  else
+		    {
+		      /* couldn't allocate muFS stuff */
+		      __ix_close_muFS (ix_u);
+		    }
+#endif
 		}
 	      /* couldn't open the timer device */
 	      ix_delete_extio((struct IORequest *)ix_u->u_time_req);
 	    }
-        }
+	}
 
       if (ix_u->u_select_mp)
-        ix_delete_port(ix_u->u_select_mp);
+	ix_delete_port(ix_u->u_select_mp);
 
       if (ix_u->u_sync_mp)
-        ix_delete_port(ix_u->u_sync_mp);
+	ix_delete_port(ix_u->u_sync_mp);
 
       Disable();
       ixremove(&timer_task_list, &ix_u->u_user_node);
       Enable();
+#ifdef __pos__
+      if (ix_u->IRQBase)
+	{
+	  struct pOS_StdIRQResourceMFunction *const IRQ = _pOS_GetIRQResourceFunction(ix_u->IRQBase);
+
+	  (*IRQ->pOS_RemIRQServer_func)(ix_u->IRQBase, IRQTYP_VBlank, &ix_u->u_itimerint);
+	  pOS_CloseResource(ix_u->IRQBase);
+	}
+#else
       RemIntServer (INTB_VERTB, &ix_u->u_itimerint);
-      me->tc_Flags    = ix_u->u_otask_flags;
-      me->tc_Launch   = ix_u->u_olaunch;
+#endif
+      SetExcept(0,~0);
+      me->tc_ExceptCode = ix_u->u_oexcept_code;
+      SetExcept(ix_u->u_oexcept_sigs, ~0);
+
       FreeSignal (ix_u->u_sleep_sig);
       FreeSignal (ix_u->u_pipe_sig);
       FreeSignal (ix_u->p_zombie_sig);
@@ -220,10 +310,17 @@ ix_open (struct ixemul_base *ixbase)
       all_free ();
 #ifndef NOTRAP
       me->tc_TrapCode = ix_u->u_otrap_code;
-      getuser(me) = ix_u->u_otrap_data;
 #endif
+      getuser(me) = ix_u->u_otrap_data;
 
       kfree (tmp);
+    }
+
+  if (wb_msg)
+    {
+      /* crt0.o gets the wb message if opening ixemul fails, so
+	 let's put it back */
+      PutMsg(&((struct Process *)me)->pr_MsgPort, wb_msg);
     }
 
   return 0;

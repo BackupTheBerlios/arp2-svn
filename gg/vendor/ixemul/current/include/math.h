@@ -12,8 +12,8 @@
  *    documentation and/or other materials provided with the distribution.
  * 3. All advertising materials mentioning features or use of this software
  *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
+ *      This product includes software developed by the University of
+ *      California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -30,31 +30,31 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- *	@(#)math.h	5.8 (Berkeley) 4/2/91
+ *      @(#)math.h      5.8 (Berkeley) 4/2/91
  */
 
-#ifndef	_MATH_H_
-#define	_MATH_H_
+#ifndef _MATH_H_
+#define _MATH_H_
 
 #include <float.h>
 
 #ifndef BITS
-#define BITS(type)	(8 * (int)sizeof(type))
+#define BITS(type)      (8 * (int)sizeof(type))
 #endif
 
-#define	M_E		2.7182818284590452354	/* e */
-#define	M_LOG2E		1.4426950408889634074	/* log 2e */
-#define	M_LOG10E	0.43429448190325182765	/* log 10e */
-#define	M_LN2		0.69314718055994530942	/* log e2 */
-#define	M_LN10		2.30258509299404568402	/* log e10 */
-#define	M_PI		3.14159265358979323846	/* pi */
-#define	M_PI_2		1.57079632679489661923	/* pi/2 */
-#define	M_PI_4		0.78539816339744830962	/* pi/4 */
-#define	M_1_PI		0.31830988618379067154	/* 1/pi */
-#define	M_2_PI		0.63661977236758134308	/* 2/pi */
-#define	M_2_SQRTPI	1.12837916709551257390	/* 2/sqrt(pi) */
-#define	M_SQRT2		1.41421356237309504880	/* sqrt(2) */
-#define	M_SQRT1_2	0.70710678118654752440	/* 1/sqrt(2) */
+#define M_E             2.7182818284590452354   /* e */
+#define M_LOG2E         1.4426950408889634074   /* log 2e */
+#define M_LOG10E        0.43429448190325182765  /* log 10e */
+#define M_LN2           0.69314718055994530942  /* log e2 */
+#define M_LN10          2.30258509299404568402  /* log e10 */
+#define M_PI            3.14159265358979323846  /* pi */
+#define M_PI_2          1.57079632679489661923  /* pi/2 */
+#define M_PI_4          0.78539816339744830962  /* pi/4 */
+#define M_1_PI          0.31830988618379067154  /* 1/pi */
+#define M_2_PI          0.63661977236758134308  /* 2/pi */
+#define M_2_SQRTPI      1.12837916709551257390  /* 2/sqrt(pi) */
+#define M_SQRT2         1.41421356237309504880  /* sqrt(2) */
+#define M_SQRT1_2       0.70710678118654752440  /* 1/sqrt(2) */
 
 #include <sys/cdefs.h>
 
@@ -62,63 +62,63 @@
 #include <math-68881.h>
 #else
 
-#define	HUGE_VAL	1e500			/* IEEE: positive infinity */
+#define HUGE_VAL        1e500                   /* IEEE: positive infinity */
 
 #if !defined(_ANSI_SOURCE) && !defined(_POSIX_SOURCE)
-#define HUGE		DBL_MAX
+#define HUGE            DBL_MAX
 #endif
 
 __BEGIN_DECLS
-double	acos __P((double));
-double	asin __P((double));
-double	atan __P((double));
-double	atan2 __P((double, double));
-double	ceil __P((double));
-double	cos __P((double));
-double	cosh __P((double));
-double	exp __P((double));
-double	fabs __P((double));
-double	floor __P((double));
-double	fmod __P((double, double));
-double	frexp __P((double, int *));
-double	ldexp __P((double, int));
-double	log __P((double));
-double	log10 __P((double));
-double	modf __P((double, double *));
-double	pow __P((double, double));
-double	sin __P((double));
-double	sinh __P((double));
-double	sqrt __P((double));
-double	tan __P((double));
-double	tanh __P((double));
+double  acos __P((double));
+double  asin __P((double));
+double  atan __P((double));
+double  atan2 __P((double, double));
+double  ceil __P((double));
+double  cos __P((double));
+double  cosh __P((double));
+double  exp __P((double));
+double  fabs __P((double));
+double  floor __P((double));
+double  fmod __P((double, double));
+double  frexp __P((double, int *));
+double  ldexp __P((double, int));
+double  log __P((double));
+double  log10 __P((double));
+double  modf __P((double, double *));
+double  pow __P((double, double));
+double  sin __P((double));
+double  sinh __P((double));
+double  sqrt __P((double));
+double  tan __P((double));
+double  tanh __P((double));
 
 #if !defined(_ANSI_SOURCE) && !defined(_POSIX_SOURCE)
-double	acosh __P((double));
-double	asinh __P((double));
-double	atanh __P((double));
-double	cabs();		/* we can't describe cabs()'s argument properly */
-double	cbrt __P((double));
-double	copysign __P((double, double));
-double	drem __P((double, double));
-double	erf __P((double));
-double	erfc __P((double));
-double	expm1 __P((double));
-int	finite __P((double));
-double	hypot __P((double, double));
+double  acosh __P((double));
+double  asinh __P((double));
+double  atanh __P((double));
+double  cabs();         /* we can't describe cabs()'s argument properly */
+double  cbrt __P((double));
+double  copysign __P((double, double));
+double  drem __P((double, double));
+double  erf __P((double));
+double  erfc __P((double));
+double  expm1 __P((double));
+int     finite __P((double));
+double  hypot __P((double, double));
 #if defined(vax) || defined(tahoe)
-double	infnan __P((int));
+double  infnan __P((int));
 #endif
-double	j0 __P((double));
-double	j1 __P((double));
-double	jn __P((int, double));
-double	lgamma __P((double));
-double	log1p __P((double));
-double	logb __P((double));
-double	rint __P((double));
-double	scalb __P((double, int));
-double	y0 __P((double));
-double	y1 __P((double));
-double	yn __P((int, double));
+double  j0 __P((double));
+double  j1 __P((double));
+double  jn __P((int, double));
+double  lgamma __P((double));
+double  log1p __P((double));
+double  logb __P((double));
+double  rint __P((double));
+double  scalb __P((double, int));
+double  y0 __P((double));
+double  y1 __P((double));
+double  yn __P((int, double));
 #endif
 
 __END_DECLS
@@ -126,8 +126,8 @@ __END_DECLS
 #endif /* __HAVE_68881__ */
 
 __BEGIN_DECLS
-int	isinf __P((double));
-int	isnan __P((double));
+int     isinf __P((double));
+int     isnan __P((double));
 __END_DECLS
 
 #endif /* _MATH_H_ */

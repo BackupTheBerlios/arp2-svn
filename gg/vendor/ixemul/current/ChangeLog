@@ -1,39 +1,41 @@
-2001-04-05  David Zaroski  <dez@gg.geekgadgets.org>
+2001-06-01  Emmanuel Lesueur <lesueur@club-internet.fr>
+	* Adapted the signal handling process to the new MorphOS
+	  scheduler. It seems to have fixed the CTRL-C crashes.
+	* Bumped version to 49.2.
 
-	* (version.in): bumped version from 48.1 to 48.2 and updated
-	the date fields
-	* Finish applying patches for pOS removal
+2001-03-28  Emmanuel Lesueur <lesueur@club-internet.fr>
+	* Fixed math functions for MorphOS
 
-2001-04-03  David Zaroski  <dez@gg.geekgadgets.org>
+2000-10-21  Emmanuel Lesueur <lesueur@club-internet.fr>
+	* Implemented cache manipulation functions, besides flush_cache().
+	* Fixed problems with executing non-ixemul programs.
+	* Bumped version to 49.1.
 
-	* (Makefile.in): comment out inline autobuilding
-	* (config.guess): Updated
-	* (config.sub): Updated
-	* (configure.in): minor change to inform user if inline headers
-	are not locatable
-	* (configure): Regenerated
-	* Additional [work in progress] removal of pOS references, patches
-	supplied by Jonathan Adamczewski
-	* (library/ixpos.h): Removed
-	* (library/ixposlib.c): Removed
+2000-10-04  Emmanuel Lesueur <lesueur@club-internet.fr>
+	* Fixed various problems with 68k ixemul programs
+	* Completed support for 68k stack management
+	* Improved configure/make
+	* Fixed some includes bugs
+	* Added support for ctors/dtors in crt0.o
+	* Added the missing _err/_warn
+	* Compiled the ixpipe: handler and some tools
 
-2001-03-29  David Zaroski  <dez@gg.geekgadgets.org>
+2000-09-17  Emmanuel Lesueur <lesueur@club-internet.fr>
+	* fixed wb startup problems.
+	* fixed problem with stack extension of 68k program
 
-	* (library/ix_close.c): fix reading from freed memory, patch
-	from Emmanuel Lesueur
+2000-08-30  Emmanuel Lesueur <lesueur@club-internet.fr>
+	* fixed siglongjmp()
+	* fixed a race condition in wait4()
 
-2001-03-21  David Zaroski  <dez@gg.geekgadgets.org>
+2000-06-20  Emmanuel Lesueur <lesueur@club-internet.fr>
 
-	* Apply patches from Emmanuel Lesueur to fix enforcer hit caused
-	by forking non-ixemul programs
+	* Added MorphOS support.
+	* bumped version from 48.1 to 49.0.
 
-2000-05-19  David Zaroski  <dez@cronus.ninemoons.com>
+2000-05-07  Emmanuel Lesueur <lesueur@club-internet.fr>
 
-	* (configure.in): Remove bogus tests
-	* (configure): Regenerated
-	* (ixnet/Makefile.in): Add proper defines of CPU/FPU selection
-	when cross compiling
-	* (library/Makefile.in): Ditto
+	* replaced the signal handling by one based on exceptions.
 
 1999-07-12  David Zaroski  <zaroski@cronus.ninemoons.com>
 

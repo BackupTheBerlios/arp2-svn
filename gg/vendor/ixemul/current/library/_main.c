@@ -91,51 +91,51 @@ char **get_global_environment(void)
       char envfile[MAXPATHLEN];
 
       /* Don't include variables with funny names, and don't include
-         multiline variables either, they totally confuse ksh.. */
+	 multiline variables either, they totally confuse ksh.. */
       if (strchr(de->d_name, '.'))
-        continue;
+	continue;
 
       sprintf (envfile, "ENV:%s", de->d_name);
 
       if (syscall(SYS_stat, envfile, &stb) == 0)
-        {
-          len = stb.st_size;
-          /* skip directories... shudder */
-          if (!S_ISREG (stb.st_mode))
-            continue;
-        }
+	{
+	  len = stb.st_size;
+	  /* skip directories... shudder */
+	  if (!S_ISREG (stb.st_mode))
+	    continue;
+	}
 
       /* NAME=CONTENTS\0 */
       *cp = (char *)kmalloc(de->d_namlen + 1 + len + 1);
       if (*cp)
-        {
-          int written = sprintf (*cp, "%s=", de->d_name);
-          int fd;
+	{
+	  int written = sprintf (*cp, "%s=", de->d_name);
+	  int fd;
 
-    	  if (len)
-            {
-    	      fd = syscall(SYS_open, envfile, 0);
-    	      if (fd >= 0)
-    	        {
-    	          written += syscall(SYS_read, fd, *cp + written, len);
-    	          (*cp)[written] = 0;
-    	          if ((*cp)[--written] == '\n')
-    		    (*cp)[written] = 0;
-    	          syscall(SYS_close, fd);
-    	        }
-    	    
-    	      /* now filter out those multiliners (that is, 
-    	         variables containing \n, you can have variables
-    	         as long as want, but don't use \n... */
-    	      if (strchr(*cp, '\n'))
-    	        {
-    	          kfree(*cp);
-    	          continue;
-    	        }
-    	    }
-        }
+	  if (len)
+	    {
+	      fd = syscall(SYS_open, envfile, 0);
+	      if (fd >= 0)
+		{
+		  written += syscall(SYS_read, fd, *cp + written, len);
+		  (*cp)[written] = 0;
+		  if ((*cp)[--written] == '\n')
+		    (*cp)[written] = 0;
+		  syscall(SYS_close, fd);
+		}
+	    
+	      /* now filter out those multiliners (that is, 
+		 variables containing \n, you can have variables
+		 as long as want, but don't use \n... */
+	      if (strchr(*cp, '\n'))
+		{
+		  kfree(*cp);
+		  continue;
+		}
+	    }
+	}
       else
-        break;
+	break;
 
       cp++;
     }
@@ -153,11 +153,20 @@ char **__ix_get_environ (void)
   char **cp, **tmp;
 
   /* 2.0 local environment overrides 1.3 global environment */
-  struct Process *me = (struct Process *)FindTask (0);
+#ifdef __pos__
+  struct pOS_Process *me = (struct pOS_Process *)FindTask (0);
+  struct pOS_LocalVar *lv, *nlv;
+#else
+  struct Process *me = (struct Process *)SysBase->ThisTask;
   struct LocalVar *lv, *nlv;
+#endif
 
   /* count total number of local variables (skip aliases) */
+#ifdef __pos__
+  for (num_local = 0, lv = (void *)me->pr_LocalVars.lh_Head;
+#else
   for (num_local = 0, lv = (void *)me->pr_LocalVars.mlh_Head;
+#endif
        (nlv = (void *)lv->lv_Node.ln_Succ);
        lv = nlv)
     if (lv->lv_Node.ln_Type == LV_VAR)
@@ -166,14 +175,18 @@ char **__ix_get_environ (void)
   if ((cp = (char **) syscall (SYS_malloc, (num_local + 1) * 4)))
     {
       env = cp;
+#ifdef __pos__
+      for (lv = (void *)me->pr_LocalVars.lh_Head;
+#else
       for (lv = (void *)me->pr_LocalVars.mlh_Head;
+#endif
 	   (nlv = (void *)lv->lv_Node.ln_Succ);
 	   lv = nlv)
 	{
 	  /* I'm not interested in aliases, really not ;-)) */
 	  if (lv->lv_Node.ln_Type != LV_VAR)
 	    continue;
-	    
+
 	  /* NAME=CONTENTS\0 */
 	  *cp = (char *)syscall(SYS_malloc, strlen(lv->lv_Node.ln_Name) 
 						   + 1 + lv->lv_Len + 1);
@@ -224,7 +237,7 @@ char **__ix_get_environ (void)
       f = _findenv(env, *tmp, &offset);
       *p = '=';
       if (f)
-        continue;
+	continue;
       *cp++ = (char *)syscall(SYS_strdup, *tmp);
       *cp = NULL;
     }
@@ -245,7 +258,7 @@ __ix_init_ids(void)
   if (!(var = (char *)syscall(SYS_getenv, "LOGNAME")) &&
       !(var = (char *)syscall(SYS_getenv, "USER")))
     {
-        var = "nobody";
+	var = "nobody";
     }
 
   strncpy(u.u_logname,var,MAXLOGNAME);
@@ -294,21 +307,18 @@ __ix_init_ids(void)
  */
 
 int
-_main (union { char *_aline; struct WBStartup *_wb_msg; } a1,
-       union { int   _alen;  char *_def_window;         } a2,
-       int (*main)(int, char **, char **))
-#define aline           a1._aline
-#define alen            a2._alen
-#define wb_msg          a1._wb_msg
-#define def_window      a2._def_window
+_main(char *aline, int alen, int (*main)(int, char **, char **))
+#define wb_msg          ((struct WBStartup *)aline)
+#define def_window      ((char *)alen)
 {
-  struct Process        *me = (struct Process *)FindTask(0);
+  struct Process        *me = (struct Process *)SysBase->ThisTask;
   struct user           *u_ptr = getuser(me);
   char                  **argv, **env;
   int                   argc;
-  int			exitcode;
+  int                   exitcode;
 
   KPRINTF (("entered __main()\n"));
+#ifndef __pos__
   if (! me->pr_CLI)
     {
       /* Workbench programs expect to have their CD where the executed
@@ -323,6 +333,7 @@ _main (union { char *_aline; struct WBStartup *_wb_msg; } a1,
       argv = (char **) wb_msg;
     }
   else
+#endif
     {
       /* if we were started from the CLI, alen & aline are valid and
        * should now be split into arguments. This is done by the
@@ -330,7 +341,7 @@ _main (union { char *_aline; struct WBStartup *_wb_msg; } a1,
        * disabled (see cli_parse.c). */
       __ix_cli_parse (me, alen, aline, &argc, &argv);
       if (is_ixconfig(argv[0]))
-        return 10;
+	return 10;
     }
 
   env = __ix_get_environ ();
@@ -350,7 +361,34 @@ _main (union { char *_aline; struct WBStartup *_wb_msg; } a1,
   /* The finishing touch :-) Not really necessary, though. */
   errno = 0;
 
-  exitcode = main (argc, argv, env);
+#ifdef NATIVE_MORPHOS
+  KPRINTF(("calling main(): a4 = %lx, r13 = %lx\n", u_ptr->u_a4, u_ptr->u_r13));
+  if ((int)main & 1)
+  {
+    /* code for:
+	movem.l d0-d2,-(sp)
+	jsr     (a0)
+	lea     12(sp),sp
+	rts
+    */
+    static const UWORD main_gate[] = {
+      0x48E7,0xE000,0x4E90,0x4FEF,0x000C,0x4E75
+    };
+    struct EmulCaos caos;
+    GETEMULHANDLE
+    caos.caos_Un.Function = (APTR)main_gate;
+    caos.reg_d0 = argc;
+    caos.reg_d1 = (ULONG)argv;
+    caos.reg_d2 = (ULONG)env;
+    caos.reg_a0 = (ULONG)main & ~1;
+    caos.reg_a4 = u_ptr->u_a4;
+    exitcode = MyEmulHandle->EmulCall68k(&caos);
+  }
+  else
+#endif
+    exitcode = main (argc, argv, env);
+
+  KPRINTF(("main returned: %ld\n", exitcode));
 
   syscall(SYS_exit,exitcode);
   return 0;

@@ -12,8 +12,8 @@
  *    documentation and/or other materials provided with the distribution.
  * 3. All advertising materials mentioning features or use of this software
  *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
+ *      This product includes software developed by the University of
+ *      California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -32,7 +32,7 @@
  */
 
 #if defined(LIBC_SCCS) && !defined(lint)
-static char sccsid[] = "@(#)getenv.c	5.8 (Berkeley) 2/23/91";
+static char sccsid[] = "@(#)getenv.c    5.8 (Berkeley) 2/23/91";
 #endif /* LIBC_SCCS and not lint */
 
 #define _KERNEL
@@ -44,12 +44,12 @@ static char sccsid[] = "@(#)getenv.c	5.8 (Berkeley) 2/23/91";
 
 /*
  * _findenv --
- *	Returns pointer to value associated with name, if any, else NULL.
- *	Sets offset to be the offset of the name/value combination in the
- *	environmental array, for use by setenv(3) and unsetenv(3).
- *	Explicitly removes '=' in argument name.
+ *      Returns pointer to value associated with name, if any, else NULL.
+ *      Sets offset to be the offset of the name/value combination in the
+ *      environmental array, for use by setenv(3) and unsetenv(3).
+ *      Explicitly removes '=' in argument name.
  *
- *	This routine *should* be a static; don't use it.
+ *      This routine *should* be a static; don't use it.
  */
 char *
 _findenv(char **env, const char *name, int *offset)
@@ -70,7 +70,7 @@ _findenv(char **env, const char *name, int *offset)
 
 /*
  * getenv --
- *	Returns ptr to value associated with name, if any, else NULL.
+ *      Returns ptr to value associated with name, if any, else NULL.
  */
 char *
 getenv(const char *name)

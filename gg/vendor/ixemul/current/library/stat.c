@@ -43,6 +43,7 @@ long fill_stat_mode(struct stat *stb, struct FileInfoBlock *fib)
 {
   long mode;
 
+#ifndef __pos__
   /* If this is a directory, and Size is not 0, then this is a volume.
      Since the Protection field seems to be random for volumes, we use
      our own flags (= everything readable & writable) */
@@ -60,11 +61,14 @@ long fill_stat_mode(struct stat *stb, struct FileInfoBlock *fib)
       fib->fib_OwnerUID     = 0xffff;
       fib->fib_OwnerGID     = 0xffff;
     }
+#endif
 
   mode = 0L;
 
   stb->st_amode = fib->fib_Protection;
+#ifndef __pos__
   fib->fib_Protection ^= 0xf;
+#endif
   if (fib->fib_Protection & (FIBF_EXECUTE|FIBF_SCRIPT))
     mode |= S_IXUSR;
   if (fib->fib_Protection & (FIBF_WRITE|FIBF_DELETE))
@@ -93,18 +97,25 @@ long fill_stat_mode(struct stat *stb, struct FileInfoBlock *fib)
     mode |= S_ISGID;
 #endif
 
+#ifdef __pos__
+  switch (fib->fib_DirEntryType & FINFENTYP_FDMask)
+#else
   switch (fib->fib_DirEntryType)
+#endif
     {
+#ifndef __pos__
     case ST_LINKDIR:
       stb->st_nlink = 3;
       mode |= S_IFDIR;
       break;
     case ST_ROOT:
+#endif
     case ST_USERDIR:
       stb->st_nlink = 2;
       mode |= S_IFDIR;
       break;
 
+#ifndef __pos__
     /* at the moment, we NEVER get this entry, since we can't get a lock
      * on a symlink */
     case ST_SOFTLINK:
@@ -121,6 +132,7 @@ long fill_stat_mode(struct stat *stb, struct FileInfoBlock *fib)
       stb->st_nlink = 2;
       mode |= S_IFREG;
       break;
+#endif
 
     case ST_FILE:
     default:
@@ -139,7 +151,11 @@ __stat(const char *fname, struct stat *stb, BPTR (*lock_func)())
 {
   BPTR lock;
   struct FileInfoBlock *fib;
+#ifdef __pos__
+  struct pOS_DosInfoData *info;
+#else
   struct InfoData *info;
+#endif
   int omask, err = 0;
   usetup;
 
@@ -153,39 +169,40 @@ __stat(const char *fname, struct stat *stb, BPTR (*lock_func)())
 
       /* take special care of NIL:, /dev/null and friends ;-) */
       if (err == 4242)
-        {
-          stb->st_uid = stb->st_gid = 0;
-          stb->st_mode = S_IFCHR | 0777;
-          stb->st_nlink = 1;
-          stb->st_blksize = ix.ix_fs_buf_factor * 512;
-          stb->st_blocks = 0;
-          goto rest_sigmask;
-        }
+	{
+	  stb->st_uid = stb->st_gid = 0;
+	  stb->st_mode = S_IFCHR | 0777;
+	  stb->st_nlink = 1;
+	  stb->st_blksize = ix.ix_fs_buf_factor * 512;
+	  stb->st_blocks = 0;
+	  goto rest_sigmask;
+	}
 
       /* take special care of /dev/ptyXX and /dev/ttyXX */
       if (err == 5252)
-        {
-          stb->st_uid = (uid_t)syscall(SYS_geteuid);
-          stb->st_gid = (gid_t)syscall(SYS_getegid);
-          stb->st_mode = S_IFCHR | 0777;
-          stb->st_nlink = 1;
-          stb->st_blksize = ix.ix_fs_buf_factor * 512;
-          stb->st_blocks = 0;
-          goto rest_sigmask;
-        }
+	{
+	  stb->st_uid = (uid_t)syscall(SYS_geteuid);
+	  stb->st_gid = (gid_t)syscall(SYS_getegid);
+	  stb->st_mode = S_IFCHR | 0777;
+	  stb->st_nlink = 1;
+	  stb->st_blksize = ix.ix_fs_buf_factor * 512;
+	  stb->st_blocks = 0;
+	  goto rest_sigmask;
+	}
 
       /* root directory */
       if (err == 6262)
-        {
-          stb->st_uid = stb->st_gid = 0;
-          stb->st_mode = S_IFDIR | 0777;
-          stb->st_nlink = 3;
-          stb->st_size = 1024;
-          stb->st_blksize = ix.ix_fs_buf_factor * 512;
-          stb->st_blocks = 0;
-          goto rest_sigmask;
-        }
+	{
+	  stb->st_uid = stb->st_gid = 0;
+	  stb->st_mode = S_IFDIR | 0777;
+	  stb->st_nlink = 3;
+	  stb->st_size = 1024;
+	  stb->st_blksize = ix.ix_fs_buf_factor * 512;
+	  stb->st_blocks = 0;
+	  goto rest_sigmask;
+	}
 
+#ifndef __pos__
       KPRINTF (("__stat: lock %s failed, err = %ld.\n", fname, err));
       if (err == ERROR_IS_SOFT_LINK)
 	{
@@ -197,7 +214,7 @@ __stat(const char *fname, struct stat *stb, BPTR (*lock_func)())
 	  /* HELP! no way to reach the fib of this entry except when
 	   * scanning the parent directory, but this is NOT acceptable ! */
 	  stb->st_ino = 123;
-          stb->st_uid = stb->st_gid = -2;
+	  stb->st_uid = stb->st_gid = -2;
 	  /* this is the most important entry ;-) */
 	  stb->st_mode = S_IFLNK | 0777;
 	  stb->st_size = 1024; /* again, this should be available... */
@@ -207,7 +224,8 @@ __stat(const char *fname, struct stat *stb, BPTR (*lock_func)())
 	  stb->st_atime = stb->st_mtime = stb->st_ctime = 0;
 	  stb->st_blksize = stb->st_blocks = 0;
 	  goto rest_sigmask;
-        }
+	}
+#endif
 error:
       syscall (SYS_sigsetmask, omask);
       errno = __ioerr_to_errno (err);
@@ -241,13 +259,17 @@ error:
 
   /* some kind of a default-size for directories... */
   stb->st_size = fib->fib_DirEntryType < 0 ? fib->fib_Size : 1024; 
+#ifdef __pos__
+  stb->st_handler = (long)pOS_GetDosHandler((void *)lock, "");
+#else
   stb->st_handler = (long)((struct FileLock *)((long)lock << 2))->fl_Task;
+#endif
   stb->st_dev = (dev_t)stb->st_handler; /* trunc to 16 bit */
   stb->st_ino = get_unique_id(lock, NULL);
   stb->st_atime =
   stb->st_ctime =
   stb->st_mtime = OFFSET_FROM_1970 * 24 * 3600 +
-                  ix_get_gmt_offset() +
+		  ix_get_gmt_offset() +
 		  fib->fib_Date.ds_Days * 24 * 60 * 60 +
 		  fib->fib_Date.ds_Minute * 60 +
 		  fib->fib_Date.ds_Tick/TICKS_PER_SECOND;
@@ -265,8 +287,13 @@ error:
       /* optimal for fileio is as high as possible ;-) This is a
        * compromise between "as high as possible" and not too restricitve
        * for people low on memory */
+#ifdef __pos__
+      if (info->id_Mount && info->id_Mount->dmd_Type == DMDTYP_BOD)
+	bytesperblock = info->id_Mount->dmd_U.dmd_BOD.dmbod_BytesPerBlock;
+#else
       if (info->id_BytesPerBlock)
-        bytesperblock = info->id_BytesPerBlock;
+	bytesperblock = info->id_BytesPerBlock;
+#endif
       stb->st_blksize = bytesperblock * ix.ix_fs_buf_factor;
       stb->st_blocks = (stb->st_blocks * bytesperblock) / 512;
     }
@@ -278,7 +305,7 @@ error:
     {
       ix_lock_base();
       if (find_unix_name(fname))
-        stb->st_mode = (stb->st_mode & ~S_IFMT) | S_IFSOCK;
+	stb->st_mode = (stb->st_mode & ~S_IFMT) | S_IFSOCK;
       ix_unlock_base();
     }
 

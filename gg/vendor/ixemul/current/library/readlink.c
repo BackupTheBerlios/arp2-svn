@@ -52,6 +52,9 @@ struct readlink_vec {
 static int
 __readlink_func (struct lockinfo *info, struct readlink_vec *rv, int *error)
 {
+#ifdef __pos__
+  info->result = 0;   /* not yet supported */
+#else
   struct StandardPacket *sp = &info->sp;
 
   /* this baby uses CSTRings, absolutely unique... */
@@ -65,6 +68,7 @@ __readlink_func (struct lockinfo *info, struct readlink_vec *rv, int *error)
   __wait_sync_packet (sp);
   
   info->result = sp->sp_Pkt.dp_Res1;
+#endif
 
   *error = info->result <= 0;
 
@@ -95,22 +99,22 @@ int readlink(const char *path, char *buf, int bufsiz)
 	      errno = __ioerr_to_errno (IoErr ());
 	      KPRINTF (("&errno = %lx, errno = %ld\n", &errno, errno));
 	    }
-          else
-            {
-              int len = a2u(NULL, rv.buf);
-              char *p = alloca(len);
+	  else
+	    {
+	      int len = a2u(NULL, rv.buf);
+	      char *p = alloca(len);
 
-              a2u(p, rv.buf);
-              if (p[0] == '.' && p[1] == '/')  /* skip ./ */
-              {
-                p += 2;
-                len -= 2;
-              }
-              rc = (len - 1 < bufsiz ? len - 1 : bufsiz);
-              memcpy(buf, p, rc);
-              if (rc < bufsiz)
-                buf[rc] = '\0';
-            }
+	      a2u(p, rv.buf);
+	      if (p[0] == '.' && p[1] == '/')  /* skip ./ */
+	      {
+		p += 2;
+		len -= 2;
+	      }
+	      rc = (len - 1 < bufsiz ? len - 1 : bufsiz);
+	      memcpy(buf, p, rc);
+	      if (rc < bufsiz)
+		buf[rc] = '\0';
+	    }
 	  return rc > 0 ? rc : -1;
 	}
       else
@@ -135,7 +139,7 @@ int a2u(char *buf, char *src)
     while (*src != ':')
     {
       if (buf)
-        buf[len] = *src;
+	buf[len] = *src;
       len++;
       src++;
     }
@@ -152,24 +156,24 @@ int a2u(char *buf, char *src)
     if (*src == '/')
     {
       if (buf)
-        strcpy(buf + len, "/..");
+	strcpy(buf + len, "/..");
       len += 3;
       src++;
     }
     else
     {
       if (buf)
-        buf[len] = '/';
+	buf[len] = '/';
       len++;
       while (*src && *src != '/')
       {
-        if (buf)
-          buf[len] = *src;
-        src++;
-        len++;
+	if (buf)
+	  buf[len] = *src;
+	src++;
+	len++;
       }
       if (*src)
-        src++;
+	src++;
     }
   }
   if (buf)

@@ -35,13 +35,13 @@
  */
 
 /*
- *	This routine is called from the _main() routine and is used to
- *	parse the arguments passed from the CLI to the program. It sets
- *	up an array of pointers to arguments in the global variables and
- *	and sets up _argc and _argv which will be passed by _main() to
- *	the main() procedure. If no arguments are ever going to be
- *	parsed, this routine may be replaced by a stub routine to reduce
- *	program size.
+ *      This routine is called from the _main() routine and is used to
+ *      parse the arguments passed from the CLI to the program. It sets
+ *      up an array of pointers to arguments in the global variables and
+ *      and sets up _argc and _argv which will be passed by _main() to
+ *      the main() procedure. If no arguments are ever going to be
+ *      parsed, this routine may be replaced by a stub routine to reduce
+ *      program size.
  *
  */
 
@@ -60,7 +60,9 @@ static void init_file(struct file *f, BPTR fh, char *defname)
 {
   f->f_fh = (struct FileHandle *)BTOCPTR(fh);
 
+#ifndef __pos__
   __init_std_packet(&f->f_sp);
+#endif
   __init_std_packet((void *)&f->f_select_sp);
   __fstat(f);
 
@@ -77,10 +79,10 @@ static void init_file(struct file *f, BPTR fh, char *defname)
       char buf[256];
 
       if (NameFromFH(fh, buf, sizeof(buf)))
-        {
-          if ((f->f_name = (void *)kmalloc(strlen(buf) + 1)))
-            strcpy(f->f_name, buf);
-        }
+	{
+	  if ((f->f_name = (void *)kmalloc(strlen(buf) + 1)))
+	    strcpy(f->f_name, buf);
+	}
     }
   if (f->f_name == NULL)
     {
@@ -96,12 +98,12 @@ static void init_file(struct file *f, BPTR fh, char *defname)
 
 struct ArgList {
   struct ixlist  al_list;  /* the list - head */
-  long		 al_num;   /* number of arguments in the whole list */
+  long           al_num;   /* number of arguments in the whole list */
 };
 
 struct Argument {
   struct ixnode a_node;   /* the link in the arg-list */
-  char		*a_arg;	   /* a malloc'd string, the argument */
+  char          *a_arg;    /* a malloc'd string, the argument */
 };
 
 /* insert a new argument into the argument vector, we have to keep the
@@ -136,11 +138,11 @@ AddArgument (struct ArgList *ArgList,
  * call the glob() stuff, else don't bother expanding and
  * quickly append to list. Here's the meaning of all these characters, some
  * seem to be not widely used:
- * *	match any number (incl. zero) of characters
- * #?	match any number (incl. zero) of characters (for Amiga compatibility)
+ * *    match any number (incl. zero) of characters
+ * #?   match any number (incl. zero) of characters (for Amiga compatibility)
  * []   match any character that's contained in the set inside the brackets
- * ?	match any character (exactly one)
- * !	negate the following expression
+ * ?    match any character (exactly one)
+ * !    negate the following expression
  */
 
 #define iswild(ch) (index ("*[!?#", ch) ? 1 : 0)
@@ -151,13 +153,19 @@ __ix_cli_parse(struct Process *this_proc, long alen, char *_aptr,
 {
   usetup;
   char *arg0;
+#ifndef __pos__
   struct CommandLineInterface *cli;
   char *next, *lmax;
+#endif
   struct Argument *arg, *narg;
   char *line, **cpp;
   int do_expand;
   int arglen;
+#ifdef __pos__
+  char **aptr;
+#else
   char *aptr;
+#endif
   struct ArgList ArgList;
   int expand_cmd_line = u.u_expand_cmd_line;
   struct file *fin, *fout;
@@ -168,6 +176,11 @@ __ix_cli_parse(struct Process *this_proc, long alen, char *_aptr,
   KPRINTF (("entered __ix_cli_parse()\n"));
   KPRINTF (("command line length = %ld\n", alen));
   KPRINTF (("command line = '%s'\n", _aptr));
+  KPRINTF (("real command line length = %ld\n", strlen(_aptr)));
+
+#ifdef NATIVE_MORPHOS
+  alen = strlen(_aptr);
+#endif
 
   /* this stuff has been in ix_open before, but it really belongs here, since
    * I don't want it to happen by default on OpenLibrary, since it would
@@ -203,7 +216,7 @@ __ix_cli_parse(struct Process *this_proc, long alen, char *_aptr,
 	      u.u_ofile[0] = 0;
 	      fin->f_count--;
 	    }
-			        
+				
 	  if ((fh = Output ()))
 	    {
 	      init_file(fout, fh, "<Standard Output>");
@@ -224,33 +237,37 @@ __ix_cli_parse(struct Process *this_proc, long alen, char *_aptr,
 	     console. */
 
 	  fd = -1;
+#ifdef __pos__
+	  if ((fh = (BPTR)pOS_GetStdErrOutput()))
+#else
 	  if ((fh = this_proc->pr_CES))
+#endif
 	    {
 	      struct file *fp;
 
 	      if (!falloc (&fp, &fd))
-	        {
-	          init_file(fp, fh, "<Standard Error>");
+		{
+		  init_file(fp, fh, "<Standard Error>");
 		  fp->f_flags |= FREAD|FWRITE;
-	          fp->f_ttyflags = IXTTY_OPOST | IXTTY_ONLCR;
-	        }
+		  fp->f_ttyflags = IXTTY_OPOST | IXTTY_ONLCR;
+		}
 	    }
 	    /* Apparently use of CONSOLE: gave problems with
-               Emacs, so we continue to use "*" instead. */
+	       Emacs, so we continue to use "*" instead. */
 
-            /* Here is some more information on this from Joerg Hoehle:
-             *
+	    /* Here is some more information on this from Joerg Hoehle:
+	     *
 	     * While writing fifolib38_1 I found that console handlers are sent
 	     * ACTION_FIND* packets with names of either "*" or "Console:", depending
 	     * on what the user typed. Old handlers that do not recognize "CONSOLE:"
 	     * will produce strange results which could explain the above problems.
-             *
+	     *
 	     * That's the reason why
-	     * 	echo foo >*	(beware of * expansion in a non-AmigaOS shell)
+	     *  echo foo >*     (beware of * expansion in a non-AmigaOS shell)
 	     * works in an Emacs shell buffer, whereas
-	     * 	echo foo >console:
+	     *  echo foo >console:
 	     * won't with fifolib prior to version 38.1.
-             *
+	     *
 	     * I believe that programs opening stderr should continue to open "*" for
 	     * compatibility reasons. Opening "CONSOLE:" first and "*" if it fails is
 	     * _not_ a solution: for example, FIFO: (prior to 38.1) accepts the
@@ -268,11 +285,20 @@ __ix_cli_parse(struct Process *this_proc, long alen, char *_aptr,
 	} /* falloc (&fout, &fd) */
     } /* falloc (&fin, &fd) */
 
+#ifdef __pos__
+  aptr = (char **)_aptr;
+#else
   aptr = alloca (alen + 1);
   memcpy(aptr, _aptr, alen + 1);
+#endif
 
+#ifdef __pos__
+  aptr++;
+  arg0 = (char *)(pOS_FindTask(0)->tc_Node.ln_Name);
+#else
   cli = (struct CommandLineInterface *) BTOCPTR (this_proc->pr_CLI);
   arg0 = (char *) BTOCPTR (cli->cli_CommandName);
+#endif
 
   /* init our argument list */
   ixnewlist ((struct ixlist *)&ArgList);
@@ -280,6 +306,9 @@ __ix_cli_parse(struct Process *this_proc, long alen, char *_aptr,
   /* lets start humble.. no arguments at all:-)) */
   ArgList.al_num = 0;
 
+#ifdef __pos__
+  for (narg = arg = 0; *aptr; aptr++)
+#else
   /* find end of command-line, stupid BCPL-stuff.. line can end
    * either with \n or with \0 .. */
   for (lmax = aptr; *lmax && *lmax != '\n' && *lmax != '\r'; ++lmax) ;
@@ -287,10 +316,16 @@ __ix_cli_parse(struct Process *this_proc, long alen, char *_aptr,
 
   /* loop over all arguments, expand all */
   for (line = aptr, narg = arg = 0; line < lmax; )
+#endif
     {
       do_expand = 0;
 
-      KPRINTF (("remaining cmd line = '%s'\n", aptr));
+#ifdef __pos__
+      for (line = *aptr; *line; line++)
+	do_expand |= iswild(*line);
+      line = *aptr;
+#else
+      KPRINTF (("remaining cmd line = '%s'\n", line));
       /* skip over leading whitespace */
       while (isspace (*line)) line++;
       if (line >= lmax)
@@ -328,16 +363,16 @@ __ix_cli_parse(struct Process *this_proc, long alen, char *_aptr,
 	}
       else
 	{
-          /* strange kind of BCPL-quoting, if you want to get a " thru,
-           * you have to quote it with a ', eq. HELLO'"WORLD'" will preserve
-           * the " inside the argument. Since hardly anyone knows this
-           * "feature", I allow for the more common Unix-like escaping, ie
-           * \" will give you the same effect as '". */
-          if ((*line == '\'' || *line == '\\') && line[1] == '\"')
-            {
-  	      KPRINTF (("found escaped quote at '%s'\n", line));
-  	      line++;
-  	    }
+	  /* strange kind of BCPL-quoting, if you want to get a " thru,
+	   * you have to quote it with a ', eq. HELLO'"WORLD'" will preserve
+	   * the " inside the argument. Since hardly anyone knows this
+	   * "feature", I allow for the more common Unix-like escaping, ie
+	   * \" will give you the same effect as '". */
+	  if ((*line == '\'' || *line == '\\') && line[1] == '\"')
+	    {
+	      KPRINTF (("found escaped quote at '%s'\n", line));
+	      line++;
+	    }
 	  /* plain, vanilla argument.. */
 	  next = line + 1;
 	  /* check, whether we have to run thru the expander, or
@@ -357,26 +392,27 @@ __ix_cli_parse(struct Process *this_proc, long alen, char *_aptr,
 	    }
 	  *next = 0;
 	}
+#endif
 
       if (expand_cmd_line && do_expand)
 	{
-          glob_t g;
-          char **p;
-          
-          syscall (SYS_sigsetmask, omask);
-          syscall (SYS_glob, line,
-                   ((ix.ix_flags & ix_unix_pattern_matching_case_sensitive) ? 0 : GLOB_NOCASE) |
-                   ((ix.ix_flags & ix_allow_amiga_wildcard) ? GLOB_AMIGA : 0) |
-	           GLOB_NOCHECK, NULL, &g);
-          omask = syscall (SYS_sigsetmask, ~0);
-          for (p = g.gl_pathv; *p; p++)
-            {
-              arg = (struct Argument *)syscall(SYS_malloc, sizeof(*arg));
-              arg->a_arg = *p;
-              AddArgument(&ArgList, narg, arg, strlen(*p));
-              narg = (struct Argument *) ArgList.al_list.tail;
-            }
-          syscall(SYS_free, g.gl_pathv);
+	  glob_t g;
+	  char **p;
+	  
+	  syscall (SYS_sigsetmask, omask);
+	  syscall (SYS_glob, line,
+		   ((ix.ix_flags & ix_unix_pattern_matching_case_sensitive) ? 0 : GLOB_NOCASE) |
+		   ((ix.ix_flags & ix_allow_amiga_wildcard) ? GLOB_AMIGA : 0) |
+		   GLOB_NOCHECK, NULL, &g);
+	  omask = syscall (SYS_sigsetmask, ~0);
+	  for (p = g.gl_pathv; *p; p++)
+	    {
+	      arg = (struct Argument *)syscall(SYS_malloc, sizeof(*arg));
+	      arg->a_arg = *p;
+	      AddArgument(&ArgList, narg, arg, strlen(*p));
+	      narg = (struct Argument *) ArgList.al_list.tail;
+	    }
+	  syscall(SYS_free, g.gl_pathv);
 	}
       else  /* ! do_expand */
 	{
@@ -389,7 +425,9 @@ __ix_cli_parse(struct Process *this_proc, long alen, char *_aptr,
 	}
 
       narg = (struct Argument *) ArgList.al_list.tail;
+#ifndef __pos__
       line = next + 1;
+#endif
     } /* for */
 
   /* prepend the program name */
@@ -397,11 +435,20 @@ __ix_cli_parse(struct Process *this_proc, long alen, char *_aptr,
 
   /* some stupid shells (like Wsh...) pass the WHOLE path of the
    * started program. We simply cut off what we don't want ;-)) */
+#ifdef __pos__
+  for (arglen = 0; arg0[arglen]; arglen++)
+#else
   for (arglen = 1; arglen <= arg0[0]; arglen++)
+#endif
     if (arg0[arglen] == ' ' || arg0[arglen] == '\t')
       break;
 
+#ifdef __pos__
+  line = arg0;
+  arglen++;
+#else
   line = arg0 + 1;
+#endif
 
   arg->a_arg = (char *) syscall (SYS_malloc, arglen);
 
@@ -427,7 +474,7 @@ __ix_cli_parse(struct Process *this_proc, long alen, char *_aptr,
       int daemon = netcall(NET_init_inet_daemon, argc, argv);
 
       if (daemon >= 0)
-        set_socket_stdio(daemon);
+	set_socket_stdio(daemon);
     }
 
   KPRINTF (("argc = %ld\n", *argc));

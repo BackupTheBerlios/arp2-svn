@@ -134,7 +134,7 @@ funcTable:
 
    |------ my libraries definitions
 
-#define SYSTEM_CALL(func, vec) .long _/**/func
+#define SYSTEM_CALL(func, vec, args) .long _/**/func
 #include <sys/ixnet_syscall.def>
 #undef SYSTEM_CALL
 

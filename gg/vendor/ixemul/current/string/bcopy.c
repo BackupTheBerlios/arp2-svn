@@ -21,6 +21,43 @@
  * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+#ifndef mc68000
+#include <string.h>
+
+void  bcopy(const void *s1, void *s2, size_t n)
+{
+  size_t m;
+  if(!n)
+    return;
+  if(s2<s1)
+  { if((long)s1&1)
+    { *((char *)s2)++=*((char *)s1)++;
+      n--; }
+    if(!((long)s2&1))
+    { m=n/sizeof(long);
+      n&=sizeof(long)-1;
+      for(;m;m--)
+	*((long *)s2)++=*((long *)s1)++;
+    }
+    for(;n;n--)
+      *((char *)s2)++=*((char *)s1)++;
+  }else
+  { (char *)s1+=n;
+    (char *)s2+=n;
+    if((long)s1&1)
+    { *--((char *)s2)=*--((char *)s1);
+      n--; }
+    if(!((long)s2&1))
+    { m=n/sizeof(long);
+      n&=sizeof(long)-1;
+      for(;m;m--)
+	*--((long *)s2)=*--((long *)s1);
+    }
+    for(;n;n--)
+      *--((char *)s2)=*--((char *)s1);
+  }
+}
+#else
 #include "defs.h"
 
 /*
@@ -28,68 +65,69 @@
  * faster than the C version in the portable gen directory.
  *
  * Things that might help:
- *	- unroll the longword copy loop (might not be good for a 68020)
- *	- longword align when possible (only on the 68020)
- *	- use nested DBcc instructions or use one and limit size to 64K
+ *      - unroll the longword copy loop (might not be good for a 68020)
+ *      - longword align when possible (only on the 68020)
+ *      - use nested DBcc instructions or use one and limit size to 64K
  */
 ENTRY(bcopy)
 asm("
-	movl	sp@(12),d1	/* check count */
-	jle	bcdone_bcopy	/* <= 0, don't do anything */
-	movl	sp@(4),a0	/* src address */
-	movl	sp@(8),a1	/* dest address */
-	cmpl	a1,a0		/* src after dest? */
-	jlt	bcback		/* yes, must copy backwards */
-	movl	a0,d0
-	btst	#0,d0		/* src address odd? */
-	jeq	bcfeven		/* no, skip alignment */
-	movb	a0@+,a1@+	/* yes, copy a byte */
-	subql	#1,d1		/* adjust count */
-	jeq	bcdone_bcopy	/* count 0, all done  */
+	movl    sp@(12),d1      /* check count */
+	jle     bcdone_bcopy    /* <= 0, don't do anything */
+	movl    sp@(4),a0       /* src address */
+	movl    sp@(8),a1       /* dest address */
+	cmpl    a1,a0           /* src after dest? */
+	jlt     bcback          /* yes, must copy backwards */
+	movl    a0,d0
+	btst    #0,d0           /* src address odd? */
+	jeq     bcfeven         /* no, skip alignment */
+	movb    a0@+,a1@+       /* yes, copy a byte */
+	subql   #1,d1           /* adjust count */
+	jeq     bcdone_bcopy    /* count 0, all done  */
 bcfeven:
-	movl	a1,d0
-	btst	#0,d0		/* dest address odd? */
-	jne	bcfbloop	/* yes, no hope for alignment, copy bytes */
-	movl	d1,d0		/* no, both even */
-	lsrl	#2,d0		/* convert count to longword count */
-	jeq	bcfbloop	/* count 0, skip longword loop */
+	movl    a1,d0
+	btst    #0,d0           /* dest address odd? */
+	jne     bcfbloop        /* yes, no hope for alignment, copy bytes */
+	movl    d1,d0           /* no, both even */
+	lsrl    #2,d0           /* convert count to longword count */
+	jeq     bcfbloop        /* count 0, skip longword loop */
 bcflloop:
-	movl	a0@+,a1@+	/* copy a longword */
-	subql	#1,d0		/* adjust count */
-	jne	bcflloop	/* still more, keep copying */
-	andl	#3,d1		/* what remains */
-	jeq	bcdone_bcopy	/* nothing, all done */
+	movl    a0@+,a1@+       /* copy a longword */
+	subql   #1,d0           /* adjust count */
+	jne     bcflloop        /* still more, keep copying */
+	andl    #3,d1           /* what remains */
+	jeq     bcdone_bcopy    /* nothing, all done */
 bcfbloop:
-	movb	a0@+,a1@+	/* copy a byte */
-	subql	#1,d1		/* adjust count */
-	jne	bcfbloop	/* still more, keep going */
+	movb    a0@+,a1@+       /* copy a byte */
+	subql   #1,d1           /* adjust count */
+	jne     bcfbloop        /* still more, keep going */
 bcdone_bcopy:
 	rts
 bcback:
-	addl	d1,a0		/* src pointer to end */
-	addl	d1,a1		/* dest pointer to end */
-	movl	a0,d0
-	btst	#0,d0		/* src address odd? */
-	jeq	bcbeven		/* no, skip alignment */
-	movb	a0@-,a1@-	/* yes, copy a byte */
-	subql	#1,d1		/* adjust count */
-	jeq	bcdone_bcopy	/* count 0, all done  */
+	addl    d1,a0           /* src pointer to end */
+	addl    d1,a1           /* dest pointer to end */
+	movl    a0,d0
+	btst    #0,d0           /* src address odd? */
+	jeq     bcbeven         /* no, skip alignment */
+	movb    a0@-,a1@-       /* yes, copy a byte */
+	subql   #1,d1           /* adjust count */
+	jeq     bcdone_bcopy    /* count 0, all done  */
 bcbeven:
-	movl	a1,d0
-	btst	#0,d0		/* dest address odd? */
-	jne	bcbbloop	/* yes, no hope for alignment, copy bytes */
-	movl	d1,d0		/* no, both even */
-	lsrl	#2,d0		/* convert count to longword count */
-	jeq	bcbbloop	/* count 0, skip longword loop */
+	movl    a1,d0
+	btst    #0,d0           /* dest address odd? */
+	jne     bcbbloop        /* yes, no hope for alignment, copy bytes */
+	movl    d1,d0           /* no, both even */
+	lsrl    #2,d0           /* convert count to longword count */
+	jeq     bcbbloop        /* count 0, skip longword loop */
 bcblloop:
-	movl	a0@-,a1@-	/* copy a longword */
-	subql	#1,d0		/* adjust count */
-	jne	bcblloop	/* still more, keep copying */
-	andl	#3,d1		/* what remains */
-	jeq	bcdone_bcopy	/* nothing, all done */
+	movl    a0@-,a1@-       /* copy a longword */
+	subql   #1,d0           /* adjust count */
+	jne     bcblloop        /* still more, keep copying */
+	andl    #3,d1           /* what remains */
+	jeq     bcdone_bcopy    /* nothing, all done */
 bcbbloop:
-	movb	a0@-,a1@-	/* copy a byte */
-	subql	#1,d1		/* adjust count */
-	jne	bcbbloop	/* still more, keep going */
+	movb    a0@-,a1@-       /* copy a byte */
+	subql   #1,d1           /* adjust count */
+	jne     bcbbloop        /* still more, keep going */
 	rts
 ");
+#endif

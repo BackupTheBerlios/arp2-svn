@@ -17,9 +17,30 @@
  *  License along with this library; if not, write to the Free
  *  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- *  $Id: ix_sleep.c,v 1.4 1994/06/19 15:13:19 rluebbert Exp $
+ *  $Id: ix_sleep.c,v 1.5 2001/06/01 17:40:12 emm Exp $
  *
  *  $Log: ix_sleep.c,v $
+ *  Revision 1.5  2001/06/01 17:40:12  emm
+ *  Simplified signal handling. Minor old fixes.
+ *
+ *  Revision 1.4  2000/09/05 21:00:03  emm
+ *  Fixed some bugs. Deadlocks, memory trashing, ...
+ *
+ *  Revision 1.3  2000/06/20 22:17:23  emm
+ *  First attempt at a native MorphOS ixemul
+ *
+ *  Revision 1.2  2000/05/18 19:52:07  emm
+ *  MorphOS support added. Not fully working.
+ *
+ *  Revision 1.1.1.1  2000/05/07 19:38:09  emm
+ *  Imported sources
+ *
+ *  Revision 1.2  2000/05/04 19:33:59  nobody
+ *  Replaced tc_Launch polling by exceptions
+ *
+ *  Revision 1.1.1.1  2000/04/29 00:48:29  nobody
+ *  Initial import
+ *
  *  Revision 1.4  1994/06/19  15:13:19  rluebbert
  *  *** empty log message ***
  *
@@ -36,10 +57,10 @@
 
 /* this is the `message' we queue on the sleep queues. */
 struct sleep_msg {
-  struct ixnode 	sm_node;
-  short			sm_signal;
-  struct Task*		sm_sigtask;
-  u_int			sm_waitchan;
+  struct ixnode         sm_node;
+  short                 sm_signal;
+  struct Task*          sm_sigtask;
+  u_int                 sm_waitchan;
 };
 
 
@@ -63,8 +84,10 @@ tsleep(caddr_t waitchan, char *wmesg, int timo)
   struct ixlist *the_list;
   u_int wait_sigs;
   int res = -1;
-  struct Task *me = FindTask(0);
+  struct Task *me = SysBase->ThisTask;
   struct user *u_ptr = getuser(me);
+
+KPRINTF(("tsleep(%s, %lx), p_sig = %lx, mask = %lx\n", wmesg, waitchan, u.p_sig, u.p_sigmask));
 
   if (CURSIG(&u))
     {
@@ -76,7 +99,7 @@ tsleep(caddr_t waitchan, char *wmesg, int timo)
   sm.sm_sigtask = me;
   sm.sm_waitchan = (u_int)waitchan;
 
-  u.p_stat = SSLEEP;	/* so that machdep.c can interrupt us */
+  u.p_stat = SSLEEP;    /* so that machdep.c can interrupt us */
   u.p_wchan = (caddr_t) waitchan;
   u.p_wmesg = wmesg;
   the_list = &ixemulbase->ix_sleep_queues[ix_hash((u_int)waitchan)];
@@ -94,11 +117,15 @@ tsleep(caddr_t waitchan, char *wmesg, int timo)
       SendIO((struct IORequest *)__time_req);
       wait_sigs |= 1 << __tport->mp_SigBit;
     }
+
+KPRINTF(("forbid\n"));
   Forbid();
   ixaddtail ((struct ixlist *)the_list, (struct ixnode *)&sm);
 
   /* this will break the Disable () and reestablish it afterwards */
+KPRINTF(("wait(%lx), TDNestCnt = %ld\n", wait_sigs, SysBase->TDNestCnt));
   res = Wait (wait_sigs);
+KPRINTF(("... wait() = %08lx, TDNestCnt = %ld\n", res, SysBase->TDNestCnt));
   /* this conversion is inhibited in the Launch handler as long as we're
      in SSLEEP state. Since the SetSignal() below will remove all traces
      of a perhaps present SIGBREAKF_CTRL_C, we'll have to do the conversion
@@ -109,16 +136,18 @@ tsleep(caddr_t waitchan, char *wmesg, int timo)
       struct Process *proc = (struct Process *)(u.u_session ? u.u_session->pgrp : getpid());
       _psignalgrp(proc, SIGINT);
     }
+
   SetSignal (0, res);
+
   res = CURSIG (&u) ? -1 : 0;
 
   ixremove ((struct ixlist *)the_list, (struct ixnode *)&sm);
+KPRINTF(("permit\n"));
   Permit();
 
   if (timo)
     {
-      if (! CheckIO ((struct IORequest *)__time_req))
-        AbortIO ((struct IORequest *)__time_req);
+      AbortIO ((struct IORequest *)__time_req);
       WaitIO ((struct IORequest *)__time_req);
     }
 
@@ -147,15 +176,19 @@ ix_wakeup (u_int waitchan)
 {
   struct ixlist *the_list = &ixemulbase->ix_sleep_queues[ix_hash (waitchan)];
   struct sleep_msg *sm;
-  
+
   Forbid();
+  KPRINTF(("ix_wakeup(%lx)\n", waitchan));
 
   for (sm = (struct sleep_msg *)the_list->head;
        sm;
        sm = (struct sleep_msg *)sm->sm_node.next)
     {
       if (sm->sm_waitchan == waitchan)
-        Signal (sm->sm_sigtask, 1 << sm->sm_signal);
+	{
+	  KPRINTF(("Signal(%lx, %08lx)\n", sm->sm_sigtask, 1 << sm->sm_signal));
+	  Signal (sm->sm_sigtask, 1 << sm->sm_signal);
+	}
     }
 
   Permit();

@@ -37,26 +37,27 @@
 #include <string.h>
 
 #ifndef ID_FFS_DISK
-#define ID_FFS_DISK		(0x444F5301L)	/* 'DOS\1' */
-#define ID_INTER_DOS_DISK	(0x444F5302L)	/* 'DOS\2' */
-#define ID_INTER_FFS_DISK	(0x444F5303L)	/* 'DOS\3' */
-#define ID_MSDOS_DISK		(0x4d534400L)	/* 'MSD\0' */
+#define ID_FFS_DISK             (0x444F5301L)   /* 'DOS\1' */
+#define ID_INTER_DOS_DISK       (0x444F5302L)   /* 'DOS\2' */
+#define ID_INTER_FFS_DISK       (0x444F5303L)   /* 'DOS\3' */
+#define ID_MSDOS_DISK           (0x4d534400L)   /* 'MSD\0' */
 #endif
 
 /* no comments here ;-) */
-#define ID_ALT_OFS_DISK		(0x444F5304L)	/* 'DOS\4' */
-#define ID_ALT_FFS_DISK		(0x444F5305L)	/* 'DOS\5' */
-#define ID_ALT_INTER_DOS_DISK	(0x444F5306L)	/* 'DOS\6' */
-#define ID_ALT_INTER_FFS_DISK	(0x444F5307L)	/* 'DOS\7' */
+#define ID_ALT_OFS_DISK         (0x444F5304L)   /* 'DOS\4' */
+#define ID_ALT_FFS_DISK         (0x444F5305L)   /* 'DOS\5' */
+#define ID_ALT_INTER_DOS_DISK   (0x444F5306L)   /* 'DOS\6' */
+#define ID_ALT_INTER_FFS_DISK   (0x444F5307L)   /* 'DOS\7' */
 
 /* dunno, would be logical ;-)) */
-#define ID_NFS_DISK		(0x4E465300)	/* 'NFS\0' */	
+#define ID_NFS_DISK             (0x4E465300)    /* 'NFS\0' */   
 /* did somebody already do this ??? */
-#define ID_UFS_DISK		(0x55465300)	/* 'UFS\0' */	
+#define ID_UFS_DISK             (0x55465300)    /* 'UFS\0' */   
 
 
 /* this function fills in InfoData information from a statfs structure
    that has at least its f_fsid field set to the handler */
+#ifndef __pos__ /* TODO */
 static void
 internal_statfs (struct statfs *buf, struct InfoData *info, struct StandardPacket *sp)
 {
@@ -75,23 +76,23 @@ internal_statfs (struct statfs *buf, struct InfoData *info, struct StandardPacke
 
       if (dl)
 	{
-          char *name = BTOCPTR (dl->dl_Name);
+	  char *name = BTOCPTR (dl->dl_Name);
 	  int len = (MNAMELEN - 2 < name[0]) ? MNAMELEN - 2 : name[0];
 
 	  /* use this field to represent the volume name */
-          bcopy (name + 1, buf->f_mntfromname + 1, len);
-          buf->f_mntfromname[0] = '/';
-          buf->f_mntfromname[len + 1] = 0;
-        }
+	  bcopy (name + 1, buf->f_mntfromname + 1, len);
+	  buf->f_mntfromname[0] = '/';
+	  buf->f_mntfromname[len + 1] = 0;
+	}
       else
 	/* for stuff like FIFO that doesn't have an associated volume */
 	strcpy (buf->f_mntfromname, buf->f_mntonname);
 
       switch (info->id_DiskType)
-        {
-        case ID_DOS_DISK:
-        case ID_ALT_OFS_DISK:
-          buf->f_type = MOUNT_ADOS_OFS;
+	{
+	case ID_DOS_DISK:
+	case ID_ALT_OFS_DISK:
+	  buf->f_type = MOUNT_ADOS_OFS;
 	  break;
 	      
 	case ID_FFS_DISK:
@@ -121,31 +122,35 @@ internal_statfs (struct statfs *buf, struct InfoData *info, struct StandardPacke
 	  buf->f_type = MOUNT_UFS;
 	  break;
 
-	default:	      
+	default:              
 	  buf->f_type = MOUNT_NONE;
 	  break;
 	}
 	    
       buf->f_flags  = MNT_NOSUID | MNT_NODEV;
       if (info->id_DiskState != ID_VALIDATED)
-        /* can be ID_WRITE_PROTECTED or ID_VALIDATING */
+	/* can be ID_WRITE_PROTECTED or ID_VALIDATING */
 	buf->f_flags |= MNT_RDONLY;
 	    
       buf->f_fsize  = info->id_BytesPerBlock;
       buf->f_bsize  = info->id_BytesPerBlock * ix.ix_fs_buf_factor;
       buf->f_blocks = info->id_NumBlocks;
       buf->f_bfree =
-        buf->f_bavail = info->id_NumBlocks - info->id_NumBlocksUsed;
+	buf->f_bavail = info->id_NumBlocks - info->id_NumBlocksUsed;
       /* no inode information available, thus set to -1 */
       buf->f_files =
       buf->f_ffree = -1;
    }
 }
+#endif
 
 
 int
 getfsstat (struct statfs *buf, long bufsize, int flags)
 {
+#ifdef __pos__
+  return 0;
+#else
   int num_devs = 0;
   struct statfs *orig_buf = buf;
   long orig_bufsize = bufsize;
@@ -174,7 +179,7 @@ getfsstat (struct statfs *buf, long bufsize, int flags)
 	      int len = (MNAMELEN - 2 < name[0]) ? MNAMELEN - 2 : name[0];
 
 	      /* only remember the name and the address of the
-	         handler so that we can later send INFO packets there */
+		 handler so that we can later send INFO packets there */
 	      bzero (buf, sizeof (*buf));
 	      bcopy (name + 1, buf->f_mntonname + 1, len);
 	      buf->f_mntonname[0] = '/';
@@ -207,12 +212,17 @@ getfsstat (struct statfs *buf, long bufsize, int flags)
     }
 
   return num_devs;
+#endif
 }
 
 int
 fstatfs (int fd, struct statfs *buf)
 {
   usetup;
+#ifdef __pos__
+  errno = EOPNOTSUPP;
+  return -1;
+#else
   struct file *f = u.u_ofile[fd];
   struct DosLibrary *dl;
   struct RootNode *rn;
@@ -225,15 +235,15 @@ fstatfs (int fd, struct statfs *buf)
   if ((unsigned)fd < NOFILE && f)
     {
       if (! buf)
-        {
-          errno = EFAULT;
+	{
+	  errno = EFAULT;
 	  KPRINTF (("&errno = %lx, errno = %ld\n", &errno, errno));
-          return -1;
-        }
+	  return -1;
+	}
 
       if (HANDLER_NIL (f) || f->f_type != DTYPE_FILE)
-        {
-          errno = EOPNOTSUPP;
+	{
+	  errno = EOPNOTSUPP;
 	  KPRINTF (("&errno = %lx, errno = %ld\n", &errno, errno));
 	  return -1;
 	}
@@ -247,8 +257,8 @@ fstatfs (int fd, struct statfs *buf)
       rn = (struct RootNode *) dl->dl_Root;
       di = BTOCPTR (rn->rn_Info);
       for (dv = BTOCPTR (di->di_DevInfo); dv; dv = BTOCPTR (dv->dvi_Next))
-        {
-          if (dv->dvi_Type == DLT_DEVICE && 
+	{
+	  if (dv->dvi_Type == DLT_DEVICE && 
 	      (struct MsgPort *) dv->dvi_Task == f->f_fh->fh_Type)
 	    {
 	      char *name = BTOCPTR (dv->dvi_Name);
@@ -266,8 +276,8 @@ fstatfs (int fd, struct statfs *buf)
 	{
 	  errno = EOPNOTSUPP;
 	  KPRINTF (("&errno = %lx, errno = %ld\n", &errno, errno));
-          return -1;
-        }
+	  return -1;
+	}
 
       info = alloca (sizeof (*info) + 2);
       info = LONG_ALIGN (info);
@@ -284,6 +294,7 @@ fstatfs (int fd, struct statfs *buf)
   errno = EBADF;  
   KPRINTF (("&errno = %lx, errno = %ld\n", &errno, errno));
   return -1;
+#endif
 }
 
 
@@ -291,6 +302,10 @@ int
 statfs (const char *path, struct statfs *buf)
 {
   usetup;
+#ifdef __pos__
+  errno = EOPNOTSUPP;
+  return -1;
+#else
   struct MsgPort *handler;
   BPTR lock;
   int omask, err;
@@ -319,11 +334,11 @@ statfs (const char *path, struct statfs *buf)
   else
     {
       if (! buf)
-        {
-          errno = EFAULT;
+	{
+	  errno = EFAULT;
 	  KPRINTF (("&errno = %lx, errno = %ld\n", &errno, errno));
-          return -1;
-        }
+	  return -1;
+	}
 
       bzero (buf, sizeof (struct statfs));
       buf->f_fsid.val[1] = 0;
@@ -334,8 +349,8 @@ statfs (const char *path, struct statfs *buf)
       rn = (struct RootNode *) dl->dl_Root;
       di = BTOCPTR (rn->rn_Info);
       for (dv = BTOCPTR (di->di_DevInfo); dv; dv = BTOCPTR (dv->dvi_Next))
-        {
-          if (dv->dvi_Type == DLT_DEVICE && 
+	{
+	  if (dv->dvi_Type == DLT_DEVICE && 
 	      (struct MsgPort *) dv->dvi_Task == handler)
 	    {
 	      char *name = BTOCPTR (dv->dvi_Name);
@@ -353,8 +368,8 @@ statfs (const char *path, struct statfs *buf)
 	{
 	  errno = EOPNOTSUPP;
 	  KPRINTF (("&errno = %lx, errno = %ld\n", &errno, errno));
-          return -1;
-        }
+	  return -1;
+	}
 
       info = alloca (sizeof (*info) + 2);
       info = LONG_ALIGN (info);
@@ -367,4 +382,5 @@ statfs (const char *path, struct statfs *buf)
 
       return 0;
     }
+#endif
 }

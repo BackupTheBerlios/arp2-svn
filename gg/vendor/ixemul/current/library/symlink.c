@@ -77,9 +77,9 @@ static void u2a(const char *orig, char *new)
     else
     {
       while (*orig && *orig != '/')
-        *new++ = *orig++;
+	*new++ = *orig++;
       if (*orig == '/')
-        *new++ = *orig++;
+	*new++ = *orig++;
     }
   }
   *new = '\0';

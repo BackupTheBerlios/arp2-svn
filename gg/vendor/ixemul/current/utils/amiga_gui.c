@@ -110,7 +110,7 @@ struct NewGadget ixprefsNGad[] = {
 	4, 84, 162, 13, (UBYTE *)"Network support", NULL, GD_networking, PLACETEXT_RIGHT, NULL, (APTR)networkingClicked,
 	214, 70, 26, 11, (UBYTE *)"Create Enforcer hit on trap", NULL, GD_enforcerhit, PLACETEXT_RIGHT, NULL, (APTR)enforcerhitClicked,
 	4, 99, 162, 13, (UBYTE *)"Profiling method", NULL, GD_profilemethod, PLACETEXT_RIGHT, NULL, (APTR)profilemethodClicked,
-	4, 28, 26, 11, (UBYTE *)"Show stack usage", NULL, GD_stackusage, PLACETEXT_RIGHT, NULL, (APTR)stackusageClicked,
+	4, 28, 26, 11, (UBYTE *)"Check stack usage", NULL, GD_stackusage, PLACETEXT_RIGHT, NULL, (APTR)stackusageClicked,
 	310, 85, 26, 11, (UBYTE *)"Enable MuFS support", NULL, GD_mufs, PLACETEXT_RIGHT, NULL, (APTR)mufsClicked,
 	4, 117, 26, 11, (UBYTE *)"Enable advanced ixprefs options", NULL, GD_advanced, PLACETEXT_RIGHT, NULL, (APTR)advancedClicked
 };
@@ -198,10 +198,10 @@ void CloseDownScreen( void )
 
 int HandleixprefsIDCMP( void )
 {
-	struct IntuiMessage	*m;
-	struct MenuItem		*n;
-	int			(*func)();
-	BOOL			running = TRUE;
+	struct IntuiMessage     *m;
+	struct MenuItem         *n;
+	int                     (*func)();
+	BOOL                    running = TRUE;
 
 	while( m = GT_GetIMsg( ixprefsWnd->UserPort )) {
 
@@ -211,21 +211,21 @@ int HandleixprefsIDCMP( void )
 
 		switch ( ixprefsMsg.Class ) {
 
-			case	IDCMP_REFRESHWINDOW:
+			case    IDCMP_REFRESHWINDOW:
 				GT_BeginRefresh( ixprefsWnd );
 				GT_EndRefresh( ixprefsWnd, TRUE );
 				break;
 
-			case	IDCMP_CLOSEWINDOW:
+			case    IDCMP_CLOSEWINDOW:
 				running = ixprefsCloseWindow();
 				break;
 
-			case	IDCMP_GADGETUP:
+			case    IDCMP_GADGETUP:
 				func = ( void * )(( struct Gadget * )ixprefsMsg.IAddress )->UserData;
 				running = func();
 				break;
 
-			case	IDCMP_MENUPICK:
+			case    IDCMP_MENUPICK:
 				while( ixprefsMsg.Code != MENUNULL ) {
 					n = ItemAddress( ixprefsMenus, ixprefsMsg.Code );
 					func = (void *)(GTMENUITEM_USERDATA( n ));
@@ -240,10 +240,10 @@ int HandleixprefsIDCMP( void )
 
 int OpenixprefsWindow( void )
 {
-	struct NewGadget	ng;
-	struct Gadget	*g;
-	UWORD		lc, tc;
-	UWORD		wleft = ixprefsLeft, wtop = ixprefsTop, ww, wh;
+	struct NewGadget        ng;
+	struct Gadget   *g;
+	UWORD           lc, tc;
+	UWORD           wleft = ixprefsLeft, wtop = ixprefsTop, ww, wh;
 
 	ComputeFont( ixprefsWidth, ixprefsHeight );
 
@@ -285,18 +285,18 @@ int OpenixprefsWindow( void )
 	LayoutMenus( ixprefsMenus, VisualInfo, TAG_DONE );
 
 	if ( ! ( ixprefsWnd = OpenWindowTags( NULL,
-				WA_Left,	wleft,
-				WA_Top,		wtop,
-				WA_Width,	ww + OffX + Scr->WBorRight,
-				WA_Height,	wh + OffY + Scr->WBorBottom,
-				WA_IDCMP,	BUTTONIDCMP|CHECKBOXIDCMP|INTEGERIDCMP|CYCLEIDCMP|IDCMP_MENUPICK|IDCMP_CLOSEWINDOW|IDCMP_REFRESHWINDOW,
-				WA_Flags,	WFLG_DRAGBAR|WFLG_DEPTHGADGET|WFLG_CLOSEGADGET|WFLG_SMART_REFRESH|WFLG_ACTIVATE,
-				WA_Gadgets,	ixprefsGList,
-				WA_Title,	ixprefsWdt,
-				WA_ScreenTitle,	"ixprefs",
-				WA_PubScreen,	Scr,
-				WA_AutoAdjust,	TRUE,
-				WA_PubScreenFallBack,	TRUE,
+				WA_Left,        wleft,
+				WA_Top,         wtop,
+				WA_Width,       ww + OffX + Scr->WBorRight,
+				WA_Height,      wh + OffY + Scr->WBorBottom,
+				WA_IDCMP,       BUTTONIDCMP|CHECKBOXIDCMP|INTEGERIDCMP|CYCLEIDCMP|IDCMP_MENUPICK|IDCMP_CLOSEWINDOW|IDCMP_REFRESHWINDOW,
+				WA_Flags,       WFLG_DRAGBAR|WFLG_DEPTHGADGET|WFLG_CLOSEGADGET|WFLG_SMART_REFRESH|WFLG_ACTIVATE,
+				WA_Gadgets,     ixprefsGList,
+				WA_Title,       ixprefsWdt,
+				WA_ScreenTitle, "ixprefs",
+				WA_PubScreen,   Scr,
+				WA_AutoAdjust,  TRUE,
+				WA_PubScreenFallBack,   TRUE,
 				TAG_DONE )))
 	return( 4L );
 
@@ -311,7 +311,7 @@ void CloseixprefsWindow( void )
 	if ( ixprefsMenus      ) {
 		ClearMenuStrip( ixprefsWnd );
 		FreeMenus( ixprefsMenus );
-		ixprefsMenus = NULL;	}
+		ixprefsMenus = NULL;    }
 
 	if ( ixprefsWnd        ) {
 		CloseWindow( ixprefsWnd );

@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-
+#include <signal.h>
 #include <proto/dos.h>
 #include <utility/tagitem.h>
 #include <ix.h>
@@ -18,7 +18,7 @@ static void usage(void)
   exit(1);
 }
 
-main(int argc, char **argv)
+int main(int argc, char **argv)
 {
   char *p;
   long size, i, first_opt = 1, add_quotes = 2, debug = 0;
@@ -50,7 +50,7 @@ main(int argc, char **argv)
   p = malloc(size);
   if (p == NULL)
   {
-    fprintf(stderr, "couldn't allocate %d bytes\n", size);
+    fprintf(stderr, "couldn't allocate %ld bytes\n", size);
     exit(1);
   }
   strcpy(p, argv[first_opt]);
@@ -75,4 +75,5 @@ main(int argc, char **argv)
     sigsetmask(omask);
     exit(result);
   }
+  return 0;
 }

@@ -38,6 +38,16 @@
 #define _KERNEL
 #include "ixemul.h"
 
+#ifdef __pos__
+int
+__ix_wb_parse(struct Process *ThisProcess, struct WBStartup *WBenchMsg,
+	  char *default_wb_window)
+{
+  return 0;
+}
+
+#else
+
 #include <workbench/workbench.h>
 #include <workbench/startup.h>
 
@@ -47,23 +57,23 @@
 
 /* wb_parse():
  *
- *	A more or less decent rewrite of Manx' original
- *	wb_parse() routine which will do the following:
+ *      A more or less decent rewrite of Manx' original
+ *      wb_parse() routine which will do the following:
  *
- *	- if open_wb_window is zero no console window
- *	  will be opened.
+ *      - if open_wb_window is zero no console window
+ *        will be opened.
  *
- *	- if default_wb_window points to a valid string
- *	  it will be used to open the window.
+ *      - if default_wb_window points to a valid string
+ *        it will be used to open the window.
  *
- *	- if everything fails, read the icon file,
- *	  scan it for a "WINDOW" tool type and take
- *	  the corresponding tool type entry string
- *	  (somewhat primitive if compared to the Macintosh
- *	  way of doing it...).
+ *      - if everything fails, read the icon file,
+ *        scan it for a "WINDOW" tool type and take
+ *        the corresponding tool type entry string
+ *        (somewhat primitive if compared to the Macintosh
+ *        way of doing it...).
  *
- *	This routine will return TRUE if it was able to
- *	open an output file, FALSE otherwise.
+ *      This routine will return TRUE if it was able to
+ *      open an output file, FALSE otherwise.
  */
 
 int
@@ -71,8 +81,8 @@ __ix_wb_parse(struct Process *ThisProcess, struct WBStartup *WBenchMsg,
 	  char *default_wb_window)
 {
   struct Library *IconBase;
-  char	*WindowName = NULL;
-  int	fd = -1;
+  char  *WindowName = NULL;
+  int   fd = -1;
   usetup;
 
   /* Are we to open a console window? */
@@ -131,8 +141,8 @@ __ix_wb_parse(struct Process *ThisProcess, struct WBStartup *WBenchMsg,
 	    syscall (SYS_dup2, fd, NOFILE - 1);
 	    syscall (SYS_close, fd);
 
-            /* Apparently use of CONSOLE: gave problems with
-               Emacs, so we continue to use "*" instead. */
+	    /* Apparently use of CONSOLE: gave problems with
+	       Emacs, so we continue to use "*" instead. */
 	    fd = syscall (SYS_open, "*", 0);
 	    if (fd != -1)
 	      ThisProcess->pr_CIS = CTOBPTR (u.u_ofile[fd]->f_fh);
@@ -145,3 +155,4 @@ __ix_wb_parse(struct Process *ThisProcess, struct WBStartup *WBenchMsg,
   return FALSE;
 }
 
+#endif /* __pos__ */

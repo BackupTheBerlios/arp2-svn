@@ -89,7 +89,7 @@ _GetPathFromLock (BPTR lock, char *buffer, int buffer_length)
 	}
       else
 	{
-	  p = buffer + buffer_length - 1;	/* fix 20-jan-92 ## mw */
+	  p = buffer + buffer_length - 1;       /* fix 20-jan-92 ## mw */
 	  *p = '\0';
 	  if (next_fl == 0L)
 	    *--p = ':';
@@ -132,7 +132,7 @@ _get_pwd (char *buffer, int buffer_length)
       return buffer;
     }
 
-  proc = (struct Process *) FindTask (0L);
+  proc = (struct Process *) SysBase->ThisTask;
 
   /* Just return an empty string if this is not a process. */
 
@@ -161,12 +161,12 @@ returnit:
     {
       colon = index (result, ':');
       if (colon)
-        {
+	{
 	  *colon = '/';
-          result--;
-          result[0] = '/';
+	  result--;
+	  result[0] = '/';
 	  return result;
-        }
+	}
 
        bcopy (result, result - 1, strlen (result) + 1);
        return result - 1;

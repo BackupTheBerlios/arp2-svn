@@ -16,9 +16,15 @@
  *  License along with this library; if not, write to the Free
  *  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- *  $Id:$
+ *  $Id: set_errno.c,v 1.1.1.1 2000/05/07 19:37:46 emm Exp $
  *
- *  $Log:$
+ *  $Log: set_errno.c,v $
+ *  Revision 1.1.1.1  2000/05/07 19:37:46  emm
+ *  Imported sources
+ *
+ *  Revision 1.1.1.1  2000/04/29 00:44:40  nobody
+ *  Initial import
+ *
  *
  */
 
@@ -34,24 +40,24 @@ void set_errno(int *real_errno, int *real_h_errno)
     struct ixnet *p = (struct ixnet *)u.u_ixnet;
 
     if (p->u_networkprotocol == IX_NETWORK_AMITCP) {
-        struct TagItem ug_list[] = {
-            {UGT_INTRMASK, SIGBREAKB_CTRL_C},
-            {UGT_ERRNOPTR(sizeof(int)), (ULONG)real_errno},
-            {TAG_END}
-        };
+	struct TagItem ug_list[] = {
+	    {UGT_INTRMASK, SIGBREAKB_CTRL_C},
+	    {UGT_ERRNOPTR(sizeof(int)), (ULONG)real_errno},
+	    {TAG_END}
+	};
 
-        TCP_SetErrnoPtr(real_errno,sizeof(*real_errno));
-        ug_SetupContextTagList(p->u_progname, ug_list);
+	TCP_SetErrnoPtr(real_errno,sizeof(*real_errno));
+	ug_SetupContextTagList(p->u_progname, ug_list);
 
 	if (real_h_errno) {
-          struct TagItem tcp_list[] = {
-              { SBTM_SETVAL(SBTC_HERRNOLONGPTR), (ULONG)real_h_errno },
-              { TAG_END }
-          };
+	  struct TagItem tcp_list[] = {
+	      { SBTM_SETVAL(SBTC_HERRNOLONGPTR), (ULONG)real_h_errno },
+	      { TAG_END }
+	  };
 
 	  TCP_SocketBaseTagList(tcp_list);
 	}
     }
     else /*if (p->u_networkprotocol == IX_NETWORK_AS225) */
-        SOCK_setup_sockets(128,real_errno);
+	SOCK_setup_sockets(128,real_errno);
 }

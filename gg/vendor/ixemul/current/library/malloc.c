@@ -63,15 +63,15 @@
 
 struct mem_block {
   struct ixnode    node;
-  u_int		   size;
-  u_int		   magic[2];
-  u_int		   realblock[1];
+  u_int            size;
+  u_int            magic[2];
+  u_int            realblock[1];
   /* realblock should really be [0], and at the end we'd have a magic2[1] */
 };
 
 struct memalign_ptr {
-  u_char	magic;
-  u_int		alignment:24;
+  u_char        magic;
+  u_int         alignment:24;
 };
 
 #define MEMALIGN_MAGIC 0xdd
@@ -84,6 +84,7 @@ malloc (size_t size)
 {
   usetup;
   struct mem_block *res;
+  int omask;
 
   /* We increase SIZE below which could cause an dangerous (system
      crash) overflow. -bw/09-Jun-98 */
@@ -93,6 +94,9 @@ malloc (size_t size)
   /* guarantee long sizes (so we can use CopyMemQuick in realloc) */
   size = (size + 3) & ~3; /* next highest multiple of 4 */
   
+  /* we don't want to be interrupted between the allocation and the tracking */
+  omask = syscall (SYS_sigsetmask, ~0);
+
   /* include management information */
   res = (struct mem_block *) b_alloc(size + sizeof (struct mem_block), 0); /* not MEMF_PUBLIC ! */
   
@@ -103,14 +107,16 @@ malloc (size_t size)
       *lp++ = MAGIC1; *lp++ = MAGIC1;
       lp = (u_int *)((u_char *)lp + size);
       *lp++ = MAGIC2; 
-      
+
       Forbid ();
       ixaddtail ((struct ixlist *)&mem_list, (struct ixnode *)res);
       Permit ();
+      syscall (SYS_sigsetmask, omask);
 
       mem_used += size;
       return &res->realblock;
     }
+  syscall (SYS_sigsetmask, omask);
   return 0;
 }
 
@@ -149,6 +155,7 @@ free (void *mem)
 {
   struct mem_block *block;
   u_int *end_magic;
+  int omask;
   usetup;
 
   /* this seems to be standard... don't like it though ! */
@@ -179,12 +186,16 @@ free (void *mem)
       syscall (SYS_exit, 20);
     }
 
+  /* we don't want to be interrupted between unlinking the block and freeing it */
+  omask = syscall (SYS_sigsetmask, ~0);
+
   Forbid ();
   ixremove ((struct ixlist *)&mem_list, (struct ixnode *) block);
   Permit ();
 
   mem_used -= block->size;
   b_free(block, block->size + sizeof (struct mem_block));
+  syscall (SYS_sigsetmask, omask);
 }
 
 
@@ -264,9 +275,10 @@ realloc (void *mem, size_t size)
       res = (void *) malloc (size);
       if (res)
 	{
+	  int omask = syscall (SYS_sigsetmask, ~0);
 	  Forbid ();
-          ixremove ((struct ixlist *)&mem_list, (struct ixnode *) block);
-          Permit ();
+	  ixremove ((struct ixlist *)&mem_list, (struct ixnode *) block);
+	  Permit ();
 
 	  CopyMemQuick (mem, res, block->size);
 
@@ -274,6 +286,7 @@ realloc (void *mem, size_t size)
 	   * freed, if the allocation of the new buffer was successful */
 	  mem_used -= block->size;
 	  b_free(block, block->size + sizeof (struct mem_block));
+	  syscall (SYS_sigsetmask, omask);
 	}
     }
 
