@@ -4,6 +4,7 @@
 // Windows keymap codes:
 // rdesktop-*/doc/keymap-names.txt
 // http://www.science.co.il/Language/Locale-Codes.asp
+// http://www.statoids.com/wab.html
 
 struct ContryCodes amiga_country_codes[] = {
 { "Albania",		"ALB",	"AL",	"AL",	"",	"Albanian",			0x41c,	1250 },
