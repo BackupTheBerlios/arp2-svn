@@ -14,6 +14,7 @@ bool glgfx_create_monitors(void) {
   char name[8];
   int display;
   int screen;
+  struct glgfx_monitor* friend = NULL;
   
   glgfx_destroy_monitors();
 
@@ -23,7 +24,7 @@ bool glgfx_create_monitors(void) {
     for (screen = 0; num_monitors < max_monitors; ++screen) {
       sprintf(name, ":%d.%d", display, screen);
 
-      monitors[num_monitors] = glgfx_monitor_create(name);
+      monitors[num_monitors] = glgfx_monitor_create(name, friend);
 
       if (monitors[num_monitors] == NULL) {
 	if (errno == ENXIO) {
@@ -33,6 +34,8 @@ bool glgfx_create_monitors(void) {
 	  continue;
 	}
       }
+
+      friend = monitors[num_monitors];
 
       int i;
       for (i = 0; i < 160; ++i) {
@@ -94,14 +97,15 @@ bool glgfx_waittof(int monitor) {
 
   return rc;
 }
-
+void glDeleteFramebuffersEXT(GLsizei n, GLuint *framebuffers);
+void glGenFramebuffersEXT(GLsizei n, GLuint *ids);
 
 int main(int argc, char** argv) {
   // If unset, sync to vblank as default (nvidia driver)
   setenv("__GL_SYNC_TO_VBLANK", "1", False);
 /*   if (glopen()) { */
     if (glgfx_create_monitors()) {
-
+      
       glgfx_destroy_monitors();
     }
 /*   } */

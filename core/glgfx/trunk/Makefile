@@ -4,7 +4,7 @@ CFLAGS		= -O2 -pthread
 LDLIBS		= -L/usr/X11R6/lib -lX11 -lXxf86vm -lXext -ldl -lGL
 LDFLAGS		= -pthread 
 
-GLGFX_OBJECTS	= glgfx.o glgfx_monitor.o
+GLGFX_OBJECTS	= glgfx.o glgfx_monitor.o glgfx_bitmap.o
 GLGFX_TARGET	= glgfx
 
 OBJECTS		= $(GLGFX_OBJECTS)
@@ -13,7 +13,12 @@ TARGETS		= $(GLGFX_TARGET)
 all:		$(TARGETS)
 
 clean:
-	$(RM) $(TARGETS) $(OBJECTS)
+	$(RM) $(TARGETS) $(OBJECTS) Makefile.dep
+
+Makefile.dep:	$(GLGFX_OBJECTS:%.o=%.c)
+	@$(CC) -MM $^ > $@
+
+include Makefile.dep
 
 $(GLGFX_TARGET):	$(GLGFX_OBJECTS)
 	$(CC) $(LDFLAGS) $^ $(LDLIBS) $(OUTPUT_OPTION)

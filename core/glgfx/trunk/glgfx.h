@@ -21,6 +21,11 @@
 # define D(x)
 #endif
 
+enum glgfx_pixel_format {
+  glgfx_pixel_r8g8b8,
+  glgfx_pixel_r8g8b8a8
+};
+
 bool glgfx_create_monitors(void);
 void glgfx_destroy_monitors(void);
 

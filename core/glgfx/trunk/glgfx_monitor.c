@@ -13,7 +13,8 @@
   ({ int _attrs[] = { tag1 }; glXChooseVisual((d), (s), _attrs); })
 
 
-struct glgfx_monitor* glgfx_monitor_create(char const*  display_name) {
+struct glgfx_monitor* glgfx_monitor_create(char const*  display_name,
+					   struct glgfx_monitor const* friend) {
   struct glgfx_monitor* monitor;
   sigjmp_buf jmpbuf;
   void* oldhandler;
@@ -165,7 +166,9 @@ struct glgfx_monitor* glgfx_monitor_create(char const*  display_name) {
   }
 
   monitor->context = glXCreateContext(monitor->display,
-				      vinfo, NULL, True);
+				      vinfo,
+				      friend != NULL ? friend->context : NULL,
+				      True);
 
   if (monitor->context == NULL) {
     BUG("Unable to create a GL context for window on display %s!\n",
