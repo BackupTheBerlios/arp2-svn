@@ -32,8 +32,10 @@
 
 #include <hardware/custom.h>
 #include <hardware/dmabits.h>
+#include <hardware/intbits.h>
 
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "PUH.h"
 
@@ -45,20 +47,48 @@ struct Library* AHIBase = NULL;
 struct Library* MMUBase = NULL;
 
 
+
 static BOOL 
 OpenAHI( void );
 
 static void 
 CloseAHI( void );
 
-void
+static void
 Test( struct Custom* custom );
 
+void __chkabort( void )
+{
+  // Disable automatic ctrl-c handling
+}
 
 int
-main( void )
+main( int   argc,
+      char* argv[] )
 {
-  int rc = 0;
+  int   rc = 0;
+  ULONG mode_id;
+  ULONG frequency;
+
+  char* mode_ptr;
+  char* freq_ptr;
+
+  if( argc != 3 )
+  {
+    printf( "Usage: %s [0x]<AHI mode ID> <Frequency>\n", argv[ 0 ] );
+    return 20;
+  }
+
+  mode_id   = strtol( argv[ 1 ], &mode_ptr, 0 );
+  frequency = strtol( argv[ 2 ], &freq_ptr, 0 );
+
+  if( *mode_ptr != 0 || *freq_ptr != 0 )
+  {
+    printf( "Both first and second argument must be a number.\n" );
+    return 20;
+  }
+
+  printf( "Using mode ID 0x%08lx, %ld Hz.\n", mode_id, frequency );
 
   DOSBase = (struct DosLibrary*) OpenLibrary( "dos.library", 37 );
   MMUBase = OpenLibrary( "mmu.library", 41 );
@@ -94,7 +124,7 @@ main( void )
     else
     {
       if( ! InstallPUH( PUHF_PATCH_ROM, 
-                        0x1f0001, 22050,
+                        mode_id, frequency,
                         pd ) )
       {
         rc = 20;
@@ -150,10 +180,38 @@ BYTE samples[] =
 ** Test ***********************************************************************
 ******************************************************************************/
 
-void
+ASMCALL SAVEDS static void
+TestInt( REG( d1, UWORD           active_ints ),
+         REG( a0, struct Custom*  custom ),
+         REG( a1, ULONG           data ),
+         REG( a5, void*           me ),
+         REG( a6, struct ExecBase* SysBase ) )
+{
+  KPrintF( "TestInt: active_ints=%04lx, custom=%08lx, "
+           "data=%08lx, me=%08lx, SysBase=%08lx\n",
+           active_ints, custom, data, me, SysBase );
+
+  // Clear interrupts
+  WriteWord( &custom->intreq, INTF_AUD0 | INTF_AUD1 | INTF_AUD2 | INTF_AUD3 ); 
+}
+
+
+static void
 Test( struct Custom* custom )
 {
-  void* chip;
+  void*             chip = NULL;
+  struct Interrupt* old  = NULL;
+  struct Interrupt  new  =
+  {
+    {
+      NULL, NULL,
+      NT_INTERRUPT,
+      0,
+      "Nalle PUH audio test interrupt"
+    },
+    0xdeadc0de,
+    (void(*)(void)) TestInt
+  };
 
   printf( "Testing with custom set to 0x%08lx\n", (ULONG) custom );
 
@@ -161,16 +219,36 @@ Test( struct Custom* custom )
 
   CopyMem( samples, chip, sizeof( samples ) );
 
-  WriteLong( (ULONG*) &custom->aud[ 0 ].ac_ptr, (ULONG) chip );
-  WriteWord( (UWORD*) &custom->aud[ 0 ].ac_len, sizeof( samples ) / 2 );
-  WriteWord( (UWORD*) &custom->aud[ 0 ].ac_per, 447 );
-  WriteWord( (UWORD*) &custom->aud[ 0 ].ac_vol, 64 );
+  old = SetIntVector( INTB_AUD0, &new );
 
-  WriteWord( (UWORD*) &custom->dmacon, DMAF_SETCLR | DMAF_AUD0 | DMAF_MASTER );
+  WriteLong( &custom->aud[ 0 ].ac_ptr, (ULONG) chip );
+  WriteWord( &custom->aud[ 0 ].ac_len, sizeof( samples ) / 2 );
+  WriteWord( &custom->aud[ 0 ].ac_per, 447 );
+  WriteWord( &custom->aud[ 0 ].ac_vol, 64 );
+
+  WriteWord( &custom->dmacon, DMAF_SETCLR | DMAF_AUD0 | DMAF_MASTER );
 
   Delay( 50 );
 
-  WriteWord( (UWORD*) &custom->dmacon, DMAF_AUD0 );
+  // No-op
+  WriteWord( &custom->aud[0].ac_dat, 0xdead );
+
+  // Delayed
+  WriteWord( &custom->dmacon, DMAF_AUD0 );
+  WriteWord( &custom->aud[0].ac_dat, 0xcafe );
+
+  // Invoke
+  WriteWord( &custom->intena, INTF_SETCLR | INTF_AUD0 );
+
+  Delay( 10 );
+
+  // Invoke directly
+  WriteWord( &custom->aud[0].ac_dat, 0xc0de );
+
+  // Restore
+  WriteWord( &custom->intena, INTF_AUD0 );
+
+  SetIntVector( INTB_AUD0, old );
 
   FreeVec( chip );
 }
