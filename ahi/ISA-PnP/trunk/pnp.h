@@ -30,7 +30,10 @@
 struct ISAPNPBase;
 
 BOOL ASMCALL
-PNPISA_ConfigureCards( REG( a6, struct ISAPNPBase* res ) );
+ISAPNP_ScanCards( REG( a6, struct ISAPNPBase* res ) );
+
+BOOL ASMCALL
+ISAPNP_ConfigureCards( REG( a6, struct ISAPNPBase* res ) );
 
 
 #endif /* ISA_PNP_controller_h */

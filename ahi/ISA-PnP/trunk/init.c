@@ -194,18 +194,28 @@ KPrintF( "Congiguring.\n" );
             res->m_ConfigDev   = cd;
 
 
-            if( ! PNPISA_ConfigureCards( res ) )
+            if( ! ISAPNP_ScanCards( res ) )
             {
-              // Unable to configure cards
+              // No cards found
 
-KPrintF( "Unable to configure cards.\n" );
+KPrintF( "No cards found.\n" );
             }
             else
             {
-              cd->cd_Flags  &= ~CDF_CONFIGME;
-              cd->cd_Driver  = res;
+              if( ! ISAPNP_ConfigureCards( res ) )
+              {
+                // Unable to configure cards
 
-              ISAPNPBase = res;
+KPrintF( "Unable to configure cards.\n" );
+              }
+              else
+              {
+
+                cd->cd_Flags  &= ~CDF_CONFIGME;
+                cd->cd_Driver  = res;
+
+                ISAPNPBase = res;
+              }
             }
           }
         }

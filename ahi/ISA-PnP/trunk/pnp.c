@@ -35,6 +35,7 @@
 #include "controller.h"
 #include "init.h"
 #include "pnp.h"
+#include "pnp_iterators.h"
 #include "pnp_structs.h"
 
 /******************************************************************************
@@ -276,18 +277,20 @@ ReadResourceData( struct ISAPNP_Card* card,
         struct ISAPNP_Identifier* id;
         UBYTE                     buf[ 4 ];
 
-        dev = PNPISA_AllocDevice( res );
+        dev = ISAPNP_AllocDevice( res );
         
         if( dev == NULL )
         {
           break;
         }
 
+        dev->m_Card = card;
+
         id  = AllocVec( sizeof( *id ), MEMF_PUBLIC | MEMF_CLEAR );
         
         if( id == NULL )
         {
-          PNPISA_FreeDevice( dev, res );
+          ISAPNP_FreeDevice( dev, res );
           dev = NULL;
           break;
         }
@@ -302,7 +305,7 @@ ReadResourceData( struct ISAPNP_Card* card,
         if( ! DecodeID( buf, id ) )
         {
           FreeVec( id );
-          PNPISA_FreeDevice( dev, res );
+          ISAPNP_FreeDevice( dev, res );
           dev = NULL;
           break;
         }
@@ -368,7 +371,7 @@ ReadResourceData( struct ISAPNP_Card* card,
         struct ISAPNP_IRQResource* r;
         
         r = (struct ISAPNP_IRQResource*) 
-            PNPISA_AllocResource( ISAPNP_NT_IRQ_RESOURCE, res );
+            ISAPNP_AllocResource( ISAPNP_NT_IRQ_RESOURCE, res );
             
         if( r == NULL )
         {
@@ -400,7 +403,7 @@ ReadResourceData( struct ISAPNP_Card* card,
         struct ISAPNP_DMAResource* r;
         
         r = (struct ISAPNP_DMAResource*) 
-            PNPISA_AllocResource( ISAPNP_NT_DMA_RESOURCE, res );
+            ISAPNP_AllocResource( ISAPNP_NT_DMA_RESOURCE, res );
             
         if( r == NULL )
         {
@@ -448,7 +451,7 @@ ReadResourceData( struct ISAPNP_Card* card,
             break;
         }
         
-        rg = PNPISA_AllocResourceGroup( pri, res );
+        rg = ISAPNP_AllocResourceGroup( pri, res );
         
         if( rg == NULL )
         {
@@ -484,7 +487,7 @@ ReadResourceData( struct ISAPNP_Card* card,
         struct ISAPNP_IOResource* r;
         
         r = (struct ISAPNP_IOResource*) 
-            PNPISA_AllocResource( ISAPNP_NT_IO_RESOURCE, res );
+            ISAPNP_AllocResource( ISAPNP_NT_IO_RESOURCE, res );
             
         if( r == NULL )
         {
@@ -515,7 +518,7 @@ ReadResourceData( struct ISAPNP_Card* card,
         struct ISAPNP_IOResource* r;
         
         r = (struct ISAPNP_IOResource*) 
-            PNPISA_AllocResource( ISAPNP_NT_IO_RESOURCE, res );
+            ISAPNP_AllocResource( ISAPNP_NT_IO_RESOURCE, res );
             
         if( r == NULL )
         {
@@ -651,7 +654,7 @@ AddCards( UBYTE              rd_data_port_value,
     SetPnPReg( PNPISA_REG_SET_RD_DATA_PORT, rd_data_port_value, res );
     res->m_RegReadData = rd_data_port_value;
 
-    card = PNPISA_AllocCard( res );
+    card = ISAPNP_AllocCard( res );
 
     if( card == NULL )
     {
@@ -675,12 +678,12 @@ AddCards( UBYTE              rd_data_port_value,
       }
       else
       {
-        PNPISA_FreeCard( card, res );
+        ISAPNP_FreeCard( card, res );
       }
     }
     else
     {
-      PNPISA_FreeCard( card, res );
+      ISAPNP_FreeCard( card, res );
 
       break;
     }
@@ -691,7 +694,7 @@ AddCards( UBYTE              rd_data_port_value,
 
 
 /******************************************************************************
-** Configure all cards in the database ****************************************
+** Prints information about all cards on a serial port terminal ***************
 ******************************************************************************/
 
 static void
@@ -930,13 +933,14 @@ ShowCards( struct ISAPNPBase* res )
 
 
 /******************************************************************************
-** Configure all cards ********************************************************
+** Scan for all PNP ISA cards *************************************************
 ******************************************************************************/
 
 BOOL ASMCALL
-PNPISA_ConfigureCards( REG( a6, struct ISAPNPBase* res ) )
+ISAPNP_ScanCards( REG( a6, struct ISAPNPBase* res ) )
 {
   int read_port_value;
+  int cards = 0;
  
   SendInitiationKey( res );
 
@@ -950,13 +954,15 @@ PNPISA_ConfigureCards( REG( a6, struct ISAPNPBase* res ) )
        read_port_value <= 0xff; 
        read_port_value += 0x10 )
   {
-    if( AddCards( read_port_value, res ) > 0 )
+    cards = AddCards( read_port_value, res );
+
+    if( cards > 0 )
     {
       break;
     }
   }
 
-  if( res->m_Cards.lh_Head->ln_Succ == NULL )
+  if( cards == 0 )
   {
     KPrintF( "Failed to find PNP ISA cards\n" );
   }
@@ -973,5 +979,140 @@ PNPISA_ConfigureCards( REG( a6, struct ISAPNPBase* res ) )
              PNPISA_CCF_RESET_CSN,
              res );
 
-  return TRUE;
+  return cards != 0;
+}
+
+
+/******************************************************************************
+** Configure all cards ********************************************************
+******************************************************************************/
+
+
+static BOOL
+FindNextCardConfiguration( struct ISAPNP_Device* dev,
+                           struct ISAPNPBase*    res );
+
+
+static BOOL
+FindConfiguration( struct ISAPNP_Device* dev,
+                   struct ISAPNPBase*    res )
+{
+  BOOL rc = FALSE;
+
+  struct ISAPNP_ResourceGroup* rg;
+  struct ResourceIteratorList* ril = NULL;
+
+
+  ril = AllocResourceIteratorList( &dev->m_Options->m_Resources );
+
+  if( ril != NULL )
+  {
+    BOOL ril_iter_ok = TRUE;
+
+    while( ! rc && ril_iter_ok )
+    {
+      if( dev->m_Options->m_ResourceGroups.mlh_Head->mln_Succ != NULL )
+      {
+        // Handle resource options as well
+
+        for( rg = (struct ISAPNP_ResourceGroup*) 
+                  dev->m_Options->m_ResourceGroups.mlh_Head;
+             rg->m_MinNode.mln_Succ != NULL;
+             rg = (struct ISAPNP_ResourceGroup*) rg->m_MinNode.mln_Succ )
+        {
+          struct ResourceIteratorList* ril_option = NULL;
+
+          ril_option = AllocResourceIteratorList( &rg->m_Resources );
+
+          if( ril_option != NULL )
+          {
+
+            FreeResourceIteratorList( ril_option );
+          }
+
+        }
+      }
+      else
+      {
+        // Fixed resources only
+        
+        rc = FindNextCardConfiguration( dev, res );
+      }
+
+      if( ! rc )
+      {
+        ril_iter_ok = IncResourceIteratorList( ril );
+      }
+    }
+  }
+
+  FreeResourceIteratorList( ril );
+  
+  return rc;
+}
+
+
+static BOOL
+FindNextCardConfiguration( struct ISAPNP_Device* dev,
+                           struct ISAPNPBase*    res )
+{
+  BOOL rc = FALSE;
+
+  // Configure next logical device, if any
+
+  if( dev->m_Node.ln_Succ->ln_Succ != NULL )
+  {
+    // Same card, next device
+    rc = FindConfiguration( (struct ISAPNP_Device*) dev->m_Node.ln_Succ, res );
+  }
+  else 
+  {
+    struct ISAPNP_Card* next_card = (struct ISAPNP_Card*) 
+                                    dev->m_Card->m_Node.ln_Succ;
+
+    if( next_card->m_Node.ln_Succ != NULL &&
+        next_card->m_Devices.lh_Head->ln_Succ != NULL )
+        
+    {
+      rc = FindConfiguration( (struct ISAPNP_Device*)
+                              next_card->m_Devices.lh_Head, res );
+    }
+    else
+    {
+      // This was the last device on the last card!
+      
+      rc = TRUE;
+    }
+  }
+
+  return rc;
+}
+
+
+BOOL ASMCALL
+ISAPNP_ConfigureCards( REG( a6, struct ISAPNPBase* res ) )
+{
+  BOOL rc = FALSE;
+
+  struct ISAPNP_Card* card;
+
+  card = (struct ISAPNP_Card*) res->m_Cards.lh_Head;
+
+  // Check for non-empty card list and a non-empty device list
+
+  if( card->m_Node.ln_Succ != NULL )
+  {
+    struct ISAPNP_Device* dev;
+    
+    dev = (struct ISAPNP_Device*) card->m_Devices.lh_Head;
+    
+    if( dev->m_Node.ln_Succ != NULL )
+    {
+      rc = FindConfiguration( dev, res );
+      KPrintF( "FindConfiguration: %ld\n", rc );
+      rc = TRUE;
+    }
+  }
+
+  return rc;
 }

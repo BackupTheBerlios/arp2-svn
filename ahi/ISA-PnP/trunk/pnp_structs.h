@@ -35,36 +35,36 @@ struct ISAPNP_ResourceGroup;
 struct ISAPNP_Resource;
 
 struct ISAPNP_Card* ASMCALL
-PNPISA_AllocCard( REG( a6, struct ISAPNPBase* res ) );
+ISAPNP_AllocCard( REG( a6, struct ISAPNPBase* res ) );
 
 void ASMCALL
-PNPISA_FreeCard( REG( a0, struct ISAPNP_Card* card ),
+ISAPNP_FreeCard( REG( a0, struct ISAPNP_Card* card ),
                  REG( a6, struct ISAPNPBase*  res ) );
 
 
 struct ISAPNP_Device* ASMCALL
-PNPISA_AllocDevice( REG( a6, struct ISAPNPBase* res ) );
+ISAPNP_AllocDevice( REG( a6, struct ISAPNPBase* res ) );
 
 void ASMCALL
-PNPISA_FreeDevice( REG( a0, struct ISAPNP_Device* dev ),
+ISAPNP_FreeDevice( REG( a0, struct ISAPNP_Device* dev ),
                    REG( a6, struct ISAPNPBase*    res ) );
 
 
 struct ISAPNP_ResourceGroup* ASMCALL
-PNPISA_AllocResourceGroup( REG( d0, UBYTE              pri ),
+ISAPNP_AllocResourceGroup( REG( d0, UBYTE              pri ),
                            REG( a6, struct ISAPNPBase* res ) );
 
 void ASMCALL
-PNPISA_FreeResourceGroup( REG( a0, struct ISAPNP_ResourceGroup* rg ),
+ISAPNP_FreeResourceGroup( REG( a0, struct ISAPNP_ResourceGroup* rg ),
                           REG( a6, struct ISAPNPBase*           res ) );
 
 
 struct ISAPNP_Resource* ASMCALL
-PNPISA_AllocResource( REG( d0, UBYTE              type ),
+ISAPNP_AllocResource( REG( d0, UBYTE              type ),
                       REG( a6, struct ISAPNPBase* res ) );
 
 void ASMCALL
-PNPISA_FreeResource( REG( a0, struct ISAPNP_Resource* r ),
+ISAPNP_FreeResource( REG( a0, struct ISAPNP_Resource* r ),
                      REG( a6, struct ISAPNPBase*      res ) );
 
 

@@ -62,7 +62,7 @@ ResourceEntry( void )
 
     while( ( card = (struct ISAPNP_Card*) RemHead( &ISAPNPBase->m_Cards ) ) )
     {
-      PNPISA_FreeCard( card, ISAPNPBase );
+      ISAPNP_FreeCard( card, ISAPNPBase );
     }
 
     ISAPNPBase->m_ConfigDev->cd_Flags  |= CDF_CONFIGME;

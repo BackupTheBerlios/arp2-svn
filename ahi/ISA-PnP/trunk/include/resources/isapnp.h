@@ -14,9 +14,12 @@
 #include <exec/lists.h>
 #include <exec/nodes.h>
 
+/*** The name of the exec resource *******************************************/
+
 #define ISAPNPNAME "isapnp.resource"
 
-/* Node types */
+
+/*** Node types **************************************************************/
 
 #define ISAPNP_NT_CARD            ( NT_USER - 1 )
 #define ISAPNP_NT_DEVICE          ( NT_USER - 2 )
@@ -26,13 +29,7 @@
 #define ISAPNP_NT_IO_RESOURCE     ( NT_USER - 6 )
 #define ISAPNP_NT_MEMORY_RESOURCE ( NT_USER - 7 )
 
-/* Priorities for PNPISA_AllocResourceGroup() */
-
-#define ISAPNP_RG_PRI_GOOD        64
-#define ISAPNP_RG_PRI_ACCEPTABLE  0
-#define ISAPNP_RG_PRI_SUBOPTIMAL  -64
-
-/* A unique identifier for a card or logical device */
+/*** A unique identifier for a card or logical device ************************/
 
 struct ISAPNP_Identifier
 {
@@ -44,7 +41,7 @@ struct ISAPNP_Identifier
 };
 
 
-/* A PNP ISA card */
+/*** A PNP ISA card **********************************************************/
 
 struct ISAPNP_Card
 {
@@ -64,14 +61,17 @@ struct ISAPNP_Card
   UBYTE                    m_VendorPnPVersion;
 };
 
-struct ISAPNP_ResourceGroup;
 
-/* A logical device on an ISA card */
+/*** A logical device on an ISA card *****************************************/
+
+struct ISAPNP_ResourceGroup;
 
 struct ISAPNP_Device
 {
   struct Node                  m_Node;
   UWORD       	               m_Pad1;
+
+  struct ISAPNP_Card*          m_Card;
   
   struct MinList               m_IDs;
   struct ISAPNP_ResourceGroup* m_Options;
@@ -87,7 +87,7 @@ struct ISAPNP_Device
 #define ISAPNP_DEVICE_SCB_BOOTABLE 0
 
 
-/* A resource group */
+/*** A resource group ********************************************************/
 
 struct ISAPNP_ResourceGroup
 {
@@ -101,8 +101,14 @@ struct ISAPNP_ResourceGroup
   struct MinList m_ResourceGroups;
 };
 
+/* Priorities for m_Pri and PNPISA_AllocResourceGroup() */
 
-/* An resource (the "base class") */
+#define ISAPNP_RG_PRI_GOOD        64
+#define ISAPNP_RG_PRI_ACCEPTABLE  0
+#define ISAPNP_RG_PRI_SUBOPTIMAL  -64
+
+
+/*** An resource (the "base class") ******************************************/
 
 struct ISAPNP_Resource
 {
@@ -111,7 +117,7 @@ struct ISAPNP_Resource
 };
 
 
-/* An IRQ resource */
+/*** An IRQ resource *********************************************************/
 
 struct ISAPNP_IRQResource
 {
@@ -133,7 +139,8 @@ struct ISAPNP_IRQResource
 #define ISAPNP_IRQRESOURCE_ITB_HIGH_LEVEL 2
 #define ISAPNP_IRQRESOURCE_ITB_LOW_LEVEL  3
 
-/* A DMA resource */
+
+/*** A DMA resource **********************************************************/
 
 struct ISAPNP_DMAResource
 {
@@ -165,7 +172,7 @@ struct ISAPNP_DMAResource
 #define ISAPNP_DMARESOURCE_F_SPEED_TYPE_F     0x60
 
 
-/* An IO resource */
+/*** An IO resource **********************************************************/
 
 struct ISAPNP_IOResource
 {

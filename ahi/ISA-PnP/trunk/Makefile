@@ -14,7 +14,8 @@ CFLAGS		= -m68020-60 -mnobitfield -fomit-frame-pointer \
 LDFLAGS		= -noixemul -nostartfiles
 LIBS		= 
 
-OBJECTS		= main.o init.o controller.o pnp.o pnp_structs.o
+OBJECTS		= main.o init.o controller.o pnp.o \
+		  pnp_structs.o pnp_iterators.o
 TARGET		= ISA-PnP
 
 

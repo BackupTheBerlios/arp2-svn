@@ -40,7 +40,7 @@
 // You should set m_Node.ln_Name. Allocate the string with AllocVec()!
 
 struct ISAPNP_Card* ASMCALL
-PNPISA_AllocCard( REG( a6, struct ISAPNPBase* res ) )
+ISAPNP_AllocCard( REG( a6, struct ISAPNPBase* res ) )
 {
   struct ISAPNP_Card* card;
 
@@ -61,7 +61,7 @@ PNPISA_AllocCard( REG( a6, struct ISAPNPBase* res ) )
 ******************************************************************************/
 
 void ASMCALL
-PNPISA_FreeCard( REG( a0, struct ISAPNP_Card* card ),
+ISAPNP_FreeCard( REG( a0, struct ISAPNP_Card* card ),
                  REG( a6, struct ISAPNPBase*  res ) )
 {
   struct ISAPNP_Device* dev;
@@ -77,7 +77,7 @@ PNPISA_FreeCard( REG( a0, struct ISAPNP_Card* card ),
 
   while( ( dev = (struct ISAPNP_Device*) RemHead( &card->m_Devices ) ) )
   {
-    PNPISA_FreeDevice( dev, res );
+    ISAPNP_FreeDevice( dev, res );
   }
 
   if( card->m_Node.ln_Name != NULL )
@@ -96,7 +96,7 @@ PNPISA_FreeCard( REG( a0, struct ISAPNP_Card* card ),
 // You should set m_Node.ln_Name. Allocate the string with AllocVec()!
 
 struct ISAPNP_Device* ASMCALL
-PNPISA_AllocDevice( REG( a6, struct ISAPNPBase* res ) )
+ISAPNP_AllocDevice( REG( a6, struct ISAPNPBase* res ) )
 {
   struct ISAPNP_Device* dev;
 
@@ -108,11 +108,11 @@ PNPISA_AllocDevice( REG( a6, struct ISAPNPBase* res ) )
 
     NewList( (struct List*) &dev->m_IDs );
     
-    dev->m_Options = PNPISA_AllocResourceGroup( ISAPNP_RG_PRI_GOOD, res );
+    dev->m_Options = ISAPNP_AllocResourceGroup( ISAPNP_RG_PRI_GOOD, res );
     
     if( dev->m_Options == NULL )
     {
-      PNPISA_FreeDevice( dev, res );
+      ISAPNP_FreeDevice( dev, res );
       dev = NULL;
     }
     
@@ -128,7 +128,7 @@ PNPISA_AllocDevice( REG( a6, struct ISAPNPBase* res ) )
 ******************************************************************************/
 
 void ASMCALL
-PNPISA_FreeDevice( REG( a0, struct ISAPNP_Device* dev ),
+ISAPNP_FreeDevice( REG( a0, struct ISAPNP_Device* dev ),
                    REG( a6, struct ISAPNPBase*    res ) )
 {
   struct ISAPNP_Identifier* id;
@@ -152,12 +152,12 @@ PNPISA_FreeDevice( REG( a0, struct ISAPNP_Device* dev ),
     FreeVec( id );
   }
 
-  PNPISA_FreeResourceGroup( dev->m_Options, res );
+  ISAPNP_FreeResourceGroup( dev->m_Options, res );
 
   while( ( r = (struct ISAPNP_Resource*) 
                RemHead( (struct List*) &dev->m_Resources ) ) )
   {
-    PNPISA_FreeResource( r, res );
+    ISAPNP_FreeResource( r, res );
   }
 
 
@@ -175,7 +175,7 @@ PNPISA_FreeDevice( REG( a0, struct ISAPNP_Device* dev ),
 ******************************************************************************/
 
 struct ISAPNP_ResourceGroup* ASMCALL
-PNPISA_AllocResourceGroup( REG( d0, UBYTE              pri ),
+ISAPNP_AllocResourceGroup( REG( d0, UBYTE              pri ),
                            REG( a6, struct ISAPNPBase* res ) )
 {
   struct ISAPNP_ResourceGroup* rg;
@@ -200,7 +200,7 @@ PNPISA_AllocResourceGroup( REG( d0, UBYTE              pri ),
 ******************************************************************************/
 
 void ASMCALL
-PNPISA_FreeResourceGroup( REG( a0, struct ISAPNP_ResourceGroup* rg ),
+ISAPNP_FreeResourceGroup( REG( a0, struct ISAPNP_ResourceGroup* rg ),
                           REG( a6, struct ISAPNPBase*           res ) )
 {
   struct ISAPNP_ResourceGroup* child_rg;
@@ -216,13 +216,13 @@ PNPISA_FreeResourceGroup( REG( a0, struct ISAPNP_ResourceGroup* rg ),
   while( ( r = (struct ISAPNP_Resource*) 
                RemHead( (struct List*) &rg->m_Resources ) ) )
   {
-    PNPISA_FreeResource( r, res );
+    ISAPNP_FreeResource( r, res );
   }
 
   while( ( child_rg = (struct ISAPNP_ResourceGroup*) 
                       RemHead( (struct List*) &rg->m_ResourceGroups ) ) )
   {
-    PNPISA_FreeResourceGroup( child_rg, res );
+    ISAPNP_FreeResourceGroup( child_rg, res );
   }
 
   FreeVec( rg );
@@ -234,7 +234,7 @@ PNPISA_FreeResourceGroup( REG( a0, struct ISAPNP_ResourceGroup* rg ),
 ******************************************************************************/
 
 struct ISAPNP_Resource* ASMCALL
-PNPISA_AllocResource( REG( d0, UBYTE              type ),
+ISAPNP_AllocResource( REG( d0, UBYTE              type ),
                       REG( a6, struct ISAPNPBase* res ) )
 {
   struct ISAPNP_Resource* r;
@@ -275,7 +275,7 @@ PNPISA_AllocResource( REG( d0, UBYTE              type ),
 ******************************************************************************/
 
 void ASMCALL
-PNPISA_FreeResource( REG( a0, struct ISAPNP_Resource* r ),
+ISAPNP_FreeResource( REG( a0, struct ISAPNP_Resource* r ),
                      REG( a6, struct ISAPNPBase*      res ) )
 {
   if( r == NULL )
