@@ -85,7 +85,7 @@ extern RDPDR_DEVICE g_rdpdr_device[];
 extern uint32 g_num_devices;
 extern char *g_rdpdr_clientname;
 
-static const char version[] = "$VER: RDesktop 1.3.1cvs-Amiga-beta-1 (22.05.2004)"
+static const char version[] = "$VER: RDesktop 1.3.1cvs-Amiga-beta-2 (24.05.2004)"
                               "©2001-2004 Martin Blom; "
                               "©1999-2004 Matthew Chapman et al.";
 
