@@ -38,7 +38,7 @@ my %targets = (
 	      'i.86be(-pc)?-amithlon'         =>
 	       { target => 'amithlon',
 		 macros => 'MacroLP',
-		 stubs  => 'Stub' },
+		 stubs  => 'StubAmithlon' },
 	       
 	      'm68k(-unknown)?-amigaos'       =>
 	       { target => 'amigaos',
