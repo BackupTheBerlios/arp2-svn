@@ -41,7 +41,7 @@ tgz:		all gg-sfdc.spec
 	mkdir $(EXECUTABLE)-$(VERSION)
 	cd $(EXECUTABLE)-$(VERSION) && cvs export -Dtoday sfdc
 	mv $(EXECUTABLE)-$(VERSION)/sfdc/* $(EXECUTABLE)-$(VERSION)
-	cp $^ $(EXECUTABLE)-$(VERSION)
+	cp gg-sfdc.spec $(EXECUTABLE)-$(VERSION)
 	rmdir $(EXECUTABLE)-$(VERSION)/sfdc
 	tar cfvz $(EXECUTABLE)-$(VERSION).tar.gz $(EXECUTABLE)-$(VERSION)
 	$(RM) -r $(EXECUTABLE)-$(VERSION)
