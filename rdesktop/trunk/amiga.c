@@ -114,6 +114,7 @@ static BOOL           amiga_is_os4             = FALSE;
 
 static UWORD          amiga_last_qualifier     = 0;
 static BOOL           amiga_numlock            = TRUE;  // default state is on
+static BOOL           amiga_scrolllock         = FALSE; // default state is off
 static BOOL           amiga_capslock           = 0xbad; // -> sync on first key
 
 static HCURSOR        amiga_last_cursor        = NULL;
@@ -1108,7 +1109,7 @@ amiga_translate_key( int code, ULONG qualifier, BOOL* numlock )
       }
 
     case 0x6c:    // MOS print screen
-      if (amiga_is_morphos) {
+      if (!amiga_is_os4) {
 	return 0x37 | 0x80;
       }
       else {
@@ -2011,6 +2012,11 @@ ui_select(int rdp_socket)
 	      if (scancode == 0x45 && (flag & KBD_FLAG_UP)) {
 		amiga_numlock = !amiga_numlock;
 	      }
+
+	      // Handle SCROLL LOCK
+	      if (scancode == 0x46 && (flag & KBD_FLAG_UP)) {
+		amiga_scrolllock = !amiga_scrolllock;
+	      }
 	      	      
               if( scancode & 0x80 )
               {
@@ -2130,9 +2136,9 @@ ui_get_numlock_state(unsigned int amiga_qualifiers)
     state |= KBD_FLAG_CAPITAL;
   }
   
-//  if (scroll lock) {
-//    state |= KBD_FLAG_SCROLL;
-//  }
+  if (amiga_scrolllock) {
+    state |= KBD_FLAG_SCROLL;
+  }
 
   printf ("state is now %04x\n", state);
   return state;
