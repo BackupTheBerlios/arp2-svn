@@ -3,6 +3,14 @@ AC_INIT(amiga_rdesktop, cvs-2004-04-16-amiga-0.1, martin@blom.org)
 AC_CONFIG_SRCDIR([amiga_rdesktop.c])
 AC_CONFIG_HEADER([config.h])
 
+AC_MSG_CHECKING(if we should use libnix instead of ixemul.library)
+AC_ARG_WITH(libnix,
+[  --with-libnix           Use libnix instead of ixemul.library],
+if test "x${withval}" = "xyes"; then
+  libnix='-noixemul'
+fi)
+AC_MSG_RESULT(${withval})
+
 AC_CANONICAL_HOST
 
 case $host in
@@ -38,8 +46,14 @@ AC_PROG_INSTALL
 
 if test "x${GCC}" = "xyes"; then
   : ${CPPFLAGS:="-W -Wall -Wno-unused"}
+  : ${CFLAGS:="-g -O2"}
+  : ${LDFLAGS:="-s"}
 fi
-	
+
+# Add -noixemul if requested
+CPPFLAGS="${CPPFLAGS} ${libnix}"
+LDFLAGS="${LDFLAGS} ${libnix}"
+
 # Checks for libraries.
 #AC_SEARCH_LIBS([floor], [m])
 AC_SEARCH_LIBS([getuid], [socket])

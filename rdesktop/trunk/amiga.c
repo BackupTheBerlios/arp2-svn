@@ -28,7 +28,13 @@
 #include <errno.h>
 #include <stdlib.h>
 
-#include <ix.h>
+#if defined(__libnix__)
+# include <libnix.h>
+#elif defined(__ixemul__)
+# include <ix.h>
+#else
+# error I need ixemul or libnix!
+#endif
 
 #include <cybergraphx/cybergraphics.h>
 #include <exec/memory.h>
@@ -370,7 +376,7 @@ WorkingClipBlit( struct RastPort *srcRP, LONG xSrc, LONG ySrc,
 {
   if( amiga_broken_blitter && minterm != 0xc0 )
   {
-    // MinTerms does not work with CyberGraphX
+    // MinTerms do not work with CyberGraphX
 
     SoftClipBlit( srcRP, xSrc, ySrc,
 		  destRP, xDest, yDest,
@@ -395,7 +401,7 @@ WorkingBltBitMapRastPort( struct BitMap *srcBitMap, LONG xSrc, LONG ySrc,
 {
   if( amiga_broken_blitter && minterm != 0xc0 )
   {
-    // MinTerms does not work with CyberGraphX
+    // MinTerms do not work with CyberGraphX
  
     SoftBltBitMapRastPort( srcBitMap, xSrc, ySrc,
 			   destRP, xDest, yDest,
@@ -1457,12 +1463,24 @@ ui_select(int rdp_socket)
     n++;
 
     mask = 1UL << amiga_wb_port->mp_SigBit;
-    mask |= amiga_window != NULL ? ( 1UL << amiga_window->UserPort->mp_SigBit ) : 0;
+
+    if( amiga_window != NULL )
+    {
+      mask |= ( 1UL << amiga_window->UserPort->mp_SigBit );
+    }
+    
 #ifdef WITH_RDPSND
-    mask |= amiga_audio_signal != -1 ? ( 1UL << amiga_audio_signal ) : 0;
+    if( amiga_audio_signal != -1 )
+    {
+      mask |= ( 1UL << amiga_audio_signal );
+    }
 #endif
 
+#ifdef __libnix__
+    res  = lx_select(n, &rfds, &wfds, NULL, &tv, &mask );
+#else
     res  = ix_select(n, &rfds, &wfds, NULL, &tv, &mask );
+#endif
 
     if( res == -1 && mask == 0 )
     {
@@ -1500,7 +1518,7 @@ ui_select(int rdp_socket)
 	wave_out_play();
       }
 #endif
-      
+ 
       if( amiga_window != NULL &&
 	  ( mask & ( 1UL << amiga_window->UserPort->mp_SigBit ) ) )
       {

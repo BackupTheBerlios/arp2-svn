@@ -1,2 +1,2 @@
 
-* Replace accesses to $HOME in printercache.c to ENVARC:
+* Add clipboard sharing
