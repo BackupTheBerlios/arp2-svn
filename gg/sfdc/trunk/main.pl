@@ -417,6 +417,14 @@ sub parse_sfd ( $ ) {
 
     if ($addvectors ne 'none') {
 	push @{$$result{'includes'}}, '<dos/dos.h>';
+	push @{$$result{'includes'}}, '<exec/execbase.h>';
+
+	if ($addvectors eq 'device') {
+	    push @{$$result{'includes'}}, '<exec/io.h>';
+	}
+	elsif ($addvectors eq 'boopsi') {
+	    push @{$$result{'includes'}}, '<intuition/classes.h>';
+	}
 	
 	for my $i ( 0 .. $#{$classes->{vectors}->{$addvectors}} ) {
 	    push @{$$result{'prototypes'}}, {
