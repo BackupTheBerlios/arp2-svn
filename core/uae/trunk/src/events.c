@@ -81,12 +81,25 @@ void events_schedule (void)
     }
     nextevent = currcycle + mintime;
 }
-
+extern int blomcall_counter;
 /*
  * Handle all events pending within the next cycles_to_add cycles
  */
 void do_cycles_slow (unsigned int cycles_to_add)
 {
+  {
+  uae_u64 start_time = read_processor_time ();
+  static uae_u64 last_time;
+  static unsigned long currcycle_l;
+
+  if ((start_time-last_time) > 2e9/16/10) {
+    printf("currcycle: %08lx (%10d/s) %d\r", currcycle, 10*(currcycle-currcycle_l)/256, blomcall_counter);
+    fflush(stdout);
+    last_time = start_time;
+    currcycle_l = currcycle;
+  }
+  }
+
 #ifdef JIT
     if ((pissoff -= cycles_to_add) >= 0)
 	return;
@@ -121,6 +134,7 @@ void do_cycles_slow (unsigned int cycles_to_add)
 	events_schedule ();
     }
     currcycle += cycles_to_add;
+
 }
 
 /*

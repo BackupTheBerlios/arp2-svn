@@ -26,6 +26,10 @@
 //#include "ar.h"
 #include "blomcall.h"
 
+#define CONTINUOUS_BLOMCALL_TIMER
+#undef USE_UALARM
+
+int blomcall_counter;
 int in_blomcall = 0;
 
 static int                      blomcall_enable = 0;
@@ -37,9 +41,15 @@ static const struct itimerspec blomcall_timer_off = {
   { 0, 0 }, { 0, 0 }
 };
 
-static const struct itimerspec blomcall_timer_once = {
-  { 0, 0 }, { 0, 1000000 } // 1 ms
+#if defined(CONTINUOUS_BLOMCALL_TIMER)
+static const struct itimerspec blomcall_timer_cont = {
+  { 0, 1e9/1100 }, { 0, 1e9/1100 } // 1100 Hz
 };
+#else
+static const struct itimerspec blomcall_timer_once = {
+  { 0, 0 }, { 0, 1e6 } // 1 ms
+};
+#endif
 
 
 void ix86_switch();
@@ -77,29 +87,27 @@ ix86_switch_end:			\n\
 
 
 static void blomcall_sighandler(int x, struct sigcontext sc) {
-  static int cnt;
-
-  if ((cnt++ % 1000) == 0) {
-    printf("%d\n", cnt);
-  }
-
-//  printf("timer\n");
-//  stack = (struct blomcall_stack*) get_real_address (m68k_getpc ());
-
-  // Make sure the blomcall stack is OK
-  if (blomcall_stack == NULL) {
-    printf ("No blomcall stack!\n");
-    return;
-  }
-
-  if (blomcall_context == NULL) {
-    printf ("No blomcall context!\n");
+  ++blomcall_counter;
+  if (blomcall_context == NULL || blomcall_context->disable) {
     return;
   }
 
   if (blomcall_context->disable ||
       (sc.eip >= ix86_switch && sc.eip < ix86_switch_end)) {
     printf("timer disabled!\n");
+    printf("%p <= %p < %p\n", ix86_switch, sc.eip, ix86_switch_end);
+
+#if !defined(CONTINUOUS_BLOMCALL_TIMER)
+# if defined(USE_UALARM)
+    ualarm(1000, 1000);
+# else    
+    if (timer_settime(blomcall_timer, 0, &blomcall_timer_once, NULL) == -1) {
+      perror("timer_settime");
+      abort();
+    }
+# endif
+#endif
+
     return;
   }
   
@@ -114,7 +122,11 @@ static void blomcall_sighandler(int x, struct sigcontext sc) {
   blomcall_context->eflags  = sc.eflags;
 //  printf("eax: %x, edx: %x, ecx: %x\n", sc.eax, sc.edx, sc.ecx);
 //  printf("ebx: %x, eip: %x, esp: %x\n", sc.ebx, sc.eip, sc.esp);
-
+#if defined(CONTINUOUS_BLOMCALL_TIMER)
+  // Quick sigprocmask()
+  sc.oldmask |= sigmask(SIGALRM);
+#endif
+  
   // Go back to emulation
  sc.ebx = blomcall_context;
  sc.eip = ix86_switch;
@@ -127,6 +139,20 @@ static void REGPARAM2 call_blomcall(struct blomcall_stack* stack)
   printf("call_blomcall (stack: op: %04x pc: %08x a7: %08x ...\n",
 	 stack->op_resume, stack->pc, stack->a7);
 
+  blomcall_context->disable = 0;
+
+#if defined(CONTINUOUS_BLOMCALL_TIMER)
+  sigset_t ss;
+  sigemptyset(&ss);
+  sigaddset(&ss, SIGALRM);
+  sigprocmask(SIG_UNBLOCK, &ss, NULL);
+#endif
+
+/*   while(1) { */
+/*     printf("main loop; disable: %d\n", blomcall_context->disable); */
+/*     usleep(1000); */
+/*   } */
+  
   while(1);// {printf("*");}
 //    ((void (*)(void)) addr)();
   siglongjmp(blomcall_context->emuljmp, 1);
@@ -142,7 +168,7 @@ int blomcall_init () {
   }
 
   sa.sa_handler = blomcall_sighandler;
-  sigfillset(&sa.sa_mask);
+  sigemptyset(&sa.sa_mask);
   sa.sa_flags = SA_RESTART;
 
   if (sigaction(SIGALRM, &sa, NULL) == -1 ) {
@@ -150,16 +176,50 @@ int blomcall_init () {
     return 0;
   }
   
+#if defined(CONTINUOUS_BLOMCALL_TIMER)
+  sigset_t ss;
+  sigemptyset(&ss);
+  sigaddset(&ss, SIGALRM);
+  sigprocmask(SIG_BLOCK, &ss, NULL);
+
+# if defined(USE_UALARM)
+    ualarm(1000, 1000);
+# else    
+  if (timer_settime(blomcall_timer, 0, &blomcall_timer_cont, NULL) == -1) {
+    perror("timer_settime");
+    return 0;
+  }
+# endif
+#endif
+  
   blomcall_enable = 1;
   return 1;
 }
 
+static unsigned long cycles_left = 0;
 
-unsigned long blomcall_ops (uae_u32 opcode) {
+unsigned long blomcall_ops (uae_u32 opcode) {  
+  uae_u64 start_time = read_processor_time ();
+  uae_u64 call_time;
+
   if (!blomcall_enable) {
     return op_illg (opcode);
   }
 
+/*   if (cycles_left != 0) { */
+/*     unsigned long cycles_to_do; */
+    
+/*     if (cycles_left < 3000) { */
+/*       cycles_to_do =  cycles_left; */
+/*     } */
+/*     else { */
+/*       cycles_to_do = 3000; */
+/*     } */
+
+/*     cycles_left -= cycles_to_do; */
+/*     return cycles_to_do; */
+/*   } */
+  
   if (opcode != OP_BRESUME) {
     uae_u32 newpc  = get_long (m68k_getpc() + 2);
     uae_u8* addr   = get_real_address(newpc);
@@ -189,18 +249,32 @@ unsigned long blomcall_ops (uae_u32 opcode) {
   else {
     blomcall_stack   = get_real_address (m68k_getpc());
     blomcall_context = blomcall_stack->context;
+
+//    printf("blomresume: stack=%08x context=%p\n", blomcall_stack, blomcall_context);
   }
 
   switch (sigsetjmp (blomcall_context->emuljmp, 0)) {
     case 0: {
+      in_blomcall = 1;
+
+      blomcall_context->disable = 1;
+
+#if defined(CONTINUOUS_BLOMCALL_TIMER)
+/*       sigset_t ss; */
+/*       sigemptyset(&ss); */
+/*       sigaddset(&ss, SIGALRM); */
+/*       sigprocmask(SIG_UNBLOCK, &ss, NULL); */
+#else
+# if defined(USE_UALARM)
+      ualarm(1000, 1000);
+# else    
       if (timer_settime(blomcall_timer, 0, &blomcall_timer_once, NULL) == -1) {
 	perror("timer_settime");
 	abort();
       }
-
-      in_blomcall = 1;
-      blomcall_context->disable = 0;
-
+# endif
+#endif
+      
       if (opcode != OP_BRESUME) {
 	__asm__ __volatile__ ("\
 		movl  %0,%%eax  \n\
@@ -213,6 +287,10 @@ unsigned long blomcall_ops (uae_u32 opcode) {
       }
       else {
 	blomcall_context->ix86context.uc_mcontext.gregs[REG_EAX] = 1;
+#if defined(CONTINUOUS_BLOMCALL_TIMER)
+	// Quick sigprocmask()
+	sigdelset(&blomcall_context->ix86context.uc_sigmask, SIGALRM);
+#endif
 	setcontext(&blomcall_context->ix86context);
       }
 
@@ -237,19 +315,48 @@ unsigned long blomcall_ops (uae_u32 opcode) {
     case 2: {
       uae_u32 stack_usage;
 
-      printf("back from blomcall because of alarm\n");
+//      printf("back from blomcall because of alarm\n");
 
       // Check stack usage and adjust a7
       stack_usage = (sizeof (struct blomcall_stack) +
 		     (intptr_t) blomcall_stack -
 		     blomcall_context->ix86context.uc_mcontext.gregs[REG_ESP]);
-      m68k_areg (regs, 7) = stack->a7 - stack_usage;
+      m68k_areg (regs, 7) = blomcall_stack->a7 - stack_usage;
 
-      printf("adjusted stack: %d bytes used\n", stack_usage);
+//      printf("adjusted stack: %d bytes used\n", stack_usage);
       break;
+    }
   }
 
+#if defined(CONTINUOUS_BLOMCALL_TIMER)
+/*   sigset_t ss; */
+/*   sigemptyset(&ss); */
+/*   sigaddset(&ss, SIGALRM); */
+/*   sigprocmask(SIG_BLOCK, &ss, NULL); */
+#else
+//  printf("disabling timer\n");
+# if defined(USE_UALARM)
+  ualarm(0, 0);
+# else    
   timer_settime(blomcall_timer, 0, &blomcall_timer_off, NULL);
+# endif
+#endif
   blomcall_stack   = NULL;
   blomcall_context = NULL;
+//  printf("going back\n");
+
+  call_time = read_processor_time () - start_time;
+//  printf("call_time: %lld, syncbase: %ld\n", call_time, syncbase);
+
+  static int cnt;
+
+/*   if (cnt++ > 1000) { */
+/*     printf("call_time: %lld\n", call_time); */
+/*     cnt = 0; */
+/*   } */
+
+//  printf("%10.3g; ",  (double) call_time * 16 / 2e9 * 7.14e6 * 256);
+  cycles_left = (double) call_time * 16 / 2e9 * 7.14e6 * 0.5;
+//  return 3000;
+  return cycles_left;
 }
