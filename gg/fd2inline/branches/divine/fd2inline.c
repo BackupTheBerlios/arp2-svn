@@ -18,7 +18,7 @@
  *
  * Version 0.99b and later by Kamil Iskra.
  *
- * Version 1.30	by Martin Blom
+ * Version 1.3x	by Martin Blom
  *              See fd2inline.guide/fd2inline.info for details.
  *
  *****************************************************************************/
@@ -37,7 +37,7 @@
  * if you use this code, please leave a little origin note.
  ******************************************************************************/
 
-const static char version_str[]="$VER: fd2inline " VERSION " (11.10.2001)";
+const static char version_str[]="$VER: fd2inline " VERSION " (14.10.2001)";
 
 /******************************************************************************
  * These are general definitions including types for defining registers etc.
@@ -68,7 +68,7 @@ typedef unsigned char shortcard;
 typedef enum { false, nodef, real_error } Error;
 
 enum { NEW, OLD, STUBS, PROTO, GATESTUBS } output_mode=NEW;
-enum { M68K_AMIGAOS, M68K_POS, PPC_POWERUP, PPC_MORPHOS } target = M68K_AMIGAOS;
+enum { IX86BE_AMITHLON, M68K_AMIGAOS, M68K_POS, PPC_POWERUP, PPC_MORPHOS } target = M68K_AMIGAOS;
 
 int Quiet = 0;
 int DirectVarargsCalls = 0;
@@ -1589,7 +1589,7 @@ void
 fD_write(FILE* outfile, const fdDef* obj)
 {
    shortcard count, numregs;
-   const char *chtmp, *tagname, *name, *rettype;
+   const char *chtmp, *tagname, *varname, *name, *rettype;
    int vd=0, a45=0, d7=0;
 
    DBP(fprintf(stderr, "func %s\n", fD_GetName(obj)));
@@ -1730,7 +1730,7 @@ fD_write(FILE* outfile, const fdDef* obj)
 		       (count == numregs - 1 && !BaseName[0] ? "" : ", "));
 	    }
 	 }
-
+	 
 	 if (BaseName[0])
 	    fprintf(outfile, "\\\n\t, %s_BASE_NAME", BaseNamU);
 
@@ -1744,6 +1744,49 @@ fD_write(FILE* outfile, const fdDef* obj)
 	  */
 	 
 	 fprintf(outfile, ", IF_CACHEFLUSHALL, NULL, 0, IF_CACHEFLUSHALL, NULL, 0");
+	 fprintf(outfile, ")\n\n");
+      }
+      else if (target==IX86BE_AMITHLON)
+      {
+	 fprintf(outfile, ") \\\n\tLP%d%s%s(0x%lx, ",
+		 numregs,
+		 (vd ? "NR" : ""),
+		 (BaseName[0] ? "" : "UB"),
+		 -fD_GetOffset(obj));
+	 
+	 if (!vd)
+	    fprintf(outfile, "%s, ", rettype);
+	 fprintf(outfile, "%s, ", name);
+
+	 for (count=d0; count<numregs; count++)
+	 {
+	    chtmp=fD_GetRegStr(obj, count);
+
+	    if (strchr(fD_GetProto(obj, count),'%'))
+	    {
+	       sprintf(Buffer,
+		       fD_GetProto(obj, count),
+		       "");
+
+	       fprintf(outfile, "%s, %s, %s%s",
+		       Buffer,
+		       fD_GetParam(obj, count),
+		       chtmp,
+		       (count == numregs - 1 && !BaseName[0] ? "" : ", "));
+	    }
+	    else
+	    {
+	       fprintf(outfile, "%s, %s, %s%s",
+		       fD_GetProto(obj, count),
+		       fD_GetParam(obj, count),
+		       chtmp,
+		       (count == numregs - 1 && !BaseName[0] ? "" : ", "));
+	    }
+	 }
+	 
+	 if (BaseName[0])
+	    fprintf(outfile, "%s_BASE_NAME", BaseNamU);
+
 	 fprintf(outfile, ")\n\n");
       }
       else
@@ -1869,8 +1912,7 @@ fD_write(FILE* outfile, const fdDef* obj)
 					     * was "##base" used? 
 					     */
          {
-            fprintf(outfile, "\tMyCaos.a6\t\t=\t(ULONG) %s_BASE_NAME;\t\n",
-                  BaseNamU);
+	    fprintf(outfile, "\tMyCaos.a6\t\t=\t(ULONG) BASE_NAME;\t\n");
          }
          if (vd)
          {
@@ -1921,6 +1963,49 @@ fD_write(FILE* outfile, const fdDef* obj)
          {
             fprintf(outfile, "\treturn((%s)(*MyEmulHandle->EmulCallDirectOS)(%ld));\n}\n\n",
 		    rettype, fD_GetOffset(obj));
+         }
+      }
+      else if (target==IX86BE_AMITHLON)
+      {	
+         for (count = d0; count < numregs; count++)
+         {
+            chtmp = fD_GetProto(obj, count);
+            if (fD_GetFuncParNum(obj) == count)
+               fprintf(outfile, chtmp, fD_GetParam(obj, count));
+            else
+               fprintf(outfile, "%s%s%s", chtmp, (*(chtmp + strlen(chtmp) - 1) == '*' ?
+						  "" : " "), fD_GetParam(obj, count));
+            if (count < numregs - 1)
+               fprintf(outfile, ", ");
+         }
+
+         fprintf(outfile, ")\n{\n");
+	 fprintf(outfile, "\tstruct _Regs _regs;\n");
+
+	 if (numregs > 0)
+	 {
+	    for (count = d0; count < numregs; count++)
+            {
+               fprintf(outfile, "\t_regs.reg_%s    = (ULONG) (%s);\n",
+		       fD_GetRegStr(obj, count),
+		       fD_GetParam(obj, count));
+            }
+         }
+
+         if (BaseName[0])
+         {
+	   fprintf(outfile, "\t_regs.reg_a6    = (ULONG) (BASE_NAME);\n");
+         }
+	 
+         if (vd)
+         {
+	    fprintf(outfile, "\t_CallOS68k(%ld,&_regs)\n}\n\n",
+		    fD_GetOffset(obj));
+         }
+         else
+         {
+	    fprintf(outfile, "\treturn (%s) _CallOS68k(%ld,&_regs)\n}\n\n",
+		    rettype,fD_GetOffset(obj));
          }
       }
       else
@@ -2102,7 +2187,36 @@ fD_write(FILE* outfile, const fdDef* obj)
 	 }
       }
    }
-   //lcs getvarargsfunction
+   else if ((varname = getvarargsfunction(obj)) != 0)
+   {
+      if (output_mode != STUBS)
+      {
+	 fprintf(outfile,
+		 "#ifndef NO_INLINE_VARARGS\n"
+		 "#define %s(", varname);
+
+	 for (count = d0; count < numregs - 1; count++)
+	    fprintf(outfile, "a%d, ", count);
+
+	 fprintf(outfile,
+		 "...) \\\n"
+		 "\t({ULONG _tags[] = { __VA_ARGS__ }; %s(",
+		 name);
+
+	 for (count = d0; count < numregs - 1; count++)
+	    fprintf(outfile, "(a%d), ", count);
+
+	 fprintf(outfile,
+		 "(%s)_tags);})\n"
+		 "#endif /* !NO_INLINE_VARARGS */\n\n",
+		 fD_GetProto(obj, fD_RegNum(obj) - 1));
+      }
+      else
+      {
+	 fprintf(stderr, "can`t create a varargs stub function for %s\n",
+		 varname);
+      }
+   }
 
    if (strcmp(name, "DoPkt")==0)
    {
@@ -2218,13 +2332,16 @@ printusage(const char* exename)
       "--old\t\t\tinline based\n"
       "--stubs\t\t\tlibrary stubs\n"
       "--proto\t\t\tbuild proto files (no clib-file required)\n"
-      "--target=OS\t\tOS is one of the following: m68k-amigaos, m68k-pos,\n"
-      "\t\t\tppc-powerup or ppc-morphos\n"
+      "--target=OS\t\tOS is one of the following: ix86be-amithlon, m68k-amigaos,\n"
+      "\t\t\tm68k-pos, ppc-powerup or ppc-morphos\n"
       "--direct-varargs-calls\tuse direct varargs call for MorphOS stubs\n"
-      "--quiet\t\t\tDon't display warnings."
+      "--quiet\t\t\tDon't display warnings\n"
       "--version\t\tprint version number and exit\n\n"
       "Compability options:\n"
-      "--pos\t\t\tSame as --target=m68k-pos (for p.OS)\n", exename);
+      "--pos\t\t\tSame as --target=m68k-pos\n"
+      "--morphos\t\tSame as --target=ppc-morphos\n"
+      "--powerup\t\tSame as --target=ppc-powerup\n"
+	   , exename);
 }
 
 void output_proto(FILE* outfile)
@@ -2237,8 +2354,6 @@ void output_proto(FILE* outfile)
       "#ifndef _NO_INLINE\n"
       "#ifdef __GNUC__\n"
       "#include <inline/%s.h>\n"
-//      "#else\n"
-//      "#include <pragmas/%s_pragmas.h>\n"
       "#endif /* __GNUC__ */\n"
       "#endif /* !_NO_INLINE */\n\n",
       BaseNamU, BaseNamU, BaseNamL, BaseNamL);
@@ -2304,9 +2419,15 @@ main(int argc, char** argv)
 	       output_mode=PROTO;
 	    else if (strcmp(option, "pos")==0)
 	       target=M68K_POS;
+	    else if (strcmp(option, "powerup")==0)
+	       target=PPC_POWERUP;
+	    else if (strcmp(option, "morphos")==0)
+	       target=PPC_MORPHOS;
 	    else if (strncmp(option, "target=", 7)==0)
 	    {
-	       if (strcmp(option+7,"m68k-amigaos")==0)
+	       if (strcmp(option+7,"ix86be-amithlon")==0)
+		  target=IX86BE_AMITHLON;
+	       else if (strcmp(option+7,"m68k-amigaos")==0)
 		  target=M68K_AMIGAOS;
 	       else if (strcmp(option+7,"m68k-pos")==0)
 		  target=M68K_POS;
@@ -2542,10 +2663,40 @@ main(int argc, char** argv)
 	 else
 	 {
 	    fprintf(outfile,
-		    "/* Automatically generated header! Do not edit! */\n\n"
 		    "#ifndef __INLINE_STUB_H\n"
 		    "#include <inline/stubs.h>\n"
 		    "#endif /* !__INLINE_STUB_H */");
+
+	    if(target==IX86BE_AMITHLON)
+	    {
+	      fprintf(outfile,
+		      "\n"
+		      "\n"
+		      "#ifndef __INLINE_MACROS_H_REGS\n"
+		      "#define __INLINE_MACROS_H_REGS\n"
+		      "\n"
+		      "struct _Regs\n"
+		      "{\n"
+		      "    ULONG reg_d0;\n"
+		      "    ULONG reg_d1;\n"
+		      "    ULONG reg_d2;\n"
+		      "    ULONG reg_d3;\n"
+		      "    ULONG reg_d4;\n"
+		      "    ULONG reg_d5;\n"
+		      "    ULONG reg_d6;\n"
+		      "    ULONG reg_d7;\n"
+		      "    ULONG reg_a0;\n"
+		      "    ULONG reg_a1;\n"
+		      "    ULONG reg_a2;\n"
+		      "    ULONG reg_a3;\n"
+		      "    ULONG reg_a4;\n"
+		      "    ULONG reg_a5;\n"
+		      "    ULONG reg_a6;\n"
+		      "};\n"
+		      "\n"
+		      "ULONG _CallOS68k(ULONG o, struct _Regs* r);\n\n"
+		      "#endif /* __INLINE_MACROS_H_REGS */\n\n");
+	    }
 	 }
       }
 #if 0 

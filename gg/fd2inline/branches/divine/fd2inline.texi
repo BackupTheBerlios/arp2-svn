@@ -844,6 +844,16 @@ stubs (@pxref{Using fd2inline}).
 @cindex History
 @cindex What has changed
 
+Version 1.31,  October 14th, 2001,  Martin Blom
+@itemize @bullet
+@item
+Added added the @samp{ix86be0-amithlon} target.
+@item
+Added the varproto code from version 2.00.
+@item
+Added more compability options: --powerup and --morphos.
+@end itemize
+
 Version 1.30,  October 11th, 2001,  Martin Blom
 @itemize @bullet
 @item
@@ -964,7 +974,8 @@ this terribly long documentation :-).
 Ralph Schmidt and Emmanuel Lesueur added PowerUp and MorphOS support
 (version 2.00).
 
-Martin Blom backported some of their work to version 1.xx.
+Martin Blom backported some of their work to version 1.xx and added support
+for ix86be-amithlon.
 
 Not all of the files distributed in the @samp{FD2InLine} archives were
 created by me or @samp{FD2InLine}. Most of the files in
