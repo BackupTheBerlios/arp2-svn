@@ -1,7 +1,7 @@
 # Process this file with autoconf to produce a configure script.
-AC_INIT(sfdc, 1.1, martin@blom.org)
+AC_INIT(sfdc, 1.1b, martin@blom.org)
 
-VERSION=1.1
+VERSION=1.1b
 DATE=2003-12-22
 AC_SUBST(VERSION)
 AC_SUBST(DATE)
@@ -20,5 +20,5 @@ AC_PROG_INSTALL
 
 # Checks for library functions.
 
-AC_CONFIG_FILES([Makefile gg-sfdc.spec])
+AC_CONFIG_FILES([Makefile gg-sfdc.spec sfdc.readme])
 AC_OUTPUT
