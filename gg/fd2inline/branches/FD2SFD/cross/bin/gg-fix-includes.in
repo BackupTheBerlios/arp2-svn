@@ -9,7 +9,7 @@ FD2SFD=${bindir}/fd2sfd
 SFDC=${bindir}/sfdc
 SPLITASM="awk -f ${fd2sfddir}/splitasm.awk"
 
-SEDPRAGMA='s/\([ \t]*\)#\([ \t]*\)\(include[ \t].*\)/\1#\2pragma pack(0)\
+SEDPRAGMA='s/\([ \t]*\)#\([ \t]*\)\(include[ \t].*\)/\1#\2pragma pack()\
 \1#\2\3\
 \1#\2pragma pack(2)/'
 
@@ -17,7 +17,7 @@ function fixinclude()
 {
     (echo "#pragma pack(2)";
     cat $@;
-     echo "#pragma pack(0)" ) | sed "$SEDPRAGMA"
+     echo "#pragma pack()" ) | sed "$SEDPRAGMA"
 }
 
 ERROR="\e[31m"
@@ -188,8 +188,8 @@ for gcc in ${bindir}/*-*-gcc; do
      mkdir ${prefix}/${target}/sys-include/proto
    fi
 
-   if [ ${LIB} -a -e ${prefix}/${target}/lib/libamigastubs.a ]; then
-     rm ${prefix}/${target}/lib/libamigastubs.a
+   if [ ${LIB} ]; then
+     rm ${prefix}/${target}/lib/libamigastubs.a 2>/dev/null
    fi;
 
    for package in $PACKAGES; do
