@@ -1,0 +1,15 @@
+COPYING
+bin/libtool
+bin/libtoolize
+dvi/libtool.dvi
+guide/libtool.guide
+info/libtool.info
+info/libtool.info-1
+info/libtool.info-2
+info/libtool.info-3
+ps/libtool.ps
+share/aclocal/libtool.m4
+share/libtool/config.guess
+share/libtool/config.sub
+share/libtool/ltconfig
+share/libtool/ltmain.sh

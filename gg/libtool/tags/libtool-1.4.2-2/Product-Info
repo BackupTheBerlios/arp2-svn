@@ -1,0 +1,33 @@
+.name
+libtool
+.type
+utility
+.short
+GNU Libtool
+.description
+   In the past, if a source code package developer wanted to take
+advantage of the power of shared libraries, he needed to write custom
+support code for each platform on which his package ran.  He also had
+to design a configuration interface so that the package installer could
+choose what sort of libraries were built.
+
+   GNU Libtool simplifies the developer's job by encapsulating both the
+platform-specific dependencies, and the user interface, in a single
+script.  GNU Libtool is designed so that the complete functionality of
+each host type is available via a generic interface, but nasty quirks
+are hidden from the programmer.
+
+   GNU Libtool's consistent interface is reassuring... users don't need
+to read obscure documentation in order to have their favorite source
+package build shared libraries.  They just run your package `configure'
+script (or equivalent), and libtool does all the dirty work.
+.version
+1.4.2
+.author
+Gordon Matzigkeit
+.distribution
+GPL
+.described-by
+Joop van de Wege (JoopvandeWege@mail.mococo.nl)
+.submittal
+ftp://ftp.gnu.org/pub/gnu/libtool

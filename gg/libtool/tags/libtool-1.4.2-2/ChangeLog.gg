@@ -1,0 +1,80 @@
+Fri May 1 13:17:13 1998 Joop van de Wege <JoopvandeWege@mococo.nl>
+	* updated to libtool-1.2b
+	* ltconfig.in: using '-m68020-40' instead of '-m68020', also
+	show a bug in gcc/gas (as -m68040 -m68020 test.s doesn't assemble
+	when test.s contains FPU instructions, as -m68020 test.s works OK)
+
+Fri Mar 27 19:07:11 1998 Joop van de Wege <JoopvandeWege@mococo.nl>
+	* updated to libtool-1.2
+
+Thu Mar 26 20:47:11 1998 Joop van de Wege <JoopvandeWege@mococo.nl>
+	* ltconfig.in: added 'old_archive_cmds="rm \$oldlib;$old_archive_cmds"'
+	or else the *.o objects are appended to the lib*.a archive
+	containing the *.lo objects resulting in linker errors during
+	linking against the static lib*.a
+
+Sun Mrt 22 14:43:17 1998 Joop van de Wege <JoopvandeWege@mococo.nl>
+	* updated to libtool-1.1
+	* ltconfig.in: reverted changes of Gordon. Automatic generation
+	of a2ixlibrary.data not yet possible.
+
+Sun Nov 16 21:43:17 1997 Joop van de Wege <JoopvandeWege@mococo.nl>
+	* ltconfig.in ; ltmain.in:  applied patch from Gordon Matzigkeit
+	which adds [old_]postuninstall_cmds. On the Amiga these remove
+	libname.ixlibrary and libname_ixlibrary.a
+
+Thu Nov 13 20:47:03 1997 Joop van de Wege <JoopvandeWege@mococo.nl>
+	* ltconfig.in: applied suggestions from Gordon Matzigkeit to get
+	postinstall_cmds working.
+
+Thu Oct  2 20:06:30 1997 Joop van de Wege <JoopvandeWege@mococo.nl>
+	*ltconfig.in: fixed the problem with make check not working
+	if done before make install (finish_cmds=...)
+	transform install libdir into $prefix, transform realname into
+	.ixlibrary & _ixlibrary.a (Thanks Kamil)
+
+Tue Sep 30 23:51:01 1997 Joop van de Wege <JoopvandeWege@mococo.nl>
+	* ltconfig.in: change from -static to -all-static. The latter
+	disables all dynamic linking, the former only against libtool
+	libraries. Example:
+	./libtool --mode=link gcc -O2 -m68040 -m68881 -fomit-frame-pointer
+	  -o pngtest.static -static pngtest.o libpng.la /gg/lib/libz.a -lm
+	yields the following commandline:
+	gcc -O2 -m68040 -m68881 -fomit-frame-pointer -o pngtest.static
+	  pngtest.o _libs/libpng.a /gg/lib/_libs/libz.a -lm
+	When -all-static is used it will yield:
+	gcc -O2 -m68040 -m68881 -fomit-frame-pointer -o pngtest.static
+	  -static pngtest.o _libs/libpng.a /gg/lib/_libs/libz.a -lm
+	The linker will now use the static libpng.a and the static libz.a
+
+Tue Sep 16 17:15:56 1997 Joop van de Wege <JoopvandeWege@mococo.nl>
+	* configure.in: added demo/a2ixlibrary.data to AC_OUTPUT
+
+Sun Sep 14 21:45:55 1997 Joop van de Wege <JoopvandeWege@mococo.nl>
+	* ltconfig.in: changed quoting of postinstall_cmds from ".."
+	to '..' when writing 'libtool'. Looks like pdksh is different
+	from bash while parsing quotes. The use of ` within ".." is
+	not handled properly (?)
+	Example:
+	archive_cmds="cp a2ixlibrary.data \$objdir;ar cq \$objdir/\$libname.a \$libobjs;ranlib \$lib;cd ./\$objdir;a2ixlibrary -32;cd .."
+	postinstall_cmds='cp `echo \$dir/\$realname | sed s/.a\$/.ixlibrary/` /gg/sys/libs; cp `echo \$dir/\$realname | sed s/.a\$/_ixlibrary.a/` \$libdir'
+	archive_cmds is properly evaluated, postinstall_cmds not when using "
+	instead of ' like done above. When eval(led) the copy command is reduced to:
+	cp / /gg/sys/libs instead of cp .libs/libhello.ixlibrary /gg/sys/libs when 
+	$dir=.libs;$realname=libhello.a
+
+Thu Sep  4 19:37:21 1997 Joop van de Wege <JoopvandeWege@mococo.nl>
+	* updated Amiga port of Libtool to version 1.0b
+
+Sat Aug  9 17:32:09 1997 Joop van de Wege <JoopvandeWege@mococo.nl>
+	* ChangeLog.amiga: added this file
+	* ltconfig.in: Search for FIXME JvdW or amiga[d]os to find Amiga
+	specific adaptions.
+	* config.guess: added the following:
+		*:AmigaOS:*:*)
+		  echo m68k-unknown-amigaos
+		  exit 0 ;;
+	because otherwise one needs to add the host to a build rule in Makefile.am
+	* config.sub: replaces occurances of 'amigados' with 'amigaos' to reflect
+	the current situation. Better might be to use config.sub 
+	from /gg/share/automake.
