@@ -1,0 +1,3 @@
+- incorporate stackswap into startup modules
+- improve stdin/stdout handling for wb start in nixmain
+- add new commandline parser that exands wildcards

@@ -1,0 +1,35 @@
+
+#include <clib/alib.h>
+#include <proto/exec.h>
+
+#define __NOLIBBASE__
+#include <proto/rexxsyslib.h>
+#undef __NOLIBBASE__
+
+BOOL
+CheckRexxMsg( struct RexxMsg* message ) {
+  struct RxsLib* RexxSysBase;
+  BOOL           result = FALSE;
+
+  RexxSysBase = OpenLibrary( RXSNAME, 0 );
+
+  if( rexxsysbase != NULL &&
+      message->rm_LibBase == rexxsysbase &&
+      message->rm_TaskBlock != NULL ) {
+    result = IsRexxMsg( message );
+  }
+    
+  CloseLibrary( RexxSysBase );
+
+  return result;
+}
+
+LONG
+GetRexxVar( struct RexxMsg* message, char* varname, char** bufpointer ) {
+  if( ! CheckRexxMsg( message ) ) {
+    return 10;
+  }
+  else {
+    
+  }
+}
