@@ -29,7 +29,7 @@ ENUMDECL {
     i_FPP, i_FDBcc, i_FScc, i_FTRAPcc, i_FBcc, i_FSAVE, i_FRESTORE,
     i_CINVL, i_CINVP, i_CINVA, i_CPUSHL, i_CPUSHP, i_CPUSHA, i_MOVE16,
     i_MMUOP,
-    i_BCALL, i_BCALLNR, i_BRESUME
+    i_BJMP, i_BJMPNR, i_BRESUME
 } ENUMNAME (instrmnem);
 
 extern struct mnemolookup {

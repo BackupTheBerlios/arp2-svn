@@ -2814,8 +2814,8 @@ static void gen_opcode (unsigned long int opcode)
 	sync_m68k_pc ();
 	printf ("\tmmu_op(opcode,extra);\n");
 	break;
-    case i_BCALL:
-    case i_BCALLNR:
+    case i_BJMP:
+    case i_BJMPNR:
     case i_BRESUME:
 	printf ("\tunsigned long cycles = blomcall_ops(opcode);\n");
 	if (using_ce) {

@@ -136,11 +136,6 @@ static void blomcall_exitnr(void)
   siglongjmp(blomcall_context->emuljmp, 1);
 }
 
-int mycode(int r1, int r2, int r3) {
-  printf("r1: %08lx; r2: %08lx; r3: %08lx\n", r1, r2, r3);
-  return r1;
-}
-
 unsigned long blomcall_ops (uae_u32 opcode) {
   static unsigned long remaining_cycles = 0;
   unsigned long cycles;
@@ -185,7 +180,7 @@ unsigned long blomcall_ops (uae_u32 opcode) {
 	   blomcall_context->real_a7[2],
 	   blomcall_context->real_a7[3]);
     blomcall_context->rts_pc     = blomcall_context->real_a7[0];
-    blomcall_context->real_a7[0] = (opcode == OP_BCALL ?
+    blomcall_context->real_a7[0] = (opcode == OP_BJMP ?
 				    (uae_u32) blomcall_exit :
 				    (uae_u32) blomcall_exitnr);
 
@@ -221,8 +216,7 @@ unsigned long blomcall_ops (uae_u32 opcode) {
 			      "i" (&blomcall_usr1sigset),
 			      "i" (SIG_UNBLOCK),
 			      "i" (&regs.regs),
-			      "r" (mycode) :
-//			      "r" (ix86addr) :
+			      "r" (ix86addr) :
 			      "memory", "eax");
       }
       else {

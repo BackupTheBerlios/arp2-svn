@@ -5,8 +5,8 @@
 #include <asm/sigcontext.h>
 
 enum {
-  OP_BCALL   = 0xff00,
-  OP_BCALLNR = 0xff05,
+  OP_BJMP   = 0xff00,
+  OP_BJMPNR = 0xff05,
   OP_BRESUME = 0xffff
 };
 
