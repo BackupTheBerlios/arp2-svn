@@ -1,7 +1,8 @@
 /* indices.c -- deal with an Info file index.
-   $Id: indices.c,v 1.14 1999/09/25 16:10:04 karl Exp $
+   $Id: indices.c,v 1.2 2003/02/11 16:39:06 karl Exp $
 
-   Copyright (C) 1993, 97, 98, 99 Free Software Foundation, Inc.
+   Copyright (C) 1993, 1997, 1998, 1999, 2002, 2003 Free Software
+   Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -61,7 +62,7 @@ add_index_to_index_nodenames (array, node)
   register int i, last;
   INDEX_NAME_ASSOC *assoc;
 
-  for (last = 0; array[last]; last++);
+  for (last = 0; array[last + 1]; last++);
   assoc = (INDEX_NAME_ASSOC *)xmalloc (sizeof (INDEX_NAME_ASSOC));
   assoc->name = xstrdup (node->nodename);
 
@@ -390,7 +391,7 @@ DECLARE_INFO_COMMAND (info_next_index_match,
   /* Report to the user on what we have found. */
   {
     register int j;
-    char *name = _("CAN'T SEE THIS");
+    const char *name = _("CAN'T SEE THIS");
     char *match;
 
     for (j = 0; index_nodenames[j]; j++)

@@ -1,7 +1,8 @@
 /* session.c -- user windowing interface to Info.
-   $Id: session.c,v 1.38 1999/09/25 16:10:04 karl Exp $
+   $Id: session.c,v 1.8 2003/03/22 17:41:16 karl Exp $
 
-   Copyright (C) 1993, 96, 97, 98, 99 Free Software Foundation, Inc.
+   Copyright (C) 1993, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -1139,19 +1140,26 @@ DECLARE_INFO_COMMAND (info_global_prev_node,
     }
 }
 
-/* Show the next screen of WINDOW's node. */
-DECLARE_INFO_COMMAND (info_scroll_forward, _("Scroll forward in this window"))
+static void _scroll_forward();
+static void _scroll_backward();
+
+static void
+_scroll_forward(window, count, key, behaviour)
+  WINDOW *window;
+  int count;
+  unsigned char key;
+  int behaviour;
 {
   if (count < 0)
-    info_scroll_backward (window, -count, key);
+    _scroll_backward (window, -count, key, behaviour);
   else
     {
       int desired_top;
 
       /* Without an explicit numeric argument, scroll the bottom two
          lines to the top of this window,  Or, if at bottom of window,
-         and the user wishes to scroll through nodes get the "Next" node
-         for this window. */
+         and the chosen behaviour is to scroll through nodes get the
+	 "Next" node for this window. */
       if (default_window_size > 0)
         desired_top = window->pagetop + default_window_size;
       else if (!info_explicit_arg && count == 1)
@@ -1159,16 +1167,9 @@ DECLARE_INFO_COMMAND (info_scroll_forward, _("Scroll forward in this window"))
           desired_top = window->pagetop + (window->height - 2);
 
           /* If there are no more lines to scroll here, error, or get
-             another node, depending on INFO_SCROLL_BEHAVIOUR. */
+             another node, depending on BEHAVIOUR. */
           if (desired_top > window->line_count)
             {
-              int behaviour = info_scroll_behaviour;
-
-              /* Here is a hack.  If the key being used is not SPC, do the
-                 PageOnly behaviour. */
-              if (key != SPC && key != DEL)
-                behaviour = IS_PageOnly;
-
               forward_move_node_structure (window, behaviour);
               return;
             }
@@ -1186,28 +1187,22 @@ DECLARE_INFO_COMMAND (info_scroll_forward, _("Scroll forward in this window"))
     }
 }
 
-/* Like info_scroll_forward, but sets default_window_size as a side
-   effect.  */
-DECLARE_INFO_COMMAND (info_scroll_forward_set_window,
-		      _("Scroll forward in this window and set default window size"))
-{
-  if (info_explicit_arg)
-    default_window_size = count;
-  info_scroll_forward (window, count, key);
-}
-
-/* Show the previous screen of WINDOW's node. */
-DECLARE_INFO_COMMAND (info_scroll_backward, _("Scroll backward in this window"))
+static void
+_scroll_backward(window, count, key, behaviour)
+  WINDOW *window;
+  int count;
+  unsigned char key;
+  int behaviour;
 {
   if (count < 0)
-    info_scroll_forward (window, -count, key);
+    _scroll_forward (window, -count, key, behaviour);
   else
     {
       int desired_top;
 
       /* Without an explicit numeric argument, scroll the top two lines
-         to the bottom of this window, or move to the previous, or Up'th
-         node. */
+         to the bottom of this window, or, depending on the selected
+	 behaviour, move to the previous, or Up'th node. */
       if (default_window_size > 0)
         desired_top = window->pagetop - default_window_size;
       else if (!info_explicit_arg && count == 1)
@@ -1216,14 +1211,6 @@ DECLARE_INFO_COMMAND (info_scroll_backward, _("Scroll backward in this window"))
 
           if ((desired_top < 0) && (window->pagetop == 0))
             {
-              int behaviour = info_scroll_behaviour;
-
-              /* Same kind of hack as in info_scroll_forward.  If the key
-                 used to invoke this command is not DEL, do only the PageOnly
-                 behaviour. */
-              if (key != DEL && key != SPC)
-                behaviour = IS_PageOnly;
-
               backward_move_node_structure (window, behaviour);
               return;
             }
@@ -1238,6 +1225,44 @@ DECLARE_INFO_COMMAND (info_scroll_backward, _("Scroll backward in this window"))
     }
 }
 
+/* Show the next screen of WINDOW's node. */
+DECLARE_INFO_COMMAND (info_scroll_forward, _("Scroll forward in this window"))
+{
+  _scroll_forward (window, count, key, info_scroll_behaviour);
+}
+
+/* Like info_scroll_forward, but sets default_window_size as a side
+   effect.  */
+DECLARE_INFO_COMMAND (info_scroll_forward_set_window,
+		      _("Scroll forward in this window and set default window size"))
+{
+  if (info_explicit_arg)
+    default_window_size = count;
+  _scroll_forward (window, count, key, info_scroll_behaviour);
+}
+
+/* Show the next screen of WINDOW's node but never advance to next node. */
+DECLARE_INFO_COMMAND (info_scroll_forward_page_only, _("Scroll forward in this window staying within node"))
+{
+  _scroll_forward (window, count, key, IS_PageOnly);
+}
+
+/* Like info_scroll_forward_page_only, but sets default_window_size as a side
+   effect.  */
+DECLARE_INFO_COMMAND (info_scroll_forward_page_only_set_window,
+		      _("Scroll forward in this window staying within node and set default window size"))
+{
+  if (info_explicit_arg)
+    default_window_size = count;
+  _scroll_forward (window, count, key, IS_PageOnly);
+}
+
+/* Show the previous screen of WINDOW's node. */
+DECLARE_INFO_COMMAND (info_scroll_backward, _("Scroll backward in this window"))
+{
+  _scroll_backward (window, count, key, info_scroll_behaviour);
+}
+
 /* Like info_scroll_backward, but sets default_window_size as a side
    effect.  */
 DECLARE_INFO_COMMAND (info_scroll_backward_set_window,
@@ -1245,7 +1270,24 @@ DECLARE_INFO_COMMAND (info_scroll_backward_set_window,
 {
   if (info_explicit_arg)
     default_window_size = count;
-  info_scroll_backward (window, count, key);
+  _scroll_backward (window, count, key, info_scroll_behaviour);
+}
+
+/* Show the previous screen of WINDOW's node but never move to previous
+   node. */
+DECLARE_INFO_COMMAND (info_scroll_backward_page_only, _("Scroll backward in this window staying within node"))
+{
+  _scroll_backward (window, count, key, IS_PageOnly);
+}
+
+/* Like info_scroll_backward_page_only, but sets default_window_size as a side
+   effect.  */
+DECLARE_INFO_COMMAND (info_scroll_backward_page_only_set_window,
+		      _("Scroll backward in this window staying within node and set default window size"))
+{
+  if (info_explicit_arg)
+    default_window_size = count;
+  _scroll_backward (window, count, key, IS_PageOnly);
 }
 
 /* Move to the beginning of the node. */
@@ -1301,7 +1343,7 @@ DECLARE_INFO_COMMAND (info_scroll_half_screen_down,
 		      _("Scroll down by half screen size"))
 {
   if (count < 0)
-    info_scroll_half_screen_up (window -count, key);
+    info_scroll_half_screen_up (window, -count, key);
   else
     {
       int scroll_size = (the_screen->height + 1) / 2;
@@ -1327,7 +1369,7 @@ DECLARE_INFO_COMMAND (info_scroll_half_screen_up,
 		      _("Scroll up by half screen size"))
 {
   if (count < 0)
-    info_scroll_half_screen_down (window -count, key);
+    info_scroll_half_screen_down (window, -count, key);
   else
     {
       int scroll_size = (the_screen->height + 1) / 2;
@@ -1966,6 +2008,73 @@ DECLARE_INFO_COMMAND (info_menu_digit, _("Select this menu item"))
   return;
 }
 
+
+
+/* Return a pointer to the xref in XREF_LIST that is nearest to POS, or
+   NULL if XREF_LIST is empty.  That is, if POS is within any of the
+   given xrefs, return that one.  Otherwise, return the one with the
+   nearest beginning or end.  If there are two that are equidistant,
+   prefer the one forward.  The return is in newly-allocated memory,
+   since the caller frees it.
+   
+   This is called from info_menu_or_ref_item with XREF_LIST being all
+   the xrefs in the node, and POS being point.  The ui function that
+   starts it all off is select-reference-this-line.
+
+   This is not the same logic as in info.el.  Info-get-token prefers
+   searching backwards to searching forwards, and has a hardwired search
+   limit of 200 chars (in Emacs 21.2).  */
+
+static REFERENCE **
+nearest_xref (xref_list, pos)
+    REFERENCE **xref_list;
+    long pos;
+{
+  int this_xref;
+  int nearest = -1;
+  long best_delta = -1;
+  
+  for (this_xref = 0; xref_list[this_xref]; this_xref++)
+    {
+      long delta;
+      REFERENCE *xref = xref_list[this_xref];
+      if (xref->start <= pos && pos <= xref->end)
+        { /* POS is within this xref, we're done */
+          nearest = this_xref;
+          break;
+        }
+      
+      /* See how far POS is from this xref.  Take into account the
+         `*Note' that begins the xref, since as far as the user is
+         concerned, that's where it starts.  */
+      delta = MIN (labs (pos - (xref->start - strlen (INFO_XREF_LABEL))),
+                   labs (pos - xref->end));
+      
+      /* It's the <= instead of < that makes us choose the forward xref
+         of POS if two are equidistant.  Of course, because of all the
+         punctuation surrounding xrefs, it's not necessarily obvious
+         where one ends.  */
+      if (delta <= best_delta || best_delta < 0)
+        {
+          nearest = this_xref;
+          best_delta = delta;
+        }
+    }
+  
+  /* Maybe there was no list to search through.  */
+  if (nearest < 0)
+    return NULL;
+  
+  /* Ok, we have a nearest xref, make a list of it.  */
+  {
+    REFERENCE **ret = xmalloc (sizeof (REFERENCE *) * 2);
+    ret[0] = info_copy_reference (xref_list[nearest]);
+    ret[1] = NULL;
+    return ret;
+  }
+}
+
+
 /* Read a menu or followed reference from the user defaulting to the
    reference found on the current line, and select that node.  The
    reading is done with completion.  BUILDER is the function used
@@ -1979,10 +2088,10 @@ info_menu_or_ref_item (window, count, key, builder, ask_p)
      REFERENCE **(*builder) ();
      int ask_p;
 {
-  REFERENCE **menu, *entry, *defentry = (REFERENCE *)NULL;
   char *line;
-
-  menu = (*builder) (window->node);
+  REFERENCE *entry;
+  REFERENCE *defentry = NULL;
+  REFERENCE **menu = (*builder) (window->node);
 
   if (!menu)
     {
@@ -1996,10 +2105,8 @@ info_menu_or_ref_item (window, count, key, builder, ask_p)
   /* Default the selected reference to the one which is on the line that
      point is in.  */
   {
-    REFERENCE **refs = (REFERENCE **)NULL;
-    int point_line;
-
-    point_line = window_line_of_point (window);
+    REFERENCE **refs = NULL;
+    int point_line = window_line_of_point (window);
 
     if (point_line != -1)
       {
@@ -2028,33 +2135,35 @@ info_menu_or_ref_item (window, count, key, builder, ask_p)
               refs = manpage_xrefs_in_binding (window->node, &binding);
             else
 #endif /* HANDLE_MAN_PAGES */
-            refs = info_xrefs (&binding);
+              refs = nearest_xref (menu, window->point);
           }
 
-        if (refs)
+        if (refs && refs[0])
           {
-            if ((strcmp (refs[0]->label, "Menu") != 0) ||
-                (builder == info_xrefs_of_node))
+            if (strcmp (refs[0]->label, "Menu") != 0
+                || builder == info_xrefs_of_node)
               {
                 int which = 0;
 
-                /* Find the closest reference to point. */
-                if (builder == info_xrefs_of_node)
+                /* For xrefs, find the closest reference to point,
+                   unless we only have one reference (as we will if
+                   we've called nearest_xref above).  It would be better
+                   to have only one piece of code, but the conditions
+                   when we call this are tangled.  */
+                if (builder == info_xrefs_of_node && refs[1])
                   {
                     int closest = -1;
 
                     for (; refs[which]; which++)
                       {
-                        if ((window->point >= refs[which]->start) &&
-                            (window->point <= refs[which]->end))
+                        if (window->point >= refs[which]->start
+                            && window->point <= refs[which]->end)
                           {
                             closest = which;
                             break;
                           }
                         else if (window->point < refs[which]->start)
-                          {
-                            break;
-                          }
+                          break;
                       }
                     if (closest == -1)
                       which--;
@@ -2084,9 +2193,9 @@ info_menu_or_ref_item (window, count, key, builder, ask_p)
 
       /* Build the prompt string. */
       if (defentry)
-        prompt = (char *)xmalloc (20 + strlen (defentry->label));
+        prompt = (char *)xmalloc (99 + strlen (defentry->label));
       else
-        prompt = (char *)xmalloc (20);
+        prompt = (char *)xmalloc (99);
 
       if (builder == info_menu_of_node)
         {
@@ -2139,8 +2248,43 @@ info_menu_or_ref_item (window, count, key, builder, ask_p)
 
   if (line)
     {
-      /* Find the selected label in the references. */
-      entry = info_get_labeled_reference (line, menu);
+      /* It is possible that the references have more than a single
+         entry with the same label, and also LINE is down-cased, which
+         complicates matters even more.  Try to be as accurate as we
+         can: if they've chosen the default, use defentry directly. */
+      if (defentry && strcmp (line, defentry->label) == 0)
+        entry = defentry;
+      else
+        /* Find the selected label in the references.  If there are
+           more than one label which matches, find the one that's
+           closest to point.  */
+        {
+          register int i;
+          int best = -1, min_dist = window->node->nodelen;
+          REFERENCE *ref;
+
+          for (i = 0; menu && (ref = menu[i]); i++)
+            {
+              /* Need to use strcasecmp because LINE is downcased
+                 inside info_read_completing_in_echo_area.  */
+              if (strcasecmp (line, ref->label) == 0)
+                {
+                  /* ref->end is more accurate estimate of position
+                     for menus than ref->start.  Go figure.  */
+                  int dist = abs (window->point - ref->end);
+
+                  if (dist < min_dist)
+                    {
+                      min_dist = dist;
+                      best = i;
+                    }
+                }
+            }
+          if (best != -1)
+            entry = menu[best];
+          else
+            entry = (REFERENCE *)NULL;
+        }
 
       if (!entry && defentry)
         info_error (_("The reference disappeared! (%s)."), line);
@@ -2344,7 +2488,8 @@ NODE *
 info_follow_menus (initial_node, menus, errstr, errarg1, errarg2)
      NODE *initial_node;
      char **menus;
-     char **errstr, **errarg1, **errarg2;
+     const char **errstr;
+     char **errarg1, **errarg2;
 {
   NODE *node = NULL;
   *errstr = *errarg1 = *errarg2 = NULL;
@@ -2413,7 +2558,12 @@ info_follow_menus (initial_node, menus, errstr, errarg1, errarg2)
         {
           if (arg == first_arg)
             {
-              node = make_manpage_node (first_arg);
+	      /* Maybe they typed "info foo" instead of "info -f foo".  */
+	      node = info_get_node (first_arg, 0);
+	      if (node)
+		add_file_directory_to_path (first_arg);
+	      else
+		node = make_manpage_node (first_arg);
               if (node)
                 goto maybe_got_node;
             }
@@ -2702,7 +2852,7 @@ program_name_from_file_name (file_name)
 DECLARE_INFO_COMMAND (info_goto_invocation_node,
 		      _("Find the node describing program invocation"))
 {
-  char *invocation_prompt = _("Find Invocation node of [%s]: ");
+  const char *invocation_prompt = _("Find Invocation node of [%s]: ");
   char *program_name, *line;
   char *default_program_name, *prompt, *file_name;
   NODE *top_node;
@@ -3754,7 +3904,8 @@ show_isearch_prompt (dir, string, failing_p)
      int failing_p;
 {
   register int i;
-  char *prefix, *prompt, *p_rep;
+  const char *prefix;
+  char *prompt, *p_rep;
   int prompt_len, p_rep_index, p_rep_size;
 
   if (dir < 0)
@@ -3783,8 +3934,10 @@ show_isearch_prompt (dir, string, failing_p)
       p_rep_index += strlen (rep);
     }
 
-  prompt_len = strlen (prefix) + p_rep_index + 20;
-  prompt = (char *)xmalloc (prompt_len);
+  prompt_len = strlen (prefix) + p_rep_index + 1;
+  if (failing_p)
+    prompt_len += strlen (_("Failing "));
+  prompt = xmalloc (prompt_len);
   sprintf (prompt, "%s%s%s", failing_p ? _("Failing ") : "", prefix,
            p_rep ? p_rep : "");
 
@@ -3842,7 +3995,7 @@ incremental_search (window, count, ignore)
       key = info_get_input_char ();
       window_get_state (window, &mystate);
 
-      if (key == DEL)
+      if (key == DEL || key == Control ('h'))
         {
           /* User wants to delete one level of search? */
           if (!isearch_states_index)
@@ -3873,14 +4026,33 @@ incremental_search (window, count, ignore)
 
       if (!Meta_p (key) || key > 32)
         {
-          func = window->keymap[key].function;
+          /* If this key is not a keymap, get its associated function,
+             if any.  If it is a keymap, then it's probably ESC from an
+             arrow key, and we handle that case below.  */
+          char type = window->keymap[key].type;
+          func = type == ISFUNC
+                 ? InfoFunction(window->keymap[key].function)
+                 : NULL;  /* function member is a Keymap if ISKMAP */
 
-          /* If this key invokes an incremental search, then this means that
-             we will either search again in the same direction, search
-             again in the reverse direction, or insert the last search
-             string that was accepted through incremental searching. */
-          if (func == isearch_forward || func == isearch_backward)
+          if (isprint (key) || (type == ISFUNC && func == NULL))
             {
+            insert_and_search:
+
+              if (isearch_string_index + 2 >= isearch_string_size)
+                isearch_string = (char *)xrealloc
+                  (isearch_string, isearch_string_size += 100);
+
+              isearch_string[isearch_string_index++] = key;
+              isearch_string[isearch_string_index] = '\0';
+              goto search_now;
+            }
+          else if (func == isearch_forward || func == isearch_backward)
+            {
+	      /* If this key invokes an incremental search, then this
+		 means that we will either search again in the same
+		 direction, search again in the reverse direction, or
+		 insert the last search string that was accepted through
+		 incremental searching. */
               if ((func == isearch_forward && dir > 0) ||
                   (func == isearch_backward && dir < 0))
                 {
@@ -3917,18 +4089,6 @@ incremental_search (window, count, ignore)
                   /* Reverse the direction of the search. */
                   dir = -dir;
                 }
-            }
-          else if (isprint (key) || func == (VFunction *)NULL)
-            {
-            insert_and_search:
-
-              if (isearch_string_index + 2 >= isearch_string_size)
-                isearch_string = (char *)xrealloc
-                  (isearch_string, isearch_string_size += 100);
-
-              isearch_string[isearch_string_index++] = key;
-              isearch_string[isearch_string_index] = '\0';
-              goto search_now;
             }
           else if (func == info_abort_key)
             {
@@ -3971,8 +4131,9 @@ incremental_search (window, count, ignore)
 	  /* FIXME: this seems like a kludge!  We need a more reliable
 	     mechanism to know when ESC is a separate key and when it is
 	     part of an escape sequence.  */
-          if (key != isearch_terminate_search_key ||
-	      info_any_buffered_input_p ())
+          if (key != RET  /* Emacs addicts want RET to get lost */
+	      && (key != isearch_terminate_search_key
+		  || info_any_buffered_input_p ()))
             info_set_pending_input (key);
 
           if (func == info_abort_key)
@@ -4377,8 +4538,10 @@ DECLARE_INFO_COMMAND (info_quit, _("Quit using Info"))
 /*                                                                  */
 /* **************************************************************** */
 
-/* Declaration only.  Special cased in info_dispatch_on_key (). */
-DECLARE_INFO_COMMAND (info_do_lowercase_version, "")
+/* Declaration only.  Special cased in info_dispatch_on_key ().
+   Doc string is to avoid ugly results with describe_key etc.  */
+DECLARE_INFO_COMMAND (info_do_lowercase_version,
+		      _("Run command bound to this key's lowercase variant"))
 {}
 
 static void
@@ -4403,7 +4566,6 @@ dispatch_error (keyseq)
 
 /* Keeping track of key sequences. */
 static char *info_keyseq = (char *)NULL;
-static char keyseq_rep[100];
 static int info_keyseq_index = 0;
 static int info_keyseq_size = 0;
 static int info_keyseq_displayed_p = 0;
@@ -4426,25 +4588,6 @@ add_char_to_keyseq (character)
 
   info_keyseq[info_keyseq_index++] = character;
   info_keyseq[info_keyseq_index] = '\0';
-}
-
-/* Return the pretty printable string which represents KEYSEQ. */
-char *
-pretty_keyseq (keyseq)
-     char *keyseq;
-{
-  register int i;
-
-  keyseq_rep[0] = '\0';
-
-  for (i = 0; keyseq[i]; i++)
-    {
-      sprintf (keyseq_rep + strlen (keyseq_rep), "%s%s",
-               strlen (keyseq_rep) ? " " : "",
-               pretty_keyname (keyseq[i]));
-    }
-
-  return (keyseq_rep);
 }
 
 /* Display the current value of info_keyseq.  If argument EXPECTING is
@@ -4513,6 +4656,7 @@ info_dispatch_on_key (key, map)
      unsigned char key;
      Keymap map;
 {
+#if !defined(INFOKEY)
   if (Meta_p (key) && (!ISO_Latin_p || map[key].function != ea_insert))
     {
       if (map[ESC].type == ISKMAP)
@@ -4528,6 +4672,7 @@ info_dispatch_on_key (key, map)
         }
       return;
     }
+#endif /* INFOKEY */
 
   switch (map[key].type)
     {
@@ -4535,13 +4680,26 @@ info_dispatch_on_key (key, map)
       {
         VFunction *func;
 
-        func = map[key].function;
+        func = InfoFunction(map[key].function);
         if (func != (VFunction *)NULL)
           {
             /* Special case info_do_lowercase_version (). */
             if (func == info_do_lowercase_version)
               {
+#if defined(INFOKEY)
+		unsigned char lowerkey;
+
+		lowerkey = Meta_p(key) ? Meta (tolower (UnMeta (key))) : tolower (key);
+		if (lowerkey == key)
+		  {
+		    add_char_to_keyseq (key);
+		    dispatch_error (info_keyseq);
+		    return;
+		  }
+                info_dispatch_on_key (lowerkey, map);
+#else /* !INFOKEY */
                 info_dispatch_on_key (tolower (key), map);
+#endif /* INFOKEY */
                 return;
               }
 
@@ -4554,7 +4712,7 @@ info_dispatch_on_key (key, map)
               WINDOW *where;
 
               where = active_window;
-              (*map[key].function)
+              (*InfoFunction(map[key].function))
                 (active_window, info_numeric_arg * info_numeric_arg_sign, key);
 
               /* If we have input pending, then the last command was a prefix
@@ -4564,9 +4722,9 @@ info_dispatch_on_key (key, map)
               if (!info_input_pending_p ())
                 {
                   if (where == the_echo_area)
-                    ea_last_executed_command = map[key].function;
+                    ea_last_executed_command = InfoFunction(map[key].function);
                   else
-                    info_last_executed_command = map[key].function;
+                    info_last_executed_command = InfoFunction(map[key].function);
                 }
             }
           }
@@ -4581,7 +4739,7 @@ info_dispatch_on_key (key, map)
 
     case ISKMAP:
       add_char_to_keyseq (key);
-      if (map[key].function != (VFunction *)NULL)
+      if (map[key].function != (InfoCommand *)NULL)
         {
           unsigned char newkey;
 
@@ -4660,22 +4818,34 @@ DECLARE_INFO_COMMAND (info_numeric_arg_digit_loop,
 
           pure_key = key = info_get_another_input_char ();
 
+#if !defined(INFOKEY)
           if (Meta_p (key))
             add_char_to_keyseq (ESC);
 
           add_char_to_keyseq (UnMeta (key));
+#else /* defined(INFOKEY) */
+          add_char_to_keyseq (key);
+#endif /* defined(INFOKEY) */
         }
 
+#if !defined(INFOKEY)
       if (Meta_p (key))
         key = UnMeta (key);
+#endif /* !defined(INFOKEY) */
 
       if (keymap[key].type == ISFUNC &&
-          keymap[key].function == info_universal_argument)
+          InfoFunction(keymap[key].function) == info_universal_argument)
         {
           info_numeric_arg *= 4;
           key = 0;
           continue;
         }
+
+#if defined(INFOKEY)
+      if (Meta_p (key))
+        key = UnMeta (key);
+#endif /* !defined(INFOKEY) */
+
 
       if (isdigit (key))
         {

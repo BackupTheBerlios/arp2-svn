@@ -1,7 +1,8 @@
 /* info.h -- Header file which includes all of the other headers.
-   $Id: info.h,v 1.14 1999/09/25 16:10:04 karl Exp $
+   $Id: info.h,v 1.2 2003/02/11 16:39:06 karl Exp $
 
-   Copyright (C) 1993, 97, 98, 99 Free Software Foundation, Inc.
+   Copyright (C) 1993, 1997, 1998, 1999, 2001, 2002, 2003 Free Software
+   Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -25,6 +26,7 @@
 /* We always want these, so why clutter up the compile command?  */
 #define HANDLE_MAN_PAGES
 #define NAMED_FUNCTIONS
+#define INFOKEY
 
 /* System dependencies.  */
 #include "system.h"
@@ -34,12 +36,11 @@ typedef int Function ();
 typedef void VFunction ();
 typedef char *CFunction ();
 
-
 #include "filesys.h"
+#include "doc.h"
 #include "display.h"
 #include "session.h"
 #include "echo-area.h"
-#include "doc.h"
 #include "footnotes.h"
 #include "gc.h"
 
@@ -119,40 +120,41 @@ extern int info_error_rings_bell_p;
 /* Non-zero means default keybindings are loosely modeled on vi(1).  */
 extern int vi_keys_p;
 
+/* Non-zero means don't remove ANSI escape sequences from man pages.  */
+extern int raw_escapes_p;
+
 /* Print FORMAT with ARG1 and ARG2.  If the window system was initialized,
    then the message is printed in the echo area.  Otherwise, a message is
    output to stderr. */
 extern void info_error ();
 
-/* The version numbers of Info. */
-extern int info_major_version, info_minor_version;
-
 /* Error message defines. */
-extern char *msg_cant_find_node;
-extern char *msg_cant_file_node;
-extern char *msg_cant_find_window;
-extern char *msg_cant_find_point;
-extern char *msg_cant_kill_last;
-extern char *msg_no_menu_node;
-extern char *msg_no_foot_node;
-extern char *msg_no_xref_node;
-extern char *msg_no_pointer;
-extern char *msg_unknown_command;
-extern char *msg_term_too_dumb;
-extern char *msg_at_node_bottom;
-extern char *msg_at_node_top;
-extern char *msg_one_window;
-extern char *msg_win_too_small;
-extern char *msg_cant_make_help;
+extern const char *msg_cant_find_node;
+extern const char *msg_cant_file_node;
+extern const char *msg_cant_find_window;
+extern const char *msg_cant_find_point;
+extern const char *msg_cant_kill_last;
+extern const char *msg_no_menu_node;
+extern const char *msg_no_foot_node;
+extern const char *msg_no_xref_node;
+extern const char *msg_no_pointer;
+extern const char *msg_unknown_command;
+extern const char *msg_term_too_dumb;
+extern const char *msg_at_node_bottom;
+extern const char *msg_at_node_top;
+extern const char *msg_one_window;
+extern const char *msg_win_too_small;
+extern const char *msg_cant_make_help;
 
 
-/* Found in info-utils.c. */
-extern char *filename_non_directory ();
+extern char *filename_non_directory ();	/* Found in info-utils.c. */
+
+#if defined(INFOKEY)
+extern void set_variable_to_value ();	/* Found in variables.c. */
+#endif /* INFOKEY */
 
 #if !defined (BUILDING_LIBRARY)
-/* Found in session.c */
-extern int info_windows_initialized_p;
-
+extern int info_windows_initialized_p;	/* Found in session.c */
 /* Found in window.c. */
 extern void message_in_echo_area (), unmessage_in_echo_area ();
 #endif /* !BUILDING_LIBRARY */

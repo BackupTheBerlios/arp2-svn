@@ -1,7 +1,7 @@
 /* info-utils.c -- miscellanous.
-   $Id: info-utils.c,v 1.7 1998/08/10 18:07:47 karl Exp $
+   $Id: info-utils.c,v 1.2 2003/03/06 23:22:23 karl Exp $
 
-   Copyright (C) 1993, 98 Free Software Foundation, Inc.
+   Copyright (C) 1993, 1998, 2003 Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -355,6 +355,27 @@ info_concatenate_references (ref1, ref2)
   return (result);
 }
 
+
+
+/* Copy a reference structure.  Since we tend to free everything at
+   every opportunity, we don't share any points, but copy everything into
+   new memory.  */
+REFERENCE *
+info_copy_reference (src)
+    REFERENCE *src;
+{
+  REFERENCE *dest = xmalloc (sizeof (REFERENCE));
+  dest->label = src->label ? xstrdup (src->label) : NULL;
+  dest->filename = src->filename ? xstrdup (src->filename) : NULL;
+  dest->nodename = src->nodename ? xstrdup (src->nodename) : NULL;
+  dest->start = src->start;
+  dest->end = src->end;
+  
+  return dest;
+}
+
+
+
 /* Free the data associated with REFERENCES. */
 void
 info_free_references (references)
@@ -443,9 +464,11 @@ printed_representation (character, hpos)
 {
   register int i = 0;
   int printable_limit = ISO_Latin_p ? 255 : 127;
-    
+
+  if (raw_escapes_p && character == '\033')
+    the_rep[i++] = character;
   /* Show CTRL-x as ^X.  */
-  if (iscntrl (character) && character < 127)
+  else if (iscntrl (character) && character < 127)
     {
       switch (character)
         {

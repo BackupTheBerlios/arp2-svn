@@ -1,7 +1,8 @@
 /* defun.c -- @defun and friends.
-   $Id: defun.c,v 1.11 1999/07/11 16:50:19 karl Exp $
+   $Id: defun.c,v 1.6 2003/05/09 23:51:10 karl Exp $
 
-   Copyright (C) 1998, 99 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003 Free Software
+   Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -19,8 +20,11 @@
 
 #include "system.h"
 #include "defun.h"
+#include "xml.h"
 #include "insertion.h"
 #include "makeinfo.h"
+#include "cmds.h"
+#include "html.h"
 
 
 #define DEFUN_SELF_DELIMITING(c) \
@@ -65,6 +69,7 @@ scan_group_in_string (string_pointer)
 {
   char *scan_string = (*string_pointer) + 1;
   unsigned int level = 1;
+  int started_command = 0;
 
   for (;;)
     {
@@ -79,17 +84,20 @@ scan_group_in_string (string_pointer)
         {
           /* Tweak line_number to compensate for fact that
              we gobbled the whole line before coming here. */
-          line_number -= 1;
+          line_number--;
           line_error (_("Missing `}' in @def arg"));
-          line_number += 1;
+          line_number++;
           *string_pointer = scan_string - 1;
           return 0;
         }
 
-      if (c == '{')
-        level += 1;
-      if (c == '}')
-        level -= 1;
+      if (c == '{' && !started_command)
+        level++;
+      if (c == '}' && !started_command)
+        level--;
+
+      /* remember if at @.  */
+      started_command = (c == '@' && !started_command);
     }
 }
 
@@ -234,7 +242,13 @@ process_defun_args (defun_args, auto_var_p)
         }
 
       if (DEFUN_SELF_DELIMITING (defun_arg[0]))
-        add_char (defun_arg[0]);
+        {
+          /* Within @deffn and friends, texinfo.tex makes parentheses
+             sans serif and brackets bold.  We use roman instead.  */
+          insert_html_tag (START, "");
+          add_char (defun_arg[0]);
+          insert_html_tag (END, "");
+        }
       else if (defun_arg[0] == '&')
         if (html)
           {
@@ -318,7 +332,8 @@ defun_internal (type, x_p)
 {
   enum insertion_type base_type;
   char **defun_args, **scan_args;
-  char *category, *defined_name, *type_name, *type_name2;
+  const char *category;
+  char *defined_name, *type_name, *type_name2;
 
   {
     char *line;
@@ -395,9 +410,9 @@ defun_internal (type, x_p)
     type_name = next_nonwhite_defun_arg (&scan_args);
 
   /* The type name for typed languages.  */
-  if (base_type == deftypemethod
-      || base_type == deftypeivar
-      || base_type == deftypeop
+  if ((base_type == deftypemethod)
+      || (base_type == deftypeivar)
+      || (base_type == deftypeop)
      )
     type_name2 = next_nonwhite_defun_arg (&scan_args);
 
@@ -422,6 +437,13 @@ defun_internal (type, x_p)
       defined_name = tem;
     }
 
+  /* It's easy to write @defun foo(arg1 arg2), but a following ( is
+     misparsed by texinfo.tex and this is next to impossible to fix.
+     Warn about it.  */
+  if (*scan_args && **scan_args && **scan_args == '(')
+    warning ("`%c' follows defined name `%s' instead of whitespace",
+             **scan_args, defined_name);
+
   if (!x_p)
     begin_insertion (type);
 
@@ -430,11 +452,13 @@ defun_internal (type, x_p)
   current_indent -= default_indentation_increment;
   start_paragraph ();
 
-  if (html && !x_p)
+  if (!x_p) {
     /* Start the definition on new paragraph.  */
-    add_word ("<p>\n");
+    if (html)
+      add_word ("<p>\n");
+  }
 
-  if (!html)
+  if (!html && !docbook)
     switch (base_type)
       {
       case deffn:
@@ -473,13 +497,16 @@ defun_internal (type, x_p)
       /* If this is not a @def...x version, it could only
          be a normal version @def.... So start the table here.  */
       if (!x_p)
-        add_word ("<table width=\"100%\">\n");
+	{
+	  add_html_elt ("<table width=");
+	  add_word ("\"100%\">\n");
+	}
 
       /* If this is an @def...x there has to be an other @def... before
          it, so this is only a new row within an existing table.  With
          two complete standalone tables the gap between them is too big.  */
       add_word ("<tr>\n");
-      add_word ("<td align=\"left\">");
+      add_html_elt ("<td align=\"left\">");
 
       switch (base_type)
         {
@@ -487,23 +514,69 @@ defun_internal (type, x_p)
         case defvr:
         case deftp:
           /* <i> is for the following function arguments.  */
-          add_word_args ("<b>%s</b><i>", defined_name);
+          insert_html_tag (START, "b");
+          execute_string ("%s", defined_name);
+          insert_html_tag (END, "b");
+          insert_html_tag (START, "i");
           break;
         case deftypefn:
         case deftypevr:
-          add_word_args ("%s <b>%s</b><i>", type_name, defined_name);
+          execute_string ("%s ", type_name);
+          insert_html_tag (START, "b");
+          execute_string ("%s", defined_name);
+          insert_html_tag (END, "b");
+          insert_html_tag (START, "i");
           break;
         case defcv:
         case defop:
-          add_word_args ("<b>%s</b><i>", defined_name);
+          insert_html_tag (START, "b");
+          execute_string ("%s", defined_name);
+          insert_html_tag (END, "b");
+          insert_html_tag (START, "i");
           break;
         case deftypemethod:
         case deftypeop:
         case deftypeivar:
-          add_word_args ("%s <b>%s</b><i>", type_name2, defined_name);
+          execute_string ("%s ", type_name2);
+          insert_html_tag (START, "b");
+          execute_string ("%s", defined_name);
+          insert_html_tag (END, "b");
+          insert_html_tag (START, "i");
           break;
         }
     } /* if (html)... */
+
+  if (docbook)
+    {
+      switch (base_type)
+        {
+        case deffn:
+        case defvr:
+        case deftp:
+        case defcv:
+        case defop:
+	  xml_insert_element (FUNCTION, START);
+          execute_string ("%s", defined_name);
+	  xml_insert_element (FUNCTION, END);
+          break;
+        case deftypefn:
+        case deftypevr:
+          execute_string ("%s ", type_name);
+	  xml_insert_element (FUNCTION, START);
+          execute_string ("%s", defined_name);
+	  xml_insert_element (FUNCTION, END);
+          break;
+        case deftypemethod:
+        case deftypeop:
+        case deftypeivar:
+          execute_string ("%s ", type_name2);
+	  xml_insert_element (FUNCTION, START);
+          execute_string ("%s", defined_name);
+	  xml_insert_element (FUNCTION, END);
+          break;
+        }
+
+    } /* if (docbook)... */
 
   current_indent += default_indentation_increment;
 
@@ -546,34 +619,39 @@ defun_internal (type, x_p)
         case deftp:
         case deftypefn:
         case deftypevr:
-          add_word ("</i>"); /* close italic area for arguments */
+          insert_html_tag (END, "i"); /* close italic area for arguments */
           /* put the rest into the second column */
-          add_word_args ("</td>\n<td align=\"right\">%s", category);
+	  add_word ("</td>\n");
+          add_html_elt ("<td align=\"right\">");
+          execute_string ("%s", category);
           break;
-     
-       case defcv:
-         add_word ("</td>\n<td align=\"right\">");
-         add_word_args ("%s %s %s", category, _("of"), type_name);
-         break;
-     
-       case defop:
-       case deftypemethod:
-       case deftypeop:
-         add_word ("</i>");
-         add_word ("</td>\n<td align=\"right\">");
-         add_word_args ("%s %s %s", category, _("on"), type_name);
-         break;
-     
-       case deftypeivar:
-         add_word ("</i>");
-         add_word ("</td>\n<td align=\"right\">");
-         add_word_args ("%s %s %s", category, _("of"), type_name);
-         break;
-       } /* switch (base_type)... */
-      
+
+        case defcv:
+	  add_word ("</td>\n");
+	  add_html_elt ("<td align=\"right\">");
+	  execute_string ("%s %s %s", category, _("of"), type_name);
+	  break;
+
+        case defop:
+        case deftypemethod:
+        case deftypeop:
+          insert_html_tag (END, "i");
+	  add_word ("</td>\n");
+	  add_html_elt ("<td align=\"right\">");
+	  execute_string ("%s %s %s", category, _("on"), type_name);
+	  break;
+
+        case deftypeivar:
+          insert_html_tag (END, "i");
+	  add_word ("</td>\n");
+	  add_html_elt ("<td align=\"right\">");
+	  execute_string ("%s %s %s", category, _("of"), type_name);
+	  break;
+	} /* switch (base_type)... */
+
       add_word ("</td>\n"); /* close second column */
       add_word ("</tr>\n"); /* close row */
-      
+
       /* This is needed because I have to know if the next line is
          normal text or another @def..x.  If text follows, create a new
          table to get the indentation for the following text.
@@ -588,10 +666,10 @@ defun_internal (type, x_p)
       if (!looking_at ("@def"))
         {
           add_word ("</table>\n");
-          add_word ("<table width=\"95%\" align=\"center\">\n");
-          add_word ("<tr><td>\n");
+          add_html_elt ("<table width=\"95%\" align=\"center\">");
+          add_word ("\n<tr><td>\n");
         }
-      
+
     } /* if (html)... */
 
   /* Make an entry in the appropriate index. */
@@ -637,27 +715,26 @@ defun_internal (type, x_p)
 void
 cm_defun ()
 {
-  int x_p;
   enum insertion_type type;
-  char *temp = xstrdup (command);
-
-  x_p = (command[strlen (command) - 1] == 'x');
+  char *base_command = xstrdup (command);  /* command with any `x' removed */
+  int x_p = (command[strlen (command) - 1] == 'x');
 
   if (x_p)
-    temp[strlen (temp) - 1] = 0;
+    base_command[strlen (base_command) - 1] = 0;
 
-  type = find_type_from_name (temp);
-  free (temp);
+  type = find_type_from_name (base_command);
 
   /* If we are adding to an already existing insertion, then make sure
      that we are already in an insertion of type TYPE. */
   if (x_p && (!insertion_level || insertion_stack->insertion != type))
     {
-      line_error (_("Must be in `%s' insertion to use `%sx'"),
-                  command, command);
+      line_error (_("Must be in `@%s' environment to use `@%s'"),
+                  base_command, command);
       discard_until ("\n");
       return;
     }
+  else
+    defun_internal (type, x_p);
 
-  defun_internal (type, x_p);
+  free (base_command);
 }

@@ -1,7 +1,8 @@
 /* info.c -- Display nodes of Info files in multiple windows.
-   $Id: info.c,v 1.41 1999/09/25 16:10:04 karl Exp $
+   $Id: info.c,v 1.7 2003/05/19 13:10:59 karl Exp $
 
-   Copyright (C) 1993, 96, 97, 98, 99 Free Software Foundation, Inc.
+   Copyright (C) 1993, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -76,6 +77,9 @@ int dump_subnodes = 0;
 /* Non-zero means make default keybindings be loosely modeled on vi(1).  */
 int vi_keys_p = 0;
 
+/* Non-zero means don't remove ANSI escape sequences from man pages.  */
+int raw_escapes_p = 0;
+
 #ifdef __MSDOS__
 /* Non-zero indicates that screen output should be made 'speech-friendly'.
    Since on MSDOS the usual behavior is to write directly to the video
@@ -95,37 +99,39 @@ int speech_friendly = 0;
 static struct option long_options[] = {
   { "apropos", 1, 0, APROPOS_OPTION },
   { "directory", 1, 0, 'd' },
-  { "node", 1, 0, 'n' },
-  { "file", 1, 0, 'f' },
-  { "subnodes", 0, &dump_subnodes, 1 },
-  { "output", 1, 0, 'o' },
-  { "show-options", 0, 0, 'O' },
-  { "usage", 0, 0, 'O' },
-  { "vi-keys", 0, &vi_keys_p, 1 },
-  { "help", 0, &print_help_p, 1 },
-  { "version", 0, &print_version_p, 1 },
   { "dribble", 1, 0, DRIBBLE_OPTION },
+  { "file", 1, 0, 'f' },
+  { "help", 0, &print_help_p, 1 },
+  { "index-search", 1, 0, IDXSRCH_OPTION },
+  { "node", 1, 0, 'n' },
+  { "output", 1, 0, 'o' },
+  { "raw-escapes", 0, &raw_escapes_p, 1 },
   { "restore", 1, 0, RESTORE_OPTION },
+  { "show-options", 0, 0, 'O' },
+  { "subnodes", 0, &dump_subnodes, 1 },
+  { "usage", 0, 0, 'O' },
+  { "version", 0, &print_version_p, 1 },
+  { "vi-keys", 0, &vi_keys_p, 1 },
 #ifdef __MSDOS__
   { "speech-friendly", 0, &speech_friendly, 1 },
 #endif
-  { "index-search", 1, 0, IDXSRCH_OPTION },
   {NULL, 0, NULL, 0}
 };
 
 /* String describing the shorthand versions of the long options found above. */
 #ifdef __MSDOS__
-static char *short_options = "d:n:f:o:Osb";
+static char *short_options = "d:n:f:ho:ORsb";
 #else
-static char *short_options = "d:n:f:o:Os";
+static char *short_options = "d:n:f:ho:ORs";
 #endif
 
 /* When non-zero, the Info window system has been initialized. */
 int info_windows_initialized_p = 0;
 
 /* Some "forward" declarations. */
-static void info_short_help (), remember_info_program_name ();
+static void info_short_help ();
 static void init_messages ();
+extern void add_file_directory_to_path ();
 
 
 /* **************************************************************** */
@@ -152,7 +158,7 @@ main (argc, argv)
   textdomain (PACKAGE);
 
   init_messages ();
-  
+
   while (1)
     {
       int option_character;
@@ -160,7 +166,7 @@ main (argc, argv)
       option_character = getopt_long
         (argc, argv, short_options, long_options, &getopt_long_index);
 
-      /* getopt_long () returns EOF when there are no more long options. */
+      /* getopt_long returns EOF when there are no more long options. */
       if (option_character == EOF)
         break;
 
@@ -193,6 +199,11 @@ main (argc, argv)
           user_filename = xstrdup (optarg);
           break;
 
+          /* Treat -h like --help. */
+        case 'h':
+          print_help_p = 1;
+          break;
+
           /* User is specifying the name of a file to output to. */
         case 'o':
           if (user_output_filename)
@@ -206,6 +217,12 @@ main (argc, argv)
           goto_invocation_p = 1;
           break;
 
+	  /* User has specified that she wants the escape sequences
+	     in man pages to be passed thru unaltered.  */
+        case 'R':
+          raw_escapes_p = 1;
+          break;
+
           /* User is specifying that she wishes to dump the subnodes of
              the node that she is dumping. */
         case 's':
@@ -213,7 +230,7 @@ main (argc, argv)
           break;
 
 #ifdef __MSDOS__
-	  /* User specifies that she wants speech-friendly output.  */
+	  /* User wants speech-friendly output.  */
 	case 'b':
 	  speech_friendly = 1;
 	  break;
@@ -268,7 +285,7 @@ main (argc, argv)
 There is NO warranty.  You may redistribute this software\n\
 under the terms of the GNU General Public License.\n\
 For more information about these matters, see the files named COPYING.\n"),
-		  "1999");
+		  "2003");
       xexit (0);
     }
 
@@ -313,25 +330,7 @@ For more information about these matters, see the files named COPYING.\n"),
   /* If the user specified a particular filename, add the path of that
      file to the contents of INFOPATH. */
   if (user_filename)
-    {
-      char *directory_name = xstrdup (user_filename);
-      char *temp = filename_non_directory (directory_name);
-
-      if (temp != directory_name)
-        {
-	  if (HAVE_DRIVE (directory_name) && temp == directory_name + 2)
-	    {
-	      /* The directory of "d:foo" is stored as "d:.", to avoid
-		 mixing it with "d:/" when a slash is appended.  */
-	      *temp = '.';
-	      temp += 2;
-	    }
-          temp[-1] = 0;
-          info_add_path (directory_name, INFOPATH_PREPEND);
-        }
-
-      free (directory_name);
-    }
+    add_file_directory_to_path (user_filename);
 
   /* If the user wants to search every known index for a given string,
      do that now, and report the results. */
@@ -382,13 +381,14 @@ For more information about these matters, see the files named COPYING.\n"),
     char *errstr, *errarg1, *errarg2;
     NODE *new_initial_node = info_follow_menus (initial_node, argv + optind,
                                                 &errstr, &errarg1, &errarg2);
+
     if (new_initial_node && new_initial_node != initial_node)
       initial_node = new_initial_node;
 
     /* If the user specified that this node should be output, then do that
        now.  Otherwise, start the Info session with this node.  Or act
        accordingly if the initial node was not found.  */
-    if (user_output_filename)
+    if (user_output_filename && !goto_invocation_p)
       {
         if (!errstr)
           dump_node_to_file (initial_node, user_output_filename,
@@ -447,7 +447,13 @@ For more information about these matters, see the files named COPYING.\n"),
                     free (program);
                   }
 
-                info_read_and_dispatch ();
+		if (user_output_filename)
+		  {
+		    dump_node_to_file (windows->node, user_output_filename,
+				       dump_subnodes);
+		  }
+		else
+		  info_read_and_dispatch ();
 
                 /* On program exit, leave the cursor at the bottom of the
                    window, and restore the terminal IO. */
@@ -472,6 +478,31 @@ For more information about these matters, see the files named COPYING.\n"),
 
     xexit (0);
   }
+
+  return 0; /* Avoid bogus warnings.  */
+}
+
+void
+add_file_directory_to_path (filename)
+     char *filename;
+{
+  char *directory_name = xstrdup (filename);
+  char *temp = filename_non_directory (directory_name);
+
+  if (temp != directory_name)
+    {
+      if (HAVE_DRIVE (directory_name) && temp == directory_name + 2)
+	{
+	  /* The directory of "d:foo" is stored as "d:.", to avoid
+	     mixing it with "d:/" when a slash is appended.  */
+	  *temp = '.';
+	  temp += 2;
+	}
+      temp[-1] = 0;
+      info_add_path (directory_name, INFOPATH_PREPEND);
+    }
+
+  free (directory_name);
 }
 
 
@@ -527,25 +558,34 @@ info_error (format, arg1, arg2)
 static void
 info_short_help ()
 {
+#ifdef __MSDOS__
+  static const char speech_friendly_string[] = N_("\
+  -b, --speech-friendly        be friendly to speech synthesizers.\n");
+#else
+  static const char speech_friendly_string[] = "";
+#endif
+
+
   printf (_("\
 Usage: %s [OPTION]... [MENU-ITEM...]\n\
 \n\
 Read documentation in Info format.\n\
 \n\
 Options:\n\
- --apropos=SUBJECT        look up SUBJECT in all indices of all manuals.\n\
- --directory=DIR          add DIR to INFOPATH.\n\
- --dribble=FILENAME       remember user keystrokes in FILENAME.\n\
- --file=FILENAME          specify Info file to visit.\n\
- --help                   display this help and exit.\n\
- --index-search=STRING    go to node pointed by index entry STRING.\n\
- --node=NODENAME          specify nodes in first visited Info file.\n\
- --output=FILENAME        output selected nodes to FILENAME.\n\
- --restore=FILENAME       read initial keystrokes from FILENAME.\n\
- --show-options, --usage  go to command-line options node.\n\
- --subnodes               recursively output menu items.\n%s\
- --vi-keys                use vi-like and less-like key bindings.\n\
- --version                display version information and exit.\n\
+      --apropos=STRING         look up STRING in all indices of all manuals.\n\
+  -d, --directory=DIR          add DIR to INFOPATH.\n\
+      --dribble=FILENAME       remember user keystrokes in FILENAME.\n\
+  -f, --file=FILENAME          specify Info file to visit.\n\
+  -h, --help                   display this help and exit.\n\
+      --index-search=STRING    go to node pointed by index entry STRING.\n\
+  -n, --node=NODENAME          specify nodes in first visited Info file.\n\
+  -o, --output=FILENAME        output selected nodes to FILENAME.\n\
+  -R, --raw-escapes            don't remove ANSI escapes from man pages.\n\
+      --restore=FILENAME       read initial keystrokes from FILENAME.\n\
+  -O, --show-options, --usage  go to command-line options node.\n%s\
+      --subnodes               recursively output menu items.\n\
+      --vi-keys                use vi-like and less-like key bindings.\n\
+      --version                display version information and exit.\n\
 \n\
 The first non-option argument, if present, is the menu entry to start from;\n\
 it is searched for in all `dir' files along INFOPATH.\n\
@@ -559,18 +599,13 @@ Examples:\n\
   info emacs buffers         start at buffers node within emacs manual\n\
   info --show-options emacs  start at node with emacs' command line options\n\
   info -f ./foo.info         show file ./foo.info, not searching dir\n\
-\n\
+"),
+  program_name, speech_friendly_string);
+
+  puts (_("\n\
 Email bug reports to bug-texinfo@gnu.org,\n\
 general questions and discussion to help-texinfo@gnu.org.\n\
-"),
-  program_name,
-#ifdef __MSDOS__
-"\
- --speech-friendly        be friendly to speech synthesizers.\n"
-#else
-""
-#endif
-	  );
+Texinfo home page: http://www.gnu.org/software/texinfo/"));
 
   xexit (0);
 }
@@ -581,22 +616,22 @@ general questions and discussion to help-texinfo@gnu.org.\n\
    use them that way.  This also has the advantage that there's only one
    copy of the strings.  */
 
-char *msg_cant_find_node;
-char *msg_cant_file_node;
-char *msg_cant_find_window;
-char *msg_cant_find_point;
-char *msg_cant_kill_last;
-char *msg_no_menu_node;
-char *msg_no_foot_node;
-char *msg_no_xref_node;
-char *msg_no_pointer;
-char *msg_unknown_command;
-char *msg_term_too_dumb;
-char *msg_at_node_bottom;
-char *msg_at_node_top;
-char *msg_one_window;
-char *msg_win_too_small;
-char *msg_cant_make_help;
+const char *msg_cant_find_node;
+const char *msg_cant_file_node;
+const char *msg_cant_find_window;
+const char *msg_cant_find_point;
+const char *msg_cant_kill_last;
+const char *msg_no_menu_node;
+const char *msg_no_foot_node;
+const char *msg_no_xref_node;
+const char *msg_no_pointer;
+const char *msg_unknown_command;
+const char *msg_term_too_dumb;
+const char *msg_at_node_bottom;
+const char *msg_at_node_top;
+const char *msg_one_window;
+const char *msg_win_too_small;
+const char *msg_cant_make_help;
 
 static void
 init_messages ()

@@ -1,7 +1,8 @@
 /* makeinfo.h -- declarations for Makeinfo.
-   $Id: makeinfo.h,v 1.25 1999/09/18 18:09:22 karl Exp $
+   $Id: makeinfo.h,v 1.10 2003/05/12 13:12:32 karl Exp $
 
-   Copyright (C) 1996, 97, 98, 99 Free Software Foundation, Inc.
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003 Free
+   Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -45,7 +46,7 @@ DECLARE (int, executing_string, 0);
    stream, because it has already been written. */
 DECLARE (int, me_inhibit_expansion, 0);
 
-extern char *expansion (), *text_expansion ();
+extern char *expansion (), *text_expansion (), *full_expansion ();
 
 /* Current output stream. */
 DECLARE (FILE *, output_stream, NULL);
@@ -87,14 +88,21 @@ DECLARE (int, non_top_node_seen, 0);
 /* Nonzero indicates that indentation is temporarily turned off. */
 DECLARE (int, no_indent, 1);
 
+/* The amount of indentation to apply at the start of each line. */
+DECLARE (int, current_indent, 0);
+
+/* Nonzero means that we suppress the indentation of the first paragraph
+   following any section heading.  */
+DECLARE (int, do_first_par_indent, 0);
+
+/* Amount by which @example indentation increases/decreases. */
+DECLARE (int, default_indentation_increment, 5);
+
 /* Nonzero indicates that filling a line also indents the new line. */
 DECLARE (int, indented_fill, 0);
 
 /* Nonzero means forcing output text to be flushright. */
 DECLARE (int, force_flush_right, 0);
-
-/* The amount of indentation to apply at the start of each line. */
-DECLARE (int, current_indent, 0);
 
 /* The column at which long lines are broken. */
 DECLARE (int, fill_column, 72);
@@ -103,9 +111,6 @@ DECLARE (int, fill_column, 72);
    gets changed for cm_w (). */
 DECLARE (int, non_splitting_words, 0);
 
-/* Amount by which @example indentation increases/decreases. */
-DECLARE (int, default_indentation_increment, 5);
-
 /* Nonzero means that we are currently hacking the insides of an
    insertion which would use a fixed width font. */
 DECLARE (int, in_fixed_width_font, 0);
@@ -113,12 +118,26 @@ DECLARE (int, in_fixed_width_font, 0);
 /* Nonzero if we are currently processing a multitable command */
 DECLARE (int, multitable_active, 0);
 
-/* Nonzero means that we're generating HTML. */
+/* Nonzero means that we're generating HTML. (--html) */
 DECLARE (int, html, 0);
+
+/* Nonzero means that we're generating XML. (--xml) */
+DECLARE (int, xml, 0);
+
+/* Nonzero means that we're generating DocBook. (--docbook) */
+DECLARE (int, docbook, 0);
+
+/* Nonzero means true 8-bit output for Info and plain text.
+   (--enable-encoding) */
+DECLARE (int, enable_encoding, 0);
 
 /* Nonzero means escape characters in HTML output. */
 DECLARE (int, escape_html, 1);
 extern char *escape_string (); /* do HTML escapes */
+
+/* Access key number for next menu entry to be generated (1 to 9, or 10 to
+   mean no access key)  */
+DECLARE (int, next_menu_item_number, 1);
 
 /* Nonzero means that the use of paragraph_start_indent is inhibited.
    @example uses this to line up the left columns of the example text.
@@ -135,6 +154,12 @@ DECLARE (char *, current_node, NULL);
 /* Command name in the process of being hacked. */
 DECLARE (char *, command, NULL);
 
+/* @copying ... @end copying. */
+DECLARE (char *, copying_text, NULL);
+
+/* @documentdescription ... @end documentdescription. */
+DECLARE (const char *, document_description, NULL);
+
 /* Nonzero if the last character inserted has the syntax class of NEWLINE. */
 DECLARE (int, last_char_was_newline, 1);
 
@@ -144,6 +169,7 @@ DECLARE (char *, input_text, (char *)NULL);
 DECLARE (int, input_text_length, 0);
 DECLARE (int, input_text_offset, 0);
 DECLARE (int, line_number, 0);
+DECLARE (char *, toplevel_output_filename, NULL);
 #define curchar() input_text[input_text_offset]
 
 /* A colon separated list of directories to search for files included
@@ -153,6 +179,9 @@ DECLARE (char *, include_files_path, NULL);
 /* The filename of the current input file.  This is never freed. */
 DECLARE (char *, node_filename, NULL);
 
+/* Name of CSS file to include, if any.  (--css-include).  */
+DECLARE (char *, css_include, NULL);
+
 /* Nonzero means do not output "Node: Foo" for node separations, that
    is, generate plain text.  (--no-headers) */
 DECLARE (int, no_headers, 0);
@@ -161,12 +190,21 @@ DECLARE (int, no_headers, 0);
    generating HTML.  (--ifhtml) */
 DECLARE (int, process_html, 0);
 
-/* Nonzero means that we process @ifinfo even when generating HTML.
-   (--ifinfo) */
-DECLARE (int, process_info, 1);
+/* Positive means process @ifinfo (even if not generating Info);
+   zero means don't process @ifinfo (even if we are);
+   -1 means we don't know yet.  (--ifinfo) */
+DECLARE (int, process_info, -1);
+
+/* Positive means process @ifplaintext (even if not generating plain text);
+   zero means we don't process @ifplaintext (even if we are);
+   -1 means we don't know yet.  (--ifplaintext) */
+DECLARE (int, process_plaintext, -1);
 
 /* Nonzero means that we process @tex and @iftex.  (--iftex) */
 DECLARE (int, process_tex, 0);
+
+/* Nonzero means that we process @xml and @ifxml.  (--ifxml) */
+DECLARE (int, process_xml, 0);
 
 /* Maximum number of references to a single node before complaining.
    (--reference-limit) */
@@ -178,8 +216,12 @@ DECLARE (int, validating, 1);
 /* Nonzero means print information about what is going on.  (--verbose) */
 DECLARE (int, verbose_mode, 0);
 
-/* Nonzero means prefix each @chapter, ... with a number like 1. (--number-sections) */
+/* Nonzero means prefix each @chapter, ... with a number like
+   1, 1.1, etc.  (--number-sections) */
 DECLARE (int, number_sections, 0);
+
+/* Nonzero means split size.  When zero, DEFAULT_SPLIT_SIZE is used. */
+DECLARE (int, split_size, 0);
 
 /* Nonzero means expand node names and references while validating.
    This will avoid errors when the Texinfo document uses features
@@ -225,15 +267,13 @@ DECLARE (int, expensive_validation, 0);
 
 #define COMMAND_PREFIX '@'
 
-/* Stuff for splitting large files. */
-#define SPLIT_SIZE_THRESHOLD 70000  /* What's good enough for Stallman... */
-#define DEFAULT_SPLIT_SIZE 50000    /* Is probably good enough for me. */
-DECLARE (int, splitting, 1);    /* Defaults to true for now. */
+#define END_VERBATIM "end verbatim"
 
-#define command_char(c) (!cr_or_whitespace(c) \
-                         && (c) != '{' \
-                         && (c) != '}' \
-                         && (c) != '=')
+/* Stuff for splitting large files.  The numbers for Emacs
+   texinfo-format-buffer are much smaller, but memory capacities have
+   increased so much, 50k info files seem a bit tiny these days.  */
+#define DEFAULT_SPLIT_SIZE 300000
+DECLARE (int, splitting, 1);    /* Defaults to true for now. */
 
 #define skip_whitespace() \
      while ((input_text_offset != input_text_length) && \
@@ -256,5 +296,7 @@ DECLARE (int, splitting, 1);    /* Defaults to true for now. */
 #define looking_at(string) \
   (strncmp (input_text + input_text_offset, string, strlen (string)) == 0)
 
+/* Possibly return Local Variables trailer for Info output.  */
+extern char *info_trailer ();
 
 #endif /* not MAKEINFO_H */

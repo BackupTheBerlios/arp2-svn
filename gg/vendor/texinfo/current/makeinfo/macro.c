@@ -1,7 +1,7 @@
 /* macro.c -- user-defined macros for Texinfo.
-   $Id: macro.c,v 1.10 1999/08/17 21:06:35 karl Exp $
+   $Id: macro.c,v 1.2 2003/06/01 23:41:23 karl Exp $
 
-   Copyright (C) 1998, 99 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2002, 2003 Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -322,7 +322,7 @@ apply (named, actuals, body)
       else
         { /* Snarf parameter name, check against named parameters. */
           char *param;
-          int param_start, which, len;
+          int param_start, len;
 
           param_start = ++i;
           while (body[i] && body[i] != '\\')
@@ -336,28 +336,37 @@ apply (named, actuals, body)
           if (body[i]) /* move past \ */
             i++;
 
-          /* Now check against named parameters. */
-          for (which = 0; named && named[which]; which++)
-            if (STREQ (named[which], param))
-              break;
-
-          if (named && named[which])
-            {
-              text = which < length_of_actuals ? actuals[which] : NULL;
-              if (!text)
-                text = "";
-              len = strlen (text);
-            }
-          else
-            { /* not a parameter, either it's \\ (if len==0) or an
-                 error.  In either case, restore one \ at least.  */
-              if (len) {
-                warning (_("\\ in macro expansion followed by `%s' instead of \\ or parameter name"),
-                         param); 
-              }
+          if (len == 0)
+            { /* \\ always means \, even if macro has no args.  */
               len++;
               text = xmalloc (1 + len);
               sprintf (text, "\\%s", param);
+            }
+          else
+            {
+              int which;
+              
+              /* Check against named parameters. */
+              for (which = 0; named && named[which]; which++)
+                if (STREQ (named[which], param))
+                  break;
+
+              if (named && named[which])
+                {
+                  text = which < length_of_actuals ? actuals[which] : NULL;
+                  if (!text)
+                    text = "";
+                  len = strlen (text);
+                  text = xstrdup (text);  /* so we can free it */
+                }
+              else
+                { /* not a parameter, so it's an error.  */
+                  warning (_("\\ in macro expansion followed by `%s' instead of parameter name"),
+                             param); 
+                  len++;
+                  text = xmalloc (1 + len);
+                  sprintf (text, "\\%s", param);
+                }
             }
 
           if (strlen (param) + 2 < len)
@@ -371,8 +380,7 @@ apply (named, actuals, body)
           strcpy (new_body + new_body_index, text);
           new_body_index += len;
 
-          if (!named || !named[which])
-            free (text);
+          free (text);
         }
     }
 
@@ -590,10 +598,8 @@ define_macro (mactype, recursive)
     {
       if ((input_text_offset + 9) > input_text_length)
         {
-          int temp_line = line_number;
-          line_number = defining_line;
-          line_error (_("%cend macro not found"), COMMAND_PREFIX);
-          line_number = temp_line;
+          file_line_error (input_filename, defining_line,
+			   _("%cend macro not found"), COMMAND_PREFIX);
           return;
         }
 
@@ -1002,6 +1008,8 @@ cm_alias ()
 
   skip_whitespace ();
   get_until_in_line (1, "=", &(a->alias));
+  canon_white (a->alias);
+
   discard_until ("=");
   skip_whitespace ();
   get_until_in_line (0, " ", &(a->mapto));
