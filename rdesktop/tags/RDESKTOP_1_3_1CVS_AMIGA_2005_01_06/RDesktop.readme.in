@@ -1,0 +1,160 @@
+Short:    A Remote Desktop Protocol Client for accessing Windows NT Terminal Server
+Author:   Matthew Chapman et al, Martin Blom <martin@blom.org>
+Type:     comm/tcp
+Requires: @OS@, @CPU@, ixemul V48
+Version:  1.3.1cvs-@OS@ (06.01.2005)
+
+RDESKTOP
+
+Format:         RDESKTOP [USER=<name>] [DOMAIN=<domain>] [PASSWORD=<pwd>|-]
+                [CLIENT=<hostname>]  [CONSOLE] [FRENCH] [NOENC|NOENCRYPTION]
+                [SHELL=<winprog>] [DIR|DIRECTORY=<windir>] [LEFT=<n>] [TOP=<n>]
+                [W|WIDTH=<n>] [H|HEIGHT=<n>] [D|DEPTH=<bpp>] [PUBSCREEN=<name>]
+                [TITLE=<title>] [FS|FULLSCREEN] [SCREENMODE=<modenum>]
+                [AUDIO=<unit>] [REMOTEAUDIO] [BITMAPSONLY] [NOMOUSE]
+                [EXP|EXPERIENCE=28K8|56K|DSL|LAN] [RDP4] [SERVER] <server>
+
+Template:       SERVER/A,USER/K,DOMAIN/K,PASSWORD/K,CLIENT/K,CONSOLE/S,FRENCH/S,
+                NOENC=NOENCRYPTION/S,SHELL/K,DIR=DIRECTORY/K,LEFT/K/N,TOP/K/N,
+                W=WIDTH/K/N,H=HEIGHT/K/N,D=DEPTH/K/N,PUBSCREEN/K,TITLE/K,
+                FS=FULLSCREEN/S,SCREENMODE/K/N,AUDIO/K/N,REMOTEAUDIO/S,
+                BITMAPSONLY/S,NOMOUSE/S,EXP=EXPERIENCE/K,RDP4/S"
+
+Purpose:        To connect to a Windows NT Terminal Server
+
+
+Introduction:
+
+RDESKTOP [1] is a free client for the RDP protocol. It works as a
+"thin client" which you use to connect to Windows
+NT4TS/2000/2003/XP. RDESKTOP was created by Samba team member Matthew
+Chapman and released under the GNU Public License. It runs on many
+operating systems: several flavours of Unix/Linux, Acorn, Amiga, Mac
+OS X, OS/2 etc. It has even been ported to Win32 and Java. [2]
+
+This version of RDESKTOP runs on OCS (barely) and AGA Amigas running
+@OS_VERSION_AGA@ in 8 bit color mode, and on graphic card equipped
+computers running @OS_VERSION_GFX@ in either 8 bit color mode
+or true-color mode (15, 16 and 25 bit color depths are supported).
+
+It was ported by Martin Blom, who also did a previous Amiga port
+(version 2001-10-28). This port, however, is using a much more recent
+Unix snapshot, which makes it work correctly with Windows XP and adds
+loads of new features. It is also much more "Amigaized" than the last
+version. Darren Eveland and BBRV/Genesi made it happen. Thanks to
+André 'Jobbo' Siegel for the gorgeous PNG icons and Sigbjørn Skjæret
+for additional beta testing.
+
+
+Specification:
+
+In the simplest case, RDESKTOP is invoked with the host name of the
+Windows server as sole argument. This will open a window on the
+default public screen and connect using RDP5 in 8 bit mode. The window
+will be 80% or the screen size, which is (approximately) 640x480 on an
+800x600 screen, 800x600 on a 1024x768 screen etc.
+
+The dimensions, in pixels, of the window (or screen -- see the
+FULLSCREEN switch below) can be set using the WIDTH and HEIGHT
+arguments. If negative, the percentage of the screen size is used
+instead. The DEPTH argument is used to specify the RDP server depth,
+useful when running in window mode on a true-color public
+screen. Valid values are 8, 15, 16 or 24. LEFT and TOP specify the
+position of the window, in pixels, from the left and top edges of the
+screen, respectively.
+
+The public screen to open on is specified by using the PUBSCREEN
+argument. The window title can be set by using the TITLE argument.
+
+By using the FULLSCREEN switch, RDESKTOP will open a screen of its
+own. Unless SCREENMODE is also used to specify the mode number, in
+decimal or (MorphOS version only) hex using the '0x' prefix, a
+screen mode requester will appear before connecting to the
+server. DEPTH is automatically taken from the requester or, if a
+true-color screen mode is specified, the screen mode.
+
+Audio will be redirected automatically. Use the AUDIO argument to
+specify the AHI unit to use (default is 0). The REMOTEAUDIO switch can
+be used to leave audio enabled on the remote side instead.
+
+The user name can be specified by using the USER argument and the
+windows domain by using the DOMAIN argument. The password can be set
+by using the PASSWORD switch. The special password "-" will make
+RDESKTOP ask for the password before connecting.
+
+To override the client host name, use the CLIENT argument. The client
+name is used when loading TSE licenses. These licenses are expected to
+be available as "ENVARC:RDesktop/license.<name>".
+
+When using the French version of NT TSE, the FRENCH switch must be
+used to disable encryption. The NOENCRYPTION switch can be used on
+other servers to disable encryption after the initial login packets
+have been sent. Note that this means that interactive logins will be
+unencrypted!
+
+Windows 2003 Server allows the user to attach to the console using
+RDP. This is activated by using the CONSOLE switch. 
+
+The startup shell can be specified by using the SHELL argument. The
+default working directory can be set by using DIRECTORY. The default
+shell is the Windows Explorer (i.e., the normal Windows desktop).
+
+Finally, there are a couple of arguments that influence what is sent
+over the network. Use BITMAPSONLY to ask the server to send all
+graphics as bitmaps instead of high-level drawing operations. NOMOUSE
+makes RDESKTOP not send any mouse movements to the server in order to
+save bandwidth. The EXPERIENCE argument, which can be 28K8, 56K, DSL
+or LAN, disables certain behaviours. The default is 56K.
+
+  * LAN disables nothing
+  * DSL disables the desktop wallpaper
+  * 56K disables wallpaper, solid window moving and menu animations
+  * 28K8 disables wallpaper, solid window moving, menu animations and
+    theming.
+
+The RDP4 switch disables the RDP v5 protocol.
+
+(When running from @DESKTOP@, the special ixemul tooltype WINDOW may or
+may not be interpreted as a window string for the console window.)
+
+
+Example 1:
+
+1> RDESKTOP winserver
+
+connects to the Windows server "winserver" in 8 bit window mode.
+
+
+Example 2:
+
+1> RDESKTOP WIDTH 800 HEIGHT -50 DEPTH 16 winserver
+
+connects to the Windows server "winserver" in 16 bit true-color window
+mode. The usable area of the window with be 800 pixels wide and half
+of the screen height (50%) tall.
+
+
+Example 3:
+
+1> RDESKTOP FULLSCREEN winserver 
+
+connects to the Windows server "winserver" in fullscreen mode. A
+screenmode requester will first appear, where you can select the
+resolution and depth for the session.
+
+
+Example 4:
+
+4> RDESKTOP REMOTEAUDIO SCREENMODE=2195460 WIDTH=640 HEIGHT=512
+   DEPTH=5 NOENCRYPTION NOMOUSE EXPERIENCE=28k8 winserver
+
+opens an OCS compatible PAL Hires Laced 640x512 screen with 32 colors,
+connects to "winserver" with encryption turned off and audio left
+enabled on the server. No mouse movements are sent and all "extras",
+like wallpapers and solid window moving are disabled. The remote
+windows desktop will be in 256 color mode, even though the Amiga only
+displays 32 colors. Don't expect miracles.
+
+-------------------------------------------------------------------------------
+[1] http://www.rdesktop.org/
+[2] http://www.jacco2.dds.nl/rdesktop/
