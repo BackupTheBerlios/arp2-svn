@@ -1,6 +1,7 @@
-Short:  Compile SFD files into someting useful
-Author: Martin Blom <martin@blom.org>
-Type:   dev/gcc
+Short:    Compile SFD files into someting useful
+Author:   Martin Blom <martin@blom.org>
+Type:     dev/gcc
+Requires: perl
 
 sfdc is an open source replacement for Amiga, Inc.'s sfd tool,
 distributed with NDK 3.9. It is also an replacement for fd2inline.
