@@ -5,7 +5,7 @@
 @settitle FlexCat @value{VERSION}    Documentation
 @setchapternewpage off
 
-@c  $VER: FlexCat_english.texinfo 2.4
+@c  $VER: FlexCat_english.texinfo 2.6
 @c
 @c  FlexCat:                  The flexible catalog generator
 @c  Copyright (C)  1993-1999  Jochen Wiedmann and Marcin Orlowski
@@ -38,7 +38,7 @@
 @c              WWW   : http://amiga.com.pl/flexcat/
 @c
 
-@set VERSION 2.4
+@set VERSION 2.6
 @iftex
 @parskip=0.75em
 @end iftex
@@ -108,7 +108,7 @@ adapted to any programming language and individual needs. (Hopefully!)
 General:
 
 * Disclaimer::           Copyrights, (NO) warranty
-* Survey::               What is FlexCat?
+* Overview::             What is FlexCat?
 * Installation::         How can I get it working?
 
 Using FlexCat:
@@ -188,9 +188,9 @@ the use of this software.
 @vfill@eject
 @end iftex
 
-@node Survey
-@chapter Survey
-@cindex Survey
+@node Overview
+@chapter Overview
+@cindex Overview
 Since Workbench 2.1 the Amiga offers a rather pleasant system of using
 programs in different languages: The @code{locale.library}. (This is
 called localizing, that's what the name's for.)
@@ -539,7 +539,7 @@ and don't want to waste your time for recompilation of nonmodified catalogs.
 
 @cindex QUIET
 @item QUIET
-Tells FlexCat to keep mouth shut unless really necessary.  It means that
+Tells FlexCat to keep its mouth shut unless really necessary.  It means that
 you won't see any warning messages.  Errors will be reported.
 
 @example
@@ -608,7 +608,7 @@ your comments will look like the one below:
 
 @end table
 
-For further examples of command lines see @ref{Survey}.
+For further examples of command lines see @ref{Overview}.
 
 
 @iftex
@@ -773,14 +773,14 @@ for other commands and having no informations on string ID and length.
 catalog description must be present (However, FlexCat omits writing
 strings into the catalog which are identical to the default string.)
 and no additional identifiers may occur. This is easy assured by using
-FlexCat to create new catalog translation files. @xref{Survey}.
+FlexCat to create new catalog translation files. @xref{Overview}.
 
 The commands allowed in catalog translations are:
 @table @code
 @item ##version <str>
 Gives the catalog version as AmigaDOS version string. Example:
 @example
-    @samp{##version $VER: FlexCat.catalog 8.3 (06.03.98)}
+    @samp{##version $VER: FlexCat.ct 8.3 (06.03.98)}
 @end example
 The version number of this catalog is 8. Hence the catalog descriptions
 version number must be 0 or 8.
@@ -790,8 +790,15 @@ You may replace the date string @samp{27.09.93} with special keyword
 date (note, only 1st occurance of @samp{$TODAY} in @samp{$VER} string will be processed).
 If you want your version strings to always be recent type i.e.:
 @example
-    @samp{$VER: FlexCat.catalog 2.2 $TODAY}
+    @samp{$VER: FlexCat.ct 2.2 ($TODAY)}
 @end example
+
+Please note, that from FlexCat 2.6 on, the date is automatically updated.
+This way the you know, if the compiled catalog is up-to-date in relation
+to a catalog translation.
+Furthermore you can now have a correct version string in the .ct file,
+denoting that is is a .ct file. FlexCat automatically turns the ".ct"
+into  ".catalog" when creating the catalog file.
 
 @item ##rcsid $Date: 1999/08/18 14:33:00 $ $Revision: 1.1.1.1 $ $Id: FlexCat_english.texinfo,v 1.1.1.1 1999/08/18 14:33:00 carlos Exp $
 can be used in conjunction with a revision control system instead
@@ -1126,7 +1133,7 @@ example, you cannot supply a @code{Locale} structure to
 others need to modify the source description.
 
 For an example of a program using these source descriptions see
-@ref{Survey}.
+@ref{Overview}.
 
 @samp{NOTE:}
 
@@ -1587,15 +1594,15 @@ Amiga-user for the next 8 years too. ;-)
 
      @item Italian translation reworked by Luca Nora <ln546991@@silab.dsi.unimi.it> and Giovanni Addabbo <gaddabbo@@imar.net>
 
-         @item Slovenian translation by Damir Arh <damir.arh@guest.arnes.si>
+         @item Slovenian translation by Damir Arh <damir.arh@@guest.arnes.si>
 
-         @item Dutch translation updated by Leon Woestenberg <leon@stack.nl>
+         @item Dutch translation updated by Leon Woestenberg <leon@@stack.nl>
 
 @end table
 
-@item Christian Hattemer <chris@heaven.riednet.wh.tu-darmstadt.de> for StormC source descriptors and updating german catalog
+@item Christian Hattemer <chris@@heaven.riednet.wh.tu-darmstadt.de> for StormC source descriptors and updating german catalog
 
-@item Sven Steiniger <ss37@irz301.inf.tu-dresden.de> for the new source descriptor for E programmers (E32e.sd)
+@item Sven Steiniger <ss37@@irz301.inf.tu-dresden.de> for the new source descriptor for E programmers (E32e.sd)
       
 
 @end table

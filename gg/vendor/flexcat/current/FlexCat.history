@@ -7,7 +7,8 @@
 
                    by Jochen Wiedmann and Marcin Orlowski
 
-      e-mail: carlos@amiga.com.pl   WWW: http://amiga.com.pl/flexcat/
+            e-mail: carlos@amiga.com.pl or marcin@orlowski.com
+                  WWW: http://amiga.com.pl/flexcat/
 
   ========================================================================
 
@@ -19,6 +20,24 @@
         Tutorials and other add-ons are also highly needed!
 
   ========================================================================
+
+  * v2.6 (06.08.02) - FlexCat now updates the Date when creating the .catalog
+                      file from the .ct, no need for $TODAY anymore
+                    - FlexCat now even corrects the filename in the version
+                      string, '<file>.ct' becomes '<file>.catalog'
+					- some fixes to the english docs
+					- docs can now be compiled from the Makefile
+					- when creating a blank ct from cd the version gets
+					  copied from the .cd file and the wrong warning is
+					  removed
+					(Stefan Kost <ensonic@sonicpulse.de>)
+
+  * v2.5b (19.03.02)- Added GG patchfile, thanks to Martin Blom <martin@blom.org>
+
+
+  * v2.5 (14.02.02) - Fixed the problem, if using $TODAY, that the date was
+                      one day ahead (tomorrow ;). Replaced gmtime() with
+                      localtime() (DMX).
 
 
   * v2.4 (28.11.99) - FlexCat is now portable! Thanks to Hardcode.sd{tm}
