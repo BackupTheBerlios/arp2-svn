@@ -31,15 +31,11 @@ BEGIN {
 	print "#include <clib/${basename}_protos.h>\n";
 	print "\n";
 	print "#ifndef _NO_INLINE\n";
-	print "# ifdef __GNUC__\n";
-	print "#  ifdef __amigaos4__\n";
-	print "#   ifdef __USE_INLINE__\n";
-	print "#    include <inline4/${basename}.h>\n";
-	print "#   endif /* __USE_INLINE__ */\n";
-	print "#  else /* !__amigaos4__ */\n";
-	print "#   include <inline/${basename}.h>\n";
-	print "#  endif /* __amigaos4__ */\n";
-	print "# endif /* __GNUC__ */\n";
+	print "# if defined(__GNUC__)\n";
+	print "#  include <inline/${basename}.h>\n";
+	print "# elif defined(LATTICE) || defined(__SASC) || defined(_DCC)\n";
+	print "#  include <pragmas/${basename}_pragmas.h>\n";
+	print "# endif\n";
 	print "#endif /* _NO_INLINE */\n";
 	print "\n";
 
