@@ -49,10 +49,11 @@ fi
 
 if [ ${CHECK} ]; then
   for sfd_dir in ${prefix}/os-lib/sfd/*; do
-    package=`echo "${sfd_dir}" | sed -e "s,.*/,,"`
-
-    if [ -d ${fd_dir} ]; then
-      ${SFDC} --quiet --mode=verify ${sfd_dir}/*_*.[Ss][Ff][Dd] || exit 10
+    if [ -d ${sfd_dir} ]; then
+      files=`ls ${sfd_dir}/*_*.[Ss][Ff][Dd]`;
+      if [ ! -z "${files}" ]; then 
+        ${SFDC} --quiet --mode=verify ${files} || exit 10
+      fi
     fi
   done
   exit
@@ -77,7 +78,7 @@ for fd_dir in ${prefix}/os-lib/fd/*; do
       mkdir ${prefix}/os-lib/sfd/${package} || exit 10
     fi
   
-    for fd in ${fd_dir}/*_*.[Ff][Dd]; do
+    for fd in `ls ${fd_dir}/*_*.[Ff][Dd]`; do
       base=`echo "${fd}" | sed -e "s,${fd_dir}/\(.*\)_\(.*\)\...,\1,"`
       clib="${prefix}/os-include/${package}/clib/${base}_protos.h"
 
@@ -90,7 +91,8 @@ for fd_dir in ${prefix}/os-lib/fd/*; do
         if [ ! -r ${prefix}/os-lib/sfd/${package}/${sfd} ]; then
           if [ ${SFD} ]; then
             echo -e -n "${NORMAL}[$sfd]${ERROR} ";
-            ${FD2SFD} ${fd} ${clib} -o ${prefix}/os-lib/sfd/${package}/${sfd}
+            ${FD2SFD} ${fd} ${clib} -o \
+		${prefix}/os-lib/sfd/${package}/${sfd} 2>&1
           else
             echo -e "${INFO}${prefix}/os-lib/sfd/${package}/${sfd}${NORMAL}"
             error=yes
@@ -131,34 +133,38 @@ for gcc in ${bindir}/*-*-gcc; do
  if test -d ${prefix}/${target}; then
   case "${target}" in
    i?86be-amithlon)
+     PACKAGES=`cd ${prefix}/os-lib/sfd && echo {amigaos,3rd-amithlon,3rd}`
+     echo $PACKAGES
      CC="${target}-gcc -Os -fomit-frame-pointer"
      AS="${target}-as"
      AR="${target}-ar"
-     FD2SFD_OS="ix86be-amithlon"
+     SFDC_OS="ix86be-amithlon"
      FIXINCLUDE="perl ${fd2sfddir}/geninclude.pl"
      ;;
    m68k-amigaos)
+     PACKAGES=`cd ${prefix}/os-lib/sfd && echo {amigaos,3rd-amigaos,3rd}`
      CC="${target}-gcc -Os -fomit-frame-pointer"
      AS="${target}-as"
      AR="${target}-ar"
-     FD2SFD_OS="${target}"
+     SFDC_OS="${target}"
      FIXINCLUDE="cat"
      ;;
    ppc-morphos)
+     PACKAGES=`cd ${prefix}/os-lib/sfd && echo {amigaos,morphos,3rd-morphos,3rd}`
      CC="${target}-gcc -Os -fomit-frame-pointer"
      AS="${target}-as"
      AR="${target}-ar"
-     FD2SFD_OS="${target}"
+     SFDC_OS="${target}"
      FIXINCLUDE="perl ${fd2sfddir}/geninclude.pl"
      ;;
    *)
-     FD2SFD_OS="X"
+     SFDC_OS="X"
      ;;
   esac
 
   echo -e "${ERROR}"
   
-  if test "$FD2SFD_OS" == "X"; then
+  if test "$SFDC_OS" == "X"; then
     echo -e "${target}: Unsupported target."
   else
   
@@ -176,8 +182,8 @@ for gcc in ${bindir}/*-*-gcc; do
      rm ${prefix}/${target}/lib/libamigastubs.a
    fi;
 
-   for sfd_dir in ${prefix}/os-lib/sfd/*; do
-     package=`echo "${sfd_dir}" | sed -e "s,.*/,,"`
+   for package in $PACKAGES; do
+     sfd_dir="${prefix}/os-lib/sfd/${package}"
 
      if test -d ${sfd_dir}; then
       echo -e "${INFO} *** Package ${package}${ERROR}"
@@ -185,11 +191,10 @@ for gcc in ${bindir}/*-*-gcc; do
       if [ ${INCLUDE} ]; then     
        echo -e "${INFO}  *** Patching and installing header files${ERROR}"
 
-
        # Create directory structure
        
        for dir in `cd ${prefix}/os-include/${package} &&
-                   find * -type d \
+                   find . -type d \
                      -and -not -ipath "ppcinline*" \
                      -and -not -ipath "ppcpragma*" \
                      -and -not -ipath "ppcproto*" \
@@ -203,7 +208,7 @@ for gcc in ${bindir}/*-*-gcc; do
        # Fix and copy include files
 
        for header in `cd ${prefix}/os-include/${package} &&
-                      find * -iname "*.h" -and -type f \
+                      find . -iname "*.h" -and -type f \
                         -and -not -ipath "ppcinline*" \
                         -and -not -ipath "ppcpragma*" \
                         -and -not -ipath "ppcproto*" \
@@ -218,15 +223,19 @@ for gcc in ${bindir}/*-*-gcc; do
        echo; echo
        echo -e "${INFO}  *** Generating inlines and proto files${ERROR}"
 
-       ${SFDC} --quiet --mode=macros --target=${FD2SFD_OS} \
-               -o ${prefix}/${target}/sys-include/inline/%n.h \
-	       ${sfd_dir}/*_*.[Ss][Ff][Dd] || exit 10
+       files=`ls ${sfd_dir}/*_*.[Ss][Ff][Dd]`;
 
-       ${SFDC} --quiet --mode=proto --target=${FD2SFD_OS} \
-               -o ${prefix}/${target}/sys-include/proto/%n.h \
-	       ${sfd_dir}/*_*.[Ss][Ff][Dd] || exit 10
+       if [ ! -z "${files}" ]; then
+         ${SFDC} --quiet --mode=macros --target=${SFDC_OS} \
+                 -o ${prefix}/${target}/sys-include/inline/%n.h \
+	         ${files} || exit 10
 
-       cp ${fd2sfddir}/stubs.h ${fd2sfddir}/${FD2SFD_OS}/* \
+	 ${SFDC} --quiet --mode=proto --target=${SFDC_OS} \
+                 -o ${prefix}/${target}/sys-include/proto/%n.h \
+	         ${files} || exit 10
+       fi
+       
+       cp ${fd2sfddir}/stubs.h ${fd2sfddir}/${SFDC_OS}/* \
           ${prefix}/${target}/sys-include/inline/
       fi
 
@@ -237,11 +246,15 @@ for gcc in ${bindir}/*-*-gcc; do
         # Note that we cannot compile the stubs until inlines and prototypes
         # has been generated!
 
-	${SFDC} --quiet --mode=stubs --target=${FD2SFD_OS} \
-            -o ${build_dir}/-stubs-%n.c \
-	    ${sfd_dir}/*_*.[Ss][Ff][Dd] || exit 10
-	    
-        for source in ${build_dir}/-stubs-*.c; do
+        files=`ls ${sfd_dir}/*_*.[Ss][Ff][Dd]`;
+
+        if [ ! -z "${files}" ]; then
+	  ${SFDC} --quiet --mode=stubs --target=${SFDC_OS} \
+                  -o ${build_dir}/-stubs-%n.c \
+	          ${files} || exit 10
+	fi
+
+        for source in `ls ${build_dir}/-stubs-*.c`; do
           base=`echo "${source}" | sed -e "s,${build_dir}/-stubs-\(.*\)\.c,\1,"`
 
           echo -ne "${NORMAL}[${base}] ${ERROR}"
@@ -263,7 +276,7 @@ for gcc in ${bindir}/*-*-gcc; do
    if [ ${LIB} ]; then
      echo -e "${INFO} *** Assembling files${ERROR}"
  
-     for stub in ${build_dir}/*.s; do
+     for stub in `ls ${build_dir}/*.s`; do
        base=`basename ${stub} .s`
        ${AS} $stub -o ${build_dir}/${base}.o
        rm $stub
