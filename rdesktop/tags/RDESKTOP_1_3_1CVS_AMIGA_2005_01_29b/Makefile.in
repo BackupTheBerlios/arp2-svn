@@ -1,0 +1,72 @@
+# @configure_input@
+
+srcdir		= @srcdir@
+rdesktop_srcdir	= $(srcdir)/rdesktop-2004-04-17-0600
+
+
+CC		= @CC@
+CPPFLAGS	= @CPPFLAGS@ -I$(rdesktop_srcdir) -DENABLE_AMIGA -DWITH_OPENSSL -DWITH_RDPSND
+CFLAGS		= @CFLAGS@
+LDFLAGS		= @LDFLAGS@
+LDLIBS		= @LIBS@
+
+LHA		= lha
+LHA_ADD		= -ao5
+LHA_CREATE	= -co5
+
+VPATH		= $(srcdir) $(rdesktop_srcdir)
+
+RDESKTOP	= RDesktop
+
+OBJECTS		= amiga_rdesktop.o amiga.o amiga_clipboard.o rdpsnd_ahi.o \
+		  rdesktop.o tcp.o iso.o mcs.o secure.o licence.o rdp.o \
+		  orders.o bitmap.o cache.o rdp5.o channels.o rdpdr.o \
+		  printercache.o cliprdr.o rdpsnd.o \
+#		  serial.o printer.o parallel.o 
+#		  rdpsnd.o disk.o
+
+DEPS		= $(OBJECTS:%.o=%.d)
+
+all:		$(RDESKTOP)
+
+clean:
+	$(RM) $(RDESKTOP) $(OBJECTS) $(DEPS) config.log
+
+distclean:	clean
+	$(RM) config.h config.status stamp-h.in Makefile RDesktop.readme 
+
+$(RDESKTOP): 	$(OBJECTS)
+	$(CC) $(LDFLAGS) $^ $(LDLIBS) $(OUTPUT_OPTION)
+
+lha:		$(RDESKTOP)
+	$(LHA) $(LHA_CREATE) $(RDESKTOP).lha $(RDESKTOP) $(RDESKTOP).readme \
+	       COPYING ChangeLog
+	find * -name '*.info' -exec $(LHA) $(LHA_ADD) $(RDESKTOP).lha "{}" \;
+
+%.d:		%.c
+	$(CC) $(CPPFLAGS) -M $< $(OUTPUT_OPTION)
+
+include $(DEPS)
+
+#
+# Auto-remake autoconf stuff
+########################################
+
+${srcdir}/configure: configure.ac
+	cd ${srcdir} && autoconf
+
+# autoheader might not change config.h.in, so touch a stamp file.
+${srcdir}/config.h.in: stamp-h.in
+${srcdir}/stamp-h.in: configure.ac
+	cd ${srcdir} && autoheader
+	echo timestamp > ${srcdir}/stamp-h.in
+
+config.h: stamp-h
+stamp-h: config.h.in config.status
+	./config.status
+
+Makefile: Makefile.in config.status
+	./config.status
+
+config.status: configure
+	./config.status --recheck

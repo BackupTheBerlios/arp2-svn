@@ -1,0 +1,205 @@
+2005-01-29  Martin Blom  <martin@blom.org>
+
+	* Added CapsLock sync.
+
+	* Added NumLock sync when running under OS4.
+
+	* RDesktop now detects OS4/MOS at runtime instead of compile
+	time. This makes the keymap code work even when the m68k binary is
+	run under OS4.
+
+	* Added OS4 TCP and keymap patch from Jörg.
+
+	* Released version 1.3.1cvs (29.01.2005).
+
+2005-01-28  Martin Blom  <martin@blom.org>
+
+	* Tweaked numeric keypad '*'. On its own, it sends 'keypad
+	*'. Used with Control, it now sends Print Screen. This should make
+	Print Screen available on classic keyboards too.
+
+	* Ctrl-Pause now sends Break. Unfortunately, this key combination
+	does not generate a keycode in MorphOS. In OS4 perhaps?
+
+	* Added NumLock support in OS4, thanks to info from Jörg
+	Strohmayer.
+
+2005-01-26  Martin Blom  <martin@blom.org>
+
+	* NewMouse support was accidentally disabled in the m68k build.
+
+	* OS4 now sends Scroll Lock when the Help key (which is Scroll
+	Lock!) is pressed (untested). Help still sends Windows Menu in
+	Classic and MorphOS.
+
+	* Enabled Windows Menu key in OS4 (untested).
+
+	* Enabled PrtScr in MorphOS and (untested) OS4.
+
+	* When checking for RAmiga-Q, use MapRawKey() instead of raw key
+	code. [Stéphane Guillard]
+
+	* Added the KEYMAP command line switch and tool type.
+
+	* Automatically sets the keyboard layout on the Windows side,
+	based on the Amiga layout. If you have one of the following
+	layouts, you may want to verify that the correct Windows layout is
+	used in amiga_rdesktop.c, since I had to guess a lot:
+	1251Q_US_RUS, 1251_GB1_RUS, 1251_GB_RUS, a, be, br, br2,
+	br3-ABNT2, cat, cdn, cdn2, e, gr, oe, Russian, si, türkçe.
+
+2005-01-17  Martin Blom  <martin@blom.org>
+
+	* <itix> HammerD: btw, TAG_MORE is "jmp", not "jsr"
+	  <itix> in the source code, openwindowtags()
+
+2005-01-16  Martin Blom  <martin@blom.org>
+
+	* Released version 1.3.1cvs (16.01.2005).
+
+	* RAmiga-Q now disconnects.
+
+2005-01-15  Martin Blom  <martin@blom.org>
+
+	* Added mouse wheel support (NewMouse).
+
+2005-01-13  Martin Blom  <martin@blom.org>
+
+	* Released version 1.3.1cvs (13.01.2005).
+
+	* More OS4 patches from Jörg, including a fix for a potential
+	memory trash when using exess tooltypes.
+
+2005-01-12  Martin Blom  <martin@blom.org>
+
+	* Released version 1.3.1cvs (12.01.2005).
+
+	* Merged Jörgs patches (OS4 port, excess are tooltypes ignored,
+	gcc 3.x fixes). Thanks!
+
+2005-01-12  Jörg Strohmayer <j_s@gmx.de>
+
+        * Ported to AmigaOS4.
+
+2005-01-08  Martin Blom  <martin@blom.org>
+
+	* Released version 1.3.1cvs (08.01.2005).
+
+	* Ignore zero-size clipboard announcements from the Windows
+	side. Also ignore clipboard announcements about anything except
+	plain text data, since we can't handle that.
+
+	* Try harder to satisfy outstanding CBD_POST requests at exit
+	(window close gadget, CTRL-C), using real Windows clipboard data
+	if possible.
+
+2005-01-07  Martin Blom  <martin@blom.org>
+
+	* Released version 1.3.1cvs (07.01.2005).
+
+	* If we have an outstanding clipboard.device CBD_POST when we
+	exit, just wite empty data to the clipboard to satisfy it.
+
+	* Don't change cursor image in Amithlon (since it's broken).
+
+2005-01-06  Martin Blom  <martin@blom.org>
+
+	* Released version 1.3.1cvs (06.01.2005).
+
+	* Fixed some minor bugs in the clipboard handling code.
+
+2005-01-05  Martin Blom  <martin@blom.org>
+
+	* Released version 1.3.1cvs (05.01.2005).
+
+	* Added hatch patterns to ui_patblt().
+
+	* The pattern in ui_patblt() seems to be inverted. This fixes the
+	missing grid in Microsoft Outlook and also made the lasso in
+	Explorer appear.
+
+	* Picasso96 and CyberGraphX do not handle minterm 0x00 or 0xf0
+	correctly. :-( Detect this and use RectFill() instead. This fixes
+	bad colors in Microsoft Outlook.
+
+	* Avoid 'ERROR: send: Bad file descriptor' when terminating
+	RDesktop while audio is streaming.
+
+2004-12-30  Martin Blom  <martin@blom.org>
+
+	* Released version 1.3.1cvs (30.12.2004).
+
+	* Finished clipboard support. It requires clipboard.device 50.2 or
+	higher in MorphOS!
+    
+2004-12-19  Martin Blom  <martin@blom.org>
+
+	* Released version 1.3.1cvs (19.12.2004).
+
+	* Ported RDesktop to (optionally) use libnix instead of ixemul. It
+	works both for m68k-amigaos and ppc-morphos.
+
+2004-12-11  Martin Blom  <martin@blom.org>
+
+	* printercache.c: Use ENVARC:, not $HOME.
+
+2004-05-30  Martin Blom  <martin@blom.org>
+
+	* Released version 1.3.1cvs (30.05.2004).
+
+	* When connecting to a Windows Server, the path for the client
+	license was ENVARC:RDesktop/RDesktop/licence.<host>. Changed to
+	ENVARC:RDesktop/license.<host>, as that's what the ReadMe file
+	says. Sorry chaps.
+
+2004-05-28  Martin Blom  <martin@blom.org>
+
+	* Released version 1.3.1cvs (28.05.2004).
+
+	* Display error/warning requesters on the same screen as where the
+	RDesktop window is.
+
+2004-05-28  Martin Blom  <martin@blom.org>
+
+	* Released beta 4.
+
+2004-05-27  Martin Blom  <martin@blom.org>
+
+	* Now keeps some temporary bitmaps allocated until program exit
+	too.
+
+2004-05-26  Martin Blom  <martin@blom.org>
+
+	* Release beta 3.
+
+	* Use BltBitMapRastPort() instead of ClipBlit() for fullscreen
+	sessions. For window sessions, use we have to remove the clip
+	region, ClipBlit() into a temporary bitmap, reinstall the clip
+	region and then BltBitMapRastPort() back. Sigh.
+
+	* Added a couple of really nice PNG icons by André Siegel.
+
+	* Keep a temporary blit buffer allocated until program exit, so we
+	don't have to allocate/free memory all the time.
+
+2004-05-24  Martin Blom  <martin@blom.org>
+
+	* Released beta 2.
+
+	* Added workaround for missing minterm handling in
+	CyberGraphX. Fixed a bug in text rendering. => mIRC looks ok.
+
+2004-05-22  Martin Blom  <martin@blom.org>
+
+	* Released beta 1.
+
+	* New port based on a upstream snapshot made on 2004-04-17. Works
+	with Windows XP, has sound. 
+
+2002-02-20  Martin Blom  <martin@blom.org>
+
+	* Non-working, never released update based on rdesktop 1.1.0.
+
+2001-10-28  Martin Blom  <martin@blom.org>
+
+	* First AmigaOS version.
