@@ -1,6 +1,6 @@
 Short:   Convert FD files to SFD files
 Author:  Martin Blom et al.
-Version: 1.0
+Version: @VERSION@
 Type:    dev/misc
 
 fd2sfd is a parser that converts FD files and clib files to SFD files.

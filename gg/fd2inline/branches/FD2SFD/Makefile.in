@@ -1,6 +1,6 @@
 
-VERSION		= 1.0
-DATE		= 25.07.2003
+VERSION		= @VERSION@
+DATE		= @DATE@
 
 srcdir		= @srcdir@
 
@@ -13,6 +13,7 @@ fd2sfddir	= ${datadir}/fd2sfd
 CC		= @CC@
 CPPFLAGS	= @CPPFLAGS@ -DVERSION=\"$(VERSION)\" -DDATE=\"$(DATE)\" \
 		  -W -Wall
+LDFLAGS		= @LDFLAGS@ -s
 
 INSTALL		= @INSTALL@
 INSTALL_PROGRAM	= @INSTALL_PROGRAM@ -s
@@ -20,11 +21,13 @@ INSTALL_DATA	= @INSTALL_DATA@
 
 VPATH		= $(srcdir)
 
+EXECUTABLE	= fd2sfd
 
-all:		fd2sfd
+all:		$(EXECUTABLE)
 
 clean:
-	$(RM) fd2sfd *~ core config.log
+	$(RM) $(EXECUTABLE) $(EXECUTABLE)-$(VERSION).tar.gz $(EXECUTABLE).lha \
+	      $(EXECUTABLE).readme *~ core config.log
 
 distclean:	clean
 	$(RM) Makefile cross/bin/gg-fix-includes config.status
@@ -33,7 +36,7 @@ install:	all
 	$(INSTALL) -d $(bindir) $(fd2sfddir)
 
 	# Install tools
-	$(INSTALL_PROGRAM) fd2sfs $(bindir)
+	$(INSTALL_PROGRAM) $(EXECUTABLE) $(bindir)
 	$(INSTALL_PROGRAM) cross/bin/gg-fix-includes $(bindir)
 	for f in `cd $(srcdir)/cross/share/ && find * -type f`; do \
 	  $(INSTALL_DATA) -D $(srcdir)/cross/share/$${f} $(fd2sfddir)/$${f}; \
@@ -59,8 +62,27 @@ install:	all
 	done
 	$(INSTALL_DATA) $(srcdir)/README.os-include $(prefix)/os-include/README
 
+tgz:		all
+	mv config.status .config.status
+	make distclean
+	mkdir .$(EXECUTABLE)-$(VERSION)
+	cp -a * $(srcdir)/* .$(EXECUTABLE)-$(VERSION)
+#	$(RM) -r .$(EXECUTABLE)-$(VERSION)/CVS
+	mv .$(EXECUTABLE)-$(VERSION) $(EXECUTABLE)-$(VERSION)
+	tar cfvz $(EXECUTABLE)-$(VERSION).tar.gz \
+		`find $(EXECUTABLE)-$(VERSION) -type f -not -path "*CVS*"`
+	$(RM) -r $(EXECUTABLE)-$(VERSION)
+	mv .config.status config.status
+	./config.status
 
-fd2sfd:		fd2inline.c
+lha:		tgz
+	make all
+	$(RM) $(EXECUTABLE).lha
+	lha -ao5 $(EXECUTABLE).lha $(EXECUTABLE) $(EXECUTABLE).readme \
+		 $(EXECUTABLE)-$(VERSION).tar.gz
+
+
+$(EXECUTABLE):	fd2inline.c
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $^ $(OUTPUT_OPTION)
 
 
