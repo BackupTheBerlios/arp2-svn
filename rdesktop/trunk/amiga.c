@@ -84,7 +84,6 @@ struct DiskObject* amiga_icon = NULL;
 static struct MsgPort* amiga_wb_port  = NULL;
 static struct AppIcon* amiga_app_icon = NULL;
 
-static USHORT         amiga_solid_pattern  = ~0;
 static UWORD          amiga_last_qualifier = 0;
 static HCURSOR        amiga_last_cursor    = NULL;
 static HCURSOR        amiga_null_cursor    = NULL;
@@ -96,6 +95,7 @@ static struct Window* amiga_window         = NULL;
 static struct Region* amiga_old_region     = NULL;
 static ULONG          amiga_cursor_colors[ 3 * 3 ];
 static LONG           amiga_pens[ 256 ];
+static LONG           amiga_broken_blitter = FALSE;
 
 struct Glyph
 {
@@ -230,6 +230,110 @@ SafeWriteChunkyPixels(struct RastPort *rp,LONG xstart,LONG ystart,
 
   return(pixelswritten);
 }
+
+
+VOID
+SoftClipBlit( struct RastPort *srcRP, LONG xSrc, LONG ySrc,
+	      struct RastPort *destRP, LONG xDest, LONG yDest,
+	      LONG xSize, LONG ySize, ULONG minterm )
+{
+  int x, y;
+
+  ULONG bc = minterm & 0x80 ? 0xffffffff : 0;
+  ULONG bC = minterm & 0x40 ? 0xffffffff : 0;
+  ULONG Bc = minterm & 0x20 ? 0xffffffff : 0;
+  ULONG BC = minterm & 0x10 ? 0xffffffff : 0;
+  
+  ULONG* src;
+  ULONG* dst;
+
+//  printf( "soft %02x\n", minterm );
+  src = AllocVec( sizeof( ULONG ) * xSize * 2, MEMF_ANY );
+
+  if( src == NULL )
+  {
+    return;
+  }
+
+  dst = src + xSize;
+  
+  for( y = 0; y < ySize; ++y )
+  {
+    ReadPixelArray( src, 0, 0, sizeof( ULONG ) * xSize,
+		    srcRP, xSrc, ySrc + y, xSize, 1, RECTFMT_ARGB );
+
+    ReadPixelArray( dst, 0, 0, sizeof( ULONG ) * xSize,
+		    destRP, xDest, yDest + y, xSize, 1, RECTFMT_ARGB );
+
+    for( x = 0; x < xSize; ++x )
+    {
+      ULONG b = src[ x ];
+      ULONG c = dst[ x ];
+      
+      ULONG d = ( ( bc & ( b & c ) ) |
+		  ( bC & ( b & ~c ) ) |
+		  ( Bc & ( ~b & c ) ) |
+		  ( BC & ( ~b & ~c ) ) );
+
+      dst[ x ] = d;
+    }
+
+    WritePixelArray( dst, 0, 0, sizeof( ULONG ) * xSize,
+		     destRP, xDest, yDest + y, xSize, 1, RECTFMT_ARGB );
+  }
+
+  FreeVec( src );
+}
+
+
+VOID
+WorkingClipBlit( struct RastPort *srcRP, LONG xSrc, LONG ySrc,
+		 struct RastPort *destRP, LONG xDest, LONG yDest,
+		 LONG xSize, LONG ySize,
+		 ULONG minterm )
+{
+  if( amiga_broken_blitter && minterm != 0xc0 )
+  {
+    SoftClipBlit( srcRP, xSrc, ySrc,
+		  destRP, xDest, yDest,
+		  xSize, ySize,
+		  minterm );
+  }
+  else
+  {
+    ClipBlit( srcRP, xSrc, ySrc,
+	      destRP, xDest, yDest,
+	      xSize, ySize,
+	      minterm );
+  }
+}
+
+
+VOID
+WorkingBltBitMapRastPort( struct BitMap *srcBitMap, LONG xSrc, LONG ySrc,
+			  struct RastPort *destRP, LONG xDest, LONG yDest,
+			  LONG xSize, LONG ySize,
+			  ULONG minterm )
+{
+  if( amiga_broken_blitter && minterm != 0xc0 )
+  {
+    struct RastPort rp;
+
+    InitRastPort( &rp );
+    rp.BitMap = srcBitMap;
+
+    SoftClipBlit( &rp, xSrc, ySrc, destRP, xDest, yDest, xSize, ySize, minterm );
+  }
+  else
+  {
+    BltBitMapRastPort( srcBitMap, xSrc, ySrc,
+		       destRP, xDest, yDest,
+		       xSize, ySize,
+		       minterm );
+  }
+}
+
+
 
 
 static LONG
@@ -955,6 +1059,23 @@ ui_init(void)
       return False;
   }
 
+  // Check for fucked up graphics subsystem
+
+  if( amiga_bpp > 8 )
+  {
+    struct Library* working = OpenLibrary( "Picasso96API.library", 0 );
+
+    if( working == NULL )
+    {
+      amiga_broken_blitter = TRUE;
+    }
+    else
+    {
+      CloseLibrary( working );
+    }
+  }
+
+//  printf( "amiga_broken_blitter is %d\n", amiga_broken_blitter );
 //  printf("ui_init: g_server_bpp = %d, amiga_bpp = %d\n", g_server_bpp, amiga_bpp );
   
   g_width = g_width & ~3;
@@ -1141,7 +1262,7 @@ ui_destroy_window()
 
   if( amiga_window != NULL )
   {
-    int i;
+    unsigned int i;
 
     for( i = 0; i < sizeof( amiga_pens ) / sizeof( amiga_pens[ 0 ] ); ++i )
     {
@@ -1210,9 +1331,7 @@ ui_select(int rdp_socket)
     mask |= amiga_audio_signal != -1 ? ( 1UL << amiga_audio_signal ) : 0;
 #endif
 
-//    printf( "Waiting %08x...", mask );
     res  = ix_select(n, &rfds, &wfds, NULL, &tv, &mask );
-//    printf( "%d: %08x\n", res, mask );
 
     if( res == -1 && mask == 0 )
     {
@@ -1264,7 +1383,6 @@ ui_select(int rdp_socket)
 
 	  amiga_last_qualifier = msg->Qualifier;
 
-//	  printf( "Class: %d\n", msg->Class );
 	  switch( msg->Class )
 	  {
 	    case IDCMP_CLOSEWINDOW:
@@ -1359,8 +1477,6 @@ ui_select(int rdp_socket)
 
 	      scancode = amiga_translate_key( msg->Code & ~0x80 );
 
-//	      printf("code %02x -> %02x\n", msg->Code, scancode );
-	      
               if( scancode == 0 )
                 break;
                 
@@ -1443,7 +1559,7 @@ ui_select(int rdp_socket)
             }
 
 	    default:
-	      printf( "Unexpected IDCMP: %d\n", msg->Class );
+	      printf( "Unexpected IDCMP: %d\n", (int) msg->Class );
 	      break;
           }
 
@@ -1517,7 +1633,7 @@ ui_create_bitmap(int width, int height, uint8 *data)
 
 //  printf("create_bitmap (%dx%d)\n", width, height );
 #if 0
-  if( width == 16 && height == 16 ) {
+  if( width == 64 && height == 64 ) {
     int x, y;
     unsigned char* p = data;
 
@@ -2006,10 +2122,10 @@ ui_destblt(uint8 opcode,
   x += amiga_window->BorderLeft;
   y += amiga_window->BorderTop;
 
-  ClipBlit( amiga_window->RPort, x, y,
-            amiga_window->RPort, x, y,
-            cx, cy,
-            opcode << 4 );
+  WorkingClipBlit( amiga_window->RPort, x, y,
+		   amiga_window->RPort, x, y,
+		   cx, cy,
+		   opcode << 4 );
 //  printf("destblit\n");
 }
 
@@ -2026,8 +2142,8 @@ ui_patblt(uint8 opcode,
   x += amiga_window->BorderLeft;
   y += amiga_window->BorderTop;
 
-/*   printf( "Doing %d on (%d,%d)-(%d,%d) using brush %08x, fg=%d bg=%d (%03x, %03x)\n", */
-/* 	  opcode, x, y, x+cx-1, y+cy-1, brush, fgcolour, bgcolour, */
+/*   printf( "Doing %d on (%d,%d)-(%d,%d) using brush %d, fg=%x bg=%x (%03x, %03x)\n", */
+/* 	  opcode, x, y, x+cx-1, y+cy-1, brush->style, fgcolour, bgcolour, */
 /* 	  GetRGB4(amiga_window->WScreen->ViewPort.ColorMap, amiga_pens[fgcolour]), */
 /* 	  GetRGB4(amiga_window->WScreen->ViewPort.ColorMap, amiga_pens[bgcolour]) */
 /*     ); */
@@ -2035,19 +2151,16 @@ ui_patblt(uint8 opcode,
   switch (brush->style)
   {
     case 0:	/* Solid */
-      //    printf( "solid %dx%d op %d\n", cx, cy, opcode );
-
-      ClipBlit( amiga_window->RPort, x, y, // Not really used
-                amiga_window->RPort, x, y,
-                cx, cy,
-                ( opcode ^ 3 ) << 4   /* B is always 1 */ );
+      WorkingClipBlit( amiga_window->RPort, x, y, // Not really used
+		       amiga_window->RPort, x, y,
+		       cx, cy,
+		       ( opcode ^ 3 ) << 4   /* B is always 1 */ );
       break;
 
     case 3:	/* Pattern */
     {
       struct RastPort rp;
 
-      printf( "pattern %dx%d op %d\n", cx, cy, opcode );
       InitRastPort( &rp );
     
       rp.BitMap = AllocBitMap( cx, cy, 8, BMF_MINPLANES, amiga_window->RPort->BitMap );
@@ -2086,10 +2199,10 @@ ui_patblt(uint8 opcode,
 	amiga_release_pen( bgpen );
 	amiga_release_pen( fgpen );
 	
-	BltBitMapRastPort( rp.BitMap, 0, 0,
-			   amiga_window->RPort, x, y,
-			   cx, cy,
-			   opcode << 4 );
+	WorkingBltBitMapRastPort( rp.BitMap, 0, 0,
+				  amiga_window->RPort, x, y,
+				  cx, cy,
+				  opcode << 4 );
  
 	WaitBlit();
         FreeBitMap( rp.BitMap );
@@ -2116,10 +2229,10 @@ ui_screenblt(uint8 opcode,
   x += amiga_window->BorderLeft;
   y += amiga_window->BorderTop;
 
-  ClipBlit( amiga_window->RPort, srcx, srcy,
-            amiga_window->RPort, x, y,
-            cx, cy,
-            opcode << 4 );
+  WorkingClipBlit( amiga_window->RPort, srcx, srcy,
+		   amiga_window->RPort, x, y,
+		   cx, cy,
+		   opcode << 4 );
 //  printf("screenblt\n");
 }
 
@@ -2132,11 +2245,25 @@ ui_memblt(uint8 opcode,
   x += amiga_window->BorderLeft;
   y += amiga_window->BorderTop;
 
-  ClipBlit( (struct RastPort*) src, srcx, srcy,
-            amiga_window->RPort, x, y,
-            cx, cy,
-            opcode << 4 );
+  WorkingClipBlit( (struct RastPort*) src, srcx, srcy,
+		   amiga_window->RPort, x, y,
+		   cx, cy,
+		   opcode << 4 );
 //  printf("memblt (opcode=%x) %d,%d (%dx%d)\n", opcode, x, y, cx, cy);
+
+/*   if( cx == 64 && cy == 58 ) */
+/*   { */
+/*     struct RastPort* rp = (struct RastPort*) src; */
+
+/*     for( y = 0; y < 16; ++y ) { */
+/*       for( x = 0; x < 16; ++x ) { */
+/* 	ULONG v = ReadRGBPixel( rp, x, y ); */
+
+/* 	printf( "%x%x%x ", (v >> 20) & 15, (v >> 12) & 15, (v >> 4) & 15 ); */
+/*       } */
+/*       printf( "\n" ); */
+/*     } */
+/*   } */
 }
 
 void
@@ -2171,8 +2298,8 @@ ui_triblt(uint8 opcode,
       ui_memblt(ROP2_COPY, x, y, cx, cy, src, srcx, srcy);
   }
 
-// printf( "Did %d on (%d,%d)-(%d,%d) from bitmap %08x: %d, %d using brush %08x, fg=%d bg=%d\n", 
-//         opcode, x, y, x+cx-1, y+cy-1, src, srcx, srcy, brush, fgcolour, bgcolour );
+/* printf( "Did %d on (%d,%d)-(%d,%d) from bitmap %08x: %d, %d using brush %08x, fg=%d bg=%d\n",  */
+/*         opcode, x, y, x+cx-1, y+cy-1, src, srcx, srcy, brush, fgcolour, bgcolour ); */
 }
 
 void
@@ -2191,8 +2318,7 @@ ui_line(uint8 opcode,
 
   // TODO: Use opcode, style and width
 
-  SetAPen( amiga_window->RPort, amiga_pen );
-  SetDrMd( amiga_window->RPort, JAM1 );
+  SetABPenDrMd( amiga_window->RPort, amiga_pen, 0, JAM1 );
   Move( amiga_window->RPort, startx, starty );
   Draw( amiga_window->RPort, endx, endy );
 
@@ -2211,8 +2337,7 @@ ui_rect(
 
 //  printf( "rect: %d,%d %dx%d, color %x, pen %x\n", x, y, cx, cy, colour, pen );
   
-  SetAPen( amiga_window->RPort, pen );
-  SetDrMd( amiga_window->RPort, JAM1 );
+  SetABPenDrMd( amiga_window->RPort, pen, 0, JAM1 );
   RectFill( amiga_window->RPort, x, y, x + cx - 1, y + cy - 1 );
 
   amiga_release_pen( pen );
@@ -2228,22 +2353,11 @@ ui_draw_glyph(int mixmode,
   LONG bgpen = amiga_obtain_pen( bgcolour );
   LONG fgpen = amiga_obtain_pen( fgcolour );
 
-  SetDrMd( amiga_window->RPort, JAM1 );
-
-  if( mixmode != MIX_TRANSPARENT )
-  {
-    SetAPen( amiga_window->RPort, bgpen );
-    RectFill( amiga_window->RPort, x, y, x + cx - 1, y + cy - 1 );
-  }
-
-  // TODO: Use srcx, srcy
-
-  SetAPen( amiga_window->RPort, fgpen );
-  SetAfPt( amiga_window->RPort, &amiga_solid_pattern, 0 );
-  BltPattern( amiga_window->RPort, g->Data, 
-              x, y, x + cx - 1 , y + cy - 1, 
-              g->BytesPerRow );
-
+  SetABPenDrMd( amiga_window->RPort, fgpen, bgpen,
+		mixmode == MIX_TRANSPARENT ? JAM1 : JAM2 );
+  BltTemplate( g->Data + g->BytesPerRow * srcy, srcx, g->BytesPerRow,
+	       amiga_window->RPort, x, y, cx, cy );
+  
   amiga_release_pen( bgpen );
   amiga_release_pen( fgpen );
 }
@@ -2253,41 +2367,33 @@ ui_draw_glyph(int mixmode,
 {\
   glyph = cache_get_font (font, ttext[idx]);\
   if (!(flags & TEXT2_IMPLICIT_X))\
+  {\
+    xyoffset = ttext[++idx];\
+    if ((xyoffset & 0x80))\
     {\
-      xyoffset = ttext[++idx];\
-      if ((xyoffset & 0x80))\
-        {\
-          if (flags & TEXT2_VERTICAL)\
-            y += ttext[++idx] | (ttext[++idx] << 8);\
-          else\
-            x += ttext[++idx] | (ttext[++idx] << 8);\
-          idx += 2;\
-        }\
+      if (flags & TEXT2_VERTICAL)\
+        y += ttext[idx+1] | (ttext[idx+2] << 8);\
       else\
-        {\
-          if (flags & 0x04) /* vertical text */\
-            y += xyoffset;\
-          else\
-            x += xyoffset;\
-        }\
+        x += ttext[idx+1] | (ttext[idx+2] << 8);\
+      idx += 2;\
     }\
+    else\
+    {\
+      if (flags & TEXT2_VERTICAL)\
+        y += xyoffset;\
+      else\
+        x += xyoffset;\
+    }\
+  }\
   if (glyph != NULL)\
-    {\
-/*    if (flags & 0x04) // vertical text\
-      ui_draw_glyph (mixmode, x + (short) glyph->baseline,\
-      y + (short) glyph->offset,\
-      glyph->width, glyph->height,\
-      glyph->pixmap, 0, 0, bgcolour, fgcolour,\
-      (HBITMAP) pixmap);\
-      else\
-*/\
-      ui_draw_glyph (mixmode, x + (short) glyph->offset,\
-                     y + (short) glyph->baseline,\
-                     glyph->width, glyph->height,\
-                     glyph->pixmap, 0, 0, bgcolour, fgcolour);\
-      if (flags & TEXT2_IMPLICIT_X)\
-        x += glyph->width;\
-    }\
+  {\
+    ui_draw_glyph (mixmode, x + (short) glyph->offset,\
+                   y + (short) glyph->baseline,\
+                   glyph->width, glyph->height,\
+                   glyph->pixmap, 0, 0, bgcolour, fgcolour);\
+    if (flags & TEXT2_IMPLICIT_X)\
+      x += glyph->width;\
+  }\
 }
 
 void
@@ -2304,18 +2410,25 @@ ui_draw_text (uint8 font, uint8 flags, int mixmode, int x, int y,
   x += amiga_window->BorderLeft;
   y += amiga_window->BorderTop;
 
+  /* Sometimes, the boxcx value is something really large, like
+     32691. This makes XCopyArea fail with Xvnc. The code below
+     is a quick fix. */
+  if (boxx + boxcx > g_width)
+  {
+    boxcx = g_width - boxx;
+  }
+  
   boxx += amiga_window->BorderLeft;
   boxy += amiga_window->BorderTop;
 
   clipx += amiga_window->BorderLeft;
   clipy += amiga_window->BorderTop;
 
-  SetAPen( amiga_window->RPort, bgpen );
-  SetDrMd( amiga_window->RPort, JAM1 );
+  SetABPenDrMd( amiga_window->RPort, bgpen, 0, JAM1 );
 
   if (boxcx > 1)
   {
-    RectFill( amiga_window->RPort, 
+    RectFill( amiga_window->RPort,
 	      boxx, boxy, boxx + boxcx - 1, boxy + boxcy - 1 );
   }
   else if (mixmode == MIX_OPAQUE)
@@ -2327,51 +2440,51 @@ ui_draw_text (uint8 font, uint8 flags, int mixmode, int x, int y,
   amiga_release_pen( bgpen );
   
   /* Paint text, character by character */
-
-  for(i=0;i<length;)
+  for (i = 0; i < length;)
   {
     switch (text[i])
     {
       case 0xff:
-	if (i+2<length)
-	  cache_put_text (text[i+1], text, text[i+2]);
+	if (i + 2 < length)
+	  cache_put_text(text[i + 1], text, text[i + 2]);
 	else
 	{
 	  error("this shouldn't be happening\n");
-	  break;
+	  return;
 	}
 	/* this will move pointer from start to first character after FF command */
-	length-=i+3;
-	text=&(text[i+3]);
-	i=0;
+	length -= i + 3;
+	text = &(text[i + 3]);
+	i = 0;
 	break;
 
       case 0xfe:
-	entry = cache_get_text (text[i+1]);
-	if (entry!=NULL)
+	entry = cache_get_text(text[i + 1]);
+	if (entry != NULL)
 	{
-	  if ((((uint8 *)(entry->data))[1] == 0 ) && (!(flags & TEXT2_IMPLICIT_X)))
+	  if ((((uint8 *) (entry->data))[1] ==
+	       0) && (!(flags & TEXT2_IMPLICIT_X)))
 	  {
 	    if (flags & TEXT2_VERTICAL)
-	      y += text[i+2];
+	      y += text[i + 2];
 	    else
-	      x += text[i+2];
-	    for (j = 0; j < entry->size; j++)
-	      DO_GLYPH(((uint8 *) (entry->data)), j);
+	      x += text[i + 2];
 	  }
-	  if (i+2<length) 
-	    i+=3;
-	  else
-	    i+=2;
-	  length-=i;
-	  /* this will move pointer from start to first character after FE command */
-	  text=&(text[i]);
-	  i=0;
+	  for (j = 0; j < entry->size; j++)
+	    DO_GLYPH(((uint8 *) (entry->data)), j);
 	}
+	if (i + 2 < length)
+	  i += 3;
+	else
+	  i += 2;
+	length -= i;
+	/* this will move pointer from start to first character after FE command */
+	text = &(text[i]);
+	i = 0;
 	break;
 
       default:
-	DO_GLYPH(text,i);
+	DO_GLYPH(text, i);
 	i++;
 	break;
     }
