@@ -108,6 +108,11 @@ Generate header file to be placed in F<Include/proto/> that includes
 the C prototypes as well as compiler-specific inlines or pragma files.
 
 
+=item B<sas-pragmas>
+
+Generate a SAS/C pragmas file.
+
+
 =item B<stubs>
 
 Generate C library stubs suitable to be compiled and archived into
