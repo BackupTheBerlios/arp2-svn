@@ -24,6 +24,7 @@
 
 #include <exec/memory.h>
 
+#include <clib/alib_protos.h>
 #include <proto/exec.h>
 #include <proto/timer.h>
 
@@ -1001,7 +1002,6 @@ ISAPNP_ScanCards( REG( a6, struct ISAPNPBase* res ) )
 
 static BOOL
 FindNextCardConfiguration( struct ISAPNP_Device*   dev,
-                           struct MinList*         conflicts,
                            struct ResourceContext* ctx,
                            struct ISAPNPBase*      res );
 
@@ -1010,7 +1010,6 @@ int cp = 0;
 
 static BOOL
 FindConfiguration( struct ISAPNP_Device*   dev,
-                   struct MinList*         conflicts,
                    struct ResourceContext* ctx,
                    struct ISAPNPBase*      res )
 {
@@ -1045,12 +1044,10 @@ FindConfiguration( struct ISAPNP_Device*   dev,
     // Skip to next device
     
 //    KPrintF( "DISABLED!\n" );
-    return FindNextCardConfiguration( dev, conflicts, ctx, res );
+    return FindNextCardConfiguration( dev, ctx, res );
   }
 
-  ril = AllocResourceIteratorList( &dev->m_Options->m_Resources, 
-                                   conflicts, 
-                                   ctx );
+  ril = AllocResourceIteratorList( &dev->m_Options->m_Resources, ctx );
 
   if( ril != NULL )
   {
@@ -1069,9 +1066,7 @@ FindConfiguration( struct ISAPNP_Device*   dev,
         {
           struct ResourceIteratorList* ril_option = NULL;
 
-          ril_option = AllocResourceIteratorList( &rg->m_Resources,
-                                                  conflicts,
-                                                  ctx );
+          ril_option = AllocResourceIteratorList( &rg->m_Resources, ctx );
 
           if( ril_option != NULL )
           {
@@ -1079,9 +1074,9 @@ FindConfiguration( struct ISAPNP_Device*   dev,
 
             while( ! rc && ril2_iter_ok )
             {
-              rc = FindNextCardConfiguration( dev, conflicts, ctx, res );
+              rc = FindNextCardConfiguration( dev, ctx, res );
 
-if( cp > 1 ) return FALSE; else ++cp;
+//if( cp > 2 ) return FALSE; else ++cp;
 
               if( ! rc )
               {
@@ -1098,7 +1093,10 @@ if( cp > 1 ) return FALSE; else ++cp;
               }
             }
 
-            FreeResourceIteratorList( ril_option, ctx );
+            if( ! FreeResourceIteratorList( ril_option, ctx ) )
+            {
+              break;
+            }
           }
         }
       }
@@ -1106,7 +1104,7 @@ if( cp > 1 ) return FALSE; else ++cp;
       {
         // Fixed resources only
         
-        rc = FindNextCardConfiguration( dev, conflicts, ctx, res );
+        rc = FindNextCardConfiguration( dev, ctx, res );
       }
 
       if( ! rc )
@@ -1133,7 +1131,6 @@ if( cp > 1 ) return FALSE; else ++cp;
 
 static BOOL
 FindNextCardConfiguration( struct ISAPNP_Device*   dev,
-                           struct MinList*         conflicts,
                            struct ResourceContext* ctx,
                            struct ISAPNPBase*      res )
 {
@@ -1145,7 +1142,7 @@ FindNextCardConfiguration( struct ISAPNP_Device*   dev,
   {
     // Same card, next device
     rc = FindConfiguration( (struct ISAPNP_Device*) dev->m_Node.ln_Succ,
-                            conflicts, ctx, res );
+                            ctx, res );
   }
   else 
   {
@@ -1158,7 +1155,7 @@ FindNextCardConfiguration( struct ISAPNP_Device*   dev,
     {
       rc = FindConfiguration( (struct ISAPNP_Device*)
                               next_card->m_Devices.lh_Head, 
-                              conflicts, ctx, res );
+                              ctx, res );
     }
     else
     {
@@ -1197,11 +1194,7 @@ ISAPNP_ConfigureCards( REG( a6, struct ISAPNPBase* res ) )
       
       if( ctx != NULL )
       {
-        struct MinList conflicts;
-
-        NewList( (struct List*) &conflicts );
-
-        rc = FindConfiguration( dev, &conflicts, ctx, res );
+        rc = FindConfiguration( dev, ctx, res );
 
         KPrintF( "FindConfiguration: %ld\n", rc );
         

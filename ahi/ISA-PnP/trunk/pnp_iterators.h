@@ -46,38 +46,21 @@ FreeResourceIteratorContext( struct ResourceContext* ctx );
 
 
 
-struct ResourceIterator*
-AllocResourceIterator( struct ISAPNP_Resource* resource,
-                       struct MinList*         conflicts,
-                       struct ResourceContext* ctx );
-
-void
-FreeResourceIterator( struct ResourceIterator* iter,
-                       struct ResourceContext* ctx );
-
-
-
 struct ResourceIteratorList*
 AllocResourceIteratorList( struct MinList*         resource_list,
-                           struct MinList*         conflicts,
                            struct ResourceContext* ctx );
 
 
-void
+BOOL
 FreeResourceIteratorList( struct ResourceIteratorList* list,
                           struct ResourceContext*      ctx );
 
 
 
-
-BOOL
-IncResourceIterator( struct ResourceIterator* iter,
-                     struct ResourceContext*  ctx );
-
-
 BOOL
 IncResourceIteratorList( struct ResourceIteratorList* iter_list,
-                         struct ResourceContext* ctx );
+                         struct ResourceContext*      ctx );
+
 
 
 struct ISAPNP_Resource*
