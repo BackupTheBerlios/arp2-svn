@@ -163,7 +163,7 @@ if ($#ARGV < 0) {
 
 $mode = lc $mode;
 
-if (!($mode =~ /^(clib|dump|fd|libproto|lvo|macros|proto|sas-pragmas|stubs|gateproto|gatestubs)$/)) {
+if (!($mode =~ /^(clib|dump|fd|libproto|lvo|macros|proto|pragmas|stubs|gateproto|gatestubs)$/)) {
     pod2usage (-message => "Unknown mode specified. Use --help for a list.",
 	       -verbose => 0,
 	       -exitval => 10);
@@ -241,7 +241,7 @@ for my $i ( 0 .. $#ARGV ) {
 	    last;
 	};
 
-	/^sas-pragmas$/ && do {
+	/^pragmas$/ && do {
 	    $obj = SASPragmas->new( sfd => $sfd );
 	    last;
 	};

@@ -115,9 +115,10 @@ Generate header file to be placed in F<Include/proto/> that includes
 the C prototypes as well as compiler-specific inlines or pragma files.
 
 
-=item B<sas-pragmas>
+=item B<pragmas>
 
-Generate a F<SAS/C>/F<LATTICE>/F<DICE> pragmas file.
+Generate a F<SAS/C>/F<LATTICE>/F<DICE> and F<Maxon C>/F<Storm
+C>/F<Aztec C> pragma file.
 
 
 =item B<stubs>
@@ -215,8 +216,8 @@ replacement. SFD files and F<sfdc> might to be a good start.
 
 For developers using F<gcc>, F<sfdc> aims to handle all your needs
 when it comes to libraries, devices, datatypes, BOOPSI classes or
-similar modules. F<sfdc> can also generate F<SAS/C> and F<DICE> files
-for end users of such modules.
+similar modules. F<sfdc> can also generate F<SAS/C>, F<DICE> and
+F<Storm C> files for end users of such modules.
 
 The basis for all work performed by F<sfdc> is the B<SFD> file, which
 contains all required information about the module and the functions
@@ -237,7 +238,7 @@ F<Include/clib/> directory.
 
 =item *
 
-Generate F<gcc> B<inlines> (actually preprocessor macros) or F<SAS/C>
+Generate F<gcc> B<inlines> (actually preprocessor macros) or
 B<pragmas> for direct library function calls (without going via
 library stubs).
 
@@ -245,8 +246,7 @@ library stubs).
 =item *
 
 Generate the F<Include/proto/> file, which includes the
-F<Include/clib/> file and either the F<gcc> inlines or F<SAS/C>
-pragmas.
+F<Include/clib/> file and either the inlines or pragmas.
 
 
 =item *
