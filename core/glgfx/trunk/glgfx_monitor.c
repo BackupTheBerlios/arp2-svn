@@ -322,7 +322,8 @@ struct glgfx_context* glgfx_monitor_createcontext(struct glgfx_monitor* monitor)
   glOrtho(0, monitor->mode.hdisplay, monitor->mode.vdisplay, 0, -1, 0);
   glMatrixMode(GL_MODELVIEW);
   glLoadIdentity();
-  glTranslatef(0.375, 0.375, 0.0);
+//  glTranslatef(0.5, 0.5, 0.0);
+//  glTranslatef(0.375, 0.375, 0.0);
 
   pthread_mutex_unlock(&glgfx_mutex);
   return (struct glgfx_context*) context;
