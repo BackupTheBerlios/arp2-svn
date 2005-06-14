@@ -8,6 +8,8 @@
 #include "glgfx_bitmap.h"
 #include "glgfx_intern.h"
 
+#undef ENABLE_PIXEL_BUFFER
+
 #ifndef GL_TEXTURE_RECTANGLE_ARB
 # define GL_TEXTURE_RECTANGLE_ARB GL_TEXTURE_RECTANGLE_EXT
 #endif
@@ -59,8 +61,10 @@ struct glgfx_bitmap* glgfx_bitmap_create(int width, int height, int bits,
   bitmap->bits              = bits;
   bitmap->flags             = flags;
   bitmap->format            = select_format(bits, friend, format);
+#ifdef ENABLE_PIXEL_BUFFER
   bitmap->pbo_size          = glgfx_texture_size(width, height, bitmap->format);
   bitmap->pbo_bytes_per_row = glgfx_texture_size(width, 1, bitmap->format);
+#endif
 
   glGenTextures(1, &bitmap->texture);
   check_error();
@@ -102,19 +106,22 @@ void glgfx_bitmap_destroy(struct glgfx_bitmap* bitmap) {
 
   pthread_mutex_lock(&glgfx_mutex);
   glgfx_bitmap_unlock(bitmap, 0, 0, 0, 0);
+#ifdef ENABLE_PIXEL_BUFFER
   glDeleteBuffers(1, &bitmap->pbo);
+#endif
   glDeleteTextures(1, &bitmap->texture);
   free(bitmap);
   pthread_mutex_unlock(&glgfx_mutex);
 }
 
 bool glgfx_bitmap_lock(struct glgfx_bitmap* bitmap, bool read, bool write) {
-  void* res;
+  void* res = NULL;
 
   if (bitmap == NULL || (!read && !write)) {
     return false;
   }
 
+#ifdef ENABLE_PIXEL_BUFFER
   pthread_mutex_lock(&glgfx_mutex);
     
   if (read && write) {
@@ -162,6 +169,8 @@ bool glgfx_bitmap_lock(struct glgfx_bitmap* bitmap, bool read, bool write) {
   res = bitmap->locked_memory;
 
   pthread_mutex_unlock(&glgfx_mutex);
+#endif
+
   return res != NULL;
 }
 
@@ -173,6 +182,7 @@ bool glgfx_bitmap_unlock(struct glgfx_bitmap* bitmap, int x, int y, int width, i
     return false;
   }
 
+#ifdef ENABLE_PIXEL_BUFFER
   pthread_mutex_lock(&glgfx_mutex);
 
   if (bitmap->locked_memory != NULL) {
@@ -206,6 +216,8 @@ bool glgfx_bitmap_unlock(struct glgfx_bitmap* bitmap, int x, int y, int width, i
   bitmap->locked = false;
   
   pthread_mutex_unlock(&glgfx_mutex);
+#endif
+
   return rc;
 }
 

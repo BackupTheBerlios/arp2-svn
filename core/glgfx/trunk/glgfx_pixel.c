@@ -14,8 +14,10 @@ struct pixel_info formats[glgfx_pixel_format_max] = {
   { GL_RGBA4,   GL_BGRA, GL_UNSIGNED_SHORT_4_4_4_4_REV, 2, false, true,  4,  8,  4,  4,  4,  0,  4, 12 },   // glgfx_pixel_a4r4g4b4,   BGRA, 1 * UWORD
   { GL_RGB5,    GL_RGB,  GL_UNSIGNED_SHORT_5_6_5,       2, false, true,  5, 11,  6,  5,  5,  0,  0,  0 },   // glgfx_pixel_r5g6b5,     BGR,  1 * UWORD
   { GL_RGB5_A1, GL_BGRA, GL_UNSIGNED_SHORT_1_5_5_5_REV, 2, false, true,  5, 10,  5,  5,  5,  0,  1, 15 },   // glgfx_pixel_a1r5g5b5,   BGRA, 1 * UWORD
-  { GL_RGBA8,   GL_RGBA, GL_UNSIGNED_INT_8_8_8_8_REV,   4, false, true,  8,  0,  8,  8,  8, 16,  8, 24 },   // glgfx_pixel_a8b8g8r8,   RGBA, 1 * ULONG
-  { GL_RGBA8,   GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV,   4, false, true,  8, 16,  8,  8,  8,  0,  8, 24 },   // glgfx_pixel_a8r8g8b8    BGRA, 1 * ULONG
+  { GL_RGBA8,   GL_RGBA, GL_UNSIGNED_BYTE,   4, false, true,  8,  0,  8,  8,  8, 16,  8, 24 },   // glgfx_pixel_a8b8g8r8,   RGBA, 1 * ULONG
+  { GL_RGBA8,   GL_BGRA, GL_UNSIGNED_BYTE,   4, false, true,  8, 16,  8,  8,  8,  0,  8, 24 },   // glgfx_pixel_a8r8g8b8    BGRA, 1 * ULONG
+  //  { GL_RGBA8,   GL_RGBA, GL_UNSIGNED_INT_8_8_8_8_REV,   4, false, true,  8,  0,  8,  8,  8, 16,  8, 24 },   // glgfx_pixel_a8b8g8r8,   RGBA, 1 * ULONG
+  //  { GL_RGBA8,   GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV,   4, false, true,  8, 16,  8,  8,  8,  0,  8, 24 },   // glgfx_pixel_a8r8g8b8    BGRA, 1 * ULONG
 
 //{ GL_RGB8,    GL_RGB,  GL_UNSIGNED_BYTE,              3, xxxxx, true,  },   // glgfx_pixel_r8g8b8,     RGB,  3 * UBYTE
 //{ GL_RGB8,    GL_BGR,  GL_UNSIGNED_BYTE,              3, xxxxx, true,  },   // glgfx_pixel_b8g8r8,     BGR,  3 * UBYTE

@@ -16,7 +16,7 @@
 
 
 
-SOURCES = $(libglgfx_la_SOURCES) $(glgfx_test_SOURCES)
+SOURCES = $(libglgfx_la_SOURCES) tests/glgfx-test.c tests/gltex.c
 
 srcdir = @srcdir@
 top_srcdir = @top_srcdir@
@@ -40,7 +40,7 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
-bin_PROGRAMS = glgfx-test$(EXEEXT)
+bin_PROGRAMS = tests/glgfx-test$(EXEEXT) tests/gltex$(EXEEXT)
 DIST_COMMON = README $(am__configure_deps) $(include_HEADERS) \
 	$(srcdir)/Makefile.am $(srcdir)/Makefile.in \
 	$(srcdir)/glgfx-config.h.in $(top_srcdir)/configure AUTHORS \
@@ -74,9 +74,13 @@ am_libglgfx_la_OBJECTS = libglgfx_la-glgfx.lo \
 libglgfx_la_OBJECTS = $(am_libglgfx_la_OBJECTS)
 binPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
 PROGRAMS = $(bin_PROGRAMS)
-am_glgfx_test_OBJECTS = test.$(OBJEXT)
-glgfx_test_OBJECTS = $(am_glgfx_test_OBJECTS)
-glgfx_test_DEPENDENCIES = libglgfx.la
+tests_glgfx_test_SOURCES = tests/glgfx-test.c
+tests_glgfx_test_OBJECTS = glgfx-test.$(OBJEXT)
+tests_glgfx_test_DEPENDENCIES = libglgfx.la
+am__dirstamp = $(am__leading_dot)dirstamp
+tests_gltex_SOURCES = tests/gltex.c
+tests_gltex_OBJECTS = gltex.$(OBJEXT)
+tests_gltex_LDADD = $(LDADD)
 DEFAULT_INCLUDES = -I. -I$(srcdir) -I.
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__depfiles_maybe = depfiles
@@ -88,8 +92,8 @@ LTCOMPILE = $(LIBTOOL) --mode=compile --tag=CC $(CC) $(DEFS) \
 CCLD = $(CC)
 LINK = $(LIBTOOL) --mode=link --tag=CC $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
 	$(AM_LDFLAGS) $(LDFLAGS) -o $@
-SOURCES = $(libglgfx_la_SOURCES) $(glgfx_test_SOURCES)
-DIST_SOURCES = $(libglgfx_la_SOURCES) $(glgfx_test_SOURCES)
+SOURCES = $(libglgfx_la_SOURCES) tests/glgfx-test.c tests/gltex.c
+DIST_SOURCES = $(libglgfx_la_SOURCES) tests/glgfx-test.c tests/gltex.c
 includeHEADERS_INSTALL = $(INSTALL_HEADER)
 HEADERS = $(include_HEADERS)
 ETAGS = etags
@@ -187,15 +191,12 @@ build_cpu = @build_cpu@
 build_os = @build_os@
 build_vendor = @build_vendor@
 datadir = @datadir@
-dvidir = @dvidir@
 exec_prefix = @exec_prefix@
-guidedir = @guidedir@
 host = @host@
 host_alias = @host_alias@
 host_cpu = @host_cpu@
 host_os = @host_os@
 host_vendor = @host_vendor@
-htmldir = @htmldir@
 includedir = @includedir@
 infodir = @infodir@
 install_sh = @install_sh@
@@ -207,7 +208,6 @@ mkdir_p = @mkdir_p@
 oldincludedir = @oldincludedir@
 prefix = @prefix@
 program_transform_name = @program_transform_name@
-psdir = @psdir@
 sbindir = @sbindir@
 sharedstatedir = @sharedstatedir@
 sysconfdir = @sysconfdir@
@@ -219,10 +219,9 @@ lib_LTLIBRARIES = libglgfx.la
 libglgfx_la_SOURCES = glgfx.c glgfx_monitor.c glgfx_input.c glgfx_pixel.c \
 			  glgfx_view.c glgfx_viewport.c glgfx_bitmap.c
 
-libglgfx_la_CFLAGS = @GLIB_CFLAGS@
+libglgfx_la_CFLAGS = @GLIB_CFLAGS@ -DDEBUG
 libglgfx_la_LIBADD = @GLIB_LIBS@
-glgfx_test_SOURCES = test.c
-glgfx_test_LDADD = libglgfx.la
+tests_glgfx_test_LDADD = libglgfx.la
 all: glgfx-config.h
 	$(MAKE) $(AM_MAKEFLAGS) all-am
 
@@ -335,9 +334,15 @@ clean-binPROGRAMS:
 	  echo " rm -f $$p $$f"; \
 	  rm -f $$p $$f ; \
 	done
-glgfx-test$(EXEEXT): $(glgfx_test_OBJECTS) $(glgfx_test_DEPENDENCIES) 
-	@rm -f glgfx-test$(EXEEXT)
-	$(LINK) $(glgfx_test_LDFLAGS) $(glgfx_test_OBJECTS) $(glgfx_test_LDADD) $(LIBS)
+tests/$(am__dirstamp):
+	@$(mkdir_p) tests
+	@: > tests/$(am__dirstamp)
+tests/glgfx-test$(EXEEXT): $(tests_glgfx_test_OBJECTS) $(tests_glgfx_test_DEPENDENCIES) tests/$(am__dirstamp)
+	@rm -f tests/glgfx-test$(EXEEXT)
+	$(LINK) $(tests_glgfx_test_LDFLAGS) $(tests_glgfx_test_OBJECTS) $(tests_glgfx_test_LDADD) $(LIBS)
+tests/gltex$(EXEEXT): $(tests_gltex_OBJECTS) $(tests_gltex_DEPENDENCIES) tests/$(am__dirstamp)
+	@rm -f tests/gltex$(EXEEXT)
+	$(LINK) $(tests_gltex_LDFLAGS) $(tests_gltex_OBJECTS) $(tests_gltex_LDADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
@@ -345,6 +350,8 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/glgfx-test.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gltex.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libglgfx_la-glgfx.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libglgfx_la-glgfx_bitmap.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libglgfx_la-glgfx_input.Plo@am__quote@
@@ -352,7 +359,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libglgfx_la-glgfx_pixel.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libglgfx_la-glgfx_view.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libglgfx_la-glgfx_viewport.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test.Po@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	if $(COMPILE) -MT $@ -MD -MP -MF "$(DEPDIR)/$*.Tpo" -c -o $@ $<; \
@@ -423,6 +429,34 @@ libglgfx_la-glgfx_bitmap.lo: glgfx_bitmap.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='glgfx_bitmap.c' object='libglgfx_la-glgfx_bitmap.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(LIBTOOL) --mode=compile --tag=CC $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libglgfx_la_CFLAGS) $(CFLAGS) -c -o libglgfx_la-glgfx_bitmap.lo `test -f 'glgfx_bitmap.c' || echo '$(srcdir)/'`glgfx_bitmap.c
+
+glgfx-test.o: tests/glgfx-test.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT glgfx-test.o -MD -MP -MF "$(DEPDIR)/glgfx-test.Tpo" -c -o glgfx-test.o `test -f 'tests/glgfx-test.c' || echo '$(srcdir)/'`tests/glgfx-test.c; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/glgfx-test.Tpo" "$(DEPDIR)/glgfx-test.Po"; else rm -f "$(DEPDIR)/glgfx-test.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='tests/glgfx-test.c' object='glgfx-test.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o glgfx-test.o `test -f 'tests/glgfx-test.c' || echo '$(srcdir)/'`tests/glgfx-test.c
+
+glgfx-test.obj: tests/glgfx-test.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT glgfx-test.obj -MD -MP -MF "$(DEPDIR)/glgfx-test.Tpo" -c -o glgfx-test.obj `if test -f 'tests/glgfx-test.c'; then $(CYGPATH_W) 'tests/glgfx-test.c'; else $(CYGPATH_W) '$(srcdir)/tests/glgfx-test.c'; fi`; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/glgfx-test.Tpo" "$(DEPDIR)/glgfx-test.Po"; else rm -f "$(DEPDIR)/glgfx-test.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='tests/glgfx-test.c' object='glgfx-test.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o glgfx-test.obj `if test -f 'tests/glgfx-test.c'; then $(CYGPATH_W) 'tests/glgfx-test.c'; else $(CYGPATH_W) '$(srcdir)/tests/glgfx-test.c'; fi`
+
+gltex.o: tests/gltex.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT gltex.o -MD -MP -MF "$(DEPDIR)/gltex.Tpo" -c -o gltex.o `test -f 'tests/gltex.c' || echo '$(srcdir)/'`tests/gltex.c; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/gltex.Tpo" "$(DEPDIR)/gltex.Po"; else rm -f "$(DEPDIR)/gltex.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='tests/gltex.c' object='gltex.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o gltex.o `test -f 'tests/gltex.c' || echo '$(srcdir)/'`tests/gltex.c
+
+gltex.obj: tests/gltex.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT gltex.obj -MD -MP -MF "$(DEPDIR)/gltex.Tpo" -c -o gltex.obj `if test -f 'tests/gltex.c'; then $(CYGPATH_W) 'tests/gltex.c'; else $(CYGPATH_W) '$(srcdir)/tests/gltex.c'; fi`; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/gltex.Tpo" "$(DEPDIR)/gltex.Po"; else rm -f "$(DEPDIR)/gltex.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='tests/gltex.c' object='gltex.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o gltex.obj `if test -f 'tests/gltex.c'; then $(CYGPATH_W) 'tests/gltex.c'; else $(CYGPATH_W) '$(srcdir)/tests/gltex.c'; fi`
 
 mostlyclean-libtool:
 	-rm -f *.lo
@@ -654,6 +688,7 @@ clean-generic:
 
 distclean-generic:
 	-test -z "$(CONFIG_CLEAN_FILES)" || rm -f $(CONFIG_CLEAN_FILES)
+	-rm -f tests/$(am__dirstamp)
 
 maintainer-clean-generic:
 	@echo "This command is intended for maintainers to use"

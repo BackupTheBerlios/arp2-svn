@@ -9,7 +9,16 @@
 #include "glgfx_viewport.h"
 #include "glgfx_input.h"
 
-#define UPLOAD_MODE 1
+#define UPLOAD_MODE 0
+#define DATA_TYPE 1
+
+#if DATA_TYPE == 0
+# define PIXEL_FORMAT glgfx_pixel_format_r5g6b5
+# define PIXEL_TYPE   unsigned short
+#elif DATA_TYPE == 1
+# define PIXEL_FORMAT glgfx_pixel_format_a8b8g8r8
+# define PIXEL_TYPE   unsigned int
+#endif
 
 int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) {
   // If unset, sync to vblank as default (nvidia driver)
@@ -25,16 +34,16 @@ int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) 
 /* EndSection */
 
   if (glgfx_create_monitors()) {
-    int width = 1200;
-    int height = 800;
-    unsigned short* data;
+    int width = 512;
+    int height = 512;
+    PIXEL_TYPE* data;
 
 #if UPLOAD_MODE == 0
     data = calloc(sizeof (*data), width * height);
 #endif
     
     struct glgfx_bitmap* bm = glgfx_bitmap_create(width, height, 24, 0, NULL,
-						  glgfx_pixel_format_r5g6b5, glgfx_monitors[0]);
+						  PIXEL_FORMAT, glgfx_monitors[0]);
     
     if (bm != NULL) {
 #if UPLOAD_MODE == 1
@@ -52,7 +61,7 @@ int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) 
 	  }
 	}
 #if UPLOAD_MODE == 0
-	glgfx_bitmap_update(bm, 0, 0, width, height, data, glgfx_pixel_format_r5g6b5, 2 * width);
+	glgfx_bitmap_update(bm, 0, 0, width, height, data, PIXEL_FORMAT, sizeof (PIXEL_TYPE) * width);
 #endif
 #if UPLOAD_MODE == 1
 	glgfx_bitmap_unlock(bm, 0, 0, width, height);
@@ -85,7 +94,7 @@ int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) 
 	    }
 	  }
 #if UPLOAD_MODE == 0
-	  glgfx_bitmap_update(bm, 0, 0, width, height, data, glgfx_pixel_format_r5g6b5, 2 * width);
+	  glgfx_bitmap_update(bm, 0, 0, width, height, data, PIXEL_FORMAT, sizeof (PIXEL_TYPE) * width);
 #endif
 #if UPLOAD_MODE == 1
 	  glgfx_bitmap_unlock(bm, 0, 0, width, height);

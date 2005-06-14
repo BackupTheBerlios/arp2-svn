@@ -39,6 +39,7 @@ AC_SUBST(GLIB_CFLAGS)
 AC_SUBST(GLIB_LIBS)
 			
 # Checks for libraries.
+AC_CHECK_LIB([pthread],  [pthread_create],,            [AC_MSG_ERROR([libpthread not found])])
 AC_CHECK_LIB([X11],      [XCreateWindow],,             [AC_MSG_ERROR([libX11 not found])])
 AC_CHECK_LIB([Xxf86vm],  [XF86VidModeQueryExtension],, [AC_MSG_ERROR([libXxf86vm not found])])
 AC_CHECK_LIB([Xxf86dga], [XF86DGAQueryExtension],,     [AC_MSG_ERROR([libXxf86dga not found])])
