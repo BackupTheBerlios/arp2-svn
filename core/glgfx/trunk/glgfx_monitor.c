@@ -440,8 +440,14 @@ bool glgfx_monitor_waittof(struct glgfx_monitor* monitor) {
   }
 
   // Don't lock mutex here, since it will sleep!
-  glXGetVideoSyncSGI(&frame_count);
-  glXWaitVideoSyncSGI(1, 0, &frame_count);
+  if (glXGetVideoSyncSGI(&frame_count) != 0) {
+    return false;
+  }
+
+  if (glXWaitVideoSyncSGI(1, 0, &frame_count) != 0) {
+    return false;
+  }
+
   return true;
 }
 
