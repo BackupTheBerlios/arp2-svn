@@ -5,6 +5,11 @@
 #include <X11/Xlib.h>
 #include <X11/extensions/xf86dga.h>
 
+#include <sys/types.h>
+#include <unistd.h>
+#include <sys/wait.h>
+#include <signal.h>
+
 #include "glgfx.h"
 #include "glgfx_input.h"
 #include "glgfx_intern.h"
@@ -216,7 +221,9 @@ static enum glgfx_input_code xorg_codes[256] = {
 /*   glgfx_input_numbersign = 0x2b, */
 };
 
-bool glgfx_input_acquire(void) {
+bool glgfx_input_acquire(bool safety_net) {
+  static bool safety_net_installed = false;
+  bool rc = true;
   int i;
 
   if (pending_queue == NULL) {
@@ -239,7 +246,57 @@ bool glgfx_input_acquire(void) {
 		       XF86DGADirectMouse | XF86DGADirectKeyb);
   }
 
-  return true;
+  if (safety_net && !safety_net_installed) {
+    safety_net_installed = true;
+
+    printf("forking ...\n");
+    pid_t pid = fork();
+
+    switch (pid)  {
+      case -1:
+	// Fork failed
+	printf("failed\n");
+	safety_net_installed = false;
+	rc = false;
+	break;
+
+      case 0:
+	// Child
+	printf("child\n");
+	break;
+	
+      default: {
+	// Wait for child, then unlock display
+	// and exit
+
+	int rc;
+	
+	printf("ok; sleeping...\n");
+	if (waitpid(pid, &rc, 0) == -1) {
+	  perror("waitpid");
+	  exit(20);
+	}
+
+	printf("releasing\n");
+	glgfx_input_release();
+
+	if (WIFEXITED(rc)) {
+	  printf("exiting\n");
+	  exit(WEXITSTATUS(rc));
+	}
+	else if (WIFSIGNALED(rc)) {
+	  printf("raising signal\n");
+	  raise(WTERMSIG(rc));
+	}
+	else {
+	  printf("aborting\n");
+	  abort();
+	}
+      }
+    }
+  }
+
+  return rc;
 }
 
 bool glgfx_input_release(void) {
