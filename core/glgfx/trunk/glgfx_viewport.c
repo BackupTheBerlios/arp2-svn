@@ -2,9 +2,7 @@
 #include "glgfx-config.h"
 #include <stdlib.h>
 #include <glib.h>
-#define GL_GLEXT_PROTOTYPES
 #include <GL/gl.h>
-#include <GL/glext.h>
 
 #include "glgfx.h"
 #include "glgfx_bitmap.h"
