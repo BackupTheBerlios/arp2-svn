@@ -58,8 +58,10 @@ struct glgfx_bitmap* glgfx_bitmap_create(int width, int height, int bits,
   bitmap->bits              = bits;
   bitmap->flags             = flags;
   bitmap->format            = select_format(bits, friend, format);
+#ifdef ENABLE_PIXEL_BUFFER
   bitmap->pbo_size          = glgfx_texture_size(width, height, bitmap->format);
   bitmap->pbo_bytes_per_row = glgfx_texture_size(width, 1, bitmap->format);
+#endif
 
   glGenTextures(1, &bitmap->texture);
   check_error();
@@ -118,6 +120,7 @@ bool glgfx_bitmap_lock(struct glgfx_bitmap* bitmap, bool read, bool write) {
     return false;
   }
 
+#ifdef ENABLE_PIXEL_BUFFER
   pthread_mutex_lock(&glgfx_mutex);
     
 #ifdef ENABLE_PIXEL_BUFFER
@@ -209,6 +212,7 @@ bool glgfx_bitmap_unlock(struct glgfx_bitmap* bitmap, int x, int y, int width, i
     return false;
   }
 
+#ifdef ENABLE_PIXEL_BUFFER
   pthread_mutex_lock(&glgfx_mutex);
 
 #ifdef ENABLE_PIXEL_BUFFER
