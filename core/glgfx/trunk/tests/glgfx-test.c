@@ -22,8 +22,12 @@
 
 int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) {
   // If unset, sync to vblank as default (nvidia driver)
-  setenv("__GL_SYNC_TO_VBLANK", "0", 0);
-  setenv("__GL_NV30_EMULATE", "0", 0);
+/*   setenv("__GL_SYNC_TO_VBLANK", "1", 0); */
+/*   setenv("__GL_NV30_EMULATE", "1", 0); */
+
+  if (!glgfx_init()) {
+    return 10;
+  }
 
 /* Section "Device" */
 /*     Identifier "NV AGP" */
@@ -74,7 +78,7 @@ int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) 
 
       glgfx_view_addviewport(v, vp);
 
-//      glgfx_input_acquire();
+      glgfx_input_acquire(false);
       int i;
       struct timeval s, e;
 
@@ -118,8 +122,8 @@ int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) 
       
       printf("uploaded %d images in %g seconds -> %g fps/%d MB/s\n",
 	     i, sec, i / sec, (int) (i * width * height * sizeof (*data) / sec / 1e6));
-//      glgfx_input_release();
-
+      glgfx_input_release();
+	   
       glgfx_viewport_destroy(vp);
     }
     glgfx_bitmap_destroy(bm);
@@ -127,6 +131,8 @@ int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) 
     glgfx_destroy_monitors();
   }
   
+  glgfx_cleanup();
+
   return 0;
 }
 

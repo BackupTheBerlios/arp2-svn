@@ -37,7 +37,17 @@ void display(void) {
 		  0, 0, width, height,
 		  format, type,
 		  buf);
+  int x;
+
+  for (x = 0; x < width*height; ++x) {
+    buf[x] = 0;
+  }
+
+  glGetTexImage(GL_TEXTURE_RECTANGLE_ARB, 0,
+		format, type,
+		buf);
   
+
   glBegin(GL_QUADS); {
     glActiveTexture(GL_TEXTURE0);
 
@@ -59,6 +69,12 @@ void display(void) {
   static struct timeval now;
 
   if (++cnt % 50 == 0) {
+/*     for (x = 0; x < 100; ++x) { */
+/*       printf("%08x ", buf[x]); */
+/*     } */
+
+/*     printf("\n"); */
+
     last = now;
     gettimeofday(&now, NULL);
 
@@ -67,10 +83,10 @@ void display(void) {
     secs /= cnt;
     cnt = 0;
     
-    printf("%dx%dx%d textels in %f milliseconds; %f Mtextels/s; %f MiB/s\n",
+    printf("%dx%dx%d textels *2 in %f milliseconds; %f Mtextels/s; %f MiB/s\n",
 	   width, height, sizeof *buf, secs * 1e3,
-	   width * height / secs / 1e6,
-	   width * height * (sizeof *buf) / secs / 1024 / 1024);
+	   2 * width * height / secs / 1e6,
+	   2 * width * height * (sizeof *buf) / secs / 1024 / 1024);
   }
 }
 
