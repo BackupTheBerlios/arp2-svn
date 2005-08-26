@@ -4,6 +4,8 @@
 #include <stdbool.h>
 #include <inttypes.h>
 
+bool glgfx_init(void);
+void glgfx_cleanup();
 bool glgfx_create_monitors(void);
 void glgfx_destroy_monitors(void);
 bool glgfx_waitblit(void);

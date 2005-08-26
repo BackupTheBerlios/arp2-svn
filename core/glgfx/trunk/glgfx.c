@@ -50,6 +50,14 @@ struct glgfx_tagitem* glgfx_nexttagitem(struct glgfx_tagitem** taglist_ptr) {
   }
 }
 
+bool glgfx_init() {
+  return true;
+}
+
+void glgfx_cleanup() {
+}
+
+
 bool glgfx_create_monitors(void) {
   bool rc;
   char name[8];
