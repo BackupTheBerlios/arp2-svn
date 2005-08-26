@@ -9,7 +9,7 @@
 #include "glgfx_viewport.h"
 #include "glgfx_input.h"
 
-#define UPLOAD_MODE 0
+#define UPLOAD_MODE 1
 #define DATA_TYPE 1
 
 #if DATA_TYPE == 0

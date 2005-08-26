@@ -47,7 +47,10 @@ struct glgfx_bitmap {
     int                     flags;
     enum glgfx_pixel_format format;
     GLuint                  texture;
-    GLuint                  pbo;
+    union {
+      GLuint                  pbo;
+      void*                   buffer;
+    };
     size_t                  pbo_size;
     size_t                  pbo_bytes_per_row;
     bool                    locked;
