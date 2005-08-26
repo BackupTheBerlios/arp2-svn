@@ -120,7 +120,6 @@ bool glgfx_bitmap_lock(struct glgfx_bitmap* bitmap, bool read, bool write) {
     return false;
   }
 
-#ifdef ENABLE_PIXEL_BUFFER
   pthread_mutex_lock(&glgfx_mutex);
     
 #ifdef ENABLE_PIXEL_BUFFER
@@ -212,7 +211,6 @@ bool glgfx_bitmap_unlock(struct glgfx_bitmap* bitmap, int x, int y, int width, i
     return false;
   }
 
-#ifdef ENABLE_PIXEL_BUFFER
   pthread_mutex_lock(&glgfx_mutex);
 
 #ifdef ENABLE_PIXEL_BUFFER
