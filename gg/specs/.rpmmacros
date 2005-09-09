@@ -1,0 +1,11 @@
+%distribution		GeekGadgets/lcs 2005-09-09
+%packager		Martin Blom <martin@blom.org>
+%vendor			GeekGadgets/lcs
+%_signature		gpg
+%_gpg_name		Martin Blom <martin@blom.org>
+%_gpg_path		/home/martin/.gnupg
+%_prefix		/opt/gg
+%_sysconfdir		%{_prefix}/etc
+%_infodir		%{_prefix}/info
+%_mandir		%{_prefix}/man
+%_localstatedir		%{_prefix}/var
