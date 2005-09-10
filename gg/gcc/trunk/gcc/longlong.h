@@ -502,11 +502,12 @@ UDItype __umulsidi3 (USItype, USItype);
 	     "g" ((USItype) (bl)))
 
 /* The '020, '030, '040 and CPU32 have 32x32->64 and 64/32->32q-32r. */
-#if defined (__mc68020__) || defined(mc68020) \
+#if (defined (__mc68020__) || defined(mc68020)	    \
 	|| defined(__mc68030__) || defined(mc68030) \
 	|| defined(__mc68040__) || defined(mc68040) \
 	|| defined(__mcpu32__) || defined(mcpu32) \
-	|| defined(__NeXT__)
+        || defined(__NeXT__)) \
+    && !(defined(__mc68020_60__) || defined(mc68020_60))
 #define umul_ppmm(w1, w0, u, v) \
   __asm__ ("mulu%.l %3,%1:%0"						\
 	   : "=d" ((USItype) (w0)),					\

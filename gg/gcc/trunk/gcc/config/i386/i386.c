@@ -592,6 +592,12 @@ i386_valid_type_attribute_p (type, attributes, identifier, args)
      tree identifier;
      tree args;
 {
+  // lcs: iptr is a valid pointer/integer attribute
+  if ((TREE_CODE (type) == POINTER_TYPE
+       || TREE_CODE (type) == INTEGER_TYPE)
+      && is_attribute_p ("iptr", identifier))
+    return 1;
+
   if (TREE_CODE (type) != FUNCTION_TYPE
       && TREE_CODE (type) != METHOD_TYPE
       && TREE_CODE (type) != FIELD_DECL
@@ -1790,6 +1796,11 @@ asm_output_function_prefix (file, name)
   xops[0] = pic_offset_table_rtx;
   xops[1] = stack_pointer_rtx;
 
+  if (flag_pic >= 3) {
+    /* No prologue for baserel code */
+    return;
+  }
+
   /* Deep branch prediction favors having a return for every call. */
   if (pic_reg_used && TARGET_DEEP_BRANCH_PREDICTION)
     {
@@ -1853,6 +1864,29 @@ load_pic_register (do_rtl)
      int do_rtl;
 {
   rtx xops[4];
+
+  if (flag_pic >= 3)
+    {
+      // Handle the baserel case
+
+      xops[0] = pic_offset_table_rtx;
+
+      if (do_rtl)
+        {
+	  /* We can't put a raw CODE_LABEL into the RTL, and we can't emit
+	     a new CODE_LABEL after reload, so we need a single pattern to
+	     emit the 3 necessary instructions.  */
+	  emit_insn (gen_prologue_set_got_from_fs (xops[0]));
+	}
+      else
+	{
+	  output_asm_insn (AS2 (mov%L0,%%fs:8,%0), xops);
+	}
+      
+      if (do_rtl)
+	emit_insn (gen_blockage ());
+      return;
+    }
 
   if (TARGET_DEEP_BRANCH_PREDICTION)
     {
@@ -2014,6 +2048,7 @@ ix86_prologue (do_rtl)
 
       else
 	{
+	  // lcs: We should probably bswap here and in other places?
 	  output_asm_insn ("push%L1 %1", xops);
 #ifdef INCOMING_RETURN_ADDR_RTX
  	  if (dwarf2out_do_frame ())
@@ -2186,7 +2221,7 @@ function_epilogue (file, size)
      FILE *file ATTRIBUTE_UNUSED;
      int size ATTRIBUTE_UNUSED;
 {
-    return;
+  return;
 }
 
 /* Restore function stack, frame, and registers. */

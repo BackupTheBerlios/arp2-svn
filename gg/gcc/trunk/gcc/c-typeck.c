@@ -4250,6 +4250,10 @@ convert_for_assignment (type, rhs, errtype, fundecl, funname, parmnum)
 	     && TREE_CODE (TREE_OPERAND (rhs, 0)) == INTEGER_CST
 	     && integer_zerop (TREE_OPERAND (rhs, 0))))
 	{
+	  // lcs: No warnings for pointers with the "iptr" attribure
+	  if (lookup_attribute ("iptr", TYPE_ATTRIBUTES (type)))
+	    return convert (type, rhs);
+      
 	  warn_for_assignment ("%s makes pointer from integer without a cast",
 			       errtype, funname, parmnum);
 	  return convert (type, rhs);
@@ -4258,6 +4262,10 @@ convert_for_assignment (type, rhs, errtype, fundecl, funname, parmnum)
     }
   else if (codel == INTEGER_TYPE && coder == POINTER_TYPE)
     {
+      // lcs: No warnings for integers with the "iptr" attribure
+      if (lookup_attribute ("iptr", TYPE_ATTRIBUTES (type)))
+	return convert (type, rhs);
+
       warn_for_assignment ("%s makes integer from pointer without a cast",
 			   errtype, funname, parmnum);
       return convert (type, rhs);
@@ -4773,6 +4781,13 @@ digest_init (type, init, require_constant, constructor_constant)
   if (code == ARRAY_TYPE)
     {
       tree typ1 = TYPE_MAIN_VARIANT (TREE_TYPE (type));
+#if 0
+      if (lookup_attribute ("iptr", TYPE_ATTRIBUTES (TREE_TYPE(type))))
+        {
+	  // lcs: Can we convert inside_init to a pointer here?
+	  //inside_init = default_conversion (inside_init);
+	}
+#endif	  
       if ((typ1 == char_type_node
 	   || typ1 == signed_char_type_node
 	   || typ1 == unsigned_char_type_node

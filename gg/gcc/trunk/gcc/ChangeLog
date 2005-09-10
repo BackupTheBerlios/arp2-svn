@@ -1,3 +1,48 @@
+Sat Sep 10 23:34:00 2005  Martin Blom  <martin@blom.org>
+
+	* config/m68k/amigaos.h: Define mc68020_40, __mc68020_40 and
+	__mc68020_40__ when -m68020-40 is used. Likewise, define
+	mc68020_60, __mc68020_60 and __mc68020_60__ when -m68020-60 is
+	used.
+
+	* config/m68k/t-amigaos: Build multilibs using -m68020-60 instead
+	of -m68020.
+
+	* longlong.h: Don't use 060-emulated instructions if mc68020_60 or
+	__mc68020_60__ is defined.
+
+Sat Sep 10 21:35:12 2005  Martin Blom  <martin@blom.org>
+
+	* objc/objc-parse.y: GG patches.
+
+Sat Sep 10 21:32:58 2005  Martin Blom  <martin@blom.org>
+
+	* c-typeck.c, config/i386/i386.c, config/m68k/m68k.c,
+	config/rs6000/rs6000.c: Added 'iptr' variable attribute that
+	inhibits pointer/integer cast warnings.
+
+	* config/i386/amithlon.h, config/m68k/amigaos.h,
+	config/rs6000/morphos.h: Define __HAVE_IPTR_ATTR__.
+
+Thu Jan 20 20:44:03 2005  Martin Blom  <martin@blom.org>
+
+	* config/i386/i386be.md: Never generate "testl/testw" on memory
+	operands.
+
+Thu Jan 20 20:42:42 2005  Martin Blom  <martin@blom.org>
+
+	* config/i386/i386.c (asm_output_function_prefix): Never generate
+	a load-PC function prefix for baserel code.
+
+Thu Jan 20 20:41:26 2005  Martin Blom  <martin@blom.org>
+
+	* config/i386/i386.c (load_pic_register): Simply emit
+	"movl %fs:8,%ebx" for baserel code.
+
+Tue Jul  9 21:03:55 2002  Martin Blom  <martin@blom.org>
+
+	* config/m68k/m68k.md: Fixed a 64-bit bug.
+
 Fri Mar 16 12:46:19 GMT 2001 Bernd Schmidt  (bernds@redhat.com)
 
 	* gcc-2.95.3 Released.

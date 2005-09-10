@@ -5724,6 +5724,12 @@ rs6000_valid_type_attribute_p (type, attributes, identifier, args)
      tree identifier;
      tree args;
 {
+  // lcs: iptr is a valid pointer/integer attribute
+  if ((TREE_CODE (type) == POINTER_TYPE
+       || TREE_CODE (type) == INTEGER_TYPE)
+      && is_attribute_p ("iptr", identifier))
+    return 1;
+
   if (TREE_CODE (type) != FUNCTION_TYPE
       && TREE_CODE (type) != FIELD_DECL
       && TREE_CODE (type) != TYPE_DECL)

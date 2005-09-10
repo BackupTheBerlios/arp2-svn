@@ -3510,6 +3510,12 @@ int
 valid_m68k_type_attribute (type, attributes, identifier, args)
      tree type, attributes, identifier, args;
 {
+  // lcs: iptr is a valid pointer/integer attribute
+  if ((TREE_CODE (type) == POINTER_TYPE
+       || TREE_CODE (type) == INTEGER_TYPE)
+      && is_attribute_p ("iptr", identifier))
+    return 1;
+
   if (TREE_CODE (type) == FUNCTION_TYPE || TREE_CODE (type) == METHOD_TYPE)
     {
       /* 'regparm' accepts one optional argument - number of registers in

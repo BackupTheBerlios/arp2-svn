@@ -58,6 +58,7 @@ extern enum rs6000_sdata_type rs6000_sdata;
   "-D__PPC__ -D_CALL_SYSV -Damiga -Damigaos -DMCH_AMIGA -DAMIGA " \
   "-Asystem(morphos) --Acpu(powerpc) -Amachine(powerpc) " \
   "-D__MORPHOS__ -Dmorphos -D__powerpc__ " \
+  "-D__HAVE_IPTR_ATTR__ " \
   "-D__saveds=__attribute__((__saveds__)) "\
   "-D__stackext=__attribute__((__stackext__)) " \
 
