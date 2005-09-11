@@ -2,6 +2,8 @@
 
 #ifdef __STDC__
 #include <stddef.h>
+#include <stdarg.h>
+#include <stdio.h>
 #define clock_t unsigned long
 #define DEF(NAME, RETURN_TYPE, ARGLIST, ARGS) extern RETURN_TYPE NAME (ARGS);
 #define DEFFUNC(NAME, RETURN_TYPE, ARGLIST, ARGS) extern RETURN_TYPE NAME (ARGS);

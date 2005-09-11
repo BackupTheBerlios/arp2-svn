@@ -3266,8 +3266,8 @@ fatal (str)
   exit (1);
 }
 
-char * malloc ();
-char * realloc ();
+/*char * malloc ();
+  char * realloc ();*/
 
 char *
 xmalloc (size)

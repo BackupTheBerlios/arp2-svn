@@ -243,7 +243,7 @@ dummy.o: $(srcdir)/dummy.c $(srcdir)/functions.def
 	$(CC) -c $(CFLAGS) -I. -I$(INCDIR) -I$(srcdir) $(HDEFINES) $(srcdir)/dummy.c 2>/dev/null
 
 errors: dummy.o $(EXTRA_OFILES)
-	-($(ERRORS_CC) -o dummy $(CFLAGS) $(LDFLAGS) $(ERRORS_LDFLAGS) dummy.o $(EXTRA_OFILES) $(LOADLIBES)) >errors 2>&1 || true
+	-($(ERRORS_CC) -o dummy $(CFLAGS) $(LDFLAGS) $(ERRORS_LDFLAGS) dummy.o $(EXTRA_OFILES) $(LOADLIBES)) |grep -v warning >errors 2>&1 || true
 
 # required-list is used when building a shared bfd/opcodes/libiberty library.
 required-list: Makefile

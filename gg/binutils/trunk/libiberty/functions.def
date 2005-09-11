@@ -9,7 +9,7 @@
  * the corresponding function in libc.
  */
 
-DEF(asprintf, int, (), NOTHING)
+DEF(asprintf, int, (strp, fmt), char **strp AND const char *fmt)
 DEF(atexit, int, (f), void (*f)())
 DEF(bcmp, int, (s1, s2, length), char *s1 AND char *s2 AND int length )
 DEF(bcopy, void, (s1, s2, length), char *s1 AND char *s2 AND int length )
@@ -28,26 +28,26 @@ DEF(memcpy, PTR, (s1, s2, length), PTR s1 AND CONST PTR s2 AND size_t length)
 DEF(memmove, PTR, (s1, s2, length), PTR s1 AND CONST PTR s2 AND size_t length)
 DEF(memset, PTR, (s, val, length), PTR s AND int val AND size_t length )
 DEF(random, long int, (), NOTHING)
-DEF(rename, int, (f, t), char *f AND char *t)
+DEF(rename, int, (f, t), const char *f AND const char *t)
 DEF(rindex, char*, (s, c), char *s AND int c)
 DEF(strcasecmp, int, (s1, s2), char *s1 AND char *s2)
 DEF(strncasecmp, int, (s1, s2, n), char *s1 AND char *s2 AND int n)
 DEF(strchr, char*, (s, c), CONST char *s AND int c)
 DEF(strdup, char*, (s1), char * s1)
 DEF(strrchr, char*, (s, c), CONST char *s AND int c)
-DEF(strstr, char*, (), NOTHING)
-DEF(strtod, double, (), NOTHING)
-DEF(strtol, long, (), NOTHING)
-DEF(strtoul, unsigned long, (), NOTHING)
+DEF(strstr, char*, (big, little), const char *big AND const char *little)
+DEF(strtod, double, (nptr, endptr), const char *nptr AND char **endptr)
+DEF(strtol, long, (nptr, endptr), const char *nptr AND char **endptr)
+DEF(strtoul, unsigned long, (nptr, endptr), const char *nptr AND char **endptr)
 DEF(tmpnam, char *, (s), char * s)
 DEF(vfork, int, (), NOTHING)
-DEF(vfprintf, int, (), NOTHING)
-DEF(vprintf, int, (), NOTHING)
-DEF(vsprintf, int, (), NOTHING)
-DEF(sigsetmask, int, (), NOTHING)
+DEF(vfprintf, int, (stream, format, ap), FILE *stream AND const char *format AND va_list ap)
+DEF(vprintf, int, (format, ap), const char *format AND va_list ap)
+DEF(vsprintf, int, (str, format, ap), char *str AND const char *format AND va_list ap)
+DEF(sigsetmask, int, (mask), int mask)
 DEF(alloca, PTR, (size), size_t size)
 DEF(waitpid, int, (pid, statp, opts), int pid AND int* statp AND int opts )
-DEF(vasprintf, int, (), NOTHING)
+DEF(vasprintf, int, (strp, fmt, ap), char **strp AND const char *fmt AND va_list ap)
 
 /* List of global variables that we want to look for in the host
    environment, and to generate an entry NEED_<variable> in config.h
@@ -56,8 +56,8 @@ DEF(vasprintf, int, (), NOTHING)
    use it. */
 
 DEFVAR(sys_nerr, int sys_nerr, sys_nerr = 0)
-DEFVAR(sys_errlist, char *sys_errlist[], sys_errlist[0] = 0)
-DEFVAR(sys_siglist, char *sys_siglist[], sys_siglist[0] = 0)
+DEFVAR(sys_errlist, const char * const sys_errlist[], puts(sys_errlist[0]))
+DEFVAR(sys_siglist, const char * const sys_siglist[], puts(sys_siglist[0]))
 
 /* List of global functions that we want to look for in the host
    environment, and to generate an entry NEED_<funcname> in config.h
