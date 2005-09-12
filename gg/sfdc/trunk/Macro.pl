@@ -31,6 +31,15 @@ BEGIN {
 	print "#ifndef _INLINE_$$sfd{'BASENAME'}_H\n";
 	print "#define _INLINE_$$sfd{'BASENAME'}_H\n";
 	print "\n";
+	print "#ifndef _SFDC_VARARG_DEFINED\n";
+	print "#define _SFDC_VARARG_DEFINED\n";
+	print "#ifdef __HAVE_IPTR_ATTR__\n";
+	print "typedef APTR _sfdc_vararg __attribute__((iptr));\n";
+	print "#else\n";
+	print "typedef ULONG _sfdc_vararg;\n";
+	print "#endif /* __HAVE_IPTR_ATTR__ */\n";
+	print "#endif /* _SFDC_VARARG_DEFINED */\n";
+	print "\n";
     }
 
     sub function {
@@ -110,12 +119,12 @@ BEGIN {
 		my $first_stdargnum = $$prototype{'numargs'} - 2;
 		my $first_stdarg = $$prototype{'___argnames'}[$first_stdargnum];
 	    
-		printf "	({ULONG _%s[] = { $first_stdarg, __VA_ARGS__ }; ",
+		printf "	({_sfdc_vararg _%s[] = { $first_stdarg, __VA_ARGS__ }; ",
 		$prototype->{subtype} eq 'tagcall' ? "tags" : "message";
 		print "$$prototype{'real_funcname'}(";
 	    }
 	    else {
-		print "	({ULONG _args[] = { __VA_ARGS__ }; ";
+		print "	({_sfdc_vararg _args[] = { __VA_ARGS__ }; ";
 
 		print "$$prototype{'real_funcname'}(";
 	    }
