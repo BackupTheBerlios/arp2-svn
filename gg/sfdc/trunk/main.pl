@@ -116,6 +116,7 @@ my %targets = (
 		 macros    => 'Macro',
 		 stubs     => 'Stub',
 		 gatestubs => 'Gate',
+		 interface => 'Interface'
 	       },
     
 	      '(\w)+(-.*)?-aros' =>
@@ -123,7 +124,8 @@ my %targets = (
 		 vectors   => { 'library' => @lf, 'device' => @df, 'boopsi' => @bf },
 		 macros    => 'MacroAROS',
 		 stubs     => 'StubAROS',
-		 gatestubs => 'GateAROS'
+		 gatestubs => 'GateAROS',
+		 interface => 'Interface'
 	       },
 	       
 	      'i.86be(-pc)?-amithlon' =>
@@ -131,7 +133,8 @@ my %targets = (
 		 vectors   => { 'library' => @lf, 'device' => @df, 'boopsi' => @bf },
 		 macros    => 'MacroLP',
 		 stubs     => 'StubAmithlon',
-		 gatestubs => 'GateAmithlon'
+		 gatestubs => 'GateAmithlon',
+		 interface => 'Interface'
 	       },
 	       
 	      'm68k(-unknown)?-amigaos' =>
@@ -139,7 +142,8 @@ my %targets = (
 		 vectors   => { 'library' => @lf, 'device' => @df, 'boopsi' => @bf },
 		 macros    => 'Macro68k',
 		 stubs     => 'Stub68k',
-		 gatestubs => 'Gate68k'
+		 gatestubs => 'Gate68k',
+		 interface => 'Interface'
 	       },
 	       
 	      'p(ower)?pc(-unknown)?-amigaos' =>
@@ -147,7 +151,8 @@ my %targets = (
 		 vectors   => { 'library' => @lf, 'device' => @df, 'boopsi' => @bf },
 		 macros    => 'MacroAOS4',
 		 stubs     => 'StubAOS4',
-		 gatestubs => 'GateAOS4'
+		 gatestubs => 'GateAOS4',
+		 interface => 'InterfaceAOS4'
 	       },
     
 	      'p(ower)?pc(-unknown)?-morphos' =>
@@ -155,7 +160,8 @@ my %targets = (
 		 vectors   => { 'library' => @lf, 'device' => @df, 'boopsi' => @bf },
 		 macros    => 'MacroMOS',
 		 stubs     => 'StubMOS',
-		 gatestubs => 'GateMOS'
+		 gatestubs => 'GateMOS',
+		 interface => 'Interface'
 	       }
 	      );
 
@@ -219,7 +225,7 @@ if ($#ARGV < 0) {
 
 $mode = lc $mode;
 
-if (!($mode =~ /^(clib|dump|fd|libproto|lvo|functable|macros|proto|pragmas|stubs|gateproto|gatestubs|verify)$/)) {
+if (!($mode =~ /^(clib|dump|fd|libproto|lvo|functable|interface|macros|proto|pragmas|stubs|gateproto|gatestubs|verify)$/)) {
     pod2usage (-message => "Unknown mode specified. Use --help for a list.",
 	       -verbose => 0,
 	       -exitval => 10);
@@ -293,6 +299,11 @@ for my $i ( 0 .. $#ARGV ) {
 	    last;
 	};
 
+	/^interface$/ && do {
+	    $obj = $$classes{'interface'}->new( sfd => $sfd );
+	    last;
+	};
+	
 	/^macros$/ && do {
 	    $obj = $$classes{'macros'}->new( sfd => $sfd );
 

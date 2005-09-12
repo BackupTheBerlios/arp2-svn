@@ -87,6 +87,12 @@ Dumps all information gathered from the SFD file.
 
 Generate an old-style FD file.
 
+
+=item B<functable>
+
+Generate a list of function names suitable for inclusion in a library
+function table.
+
     
 =item B<gateproto>
 
@@ -97,6 +103,11 @@ library and device developers.
 =item B<gatestubs>
 
 Generate library gate stubs. Useful for library and device developers.
+
+
+=item B<interface>
+
+Generate a struct with function pointers, like that uses in AmigaOS 4.
 
 
 =item B<libproto>
