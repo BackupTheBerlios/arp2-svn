@@ -3,7 +3,7 @@
 
 Name        	: gg-%{Name}
 Version     	: %{Version}
-Release     	: 1
+Release     	: 2
 
 Summary     	: Convert FD files to SFD files
 Group       	: Development/Tools
@@ -53,5 +53,8 @@ rm -rf ${RPM_BUILD_ROOT}
 %{_prefix}/os-lib
 
 %changelog
+* Tue Sep 20 2005 Martin Blom <martin@blom.org> - 
+- Updated macros.h for m68k to include LP5A4().
+
 * Thu Jul 25 2003 Martin Blom <martin@blom.org>
 - Initial rpm.
