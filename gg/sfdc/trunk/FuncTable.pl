@@ -21,7 +21,7 @@ BEGIN {
 	print "/* Automatically generated function table! Do not edit! */\n";
 	print "\n";
 	print "#ifdef __SFDC_FUNCTABLE_M68K__\n";
-	print "# define _sfdc_func(f) m68k ## f\n";
+	print "# define _sfdc_func(f) &m68k ## f\n";
 	print "#else\n";
 	print "# define _sfdc_func(f) f\n";
 	print "#endif\n";
@@ -31,6 +31,10 @@ BEGIN {
 	my $self      = shift;
 	my %params    = @_;
 	my $prototype = $params{'prototype'};
+
+	if ($prototype->{bias} == 0) {
+	    return;
+	}
 
 	if ($prototype->{type} eq 'function' ||
 	    $prototype->{type} eq 'cfunction') {
