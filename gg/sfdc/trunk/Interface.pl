@@ -77,7 +77,7 @@ BEGIN {
 
 	print "};\n";
 	print "\n";
-	print "#endif /* $sfd->{'BASENAME'}_INTERFACE_DEF_H */";
+	print "#endif /* $sfd->{'BASENAME'}_INTERFACE_DEF_H */\n";
     }
 
 
