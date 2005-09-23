@@ -98,6 +98,11 @@ BEGIN {
 	    $$prototype{'subtype'} ne 'tagcall') {
 	    print " __attribute__((varargs68k))";
 	}
+
+	if ($classes->{target} eq 'amigaos4' &&
+	    $prototype->{type} eq 'varargs') {
+	    print " __attribute__((linearvarargs))";
+	}
 	
 	print ";\n";
     }

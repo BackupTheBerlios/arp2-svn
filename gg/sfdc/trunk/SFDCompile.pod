@@ -253,7 +253,7 @@ provided. From this information, F<sfdc> can:
 
 =item *
 
-Generate an old-style B<FD> file for futher processing with other tools.
+vGenerate an old-style B<FD> file for futher processing with other tools.
 
 
 =item *
@@ -333,7 +333,7 @@ Initial release.
 
 Added workaround for workbench.library (base name is "wb").
 Added AmigaOS 4 support.
-Added the --addvectors switch.
+Added the B<--addvectors> switch.
 
 
 =item B<1.2 (2004-06-16)>
@@ -384,11 +384,24 @@ sure gateprotos are included before you include the functable.
 
 B<proto> files now include F<Include/defines/> files when used in AROS.
 
-=item B<1.4 (2005-09-20)>
+=item B<1.4 (2005-09-23)>
 
 Added AmigaOS 4-style interfaces (C++ only for non-OS4 targets, and
-without implementation). The library base in the proto file is now
-defined for AmigaOS 4 too.
+without implementation).
+
+=item
+
+The library base in the B<proto> file is now defined for AmigaOS 4
+too.
+
+=item
+
+AmigaOS 4 B<clib> files now add B<__attribute__((linearvarargs))> to
+varargs functions.
+
+=item
+
+Added AmigaOS 4 support for B<stubs> files.
 
 =item
 

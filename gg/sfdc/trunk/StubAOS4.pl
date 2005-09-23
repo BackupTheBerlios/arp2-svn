@@ -1,8 +1,8 @@
 
-### Class StubMOS: Create a MorphOS stub file #################################
+### Class StubAOS4: Create an AOS4 stub file ####################################
 
 BEGIN {
-    package StubMOS;
+    package StubAOS4;
     use vars qw(@ISA);
     @ISA = qw( Stub );
 
@@ -16,11 +16,24 @@ BEGIN {
 
     sub header {
 	my $self = shift;
+	my $sfd       = $self->{SFD};
+
+	# Ugly, but it works
+
+	print "/* Interface base override */\n";
+	print "\n";
+	print "#ifndef BASE_EXT_DECL\n";
+	print "#define BASE_EXT_DECL\n";
+	print "#define BASE_EXT_DECL0 extern struct $sfd->{BaseName}IFace * I$sfd->{BaseName};\n";
+	print "#endif /* !BASE_EXT_DECL */\n";
+	print "#ifndef BASE_NAME\n";
+	print "#define BASE_NAME I$sfd->{BaseName}\n";
+	print "#endif /* !BASE_NAME */\n";
+	print "\n";
 	
 	$self->SUPER::header (@_);
 
-	print "\n";
-	print "#include <emul/emulregs.h>\n";
+	print "#include <interfaces/$sfd->{basename}.h>\n";
 	print "#include <stdarg.h>\n";
 	print "\n";
     }
@@ -36,7 +49,7 @@ BEGIN {
 		# We have to add the attribute to ourself first
 	    
 		$self->special_function_proto (@_);
-		print " __attribute__((varargs68k));\n";
+		print " __attribute__((linearvarargs));\n";
 		print "\n";
 		$self->special_function_proto (@_);
 	    }
@@ -45,7 +58,7 @@ BEGIN {
 	    $self->SUPER::function_proto (@_);
 	}
     }
-    
+
     sub function_start {
 	my $self      = shift;
 	my %params    = @_;
@@ -59,6 +72,15 @@ BEGIN {
 	    if (!$prototype->{nb}) {
 		print "  BASE_EXT_DECL\n";
 	    }
+
+	    if (!$prototype->{nr}) {
+		print "  $prototype->{return} _res = ($prototype->{return}) ";
+	    }
+	    else {
+		print "  ";
+	    }
+
+	    printf "BASE_NAME->$prototype->{funcname}(";
 	}
 	elsif ($prototype->{type} eq 'varargs') {
 	    if ($prototype->{subtype} ne 'tagcall') {
@@ -75,7 +97,7 @@ BEGIN {
 		print "\n";
 		print "{\n";
 		print "  va_list _va;\n";
-		print "  va_start (_va, $prototype->{___argnames}[$na]);\n";
+		print "  va_startlinear (_va, $prototype->{___argnames}[$na]);\n";
 		print "  return $$prototype{'real_funcname'}(BASE_PAR_NAME ";
 	    }
 	    else {
@@ -100,48 +122,48 @@ BEGIN {
 		#   8 -  8+n*4+d+8-1: tag list start
 		#   ? - local-1: padding
 
-		print  "__asm(\"\n";
-		print  "	.align	2\n";
-		print  "	.globl	$prototype->{funcname}\n";
-		print  "	.type	$prototype->{funcname},\@function\n";
-		print  "$prototype->{funcname}:\n";
-		print  "	stwu	1,-$local(1)\n";
-		print  "	mflr	0\n";
-		printf "	stw	0,%d(1)\n", $local + 4;
+		print  "__asm(\"\\n\\\n";
+		print  "	.align	2\\n\\\n";
+		print  "	.globl	$prototype->{funcname}\\n\\\n";
+		print  "	.type	$prototype->{funcname},\@function\\n\\\n";
+		print  "$prototype->{funcname}:\\n\\\n";
+		print  "	stwu	1,-$local(1)\\n\\\n";
+		print  "	mflr	0\\n\\\n";
+		printf "	stw	0,%d(1)\\n\\\n", $local + 4;
 
 		# If n is odd, one tag is split between regs and stack.
 		# Copy its ti_Data together with the ti_Tag.
 	    
 		if ($d != 0) {
 		    # read ti_Data
-		    printf "	lwz	0,%d(1)\n", $local + 8;
+		    printf "	lwz	0,%d(1)\\n\\\n", $local + 8;
 		}
 
 		# Save the registers
 	    
 		for my $count ($prototype->{numregs} .. 8) {
-		    printf "	stw	%d,%d(1)\n",
+		    printf "	stw	%d,%d(1)\\n\\\n",
 		    $count + 2,
 		    ($count - $prototype->{numregs}) * 4 + $taglist;
 		}
 
 		if ($d != 0) {
 		    # write ti_Data
-		    printf "	stw	0,%d(1)\n", $taglist + $n * 4;
+		    printf "	stw	0,%d(1)\\n\\\n", $taglist + $n * 4;
 		}
 
 		# Add TAG_MORE
 
-		print  "	li	11,2\n";
-		printf "	addi	0,1,%d\n", $local + 8 + $d;
-		printf "	stw	11,%d(1)\n", $taglist + $n * 4 + $d;
-		printf "	stw	0,%d(1)\n", $taglist + $n * 4 + $d + 4;
+		print  "	li	11,2\\n\\\n";
+		printf "	addi	0,1,%d\\n\\\n", $local + 8 + $d;
+		printf "	stw	11,%d(1)\\n\\\n", $taglist + $n * 4 + $d;
+		printf "	stw	0,%d(1)\\n\\\n", $taglist + $n * 4 + $d + 4;
 
 		# vararg_reg = &saved regs
 	    
-		printf "	addi	%d,1,%d\n",
+		printf "	addi	%d,1,%d\\n\\\n",
 		$prototype->{numregs} + 2, $taglist;
-		print "	bl	$prototype->{real_funcname}\n";
+		print "	bl	$prototype->{real_funcname}\\n\\\n";
 	    }
 	}
 	else {
@@ -160,7 +182,8 @@ BEGIN {
 	my $sfd       = $self->{SFD};
 
 	if ($$prototype{'type'} eq 'function') {
-	    print "  REG_" . (uc $argreg) . " = (ULONG) $argname;\n";
+	    print "$argname";
+	    print ", " unless $argnum == $prototype->{numargs} - 1;
 	}
 	elsif ($prototype->{type} eq 'varargs') {
 	    if ($prototype->{subtype} eq 'tagcall') {
@@ -171,7 +194,7 @@ BEGIN {
 	    }
 	    elsif ($argnum == $prototype->{numargs} - 1) {
 		my $vt  = $$prototype{'argtypes'}[$$prototype{'numargs'} - 1];
-		print ", ($vt) _va->overflow_arg_area";
+		print ", va_getlinearva(_va, $vt)";
 	    }
 	    else {
 		$self->SUPER::function_arg (@_);
@@ -187,20 +210,15 @@ BEGIN {
 	my %params    = @_;
 	my $prototype = $params{'prototype'};
 	my $sfd       = $self->{SFD};
-
+	
 	if ($$prototype{'type'} eq 'function') {
-	    if (!$prototype->{nb}) {
-		print "  REG_A6 = (ULONG) BASE_NAME;\n";
-	    }
-
-	    print "  ";
+	    print ");\n";
 	    
 	    if (!$prototype->{nr}) {
-		print "return ($prototype->{return}) ";
+		print "  return _res;\n";
 	    }
-
-	    print "(*MyEmulHandle->EmulCallDirectOS)(-$prototype->{bias});\n";
-	    print "}\n";
+    
+	    print "};\n";
 	}
 	elsif ($prototype->{type} eq 'varargs') {
 	    if ($prototype->{subtype} eq 'tagcall') {
@@ -217,13 +235,13 @@ BEGIN {
 		my $local = ($taglist + $n * 4 + $d + 8 + 15) & ~15;
 
 		# clear stack frame & return
-		printf "	lwz	0,%d(1)\n", $local + 4;
-		print  "	mtlr	0\n";
-		printf "	addi	1,1,%d\n", $local;
-		print  "	blr\n";
-		print  ".L$prototype->{funcname}e1:\n";
+		printf "	lwz	0,%d(1)\\n\\\n", $local + 4;
+		print  "	mtlr	0\\n\\\n";
+		printf "	addi	1,1,%d\\n\\\n", $local;
+		print  "	blr\\n\\\n";
+		print  ".L$prototype->{funcname}e1:\\n\\\n";
 		print  "	.size	$prototype->{funcname}," .
-		    ".L$prototype->{funcname}e1-$prototype->{funcname}\n";
+		    ".L$prototype->{funcname}e1-$prototype->{funcname}\\n\\\n";
 
 		print "\");\n";
 	    }
