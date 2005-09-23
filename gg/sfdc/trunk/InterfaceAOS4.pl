@@ -54,10 +54,25 @@ BEGIN {
 
 	print "  $prototype->{return} APICALL ";
 	print "(*$prototype->{funcname})(struct $sfd->{BaseName}IFace* Self";
-	if ($prototype->{numargs} != 0) {
-	    print ", ";
+
+	if ($prototype->{type} eq 'varargs' &&
+	    ($prototype->{subtype} eq 'tagcall' ||
+	     $prototype->{subtype} eq 'methodcall')) {
+	    # Nuke second last argument (=first varargs argument) 
+	    # or it will be placed in a register!
+	    for my $i (0 .. $#{@{$prototype->{args}}}) {
+		if ($i != $prototype->{numargs} - 2 ) {
+		    print ", $prototype->{args}[$i]";
+	    }
 	}
-	print join (', ', @{$prototype->{args}});
+	    
+	}
+	else {
+	    if ($prototype->{numargs} != 0) {
+		print ", ";
+	    }
+	    print join (', ', @{$prototype->{args}});
+	}
 	print ");\n";
     }
 }
