@@ -24,6 +24,7 @@ BEGIN {
 	print "#include <proto/$sfd->{basename}.h>\n";
 	print "#undef __NOLIBBASE__\n";
 	print "#include <stdarg.h>\n";
+	print "#include <exec/interfaces.h>
 	print "\n";
     }
 
