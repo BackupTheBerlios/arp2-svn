@@ -20,13 +20,17 @@ BEGIN {
 	
 	$self->SUPER::header (@_);
 
+	print "#undef __USE_INLINE__\n";
+	print "#define _NO_INLINE\n";
 	print "#define __NOLIBBASE__\n";
 	print "#define __NOGLOBALIFACE__\n";
 	print "#include <proto/$sfd->{basename}.h>\n";
+	print "#undef _NO_INLINE\n";
 	print "#undef __NOLIBBASE__\n";
 	print "#undef __NOGLOBALIFACE__\n";
 	print "#include <stdarg.h>\n";
 	print "#include <interfaces/exec.h>\n";
+	print "#include <exec/emulation.h>\n";
 	print "\n";
     }
 
@@ -51,7 +55,7 @@ BEGIN {
 	    
 	    print "\n";
 
-	    if ($prototype->{type} eq 'function') {
+	    if ($prototype->{type} eq 'function' && $prototype->{bias} != 0) {
 		if (!$self->{PROTO}) {
 		    $self->emu_function_start (prototype => $prototype);
 		    for my $i (0 .. $$prototype{'numargs'} - 1 ) {
@@ -298,8 +302,16 @@ BEGIN {
 		}
 	    }
 	}
+
+	if ($prototype->{subtype} eq 'device' && ($prototype->{bias} == 36)) {
+	    print "  /* Return type changed to VOID in OS4?! */\n";
+	    print "  /* return */ ";
+	}
+	else {
+	    print "  return ";
+	}
 	
-	print "  return _iface->$funcname(";
+	print "_iface->$funcname(";
 	print join (', ', @{$prototype->{___argnames}});
 	print ");\n";
 	print "}\n";
