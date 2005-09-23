@@ -221,6 +221,11 @@ Amithlon/big endian IA32.
 Traditional AmigaOS/m68k.
 
 
+=item B<ppc-unknown-amigaos>, B<ppc-amigaos>
+
+AmigaOS 4/PowerPC.
+
+
 =item B<powerpc-unknown-morphos>, B<ppc-morphos>
 
 MorphOS/PowerPC.
