@@ -50,15 +50,14 @@ BEGIN {
 	    print "# ifndef __NOGLOBALIFACE__\n";
 	    print "   extern struct ${BaseName}IFace *I${BaseName};\n";
 	    print "# endif /* __NOGLOBALIFACE__*/\n";  
-	    print "#else /* !__amigaos4__ */\n";
-	    print "# ifndef __NOLIBBASE__\n";
-	    print "   extern ${basetype}\n";
-	    print "#  ifdef __CONSTLIBBASEDECL__\n";
-	    print "    __CONSTLIBBASEDECL__\n";
-	    print "#  endif /* __CONSTLIBBASEDECL__ */\n";
-	    print "   ${base};\n";
-	    print "# endif /* !__NOLIBBASE__ */\n";
 	    print "#endif /* !__amigaos4__ */\n";
+	    print "#ifndef __NOLIBBASE__\n";
+	    print "  extern ${basetype}\n";
+	    print "# ifdef __CONSTLIBBASEDECL__\n";
+	    print "   __CONSTLIBBASEDECL__\n";
+	    print "# endif /* __CONSTLIBBASEDECL__ */\n";
+	    print "  ${base};\n";
+	    print "#endif /* !__NOLIBBASE__ */\n";
 	    print "\n";
 	}
     }
