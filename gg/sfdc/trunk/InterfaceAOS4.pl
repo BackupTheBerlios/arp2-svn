@@ -30,9 +30,9 @@ BEGIN {
 
 	print "\tstruct InterfaceData Data;\n";
 	print "\n";
-        print "\tULONG APICALL (*Obtain)(struct sfd->{BaseName}IFace *Self);\n";
-	print "\tULONG APICALL (*Release)(struct sfd->{BaseName}IFace *Self);\n";
-	print "\tvoid APICALL (*Expunge)(struct sfd->{BaseName}IFace *Self);\n";
-	print "\tstruct Interface * APICALL (*Clone)(struct sfd->{BaseName}IFace *Self);\n";
+        print "\tULONG APICALL (*Obtain)(struct $sfd->{BaseName}IFace *Self);\n";
+	print "\tULONG APICALL (*Release)(struct $sfd->{BaseName}IFace *Self);\n";
+	print "\tvoid APICALL (*Expunge)(struct $sfd->{BaseName}IFace *Self);\n";
+	print "\tstruct Interface * APICALL (*Clone)(struct $sfd->{BaseName}IFace *Self);\n";
     }
 }
