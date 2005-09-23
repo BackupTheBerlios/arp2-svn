@@ -40,7 +40,7 @@ tgz:		all gg-sfdc.spec
 	[ -z "`svk diff`" ] || (echo "Not checked in!"; exit 10)
 	svk co --export //local/arp2/gg/sfdc/trunk /tmp/$(EXECUTABLE)-$(VERSION)
 #	cp gg-sfdc.spec $(EXECUTABLE)-$(VERSION)
-	PWD=`pwd` echo cd /tmp && tar cfvz $(EXECUTABLE)-$(VERSION).tar.gz $$PWD/$(EXECUTABLE)-$(VERSION)
+	PWD=`pwd` cd /tmp && tar cfvz $(EXECUTABLE)-$(VERSION).tar.gz $$PWD/$(EXECUTABLE)-$(VERSION)
 #	$(RM) -r $(EXECUTABLE)-$(VERSION)
 
 lha:		all tgz
