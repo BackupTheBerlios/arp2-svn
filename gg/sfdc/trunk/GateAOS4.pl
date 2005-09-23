@@ -21,8 +21,10 @@ BEGIN {
 	$self->SUPER::header (@_);
 
 	print "#define __NOLIBBASE__\n";
+	print "#define __NOGLOBALIFACE__\n";
 	print "#include <proto/$sfd->{basename}.h>\n";
 	print "#undef __NOLIBBASE__\n";
+	print "#undef __NOGLOBALIFACE__\n";
 	print "#include <stdarg.h>\n";
 	print "#include <interfaces/exec.h>\n";
 	print "\n";
@@ -48,6 +50,22 @@ BEGIN {
 	    $self->function_end (prototype => $prototype);
 	    
 	    print "\n";
+
+	    if ($prototype->{type} eq 'function') {
+		if (!$self->{PROTO}) {
+		    $self->emu_function_start (prototype => $prototype);
+		    for my $i (0 .. $$prototype{'numargs'} - 1 ) {
+			$self->emu_function_arg (prototype => $prototype,
+						 argtype   => $$prototype{'argtypes'}[$i],
+						 argname   => $$prototype{'___argnames'}[$i],
+						 argreg    => $$prototype{'regs'}[$i],
+						 argnum    => $i );
+		    }
+		    $self->emu_function_end (prototype => $prototype);
+		}
+
+		$self->emu_trap (prototype => $prototype);
+	    }
 	}
     }
     
@@ -187,15 +205,124 @@ BEGIN {
 		    print $prototype->{numargs} > 0 ? ", " : "";
 		    print "($sfd->{basetype}) _iface->Data.LibBase";
 		}
-		
-#		varargs = va_getlinearva(ap, struct TagItem *);
-#		return	AllocAudioA(
-#				    varargs,
-#				    (struct AHIBase *) IAHI->Data.LibBase);
 	    }
 	
 	    print ");\n";
 	    print "}\n";
 	}
+    }
+
+
+    sub emu_function_start {
+	my $self      = shift;
+	my %params    = @_;
+	my $prototype = $params{'prototype'};
+	my $sfd       = $self->{SFD};
+
+	print "STATIC $prototype->{return} \n";
+	print "$gateprefix$prototype->{funcname}PPC(ULONG *regarray)\n";
+	print "{\n";
+	print "  struct Library * _base = (struct Library *) regarray[REG68K_A6/4];\n";
+	print "  struct ExtendedLibrary * ExtLib = (struct ExtendedLibrary *) ((ULONG) _base + _base->lib_PosSize);\n";
+	
+	if ($prototype->{subtype} =~ /^(library|device|boopsi)$/) {
+	    # Special function prototype
+
+	    if ($prototype->{bias} == 0) {
+		# Do nothing
+	    }
+	    elsif ($prototype->{subtype} eq 'library' ||
+		   $prototype->{subtype} eq 'boopsi') {
+		print "  struct LibraryManagerInterface* _iface = ";
+		print "ExtLib->ILibrary;\n";
+	    }
+	    elsif( $prototype->{subtype} eq 'device') {
+		print "  struct DeviceManagerInterface* _iface = ";
+		print "ExtLib->IDevice;\n";
+	    }
+	}
+	else {
+	    print "  struct $sfd->{BaseName}IFace* _iface = ";
+	    print "(struct $sfd->{BaseName}IFace*) ExtLib->MainIFace;\n";
+	}
+    }
+
+    sub emu_function_arg {
+	my $self      = shift;
+	my %params    = @_;
+	my $prototype = $params{'prototype'};
+	my $argtype   = $params{'argtype'};
+	my $argname   = $params{'argname'};
+	my $argreg    = $params{'argreg'};
+	my $argnum    = $params{'argnum'};
+	my $sfd       = $self->{SFD};
+
+	print "  $prototype->{___args}[$argnum] = ($argtype) regarray[REG68K_" .
+	    (uc $argreg) . "/4];\n";
+    }
+    
+    sub emu_function_end {
+	my $self      = shift;
+	my %params    = @_;
+	my $prototype = $params{'prototype'};
+	my $sfd       = $self->{SFD};
+
+	print "\n";
+
+	my $funcname = $prototype->{funcname};
+	
+	if ($prototype->{subtype} eq 'library' ||
+	    $prototype->{subtype} eq 'device' ||
+	    $prototype->{subtype} eq 'boopsi') {
+
+	    if ($prototype->{bias} == 6) {
+		$funcname = "Open";
+	    }
+	    elsif ($prototype->{bias} == 12) {
+		$funcname = "Close";
+	    }
+	    elsif ($prototype->{bias} == 18 ||
+		   $prototype->{bias} == 24) {
+		print "  return 0;\n";
+		print "}\n";
+		print "\n";
+		return;
+	    }
+
+	    if ($prototype->{subtype} eq 'device') {
+		if ($prototype->{bias} == 30) {
+		    $funcname = "BeginIO";
+		}
+		elsif ($prototype->{bias} == 36) {
+		    $funcname = "AbortIO";
+		}
+	    }
+	}
+	
+	print "  return _iface->$funcname(";
+	print join (', ', @{$prototype->{___argnames}});
+	print ");\n";
+	print "}\n";
+	print "\n";
+    }
+    
+    sub emu_trap {
+	my $self      = shift;
+	my %params    = @_;
+	my $prototype = $params{'prototype'};
+	my $sfd       = $self->{SFD};
+
+	if ($self->{PROTO}) {
+	    print "extern ";
+	}
+
+	print "CONST struct EmuTrap m68k$gateprefix$prototype->{funcname}";
+
+	if (!$self->{PROTO}) {
+	    print " = { TRAPINST, TRAPTYPE, (ULONG (*)(ULONG *)) $gateprefix$prototype->{funcname}PPC }";
+	}
+	
+	print ";\n";
+	print "\n";
     }
 }
