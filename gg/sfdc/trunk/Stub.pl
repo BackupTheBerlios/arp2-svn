@@ -21,7 +21,7 @@ BEGIN {
 
 	$self->{NEWFILE} = 1;
 
-	print "/* Automatically generated stubs! Do not edit! */\n";
+	print "/* Automatically generated stubs (sfdc SFDC_VERSION)! Do not edit! */\n";
 	print "\n";
 
 	foreach my $inc (@{$$sfd{'includes'}}) {

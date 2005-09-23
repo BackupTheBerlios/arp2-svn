@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 #
 #     sfdc - Compile SFD files into someting useful
-#     Copyright (C) 2003-2004 Martin Blom <martin@blom.org>
+#     Copyright (C) 2003-2005 Martin Blom <martin@blom.org>
 #     
 #     This program is free software; you can redistribute it and/or
 #     modify it under the terms of the GNU General Public License
@@ -199,7 +199,7 @@ GetOptions ('addvectors=s' => \$addvectors,
 
 if ($version) {
     print STDERR "sfdc SFDC_VERSION (SFDC_DATE)\n";
-    print STDERR "Copyright (C) 2003-2004 Martin Blom <martin\@blom.org>\n";
+    print STDERR "Copyright (C) 2003-2005 Martin Blom <martin\@blom.org>\n";
     print STDERR "This is free software; " .
 	"see the source for copying conditions.\n";
     exit 0;

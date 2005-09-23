@@ -25,7 +25,7 @@ BEGIN {
 	$v =~ s/^\$[I]d: .*? ([0-9.]+).*/$1/;
 	$d =~ s,^\$[I]d: .*? [0-9.]+ (\d{4})/(\d{2})/(\d{2}).*,($3.$2.$1),;
 
-	print "/* Automatically generated header! Do not edit! */\n";
+	print "/* Automatically generated header (sfdc SFDC_VERSION)! Do not edit! */\n";
 	print "#ifndef PRAGMAS_$sfd->{BASENAME}_PRAGMAS_H\n";
 	print "#define PRAGMAS_$sfd->{BASENAME}_PRAGMAS_H\n";
 	print "\n";

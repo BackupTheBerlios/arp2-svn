@@ -18,7 +18,7 @@ BEGIN {
 	my $self = shift;
 	my $sfd  = $self->{SFD};
 
-	print "/* Automatically generated function table! Do not edit! */\n";
+	print "/* Automatically generated function table (sfdc SFDC_VERSION)! Do not edit! */\n";
 	print "\n";
 	print "#ifdef __SFDC_FUNCTABLE_M68K__\n";
 	print "# define _sfdc_func(f) &m68k ## f\n";

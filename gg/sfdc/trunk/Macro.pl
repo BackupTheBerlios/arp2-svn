@@ -26,7 +26,7 @@ BEGIN {
 	my $self = shift;
 	my $sfd  = $self->{SFD};
 
-	print "/* Automatically generated header! Do not edit! */\n";
+	print "/* Automatically generated header (sfdc SFDC_VERSION)! Do not edit! */\n";
 	print "\n";
 	print "#ifndef _INLINE_$$sfd{'BASENAME'}_H\n";
 	print "#define _INLINE_$$sfd{'BASENAME'}_H\n";

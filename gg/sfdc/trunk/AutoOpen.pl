@@ -18,7 +18,7 @@ BEGIN {
 	my $self = shift;
 	my $sfd  = $self->{SFD};
 
-	print "/* Automatically generated header! Do not edit! */\n";
+	print "/* Automatically generated header (sfdc SFDC_VERSION)! Do not edit! */\n";
 	print "\n";
 	if ($sfd->{base} ne '') {
 	    print "#ifdef __cplusplus\n";

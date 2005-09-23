@@ -22,7 +22,7 @@ BEGIN {
 	my $sfd  = $self->{SFD};
 
 	print "* \"$$sfd{'libname'}\"\n";
-	print "* Automatically generated FD! Do not edit!\n";
+	print "* Automatically generated FD (sfdc SFDC_VERSION)! Do not edit!\n";
 	print "##base _$$sfd{'base'}\n";
 	$self->{BIAS}    = -1;
 	$self->{PRIVATE} = -1;

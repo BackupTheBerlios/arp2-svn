@@ -20,7 +20,7 @@ BEGIN {
 	my $self = shift;
 	my $sfd  = $self->{SFD};
 
-	print "/* Automatically generated function table! Do not edit! */\n";
+	print "/* Automatically generated function table (sfdc SFDC_VERSION)! Do not edit! */\n";
 	print "\n";
 	print "#ifndef $sfd->{'BASENAME'}_INTERFACE_DEF_H\n";
 	print "#define $sfd->{'BASENAME'}_INTERFACE_DEF_H\n";

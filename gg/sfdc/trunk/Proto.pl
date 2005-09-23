@@ -24,7 +24,7 @@ BEGIN {
 	my $BaseName  = $$sfd{'BaseName'};
 	my $basetype  = $$sfd{'basetype'};
 
-	print "/* Automatically generated header! Do not edit! */\n";
+	print "/* Automatically generated header (sfdc SFDC_VERSION)! Do not edit! */\n";
 	print "\n";
 	print "#ifndef PROTO_${BASENAME}_H\n";
 	print "#define PROTO_${BASENAME}_H\n";

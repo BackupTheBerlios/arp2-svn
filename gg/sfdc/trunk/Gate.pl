@@ -21,19 +21,19 @@ BEGIN {
 	my $sfd  = $self->{SFD};
 
 	if ($self->{PROTO}) {
-	    print "/* Automatically generated header! Do not edit! */\n";
+	    print "/* Automatically generated header (sfdc SFDC_VERSION)! Do not edit! */\n";
 	    print "\n";
 	    print "#ifndef _GATEPROTO_$$sfd{'BASENAME'}_H\n";
 	    print "#define _GATEPROTO_$$sfd{'BASENAME'}_H\n";
 	}
 	elsif ($self->{LIBPROTO}) {
-	    print "/* Automatically generated header! Do not edit! */\n";
+	    print "/* Automatically generated header (sfdc SFDC_VERSION)! Do not edit! */\n";
 	    print "\n";
 	    print "#ifndef _LIBPROTO_$$sfd{'BASENAME'}_H\n";
 	    print "#define _LIBPROTO_$$sfd{'BASENAME'}_H\n";
 	}
 	else {
-	    print "/* Automatically generated gatestubs! Do not edit! */\n";
+	    print "/* Automatically generated gatestubs (sfdc SFDC_VERSION)! Do not edit! */\n";
 	}
 	print "\n";
 

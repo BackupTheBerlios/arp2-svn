@@ -18,7 +18,7 @@ BEGIN {
 	my $self = shift;
 	my $sfd  = $self->{SFD};
 
-	print "* Automatically generated header! Do not edit!\n";
+	print "* Automatically generated header (sfdc SFDC_VERSION)! Do not edit!\n";
 	print "	IFND	LVO_$sfd->{BASENAME}_LIB_I\n";
 	print "LVO_$sfd->{BASENAME}_LIB_I	SET	1\n";
 	print "\n";
