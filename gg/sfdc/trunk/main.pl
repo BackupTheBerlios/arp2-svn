@@ -225,7 +225,7 @@ if ($#ARGV < 0) {
 
 $mode = lc $mode;
 
-if (!($mode =~ /^(clib|dump|fd|libproto|lvo|functable|interface|macros|proto|pragmas|stubs|gateproto|gatestubs|verify)$/)) {
+if (!($mode =~ /^(autoopen|clib|dump|fd|functable|libproto|lvo|interface|macros|proto|pragmas|stubs|gateproto|gatestubs|verify)$/)) {
     pod2usage (-message => "Unknown mode specified. Use --help for a list.",
 	       -verbose => 0,
 	       -exitval => 10);
@@ -267,21 +267,31 @@ for my $i ( 0 .. $#ARGV ) {
     my $obj;
 
     for ($mode) {
+	/^autoopen$/ && do {
+	    $obj = AutoOpen->new( sfd => $sfd );
+	    last;
+	};
+
 	/^clib$/ && do {
 	    $obj = CLib->new( sfd => $sfd );
 	    last;
 	};
 
-	/^fd$/ && do {
-	    $obj = FD->new( sfd => $sfd );
-	    last;
-	};
-    
 	/^dump$/ && do {
 	    $obj = Dump->new( sfd => $sfd );
 	    last;
 	};
     
+	/^fd$/ && do {
+	    $obj = FD->new( sfd => $sfd );
+	    last;
+	};
+    
+	/^functable$/ && do {
+	    $obj = FuncTable->new( sfd => $sfd );
+	    last;
+	};
+
 	/^libproto$/ && do {
 	    $obj = Gate->new( sfd => $sfd,
 			      proto => 0,
@@ -291,11 +301,6 @@ for my $i ( 0 .. $#ARGV ) {
 
 	/^lvo$/ && do {
 	    $obj = LVO->new( sfd => $sfd );
-	    last;
-	};
-
-	/^functable$/ && do {
-	    $obj = FuncTable->new( sfd => $sfd );
 	    last;
 	};
 

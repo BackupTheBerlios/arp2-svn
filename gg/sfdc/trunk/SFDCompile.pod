@@ -73,6 +73,11 @@ following arguments:
 
 =over 4
 
+=item B<autoopen>
+
+Generate C code for automatically opening the module. It is usually
+placed in a link library together with C stub functions.
+
 =item B<clib>
 
 Generate C prototypes to be placed in F<Include/clib/>.
@@ -253,7 +258,7 @@ provided. From this information, F<sfdc> can:
 
 =item *
 
-vGenerate an old-style B<FD> file for futher processing with other tools.
+Generate an old-style B<FD> file for futher processing with other tools.
 
 
 =item *
@@ -284,7 +289,7 @@ of all functions in the library.
 =item *
 
 Generate B<C stubs>, which can be compiled and archived into a stub
-library.
+library. It can also generate auto-open and auto-close code.
 
 
 =item *
@@ -415,3 +420,7 @@ Added B<__SFDC_FUNCTABLE_M68K__> check in the B<functable> mode.
 
 Added m68k stub functions to AmigaOS 4's B<gatestubs> and
 B<gateproto>.
+
+=item
+
+Added the B<autoopen> mode.
