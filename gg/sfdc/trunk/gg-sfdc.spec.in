@@ -73,6 +73,9 @@ rm -rf ${RPM_BUILD_ROOT}
 %{_mandir}/man1/*
 
 %changelog
+* Mon Sep 12 2005 Martin Blom <martin@blom.org> - 
+- Updated to 1.4.
+
 * Fri Nov 12 2004 Martin Blom <martin@blom.org>
 - Updated to 1.3.
 
