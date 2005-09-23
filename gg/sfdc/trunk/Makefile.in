@@ -38,7 +38,6 @@ install:	all
 
 tgz:		all gg-sfdc.spec
 	[ -z "`svk diff`" ] || (echo "Not checked in!"; exit 10)
-	mkdir /tmp/$(EXECUTABLE)-$(VERSION)
 	svk co --export //local/arp2/gg/sfdc/trunk /tmp/$(EXECUTABLE)-$(VERSION)
 #	cp gg-sfdc.spec $(EXECUTABLE)-$(VERSION)
 	PWD=`pwd` echo cd /tmp && tar cfvz $(EXECUTABLE)-$(VERSION).tar.gz $$PWD/$(EXECUTABLE)-$(VERSION)
