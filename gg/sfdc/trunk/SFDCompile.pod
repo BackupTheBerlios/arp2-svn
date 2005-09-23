@@ -384,9 +384,10 @@ sure gateprotos are included before you include the functable.
 
 B<proto> files now include F<Include/defines/> files when used in AROS.
 
-=item B<1.4 (2005-09-12)>
+=item B<1.4 (2005-09-20)>
 
-Added AmigaOS 4-style interfaces.
+Added AmigaOS 4-style interfaces (C++ only for non-OS4 targets, and
+without implementation).
 
 =item
 
@@ -395,3 +396,8 @@ Added support for the 'iptr' gcc attribute.
 =item
 
 Added B<__SFDC_FUNCTABLE_M68K__> check in the B<functable> mode.
+
+=item
+
+Added m68k stub functions to AmigaOS 4's B<gatestubs> and
+B<gateproto>.

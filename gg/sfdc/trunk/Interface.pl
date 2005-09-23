@@ -55,20 +55,14 @@ BEGIN {
 	}
 
 	while ($self->{BIAS} < ($prototype->{bias} - 6)) {
-	    print "\tAPTR Pad$self->{PADCNT};\n";
+	    print "  APTR Pad$self->{PADCNT};\n";
 	    $self->{BIAS} += 6;
 	    ++$self->{PADCNT};
 	}
 
 	$self->{BIAS} = $prototype->{bias};
 
-	print "\t$prototype->{return} APICALL ";
-	print "(*$libprefix$prototype->{funcname})(struct $sfd->{BaseName}IFace* Self";
-	if ($prototype->{numargs} != 0) {
-	    print ", ";
-	}
-	print join (', ', @{$prototype->{args}});
-	print ");\n";
+	$self->output_function(@_);
     }
     
     sub footer {
@@ -88,8 +82,7 @@ BEGIN {
 	my $sfd      = $self->{SFD};
 
 	print "struct $sfd->{BaseName}InterfaceData {\n";
-	print "\t$sfd->{basetype} LibBase;\n";
-	print "\tAPTR Private;\n";
+	print "  $sfd->{basetype} LibBase;\n";
 	print "};\n";
     }
 
@@ -98,7 +91,29 @@ BEGIN {
 	my $self     = shift;
 	my $sfd      = $self->{SFD};
 
-	print "\tstruct $sfd->{BaseName}InterfaceData Data;\n";
+	print "  struct $sfd->{BaseName}InterfaceData Data;\n";
 	print "\n";
+	print "  static struct $sfd->{BaseName}IFace* CreateIFace($sfd->{basetype} _$sfd->{base}) {\n";
+	print "    struct $sfd->{BaseName}IFace* _iface = new struct $sfd->{BaseName}IFace();\n";
+	print "    _iface->Data.LibBase = _$sfd->{base};\n";
+	print "    return _iface;\n";
+	print "  }\n";
+	print "\n";
+	print "  static void DestroyIFace(struct $sfd->{BaseName}IFace* _iface) {\n";
+	print "    delete _iface;\n";
+	print "  }\n";
+	print "\n";
+    }
+
+    sub output_function {
+	my $self     = shift;
+	my $sfd      = $self->{SFD};
+	my %params    = @_;
+	my $prototype = $params{'prototype'};
+
+	print "  $prototype->{return} ";
+	print "$prototype->{funcname}(";
+	print join (', ', @{$prototype->{args}});
+	print ");\n";
     }
 }
