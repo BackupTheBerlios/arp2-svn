@@ -261,7 +261,7 @@ provided. From this information, F<sfdc> can:
 
 =item *
 
-vGenerate an old-style B<FD> file for futher processing with other tools.
+Generate an old-style B<FD> file for futher processing with other tools.
 
 
 =item *
