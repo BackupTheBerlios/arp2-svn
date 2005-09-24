@@ -261,7 +261,7 @@ provided. From this information, F<sfdc> can:
 
 =item *
 
-Generate an old-style B<FD> file for futher processing with other tools.
+vGenerate an old-style B<FD> file for futher processing with other tools.
 
 
 =item *
@@ -395,8 +395,7 @@ B<proto> files now include F<Include/defines/> files when used in AROS.
 =item B<1.4 (2005-09-23)>
 
 Added AmigaOS 4-style interfaces (C++ only for non-OS4 targets, and
-without implementation). The library base in the proto file is now
-defined for AmigaOS 4 too.
+without implementation).
 
 =item
 
