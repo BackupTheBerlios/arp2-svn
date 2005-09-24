@@ -312,16 +312,6 @@ BEGIN {
 	else {
 	    print ");\n";
 	}
-	
-	print "_iface->$funcname(";
-	print join (', ', @{$prototype->{___argnames}});
-
-	if ($prototype->{subtype} eq 'device' && ($prototype->{bias} == 36)) {
-	    print "), 0;  /* Return type changed to VOID in OS4?! */\n";
-	}
-	else {
-	    print ");\n";
-	}
 	print "}\n";
 	print "\n";
     }

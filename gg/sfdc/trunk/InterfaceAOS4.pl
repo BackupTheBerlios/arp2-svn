@@ -1,3 +1,4 @@
+
 ### Class Interface: Create a struct with function pointers ###################
 
 BEGIN {
