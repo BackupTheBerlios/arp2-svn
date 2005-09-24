@@ -26,7 +26,7 @@ From this information, sfdc can:
     all functions in the library.
 
 *   Generate C stubs, which can be compiled and archived into a stub
-    library.
+    library. It can also generate auto-open and auto-close code.
 
 *   Generate library gateway stubs, which can be used as part of your
     module as glue between the module function table and your C
