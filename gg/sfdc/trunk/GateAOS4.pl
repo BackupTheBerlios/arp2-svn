@@ -302,13 +302,15 @@ BEGIN {
 		}
 	    }
 	}
+	
+	print "  return _iface->$funcname(";
+	print join (', ', @{$prototype->{___argnames}});
 
 	if ($prototype->{subtype} eq 'device' && ($prototype->{bias} == 36)) {
-	    print "  /* Return type changed to VOID in OS4?! */\n";
-	    print "  /* return */ ";
+	    print "), 0;  /* Return type changed to VOID in OS4?! */\n";
 	}
 	else {
-	    print "  return ";
+	    print ");\n";
 	}
 	
 	print "_iface->$funcname(";
