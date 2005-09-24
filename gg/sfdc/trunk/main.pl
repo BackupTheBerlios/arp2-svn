@@ -309,6 +309,11 @@ for my $i ( 0 .. $#ARGV ) {
 	    last;
 	};
 	
+	/^interface$/ && do {
+	    $obj = $$classes{'interface'}->new( sfd => $sfd );
+	    last;
+	};
+	
 	/^macros$/ && do {
 	    $obj = $$classes{'macros'}->new( sfd => $sfd );
 

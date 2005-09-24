@@ -92,7 +92,6 @@ Dumps all information gathered from the SFD file.
 
 Generate an old-style FD file.
 
-
 =item B<functable>
 
 Generate a list of function names suitable for inclusion in a library
@@ -100,7 +99,6 @@ function table. By defining the preprocessor symbol
 B<__SFDC_FUNCTABLE_M68K__>, the list of functions will be modified so
 it's suitable for AmigaOS 4's m68k function table.
 
-    
 =item B<gateproto>
 
 Generate a prototype header file for library gate stubs. Useful for
