@@ -427,3 +427,4 @@ B<gateproto>.
 =item
 
 Added the B<autoopen> mode.
+
