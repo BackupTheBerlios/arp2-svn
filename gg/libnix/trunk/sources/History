@@ -456,16 +456,19 @@ B 2004-12-19: lx_select() did not terminate correctly when a user signal
 B 2005-01-05: Removed compiler warnings from AddTOF(), CreateExtIO(),
   __setupselect(), __cleanupselect(), accept(), getgroups(),
   setgroups(), getsockopt(), setsockopt(), getsockname(),
-  getpeername() and recvfrom().
+  getpeername() and recvfrom(). (Martin Blom)
 
 B 2005-01-05: _lx_fhfromfd(): Set errno to EBADF if bad FD is
-  is detected.
+  is detected. (Martin Blom)
 
 B 2005-01-05: connect(), fdtofh(), getpeername(), getsockname(),
   getsockopt(), ioctl(), recv(), recvfrom(), recvmsg(), send(),
   sendmsg(), sendto(), setsockopt(), shutdown(), : Handle bad FDs
-  without enforcer hits.
+  without enforcer hits. (Martin Blom)
 
 B 2005-01-09: asinh() does not need a weak alias to
   __ieee754_asinh. That fixed the Amithlon and MorphOS build of
-  libm.a.
+  libm.a. (Martin Blom)
+
+S 2005-09-11: The '020 libraries are now built with the -m68020-60
+  switch instead of plain -m68020. (Martin Blom)
