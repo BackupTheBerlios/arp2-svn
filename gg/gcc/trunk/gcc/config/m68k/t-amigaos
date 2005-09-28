@@ -29,9 +29,9 @@ INSTALL_LIBGCC = install-libgcc-multi
 
 LIBGCC_MULTI =	".;" \
 		"libb;@resident" \
-		"libm020;@m68020-60" \
-		"libb/libm020;@resident@m68020-60" \
-		"libb32/libm020;@resident32@m68020-60"
+		"libm020;@m68020-60@msoft-float" \
+		"libb/libm020;@resident@m68020-60@msoft-float" \
+		"libb32/libm020;@resident32@m68020-60@msoft-float"
 
 # Build multiple copies of libgcc.a, one for each target switch.
 stmp-libgcc-multi: $(LIBGCC1) libgcc2.c libgcc2.ready $(CONFIG_H) \
