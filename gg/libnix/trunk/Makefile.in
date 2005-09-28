@@ -52,13 +52,13 @@ all: libnix.guide libnix.info $(SUBDIRS)
 	cd lib; 	$(MAK2) V="$(V)" CFLAGS="-g -Wall -O2 -fomit-frame-pointer"
 ifeq ($(host_cpu),m68k)
 	cd libb;	$(MAK2) V="$(V)" CFLAGS="-g -Wall -O2 -fomit-frame-pointer -fbaserel -DSMALL_DATA"
-	cd lib020;	$(MAK2) V="$(V)" CFLAGS="-g -Wall -O2 -fomit-frame-pointer -m68020-60"
-	cd libb020;	$(MAK2) V="$(V)" CFLAGS="-g -Wall -O2 -fomit-frame-pointer -fbaserel -DSMALL_DATA -m68020-60"
+	cd lib020;	$(MAK2) V="$(V)" CFLAGS="-g -Wall -O2 -fomit-frame-pointer -m68020-60 -msoft-float"
+	cd libb020;	$(MAK2) V="$(V)" CFLAGS="-g -Wall -O2 -fomit-frame-pointer -fbaserel -DSMALL_DATA -m68020-60 -msoft-float"
 	cd lib881;	$(MAK2) V="$(V)" CFLAGS="-g -Wall -O2 -fomit-frame-pointer -m68020-60 -m68881"
 	cd libb881;	$(MAK2) V="$(V)" CFLAGS="-g -Wall -O2 -fomit-frame-pointer -fbaserel -DSMALL_DATA -m68020-60 -m68881"
 #	cd lib060;	$(MAK2) V="$(V)" CFLAGS="-g -Wall -O2 -fomit-frame-pointer -m68060 -m68881"
 #	cd libb060;	$(MAK2) V="$(V)" CFLAGS="-g -Wall -O2 -fomit-frame-pointer -fbaserel -DSMALL_DATA -m68060 -m68881"
-#	cd libb32;	$(MAK2) V="$(V)" CFLAGS="-g -Wall -O2 -fomit-frame-pointer -fbaserel32 -DSMALL_DATA -m68020-60"
+#	cd libb32;	$(MAK2) V="$(V)" CFLAGS="-g -Wall -O2 -fomit-frame-pointer -fbaserel32 -DSMALL_DATA -m68020-60 -msoft-float"
 #	cd libb32881;	$(MAK2) V="$(V)" CFLAGS="-g -Wall -O2 -fomit-frame-pointer -fbaserel32 -DSMALL_DATA -m68020-60 -m68881"
 #	cd libb32060;	$(MAK2) V="$(V)" CFLAGS="-g -Wall -O2 -fomit-frame-pointer -fbaserel32 -DSMALL_DATA -m68060 -m68881"
 #	cd libix;	$(MAK2) V="$(V)" CFLAGS="-g -Wall -O2 -fomit-frame-pointer -DIXPATHS"
@@ -77,7 +77,7 @@ endif
 	cd lib; 	$(MAK2) libamiga CFLAGS="-O2 -fomit-frame-pointer"
 ifeq ($(host_cpu),m68k)
 	cd libb;	$(MAK2) libamiga CFLAGS="-O2 -fomit-frame-pointer -fbaserel"
-#	cd libb32;	$(MAK2) libamiga CFLAGS="-O2 -fomit-frame-pointer -fbaserel32 -m68020-60"
+#	cd libb32;	$(MAK2) libamiga CFLAGS="-O2 -fomit-frame-pointer -fbaserel32 -m68020-60 -msoft-float"
 endif
 
 clean:
