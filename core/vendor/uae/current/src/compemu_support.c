@@ -17,8 +17,8 @@
 // %%% BRIAN KING WAS HERE %%%
 extern int canbang;
 
-cpuop_func *compfunctbl[65536];
-cpuop_func *nfcompfunctbl[65536];
+compop_func *compfunctbl[65536];
+compop_func *nfcompfunctbl[65536];
 #ifdef NOFLAGS_SUPPORT
 cpuop_func *nfcpufunctbl[65536];
 #endif
@@ -1702,24 +1702,37 @@ MIDFUNC(0,dont_care_flags,(void))
 }
 MENDFUNC(0,dont_care_flags,(void))
 
-
+/*
+ * Copy m68k C flag into m68k X flag
+ *
+ * FIXME: This needs to be moved into the machdep
+ * part of the source because it depends on what bit
+ * is used to hold X.
+ */
 MIDFUNC(0,duplicate_carry,(void))
 {
     evict(FLAGX);
     make_flags_live_internal();
-    COMPCALL(setcc_m)((uae_u32)live.state[FLAGX].mem,2);
+    COMPCALL(setcc_m)((uae_u32)live.state[FLAGX].mem + 1, 2);
 }
 MENDFUNC(0,duplicate_carry,(void))
 
+/*
+ * Set host C flag from m68k X flag.
+ *
+ * FIXME: This needs to be moved into the machdep
+ * part of the source because it depends on what bit
+ * is used to hold X.
+ */
 MIDFUNC(0,restore_carry,(void))
 {
     if (!have_rat_stall) { /* Not a P6 core, i.e. no partial stalls */
-	bt_l_ri_noclobber(FLAGX,0);
+	bt_l_ri_noclobber(FLAGX, 8);
     }
     else {  /* Avoid the stall the above creates.
 	       This is slow on non-P6, though.
 	    */
-	COMPCALL(rol_b_ri(FLAGX,8));
+	COMPCALL(rol_w_ri(FLAGX, 8));
 	isclean(FLAGX);
 	/* Why is the above faster than the below? */
 	//raw_rol_b_mi((uae_u32)live.state[FLAGX].mem,8);
@@ -4363,9 +4376,9 @@ fptype  fscratch[VFREGS];
 void init_comp(void)
 {
     int i;
-    uae_u8* cb=can_byte;
-    uae_u8* cw=can_word;
-    uae_u8* au=always_used;
+    uae_u8* cb = (uae_u8 *)can_byte;
+    uae_u8* cw = (uae_u8 *)can_word;
+    uae_u8* au = (uae_u8 *)always_used;
 
     for (i=0;i<VREGS;i++) {
 	live.state[i].realreg=-1;
@@ -4393,11 +4406,11 @@ void init_comp(void)
     live.state[PC_P].needflush=NF_TOMEM;
     set_const(PC_P,(uae_u32)comp_pc_p);
 
-    live.state[FLAGX].mem=&(regflags.x);
+    live.state[FLAGX].mem=&(regs.ccrflags.x);
     live.state[FLAGX].needflush=NF_TOMEM;
     set_status(FLAGX,INMEM);
 
-    live.state[FLAGTMP].mem=&(regflags.cznv);
+    live.state[FLAGTMP].mem=&(regs.ccrflags.cznv);
     live.state[FLAGTMP].needflush=NF_TOMEM;
     set_status(FLAGTMP,INMEM);
 
@@ -5293,7 +5306,7 @@ void alloc_cache(void)
     }
 }
 
-extern unsigned long op_illg (uae_u32 opcode) REGPARAM;
+extern unsigned long op_illg (uae_u32 opcode, struct regstruct *regs) REGPARAM;
 
 static void calc_checksum(blockinfo* bi, uae_u32* c1, uae_u32* c2)
 {
@@ -5641,8 +5654,8 @@ void build_comp(void)
 #endif
 
     for (opcode = 0; opcode < 65536; opcode++) {
-	cpuop_func *f;
-	cpuop_func *nff;
+	compop_func *f;
+	compop_func *nff;
 #ifdef NOFLAGS_SUPPORT
 	cpuop_func *nfcf;
 #endif
@@ -5745,7 +5758,7 @@ static void flush_icache_hard(int n)
     if (!compiled_code)
 	return;
     current_compile_p=compiled_code;
-    set_special(0); /* To get out of compiled code */
+    set_special (&regs,0); /* To get out of compiled code */
 }
 
 
@@ -5929,7 +5942,7 @@ void compile_block(cpu_history* pc_hist, int blocklen, int totcycles)
 	    for (i=0;i<blocklen &&
 		     get_target_noopt()<max_compile_start;i++) {
 		cpuop_func **cputbl;
-		cpuop_func **comptbl;
+		compop_func **comptbl;
 		uae_u16 opcode;
 
 		opcode=cft_map((uae_u16)*pc_hist[i].location);
@@ -5977,7 +5990,9 @@ void compile_block(cpu_history* pc_hist, int blocklen, int totcycles)
 			was_comp=0;
 		    }
 		    raw_mov_l_ri(REG_PAR1,(uae_u32)opcode);
+		    raw_mov_l_ri(REG_PAR2,(uae_u32)&regs);
 #if USE_NORMAL_CALLING_CONVENTION
+		    raw_push_l_r(REG_PAR2);
 		    raw_push_l_r(REG_PAR1);
 #endif
 		    raw_mov_l_mi((uae_u32)&regs.pc_p,
@@ -5985,7 +6000,7 @@ void compile_block(cpu_history* pc_hist, int blocklen, int totcycles)
 		    raw_call((uae_u32)cputbl[opcode]);
 		    //raw_add_l_mi((uae_u32)&oink,1); // FIXME
 #if USE_NORMAL_CALLING_CONVENTION
-		    raw_inc_sp(4);
+		    raw_inc_sp(8);
 #endif
 		    if (needed_flags) {
 			//raw_mov_l_mi((uae_u32)&foink3,(uae_u32)opcode+65536);
@@ -6000,7 +6015,7 @@ void compile_block(cpu_history* pc_hist, int blocklen, int totcycles)
 			raw_mov_l_rm(0,(uae_u32)specflags);
 			raw_test_l_rr(0,0);
 			raw_jz_b_oponly();
-			branchadd=get_target();
+			branchadd = (uae_s8 *)get_target();
 			emit_byte(0);
 			raw_sub_l_mi((uae_u32)&countdown,scaled_cycles(totcycles));
 			raw_jmp((uae_u32)popall_do_nothing);
@@ -6180,5 +6195,3 @@ void compile_block(cpu_history* pc_hist, int blocklen, int totcycles)
         do_extra_cycles(totcycles); /* for the compilation time */
     }
 }
-
-

@@ -68,11 +68,16 @@
 #define hf_log2 write_log
 #define scsi_log write_log
 #else
-#define hf_log(...)    do { ; } while (0)
-#define hf_log2(x...)  do { ; } while (0)
-#define scsi_log(x...) do { ; } while (0)
-
-
+# ifdef __GCC__ 
+#  define hf_log(x...)    do { ; } while (0)
+#  define hf_log2(x...)  do { ; } while (0)
+#  define scsi_log(x...) do { ; } while (0)
+# else
+/* C99 vararg macros */
+#  define hf_log(x,...)    do { ; } while (0)
+#  define hf_log2(x,...)  do { ; } while (0)
+#  define scsi_log(x,...) do { ; } while (0)
+# endif
 #endif
 
 #define MAX_ASYNC_REQUESTS 50
@@ -410,15 +415,15 @@ static int mangleunit (int unit)
 
 static uae_u32 hardfile_open (void)
 {
-    uaecptr tmp1 = m68k_areg(regs, 1); /* IOReq */
-    int unit = mangleunit (m68k_dreg (regs, 0));
+    uaecptr tmp1 = m68k_areg (&regs, 1); /* IOReq */
+    int unit = mangleunit (m68k_dreg (&regs, 0));
     struct hardfileprivdata *hfpd = &hardfpd[unit];
 
-    hf_log ("hardfile_open, unit %d (%d)\n", unit, m68k_dreg (regs, 0));
+    hf_log ("hardfile_open, unit %d (%d)\n", unit, m68k_dreg (&regs, 0));
     /* Check unit number */
     if (unit >= 0 && get_hardfile_data (unit) && start_thread (unit)) {
 	hfpd->opencount++;
-	put_word (m68k_areg(regs, 6) + 32, get_word (m68k_areg(regs, 6) + 32) + 1);
+	put_word (m68k_areg (&regs, 6) + 32, get_word (m68k_areg (&regs, 6) + 32) + 1);
 	put_long (tmp1 + 24, unit); /* io_Unit */
 	put_byte (tmp1 + 31, 0); /* io_Error */
 	put_byte (tmp1 + 8, 7); /* ln_type = NT_REPLYMSG */
@@ -432,7 +437,7 @@ static uae_u32 hardfile_open (void)
 
 static uae_u32 hardfile_close (void)
 {
-    uaecptr request = m68k_areg(regs, 1); /* IOReq */
+    uaecptr request = m68k_areg (&regs, 1); /* IOReq */
     int unit = mangleunit (get_long (request + 24));
     struct hardfileprivdata *hfpd = &hardfpd[unit];
 
@@ -440,7 +445,7 @@ static uae_u32 hardfile_close (void)
     hfpd->opencount--;
     if (hfpd->opencount == 0)
 	write_comm_pipe_u32 (&hfpd->requests, 0, 1);
-    put_word (m68k_areg(regs, 6) + 32, get_word (m68k_areg(regs, 6) + 32) - 1);
+    put_word (m68k_areg (&regs, 6) + 32, get_word (m68k_areg (&regs, 6) + 32) - 1);
     return 0;
 }
 
@@ -687,7 +692,7 @@ static uae_u32 hardfile_do_io (struct hardfiledata *hfd, struct hardfileprivdata
 
 static uae_u32 hardfile_abortio (void)
 {
-    uae_u32 request = m68k_areg(regs, 1);
+    uae_u32 request = m68k_areg (&regs, 1);
     int unit = mangleunit (get_long (request + 24));
     struct hardfiledata *hfd = get_hardfile_data (unit);
     struct hardfileprivdata *hfpd = &hardfpd[unit];
@@ -731,7 +736,7 @@ static int hardfile_canquick (struct hardfiledata *hfd, uaecptr request)
 
 static uae_u32 hardfile_beginio (void)
 {
-    uae_u32 request = m68k_areg(regs, 1);
+    uae_u32 request = m68k_areg (&regs, 1);
     uae_u8 flags = get_byte (request + 30);
     int cmd = get_word (request + 28);
     int unit = mangleunit (get_long (request + 24));

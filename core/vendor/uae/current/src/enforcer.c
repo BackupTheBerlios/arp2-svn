@@ -16,6 +16,7 @@
 
 #include "memory.h"
 #include "custom.h"
+#include "options.h"
 #include "newcpu.h"
 #include "enforcer.h"
 
@@ -41,7 +42,7 @@ static int enforcer_hit = 0; /* set to 1 if displaying the hit */
 #define ENFORCER_BUF_SIZE 4096
 static char enforcer_buf[ENFORCER_BUF_SIZE];
 
-#define GET_PC m68k_getpc()
+#define GET_PC m68k_getpc (&regs)
 
 static addrbank saved_dummy_bank;
 static addrbank saved_chipmem_bank;
@@ -198,18 +199,18 @@ static void enforcer_display_hit (const char *addressmode, uae_u32 pc, uaecptr a
 
     /* Data registers */
     sprintf (enforcer_buf_ptr, "Data: %08lx %08lx %08lx %08lx %08lx %08lx %08lx %08lx\n",
-	m68k_dreg (regs, 0), m68k_dreg (regs, 1), m68k_dreg (regs, 2), m68k_dreg (regs, 3),
-	m68k_dreg (regs, 4), m68k_dreg (regs, 5), m68k_dreg (regs, 6), m68k_dreg (regs, 7));
+	m68k_dreg (&regs, 0), m68k_dreg (&regs, 1), m68k_dreg (&regs, 2), m68k_dreg (&regs, 3),
+	m68k_dreg (&regs, 4), m68k_dreg (&regs, 5), m68k_dreg (&regs, 6), m68k_dreg (&regs, 7));
     enforcer_buf_ptr += strlen (enforcer_buf_ptr);
 
     /* Address registers */
     sprintf (enforcer_buf_ptr, "Addr: %08lx %08lx %08lx %08lx %08lx %08lx %08lx %08lx\n",
-	m68k_areg (regs, 0), m68k_areg (regs, 1), m68k_areg (regs, 2), m68k_areg (regs, 3),
-	m68k_areg (regs, 4), m68k_areg (regs, 5), m68k_areg (regs, 6), m68k_areg (regs, 7));
+	m68k_areg (&regs, 0), m68k_areg (&regs, 1), m68k_areg (&regs, 2), m68k_areg (&regs, 3),
+	m68k_areg (&regs, 4), m68k_areg (&regs, 5), m68k_areg (&regs, 6), m68k_areg (&regs, 7));
     enforcer_buf_ptr += strlen(enforcer_buf_ptr);
 
     /* Stack */
-    a7 = m68k_areg (regs, 7);
+    a7 = m68k_areg (&regs, 7);
     for (i = 0; i < 8 * STACKLINES; i++) {
 	a7 -= 4;
 	if (!(i % 8)) {
@@ -224,7 +225,7 @@ static void enforcer_display_hit (const char *addressmode, uae_u32 pc, uaecptr a
     }
 
     /* Segtracker output */
-    a7 = m68k_areg (regs, 7);
+    a7 = m68k_areg (&regs, 7);
     if (get_long (a7-4) != pc) {
 	if (enforcer_decode_hunk_and_offset (buf, pc)) {
 	    strcpy (enforcer_buf_ptr, buf);

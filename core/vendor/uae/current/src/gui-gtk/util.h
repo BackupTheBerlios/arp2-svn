@@ -18,7 +18,7 @@
 void gtkutil_add_signals_to_class (GtkObjectClass *class, guint func_offset, gint *signals, ...);
 
 #if GTK_MAJOR_VERSION >= 2
-static __inline GtkWidget *make_labelled_button (guchar *label, GtkAccelGroup *accel_group)
+static __inline GtkWidget *make_labelled_button (gchar *label, GtkAccelGroup *accel_group)
 {
     return gtk_button_new_with_mnemonic (label);
 }

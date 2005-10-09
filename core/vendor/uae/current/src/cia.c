@@ -14,7 +14,6 @@
 
 #include "config.h"
 #include "options.h"
-#include "threaddep/thread.h"
 #include "events.h"
 #include "memory.h"
 #include "custom.h"
@@ -28,12 +27,19 @@
 #include "inputdevice.h"
 #include "zfile.h"
 #include "ar.h"
+#ifdef PARALLEL_PORT
+# include "parallel.h"
+#endif
 #ifdef CD32
-#include "akiko.h"
+# include "akiko.h"
 #endif
 #include "debug.h"
+#ifdef ARCADIA
+# include "arcadia.h"
+#endif
 
-//#define CIA_DEBUG
+//#define CIA_DEBUG_R
+//#define CIA_DEBUG_W
 //#define DONGLE_DEBUG
 
 #define TOD_HACK
@@ -59,7 +65,7 @@ static unsigned int clock_control_e = 0;
 static unsigned int clock_control_f = RTC_F_24_12;
 
 static unsigned int ciaaicr, ciaaimask, ciabicr, ciabimask;
-static unsigned int ciaacra, ciaacrb, ciabcra, ciabcrb;
+static unsigned long ciaacra, ciaacrb, ciabcra, ciabcrb;
 
 /* Values of the CIA timers.  */
 static unsigned long ciaata, ciaatb, ciabta, ciabtb;
@@ -70,7 +76,7 @@ static unsigned long ciaatod, ciabtod, ciaatol, ciabtol, ciaaalarm, ciabalarm;
 static int ciaatlatch, ciabtlatch;
 static int oldled, oldovl;
 
-unsigned int ciabpra;
+static unsigned int ciabpra;
 
 unsigned int gui_ledstate;
 
@@ -78,13 +84,14 @@ static unsigned long ciaala, ciaalb, ciabla, ciablb;
 static int ciaatodon, ciabtodon;
 static unsigned int ciaapra, ciaaprb, ciaadra, ciaadrb, ciaasdr, ciaasdr_cnt;
 static unsigned int ciabprb, ciabdra, ciabdrb, ciabsdr, ciabsdr_cnt;
-static int div10;
+static unsigned int div10;
 static int kbstate, kback, ciaasdr_unread;
 #ifdef TOD_HACK
 static int tod_hack, tod_hack_delay;
 #endif
 
 static uae_u8 serbits;
+static int warned = 10;
 
 static void setclr (unsigned int *p, unsigned int val)
 {
@@ -239,7 +246,7 @@ static void CIA_update (void)
 
 static void CIA_calctimers (void)
 {
-    long int ciaatimea = -1, ciaatimeb = -1, ciabtimea = -1, ciabtimeb = -1;
+    unsigned long int ciaatimea = ~0L, ciaatimeb = ~0L, ciabtimea = ~0L, ciabtimeb = ~0L;
 
     eventtab[ev_cia].oldcycles = get_cycles ();
     if ((ciaacra & 0x21) == 0x01) {
@@ -247,7 +254,7 @@ static void CIA_calctimers (void)
     }
     if ((ciaacrb & 0x61) == 0x41) {
 	/* Timer B will not get any pulses if Timer A is off. */
-	if (ciaatimea >= 0) {
+	if (ciaatimea != (unsigned long)-1) {
 	    /* If Timer A is in one-shot mode, and Timer B needs more than
 	     * one pulse, it will not underflow. */
 	    if (ciaatb == 0 || (ciaacra & 0x8) == 0) {
@@ -269,7 +276,7 @@ static void CIA_calctimers (void)
     }
     if ((ciabcrb & 0x61) == 0x41) {
 	/* Timer B will not get any pulses if Timer A is off. */
-	if (ciabtimea >= 0) {
+	if (ciabtimea != (unsigned long)-1) {
 	    /* If Timer A is in one-shot mode, and Timer B needs more than
 	     * one pulse, it will not underflow. */
 	    if (ciabtb == 0 || (ciabcra & 0x8) == 0) {
@@ -283,14 +290,14 @@ static void CIA_calctimers (void)
     if ((ciabcrb & 0x61) == 0x01) {
 	ciabtimeb = (DIV10 - div10) + DIV10 * ciabtb;
     }
-    eventtab[ev_cia].active = (ciaatimea != -1 || ciaatimeb != -1
-			       || ciabtimea != -1 || ciabtimeb != -1);
+    eventtab[ev_cia].active = (ciaatimea != (unsigned long)-1 || ciaatimeb != (unsigned long)-1
+			       || ciabtimea != (unsigned long)-1 || ciabtimeb != (unsigned long)-1);
     if (eventtab[ev_cia].active) {
 	unsigned long int ciatime = ~0L;
-	if (ciaatimea != -1) ciatime = ciaatimea;
-	if (ciaatimeb != -1 && ciaatimeb < ciatime) ciatime = ciaatimeb;
-	if (ciabtimea != -1 && ciabtimea < ciatime) ciatime = ciabtimea;
-	if (ciabtimeb != -1 && ciabtimeb < ciatime) ciatime = ciabtimeb;
+	if (ciaatimea != (unsigned long)-1) ciatime = ciaatimea;
+	if (ciaatimeb != (unsigned long)-1 && ciaatimeb < ciatime) ciatime = ciaatimeb;
+	if (ciabtimea != (unsigned long)-1 && ciabtimea < ciatime) ciatime = ciabtimea;
+	if (ciabtimeb != (unsigned long)-1 && ciabtimeb < ciatime) ciatime = ciabtimeb;
 	eventtab[ev_cia].evtime = ciatime + get_cycles ();
     }
     events_schedule();
@@ -306,6 +313,12 @@ void cia_diskindex (void)
 {
     ciabicr |= 0x10;
     RethinkICRB();
+}
+
+static void cia_parallelack (void)
+{
+    ciaaicr |= 0x10;
+    RethinkICRA ();
 }
 
 static void ciab_checkalarm (void)
@@ -453,8 +466,8 @@ static uae_u8 ReadCIAA (unsigned int addr)
 
     compute_passed_time ();
 
-#ifdef CIA_DEBUG
-    write_log("R_CIAA: %02.2X %08.8X\n", addr, m68k_getpc());
+#ifdef CIA_DEBUG_R
+    write_log ("R_CIAA: bfe%x01 %08.8X\n", addr, m68k_getpc (&regs));
 #endif
 
     switch (addr & 0xf) {
@@ -482,6 +495,10 @@ static uae_u8 ReadCIAA (unsigned int addr)
 	    uae_u8 v;
 	    parallel_direct_read_data (&v);
 	    tmp = v;
+#ifdef ARCADIA
+	} else if (arcadia_rom) {
+	    tmp = arcadia_parport (0, ciaaprb, ciaadrb);
+#endif
 	} else {
 	    tmp = handle_parport_joystick (0, ciaaprb, ciaadrb);
 	}
@@ -492,6 +509,20 @@ static uae_u8 ReadCIAA (unsigned int addr)
 	    write_log ("BFE101 R %02.2X %s\n", tmp, debuginfo(0));
 #endif
 #endif
+	if (ciaacrb & 2) {
+	    int pb7 = 0;
+	    if (ciaacrb & 4)
+		pb7 = ciaacrb & 1;
+	    tmp &= ~0x80;
+	    tmp |= pb7 ? 0x80 : 00;
+	}
+	if (ciaacra & 2) {
+	    int pb6 = 0;
+	    if (ciaacra & 4)
+		pb6 = ciaacra & 1;
+	    tmp &= ~0x40;
+	    tmp |= pb6 ? 0x40 : 00;
+	}
 	return tmp;
     case 2:
 #ifdef DONGLE_DEBUG
@@ -547,8 +578,8 @@ static uae_u8 ReadCIAB (unsigned int addr)
 {
     unsigned int tmp;
 
-#ifdef CIA_DEBUG
-    write_log("R_CIAB: %02.2X %08.8X\n", addr, m68k_getpc());
+#ifdef CIA_DEBUG_R
+    write_log ("R_CIAB: bfd%x00 %08.8X\n", addr, m68k_getpc (&regs));
 #endif
 
     compute_passed_time ();
@@ -581,7 +612,22 @@ static uae_u8 ReadCIAB (unsigned int addr)
 	if (notinrom ())
 	    write_log ("BFD100 R %02.2X %s\n", ciabprb, debuginfo(0));
 #endif
-	return ciabprb;
+	tmp = ciabprb;
+	if (ciabcrb & 2) {
+	    int pb7 = 0;
+	    if (ciabcrb & 4)
+		pb7 = ciabcrb & 1;
+	    tmp &= ~0x80;
+	    tmp |= pb7 ? 0x80 : 00;
+	}
+	if (ciabcra & 2) {
+	    int pb6 = 0;
+	    if (ciabcra & 4)
+		pb6 = ciabcra & 1;
+	    tmp &= ~0x40;
+	    tmp |= pb6 ? 0x40 : 00;
+	}
+	return tmp;
     case 2:
 	return ciabdra;
     case 3:
@@ -624,8 +670,8 @@ static uae_u8 ReadCIAB (unsigned int addr)
 
 static void WriteCIAA (uae_u16 addr,uae_u8 val)
 {
-#ifdef CIA_DEBUG
-    write_log("W_CIAA: %02.2X %02.2X %08.8X\n", addr, val, m68k_getpc());
+#ifdef CIA_DEBUG_W
+    write_log ("W_CIAA: bfe%x01 %02.2X %08.8X\n", addr, val, m68k_getpc (&regs));
 #endif
     switch (addr & 0xf) {
     case 0:
@@ -646,11 +692,14 @@ static void WriteCIAA (uae_u16 addr,uae_u8 val)
 #ifdef PARALLEL_PORT
 	if (isprinter() > 0) {
 	    doprinter (val);
-	    ciaaicr |= 0x10;
 	} else if (isprinter() < 0) {
 	    parallel_direct_write_data (val, ciaadrb);
-	    ciaaicr |= 0x10;
+#ifdef ARCADIA
+	} else if (arcadia_rom) {
+	    arcadia_parport (1, ciaaprb, ciaadrb);
+#endif
 	}
+	cia_parallelack ();
 #endif
 	break;
     case 2:
@@ -660,11 +709,16 @@ static void WriteCIAA (uae_u16 addr,uae_u8 val)
 #endif
 	ciaadra = val; bfe001_change (); break;
     case 3:
+	ciaadrb = val;
 #ifdef DONGLE_DEBUG
 	if (notinrom ())
 	    write_log ("BFE301 W %02.2X %s\n", val, debuginfo(0));
 #endif
-	ciaadrb = val; break;
+#ifdef ARCADIA
+	if (arcadia_rom)
+	    arcadia_parport (1, ciaaprb, ciaadrb);
+#endif
+	break;
     case 4:
 	CIA_update ();
 	ciaala = (ciaala & 0xff00) | val;
@@ -706,8 +760,8 @@ static void WriteCIAA (uae_u16 addr,uae_u8 val)
 	    ciaa_checkalarm ();
 
 #ifdef TOD_HACK
-	if (currprefs.tod_hack)
-	    tod_hack_reset ();
+	    if (currprefs.tod_hack)
+		tod_hack_reset ();
 #endif
 	}
 	break;
@@ -768,8 +822,8 @@ static void WriteCIAA (uae_u16 addr,uae_u8 val)
 
 static void WriteCIAB (uae_u16 addr,uae_u8 val)
 {
-#ifdef CIA_DEBUG
-    write_log("W_CIAB: %02.2X %02.2X %08.8X\n", addr, val, m68k_getpc());
+#ifdef CIA_DEBUG_W
+    write_log ("W_CIAB: bfd%x00 %02.2X %08.8X\n", addr, val, m68k_getpc (&regs));
 #endif
     switch (addr & 0xf) {
     case 0:
@@ -922,7 +976,7 @@ void CIA_reset (void)
 	ciaaicr = ciabicr = ciaaimask = ciabimask = 0;
 	ciaacra = ciaacrb = ciabcra = ciabcrb = 0x4; /* outmode = toggle; */
 	ciaala = ciaalb = ciabla = ciablb = ciaata = ciaatb = ciabta = ciabtb = 0xFFFF;
-	ciaaalarm = ciabalarm = 0;
+	ciaaalarm = ciabalarm = 0; //currprefs.cpu_cycle_exact ? 0 : 0xffffff;
 	ciabpra = 0x8C; ciabdra = 0;
 	div10 = 0;
 	ciaasdr_cnt = 0; ciaasdr = 0;
@@ -952,12 +1006,14 @@ void CIA_reset (void)
 
 void dumpcia (void)
 {
-    write_log("A: CRA %02x CRB %02x ICR %02x IM %02x TOD %06x %c%c TA %04x (%04x) TB %04x (%04x)\n",
-	   ciaacra, ciaacrb, ciaaicr, ciaaimask, ciaatod,
-	   ciaatlatch ? 'L' : ' ', ciaatodon ? ' ' : 'S', ciaata, ciaala, ciaatb, ciaalb);
-    write_log("B: CRA %02x CRB %02x ICR %02x IM %02x TOD %06x %c%c TA %04x (%04x) TB %04x (%04x)\n",
-	   ciabcra, ciabcrb, ciaaicr, ciabimask, ciabtod,
-	   ciabtlatch ? 'L' : ' ', ciabtodon ? ' ' : 'S', ciabta, ciabla, ciabtb, ciablb);
+    write_log ("A: CRA %02x CRB %02x ICR %02x IM %02x TA %04x (%04x) TB %04x (%04x)\n",
+	   ciaacra, ciaacrb, ciaaicr, ciaaimask, ciaata, ciaala, ciaatb, ciaalb);
+    write_log ("TOD %06x ALARM %06x %c%c\n",
+	ciaatod, ciaaalarm, ciaatlatch ? 'L' : ' ', ciaatodon ? ' ' : 'S');
+    write_log ("B: CRA %02x CRB %02x ICR %02x IM %02x TA %04x (%04x) TB %04x (%04x)\n",
+	   ciabcra, ciabcrb, ciaaicr, ciabimask, ciabta, ciabla, ciabtb, ciablb);
+    write_log ("TOD %06x ALARM %06x %c%c\n",
+	ciabtod, ciabalarm, ciabtlatch ? 'L' : ' ', ciabtodon ? ' ' : 'S');
 }
 
 /* CIA memory access */
@@ -1027,17 +1083,24 @@ uae_u32 REGPARAM2 cia_bget (uaecptr addr)
 #endif
     cia_wait_pre ();
     v = 0xff;
-    switch ((addr >> 12) & 3)
-    {
+    switch ((addr >> 12) & 3) {
 	case 0:
-	v = (addr & 1) ? ReadCIAA (r) : ReadCIAB (r);
-	break;
+	    v = (addr & 1) ? ReadCIAA (r) : ReadCIAB (r);
+	    break;
 	case 1:
-	v = (addr & 1) ? 0xff : ReadCIAB (r);
-	break;
+	    v = (addr & 1) ? 0xff : ReadCIAB (r);
+	    break;
 	case 2:
-	v = (addr & 1) ? ReadCIAA (r) : 0xff;
-	break;
+	    v = (addr & 1) ? ReadCIAA (r) : 0xff;
+	    break;
+	case 3:
+	    if (currprefs.cpu_level == 0 && currprefs.cpu_compatible)
+		v = (addr & 1) ? regs.irc : regs.irc >> 8;
+	    if (warned > 0) {
+		write_log ("cia_bget: unknown CIA address %x PC=%x\n", addr, m68k_getpc (&regs));
+		warned--;
+	    }
+	    break;
     }
     cia_wait_post ();
     return v;
@@ -1057,17 +1120,24 @@ uae_u32 REGPARAM2 cia_wget (uaecptr addr)
 #endif
     cia_wait_pre ();
     v = 0xffff;
-    switch ((addr >> 12) & 3)
-    {
+    switch ((addr >> 12) & 3) {
 	case 0:
-	v = (ReadCIAB (r) << 8) | ReadCIAA (r);
-	break;
+	    v = (ReadCIAB (r) << 8) | ReadCIAA (r);
+	    break;
 	case 1:
-	v = (ReadCIAB (r) << 8) | 0xff;
-	break;
+	    v = (ReadCIAB (r) << 8) | 0xff;
+	    break;
 	case 2:
-	v = (0xff << 8) | ReadCIAA (r);
-	break;
+	    v = (0xff << 8) | ReadCIAA (r);
+	    break;
+	case 3:
+	    if (currprefs.cpu_level == 0 && currprefs.cpu_compatible)
+		v = regs.irc;
+	    if (warned > 0) {
+		write_log ("cia_wget: unknown CIA address %x PC=%x\n", addr, m68k_getpc (&regs));
+		warned--;
+	    }
+	    break;
     }
     cia_wait_post ();
     return v;
@@ -1105,6 +1175,10 @@ void REGPARAM2 cia_bput (uaecptr addr, uae_u32 value)
 	WriteCIAB (r, value);
     if ((addr & 0x1000) == 0)
 	WriteCIAA (r, value);
+    if (((addr & 0x3000) == 0x3000) && warned > 0) {
+	write_log ("cia_bput: unknown CIA address %x %x\n", addr, value);
+	warned--;
+    }
     cia_wait_post ();
 }
 
@@ -1125,6 +1199,10 @@ void REGPARAM2 cia_wput (uaecptr addr, uae_u32 value)
 	WriteCIAB (r, value >> 8);
     if ((addr & 0x1000) == 0)
 	WriteCIAA (r, value & 0xff);
+    if (((addr & 0x3000) == 0x3000) && warned > 0) {
+        write_log ("cia_wput: unknown CIA address %x %x\n", addr, value);
+        warned--;
+    }
     cia_wait_post ();
 }
 

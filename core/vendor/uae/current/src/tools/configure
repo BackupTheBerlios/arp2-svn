@@ -6718,7 +6718,7 @@ fi
           ac_config_files="$ac_config_files Makefile"
 
 
-                                                                                          ac_config_links="$ac_config_links missing.c:../missing.c writelog.c:../writelog.c readcpu.c:../readcpu.c build68k.c:../build68k.c gencpu.c:../gencpu.c gencomp.c:../gencomp.c cpuopti.c:../cpuopti.c genblitter.c:../genblitter.c blitops.c:../blitops.c"
+                                                                                ac_config_links="$ac_config_links missing.c:../missing.c writelog.c:../writelog.c readcpu.c:../readcpu.c build68k.c:../build68k.c gencpu.c:../gencpu.c gencomp.c:../gencomp.c genblitter.c:../genblitter.c blitops.c:../blitops.c"
 
 
 cat >confcache <<\_ACEOF
@@ -7256,7 +7256,6 @@ do
   "build68k.c" ) CONFIG_LINKS="$CONFIG_LINKS build68k.c:../build68k.c" ;;
   "gencpu.c" ) CONFIG_LINKS="$CONFIG_LINKS gencpu.c:../gencpu.c" ;;
   "gencomp.c" ) CONFIG_LINKS="$CONFIG_LINKS gencomp.c:../gencomp.c" ;;
-  "cpuopti.c" ) CONFIG_LINKS="$CONFIG_LINKS cpuopti.c:../cpuopti.c" ;;
   "genblitter.c" ) CONFIG_LINKS="$CONFIG_LINKS genblitter.c:../genblitter.c" ;;
   "blitops.c" ) CONFIG_LINKS="$CONFIG_LINKS blitops.c:../blitops.c" ;;
   "sysconfig.h" ) CONFIG_HEADERS="$CONFIG_HEADERS sysconfig.h" ;;

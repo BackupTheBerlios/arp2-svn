@@ -62,7 +62,6 @@ AC_CONFIG_LINKS([missing.c:../missing.c
                  build68k.c:../build68k.c
                  gencpu.c:../gencpu.c
 		 gencomp.c:../gencomp.c
-                 cpuopti.c:../cpuopti.c
                  genblitter.c:../genblitter.c
 		 blitops.c:../blitops.c
 ])

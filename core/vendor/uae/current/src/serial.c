@@ -64,7 +64,7 @@ void SERPER (uae_u16 w)
 
     if (w & 0x8000) {
 	if (!warned) {
-	    write_log( "SERIAL: program uses 9bit mode PC=%x\n", m68k_getpc() );
+	    write_log( "SERIAL: program uses 9bit mode PC=%x\n", m68k_getpc (&regs) );
 	    warned++;
 	}
 	ninebit = 1;
@@ -88,7 +88,7 @@ void SERPER (uae_u16 w)
 	serial_period_hsyncs = 1;
     serial_period_hsync_counter = 0;
 
-    write_log ("SERIAL: period=%d, baud=%d, hsyncs=%d PC=%x\n", w, baud, serial_period_hsyncs, m68k_getpc ());
+    write_log ("SERIAL: period=%d, baud=%d, hsyncs=%d PC=%x\n", w, baud, serial_period_hsyncs, m68k_getpc (&regs));
 
     if (ninebit)
 	baud *= 2;
@@ -227,7 +227,7 @@ void SERDAT (uae_u16 w)
 
     if (!(w & 0x3ff)) {
 #if SERIALDEBUG > 1
-	write_log ("SERIAL: zero serial word written?! PC=%x\n", m68k_getpc());
+	write_log ("SERIAL: zero serial word written?! PC=%x\n", m68k_getpc (&regs));
 #endif
 	return;
     }
@@ -243,7 +243,7 @@ void SERDAT (uae_u16 w)
 	checksend (1);
 
 #if SERIALDEBUG > 2
-    write_log ("SERIAL: wrote 0x%04x (%c) PC=%x\n", w, dochar (w), m68k_getpc());
+    write_log ("SERIAL: wrote 0x%04x (%c) PC=%x\n", w, dochar (w), m68k_getpc (&regs));
 #endif
 
     return;
@@ -261,7 +261,7 @@ uae_u16 SERDATR (void)
     if (ovrun)
 	serdatr |= 0x8000;
 #if SERIALDEBUG > 2
-    write_log( "SERIAL: read 0x%04.4x (%c) %x\n", serdatr, dochar (serdatr), m68k_getpc());
+    write_log( "SERIAL: read 0x%04.4x (%c) %x\n", serdatr, dochar (serdatr), m68k_getpc (&regs));
 #endif
     ovrun = 0;
     data_in_serdatr = 0;

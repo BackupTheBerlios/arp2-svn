@@ -11,6 +11,7 @@
 
 #include "config.h"
 #include "options.h"
+#include "uae.h"
 #include "debug.h"
 
 /*

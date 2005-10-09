@@ -4,7 +4,7 @@
   * SDL graphics support
   *
   * Copyright 2001 Bernd Lachner (EMail: dev@lachner-net.de)
-  * Copyright 2003-2004 Richard Drummond
+  * Copyright 2003-2005 Richard Drummond
   *
   * Partialy based on the UAE X interface (xwin.c)
   *
@@ -47,10 +47,16 @@
 /* SDL variable for output surface */
 static SDL_Surface *prSDLScreen = NULL;
 
-/* Possible screen modes (x and y resolutions) */
+/* Standard P96 screen modes */
 #define MAX_SCREEN_MODES 12
-static int x_size_table[MAX_SCREEN_MODES] = { 320, 320, 320, 320, 640, 640, 640, 800, 1024, 1152, 1280, 1280 };
-static int y_size_table[MAX_SCREEN_MODES] = { 200, 240, 256, 400, 350, 480, 512, 600, 768,  864,  960,  1024 };
+static int x_size_table[MAX_SCREEN_MODES] = { 320, 320, 320, 320, 640, 640, 640, 800, 1024, 1152, 1280 };
+static int y_size_table[MAX_SCREEN_MODES] = { 200, 240, 256, 400, 350, 480, 512, 600, 768,  864,  1024 };
+
+/* Supported SDL screen modes */
+#define MAX_SDL_SCREENMODE 32
+SDL_Rect screenmode[MAX_SDL_SCREENMODE];
+int mode_count;
+
 
 static int red_bits, green_bits, blue_bits;
 static int red_shift, green_shift, blue_shift;
@@ -121,6 +127,10 @@ int get_sdlgfx_type (void)
 		driver = SDLGFX_DRIVER_QUARTZ;
 	    else if (strcmp (name, "bwindow") == 0)
 		driver = SDLGFX_DRIVER_BWINDOW;
+	    else if (strcmp (name, "CGX") == 0)
+		driver = SDLGFX_DRIVER_CYBERGFX;
+	    else if (strcmp (name, "OS4") == 0)
+		driver = SDLGFX_DRIVER_AMIGAOS4;
 	}
 	search_done = 1;
 
@@ -129,82 +139,10 @@ int get_sdlgfx_type (void)
     return driver;
 }
 
-
-void flush_line (int y)
-{
-    /* Not implemented for SDL output */
-}
-
-void flush_block (int ystart, int ystop)
-{
-    DEBUG_LOG ("Function: flush_block %d %d\n", ystart, ystop);
-
-    if (SDL_MUSTLOCK (prSDLScreen))
-	SDL_UnlockSurface (prSDLScreen);
-
-    SDL_UpdateRect (prSDLScreen, 0, ystart, current_width, ystop - ystart + 1);
-
-    if (SDL_MUSTLOCK (prSDLScreen))
-	SDL_LockSurface (prSDLScreen);
-}
-
-void flush_screen (int ystart, int ystop)
-{
-    /* Not implemented for SDL output */
-}
-
-void flush_clear_screen (void)
-{
-    DEBUG_LOG ("Function: flush_clear_screen\n");
-
-    if (prSDLScreen) {
-	SDL_Rect rect = { 0, 0, prSDLScreen->w, prSDLScreen->h };
-	SDL_FillRect (prSDLScreen, &rect, SDL_MapRGB (prSDLScreen->format, 0,0,0));
-	SDL_UpdateRect (prSDLScreen, 0, 0, rect.w, rect.h);
-    }
-}
-
-int lockscr (void)
-{
-    DEBUG_LOG ("Function: lockscr\n");
-
-    if (SDL_MUSTLOCK (prSDLScreen)) {
-        /* We must lock the SDL surfaces to
-	 * access its pixel data
-	 */
-	if (SDL_LockSurface (prSDLScreen) == 0) {
-	    gfxvidinfo.bufmem   = prSDLScreen->pixels;
-	    gfxvidinfo.rowbytes = prSDLScreen->pitch;
-
-	    if (prSDLScreen->pixels != old_pixels) {
-		/* If the address of the pixel data has
-		 * changed, recalculate the row maps
-		 */
-		init_row_map ();
-		old_pixels = prSDLScreen->pixels;
-	    }
-	    return 1;
-	} else
-	    /* Failed to lock surface */
-	    return 0;
-    } else
-    	/* We don't need to lock */
-	return 1;
-}
-
-void unlockscr (void)
-{
-    DEBUG_LOG ("Function: unlockscr\n");
-
-    if (SDL_MUSTLOCK (prSDLScreen))
-	SDL_UnlockSurface (prSDLScreen);
-}
-
-
-STATIC_INLINE int bitsInMask (unsigned long mask)
+STATIC_INLINE unsigned long bitsInMask (unsigned long mask)
 {
     /* count bits in mask */
-    int n = 0;
+    unsigned long n = 0;
     while (mask) {
 	n += mask & 1;
 	mask >>= 1;
@@ -212,10 +150,10 @@ STATIC_INLINE int bitsInMask (unsigned long mask)
     return n;
 }
 
-STATIC_INLINE int maskShift (unsigned long mask)
+STATIC_INLINE unsigned long maskShift (unsigned long mask)
 {
     /* determine how far mask is shifted */
-    int n = 0;
+    unsigned long n = 0;
     while (!(mask & 1)) {
 	n++;
 	mask >>= 1;
@@ -247,6 +185,7 @@ static int init_colors (void)
 	red_shift   = maskShift (prSDLScreen->format->Rmask);
 	green_shift = maskShift (prSDLScreen->format->Gmask);
 	blue_shift  = maskShift (prSDLScreen->format->Bmask);
+
 	alloc_colors64k (red_bits, green_bits, blue_bits, red_shift, green_shift, blue_shift, 0, 0, 0);
     } else {
 	alloc_colors256 (get_color);
@@ -269,119 +208,271 @@ static int init_colors (void)
 	    break;
     }
 
-    if (SDL_BYTEORDER == SDL_BIG_ENDIAN) {
-	switch (gfxvidinfo.pixbytes) {
-	    case 4:
-		for (i = 0; i < 4096; i++)
-		    SDL_Swap32 (xcolors[i]);
-		break;
-	    case 2:
-		for (i = 0; i < 4096; i++)
-		    SDL_Swap16 (xcolors[i]);
-		break;
-	}
-    }
-
     return 1;
 }
 
-/*
- * Find the colour depth of the display
- */
-static int get_display_depth (void)
-{
-    const SDL_VideoInfo *vid_info;
-    int depth = 0;
-
-    DEBUG_LOG ("Function: get_display_depth()\n");
-
-    if ((vid_info = SDL_GetVideoInfo())) {
-	depth = vid_info->vfmt->BitsPerPixel;
-
-	/* Don't trust the answer if it's 16 bits; the colour
-	 * depth may actually be 15 bits. Why we can't just
-	 * get a straight answer here, I don't know . . . */
-	if (depth == 16) {
-	    if (get_sdlgfx_type () == SDLGFX_DRIVER_QUARTZ)
-		/* Be extra paranoid for MacOS X. 16 bits always means
-		 * 15 bits of colour */
-		depth = 15;
-	    else
-		/* Otherwise, we'll count the bits ourselves */
-		depth = bitsInMask (vid_info->vfmt->Rmask) +
-			bitsInMask (vid_info->vfmt->Gmask) +
-			bitsInMask (vid_info->vfmt->Bmask);
-	    }
-	    DEBUG_LOG ("Display is %d bits deep\n", depth);
-    }
-    return depth;
-}
 
 /*
  * Test whether the screen mode <width>x<height>x<depth> is
- * available. If not, find a standard screen mode which best
+ * available. If not, find a supported screen mode which best
  * matches.
  */
-static int find_best_mode (int *width, int *height, int depth)
+static int find_best_mode (int *width, int *height, int depth, int fullscreen)
 {
     int found = 0;
 
     DEBUG_LOG ("Function: find_best_mode(%d,%d,%d)\n", *width, *height, depth);
 
     /* First test whether the specified mode is supported */
-    found = SDL_VideoModeOK (*width, *height, depth, SDL_SWSURFACE);
+    found = SDL_VideoModeOK (*width, *height, depth, fullscreen ? SDL_FULLSCREEN : 0);
 
-    if (!found) {
+    if (!found && mode_count > 0) {
 	/* The specified mode wasn't available, so we'll try and find
-	 * a standard resolution which best matches it.
-	 * Note: this should rarely be necessary.
+	 * a supported resolution which best matches it.
 	 */
-        int i;
-        DEBUG_LOG ("Requested mode not available\n");
+	int i;
+	write_log ("SDLGFX: Requested mode (%dx%d%d) not available.\n", *width, *height, depth);
 
-	for (i = 0; i < MAX_SCREEN_MODES && !found; i++) {
-	    if (x_size_table[i] < *width || y_size_table[i] < *height)
-		continue; /* too small - try next mode */
-	    found = SDL_VideoModeOK (x_size_table[i], y_size_table[i], bitdepth, SDL_SWSURFACE);
-	    if (found) {
-		*width  = x_size_table[i];
-		*height = y_size_table[i];
-
-		DEBUG_LOG ("Using mode: %dx%d\n", *width, *height);
-	    }
+	/* Note: the screenmode array should already be sorted from largest to smallest, since
+	 * that's the order SDL gives us the screenmodes. */
+	for (i = mode_count - 1; i >= 0; i--) {
+	    if (screenmode[i].w >= *width && screenmode[i].h >= *height)
+		break;
 	}
+
+	/* If we didn't find a mode, use the largest supported mode */
+	if (i < 0)
+	    i = 0;
+
+	*width  = screenmode[i].w;
+	*height = screenmode[i].h;
+	found   = 1;
+
+ 	write_log ("SDLGFX: Using mode (%dx%d)\n", *width, *height);
     }
     return found;
 }
+
+#ifdef PICASSO96
+/*
+ * Map an SDL pixel format to a P96 pixel format
+ */
+static int get_p96_pixel_format (const struct SDL_PixelFormat *fmt)
+{
+    if (fmt->BitsPerPixel == 8)
+	return RGBFB_CLUT;
+
+#ifdef WORDS_BIGENDIAN
+    if (fmt->BitsPerPixel == 24) {
+	if (fmt->Rmask == 0x00FF0000 && fmt->Gmask == 0x0000FF00 && fmt->Bmask == 0x000000FF)
+	    return RGBFB_R8G8B8;
+	if (fmt->Rmask == 0x000000FF && fmt->Gmask == 0x0000FF00 && fmt->Bmask == 0x00FF0000)
+	    return RGBFB_B8G8R8;
+    } else if (fmt->BitsPerPixel == 32) {
+	if (fmt->Rmask == 0xFF000000 && fmt->Gmask == 0x00FF0000 && fmt->Bmask == 0x0000FF00)
+	    return RGBFB_R8G8B8A8;
+	if (fmt->Rmask == 0x00FF0000 && fmt->Gmask == 0x0000FF00 && fmt->Bmask == 0x000000FF)
+	    return RGBFB_A8R8G8B8;
+	if (fmt->Bmask == 0x00FF0000 && fmt->Gmask == 0x0000FF00 && fmt->Rmask == 0x000000FF)
+	    return RGBFB_A8B8G8R8;
+	if (fmt->Bmask == 0xFF000000 && fmt->Gmask == 0x00FF0000 && fmt->Rmask == 0x0000FF00)
+	    return RGBFB_B8G8R8A8;
+    } else if (fmt->BitsPerPixel == 16) {
+	if (get_sdlgfx_type () == SDLGFX_DRIVER_QUARTZ) {
+	    /* The MacOS X port of SDL lies about it's default pixel format
+	     * for high-colour display. It's always R5G5B5. */
+	    return RGBFB_R5G5B5;
+	} else {
+	    if (fmt->Rmask == 0xf800 && fmt->Gmask == 0x07e0 && fmt->Bmask == 0x001f)
+		return RGBFB_R5G6B5;
+	    if (fmt->Rmask == 0x7C00 && fmt->Gmask == 0x03e0 && fmt->Bmask == 0x001f)
+		return RGBFB_R5G5B5;
+	}
+    } else if (fmt->BitsPerPixel == 15) {
+	if (fmt->Rmask == 0x7C00 && fmt->Gmask == 0x03e0 && fmt->Bmask == 0x001f)
+	    return RGBFB_R5G5B5;
+    }
+#else
+    if (fmt->BitsPerPixel == 24) {
+	if (fmt->Rmask == 0x00FF0000 && fmt->Gmask == 0x0000FF00 && fmt->Bmask == 0x000000FF)
+	    return RGBFB_B8G8R8;
+	if (fmt->Rmask == 0x000000FF && fmt->Gmask == 0x0000FF00 && fmt->Bmask == 0x00FF0000)
+	    return RGBFB_R8G8B8;
+    } else if (fmt->BitsPerPixel == 32) {
+	if (fmt->Rmask == 0xFF000000 && fmt->Gmask == 0x00FF0000 && fmt->Bmask == 0x0000FF00)
+	    return RGBFB_A8B8G8R8;
+	if (fmt->Rmask == 0x00FF0000 && fmt->Gmask == 0x0000FF00 && fmt->Bmask == 0x000000FF)
+	    return RGBFB_B8G8R8A8;
+	if (fmt->Bmask == 0x00FF0000 && fmt->Gmask == 0x0000FF00 && fmt->Rmask == 0x000000FF)
+	    return RGBFB_R8G8B8A8;
+	if (fmt->Bmask == 0xFF000000 && fmt->Gmask == 0x00FF0000 && fmt->Rmask == 0x0000FF00)
+	    return RGBFB_A8R8G8B8;
+    } else if (fmt->BitsPerPixel == 16) {
+	if (fmt->Rmask == 0xf800 && fmt->Gmask == 0x07e0 && fmt->Bmask == 0x001f)
+	    return RGBFB_R5G6B5PC;
+	if (fmt->Rmask == 0x7C00 && fmt->Gmask == 0x03e0 && fmt->Bmask == 0x001f)
+	    return RGBFB_R5G5B5PC;
+    } else if (fmt->BitsPerPixel == 15) {
+	if (fmt->Rmask == 0x7C00 && fmt->Gmask == 0x03e0 && fmt->Bmask == 0x001f)
+	    return RGBFB_R5G5B5PC;
+    }
+#endif
+
+    return RGBFB_NONE;
+}
+#endif
+
+/*
+ * Build list of full-screen screen-modes supported by SDL
+ * with the specified pixel format.
+ *
+ * Returns a count of the number of supported modes, -1 if any mode is supported,
+ * or 0 if there are no modes with this pixel format.
+ */
+static long find_screen_modes (struct SDL_PixelFormat *vfmt, SDL_Rect *mode_list, int mode_list_size)
+{
+    long count = 0;
+    SDL_Rect **modes = SDL_ListModes (vfmt, SDL_FULLSCREEN | SDL_HWSURFACE);
+
+    if (modes != 0 && modes != (SDL_Rect**)-1) {
+	unsigned int i;
+	int w = -1;
+	int h = -1;
+
+	/* Filter list of modes SDL gave us and ignore duplicates */
+	for (i = 0; modes[i] && count < mode_list_size; i++) {
+	    if (modes[i]->w != w || modes[i]->h != h) {
+		mode_list[count].w = w = modes[i]->w;
+		mode_list[count].h = h = modes[i]->h;
+		count++;
+
+		write_log ("SDLGFX: Found screenmode: %dx%d.\n", w, h);
+	    }
+	}
+    } else
+	count = (long) modes;
+
+    return count;
+}
+
+/**
+ ** Buffer methods not implemented for this driver.
+ **/
+
+static void sdl_flush_line (struct vidbuf_description *gfxinfo, int line_no)
+{
+}
+
+static void sdl_flush_screen (struct vidbuf_description *gfxinfo, int first_line, int last_line)
+{
+}
+
+
+/**
+ ** Buffer methods for SDL surfaces that don't need locking
+ **/
+
+static int sdl_lock_nolock (struct vidbuf_description *gfxinfo)
+{
+    return 1;
+}
+
+static void sdl_unlock_nolock (struct vidbuf_description *gfxinfo)
+{
+}
+
+STATIC_INLINE void sdl_flush_block_nolock (struct vidbuf_description *gfxinfo, int first_line, int last_line)
+{
+   SDL_UpdateRect (prSDLScreen, 0, first_line, current_width, last_line - first_line + 1);
+}
+
+
+/**
+ ** Buffer methods for SDL surfaces that must be locked
+ **/
+
+static int sdl_lock (struct vidbuf_description *gfxinfo)
+{
+    int success = 0;
+
+    DEBUG_LOG ("Function: lock\n");
+
+    if (SDL_LockSurface (prSDLScreen) == 0) {
+	gfxinfo->bufmem   = prSDLScreen->pixels;
+	gfxinfo->rowbytes = prSDLScreen->pitch;
+
+	if (prSDLScreen->pixels != old_pixels) {
+	   /* If the address of the pixel data has
+	    * changed, recalculate the row maps
+	    */
+	    init_row_map ();
+	    old_pixels = prSDLScreen->pixels;
+	}
+	success = 1;
+    }
+    return success;
+}
+
+static void sdl_unlock (struct vidbuf_description *gfxinfo)
+{
+    DEBUG_LOG ("Function: unlock\n");
+
+    SDL_UnlockSurface (prSDLScreen);
+}
+
+static void sdl_flush_block (struct vidbuf_description *gfxinfo, int first_line, int last_line)
+{
+    DEBUG_LOG ("Function: flush_block %d %d\n", first_line, last_line);
+
+    SDL_UnlockSurface (prSDLScreen);
+
+    sdl_flush_block_nolock (gfxinfo, first_line, last_line);
+
+    SDL_LockSurface (prSDLScreen);
+}
+
+static void sdl_flush_clear_screen (struct vidbuf_description *gfxinfo)
+{
+    DEBUG_LOG ("Function: flush_clear_screen\n");
+
+    if (prSDLScreen) {
+	SDL_Rect rect = { 0, 0, prSDLScreen->w, prSDLScreen->h };
+	SDL_FillRect (prSDLScreen, &rect, SDL_MapRGB (prSDLScreen->format, 0,0,0));
+	SDL_UpdateRect (prSDLScreen, 0, 0, rect.w, rect.h);
+    }
+}
+
 
 int graphics_setup (void)
 {
     int result = 0;
 
-    DEBUG_LOG ("Function: graphics_setup\n");
+    if (SDL_InitSubSystem (SDL_INIT_VIDEO) == 0) {
 
-    if (SDL_WasInit (SDL_INIT_VIDEO) == 0) {
-        if (SDL_InitSubSystem (SDL_INIT_VIDEO) == 0) {
-	    const SDL_VideoInfo *info = SDL_GetVideoInfo ();
+	const SDL_version   *version = SDL_Linked_Version ();
+	const SDL_VideoInfo *info    = SDL_GetVideoInfo ();
 
-	    if (info != 0) {
-	        /* Does the graphics system support hardware-accelerated
-		 * fills? If yes, then it's worthwhile using hardware
-		 * surfaces for P96 screens
-		 */
-	        hwsurface_is_profitable = (info->blit_fill);
+	write_log ("SDLGFX: Initialized.\n");
+	write_log ("SDLGFX: Using SDL version %d.%d.%d.\n", version->major, version->minor, version->patch);
 
-		DEBUG_LOG ("HW surfaces are profitable: %d",
-			   hwsurface_is_profitable);
+	/* Find default display depth */
+	bitdepth = info->vfmt->BitsPerPixel;
+	bit_unit = info->vfmt->BytesPerPixel * 8;
 
-		result = 1;
-	    }
-	}
-    }
-    else
-        result = 1;
+	write_log ("SDLGFX: Display is %d bits deep.\n", bitdepth);
 
-    /* Don't need to do anything else right now */
+	/* Build list of screenmodes */
+	mode_count = find_screen_modes (info->vfmt, &screenmode[0], MAX_SDL_SCREENMODE);
+
+	hwsurface_is_profitable = (info->blit_fill);
+
+	if (hwsurface_is_profitable)
+	    write_log ("SDLGFX: HW surfaces are profitable for P96 emulation.\n");
+
+	result = 1;
+    } else
+	write_log ("SDLGFX: initialization failed - %s\n", SDL_GetError());
+
     return result;
 }
 
@@ -396,10 +487,8 @@ static int graphics_subinit (void)
     if (fullscreen)
 	uiSDLVidModFlags |= SDL_FULLSCREEN;
 #ifdef PICASSO96
-# ifndef __amigaos4__ /* don't use hardware surface on OS4 yet */
-   if (screen_is_picasso && hwsurface_is_profitable)
+   if (hwsurface_is_profitable && screen_is_picasso)
 	uiSDLVidModFlags |= SDL_HWSURFACE;
-# endif
 #endif
 
     DEBUG_LOG ("Resolution: %d x %d x %d\n", current_width, current_height, bitdepth);
@@ -424,6 +513,18 @@ static int graphics_subinit (void)
 	DEBUG_LOG ("Must lock?     : %d\n", SDL_MUSTLOCK (prSDLScreen));
 	DEBUG_LOG ("Bytes per Pixel: %d\n", prSDLScreen->format->BytesPerPixel);
 	DEBUG_LOG ("Bytes per Line : %d\n", prSDLScreen->pitch);
+
+	/* Set up buffer methods */
+	if (SDL_MUSTLOCK (prSDLScreen)) {
+	    gfxvidinfo.lockscr     = sdl_lock;
+	    gfxvidinfo.unlockscr   = sdl_unlock;
+	    gfxvidinfo.flush_block = sdl_flush_block;
+	} else {
+	    gfxvidinfo.lockscr     = sdl_lock_nolock;
+	    gfxvidinfo.unlockscr   = sdl_unlock_nolock;
+	    gfxvidinfo.flush_block = sdl_flush_block_nolock;
+	}
+        gfxvidinfo.flush_clear_screen = sdl_flush_clear_screen;
 
 	/* Set UAE window title and icon name */
 	SDL_WM_SetCaption (PACKAGE_NAME, PACKAGE_NAME);
@@ -503,9 +604,8 @@ int graphics_init (void)
 
     current_width  = currprefs.gfx_width_win;
     current_height = currprefs.gfx_height_win;
-    bitdepth       = get_display_depth();
 
-    if (find_best_mode (&current_width, &current_height, bitdepth)) {
+    if (find_best_mode (&current_width, &current_height, bitdepth, fullscreen)) {
 	gfxvidinfo.width  = current_width;
 	gfxvidinfo.height = current_height;
 
@@ -584,6 +684,10 @@ void handle_events (void)
 
 		if (currprefs.map_raw_keys) {
 		    keycode = rEvent.key.keysym.scancode;
+		    // Hack - OS4 keyup events have bit 7 set.
+# 		    ifdef TARGET_AMIGAOS
+			keycode &= 0x7F;
+#		    endif
 		    modifier_hack (&keycode, &state);
 		} else
 		    keycode = rEvent.key.keysym.sym;
@@ -733,6 +837,11 @@ int needmousehack (void)
     return 1;
 }
 
+int mousehack_allowed (void)
+{
+    return 1;
+}
+
 void LED (int on)
 {
 }
@@ -743,13 +852,11 @@ void DX_Invalidate (int first, int last)
 {
     DEBUG_LOG ("Function: DX_Invalidate %i - %i\n", first, last);
 
-#ifndef __amigaos4__
     if (is_hwsurface)
 	/* Not necessary for hardware surfaces - except the current
 	 * SDL implementation for OS4 which has a skewed notion of
 	 * what constitutes a hardware surface. ;-) */
 	return;
-#endif
 
     if (first > last)
 	return;
@@ -843,47 +950,37 @@ int DX_Blit (int srcx, int srcy, int dstx, int dsty, int width, int height, BLIT
     return result;
 }
 
+/*
+ * Add a screenmode to the emulated P96 display database
+ */
+static void add_p96_mode (int width, int height, int emulate_chunky, int *count)
+{
+    unsigned int i;
+
+    for (i = 0; i <= (emulate_chunky ? 1 : 0); i++) {
+	if (*count < MAX_PICASSO_MODES) {
+	    DisplayModes[*count].res.width  = width;
+	    DisplayModes[*count].res.height = height;
+	    DisplayModes[*count].depth      = (i == 1) ? 1 : bit_unit >> 3;
+	    DisplayModes[*count].refresh    = 75;
+	    (*count)++;
+
+	    write_log ("SDLGFX: Added P96 mode: %dx%dx%d\n", width, height, (i == 1) ? 8 : bitdepth);
+	}
+    }
+    return;
+}
+
 int DX_FillResolutions (uae_u16 *ppixel_format)
 {
-    int i, count = 0;
-    int w = 0;
-    int h = 0;
+    int i;
+    int count = 0;
     int emulate_chunky = 0;
 
     DEBUG_LOG ("Function: DX_FillResolutions\n");
 
-    /* In the new scheme of things, this function is called *before* graphics_init.
-     * Hence, we need to find the display depth ourselves - Rich */
-    bitdepth = get_display_depth ();
-    bit_unit = (bitdepth + 1) & 0xF8;
-
-    /* Find out, which is the highest resolution the SDL can offer */
-    for (i = MAX_SCREEN_MODES-1; i>=0; i--) {
-	if ( SDL_VideoModeOK (x_size_table[i], y_size_table[i],
-						bitdepth, SDL_HWSURFACE | SDL_FULLSCREEN)) {
-	    w = x_size_table[i];
-	    h = y_size_table[i];
-	    break;
-	}
-    }
-
-    DEBUG_LOG ("Max. Picasso screen size: %d x %d\n", w, h);
-
-#ifdef WORDS_BIGENDIAN
-    picasso_vidinfo.rgbformat = (bit_unit == 8 ? RGBFB_CHUNKY
-				: bitdepth == 15 && bit_unit == 16 ? RGBFB_R5G5B5
-				: bitdepth == 16 && bit_unit == 16 ? RGBFB_R5G6B5
-				: bit_unit == 24 ? RGBFB_B8G8R8
-				: bit_unit == 32 ? RGBFB_A8R8G8B8
-				: RGBFB_NONE);
-#else
-    picasso_vidinfo.rgbformat = (bit_unit == 8 ? RGBFB_CHUNKY
-				: bitdepth == 15 && bit_unit == 16 ? RGBFB_R5G5B5PC
-				: bitdepth == 16 && bit_unit == 16 ? RGBFB_R5G6B5PC
-				: bit_unit == 24 ? RGBFB_B8G8R8
-				: bit_unit == 32 ? RGBFB_B8G8R8A8
-				: RGBFB_NONE);
-#endif
+    /* Find supported pixel formats */
+    picasso_vidinfo.rgbformat = get_p96_pixel_format (SDL_GetVideoInfo()->vfmt);
 
     *ppixel_format = 1 << picasso_vidinfo.rgbformat;
     if (bit_unit == 16 || bit_unit == 32) {
@@ -891,29 +988,32 @@ int DX_FillResolutions (uae_u16 *ppixel_format)
 	emulate_chunky = 1;
     }
 
-    for (i = 0; i < MAX_SCREEN_MODES && count < MAX_PICASSO_MODES; i++) {
-	int j;
-	for (j = 0; j <= emulate_chunky && count < MAX_PICASSO_MODES; j++) {
-	    if (x_size_table[i] <= w && y_size_table[i] <= h) {
-		if (x_size_table[i] > picasso_maxw)
-		    picasso_maxw = x_size_table[i];
-		if (y_size_table[i] > picasso_maxh)
-		    picasso_maxh = y_size_table[i];
-		DisplayModes[count].res.width = x_size_table[i];
-		DisplayModes[count].res.height = y_size_table[i];
-		DisplayModes[count].depth = j == 1 ? 1 : bit_unit >> 3;
-		DisplayModes[count].refresh = 75;
-
- 		DEBUG_LOG ("Picasso resolution %d x %d @ %d allowed\n",
-			DisplayModes[count].res.width,
-			DisplayModes[count].res.height,
-			DisplayModes[count].depth);
-
-		count++;
-	    }
+    /* Check list of standard P96 screenmodes */
+    for (i = 0; i < MAX_SCREEN_MODES; i++) {
+	if (SDL_VideoModeOK (x_size_table[i], y_size_table[i], bitdepth,
+			     SDL_HWSURFACE | SDL_FULLSCREEN)) {
+	    add_p96_mode (x_size_table[i], y_size_table[i], emulate_chunky, &count);
 	}
     }
-    DEBUG_LOG("Max. Picasso screen size: %d x %d\n", picasso_maxw, picasso_maxh);
+
+    /* Check list of supported SDL screenmodes */
+    for (i = 0; i < mode_count; i++) {
+	int j;
+	int found = 0;
+	for (j = 0; j < MAX_SCREEN_MODES - 1; j++) {
+	    if (screenmode[i].w == x_size_table[j] &&
+		screenmode[i].h == y_size_table[j])
+	    {
+		found = 1;
+		break;
+	    }
+	}
+
+	/* If SDL mode is not a standard P96 mode (and thus already added to the
+	 * list, above) then add it */
+	if (!found)
+	    add_p96_mode (screenmode[i].w, screenmode[i].h, emulate_chunky, &count);
+    }
 
     return count;
 }
@@ -1030,18 +1130,6 @@ void screenshot (int mode)
    write_log ("Screenshot not supported yet\n");
 }
 
-void framerate_up (void)
-{
-    if (currprefs.gfx_framerate < 20)
-	changed_prefs.gfx_framerate = currprefs.gfx_framerate + 1;
-}
-
-void framerate_down (void)
-{
-    if (currprefs.gfx_framerate > 1)
-	changed_prefs.gfx_framerate = currprefs.gfx_framerate - 1;
-}
-
 /*
  * Mouse inputdevice functions
  */
@@ -1065,32 +1153,33 @@ static void close_mouse (void)
    return;
 }
 
-static int acquire_mouse (int num, int flags)
+static int acquire_mouse (unsigned int num, int flags)
 {
+   /* SDL supports only one mouse */
    return 1;
 }
 
-static void unacquire_mouse (int num)
+static void unacquire_mouse (unsigned int num)
 {
    return;
 }
 
-static int get_mouse_num (void)
+static unsigned int get_mouse_num (void)
 {
     return 1;
 }
 
-static char *get_mouse_name (int mouse)
+static const char *get_mouse_name (unsigned int mouse)
 {
-    return 0;
+    return "Default mouse";
 }
 
-static int get_mouse_widget_num (int mouse)
+static unsigned int get_mouse_widget_num (unsigned int mouse)
 {
     return MAX_AXES + MAX_BUTTONS;
 }
 
-static int get_mouse_widget_first (int mouse, int type)
+static int get_mouse_widget_first (unsigned int mouse, int type)
 {
     switch (type) {
 	case IDEV_WIDGET_BUTTON:
@@ -1101,7 +1190,7 @@ static int get_mouse_widget_first (int mouse, int type)
     return -1;
 }
 
-static int get_mouse_widget_type (int mouse, int num, char *name, uae_u32 *code)
+static int get_mouse_widget_type (unsigned int mouse, unsigned int num, char *name, uae_u32 *code)
 {
     if (num >= MAX_AXES && num < MAX_AXES + MAX_BUTTONS) {
 	if (name)
@@ -1121,36 +1210,43 @@ static void read_mouse (void)
 }
 
 struct inputdevice_functions inputdevicefunc_mouse = {
-    init_mouse, close_mouse, acquire_mouse, unacquire_mouse, read_mouse,
-    get_mouse_num, get_mouse_name,
-    get_mouse_widget_num, get_mouse_widget_type,
+    init_mouse,
+    close_mouse,
+    acquire_mouse,
+    unacquire_mouse,
+    read_mouse,
+    get_mouse_num,
+    get_mouse_name,
+    get_mouse_widget_num,
+    get_mouse_widget_type,
     get_mouse_widget_first
 };
 
 /*
  * Keyboard inputdevice functions
  */
-static int get_kb_num (void)
+static unsigned int get_kb_num (void)
 {
+    /* SDL supports only one keyboard */
     return 1;
 }
 
-static char *get_kb_name (int kb)
+static const char *get_kb_name (unsigned int kb)
 {
-    return 0;
+    return "Default keyboard";
 }
 
-static int get_kb_widget_num (int kb)
+static unsigned  int get_kb_widget_num (unsigned int kb)
 {
     return 255; // fix me
 }
 
-static int get_kb_widget_first (int kb, int type)
+static int get_kb_widget_first (unsigned int kb, int type)
 {
     return 0;
 }
 
-static int get_kb_widget_type (int kb, int num, char *name, uae_u32 *code)
+static int get_kb_widget_type (unsigned int kb, unsigned int num, char *name, uae_u32 *code)
 {
     // fix me
     *code = num;
@@ -1160,9 +1256,6 @@ static int get_kb_widget_type (int kb, int num, char *name, uae_u32 *code)
 static int init_kb (void)
 {
     struct uae_input_device_kbr_default *keymap = 0;
-
-    /* We need SDL video to be initialized */
-    graphics_setup ();
 
     /* See if we support raw keys on this platform */
     if ((keymap = get_default_raw_keymap (get_sdlgfx_type ())) != 0) {
@@ -1187,20 +1280,27 @@ static void read_kb (void)
 {
 }
 
-static int acquire_kb (int num, int flags)
+static int acquire_kb (unsigned int num, int flags)
 {
     return 1;
 }
 
-static void unacquire_kb (int num)
+static void unacquire_kb (unsigned int num)
 {
 }
 
 struct inputdevice_functions inputdevicefunc_keyboard =
 {
-    init_kb, close_kb, acquire_kb, unacquire_kb,
-    read_kb, get_kb_num, get_kb_name, get_kb_widget_num,
-    get_kb_widget_type, get_kb_widget_first
+    init_kb,
+    close_kb,
+    acquire_kb,
+    unacquire_kb,
+    read_kb,
+    get_kb_num,
+    get_kb_name,
+    get_kb_widget_num,
+    get_kb_widget_type,
+    get_kb_widget_first
 };
 
 //static int capslockstate;
@@ -1238,7 +1338,13 @@ void input_get_default_mouse (struct uae_input_device *uid)
  */
 void gfx_default_options (struct uae_prefs *p)
 {
-    p->map_raw_keys = 0;
+    int type = get_sdlgfx_type ();
+
+    if (type == SDLGFX_DRIVER_AMIGAOS4 || type == SDLGFX_DRIVER_CYBERGFX ||
+	type == SDLGFX_DRIVER_BWINDOW  || type == SDLGFX_DRIVER_QUARTZ)
+        p->map_raw_keys = 1;
+    else
+        p->map_raw_keys = 0;
 }
 
 void gfx_save_options (FILE *f, struct uae_prefs *p)

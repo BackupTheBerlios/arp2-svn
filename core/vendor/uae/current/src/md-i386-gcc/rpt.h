@@ -1,31 +1,61 @@
-/*
+ /*
   * UAE - The Un*x Amiga Emulator
   *
   * Definitions for accessing cycle counters on a given machine, if possible.
   *
   * Copyright 1997, 1998 Bernd Schmidt
-  * Copyright 2003 Richard Drummond
+  * Copyright 2003-2005 Richard Drummond
   */
 
-/* RPT_SCALE_FACTOR scales down time values read from the processor. We need this
- * so that the number of ticks per second will fit in an unsigned int even on
- * fast processors (>2GHz). The rest of UAE doesn't need to know that the clock is
- * being scaled down - except where we print the BogoMIPS score in support.c.
- *
- * Don't worry about any loss of precision implied. We don't need nanosecond
- * resolution.
- */
+#ifndef EUAE_MACHDEP_RPT_H
+#define EUAE_MACHDEP_RPT_H
 
-#ifndef RPT_SCALE_FACTOR
-#define RPT_SCALE_FACTOR 16
+STATIC_INLINE uae_s64 read_processor_time (void)
+{
+    uae_s64 tsc;
+
+    /* Don't assume the assembler knows rdtsc */
+    __asm__ __volatile__ (".byte 0x0f,0x31" : "=A" (tsc) :);
+
+#ifdef __linux__
+    /* Hack to synchronize syncbase and re-compute
+     * vsynctime when TSC frequency changes */
+
+/* How many times per second tsc will be synced */
+#define TSC_SYNC_FREQUENCY 8
+    {
+	extern frame_time_t linux_get_tsc_freq (void);
+	extern void         compute_vsynctime (void);
+        extern frame_time_t syncbase;
+
+	static frame_time_t next_tsc_synctime;
+	static frame_time_t prev_syncbase;
+
+	if (tsc > next_tsc_synctime) {
+	    uae_s64 new_tsc_freq = linux_get_tsc_freq ();
+
+	    if (new_tsc_freq > 0) {
+		syncbase = new_tsc_freq;
+		next_tsc_synctime = tsc + (syncbase / TSC_SYNC_FREQUENCY);
+
+		if (syncbase != prev_syncbase) {
+		    prev_syncbase = syncbase;
+		    compute_vsynctime ();
+		}
+	    }
+	}
+    }
 #endif
 
-typedef unsigned long frame_time_t;
-
-STATIC_INLINE uae_u64 read_processor_time (void)
-{
-    uae_u64 foo;
-    /* Don't assume the assembler knows rdtsc */
-    __asm__ __volatile__ (".byte 0x0f,0x31" : "=A" (foo) :);
-    return foo / RPT_SCALE_FACTOR;
+    return tsc;
 }
+
+STATIC_INLINE frame_time_t machdep_gethrtime (void)
+{
+    return read_processor_time ();
+}
+
+frame_time_t machdep_gethrtimebase (void);
+int          machdep_inithrtimer   (void);
+
+#endif /* EUAE_MACHDEP_RPT_H */

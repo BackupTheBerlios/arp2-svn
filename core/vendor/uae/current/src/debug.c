@@ -68,7 +68,7 @@ void activate_debugger (void)
 	if (debugger_active)
 	    return;
 	debugger_active = 1;
-	set_special (SPCFLAG_BRK);
+	set_special (&regs, SPCFLAG_BRK);
 	debugging = 1;
    }
 }
@@ -418,7 +418,7 @@ static void disassemble_wait (FILE *file, unsigned long insn)
 static void decode_copper_insn (FILE* file, unsigned long insn, unsigned long addr)
 {
     uae_u32 insn_type = insn & 0x00010001;
-    int hpos, vpos;
+    unsigned int hpos, vpos;
     char record[] = "          ";
     if (find_copper_record (addr, &hpos, &vpos)) {
 	sprintf (record, " [%03x %03x]", vpos, hpos);
@@ -614,7 +614,7 @@ static void illg_debug_check (uaecptr addr, int rw, int size, uae_u32 val)
 static void illg_debug_do (uaecptr addr, int rw, int size, uae_u32 val)
 {
     uae_u8 mask;
-    uae_u32 pc = m68k_getpc ();
+    uae_u32 pc = m68k_getpc (&regs);
     char rws = rw ? 'W' : 'R';
     int i;
 
@@ -692,7 +692,7 @@ static void memwatch_func (uaecptr addr, int rw, int size, uae_u32 val)
 		mwhit.val = val;
 	    memwatch_triggered = i + 1;
 	    debugging = 1;
-	    set_special (SPCFLAG_BRK);
+	    set_special (&regs, SPCFLAG_BRK);
 	    break;
 	}
     }
@@ -1264,7 +1264,7 @@ static void debug_1 (void)
 		skipaddr_doskip = readint (&inptr);
 	    if (skipaddr_doskip <= 0 || skipaddr_doskip > 10000)
 		skipaddr_doskip = 1;
-	    set_special (SPCFLAG_BRK);
+	    set_special (&regs, SPCFLAG_BRK);
 	    exception_debugging = 1;
 	    return;
 	case 'z':
@@ -1286,8 +1286,8 @@ static void debug_1 (void)
 
 	case 'g':
 	    if (more_params (&inptr)) {
-		m68k_setpc (readhex (&inptr));
-		fill_prefetch_slow ();
+		m68k_setpc (&regs, readhex (&inptr));
+		fill_prefetch_slow (&regs);
 	    }
 	    debugger_active = 0;
 	    debugging = 0;
@@ -1425,7 +1425,7 @@ void debug (void)
 
     if (!memwatch_triggered) {
 	if (do_skip) {
-	    uae_u32 pc = munge24 (m68k_getpc());
+	    uae_u32 pc = munge24 (m68k_getpc (&regs));
 	    uae_u16 opcode = (currprefs.cpu_compatible || currprefs.cpu_cycle_exact) ? regs.ir : get_word (pc);
 	    int bp = 0;
 
@@ -1456,7 +1456,7 @@ void debug (void)
 		}
 	    }
 	    if (!bp) {
-	        set_special (SPCFLAG_BRK);
+	        set_special (&regs, SPCFLAG_BRK);
 		return;
 	    }
 	}
@@ -1468,7 +1468,7 @@ void debug (void)
     if (skipaddr_doskip > 0) {
 	skipaddr_doskip--;
 	if (skipaddr_doskip > 0) {
-	    set_special (SPCFLAG_BRK);
+	    set_special (&regs, SPCFLAG_BRK);
 	    return;
 	}
     }
@@ -1477,7 +1477,7 @@ void debug (void)
     history[lasthist] = regs;
     historyf[lasthist] = regflags;
 #else
-    history[lasthist] = m68k_getpc();
+    history[lasthist] = m68k_getpc (&regs);
 #endif
     if (++lasthist == MAX_HIST) lasthist = 0;
     if (lasthist == firsthist) {
@@ -1510,7 +1510,7 @@ void debug (void)
 	    do_skip = 1;
     }
     if (do_skip) {
-        set_special (SPCFLAG_BRK);
+        set_special (&regs, SPCFLAG_BRK);
 	debugging = 1;
     }
     resume_sound ();
@@ -1518,7 +1518,7 @@ void debug (void)
 
 int notinrom (void)
 {
-    if (munge24 (m68k_getpc()) < 0xe0000)
+    if (munge24 (m68k_getpc (&regs)) < 0xe0000)
 	return 1;
     return 0;
 }
@@ -1526,7 +1526,7 @@ int notinrom (void)
 const char *debuginfo (int mode)
 {
     static char txt[100];
-    uae_u32 pc = m68k_getpc();
+    uae_u32 pc = m68k_getpc (&regs);
     sprintf (txt, "PC=%08.8X INS=%04.4X %04.4X %04.4X",
 	pc, get_word(pc), get_word(pc+2), get_word(pc+4));
     return txt;

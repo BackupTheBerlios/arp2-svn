@@ -8,7 +8,7 @@
   *
   * Copyright 1997 Bernd Schmidt
   * Copyright 1998 Krister Walfridsson
-  * Copyright 2003-2004 Richard Drummond
+  * Copyright 2003-2005 Richard Drummond
   * Copyright 2004 Nick Seow (Alternative Linux joystick device path)
   */
 
@@ -57,7 +57,7 @@ typedef struct
 #define FIRST_AXLE   0
 #define FIRST_BUTTON 2
 
-static int nr_joysticks;
+static unsigned int nr_joysticks;
 
 static int js0, js1;
 
@@ -67,9 +67,8 @@ struct joy_range
     int centrex, centrey;
 } range0, range1;
 
-static int get_joystick_num (void);
 
-static void read_joy(int nr)
+static void read_joy (unsigned int nr)
 {
     uae_joystick_t buffer;
     int len;
@@ -168,40 +167,40 @@ static void close_joysticks(void)
 	close (js1);
 }
 
-static int acquire_joy (int num, int flags)
+static unsigned int get_joystick_num (void)
+{
+    return nr_joysticks;
+}
+
+static int acquire_joy (unsigned int num, int flags)
 {
     return 1;
 }
 
-static void unacquire_joy (int num)
+static void unacquire_joy (unsigned int num)
 {
 }
 
 static void read_joysticks (void)
 {
-    int i;
+    unsigned int i;
     for (i = 0; i < get_joystick_num(); i++)
 	read_joy (i);
 }
 
-static int get_joystick_num (void)
-{
-    return nr_joysticks;
-}
-
-static char *get_joystick_name (int joy)
+static const char *get_joystick_name (unsigned int joy)
 {
     static char name[100];
     sprintf (name, "%d: %s%d", joy + 1, js_prefix, joy);
     return name;
 }
 
-static int get_joystick_widget_num (int joy)
+static unsigned int get_joystick_widget_num (unsigned int joy)
 {
     return MAX_AXLES + MAX_BUTTONS;
 }
 
-static int get_joystick_widget_type (int joy, int num, char *name, uae_u32 *dummy)
+static int get_joystick_widget_type (unsigned int joy, unsigned int num, char *name, uae_u32 *dummy)
 {
     if (num >= MAX_AXLES && num < MAX_AXLES+MAX_BUTTONS) {
 	if (name)
@@ -215,7 +214,7 @@ static int get_joystick_widget_type (int joy, int num, char *name, uae_u32 *dumm
     return IDEV_WIDGET_NONE;
 }
 
-static int get_joystick_widget_first (int joy, int type)
+static int get_joystick_widget_first (unsigned int joy, int type)
 {
     switch (type) {
 	case IDEV_WIDGET_BUTTON:
@@ -228,9 +227,15 @@ static int get_joystick_widget_first (int joy, int type)
 }
 
 struct inputdevice_functions inputdevicefunc_joystick = {
-    init_joysticks, close_joysticks, acquire_joy, unacquire_joy,
-    read_joysticks, get_joystick_num, get_joystick_name,
-    get_joystick_widget_num, get_joystick_widget_type,
+    init_joysticks,
+    close_joysticks,
+    acquire_joy,
+    unacquire_joy,
+    read_joysticks,
+    get_joystick_num,
+    get_joystick_name,
+    get_joystick_widget_num,
+    get_joystick_widget_type,
     get_joystick_widget_first
 };
 
@@ -239,7 +244,7 @@ struct inputdevice_functions inputdevicefunc_joystick = {
  */
 void input_get_default_joystick (struct uae_input_device *uid)
 {
-    int i, port;
+    unsigned int i, port;
 
     for (i = 0; i < nr_joysticks; i++) {
         port = i & 1;

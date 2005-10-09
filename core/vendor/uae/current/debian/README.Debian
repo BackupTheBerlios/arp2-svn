@@ -4,4 +4,8 @@ E-UAE for Debian
 The is an unofficial packaging of E-UAE, an ehanced version of the
 Ubiquitous Amiga Emulator, for Debian.
 
- -- Richard Drummond <uae@rcdrummond.net>, Tue, 18 Nov 2003 15:48:00 -0500
+Currently this build of E-UAE does not support the SCSI emulation or CAPS
+floppy images (due to dependencies missing from the Debian archive). This
+will be addressed eventually.
+
+Richard Drummond <uae@rcdrummond.net>

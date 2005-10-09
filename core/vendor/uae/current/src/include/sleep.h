@@ -3,18 +3,21 @@
   *
   * Wrapper for platform-specific sleep routine
   *
-  * Copyright 2003-2004 Richard Drummond
+  * Copyright 2003-2005 Richard Drummond
   */
 
 #ifdef __BEOS__
 # include <be/kernel/OS.h>
 #else
-# ifdef AMIGA
+# ifdef TARGET_AMIGAOS
 #  include <proto/dos.h>
 #  include <clib/alib_protos.h>
+# else
+#  ifdef USE_SDL
+#   include <SDL_timer.h>
+#  endif
 # endif
 #endif
-
 
 #define ONE_THOUSAND	1000
 #define ONE_MILLION	(1000 * 1000)
@@ -40,11 +43,11 @@
 #ifdef __BEOS__
 # define uae_msleep(msecs) snooze (msecs * ONE_THOUSAND)
 #else
-# if defined _WIN32
+# if 0 //defined _WIN32
 #  define uae_msleep(msecs) Sleep (msecs)
 # else
-#  if defined AMIGA
-#   if defined __amigaos4__ || defined __MORPHOS__
+#  if defined TARGET_AMIGAOS
+#   if defined __amigaos4__ || defined __MORPHOS__ 
 #    define uae_msleep(msecs) TimeDelay (0, msecs / ONE_THOUSAND, (msecs % ONE_THOUSAND) * ONE_THOUSAND)
 #   else
 #    define uae_msleep(msecs) Delay (msecs <= 20 ? 1 : msecs/20);

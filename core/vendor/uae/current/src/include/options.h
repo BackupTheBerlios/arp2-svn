@@ -10,7 +10,7 @@
 
 #define UAEMAJOR 0
 #define UAEMINOR 8
-#define UAESUBREV 27
+#define UAESUBREV 28
 
 typedef enum { KBD_LANG_US, KBD_LANG_DK, KBD_LANG_DE, KBD_LANG_SE, KBD_LANG_FR, KBD_LANG_IT, KBD_LANG_ES } KbdLang;
 
@@ -34,11 +34,12 @@ struct strlist {
 #define MAX_INPUT_SIMULTANEOUS_KEYS 4
 
 struct uae_input_device {
-    char *name;
-    uae_s16 eventid[MAX_INPUT_DEVICE_EVENTS][MAX_INPUT_SUB_EVENT];
-    uae_u16 flags[MAX_INPUT_DEVICE_EVENTS][MAX_INPUT_SUB_EVENT];
-    uae_s16 extra[MAX_INPUT_DEVICE_EVENTS][MAX_INPUT_SIMULTANEOUS_KEYS];
-    uae_u8 enabled;
+    char    *name;
+    uae_s16  eventid[MAX_INPUT_DEVICE_EVENTS][MAX_INPUT_SUB_EVENT];
+    char    *custom [MAX_INPUT_DEVICE_EVENTS][MAX_INPUT_SUB_EVENT];   
+    uae_u16  flags  [MAX_INPUT_DEVICE_EVENTS][MAX_INPUT_SUB_EVENT];
+    uae_s16  extra  [MAX_INPUT_DEVICE_EVENTS][MAX_INPUT_SIMULTANEOUS_KEYS];
+    uae_u8   enabled;
 };
 
 #define MAX_SPARE_DRIVES 20
@@ -99,9 +100,6 @@ struct uae_prefs {
     int optcount[10];
 
     int avoid_cmov;
-    int avoid_dga;
-    int avoid_vid;
-    uae_u32 override_dga_address;
 
     int gfx_display;
     int gfx_framerate;
@@ -136,7 +134,6 @@ struct uae_prefs {
     int leds_on_screen;
     int keyboard_leds[3];
     int keyboard_leds_in_use;
-    int fast_copper;
     int scsi;
     int catweasel_io;
     int cpu_idle;
@@ -169,6 +166,10 @@ struct uae_prefs {
     int cpu_level;
     int cpu_compatible;
     int address_space_24;
+
+#ifdef HAVE_MACHDEP_TIMER
+    int use_processor_clock;
+#endif
 
     uae_u32 z3fastmem_size;
     uae_u32 fastmem_size;
@@ -225,7 +226,7 @@ struct uae_prefs {
     int curses_reverse_video;
 #endif
 
-#ifdef USE_SDL_GFX
+#if defined USE_SDL_GFX || defined USE_X11_GFX
     int map_raw_keys;
 #endif
 
@@ -271,11 +272,15 @@ extern int cfgfile_strval (char *option, char *value, char *name, int *location,
 extern int cfgfile_string (char *option, char *value, char *name, char *location, int maxsz);
 extern char *cfgfile_subst_path (const char *path, const char *subst, const char *file);
 
-extern int target_parse_option (struct uae_prefs *, char *option, char *value);
+extern int  machdep_parse_option (struct uae_prefs *, char *option, char *value);
+extern void machdep_save_options (FILE *, struct uae_prefs *);
+extern void machdep_default_options (struct uae_prefs *);
+
+extern int  target_parse_option (struct uae_prefs *, char *option, char *value);
 extern void target_save_options (FILE *, struct uae_prefs *);
 extern void target_default_options (struct uae_prefs *);
 
-extern int gfx_parse_option (struct uae_prefs *, char *option, char *value);
+extern int  gfx_parse_option (struct uae_prefs *, char *option, char *value);
 extern void gfx_save_options (FILE *, struct uae_prefs *);
 extern void gfx_default_options (struct uae_prefs *);
 
@@ -294,25 +299,6 @@ extern void check_prefs_changed_custom (void);
 extern void check_prefs_changed_cpu (void);
 extern void check_prefs_changed_audio (void);
 extern int check_prefs_changed_gfx (void);
-
-#define JPORT_JOY0    0
-#define JPORT_JOY1    1
-#define JPORT_MOUSE   2
-#define JPORT_KBD1    3
-#define JPORT_KBD2    4
-#define JPORT_KBD3    5
-
-#define JSEM_DECODEVAL(n,v) ((n) == 0 ? (v)->jport0 : (v)->jport1)
-
-/* Determine how port n is configured */
-#define JSEM_ISJOY0(n,v)	  (JSEM_DECODEVAL(n,v) == JPORT_JOY0)
-#define JSEM_ISJOY1(n,v)	  (JSEM_DECODEVAL(n,v) == JPORT_JOY1)
-#define JSEM_ISMOUSE(n,v)	  (JSEM_DECODEVAL(n,v) == JPORT_MOUSE)
-#define JSEM_ISNUMPAD(n,v)	  (JSEM_DECODEVAL(n,v) == JPORT_KBD1)
-#define JSEM_ISCURSOR(n,v)	  (JSEM_DECODEVAL(n,v) == JPORT_KBD2)
-#define JSEM_ISSOMEWHEREELSE(n,v) (JSEM_DECODEVAL(n,v) == JPORT_KBD3)
-
-extern const char *gameport_state (int n);
 
 extern struct uae_prefs currprefs, changed_prefs;
 
@@ -403,6 +389,6 @@ STATIC_INLINE void fuzzy_memset_le32_1 (void *p, uae_u32 c, int offset, int len)
     }
 }
 
-#if defined(AMIGA) && defined(__GNUC__)
+#if defined TARGET_AMIGAOS && defined(__GNUC__)
 #include "od-amiga/amiga-kludges.h"
 #endif

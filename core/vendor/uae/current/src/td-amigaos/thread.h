@@ -1,17 +1,17 @@
  /*
-  * UAE - The Un*x Amiga Emulator
+  * E-UAE - The portable Amiga Emulator
   *
-  * Thread support using AmigaOS processes
+  * Thread and semaphore support using AmigaOS processes
   *
-  * Copyright 2003-2004 Richard Drummond
+  * Copyright 2003-2005 Richard Drummond
   */
 
-/*
- * Simple emulation of POSIX sempahores use exec semaphores.
- * amd message passing.
- */
 #include <exec/semaphores.h>
 #include <exec/lists.h>
+
+/*
+ * Emulation of POSIX sempahores.
+ */
 
 struct PSemaphore {
    struct SignalSemaphore mutex;
@@ -43,9 +43,9 @@ int uae_sem_get_value (uae_sem_t *sem);
 typedef struct Task *uae_thread_id;
 #define BAD_THREAD NULL
 
-#define uae_set_thread_priority(pri)
-
 extern int uae_start_thread (void *(*f) (void *), void *arg, uae_thread_id *foo);
+
+extern void uae_set_thread_priority (int pri);
 
 /* Do nothing; thread exits if thread function returns.  */
 #define UAE_THREAD_EXIT do {} while (0)

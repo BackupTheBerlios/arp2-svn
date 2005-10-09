@@ -422,7 +422,8 @@ static int cd_play_audio (uae_u32 startmsf, uae_u32 endmsf, int scan)
 static uae_u32 last_play_pos;
 static int cd_qcode (uae_u8 *d)
 {
-    uae_u8 *buf, *s, as;
+    const uae_u8 *buf, *s;
+    uae_u8 as;
 
     if (d)
         memset (d, 0, 11);
@@ -474,7 +475,8 @@ static int cdrom_toc (void)
 {
     int i, j;
     int datatrack = 0, secondtrack = 0;
-    uae_u8 *s, *d, *buf;
+    uae_u8 *d;
+    const uae_u8 *buf, *s;
 
     cdrom_toc_counter = -1;
     cdrom_toc_entries = 0;
@@ -530,7 +532,7 @@ static int sys_cddev_open (void)
 		    first = unitnum;
 		if (!cdrom_toc ()) {
 		    if (cdrom_data_end > 0) {
-		        uae_u8 *p = sys_command_read (DF_IOCTL, unitnum, 16);
+		        const uae_u8 *p = sys_command_read (DF_IOCTL, unitnum, 16);
 			if (p) {
 			    if (!memcmp (p + 8, "CDTV", 4) || !memcmp (p + 8, "CD32", 4)) {
 				write_log ("CD32 or CDTV\n");
@@ -834,6 +836,8 @@ static void cdrom_run_command_run (void)
 
 extern void encode_l2 (uae_u8 *p, int address);
 
+static uae_sem_t akiko_sem;
+
 /* DMA transfer one CD sector */
 static void cdrom_run_read (void)
 {
@@ -850,6 +854,7 @@ static void cdrom_run_read (void)
 	return;
     j = cdrom_sector_counter & 15;
     if (unitnum >= 0 && cdrom_readmask_w & (1 << j)) {
+	uae_sem_wait (&akiko_sem);
         sector = cdrom_current_sector = cdrom_data_offset + cdrom_sector_counter;
         sec = sector - sector_buffer_sector_1;
         if (sector_buffer_sector_1 >= 0 && sec >= 0 && sec < SECTOR_BUFFER_SIZE) {
@@ -866,8 +871,12 @@ static void cdrom_run_read (void)
 	    }
 	    if (sector_buffer_info_1[sec] != 0xff)
 		sector_buffer_info_1[sec]--;
-	} else
+	} else {
+	    uae_sem_post (&akiko_sem);
 	    return;
+	}
+        uae_sem_post (&akiko_sem);
+
 #if AKIKO_DEBUG_IO_CMD
         write_log("read sector=%d, scnt=%d -> %d\n", cdrom_data_offset, cdrom_sector_counter, sector);
 #endif
@@ -878,7 +887,7 @@ static void cdrom_run_read (void)
 	cdrom_status1 |= CDSTATUS_DATASECTOR;
 }
 
-static uae_sem_t akiko_sem;
+
 
 static void akiko_handler (void)
 {
@@ -956,17 +965,20 @@ static void *akiko_thread (void *null)
     uae_u8 *tmp1;
     uae_u8 *tmp2;
     int tmp3;
-    uae_u8 *p;
     int offset;
     int sector;
 
+    sys_command_open_thread (DF_IOCTL, unitnum);
     while(akiko_thread_running) {
-        uae_sem_wait (&akiko_sem);
+	uae_sem_wait (&akiko_sem);
 	sector = cdrom_current_sector;
 	for (i = 0; i < SECTOR_BUFFER_SIZE; i++) {
 	    if (sector_buffer_info_1[i] == 0xff) break;
 	}
 	if (cdrom_data_end > 0 && sector >= 0 && (sector_buffer_sector_1 < 0 || sector < sector_buffer_sector_1 || sector >= sector_buffer_sector_1 + SECTOR_BUFFER_SIZE * 2 / 3 || i != SECTOR_BUFFER_SIZE)) {
+
+	    uae_sem_post (&akiko_sem);
+
 	    memset (sector_buffer_info_2, 0, SECTOR_BUFFER_SIZE);
 #if AKIKO_DEBUG_IO_CMD
 	    write_log("filling buffer sector=%d (max=%d)\n", sector, cdrom_data_end);
@@ -974,7 +986,7 @@ static void *akiko_thread (void *null)
 	    sector_buffer_sector_2 = sector;
 	    offset = 0;
 	    while (offset < SECTOR_BUFFER_SIZE) {
-		p = 0;
+		const uae_u8 *p = 0;
 		if (sector < cdrom_data_end)
 		    p = sys_command_read (DF_IOCTL, unitnum, sector);
 		if (p)
@@ -983,6 +995,9 @@ static void *akiko_thread (void *null)
 		offset++;
 		sector++;
 	    }
+
+	    uae_sem_wait (&akiko_sem);
+
 	    tmp1 = sector_buffer_info_1;
 	    sector_buffer_info_1 = sector_buffer_info_2;
 	    sector_buffer_info_2 = tmp1;
@@ -996,26 +1011,28 @@ static void *akiko_thread (void *null)
 	uae_sem_post (&akiko_sem);
 	uae_msleep (10);
     }
+    sys_command_close_thread (DF_IOCTL, unitnum);
     akiko_thread_running = -1;
     return 0;
 }
 
-static uae_u8 akiko_get_long (uae_u32 v, int offset)
+STATIC_INLINE uae_u8 akiko_get_long (uae_u32 v, int offset)
 {
     return v >> ((3 - offset) * 8);
 }
-static void akiko_put_long (uae_u32 *p, int offset, int v)
+
+STATIC_INLINE void akiko_put_long (uae_u32 *p, int offset, int v)
 {
     *p &= ~(0xff << ((3 - offset) * 8));
     *p |= v << ((3 - offset) * 8);
 }
 
-static uae_u32 akiko_bget2 (uaecptr addr, int msg)
+STATIC_INLINE uae_u32 akiko_bget2 (uaecptr addr, int msg)
 {
     uae_u8 v;
 
     addr &= 0xffff;
-    uae_sem_wait (&akiko_sem);
+
     switch (addr)
     {
 	/* "CAFE" = Akiko identification.
@@ -1097,9 +1114,10 @@ static uae_u32 akiko_bget2 (uaecptr addr, int msg)
 	break;
     }
     akiko_internal ();
-    uae_sem_post (&akiko_sem);
+
     if (msg && addr < 0x30 && AKIKO_DEBUG_IO)
 	write_log ("akiko_bget %08.8X: %08.8X %02.2X\n", m68k_getpc(), addr, v & 0xff);
+
     return v;
 }
 
@@ -1111,11 +1129,14 @@ uae_u32 REGPARAM2 akiko_bget (uaecptr addr)
 uae_u32 REGPARAM2 akiko_wget (uaecptr addr)
 {
     uae_u16 v;
+
     addr &= 0xffff;
     v = akiko_bget2 (addr + 1, 0);
     v |= akiko_bget2 (addr + 0, 0) << 8;
+
     if (addr < 0x30 && AKIKO_DEBUG_IO)
 	write_log ("akiko_wget %08.8X: %08.8X %04.4X\n", m68k_getpc(), addr, v & 0xffff);
+
     return v;
 }
 
@@ -1128,12 +1149,14 @@ uae_u32 REGPARAM2 akiko_lget (uaecptr addr)
     v |= akiko_bget2 (addr + 2, 0) << 8;
     v |= akiko_bget2 (addr + 1, 0) << 16;
     v |= akiko_bget2 (addr + 0, 0) << 24;
+
     if (addr < 0x30 && (addr != 4 && addr != 8) && AKIKO_DEBUG_IO)
         write_log ("akiko_lget %08.8X: %08.8X %08.8X\n", m68k_getpc(), addr, v);
+
     return v;
 }
 
-static void REGPARAM2 akiko_bput2 (uaecptr addr, uae_u32 v, int msg)
+STATIC_INLINE void REGPARAM2 akiko_bput2 (uaecptr addr, uae_u32 v, int msg)
 {
     uae_u32 tmp;
 
@@ -1141,7 +1164,7 @@ static void REGPARAM2 akiko_bput2 (uaecptr addr, uae_u32 v, int msg)
     v &= 0xff;
     if(msg && addr < 0x30 && AKIKO_DEBUG_IO)
         write_log ("akiko_bput %08.8X: %08.8X=%02.2X\n", m68k_getpc(), addr, v & 0xff);
-    uae_sem_wait (&akiko_sem);
+
     switch (addr)
     {
 	case 0x04:
@@ -1222,7 +1245,6 @@ static void REGPARAM2 akiko_bput2 (uaecptr addr, uae_u32 v, int msg)
 	break;
     }
     akiko_internal ();
-    uae_sem_post (&akiko_sem);
 }
 
 void REGPARAM2 akiko_bput (uaecptr addr, uae_u32 v)
@@ -1233,6 +1255,7 @@ void REGPARAM2 akiko_bput (uaecptr addr, uae_u32 v)
 void REGPARAM2 akiko_wput (uaecptr addr, uae_u32 v)
 {
     addr &= 0xfff;
+
     if((addr < 0x30 && AKIKO_DEBUG_IO))
 	write_log("akiko_wput %08.8X: %08.8X=%04.4X\n", m68k_getpc(), addr, v & 0xffff);
     akiko_bput2 (addr + 1, v & 0xff, 0);
@@ -1242,6 +1265,7 @@ void REGPARAM2 akiko_wput (uaecptr addr, uae_u32 v)
 void REGPARAM2 akiko_lput (uaecptr addr, uae_u32 v)
 {
     addr &= 0xffff;
+
     if(addr < 0x30 && AKIKO_DEBUG_IO)
         write_log("akiko_lput %08.8X: %08.8X=%08.8X\n", m68k_getpc(), addr, v);
     akiko_bput2 (addr + 3, (v >> 0) & 0xff, 0);
@@ -1251,6 +1275,9 @@ void REGPARAM2 akiko_lput (uaecptr addr, uae_u32 v)
 }
 
 static uae_thread_id akiko_tid;
+
+
+static int cdromok = 0;
 
 void akiko_reset (void)
 {
@@ -1269,46 +1296,56 @@ void akiko_reset (void)
 	    uae_msleep (10);
 	akiko_thread_running = 0;
     }
+
+    if (cdromok) {
+	if (unitnum >= 0)
+	    sys_cddev_close ();
+	unitnum = -1;
+	free (sector_buffer_1);
+	free (sector_buffer_2);
+	free (sector_buffer_info_1);
+	free (sector_buffer_info_2);
+	sector_buffer_1 = 0;
+	sector_buffer_2 = 0;
+	sector_buffer_info_1 = 0;
+	sector_buffer_info_2 = 0;
+	cdromok = 0;
+    }
 }
 
-extern uae_u32 extendedkickmemory;
+extern uae_u8 *extendedkickmemory;
 
-static uae_u8 patchdata[]={0x0c,0x82,0x00,0x00,0x03,0xe8,0x64,0x00,0x00,0x46};
+static const uae_u8 patchdata[]={0x0c,0x82,0x00,0x00,0x03,0xe8,0x64,0x00,0x00,0x46};
 
 static void patchrom (void)
 {
+    static int patch_done = 0;
     unsigned int i;
-    uae_u8 *p = (uae_u8*)extendedkickmemory;
-    for (i = 0; i < 524288 - sizeof (patchdata); i++) {
-	if (!memcmp (p + i, patchdata, sizeof(patchdata))) {
-	    p[i + 6] = 0x4e;
-	    p[i + 7] = 0x71;
-	    p[i + 8] = 0x4e;
-	    p[i + 9] = 0x71;
-	    write_log ("extended rom delay loop patched at 0x%p\n", i + 6 + 0xe00000);
-	    return;
-	}
-    }
-    write_log ("couldn't patch extended rom\n");
-}
 
-static int cdromok = 0;
+    if (!patch_done) {
+	uae_u8 *p;
+
+	patch_done = 1;
+
+	p = (uae_u8*)extendedkickmemory;
+
+	for (i = 0; i < 524288 - sizeof (patchdata); i++) {
+	    if (!memcmp (p + i, patchdata, sizeof(patchdata))) {
+		p[i + 6] = 0x4e;
+		p[i + 7] = 0x71;
+		p[i + 8] = 0x4e;
+		p[i + 9] = 0x71;
+		write_log ("Extended ROM delay loop patched at 0x%p\n", i + 6 + 0xe00000);
+		return;
+	    }
+	}
+	write_log ("Couldn't patch extended ROM\n");
+    }
+}
 
 void akiko_free (void)
 {
     akiko_reset ();
-    if (unitnum >= 0)
-	sys_cddev_close ();
-    unitnum = -1;
-    free (sector_buffer_1);
-    free (sector_buffer_2);
-    free (sector_buffer_info_1);
-    free (sector_buffer_info_2);
-    sector_buffer_1 = 0;
-    sector_buffer_2 = 0;
-    sector_buffer_info_1 = 0;
-    sector_buffer_info_2 = 0;
-    cdromok = 0;
 }
 
 int akiko_init (void)

@@ -44,7 +44,9 @@
 #include "gui.h"
 #include "picasso96.h"
 #include "drawing.h"
-#include "compemu.h"
+#ifdef JIT
+# include "compemu.h"
+#endif
 #include "savestate.h"
 
 int lores_factor, lores_shift;
@@ -121,10 +123,10 @@ union sps_union spixstate;
 
 static uae_u32 ham_linebuf[MAX_PIXELS_PER_LINE * 2];
 
-char *xlinebuffer;
+uae_u8 *xlinebuffer;
 
 static int *amiga2aspect_line_map, *native2amiga_line_map;
-static char *row_map[MAX_VIDHEIGHT];
+static uae_u8 *row_map[MAX_VIDHEIGHT + 1];
 static int max_drawn_amiga_line;
 
 /* line_draw_funcs: pfield_do_linetoscr, pfield_do_fill_line, decode_ham */
@@ -451,7 +453,7 @@ static void pfield_init_linetoscr (void)
 
 #undef TYPE
 
-static void fill_line_8 (char *buf, int start, int stop)
+static void fill_line_8 (uae_u8 *buf, int start, int stop)
 {
     uae_u8 *b = (uae_u8 *)buf;
     int i;
@@ -459,7 +461,7 @@ static void fill_line_8 (char *buf, int start, int stop)
     for (i = start; i < stop; i++)
 	b[i] = (uae_u8)col;
 }
-static void fill_line_16 (char *buf, int start, int stop)
+static void fill_line_16 (uae_u8 *buf, int start, int stop)
 {
     uae_u16 *b = (uae_u16 *)buf;
     int i;
@@ -467,7 +469,7 @@ static void fill_line_16 (char *buf, int start, int stop)
     for (i = start; i < stop; i++)
 	b[i] = (uae_u16)col;
 }
-static void fill_line_32 (char *buf, int start, int stop)
+static void fill_line_32 (uae_u8 *buf, int start, int stop)
 {
     uae_u32 *b = (uae_u32 *)buf;
     int i;
@@ -587,9 +589,10 @@ static void pfield_do_fill_line (int start, int stop)
     }
 }
 
+#if 0
 static void pfield_do_linetoscr_full (int double_line)
 {
-    char *oldxlb = (char *)xlinebuffer;
+    uae_u8 *oldxlb = xlinebuffer;
     int old_src_pixel = src_pixel;
 
     pfield_do_linetoscr (playfield_start, playfield_end);
@@ -597,6 +600,7 @@ static void pfield_do_linetoscr_full (int double_line)
     src_pixel = old_src_pixel;
     pfield_do_linetoscr (playfield_start, playfield_end);
 }
+#endif
 
 static void dummy_worker (int start, int stop)
 {
@@ -1015,8 +1019,10 @@ STATIC_INLINE void pfield_doline_1 (uae_u32 *pixels, int wordcount, int planes)
 
 	b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0, b7 = 0;
 	switch (planes) {
+#ifdef AGA
 	case 8: b0 = GETLONG ((uae_u32 *)real_bplpt[7]); real_bplpt[7] += 4;
 	case 7: b1 = GETLONG ((uae_u32 *)real_bplpt[6]); real_bplpt[6] += 4;
+#endif
 	case 6: b2 = GETLONG ((uae_u32 *)real_bplpt[5]); real_bplpt[5] += 4;
 	case 5: b3 = GETLONG ((uae_u32 *)real_bplpt[4]); real_bplpt[4] += 4;
 	case 4: b4 = GETLONG ((uae_u32 *)real_bplpt[3]); real_bplpt[3] += 4;
@@ -1111,13 +1117,14 @@ static void pfield_doline (int lineno)
 
 void init_row_map (void)
 {
-    int i;
+    int i, j;
     if (gfxvidinfo.height > MAX_VIDHEIGHT) {
 	write_log ("Resolution too high, aborting\n");
 	abort ();
     }
-    for (i = 0; i < gfxvidinfo.height + 1; i++)
-	row_map[i] = gfxvidinfo.bufmem + gfxvidinfo.rowbytes * i;
+    j = 0;
+    for (i = 0; i < gfxvidinfo.height + 1; i++, j += gfxvidinfo.rowbytes)
+	row_map[i] = gfxvidinfo.bufmem + j;
 }
 
 static void init_aspect_maps (void)
@@ -1276,19 +1283,20 @@ STATIC_INLINE void do_color_changes (line_draw_func worker_border, line_draw_fun
 {
     int i;
     int lastpos = visible_left_border;
+    int endpos = visible_left_border + gfxvidinfo.width;
 
     for (i = dip_for_drawing->first_color_change; i <= dip_for_drawing->last_color_change; i++) {
 	int regno = curr_color_changes[i].regno;
 	unsigned int value = curr_color_changes[i].value;
 	int nextpos, nextpos_in_range;
 	if (i == dip_for_drawing->last_color_change)
-	    nextpos = max_diwlastword;
+	    nextpos = endpos;
 	else
 	    nextpos = coord_hw_to_window_x (curr_color_changes[i].linepos * 2);
 
 	nextpos_in_range = nextpos;
-	if (nextpos > visible_right_border)
-	    nextpos_in_range = visible_right_border;
+	if (nextpos > endpos)
+	    nextpos_in_range = endpos;
 
 	if (nextpos_in_range > lastpos) {
 	    if (lastpos < playfield_start) {
@@ -1317,7 +1325,7 @@ STATIC_INLINE void do_color_changes (line_draw_func worker_border, line_draw_fun
 		colors_for_drawing.acolors[regno] = getxcolor (value);
 	    }
 	}
-	if (lastpos >= visible_right_border)
+	if (lastpos >= endpos)
 	    break;
     }
 }
@@ -1353,7 +1361,7 @@ static void pfield_expand_dp_bplcon (void)
 
     brdsprt = (currprefs.chipset_mask & CSMASK_AGA) && (dp_for_drawing->bplcon0 & 1) && (dp_for_drawing->bplcon3 & 0x02);
     /* FIXME: we must update top and bottom borders when BRDBLANK changes */
-    brdblank = (currprefs.chipset_mask & CSMASK_AGA) && (dp_for_drawing->bplcon0 & 1) && (dp_for_drawing->bplcon3 & 0x20);
+    brdblank = (currprefs.chipset_mask & CSMASK_ECS_DENISE) && (dp_for_drawing->bplcon0 & 1) && (dp_for_drawing->bplcon3 & 0x20);
     if (brdblank)
 	brdsprt = 0;
 #endif
@@ -1450,6 +1458,8 @@ STATIC_INLINE void pfield_draw_line (int lineno, int gfx_ypos, int follow_ypos)
 	    }
 	    bplham = dp_for_drawing->ham_at_start;
 	}
+        if (plf2pri > 5 && bplplanecnt == 5 && !(currprefs.chipset_mask & CSMASK_AGA))
+	    weird_bitplane_fix ();
 
 	{
 	    if (dip_for_drawing->nr_sprites) {
@@ -1467,8 +1477,6 @@ STATIC_INLINE void pfield_draw_line (int lineno, int gfx_ypos, int follow_ypos)
 			draw_sprites_ecs (curr_sprite_entries + dip_for_drawing->first_sprite_entry + i);
 		}
 	    }
- 	    if (plf2pri > 5 && bplplanecnt > 4 && !(currprefs.chipset_mask & CSMASK_AGA))
- 		weird_bitplane_fix ();
 	}
 
 	do_color_changes (pfield_do_fill_line, pfield_do_linetoscr);
@@ -1491,10 +1499,7 @@ STATIC_INLINE void pfield_draw_line (int lineno, int gfx_ypos, int follow_ypos)
 	if (dip_for_drawing->nr_color_changes == 0) {
 	    fill_line ();
 	    do_flush_line (gfx_ypos);
-#if 0
-	    if (dh == dh_emerg)
-		abort ();
-#endif
+
 	    if (do_double) {
 		if (dh == dh_buf) {
 		    xlinebuffer = row_map[follow_ypos] - linetoscr_x_adjust_bytes;
@@ -1540,12 +1545,14 @@ static void center_image (void)
     int prev_y_adjust = thisframe_y_adjust;
 
     if (currprefs.gfx_xcenter) {
+        int w = gfxvidinfo.width;
 
-	if (max_diwstop - min_diwstart < gfxvidinfo.width && currprefs.gfx_xcenter == 2)
+	if (max_diwstop - min_diwstart < w && currprefs.gfx_xcenter == 2)
 	    /* Try to center. */
-	    visible_left_border = ((max_diwstop - min_diwstart - gfxvidinfo.width) / 2 + min_diwstart) & ~1;
+	    visible_left_border = (max_diwstop - min_diwstart - w) / 2 + min_diwstart;
 	else
-	    visible_left_border = max_diwstop - gfxvidinfo.width -  ((max_diwstop - min_diwstart) - gfxvidinfo.width) / 2;
+	    visible_left_border = max_diwstop - w - (max_diwstop - min_diwstart - w) / 2;
+	visible_left_border &= ~1;
 
 	/* Would the old value be good enough? If so, leave it as it is if we want to
 	 * be clever. */
@@ -1719,7 +1726,7 @@ STATIC_INLINE void putpixel (int x, xcolnr c8)
 static void write_tdnumber (int x, int y, int num)
 {
     int j;
-    uae_u8 *numptr;
+    char *numptr;
 
     numptr = numbers + num * TD_NUM_WIDTH + NUMBERS_NUM * TD_NUM_WIDTH * y;
     for (j = 0; j < TD_NUM_WIDTH; j++) {
@@ -1750,17 +1757,20 @@ static void draw_status_line (int line)
     for (led = 0; led < NUM_LEDS; led++) {
 	int side, pos, num1 = -1, num2 = -1, num3 = -1, num4 = -1, x, off_rgb, on_rgb, c, on = 0;
 	if (led >= 1 && led <= 4) {
-	    int track = gui_data.drive_track[led-1];
-	    pos = 5 + (led - 1);
-	    if (!gui_data.drive_disabled[led - 1]) {
+	    int pled = led - 1;
+	    int track = gui_data.drive_track[pled];
+	    pos = 5 + pled;
+	    on_rgb = 0x0c0;
+	    off_rgb = 0x030;
+	    if (!gui_data.drive_disabled[pled]) {
 		num1 = -1;
 		num2 = track / 10;
 		num3 = track % 10;
-	        on = gui_data.drive_motor[led-1];
+	        on = gui_data.drive_motor[pled];
+	        if (gui_data.drive_writing[pled])
+		    on_rgb = 0xc00;
 	    }
 	    side = gui_data.drive_side;
-	    on_rgb = 0x0c0;
-	    off_rgb = 0x030;
 	} else if (led == 0) {
 	    pos = 2;
 	    on = gui_data.powerled;
@@ -1777,7 +1787,7 @@ static void draw_status_line (int line)
 	} else if (led == 6) {
 	    pos = 3;
 	    on = gui_data.hd;
-	    on_rgb = 0x00c;
+	    on_rgb = on == 2 ? 0xc00 : 0x00c;
 	    off_rgb = 0x003;
 	    num1 = -1;
 	    num2 = 11;
@@ -1929,14 +1939,8 @@ void vsync_handle_redraw (int long_frame, int lof_changed)
 	last_redraw_point = 0;
 	interlace_seen = 0;
 
-	if (framecnt == 0) {
+	if (framecnt == 0)
 	    finish_drawing_frame ();
-#ifdef AVIOUTPUT
-	    frame_drawn ();
-	} else if (picasso_on) {
-	    frame_drawn ();
-#endif
-	}
 
 	/* At this point, we have finished both the hardware and the
 	 * drawing frame. Essentially, we are outside of all loops and
@@ -1957,7 +1961,7 @@ void vsync_handle_redraw (int long_frame, int lof_changed)
 	if (quit_program < 0) {
 	    quit_program = -quit_program;
 	    set_inhibit_frame (IHF_QUIT_PROGRAM);
-	    set_special (SPCFLAG_BRK);
+	    set_special (&regs, SPCFLAG_BRK);
 #ifdef FILESYS
 	    filesys_prepare_reset ();
 #endif
@@ -1977,7 +1981,9 @@ void vsync_handle_redraw (int long_frame, int lof_changed)
 	}
 
 	check_prefs_changed_audio ();
+#ifdef JIT
 	check_prefs_changed_comp ();
+#endif
 	check_prefs_changed_custom ();
 	check_prefs_changed_cpu ();
 
@@ -1992,6 +1998,9 @@ void vsync_handle_redraw (int long_frame, int lof_changed)
     }
     gui_hd_led (0);
     gui_cd_led (0);
+#ifdef AVIOUTPUT
+    frame_drawn ();
+#endif
 }
 
 void hsync_record_line_state (int lineno, enum nln_how how, int changed)
@@ -2032,6 +2041,41 @@ void hsync_record_line_state (int lineno, enum nln_how how, int changed)
     }
 }
 
+static void dummy_flush_line (struct vidbuf_description *gfxinfo, int line_no)
+{
+}
+
+static void dummy_flush_block (struct vidbuf_description *gfxinfo, int first_line, int last_line)
+{
+}
+
+static void dummy_flush_screen (struct vidbuf_description *gfxinfo, int first_line, int last_line)
+{
+}
+
+static void dummy_flush_clear_screen (struct vidbuf_description *gfxinfo)
+{
+}
+
+static int  dummy_lock (struct vidbuf_description *gfxinfo)
+{
+    return 1;
+}
+
+static void dummy_unlock (struct vidbuf_description *gfxinfo)
+{
+}
+
+static void gfxbuffer_reset (void)
+{
+    gfxvidinfo.flush_line         = dummy_flush_line;
+    gfxvidinfo.flush_block        = dummy_flush_block;
+    gfxvidinfo.flush_screen       = dummy_flush_screen;
+    gfxvidinfo.flush_clear_screen = dummy_flush_clear_screen;
+    gfxvidinfo.lockscr            = dummy_lock;
+    gfxvidinfo.unlockscr          = dummy_unlock;
+}
+
 void notice_interlace_seen (void)
 {
     interlace_seen = 1;
@@ -2054,7 +2098,7 @@ void reset_drawing (void)
 
     last_redraw_point = 0;
 
-    memset (spixels, 0, 2 * MAX_SPR_PIXELS * sizeof *spixels);
+    memset (spixels, 0, sizeof spixels);
     memset (&spixstate, 0, sizeof spixstate);
 
     init_drawing_frame ();
@@ -2065,9 +2109,13 @@ void reset_drawing (void)
 
 void drawing_init (void)
 {
+    /* hack alert! */
+    static int int_called_once = 0;
+
     gen_pfield_tables();
 
     uae_sem_init (&gui_sem, 0, 1);
+
 #ifdef PICASSO96
     InitPicasso96 ();
     picasso_on = 0;
@@ -2077,6 +2125,8 @@ void drawing_init (void)
     xlinebuffer = gfxvidinfo.bufmem;
     inhibit_frame = 0;
 
+    if (!int_called_once++)
+        gfxbuffer_reset ();
+
     reset_drawing ();
 }
-

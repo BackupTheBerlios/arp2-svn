@@ -5,7 +5,7 @@
 //
 //  BeOS port specific stuff
 //
-//  (c) 2000-2001 Axel Dörfler
+//  (c) 2000-2001 Axel Doerfler
 //  (c) 1999 Be/R4 Sound - Raphael Moll
 //  (c) 1998-1999 David Sowsy
 //  (c) 1996-1998 Christian Bauer
@@ -15,15 +15,9 @@
 
 #include <AppKit.h>
 #include <InterfaceKit.h>
-#include <KernelKit.h>
-#include <MediaKit.h>
-#include <MediaRoster.h> 
-#include <SoundPlayer.h> 
-#include <StopWatch.h> 
-#include <FilePanel.h> 
 #include <StorageKit.h>
-#include <GraphicsDefs.h>
-#include <List.h>
+#include <support/SupportDefs.h>
+#include <support/String.h>
 
 #include <stdio.h> 
 #include <stdlib.h> 

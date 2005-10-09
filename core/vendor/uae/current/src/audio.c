@@ -45,9 +45,11 @@ struct audio_channel_data {
     uae_u8 dmaen, intreq2;
     uaecptr lc, pt;
     int current_sample, last_sample;
+#ifndef MULTIPLICATION_PROFITABLE
     int *voltbl;
+#endif
     int state;
-    unsigned int per;
+    unsigned long per;
     int vol;
     int len, wlen;
     uae_u16 dat, dat2;
@@ -61,13 +63,16 @@ STATIC_INLINE unsigned int current_hpos (void)
 
 static struct audio_channel_data audio_channel[4];
 int sound_available = 0;
+#ifndef MULTIPLICATION_PROFITABLE
 static int sound_table[64][256];
+#endif
 void (*sample_handler) (void);
 
 unsigned long sample_evtime, scaled_sample_evtime;
 
 static unsigned long last_cycles, next_sample_evtime;
 
+#ifndef MULTIPLICATION_PROFITABLE
 void init_sound_table16 (void)
 {
     int i,j;
@@ -87,8 +92,7 @@ void init_sound_table8 (void)
 	    sound_table[j][i] = (j * (uae_s8)i * (currprefs.stereo ? 2 : 1)) / 256;
 }
 #endif
-
-#define MULTIPLICATION_PROFITABLE
+#endif
 
 #ifdef MULTIPLICATION_PROFITABLE
 typedef uae_s8 sample8_t;
@@ -711,7 +715,7 @@ static void audio_handler (int nr, int timed)
     int audav = adkcon & (0x01 << nr);
     int audap = adkcon & (0x10 << nr);
     int napnav = (!audav && !audap) || audav;
-    unsigned int evtime = cdp->evtime;
+    unsigned long evtime = cdp->evtime;
 
     cdp->evtime = MAX_EV;
     switch (cdp->state)
@@ -853,7 +857,9 @@ void audio_reset (void)
 	    cdp = &audio_channel[i];
 	    memset (cdp, 0, sizeof *audio_channel);
 	    cdp->per = PERIOD_MAX - 1;
+#ifndef MULTIPLICATION_PROFITABLE
 	    cdp->voltbl = sound_table[0];
+#endif
 	    cdp->vol = 0;
 	    cdp->evtime = MAX_EV;
 	}

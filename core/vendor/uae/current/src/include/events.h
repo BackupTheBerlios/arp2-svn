@@ -15,18 +15,21 @@
 #undef EVENT_DEBUG
 
 #include "machdep/rpt.h"
+#include "hrtimer.h"
 
 extern volatile frame_time_t vsynctime, vsyncmintime;
 extern void reset_frame_rate_hack (void);
 extern int rpt_available;
-extern unsigned long syncbase;
+extern frame_time_t syncbase;
 
 extern void compute_vsynctime (void);
 extern void do_cycles_ce (long cycles);
 
 
-extern unsigned int currcycle;
+extern unsigned long currcycle;
 extern unsigned int is_lastline;
+
+extern unsigned long nextevent;
 
 typedef void (*evfunc)(void);
 
@@ -47,26 +50,64 @@ extern struct ev eventtab[ev_max];
 extern void init_eventtab (void);
 extern void events_schedule (void);
 extern void handle_active_events (void);
-extern void do_cycles_slow (unsigned int cycles_to_add);
 
-#define do_cycles do_cycles_slow
+#ifdef JIT
+/* For faster cycles handling */
+extern signed long pissoff;
+#endif
 
-STATIC_INLINE unsigned int get_cycles (void)
+/*
+ * Handle all events pending within the next cycles_to_add cycles
+ */
+STATIC_INLINE void do_cycles (unsigned int cycles_to_add)
+{
+#ifdef JIT
+    if ((pissoff -= cycles_to_add) >= 0)
+	return;
+
+    cycles_to_add = -pissoff;
+    pissoff = 0;
+#endif
+
+    if (is_lastline && eventtab[ev_hsync].evtime - currcycle <= cycles_to_add) {
+	frame_time_t rpt = uae_gethrtime ();
+	frame_time_t v   = rpt - vsyncmintime;
+	if (v > syncbase || v < -(syncbase))
+	    vsyncmintime = rpt;
+	if (v < 0) {
+#ifdef JIT
+            pissoff = 3000 * CYCLE_UNIT;
+#endif
+	    return;
+	}
+    }
+
+    while ((nextevent - currcycle) <= cycles_to_add) {
+	int i;
+	cycles_to_add -= (nextevent - currcycle);
+	currcycle = nextevent;
+
+	for (i = 0; i < ev_max; i++) {
+	     if (eventtab[i].active && eventtab[i].evtime == currcycle)
+		  (*eventtab[i].handler)();
+	}
+	events_schedule ();
+    }
+
+    currcycle += cycles_to_add;
+}
+
+STATIC_INLINE unsigned long get_cycles (void)
 {
     return currcycle;
 }
 
-STATIC_INLINE void set_cycles (unsigned int x)
+STATIC_INLINE void set_cycles (unsigned long x)
 {
 #ifdef JIT
     currcycle = x;
 #endif
 }
-
-#ifdef JIT
-/* For faster cycles handling */
-extern signed int pissoff;
-#endif
 
 STATIC_INLINE void cycles_do_special (void)
 {

@@ -616,7 +616,8 @@ static uae_u32 bsdthr_WaitSelect (struct bsd_gl_o *gl_o)
 
 static uae_u32 bsdthr_Accept_2 (int a_s, struct bsd_gl_o *gl_o)
 {
-    int i, foo, s;
+    int i, s;
+    socklen_t foo;
     long flags;
 
     foo = sizeof (struct sockaddr_in);
@@ -643,7 +644,7 @@ static uae_u32 bsdthr_Recv_2 (int s, struct bsd_gl_o *gl_o)
     if (gl_o->from == 0) {
         result = recv (s, gl_o->buf, gl_o->len, gl_o->flags | MSG_NOSIGNAL);
     } else {
-	int l = sizeof (struct sockaddr_in);
+	socklen_t l = sizeof (struct sockaddr_in);
 	int i = get_long (gl_o->fromlen);
 	copysockaddr_a2n (&gl_o->addr, gl_o->from, i);
 
@@ -681,7 +682,8 @@ static uae_u32 bsdthr_Connect_2 (int s, struct bsd_gl_o *gl_o)
 	DEBUG_LOG ("Connect returns %d, errno %d\n", retval, errno);
 	return retval;
     } else {
-	int foo, bar;
+	int foo;
+	socklen_t bar;
 	bar = sizeof (foo);
 	if (getsockopt (s, SOL_SOCKET, SO_ERROR, &foo, &bar) == 0) {
 	    DEBUG_LOG ("Connect error %d\n", foo);
@@ -789,7 +791,7 @@ static uae_u32 bsdthr_SendRecvAcceptConnect (uae_u32 (*tryfunc)(int, struct bsd_
 
 static void *bsdlib_threadfunc (void *arg)
 {
-    uae_u32 global = (uae_u32) arg;
+    uae_u32 global = (uae_u32)(unsigned long) arg;
     struct bsd_gl_o *gl_o = GL_O;
     struct hostent *hostent;
     int foo, s, i, l;
@@ -822,10 +824,10 @@ static void *bsdlib_threadfunc (void *arg)
             S_GL_result (bsdthr_SendRecvAcceptConnect (bsdthr_Recv_2, gl_o, BLOCKSTUFF_READ));
             break;
           case 4:       /* Gethostbyname */
-            if ((hostent = gethostbyname (get_real_address (gl_o->name)))) {
+	    if ((hostent = gethostbyname ((char *)get_real_address (gl_o->name)))) {
                 put_long (gl_o->hostent + 8, hostent->h_addrtype);
                 put_long (global + 40, htonl (((uae_u32 *) (hostent->h_addr))[0]));
-                strncpy (get_real_address (get_long (gl_o->hostent)), hostent->h_name, 128);
+		strncpy ((char *)get_real_address (get_long (gl_o->hostent)), hostent->h_name, 128);
                 S_GL_result (gl_o->hostent);
             } else {
                 S_GL_result (0);
@@ -841,7 +843,7 @@ static void *bsdlib_threadfunc (void *arg)
             if ((hostent = gethostbyaddr (get_real_address (gl_o->a_addr), gl_o->a_addrlen, gl_o->type))) {
                 put_long (gl_o->hostent + 8, hostent->h_addrtype);
                 put_long (global + 40, htonl (((uae_u32 *) (hostent->h_addr))[0]));
-                strncpy (get_real_address (get_long (gl_o->hostent)), hostent->h_name, 128);
+		strncpy ((char *)get_real_address (get_long (gl_o->hostent)), hostent->h_name, 128);
                 S_GL_result (gl_o->hostent);
             } else {
                 S_GL_result (0);
@@ -918,7 +920,7 @@ uae_u32 bsdsocklib_Init (uae_u32 global, uae_u32 init)
 	    gl_o = GL_O;
 	    if (uae_sem_init (&gl_o->sem, 0, 0) == 0) {
 		if (init_abort_sockets (gl_o) == 0) {
-		    if (uae_start_thread (bsdlib_threadfunc, (void *) global,
+		    if (uae_start_thread (bsdlib_threadfunc, (void *)(unsigned long)global,
 					  &gl_o->thread) == 0) {
 			gl_o->dtablesize = 64;
 			for (i = 0; i < gl_o->dtablesize; i++)
@@ -1128,46 +1130,46 @@ uae_u32 bsdsocklib_Accept (uae_u32 s, uae_u32 addr, uae_u32 addrlen, uae_s32 new
 
 uae_u32 bsdsocklib_Getprotobyname (uae_u32 name, uae_u32 a_p, uae_u32 global)
 {
-    struct protoent *p = getprotobyname (get_real_address (name));
+    struct protoent *p = getprotobyname ((char *)get_real_address (name));
     if (p == NULL) {
         S_GL_errno (errno);
         return 0;
     }
-    strncpy (get_real_address (get_long (a_p)), p->p_name, 128);
+    strncpy ((char *)get_real_address (get_long (a_p)), p->p_name, 128);
     put_long (a_p + 8, p->p_proto);
     return a_p;
 }
 
 uae_u32 bsdsocklib_Getservbyname (uae_u32 name, uae_u32 proto, uae_u32 a_s, uae_u32 global)
 {
-    struct servent *s = getservbyname (get_real_address (name), get_real_address (proto));
+    struct servent *s = getservbyname ((char *)get_real_address (name), (char *)get_real_address (proto));
     if (s == NULL) {
         S_GL_errno (errno);
         return 0;
     }
-    strncpy (get_real_address (get_long (a_s)), s->s_name, 128);
+    strncpy ((char *)get_real_address (get_long (a_s)), s->s_name, 128);
     put_long (a_s + 8, ntohs (s->s_port));
-    strncpy (get_real_address (get_long (a_s + 12)), s->s_proto, 32);
+    strncpy ((char *)get_real_address (get_long (a_s + 12)), s->s_proto, 32);
     return a_s;
 }
 
 uae_u32 bsdsocklib_Gethostname (uae_u32 name, uae_u32 namelen, uae_u32 global)
 {
-    uae_u32 r = gethostname (get_real_address (name), namelen);
+    uae_u32 r = gethostname ((char *)get_real_address (name), namelen);
     S_GL_errno (errno);
     return r;
 }
 
 uae_u32 bsdsocklib_Inet_addr (uae_u32 cp, uae_u32 global)
 {
-    return htonl( inet_addr (get_real_address (cp)));
+    return htonl (inet_addr ((char *)get_real_address (cp)));
 }
 
 uae_u32 bsdsocklib_Getsockpeername (uae_u32 s, uae_u32 name, uae_u32 namelen, uae_u32 global, int which)
 {
     int rs = sock_getsock (s, GL_O);
     struct sockaddr_in addr;
-    int nl = sizeof (struct sockaddr_in);
+    socklen_t nl = sizeof (struct sockaddr_in);
     int a_nl;
     uae_u32 r;
     if (which) {
@@ -1189,7 +1191,7 @@ uae_u32 bsdsocklib_Inet_NtoA (uae_u32 in, uae_u32 buf, uae_u32 global)
 {
     struct in_addr addr;
     addr.s_addr = ntohl (in);
-    strncpy (get_real_address (buf), inet_ntoa (addr), 16);
+    strncpy ((char *)get_real_address (buf), inet_ntoa (addr), 16);
     return buf;
 }
 
@@ -1308,7 +1310,8 @@ uae_u32 bsdsocklib_Dup2Socket (uae_s32 fd1, uae_s32 fd2, uae_u32 global)
 /* @@@ This is really quite broken.. */
 uae_u32 bsdsocklib_Getsockopt (uae_u32 s, uae_u32 level, uae_u32 optname, uae_u32 optval, uae_u32 optlen, uae_u32 global)
 {
-    int len = 0, r;
+    socklen_t len = 0;
+    int r;
 /* This is nice.. maybe I should check more eh? */
     if ((level == 0xffff) && (optname == 0x1007)) {
 	level = 1;
@@ -1357,7 +1360,7 @@ char *bsfn[] = {"", "init", "socket", "bind", "listen", "accept", "connect", "",
 
 #endif /* BSDSOCKET */
 
-#define ARG(x) (get_long (m68k_areg (regs, 7) + 4 * (x + 1)))
+#define ARG(x) (get_long (m68k_areg (&regs, 7) + 4 * (x + 1)))
 static uae_u32 bsdsocklib_demux (void)
 {
 #ifdef BSDSOCKET
@@ -1406,7 +1409,7 @@ static uae_u32 bsdsocklib_demux (void)
 
 void bsdlib_install (void)
 {
-    int foo;
+    long foo;
     uaecptr a = here ();
     org (0xF0FFB0);
     calltrap (deftrap (bsdsocklib_demux));
@@ -1416,7 +1419,7 @@ void bsdlib_install (void)
 #ifdef BSDSOCKET
     uae_sem_init (&key_sem, 0, 1);
 
-    foo= (int) signal (SIGIO, sigio_sighandler);
+    foo = (long) signal (SIGIO, sigio_sighandler);
     DEBUG_LOG ("bsdlib_install: SIGIO was %d\n", foo);
     bsdlib_reset ();
 #endif

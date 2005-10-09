@@ -1791,12 +1791,10 @@ STATIC_INLINE void raw_load_flagreg(uae_u32 target, uae_u32 r)
 #endif
 }
 
-/* FLAGX is byte sized, and we *do* write it at that size */
+/* FLAGX is word-sized */
 STATIC_INLINE void raw_load_flagx(uae_u32 target, uae_u32 r)
 {
-    if (live.nat[target].canbyte)
-	raw_mov_b_rm(target,(uae_u32)live.state[r].mem);
-    else if (live.nat[target].canword)
+    if (live.nat[target].canword)
 	raw_mov_w_rm(target,(uae_u32)live.state[r].mem);
     else
 	raw_mov_l_rm(target,(uae_u32)live.state[r].mem);
@@ -2078,7 +2076,7 @@ int EvalException ( LPEXCEPTION_POINTERS blah, int n_except )
 #endif
 		    invalidate_block(bi);
 		    raise_in_cl_list(bi);
-		    set_special(0);
+		    set_special (&regs,0);
 		    return EXCEPTION_CONTINUE_EXECUTION;
 		}
 		bi=bi->next;
@@ -2099,7 +2097,7 @@ int EvalException ( LPEXCEPTION_POINTERS blah, int n_except )
 #endif
 		    invalidate_block(bi);
 		    raise_in_cl_list(bi);
-		    set_special(0);
+		    set_special (&regs,0);
 		    return EXCEPTION_CONTINUE_EXECUTION;
 		}
 		bi=bi->next;
@@ -2336,7 +2334,7 @@ static void vec(int x, struct sigcontext sc)
 #endif
 		    invalidate_block(bi);
 		    raise_in_cl_list(bi);
-		    set_special(0);
+		    set_special (&regs, 0);
 		    return;
 		}
 		bi=bi->next;
@@ -2357,7 +2355,7 @@ static void vec(int x, struct sigcontext sc)
 #endif
 		    invalidate_block(bi);
 		    raise_in_cl_list(bi);
-		    set_special(0);
+		    set_special (&regs, 0);
 		    return;
 		}
 		bi=bi->next;
@@ -2432,7 +2430,7 @@ static x86_regs cpuid(uae_u32 level)
     raw_ret();
     set_target(tmp);
 
-    ((cpuop_func*)cpuid_space)(0);
+    ((compop_func*)cpuid_space)(0);
     cache_free (cpuid_space);
     return answer;
 }

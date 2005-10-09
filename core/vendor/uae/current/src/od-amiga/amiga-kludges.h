@@ -72,7 +72,7 @@
 #define copins my_copins
 #define copjmp1 my_copjmp1
 #define copjmp2 my_copjmp2
-#define custom my_custom
+//#define custom my_custom
 #define ddfstop my_ddfstop
 #define ddfstrt my_ddfstrt
 #define diwstop my_diwstop

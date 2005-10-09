@@ -4,7 +4,7 @@
   * routines to handle compressed file automatically
   *
   * (c) 1996 Samuel Devulder, Tim Gunn
-  *     2002 Toni Wilen
+  *     2002-2004 Toni Wilen
   */
 
 #include "sysconfig.h"
@@ -17,6 +17,8 @@
 #include "disk.h"
 #include "dms/cdata.h"
 #include "dms/pfile.h"
+#include "gui.h"
+#include "crc32.h"
 
 #include <zlib.h>
 
@@ -36,7 +38,7 @@ int is_zlib;
 
 static int zlib_test (void)
 {
-#ifdef _WIN32
+#if defined WIN32 && !defined __MINGW32__
     static int zlibmsg;
     if (is_zlib)
 	return 1;
@@ -91,6 +93,7 @@ void zfile_fclose (struct zfile *f)
 {
     struct zfile *pl = NULL;
     struct zfile *l  = zlist;
+    struct zfile *nxt = NULL;
 
     if (!f)
 	return;
@@ -102,13 +105,14 @@ void zfile_fclose (struct zfile *f)
 	pl = l;
 	l = l->next;
     }
+    if (l) nxt = l->next;
     zfile_free (f);
     if (l == 0)
 	return;
-    if (!pl)
-	zlist = l->next;
+    if(!pl)
+	zlist = nxt;
     else
-	pl->next = l->next;
+	pl->next = nxt;
 }
 
 static uae_u8 exeheader[]={0x00,0x00,0x03,0xf3,0x00,0x00,0x00,0x00};
@@ -249,7 +253,7 @@ static struct zfile *gunzip (struct zfile *z)
     if (flags & 32) /* encryption not supported */
 	return z;
     if (flags & 4) { /* skip extra field */
-        zfile_fread (&b, 1, 1, z);
+	zfile_fread (&b, 1, 1, z);
 	size = b;
 	zfile_fread (&b, 1, 1, z);
 	size |= b << 8;
@@ -385,7 +389,6 @@ static struct zfile *unzip (struct zfile *z)
 	return z;
     if (unzGoToFirstFile (uz) != UNZ_OK)
 	return z;
-    write_log("checking zip file '%s':\n", z->name);
     zipcnt = 1;
     tmphist[0] = 0;
     for (;;) {
@@ -393,7 +396,6 @@ static struct zfile *unzip (struct zfile *z)
 	if (err != UNZ_OK)
 	    return z;
 	if (file_info.uncompressed_size > 0) {
-	    write_log("'%s':%d ", filename_inzip, file_info.uncompressed_size);
 	    i = 0;
 	    while (ignoreextensions[i]) {
 		if (strlen(filename_inzip) > strlen (ignoreextensions[i]) &&
@@ -401,9 +403,7 @@ static struct zfile *unzip (struct zfile *z)
 		    break;
 		i++;
 	    }
-	    if (ignoreextensions[i]) {
-		write_log ("[ignored]");
-	    } else {
+	    if (!ignoreextensions[i]) {
 		if (tmphist[0]) {
 		    DISK_history_add (tmphist, -1);
 		    tmphist[0] = 0;
@@ -417,7 +417,6 @@ static struct zfile *unzip (struct zfile *z)
 		    DISK_history_add (tmphist, -1);
 		    tmphist[0] = 0;
 		}
-		write_log ("[check]");
 		select = 0;
 		if (!z->zipname)
 		    select = 1;
@@ -427,7 +426,6 @@ static struct zfile *unzip (struct zfile *z)
 		    select = -1;
 		if (select && !we_have_file) {
 		    unsigned int err = unzOpenCurrentFile (uz);
-		    write_log ("[selected]");
 		    if (err == UNZ_OK) {
 			zf = zfile_fopen_empty (filename_inzip, file_info.uncompressed_size);
 			if (zf) {
@@ -436,8 +434,7 @@ static struct zfile *unzip (struct zfile *z)
 			    if (err == 0 || err == file_info.uncompressed_size) {
 				zf = zuncompress (zf);
 				if (select < 0 || zfile_gettype (zf)) {
-		    		    we_have_file = 1;
-				    write_log("[ok]");
+				    we_have_file = 1;
 				}
 			    }
 			}
@@ -445,12 +442,9 @@ static struct zfile *unzip (struct zfile *z)
 			    zfile_fclose (zf);
 			    zf = 0;
 			}
-		    } else {
-			write_log ("\nunzipping failed %d", err);
 		    }
 		}
 	    }
-	    write_log("\n");
 	}
 	zipcnt++;
 	err = unzGoToNextFile (uz);
@@ -472,10 +466,7 @@ static struct zfile *zuncompress (struct zfile *z)
 
     if (ext != NULL) {
 	ext++;
-	if (strcasecmp (ext, "lha") == 0
-	    || strcasecmp (ext, "lzh") == 0)
-	    return lha (z);
-	if (strcasecmp (ext, "zip") == 0)
+	if (strcasecmp (ext, "zip") == 0 && zlib_test ())
 	     return unzip (z);
 	if (strcasecmp (ext, "gz") == 0)
 	     return gunzip (z);
@@ -485,6 +476,9 @@ static struct zfile *zuncompress (struct zfile *z)
 	     return gunzip (z);
 	if (strcasecmp (ext, "dms") == 0)
 	     return dms (z);
+	if (strcasecmp (ext, "lha") == 0
+	    || strcasecmp (ext, "lzh") == 0)
+	    return lha (z);
 	memset (header, 0, sizeof (header));
 	zfile_fseek (z, 0, SEEK_SET);
 	zfile_fread (header, sizeof (header), 1, z);
@@ -529,7 +523,7 @@ static FILE *openzip (char *name, char *zippath)
 #ifdef SINGLEFILE
 extern uae_u8 singlefile_data[];
 
-static struct zfile *zfile_opensinglefile(struct zfile *l)
+static struct zfile *zfile_opensinglefile (struct zfile *l)
 {
     uae_u8 *p = singlefile_data;
     int size, offset;
@@ -573,7 +567,7 @@ struct zfile *zfile_fopen (const char *name, const char *mode)
     char zipname[1000];
 
     if( *name == '\0' )
-        return NULL;
+	return NULL;
     l = zfile_create ();
     l->name = strdup (name);
 #ifdef SINGLEFILE
@@ -643,17 +637,16 @@ int zfile_fseek (struct zfile *z, long offset, int mode)
 {
     if (z->data) {
 	int old = z->seek;
-	switch (mode)
-	{
+	switch (mode) {
 	    case SEEK_SET:
-	    z->seek = offset;
-	    break;
+		z->seek = offset;
+		break;
 	    case SEEK_CUR:
-	    z->seek += offset;
-	    break;
+		z->seek += offset;
+		break;
 	    case SEEK_END:
-	    z->seek = z->size - offset;
-	    break;
+		z->seek = z->size - offset;
+		break;
 	}
 	if (z->seek < 0) z->seek = 0;
 	if (z->seek > z->size) z->seek = z->size;
@@ -662,7 +655,7 @@ int zfile_fseek (struct zfile *z, long offset, int mode)
     return fseek (z->f, offset, mode);
 }
 
-size_t zfile_fread  (void *b, size_t l1, size_t l2,struct zfile *z)
+size_t zfile_fread  (void *b, size_t l1, size_t l2, struct zfile *z)
 {
     long len = l1 * l2;
     if (z->data) {
@@ -741,6 +734,31 @@ int zfile_zcompress (struct zfile *f, void *src, int size)
 	if (sizeof(outbuf) - zs.avail_out > 0)
 	    zfile_fwrite (outbuf, 1, sizeof (outbuf) - zs.avail_out, f);
     }
-    deflateEnd(&zs);
+    deflateEnd (&zs);
     return zs.total_out;
+}
+
+uae_u32 zfile_crc32 (struct zfile *f)
+{
+    uae_u8 *p;
+    int pos, size;
+    uae_u32 crc;
+
+    if (!f)
+	return 0;
+    if (f->data)
+	return get_crc32 (f->data, f->size);
+    pos = zfile_ftell (f);
+    zfile_fseek (f, 0, SEEK_END);
+    size = zfile_ftell (f);
+    p = xmalloc (size);
+    if (!p)
+	return 0;
+    memset (p, 0, size);
+    zfile_fseek (f, 0, SEEK_SET);
+    zfile_fread (p, 1, size, f);
+    zfile_fseek (f, pos, SEEK_SET);
+    crc = get_crc32 (p, size);
+    free (p);
+    return crc;
 }

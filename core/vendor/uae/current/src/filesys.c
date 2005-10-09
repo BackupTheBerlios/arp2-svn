@@ -87,37 +87,6 @@ static void aino_test_init (a_inode *aino)
 #endif
 }
 
-static long dos_errno(void)
-{
-    int e = errno;
-
-    switch (e) {
-     case ENOMEM:	return ERROR_NO_FREE_STORE;
-     case EEXIST:	return ERROR_OBJECT_EXISTS;
-     case EACCES:	return ERROR_WRITE_PROTECTED;
-     case ENOENT:	return ERROR_OBJECT_NOT_AROUND;
-     case ENOTDIR:	return ERROR_OBJECT_WRONG_TYPE;
-     case ENOSPC:	return ERROR_DISK_IS_FULL;
-     case EBUSY:       	return ERROR_OBJECT_IN_USE;
-     case EISDIR:	return ERROR_OBJECT_WRONG_TYPE;
-#if defined(ETXTBSY)
-     case ETXTBSY:	return ERROR_OBJECT_IN_USE;
-#endif
-#if defined(EROFS)
-     case EROFS:       	return ERROR_DISK_WRITE_PROTECTED;
-#endif
-#if defined(ENOTEMPTY)
-#if ENOTEMPTY != EEXIST
-     case ENOTEMPTY:	return ERROR_DIRECTORY_NOT_EMPTY;
-#endif
-#endif
-
-     default:
-	TRACE(("Unimplemented error %s\n", strerror(e)));
-	return ERROR_NOT_IMPLEMENTED;
-    }
-}
-
 /*
  * This _should_ be no issue for us, but let's rather use a guaranteed
  * thread safe function if we have one.
@@ -285,7 +254,7 @@ static char *set_filesys_unit_1 (struct uaedev_mount_info *mountinfo, int nr,
         struct stat statbuf;
 	memset (&statbuf, 0, sizeof (statbuf));
 	ui->volname = my_strdup (volname);
-#ifdef _WIN32
+#ifdef WIN32
 	v = isspecialdrive (rootdir);
 	if (v < 0) {
 	    sprintf (errmsg, "invalid drive '%s'", rootdir);
@@ -297,7 +266,7 @@ static char *set_filesys_unit_1 (struct uaedev_mount_info *mountinfo, int nr,
 		sprintf (errmsg, "directory '%s' not found", rootdir);
 	        return errmsg;
 	    }
-#ifdef _WIN32
+#ifdef WIN32
 	    if (!(statbuf.st_mode & FILEFLAG_WRITE)) {
 		write_log ("'%s' set to read-only\n", rootdir);
 		readonly = 1;
@@ -309,7 +278,7 @@ static char *set_filesys_unit_1 (struct uaedev_mount_info *mountinfo, int nr,
               readonly = 1;
 	}
 #endif
-#ifdef _WIN32
+#ifdef WIN32
 	}
 #endif
     } else {
@@ -532,7 +501,7 @@ struct hardfiledata *get_hardfile_data (int nr)
 #define dp_Arg4 32
 
 /* result codes */
-#define DOS_TRUE ((unsigned long)-1L)
+#define DOS_TRUE ((unsigned int)-1L)
 #define DOS_FALSE (0L)
 
 /* Passed as type to Lock() */
@@ -989,14 +958,22 @@ static a_inode *lookup_aino (Unit *unit, uae_u32 uniq)
 
 char *build_nname (const char *d, const char *n)
 {
-    char dsep[2] = { FSDB_DIR_SEPARATOR, '\0' };
-    char *p = (char *) xmalloc (strlen (d) + strlen (n) + 2);
+    unsigned int   d_len = strlen (d);
+    char *p = xmalloc (d_len + strlen (n) + 2);
+
     strcpy (p, d);
-    strcat (p, dsep);
-    strcat (p, n);
+
+#ifdef TARGET_AMIGAOS
+    if (d_len && p[d_len-1] != ':' && p[d_len-1] != FSDB_DIR_SEPARATOR)
+#endif
+	p[d_len++] = FSDB_DIR_SEPARATOR;
+
+    strcpy (&p[d_len], n);
+
     return p;
 }
 
+#if 0
 char *build_aname (const char *d, const char *n)
 {
     char *p = (char *) xmalloc (strlen (d) + strlen (n) + 2);
@@ -1005,6 +982,7 @@ char *build_aname (const char *d, const char *n)
     strcat (p, n);
     return p;
 }
+#endif
 
 /* This gets called to translate an Amiga name that some program used to
  * a name that we can use on the native filesystem.  */
@@ -1147,7 +1125,10 @@ static a_inode *new_child_aino (Unit *unit, a_inode *base, char *rel)
 	aino->comment = 0;
 	aino->has_dbentry = 0;
 
-	fsdb_fill_file_attrs (aino);
+	if (!fsdb_fill_file_attrs (base, aino)) {
+	    xfree (aino);
+	    return 0;
+	}
 	if (aino->dir)
 	    fsdb_clean_dir (aino);
     }
@@ -1244,7 +1225,11 @@ static a_inode *lookup_child_aino_for_exnext (Unit *unit, a_inode *base, char *r
 	c->aname = get_aname (unit, base, rel);
 	c->comment = 0;
 	c->has_dbentry = 0;
-	fsdb_fill_file_attrs (c);
+	if (!fsdb_fill_file_attrs (base, c)) {
+	    xfree (c);
+	    *err = ERROR_NO_FREE_STORE;
+	    return 0;
+	}
 	if (c->dir)
 	    fsdb_clean_dir (c);
     }
@@ -1316,9 +1301,9 @@ static uae_u32 startup_handler (void)
     /* Just got the startup packet. It's in A4. DosBase is in A2,
      * our allocated volume structure is in D6, A5 is a pointer to
      * our port. */
-    uaecptr rootnode = get_long (m68k_areg (regs, 2) + 34);
+    uaecptr rootnode = get_long (m68k_areg (&regs, 2) + 34);
     uaecptr dos_info = get_long (rootnode + 24) << 2;
-    uaecptr pkt = m68k_dreg (regs, 3);
+    uaecptr pkt = m68k_dreg (&regs, 3);
     uaecptr arg2 = get_long (pkt + dp_Arg2);
     int i, namelen;
     char* devname = bstr1 (get_long (pkt + dp_Arg1) << 2);
@@ -1356,7 +1341,7 @@ static uae_u32 startup_handler (void)
     uinfo->self = unit;
 
     unit->volume = 0;
-    unit->port = m68k_areg (regs, 5);
+    unit->port = m68k_areg (&regs, 5);
     unit->unit = unit_num++;
 
     unit->ui.devname = uinfo->devname;
@@ -1402,16 +1387,16 @@ static uae_u32 startup_handler (void)
 
     /* fill in our process in the device node */
     put_long ((get_long (pkt + dp_Arg3) << 2) + 8, unit->port);
-    unit->dosbase = m68k_areg (regs, 2);
+    unit->dosbase = m68k_areg (&regs, 2);
 
     /* make new volume */
-    unit->volume = m68k_areg (regs, 3) + 32;
+    unit->volume = m68k_areg (&regs, 3) + 32;
 #ifdef UAE_FILESYS_THREADS
-    unit->locklist = m68k_areg (regs, 3) + 8;
+    unit->locklist = m68k_areg (&regs, 3) + 8;
 #else
-    unit->locklist = m68k_areg (regs, 3);
+    unit->locklist = m68k_areg (&regs, 3);
 #endif
-    unit->dummy_message = m68k_areg (regs, 3) + 12;
+    unit->dummy_message = m68k_areg (&regs, 3) + 12;
 
     put_long (unit->dummy_message + 10, 0);
 
@@ -1699,6 +1684,12 @@ action_add_notify (Unit *unit, dpacket packet)
     name = my_strdup (char1 (get_long (nr + 4)));
     flags = get_long (nr + 12);
 
+    if (!(flags & (NRF_SEND_MESSAGE | NRF_SEND_SIGNAL))) {
+	PUT_PCK_RES1 (packet, DOS_FALSE);
+	PUT_PCK_RES2 (packet, ERROR_BAD_NUMBER);
+	return;
+    }
+
 #if 0
     write_log ("Notify:\n");
     write_log ("nr_Name '%s'\n", char1 (get_long (nr + 0)));
@@ -1787,7 +1778,7 @@ action_lock (Unit *unit, dpacket packet)
     uae_u32 err;
 
     if (mode != SHARED_LOCK && mode != EXCLUSIVE_LOCK) {
-	TRACE(("Bad mode.\n"));
+	TRACE(("Bad mode %d (should be %d or %d).\n", mode, SHARED_LOCK, EXCLUSIVE_LOCK));
 	mode = SHARED_LOCK;
     }
 
@@ -1886,7 +1877,7 @@ get_time (time_t t, long* days, long* mins, long* ticks)
     /* mins since midnight */
     /* ticks past minute @ 50Hz */
 
-#if !defined _WIN32 && !defined BEOS && !defined AMIGA
+#if !defined _WIN32 && !defined BEOS && !defined TARGET_AMIGAOS
     /*
      * On Unix-like systems, t is in UTC. The Amiga
      * requires local time, so we have to take account of
@@ -1932,7 +1923,7 @@ put_time (long days, long mins, long ticks)
     /* Adjust for difference between Unix and Amiga epochs */
     t += diff;
 
-#if !defined _WIN32 && !defined BEOS && !defined AMIGA
+#if !defined _WIN32 && !defined BEOS && !defined TARGET_AMIGAOS
     /*
      * t is still in local time zone. For Unix-like systems
      * we need a time in UTC, so we have to take account of
@@ -2203,6 +2194,7 @@ static void action_examine_next (Unit *unit, dpacket packet)
     uae_u32 uniq;
 
     TRACE(("ACTION_EXAMINE_NEXT(0x%lx,0x%lx)\n", lock, info));
+    gui_hd_led (1);
     DUMPLOCK(unit, lock);
 
     if (lock != 0)
@@ -2561,6 +2553,7 @@ action_read (Unit *unit, dpacket packet)
 	}
 	xfree (buf);
     }
+    TRACE(("=%d\n", actual));
 }
 
 static void
@@ -2569,6 +2562,7 @@ action_write (Unit *unit, dpacket packet)
     Key *k = lookup_key (unit, GET_PCK_ARG1 (packet));
     uaecptr addr = GET_PCK_ARG2 (packet);
     long size = GET_PCK_ARG3 (packet);
+    long actual;
     char *buf;
     int i;
 
@@ -2578,7 +2572,7 @@ action_write (Unit *unit, dpacket packet)
 	return;
     }
 
-    gui_hd_led (1);
+    gui_hd_led (2);
     TRACE(("ACTION_WRITE(%s,0x%lx,%ld)\n",k->aino->nname,addr,size));
 
     if (unit->ui.readonly) {
@@ -2598,11 +2592,13 @@ action_write (Unit *unit, dpacket packet)
     for (i = 0; i < size; i++)
 	buf[i] = get_byte(addr + i);
 
-    PUT_PCK_RES1 (packet, write(k->fd, buf, size));
-    if (GET_PCK_RES1 (packet) != size)
+    actual = write (k->fd, buf, size);
+    TRACE(("=%d\n", actual));
+    PUT_PCK_RES1 (packet, actual);
+    if (actual != size)
 	PUT_PCK_RES2 (packet, dos_errno ());
-    if (GET_PCK_RES1 (packet) >= 0)
-	k->file_pos += GET_PCK_RES1 (packet);
+    if (actual >= 0)
+	k->file_pos += actual;
 
     k->notifyactive = 1;
     xfree (buf);
@@ -2628,6 +2624,7 @@ action_seek (Unit *unit, dpacket packet)
     if (mode < 0) whence = SEEK_SET;
 
     TRACE(("ACTION_SEEK(%s,%d,%d)\n", k->aino->nname, pos, mode));
+    gui_hd_led (1);
 
     old = lseek (k->fd, 0, SEEK_CUR);
     {
@@ -2679,7 +2676,8 @@ action_set_protect (Unit *unit, dpacket packet)
 	return;
     }
 
-    err = fsdb_set_file_attrs (a, mask);
+    a->amigaos_mode = mask;
+    err = fsdb_set_file_attrs (a);
     if (err != 0) {
 	PUT_PCK_RES1 (packet, DOS_FALSE);
 	PUT_PCK_RES2 (packet, err);
@@ -2687,6 +2685,7 @@ action_set_protect (Unit *unit, dpacket packet)
 	PUT_PCK_RES1 (packet, DOS_TRUE);
     }
     notify_check (unit, a);
+    gui_hd_led (2);
 }
 
 static void action_set_comment (Unit * unit, dpacket packet)
@@ -2727,8 +2726,9 @@ static void action_set_comment (Unit * unit, dpacket packet)
     if (a->comment)
 	xfree (a->comment);
     a->comment = commented;
-    a->dirty = 1;
+    fsdb_set_file_attrs (a);
     notify_check (unit, a);
+    gui_hd_led (2);
 }
 
 static void
@@ -2863,9 +2863,10 @@ action_parent (Unit *unit, dpacket packet)
     if (!lock) {
 	PUT_PCK_RES1 (packet, 0);
 	PUT_PCK_RES2 (packet, 0);
-	return;
+    } else {
+	action_parent_common (unit, packet, get_long (lock + 4));
     }
-    action_parent_common (unit, packet, get_long (lock + 4));
+    TRACE(("=%x %d\n", GET_PCK_RES1 (packet), GET_PCK_RES2 (packet)));
 }
 
 static void
@@ -2914,6 +2915,7 @@ action_create_dir (Unit *unit, dpacket packet)
     notify_check (unit, aino);
     updatedirtime (aino, 0);
     PUT_PCK_RES1 (packet, make_lock (unit, aino->uniq, -2) >> 2);
+    gui_hd_led (2);
 }
 
 static void
@@ -2963,6 +2965,7 @@ action_set_file_size (Unit *unit, dpacket packet)
 	return;
     }
 
+    gui_hd_led (1);
     k->notifyactive = 1;
     /* If any open files have file pointers beyond this size, truncate only
      * so far that these pointers do not become invalid.  */
@@ -3046,10 +3049,12 @@ action_delete_object (Unit *unit, dpacket packet)
     updatedirtime (a, 1);
     if (a->child != 0) {
 	write_log ("Serious error in action_delete_object.\n");
+	a->deleted = 1;
     } else {
 	delete_aino (unit, a);
     }
     PUT_PCK_RES1 (packet, DOS_TRUE);
+    gui_hd_led (2);
 }
 
 static void
@@ -3081,6 +3086,7 @@ action_set_date (Unit *unit, dpacket packet)
     } else
 	PUT_PCK_RES1 (packet, DOS_TRUE);
     notify_check (unit, a);
+    gui_hd_led (2);
 }
 
 static void
@@ -3203,6 +3209,11 @@ action_rename_object (Unit *unit, dpacket packet)
     a2->has_dbentry = a1->has_dbentry;
     a2->db_offset = a1->db_offset;
     a2->dirty = 0;
+    /* Ugly fix: update any keys to point to new aino */
+    for (k1 = unit->keys; k1; k1 = knext) {
+	knext = k1->next;
+	if (k1->aino == a1) k1->aino=a2;
+    }
     move_exkeys (unit, a1, a2);
     move_aino_children (unit, a1, a2);
     delete_aino (unit, a1);
@@ -3213,6 +3224,7 @@ action_rename_object (Unit *unit, dpacket packet)
     if (a2->elock > 0 || a2->shlock > 0 || wehavekeys > 0)
 	de_recycle_aino (unit, a2);
     PUT_PCK_RES1 (packet, DOS_TRUE);
+    gui_hd_led (2);
 }
 
 static void
@@ -3274,7 +3286,7 @@ static uae_u32 exter_int_helper (void)
     uaecptr port;
     static int unit_no;
 
-    switch (m68k_dreg (regs, 0)) {
+    switch (m68k_dreg (&regs, 0)) {
      case 0:
 	/* Determine whether a given EXTER interrupt is for us. */
 	if (uae_int_requested) {
@@ -3299,17 +3311,25 @@ static uae_u32 exter_int_helper (void)
 	 */
 #ifdef UAE_FILESYS_THREADS
 	{
-	    Unit *unit = find_unit (m68k_areg (regs, 5));
-	    uaecptr msg = m68k_areg (regs, 4);
+	    Unit *unit = find_unit (m68k_areg (&regs, 5));
+	    uaecptr msg = m68k_areg (&regs, 4);
 	    unit->cmds_complete = unit->cmds_acked;
 	    while (comm_pipe_has_data (unit->ui.back_pipe)) {
 		uaecptr locks, lockend;
+		int cnt = 0;
 		locks = read_comm_pipe_int_blocking (unit->ui.back_pipe);
 		lockend = locks;
-		while (get_long (lockend) != 0)
+		while (get_long (lockend) != 0) {
+		    if (get_long (lockend) == lockend) {
+			write_log ("filesystem lock queue corrupted!\n");
+			break;
+		    }
 		    lockend = get_long (lockend);
-		put_long (lockend, get_long (m68k_areg (regs, 3)));
-		put_long (m68k_areg (regs, 3), locks);
+		    cnt++;
+		}
+		TRACE(("%d %x %x %x\n", cnt, locks, lockend, m68k_areg (&regs, 3)));
+		put_long (lockend, get_long (m68k_areg (&regs, 3)));
+		put_long (m68k_areg (&regs, 3), locks);
 	    }
 	}
 #else
@@ -3333,26 +3353,26 @@ static uae_u32 exter_int_helper (void)
 	    int cmd = read_comm_pipe_int_blocking (&native2amiga_pending);
 	    switch (cmd) {
 	     case 0: /* Signal() */
-		m68k_areg (regs, 1) = read_comm_pipe_u32_blocking (&native2amiga_pending);
-		m68k_dreg (regs, 1) = read_comm_pipe_u32_blocking (&native2amiga_pending);
+		m68k_areg (&regs, 1) = read_comm_pipe_u32_blocking (&native2amiga_pending);
+		m68k_dreg (&regs, 1) = read_comm_pipe_u32_blocking (&native2amiga_pending);
 		return 2;
 
 	     case 1: /* PutMsg() */
-		m68k_areg (regs, 0) = read_comm_pipe_u32_blocking (&native2amiga_pending);
-		m68k_areg (regs, 1) = read_comm_pipe_u32_blocking (&native2amiga_pending);
+		m68k_areg (&regs, 0) = read_comm_pipe_u32_blocking (&native2amiga_pending);
+		m68k_areg (&regs, 1) = read_comm_pipe_u32_blocking (&native2amiga_pending);
 		return 1;
 
 	     case 2: /* ReplyMsg() */
-		m68k_areg (regs, 1) = read_comm_pipe_u32_blocking (&native2amiga_pending);
+		m68k_areg (&regs, 1) = read_comm_pipe_u32_blocking (&native2amiga_pending);
 		return 3;
 
 	     case 3: /* Cause() */
-		m68k_areg (regs, 1) = read_comm_pipe_u32_blocking (&native2amiga_pending);
+		m68k_areg (&regs, 1) = read_comm_pipe_u32_blocking (&native2amiga_pending);
 		return 4;
 
 	     case 4: /* NotifyHack() */
-		m68k_areg (regs, 0) = read_comm_pipe_u32_blocking (&native2amiga_pending);
-		m68k_areg (regs, 1) = read_comm_pipe_u32_blocking (&native2amiga_pending);
+		m68k_areg (&regs, 0) = read_comm_pipe_u32_blocking (&native2amiga_pending);
+		m68k_areg (&regs, 1) = read_comm_pipe_u32_blocking (&native2amiga_pending);
 		return 5;
 
 	     default:
@@ -3379,8 +3399,8 @@ static uae_u32 exter_int_helper (void)
 	uip[unit_no].self->cmds_acked = uip[unit_no].self->cmds_sent;
 	port = uip[unit_no].self->port;
 	if (port) {
-	    m68k_areg (regs, 0) = port;
-	    m68k_areg (regs, 1) = find_unit (port)->dummy_message;
+	    m68k_areg (&regs, 0) = port;
+	    m68k_areg (&regs, 1) = find_unit (port)->dummy_message;
 	    unit_no++;
 	    return 1;
 	}
@@ -3491,7 +3511,7 @@ static void *filesys_thread (void *unit_v)
 	ui->self->cmds_sent++;
 	/* The message is sent by our interrupt handler, so make sure an interrupt
 	 * happens. */
-	uae_int_requested = 1;
+	do_uae_int_requested ();
 	/* Send back the locks. */
 	if (get_long (ui->self->locklist) != 0)
 	    write_comm_pipe_int (ui->back_pipe, (int)(get_long (ui->self->locklist)), 0);
@@ -3504,9 +3524,9 @@ static void *filesys_thread (void *unit_v)
 /* Talk about spaghetti code... */
 static uae_u32 filesys_handler (void)
 {
-    Unit *unit = find_unit (m68k_areg (regs, 5));
-    uaecptr packet_addr = m68k_dreg (regs, 3);
-    uaecptr message_addr = m68k_areg (regs, 4);
+    Unit *unit = find_unit (m68k_areg (&regs, 5));
+    uaecptr packet_addr = m68k_dreg (&regs, 3);
+    uaecptr message_addr = m68k_areg (&regs, 4);
     uae_u8 *pck;
     uae_u8 *msg;
     if (! valid_address (packet_addr, 36) || ! valid_address (message_addr, 14)) {
@@ -3533,8 +3553,8 @@ static uae_u32 filesys_handler (void)
 	if (!unit->ui.unit_pipe)
 	    goto error;
 	/* Get two more locks and hand them over to the other thread. */
-	morelocks = get_long (m68k_areg (regs, 3));
-	put_long (m68k_areg (regs, 3), get_long (get_long (morelocks)));
+	morelocks = get_long (m68k_areg (&regs, 3));
+	put_long (m68k_areg (&regs, 3), get_long (get_long (morelocks)));
 	put_long (get_long (morelocks), 0);
 
 	/* The packet wasn't processed yet. */
@@ -3557,6 +3577,15 @@ static uae_u32 filesys_handler (void)
     error2:
 
     return 0;
+}
+
+static void init_filesys_diagentry (void)
+{
+    do_put_mem_long ((uae_u32 *)(filesysory + 0x2100), EXPANSION_explibname);
+    do_put_mem_long ((uae_u32 *)(filesysory + 0x2104), filesys_configdev);
+    do_put_mem_long ((uae_u32 *)(filesysory + 0x2108), EXPANSION_doslibname);
+    do_put_mem_long ((uae_u32 *)(filesysory + 0x210c), current_mountinfo->num_units);
+    native2amiga_startup ();
 }
 
 void filesys_start_threads (void)
@@ -3654,18 +3683,14 @@ void filesys_prepare_reset (void)
 
 static uae_u32 filesys_diagentry (void)
 {
-    uaecptr resaddr = m68k_areg (regs, 2) + 0x10;
+    uaecptr resaddr = m68k_areg (&regs, 2) + 0x10;
     uaecptr start = resaddr;
     uaecptr residents, tmp;
 
     TRACE (("filesystem: diagentry called\n"));
 
-    filesys_configdev = m68k_areg (regs, 3);
-
-    do_put_mem_long ((uae_u32 *)(filesysory + 0x2100), EXPANSION_explibname);
-    do_put_mem_long ((uae_u32 *)(filesysory + 0x2104), filesys_configdev);
-    do_put_mem_long ((uae_u32 *)(filesysory + 0x2108), EXPANSION_doslibname);
-    do_put_mem_long ((uae_u32 *)(filesysory + 0x210c), current_mountinfo->num_units);
+    filesys_configdev = m68k_areg (&regs, 3);
+    init_filesys_diagentry ();
 
     uae_sem_init (&singlethread_int_sem, 0, 1);
     if (ROM_hardfile_resid != 0) {
@@ -3692,7 +3717,6 @@ static uae_u32 filesys_diagentry (void)
      * diag entry. */
 
     resaddr = scsidev_startup(resaddr);
-    native2amiga_startup();
 
     /* scan for Residents and return pointer to array of them */
     residents = resaddr;
@@ -3718,7 +3742,7 @@ static uae_u32 filesys_diagentry (void)
     put_word (resaddr + 14, 0x7001); /* moveq.l #1,d0 */
     put_word (resaddr + 16, RTS);
 
-    m68k_areg (regs, 0) = residents;
+    m68k_areg (&regs, 0) = residents;
     return 1;
 }
 
@@ -3732,13 +3756,13 @@ static uae_u32 filesys_diagentry (void)
 
 static uae_u32 filesys_dev_bootfilesys (void)
 {
-    uaecptr devicenode = m68k_areg (regs, 3);
-    uaecptr parmpacket = m68k_areg (regs, 1);
+    uaecptr devicenode = m68k_areg (&regs, 3);
+    uaecptr parmpacket = m68k_areg (&regs, 1);
     uaecptr fsres = get_long (parmpacket + PP_FSRES);
     uaecptr fsnode;
     uae_u32 dostype, dostype2;
     UnitInfo *uip = current_mountinfo->ui;
-    uae_u32 no = m68k_dreg (regs, 6);
+    uae_u32 no = m68k_dreg (&regs, 6);
     int unit_no = no & 65535;
     int type = is_hardfile (current_mountinfo, unit_no);
 
@@ -3764,13 +3788,13 @@ static uae_u32 filesys_dev_bootfilesys (void)
  * which unit a given startup message belongs to.  */
 static uae_u32 filesys_dev_remember (void)
 {
-    uae_u32 no = m68k_dreg (regs, 6);
+    uae_u32 no = m68k_dreg (&regs, 6);
     int unit_no = no & 65535;
     int sub_no = no >> 16;
     UnitInfo *uip = &current_mountinfo->ui[unit_no];
     int i;
-    uaecptr devicenode = m68k_areg (regs, 3);
-    uaecptr parmpacket = m68k_areg (regs, 1);
+    uaecptr devicenode = m68k_areg (&regs, 3);
+    uaecptr parmpacket = m68k_areg (&regs, 1);
 
     /* copy filesystem loaded from RDB */
     if (get_long (parmpacket + PP_FSPTR)) {
@@ -3780,7 +3804,7 @@ static uae_u32 filesys_dev_remember (void)
 	uip->rdb_filesysstore = 0;
 	uip->rdb_filesyssize = 0;
     }
-    if ( ((uae_s32)m68k_dreg (regs, 3)) >= 0)
+    if ( ((uae_s32)m68k_dreg (&regs, 3)) >= 0)
         uip->startup = get_long (devicenode + 28);
     return devicenode;
 }
@@ -3819,7 +3843,7 @@ static int rdb_checksum (char *id, uae_u8 *p, int block)
     return 1;
 }
 
-static char *device_dupfix (uaecptr expbase, char *devname)
+static char *device_dupfix (uaecptr expbase, const char *devname)
 {
     uaecptr bnode, dnode, name;
     int len, i, modified;
@@ -3855,10 +3879,10 @@ static char *device_dupfix (uaecptr expbase, char *devname)
     return strdup (newname);
 }
 
-static void dump_partinfo (char *name, int num, uaecptr pp)
+static void dump_partinfo (const char *name, int num, uaecptr pp)
 {
     uae_u32 dostype = get_long (pp + 80);
-    write_log ("RDB: '%s' uaehf.device:%d, dostype=%08.8X\n", name, num, dostype);
+    write_log ("RDB: '%s' dostype=%08.8X\n", name, dostype);
     write_log ("BlockSize: %d, Surfaces: %d, SectorsPerBlock %d\n",
 	       get_long (pp + 20) * 4, get_long (pp + 28), get_long (pp + 32));
     write_log ("SectorsPerTrack: %d, Reserved: %d, LowCyl %d, HighCyl %d\n",
@@ -3866,6 +3890,8 @@ static void dump_partinfo (char *name, int num, uaecptr pp)
     write_log ("Buffers: %d, BufMemType: %08.8x, MaxTransfer: %08.8x, BootPri: %d\n",
 	       get_long (pp + 60), get_long (pp + 64), get_long (pp + 68), get_long (pp + 76));
 }
+
+#define rdbmnt write_log ("Mounting uaehf.device %d (%d) (size=%I64u):\n", unit_no, partnum, hfd->size);
 
 static int rdb_mount (UnitInfo *uip, int unit_no, unsigned int partnum, uaecptr parmpacket)
 {
@@ -3883,10 +3909,16 @@ static int rdb_mount (UnitInfo *uip, int unit_no, unsigned int partnum, uaecptr 
     int oldversion, oldrevision;
     int newversion, newrevision;
 
-    if (lastblock * hfd->blocksize > hfd->size)
+    if (lastblock * hfd->blocksize > hfd->size) {
+	rdbmnt
+	write_log ("failed, too small (%d*%d > %I64u)\n", lastblock, hfd->blocksize, hfd->size);
 	return -2;
-    if (hfd->blocksize == 0)
+    }
+    if (hfd->blocksize == 0) {
+	rdbmnt
+	write_log ("failed, blocksize == 0\n");
 	return -2;
+    }
     for (rdblock = 0; rdblock < lastblock; rdblock++) {
 	hdf_read (hfd, bufrdb, rdblock * hfd->blocksize, hfd->blocksize);
 	if (rdb_checksum ("RDSK", bufrdb, rdblock))
@@ -3904,17 +3936,22 @@ static int rdb_mount (UnitInfo *uip, int unit_no, unsigned int partnum, uaecptr 
 	    }
 	}
     }
-    if (rdblock == lastblock)
+    if (rdblock == lastblock) {
+	rdbmnt
+	write_log ("failed, no RDB detected\n");
 	return -2;
+    }
     blocksize = rl (bufrdb + 16);
     readblocksize = blocksize > hfd->blocksize ? blocksize : hfd->blocksize;
     badblock = rl (bufrdb + 24);
     if (badblock != -1) {
+	rdbmnt
 	write_log ("RDB: badblock list is not yet supported. Contact the author.\n");
 	return -2;
     }
     driveinitblock = rl (bufrdb + 36);
     if (driveinitblock != -1) {
+	rdbmnt
 	write_log ("RDB: driveinit is not yet supported. Contact the author.\n");
 	return -2;
     }
@@ -3937,30 +3974,36 @@ static int rdb_mount (UnitInfo *uip, int unit_no, unsigned int partnum, uaecptr 
 	partblock = rl (buf + 4 * 4);
     }
 
+    rdbmnt
     flags = rl (buf + 20);
     if (flags & 2) { /* do not mount */
 	err = -1;
+	write_log ("Automount disabled, not mounting\n");
 	goto error;
     }
 
     if (!(flags & 1)) /* not bootable */
-	m68k_dreg (regs, 7) = 0;
+	m68k_dreg (&regs, 7) = 0;
 
     buf[37 + buf[36]] = 0; /* zero terminate BSTR */
-    uip->rdb_devname_amiga[partnum] = ds (device_dupfix (get_long (parmpacket + PP_EXPLIB), buf + 37));
+    uip->rdb_devname_amiga[partnum] = ds (device_dupfix (get_long (parmpacket + PP_EXPLIB), (char *)(buf + 37)));
     put_long (parmpacket, uip->rdb_devname_amiga[partnum]); /* name */
     put_long (parmpacket + 4, ROM_hardfile_resname);
     put_long (parmpacket + 8, uip->devno);
     put_long (parmpacket + 12, 0); /* Device flags */
     for (i = 0; i < PP_MAXSIZE; i++)
 	put_byte (parmpacket + 16 + i, buf[128 + i]);
-    dump_partinfo (buf + 37, uip->devno, parmpacket);
+    dump_partinfo ((char *)(buf + 37), uip->devno, parmpacket);
     dostype = get_long (parmpacket + 80);
 
     if (dostype == 0) {
+	write_log ("failed, dostype==0\n");
 	err = -1;
 	goto error;
     }
+
+    if (hfd->cylinders * hfd->sectors * hfd->heads * blocksize > hfd->size)
+	write_log ("WARNING: end of partition > size of disk!\n");
 
     err = 2;
 
@@ -4002,10 +4045,10 @@ static int rdb_mount (UnitInfo *uip, int unit_no, unsigned int partnum, uaecptr 
     if (get_long (fsnode)) {
 	oldversion = get_word (fsnode + 18);
 	oldrevision = get_word (fsnode + 20);
-	write_log ("RDB: ROM filesystem version %d.%d\n", oldversion, oldrevision);
+	write_log ("RDB: %08.8X in FileSystem.resouce version %d.%d\n", dostype, oldversion, oldrevision);
     }
     if (newversion * 65536 + newrevision <= oldversion * 65536 + oldrevision && oldversion >= 0) {
-	write_log ("RDB: ROM filesystem is newer or same, ignoring RDB filesystem\n");
+	write_log ("RDB: fs in FileSystem.resource is newer or same, ignoring RDB filesystem\n");
 	goto error;
     }
 
@@ -4118,20 +4161,23 @@ static void get_new_device (int type, uaecptr parmpacket, char **devname, uaecpt
     }
     *devname_amiga = ds (device_dupfix (get_long (parmpacket + PP_EXPLIB), buffer));
     if (type == FILESYS_VIRTUAL)
-	write_log ("FS: mounted virtual unit %s\n", buffer);
+	write_log ("FS: mounted virtual unit %s (%s)\n", buffer, current_mountinfo->ui[unit_no].rootdir);
     else
-	write_log ("FS: mounted HDF unit %s\n", buffer);
+	write_log ("FS: mounted HDF unit %s (%04.4x-%08.8x, %s)\n", buffer,
+		   (uae_u32)(current_mountinfo->ui[unit_no].hf.size >> 32),
+		   (uae_u32)(current_mountinfo->ui[unit_no].hf.size),
+			     current_mountinfo->ui[unit_no].rootdir);
 }
 
 /* Fill in per-unit fields of a parampacket */
 static uae_u32 filesys_dev_storeinfo (void)
 {
     UnitInfo *uip = current_mountinfo->ui;
-    uae_u32 no = m68k_dreg (regs, 6);
+    uae_u32 no = m68k_dreg (&regs, 6);
     int unit_no = no & 65535;
     int sub_no = no >> 16;
     int type = is_hardfile (current_mountinfo, unit_no);
-    uaecptr parmpacket = m68k_areg (regs, 0);
+    uaecptr parmpacket = m68k_areg (&regs, 0);
 
     if (type == FILESYS_HARDFILE_RDB || type == FILESYS_HARDDRIVE) {
 	/* RDB hardfile */
@@ -4139,7 +4185,10 @@ static uae_u32 filesys_dev_storeinfo (void)
 	return rdb_mount (&uip[unit_no], unit_no, sub_no, parmpacket);
     }
     if (sub_no)
-        return -2;
+	return -2;
+
+    write_log ("Mounting uaehf.device %d (%d):\n", unit_no, sub_no);
+
     get_new_device (type, parmpacket, &uip[unit_no].devname, &uip[unit_no].devname_amiga, unit_no);
     uip[unit_no].devno = unit_no;
     put_long (parmpacket, uip[unit_no].devname_amiga);
@@ -4225,37 +4274,37 @@ void filesys_install_code (void)
  /* see filesys.asm for source */
 
  db(0x00); db(0x00); db(0x00); db(0x10); db(0x00); db(0x00); db(0x00); db(0x00);
- db(0x60); db(0x00); db(0x04); db(0xe0); db(0x00); db(0x00); db(0x03); db(0x9c);
+ db(0x60); db(0x00); db(0x04); db(0xf0); db(0x00); db(0x00); db(0x03); db(0xac);
  db(0x00); db(0x00); db(0x00); db(0x30); db(0x00); db(0x00); db(0x00); db(0xd0);
  db(0x00); db(0x00); db(0x00); db(0x1c); db(0x00); db(0x00); db(0x01); db(0x8a);
- db(0x00); db(0x00); db(0x06); db(0x98); db(0x43); db(0xfa); db(0x06); db(0xc5);
+ db(0x00); db(0x00); db(0x06); db(0xa8); db(0x43); db(0xfa); db(0x06); db(0xd5);
  db(0x4e); db(0xae); db(0xff); db(0xa0); db(0x20); db(0x40); db(0x20); db(0x28);
  db(0x00); db(0x16); db(0x20); db(0x40); db(0x4e); db(0x90); db(0x4e); db(0x75);
  db(0x48); db(0xe7); db(0xff); db(0xfe); db(0x2c); db(0x78); db(0x00); db(0x04);
- db(0x30); db(0x3c); db(0xff); db(0xfc); db(0x61); db(0x00); db(0x06); db(0x4a);
- db(0x2a); db(0x50); db(0x43); db(0xfa); db(0x06); db(0xab); db(0x70); db(0x24);
+ db(0x30); db(0x3c); db(0xff); db(0xfc); db(0x61); db(0x00); db(0x06); db(0x5a);
+ db(0x2a); db(0x50); db(0x43); db(0xfa); db(0x06); db(0xbb); db(0x70); db(0x24);
  db(0x7a); db(0x00); db(0x4e); db(0xae); db(0xfd); db(0xd8); db(0x4a); db(0x80);
- db(0x66); db(0x0c); db(0x43); db(0xfa); db(0x06); db(0x9b); db(0x70); db(0x00);
+ db(0x66); db(0x0c); db(0x43); db(0xfa); db(0x06); db(0xab); db(0x70); db(0x00);
  db(0x7a); db(0x01); db(0x4e); db(0xae); db(0xfd); db(0xd8); db(0x28); db(0x40);
  db(0x20); db(0x3c); db(0x00); db(0x00); db(0x02); db(0x2c); db(0x72); db(0x01);
  db(0x4e); db(0xae); db(0xff); db(0x3a); db(0x26); db(0x40); db(0x27); db(0x4c);
  db(0x01); db(0x9c); db(0x7c); db(0x00); db(0xbc); db(0xad); db(0x01); db(0x0c);
  db(0x64); db(0x24); db(0x2f); db(0x06); db(0x7e); db(0x01); db(0x2f); db(0x0b);
- db(0x20); db(0x4b); db(0x61); db(0x00); db(0x03); db(0x18); db(0x26); db(0x5f);
+ db(0x20); db(0x4b); db(0x61); db(0x00); db(0x03); db(0x28); db(0x26); db(0x5f);
  db(0x0c); db(0x80); db(0xff); db(0xff); db(0xff); db(0xfe); db(0x67); db(0x08);
  db(0x48); db(0x46); db(0x52); db(0x46); db(0x48); db(0x46); db(0x60); db(0xe4);
  db(0x2c); db(0x1f); db(0x52); db(0x46); db(0x60); db(0xd6); db(0x2c); db(0x78);
  db(0x00); db(0x04); db(0x22); db(0x4c); db(0x4e); db(0xae); db(0xfe); db(0x62);
- db(0x30); db(0x3c); db(0xff); db(0x80); db(0x61); db(0x00); db(0x05); db(0xda);
+ db(0x30); db(0x3c); db(0xff); db(0x80); db(0x61); db(0x00); db(0x05); db(0xea);
  db(0x4e); db(0x90); db(0x72); db(0x03); db(0x74); db(0xf6); db(0x20); db(0x7c);
  db(0x00); db(0x20); db(0x00); db(0x00); db(0x90); db(0x88); db(0x65); db(0x0a);
  db(0x67); db(0x08); db(0x78); db(0x00); db(0x22); db(0x44); db(0x4e); db(0xae);
  db(0xfd); db(0x96); db(0x4c); db(0xdf); db(0x7f); db(0xff); db(0x4e); db(0x75);
  db(0x48); db(0xe7); db(0x00); db(0x20); db(0x30); db(0x3c); db(0xff); db(0x50);
- db(0x61); db(0x00); db(0x05); db(0xae); db(0x70); db(0x00); db(0x4e); db(0x90);
+ db(0x61); db(0x00); db(0x05); db(0xbe); db(0x70); db(0x00); db(0x4e); db(0x90);
  db(0x4a); db(0x80); db(0x67); db(0x00); db(0x00); db(0xa0); db(0x2c); db(0x78);
  db(0x00); db(0x04); db(0x30); db(0x3c); db(0xff); db(0x50); db(0x61); db(0x00);
- db(0x05); db(0x98); db(0x70); db(0x02); db(0x4e); db(0x90); db(0x0c); db(0x40);
+ db(0x05); db(0xa8); db(0x70); db(0x02); db(0x4e); db(0x90); db(0x0c); db(0x40);
  db(0x00); db(0x01); db(0x6d); db(0x7a); db(0x6e); db(0x06); db(0x4e); db(0xae);
  db(0xfe); db(0x92); db(0x60); db(0xe6); db(0x0c); db(0x40); db(0x00); db(0x02);
  db(0x6e); db(0x08); db(0x20); db(0x01); db(0x4e); db(0xae); db(0xfe); db(0xbc);
@@ -4272,11 +4321,11 @@ void filesys_install_code (void)
  db(0x12); db(0x34); db(0x00); db(0x18); db(0x25); db(0x49); db(0x00); db(0x1a);
  db(0x20); db(0x69); db(0x00); db(0x10); db(0x22); db(0x4a); db(0x4e); db(0xae);
  db(0xfe); db(0x92); db(0x60); db(0x00); db(0xff); db(0x76); db(0x30); db(0x3c);
- db(0xff); db(0x50); db(0x61); db(0x00); db(0x05); db(0x0c); db(0x70); db(0x04);
+ db(0xff); db(0x50); db(0x61); db(0x00); db(0x05); db(0x1c); db(0x70); db(0x04);
  db(0x4e); db(0x90); db(0x70); db(0x01); db(0x4c); db(0xdf); db(0x04); db(0x00);
  db(0x4e); db(0x75); db(0x48); db(0xe7); db(0xc0); db(0xc0); db(0x70); db(0x1a);
  db(0x22); db(0x3c); db(0x00); db(0x01); db(0x00); db(0x01); db(0x4e); db(0xae);
- db(0xff); db(0x3a); db(0x22); db(0x40); db(0x41); db(0xfa); db(0x05); db(0x36);
+ db(0xff); db(0x3a); db(0x22); db(0x40); db(0x41); db(0xfa); db(0x05); db(0x46);
  db(0x23); db(0x48); db(0x00); db(0x0a); db(0x41); db(0xfa); db(0xff); db(0x2a);
  db(0x23); db(0x48); db(0x00); db(0x0e); db(0x41); db(0xfa); db(0xff); db(0x22);
  db(0x23); db(0x48); db(0x00); db(0x12); db(0x33); db(0x7c); db(0x02); db(0x14);
@@ -4289,12 +4338,12 @@ void filesys_install_code (void)
  db(0x01); db(0xa0); db(0x11); db(0xb1); db(0x00); db(0x00); db(0x00); db(0x0e);
  db(0x52); db(0x40); db(0x0c); db(0x40); db(0x00); db(0x8c); db(0x66); db(0xf2);
  db(0x20); db(0x0a); db(0xe4); db(0x88); db(0x21); db(0x40); db(0x00); db(0x36);
- db(0x22); db(0x48); db(0x41); db(0xfa); db(0x04); db(0xd0); db(0x23); db(0x48);
+ db(0x22); db(0x48); db(0x41); db(0xfa); db(0x04); db(0xe0); db(0x23); db(0x48);
  db(0x00); db(0x0a); db(0x20); db(0x6b); db(0x01); db(0x98); db(0x41); db(0xe8);
  db(0x00); db(0x12); db(0x4e); db(0xae); db(0xff); db(0x10); db(0x4c); db(0xdf);
  db(0x4f); db(0x03); db(0x4e); db(0x75); db(0x48); db(0xe7); db(0x7f); db(0x7e);
  db(0x2c); db(0x78); db(0x00); db(0x04); db(0x24); db(0x48); db(0x0c); db(0x9a);
- db(0x00); db(0x00); db(0x03); db(0xf3); db(0x66); db(0x00); db(0x00); db(0xdc);
+ db(0x00); db(0x00); db(0x03); db(0xf3); db(0x66); db(0x00); db(0x00); db(0xec);
  db(0x50); db(0x8a); db(0x2e); db(0x2a); db(0x00); db(0x04); db(0x9e); db(0x92);
  db(0x50); db(0x8a); db(0x52); db(0x87); db(0x26); db(0x4a); db(0x20); db(0x07);
  db(0xd0); db(0x80); db(0xd0); db(0x80); db(0xd7); db(0xc0); db(0x28); db(0x4a);
@@ -4304,23 +4353,25 @@ void filesys_install_code (void)
  db(0x08); db(0x83); db(0x00); db(0x1f); db(0x08); db(0x83); db(0x00); db(0x1e);
  db(0x20); db(0x02); db(0x66); db(0x04); db(0x42); db(0x9a); db(0x60); db(0x1e);
  db(0x50); db(0x80); db(0x4e); db(0xae); db(0xff); db(0x3a); db(0x4a); db(0x80);
- db(0x67); db(0x00); db(0x00); db(0x90); db(0x20); db(0x40); db(0x20); db(0xc2);
+ db(0x67); db(0x00); db(0x00); db(0xa0); db(0x20); db(0x40); db(0x20); db(0xc2);
  db(0x24); db(0xc8); db(0x22); db(0x0d); db(0x67); db(0x06); db(0x20); db(0x08);
  db(0xe4); db(0x88); db(0x2a); db(0x80); db(0x2a); db(0x48); db(0x52); db(0x86);
- db(0xbe); db(0x86); db(0x66); db(0xb8); db(0x7c); db(0x00); db(0x20); db(0x74);
- db(0x6c); db(0x00); db(0x58); db(0x88); db(0x26); db(0x1b); db(0x28); db(0x1b);
- db(0xe5); db(0x8c); db(0x0c); db(0x83); db(0x00); db(0x00); db(0x03); db(0xe9);
- db(0x67); db(0x08); db(0x0c); db(0x83); db(0x00); db(0x00); db(0x03); db(0xea);
- db(0x66); db(0x0c); db(0x20); db(0x04); db(0x4a); db(0x80); db(0x67); db(0x0e);
- db(0x10); db(0xdb); db(0x53); db(0x80); db(0x60); db(0xf6); db(0x0c); db(0x83);
- db(0x00); db(0x00); db(0x03); db(0xeb); db(0x66); db(0x44); db(0x26); db(0x1b);
- db(0x0c); db(0x83); db(0x00); db(0x00); db(0x03); db(0xec); db(0x66); db(0x1e);
- db(0x20); db(0x74); db(0x6c); db(0x00); db(0x58); db(0x88); db(0x20); db(0x1b);
- db(0x67); db(0xec); db(0x22); db(0x1b); db(0x26); db(0x34); db(0x1c); db(0x00);
+ db(0xbe); db(0x86); db(0x66); db(0xb8); db(0x7c); db(0x00); db(0x22); db(0x06);
+ db(0xd2); db(0x81); db(0xd2); db(0x81); db(0x20); db(0x74); db(0x18); db(0x00);
+ db(0x58); db(0x88); db(0x26); db(0x1b); db(0x28); db(0x1b); db(0xe5); db(0x8c);
+ db(0x0c); db(0x83); db(0x00); db(0x00); db(0x03); db(0xe9); db(0x67); db(0x08);
+ db(0x0c); db(0x83); db(0x00); db(0x00); db(0x03); db(0xea); db(0x66); db(0x0c);
+ db(0x20); db(0x04); db(0x4a); db(0x80); db(0x67); db(0x0e); db(0x10); db(0xdb);
+ db(0x53); db(0x80); db(0x60); db(0xf6); db(0x0c); db(0x83); db(0x00); db(0x00);
+ db(0x03); db(0xeb); db(0x66); db(0x4e); db(0x26); db(0x1b); db(0x0c); db(0x83);
+ db(0x00); db(0x00); db(0x03); db(0xec); db(0x66); db(0x28); db(0x22); db(0x06);
+ db(0xd2); db(0x81); db(0xd2); db(0x81); db(0x20); db(0x74); db(0x18); db(0x00);
+ db(0x58); db(0x88); db(0x20); db(0x1b); db(0x67); db(0xe6); db(0x22); db(0x1b);
+ db(0xd2); db(0x81); db(0xd2); db(0x81); db(0x26); db(0x34); db(0x18); db(0x00);
  db(0x58); db(0x83); db(0x24); db(0x1b); db(0xd7); db(0xb0); db(0x28); db(0x00);
- db(0x53); db(0x80); db(0x66); db(0xf6); db(0x60); db(0xe8); db(0x0c); db(0x83);
+ db(0x53); db(0x80); db(0x66); db(0xf6); db(0x60); db(0xe4); db(0x0c); db(0x83);
  db(0x00); db(0x00); db(0x03); db(0xf2); db(0x66); db(0x14); db(0x52); db(0x86);
- db(0xbe); db(0x86); db(0x66); db(0x00); db(0xff); db(0x9a); db(0x7e); db(0x01);
+ db(0xbe); db(0x86); db(0x66); db(0x00); db(0xff); db(0x8a); db(0x7e); db(0x01);
  db(0x20); db(0x54); db(0x20); db(0x07); db(0x4c); db(0xdf); db(0x7e); db(0xfe);
  db(0x4e); db(0x75); db(0x30); db(0x3c); db(0x75); db(0x30); db(0x33); db(0xfc);
  db(0x0f); db(0x00); db(0x00); db(0xdf); db(0xf1); db(0x80); db(0x33); db(0xfc);
@@ -4347,9 +4398,9 @@ void filesys_install_code (void)
  db(0x22); db(0x48); db(0x20); db(0x5f); db(0x42); db(0xa8); db(0x01); db(0x90);
  db(0x42); db(0xa8); db(0x01); db(0x94); db(0x4e); db(0x91); db(0x26); db(0x00);
  db(0x0c); db(0x83); db(0xff); db(0xff); db(0xff); db(0xfe); db(0x67); db(0x00);
- db(0xfc); db(0xfe); db(0x0c); db(0x83); db(0x00); db(0x00); db(0x00); db(0x02);
+ db(0xfc); db(0xee); db(0x0c); db(0x83); db(0x00); db(0x00); db(0x00); db(0x02);
  db(0x67); db(0x0c); db(0xc0); db(0x85); db(0x67); db(0x08); db(0x4a); db(0xa8);
- db(0x01); db(0x90); db(0x67); db(0x00); db(0xfc); db(0xea); db(0x20); db(0x28);
+ db(0x01); db(0x90); db(0x67); db(0x00); db(0xfc); db(0xda); db(0x20); db(0x28);
  db(0x01); db(0x90); db(0x67); db(0x12); db(0x2f); db(0x08); db(0x72); db(0x01);
  db(0x2c); db(0x78); db(0x00); db(0x04); db(0x4e); db(0xae); db(0xff); db(0x3a);
  db(0x20); db(0x5f); db(0x21); db(0x40); db(0x01); db(0x94); db(0x4a); db(0x83);
@@ -4361,16 +4412,16 @@ void filesys_install_code (void)
  db(0x4e); db(0x90); db(0x70); db(0x00); db(0x27); db(0x40); db(0x00); db(0x08);
  db(0x27); db(0x40); db(0x00); db(0x10); db(0x27); db(0x40); db(0x00); db(0x20);
  db(0x4a); db(0xa9); db(0x01); db(0x94); db(0x67); db(0x28); db(0x20); db(0x69);
- db(0x01); db(0x94); db(0x61); db(0x00); db(0xfd); db(0xd8); db(0x48); db(0xe7);
+ db(0x01); db(0x94); db(0x61); db(0x00); db(0xfd); db(0xc8); db(0x48); db(0xe7);
  db(0x80); db(0xc0); db(0x20); db(0x29); db(0x01); db(0x90); db(0x22); db(0x69);
  db(0x01); db(0x94); db(0x2c); db(0x78); db(0x00); db(0x04); db(0x4e); db(0xae);
  db(0xff); db(0x2e); db(0x4c); db(0xdf); db(0x03); db(0x01); db(0x4a); db(0x80);
- db(0x67); db(0x04); db(0x61); db(0x00); db(0xfd); db(0x62); db(0x4a); db(0x83);
- db(0x6b); db(0x00); db(0xfc); db(0x64); db(0x30); db(0x3c); db(0xff); db(0x18);
+ db(0x67); db(0x04); db(0x61); db(0x00); db(0xfd); db(0x52); db(0x4a); db(0x83);
+ db(0x6b); db(0x00); db(0xfc); db(0x54); db(0x30); db(0x3c); db(0xff); db(0x18);
  db(0x61); db(0x00); db(0x02); db(0x16); db(0x4e); db(0x90); db(0x20); db(0x03);
  db(0x16); db(0x29); db(0x00); db(0x4f); db(0x4a); db(0x80); db(0x66); db(0x1a);
  db(0x27); db(0x7c); db(0x00); db(0x00); db(0x0f); db(0xa0); db(0x00); db(0x14);
- db(0x43); db(0xfa); db(0xfb); db(0x72); db(0x20); db(0x09); db(0xe4); db(0x88);
+ db(0x43); db(0xfa); db(0xfb); db(0x62); db(0x20); db(0x09); db(0xe4); db(0x88);
  db(0x27); db(0x40); db(0x00); db(0x20); db(0x70); db(0xff); db(0x27); db(0x40);
  db(0x00); db(0x24); db(0x4a); db(0x87); db(0x67); db(0x36); db(0x2c); db(0x78);
  db(0x00); db(0x04); db(0x70); db(0x14); db(0x72); db(0x00); db(0x4e); db(0xae);
@@ -4434,7 +4485,7 @@ void filesys_install_code (void)
  db(0x24); db(0x51); db(0x70); db(0x18); db(0x4e); db(0xae); db(0xff); db(0x2e);
  db(0x06); db(0x86); db(0x00); db(0x01); db(0x00); db(0x00); db(0x20); db(0x0a);
  db(0x66); db(0xec); db(0x26); db(0x87); db(0x2a); db(0x1f); db(0x4e); db(0x75);
- db(0x41); db(0xfa); db(0xf9); db(0x6a); db(0x02); db(0x80); db(0x00); db(0x00);
+ db(0x41); db(0xfa); db(0xf9); db(0x5a); db(0x02); db(0x80); db(0x00); db(0x00);
  db(0xff); db(0xff); db(0xd1); db(0xc0); db(0x4e); db(0x75); db(0x00); db(0x00);
  db(0x0c); db(0xaf); db(0x00); db(0x00); db(0x00); db(0x22); db(0x00); db(0x08);
  db(0x66); db(0x30); db(0x48); db(0xe7); db(0xc0); db(0xe2); db(0x2c); db(0x78);
@@ -4456,6 +4507,6 @@ void filesys_install_code (void)
 
 }
 
-#ifdef _WIN32
+#if 0
 #include "od-win32/win32_filesys.c"
 #endif

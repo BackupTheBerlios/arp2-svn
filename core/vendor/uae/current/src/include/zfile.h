@@ -23,6 +23,7 @@ extern int zfile_iscompressed (struct zfile *z);
 extern int zfile_zcompress (struct zfile *dst, void *src, int size);
 extern int zfile_zuncompress (void *dst, int dstsize, struct zfile *src, int srcsize);
 extern int zfile_gettype (struct zfile *z);
+extern uae_u32 zfile_crc32 (struct zfile *f);
 
 #define ZFILE_UNKNOWN 0
 #define ZFILE_CONFIGURATION 1

@@ -8,15 +8,21 @@
 
 # These are used for cross-compiling and for saving the configure script
 # from having to guess our platform (since we know it already)
-DEB_HOST_GNU_TYPE   ?= $(shell dpkg-architecture -qDEB_HOST_GNU_TYPE)
-DEB_BUILD_GNU_TYPE  ?= $(shell dpkg-architecture -qDEB_BUILD_GNU_TYPE)
+DEB_HOST_ARCH_OS ?= $(shell dpkg-architecture -qDEB_HOST_ARCH_OS)
+DEB_HOST_GNU_CPU ?= $(shell dpkg-architecture -qDEB_HOST_GNU_CPU)
 
 # Build only the SDL target for just now
 CFG_OPTIONS += --with-sdl-gfx --with-sdl-sound
 
-# Enable JIT engine on x86 only
-ifeq ($(DEB_BUILD_GNU_TYPE),i386-linux)
-    CFG_OPTIONS += --enable-jit
+# Use 'new' bsdsocket emulation on these architectures:
+ifeq ($(DEB_HOST_GNU_CPU),i386)
+    CFG_OPTIONS += --enable-bsdsock-new
+endif
+ifeq ($(DEB_HOST_GNU_CPU),x86_64)
+    CFG_OPTIONS += --enable-bsdsock-new
+endif
+ifeq ($(DEB_HOST_GNU_CPU),ppc)
+    CFG_OPTIONS += --enable-bsdsock-new
 endif
 
 config.status: configure

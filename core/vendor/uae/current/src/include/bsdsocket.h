@@ -79,7 +79,6 @@ struct socketbase {
     uae_u32 sets [3];
     uae_u32 timeout;
     uae_u32 sigmp;
-    struct hostent *tmphostent;
 #endif
 } *socketbases;
 
@@ -117,13 +116,13 @@ struct UAEBSDBase {
 
 struct socketbase *get_socketbase (void);
 
-extern uae_u32 addstr (uae_u32 *, char *);
-extern uae_u32 addmem (uae_u32 *, char *, int len);
+extern uae_u32 addstr (uae_u32 *, const char *);
+extern uae_u32 addmem (uae_u32 *, const char *, int len);
 
 extern char *strncpyah (char *, uae_u32, int);
 extern char *strcpyah (char *, uae_u32);
-extern uae_u32 strcpyha (uae_u32, char *);
-extern uae_u32 strncpyha (uae_u32, char *, int);
+extern uae_u32 strcpyha (uae_u32, const char *);
+extern uae_u32 strncpyha (uae_u32, const char *, int);
 
 #define SB struct socketbase *sb
 

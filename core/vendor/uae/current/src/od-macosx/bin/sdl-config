@@ -39,7 +39,7 @@ while test $# -gt 0; do
       echo 1.2.6
       ;;
     --cflags)
-      echo -F"$HOME"/Library/Frameworks -I"$HOME"/Library/Frameworks/SDL.framework/Headers -D_REENTRANT
+      echo  -I/Library/Frameworks/SDL.framework/Headers -D_REENTRANT
 #      echo -I${prefix}/include/SDL  -D_THREAD_SAFE
 
       # The portable way of including SDL is #include "SDL.h"
@@ -54,7 +54,7 @@ while test $# -gt 0; do
     --libs)
  #     libdirs="-L${exec_prefix}/lib "
  #     echo $libdirs -lSDLmain -lSDL  -framework Cocoa -framework OpenGL
-       echo `pwd`/src/od-macosx/lib/SDLMain.o -L"$HOME"/Library/Frameworks -framework Cocoa -framework SDL -lobjc
+       echo `pwd`/src/od-macosx/lib/SDLMain.o  -framework Cocoa -framework SDL -lobjc
       ;;
     --static-libs)
 #    --libs|--static-libs)

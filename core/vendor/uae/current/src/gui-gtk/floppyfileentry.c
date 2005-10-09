@@ -234,9 +234,18 @@ void floppyfileentry_set_drivename (FloppyFileEntry *ffe, const gchar *drivename
 
 void floppyfileentry_set_currentdir (FloppyFileEntry *ffe, const gchar *pathname)
 {
+    int len = strlen (pathname);
+
     if (ffe_currentdir)
 	g_free (ffe_currentdir);
-    ffe_currentdir = g_strdup ((gchar *)pathname);
+
+    /*
+     * Make sure it has a trailing path separator so the file dialog
+     * actually believes it's a directory
+     */
+    ffe_currentdir = g_strconcat ((gchar *)pathname,
+				  (pathname[len-1] != '/') ? "/" : NULL,
+				   NULL);
 }
 
 void floppyfileentry_set_filename (FloppyFileEntry *ffe, const gchar *filename)

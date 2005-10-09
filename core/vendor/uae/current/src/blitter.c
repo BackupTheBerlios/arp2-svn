@@ -178,7 +178,7 @@ static void blitter_done (void)
     blitter_done_notify ();
     INTREQ(0x8040);
     eventtab[ev_blitter].active = 0;
-    unset_special (SPCFLAG_BLTNASTY);
+    unset_special (&regs, SPCFLAG_BLTNASTY);
 #ifdef BLITTER_DEBUG
     write_log ("vpos=%d, cycles %d, missed %d, total %d\n",
 	vpos, blit_cyclecounter, blit_misscyclecounter, blit_cyclecounter + blit_misscyclecounter);
@@ -784,7 +784,7 @@ static void blitter_force_finish (void)
 	odmacon = dmacon;
 	dmacon |= DMA_MASTER | DMA_BLITTER;
 	write_log ("forcing blitter finish\n");
-#ifdef CPUEMU_6       
+#ifdef CPUEMU_6
 	if (currprefs.blitter_cycle_exact) {
 	    int rounds = 10000;
 	    while (bltstate != BLT_done && rounds > 0) {
@@ -795,9 +795,9 @@ static void blitter_force_finish (void)
 	    if (rounds == 0)
 		write_log ("blitter froze!?\n");
 	} else
-#endif	   
+#endif
 	    actually_do_blit ();
-	
+
 	blitter_done ();
 	dmacon = odmacon;
     }
@@ -817,7 +817,7 @@ static void blit_bltset (int con)
 	blit_singlechannel = 1;
     if (blitline) {
 	if (blt_info.hblitsize != 2)
-	    write_log ("weird hblitsize in linemode: %d vsize=%d PC%=%x\n", blt_info.hblitsize, blt_info.vblitsize, m68k_getpc());
+	    write_log ("weird hblitsize in linemode: %d vsize=%d PC%=%x\n", blt_info.hblitsize, blt_info.vblitsize, m68k_getpc (&regs));
         blit_diag = blit_cycle_diagram_line;
 	blit_singlechannel = 1;
     } else {
@@ -829,7 +829,7 @@ static void blit_bltset (int con)
 		* negative effects. */
 		static int warn = 1;
 		if (warn)
-		    write_log ("warning: weird fill mode (further messages suppressed) PC=%x\n", m68k_getpc());
+		    write_log ("warning: weird fill mode (further messages suppressed) PC=%x\n", m68k_getpc (&regs));
 		warn = 0;
 		blitife = 0;
 	    }
@@ -837,7 +837,7 @@ static void blit_bltset (int con)
 	if (blitfill && !blitdesc) {
 	    static int warn = 1;
 	    if (warn)
-	        write_log ("warning: blitter fill without desc (further messages suppressed) PC=%x\n", m68k_getpc());
+	        write_log ("warning: blitter fill without desc (further messages suppressed) PC=%x\n", m68k_getpc (&regs));
 	    warn = 0;
 	}
 	blit_diag = blitfill ? blit_cycle_diagram_fill[blit_ch] : blit_cycle_diagram[blit_ch];
@@ -891,20 +891,20 @@ void do_blitter (unsigned int hpos)
     blt_info.blitzero = 1;
     bltstate = BLT_init;
 
-#ifdef CPUEMU_6   
+#ifdef CPUEMU_6
     preva = 0;
     prevb = 0;
 #endif
-   
+
     blit_firstline_cycles = blit_first_cycle = get_cycles ();
     blit_cyclecounter = -1;
     blit_misscyclecounter = 0;
     blit_last_cycle = 0;
     blit_maxcyclecounter = 0;
-#ifdef CPUEMU_6   
+#ifdef CPUEMU_6
     blit_last_hpos = hpos;
 #endif
-   
+
     reset_blit (1|2);
 
     if (blitline) {
@@ -928,16 +928,16 @@ void do_blitter (unsigned int hpos)
 	write_log("blitstart: v=%03.3d h=%03.3d %dx%d %d (%d) d=%d f=%02.2X n=%d pc=%p l=%d dma=%d\n",
 	    vpos, hpos, blt_info.hblitsize, blt_info.vblitsize, cycles, blit_ch,
 	    blitdesc ? 1 : 0, blitfill,
-	    dmaen(DMA_BLITPRI) ? 1 : 0, m68k_getpc(), blitline, dmaen(DMA_BLITTER));
+	    dmaen(DMA_BLITPRI) ? 1 : 0, m68k_getpc (&regs), blitline, dmaen(DMA_BLITTER));
 	blitter_dump ();
     }
 #endif
 
     blit_slowdown = 0;
 
-    unset_special (SPCFLAG_BLTNASTY);
+    unset_special (&regs, SPCFLAG_BLTNASTY);
     if (dmaen (DMA_BLITPRI))
-	set_special (SPCFLAG_BLTNASTY);
+	set_special (&regs, SPCFLAG_BLTNASTY);
 
     if (blt_info.vblitsize == 0 || (blitline && blt_info.hblitsize != 2)) {
 	blitter_done ();
@@ -948,8 +948,8 @@ void do_blitter (unsigned int hpos)
 	bltstate = BLT_work;
 
     blit_maxcyclecounter = 0x7fffffff;
-   
-#ifdef CPUEMU_6   
+
+#ifdef CPUEMU_6
     if (currprefs.blitter_cycle_exact) {
 	blitter_dma_cycles_line_count = 0;
 	blitter_hcounter1 = blitter_hcounter2 = 0;
@@ -962,7 +962,7 @@ void do_blitter (unsigned int hpos)
 	    blit_maxcyclecounter = blt_info.hblitsize * blt_info.vblitsize;
 	return;
     }
-#endif   
+#endif
 
     if (currprefs.immediate_blits)
 	cycles = 1;
@@ -986,7 +986,7 @@ void maybe_blit (int hpos, int hack)
 	warned = 1;
 #endif
 	write_log ("warning: Program does not wait for blitter %p vpos=%d tc=%d\n",
-	    m68k_getpc(), vpos, blit_cyclecounter);
+	    m68k_getpc (&regs), vpos, blit_cyclecounter);
     }
 
     if (currprefs.blitter_cycle_exact) {
@@ -1026,7 +1026,7 @@ void blitter_slowdown (int ddfstrt, int ddfstop, int totalcycles, int freecycles
 {
     static int oddfstrt, oddfstop, ototal, ofree;
     static int slow;
-    
+
     if (!totalcycles || ddfstrt < 0 || ddfstop < 0)
 	return;
     if (ddfstrt != oddfstrt || ddfstop != oddfstop || totalcycles != ototal || ofree != freecycles) {

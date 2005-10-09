@@ -27,10 +27,10 @@ static uae_u8 dither[4][4] =
 };
 
 
-unsigned long doMask (int p, int bits, int shift)
+uae_u32 doMask (int p, int bits, int shift)
 {
     /* scale to 0..255, shift to align msb with mask, and apply mask */
-    unsigned long val = p << 24;
+    uae_u32 val = p << 24;
     if (!bits)
 	return 0;
     val >>= (32 - bits);
@@ -59,12 +59,12 @@ int mask_shift (unsigned long mask)
     return n;
 }
 
-unsigned long doMask256 (int p, int bits, int shift)
+unsigned int doMask256 (int p, int bits, int shift)
 {
     /* p is a value from 0 to 255 (Amiga color value)
      * shift to align msb with mask, and apply mask */
 
-    unsigned long val = p * 0x01010101UL;
+    unsigned int val = p * 0x01010101UL;
     val >>= (32 - bits);
     val <<= shift;
 

@@ -119,6 +119,9 @@ struct utimbuf
 # else /* not(AMIGA && GCC 3.x) */
 #  define REGPARAM2
 # endif
+#else
+/* not(GCC) */
+# define REGPARAM2
 #endif
 
 /* sam: some definitions so that SAS/C can compile UAE */
@@ -288,6 +291,14 @@ extern void *xcalloc(size_t, size_t);
 
 #elif defined __MINGW32__
 
+#define FILEFLAG_DIR     0x1
+#define FILEFLAG_ARCHIVE 0x2
+#define FILEFLAG_WRITE   0x4
+#define FILEFLAG_READ    0x8
+#define FILEFLAG_EXECUTE 0x10
+#define FILEFLAG_SCRIPT  0x20
+#define FILEFLAG_PURE    0x40
+
 #define O_NDELAY 0
 #define mkdir(a,b) mkdir(a)
 
@@ -448,13 +459,16 @@ extern void mallocemu_free (void *ptr);
 
 #ifndef BUILD_TOOLS
 #include "target.h"
+#include "machdep/machdep.h"
 #include "gfxdep/gfx.h"
 #endif
 
+#ifndef WIN32
 #ifdef UAE_CONSOLE
 #undef write_log
 #define write_log write_log_standard
 #define flush_log flush_log_standard
+#endif
 #endif
 
 #if __GNUC__ - 1 > 1 || __GNUC_MINOR__ - 1 > 6
@@ -481,7 +495,8 @@ extern int gui_message_multibutton (int flags, const char *format,...);
 #if __GNUC__ - 1 > 1
 #define STATIC_INLINE static __inline__ __attribute__((always_inline))
 #else
-#define STATIC_INLINE static __inline__
+/* Keep fingers crossed for non-GCC compilers */
+#define STATIC_INLINE static inline
 #endif
 #endif
 

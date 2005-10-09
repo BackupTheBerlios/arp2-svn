@@ -6,13 +6,13 @@ SUBDIRS = \
 	@OSDEP@ keymap dms caps
 
 DIST_SUBDIRS = \
-	md-generic md-68k md-i386-gcc md-i386-watcom md-ppc md-ppc-gcc \
+	md-generic md-68k md-i386-gcc md-i386-watcom md-ppc md-ppc-gcc md-amd64-gcc \
 	gfx-amigaos gfx-beos gfx-x11 gfx-sdl gfx-curses gfx-svga \
 	sd-none sd-af sd-alsa sd-amigaos sd-beos sd-file sd-mme sd-sdl sd-sgi sd-solaris sd-uss \
-	jd-none jd-amigaos jd-beos jd-linuxold jd-sdl \
+	jd-none jd-amigainput jd-amigaos jd-beos jd-linuxold jd-sdl \
 	gui-none gui-beos gui-cocoa gui-gtk gui-muirexx \
-	od-generic od-amiga od-beos od-linux od-macos od-macosx \
-	td-none td-amigaos td-beos td-posix td-sdl \
+	od-generic od-amiga od-beos od-linux od-macos od-macosx od-win32 \
+	td-none td-amigaos td-beos td-posix td-sdl td-win32 \
 	keymap \
 	caps dms
 
@@ -34,7 +34,7 @@ CLEANFILES = \
 
 DISTCLEANFILES = \
 	machdep osdep threaddep gfxdep sounddep joydep guidep \
-	target.h md-X86.S md-fpp.h
+	target.h md-fpp.h
 
 bin_PROGRAMS  = \
 	uae readdisk
@@ -62,6 +62,7 @@ noinst_HEADERS = \
 	include/catweasel.h	include/cia.h		\
 	include/commpipe.h	include/compemu.h	\
 	include/cpu_prefetch.h  include/custom.h	\
+	include/crc32.h					\
 	include/debug.h		include/disk.h 		\
 	include/drawing.h 	include/driveclick.h	\
 	include/enforcer.h	include/ersatz.h	\
@@ -71,7 +72,8 @@ noinst_HEADERS = \
 	include/fsdb.h		include/fsusage.h	\
 	include/genblitter.h	include/gensound.h	\
 	include/gfxfilter.h	include/gui.h		\
-	include/hotkeys.h	include/identify.h	\
+	include/hotkeys.h				\
+	include/hrtimer.h	include/identify.h	\
 	include/inputdevice.h	include/joystick.h	\
 	include/keyboard.h	include/keybuf.h	\
 	include/mackbd.h	include/memory.h	\
@@ -98,8 +100,8 @@ uae_SOURCES = \
 	main.c newcpu.c fpp.c memory.c events.c custom.c serial.c cia.c \
 	blitter.c autoconf.c ersatz.c keybuf.c expansion.c \
 	zfile.c cfgfile.c picasso96.c inputdevice.c \
-	gfxutil.c gfxlib.c audio.c drawing.c \
-	native2amiga.c identify.c disk.c  savestate.c unzip.c \
+	gfxutil.c audio.c drawing.c \
+	native2amiga.c identify.c disk.c crc32.c savestate.c unzip.c \
 	uaeexe.c uaelib.c fdi2raw.c sleep.c hotkeys.c \
 	ar.c driveclick.c enforcer.c misc.c \
 	missing.c readcpu.c writelog.c
@@ -107,13 +109,13 @@ uae_SOURCES = \
 EXTRA_uae_SOURCES = \
 	bsdsocket.c bsdsocket-posix.c bsdsocket-posix-new.c build68k.c catweasel.c cdrom.c \
 	compemu_fpp.c compemu_optimizer.c compemu_optimizer_x86.c \
-	compemu_raw_x86.c compemu_support.c cpuopti.c \
+	compemu_raw_x86.c compemu_support.c \
 	debug.c filesys.c fsdb.c fsdb_unix.c fsusage.c genblitter.c \
-	gencpu.c gengenblitter.c genp2c.c gencomp.c hardfile.c \
+	gencpu.c gengenblitter.c gencomp.c hardfile.c \
 	hardfile_unix.c linetoscr.c scsi-none.c \
 	scsiemul.c svgancui.c tui.c \
 	blkdev-libscg.c filesys_unix.c \
-	akiko.c akiko2.c ar.c blkdev.c blitops.c
+	akiko.c ar.c blkdev.c blitops.c
 
 uae_DEPENDENCIES = \
 	@MACHDEP@/libmachdep.a		\
@@ -165,7 +167,7 @@ libcpuemu_a_SOURCES =
 libcpuemu_a_LIBADD =		@CPUOBJS@ @JITOBJS@
 libcpuemu_a_DEPENDENCIES =	@CPUOBJS@ @JITOBJS@
 
-cpuemu_0.c:	tools/gencpu 
+cpuemu_0.c:	tools/gencpu
 		./tools/gencpu @GENCPUOPTS@
 
 cpustbl.c:	cpuemu_0.c
@@ -183,24 +185,10 @@ compstbl.c:	compemu.c
 
 comptbl.h:	compemu.c
 
-
-cpufast_nf_%.s: cpuemu_%.c tools/cpuopti
-	$(CC) $(INCLUDES) -S $(CPPFLAGS) $(CFLAGS) $(DEBUGFLAGS) $(NO_SCHED_CFLAGS) -DNOFLAGS $< -o $(@:cpufast_%=cputmp_%)
-	./tools/cpuopti $(@:cpufast_%=cputmp_%) >$@
-	rm $(@:cpufast_%=cputmp_%)
-
-cpufast_%.s: cpuemu_%.c tools/cpuopti
-	$(CC) $(INCLUDES) -S $(CPPFLAGS) $(CFLAGS) $(DEBUGFLAGS) $(NO_SCHED_CFLAGS) $< -o $(@:cpufast_%=cputmp_%)
-	./tools/cpuopti <$(@:cpufast_%=cputmp_%) >$@
-	rm $(@:cpufast_%=cputmp_%)
-
 cpuemu_nf_%.o: cpuemu_%.c
 	$(CC) $(INCLUDES) -c $(CPPFLAGS) $(CFLAGS) $(DEBUGFLAGS) $(NO_SCHED_CFLAGS) -DNOFLAGS $< -o $@
 
 cpuemu_%.o: cpuemu_%.c
-	$(CC) $(INCLUDES) -c $(CPPFLAGS) $(CFLAGS) $(DEBUGFLAGS) $(NO_SCHED_CFLAGS) $< -o $@
-
-cpufast_%.o: cpufast_%.s
 	$(CC) $(INCLUDES) -c $(CPPFLAGS) $(CFLAGS) $(DEBUGFLAGS) $(NO_SCHED_CFLAGS) $< -o $@
 
 cpustbl_nf.o: cpustbl.c
@@ -223,8 +211,6 @@ tools/genblitter:
 	$(MAKE) -C tools genblitter
 tools/build68k:
 	$(MAKE) -C tools build68k
-tools/cpuopti:
-	$(MAKE) -C tools cpuopti
 tools/gencpu:
 	$(MAKE) -C tools gencpu
 tools/gencomp:
@@ -256,9 +242,6 @@ osdep/libthreaddep.a:
 
 keymap/libkeymap.a:
 	$(MAKE) -C keymap libkeymap.a
-
-md-X86.o: md-X86.S
-	$(CC) -I$(INCLUDES) $(CFLAGS) md-X86.S -c
 
 clean-local:
 	$(MAKE) -C tools clean

@@ -40,6 +40,7 @@
 #include "scsidev.h"
 #include "akiko.h"
 #include "savestate.h"
+#include "hrtimer.h"
 
 #ifdef USE_SDL
 #include "SDL.h"
@@ -57,18 +58,11 @@ int log_scsi;
 
 struct gui_info gui_data;
 
+#ifdef WIN32
 char warning_buffer[256];
+#endif
 
 char optionsfile[256];
-
-/* If you want to pipe printer output to a file, put something like
- * "cat >>printerfile.tmp" above.
- * The printer support was only tested with the driver "PostScript" on
- * Amiga side, using apsfilter for linux to print ps-data.
- *
- * Under DOS it ought to be -p LPT1: or -p PRN: but you'll need a
- * PostScript printer or ghostscript -=SR=-
- */
 
 
 void discard_prefs (struct uae_prefs *p, int type)
@@ -96,7 +90,7 @@ void fixup_prefs_dimensions (struct uae_prefs *prefs)
 	prefs->gfx_height_fs = 200;
     if (prefs->gfx_height_fs > 1280)
 	prefs->gfx_height_fs = 1280;
-    prefs->gfx_width_fs += 7; /* X86.S wants multiples of 4 bytes, might be 8 in the future. */
+    prefs->gfx_width_fs += 7;
     prefs->gfx_width_fs &= ~7;
     if (prefs->gfx_width_win < 320)
 	prefs->gfx_width_win = 320;
@@ -104,7 +98,7 @@ void fixup_prefs_dimensions (struct uae_prefs *prefs)
 	prefs->gfx_height_win = 200;
     if (prefs->gfx_height_win > 1280)
 	prefs->gfx_height_win = 1280;
-    prefs->gfx_width_win += 7; /* X86.S wants multiples of 4 bytes, might be 8 in the future. */
+    prefs->gfx_width_win += 7;
     prefs->gfx_width_win &= ~7;
 }
 
@@ -112,26 +106,16 @@ static void fixup_prefs_joysticks (struct uae_prefs *prefs)
 {
     int joy_count = inputdevice_get_device_total (IDTYPE_JOYSTICK);
 
-    if (joy_count <= 1) {
-	/*
-	 * If we have one or fewer joysticks, don't allow either port to
-	 * be configured to use joy1
-	 */
-	if (prefs->jport0 == JPORT_JOY1)
-	    prefs->jport0 = (prefs->jport1 != JPORT_MOUSE) ? JPORT_MOUSE : JPORT_JOY0;
-	if (prefs->jport1 == JPORT_JOY1)
-	    prefs->jport1 = (prefs->jport0 != JPORT_JOY0)  ? JPORT_JOY0  : JPORT_KBD1;
+    /* If either port is configured to use a non-existent joystick, try
+     * to use a sensible alternative.
+     */
+    if (prefs->jport0 >= JSEM_JOYS && prefs->jport0 < JSEM_MICE) {
+	if (prefs->jport0 - JSEM_JOYS >= joy_count)
+	    prefs->jport0 = (prefs->jport1 != JSEM_MICE) ? JSEM_MICE : JSEM_NONE;
     }
-
-    if (joy_count == 0) {
-	/*
-	 * If we have no joysticks, don't allow either port to
-	 * be configured to use joy0
-	 */
-	if (prefs->jport0 == JPORT_JOY0)
-	    prefs->jport0 = (prefs->jport1 != JPORT_MOUSE) ? JPORT_MOUSE : JPORT_KBD3;
-	if (prefs->jport1 == JPORT_JOY0)
-	    prefs->jport1 = (prefs->jport0 != JPORT_KBD1)  ? JPORT_KBD1  : JPORT_KBD3;
+    if (prefs->jport1 >= JSEM_JOYS && prefs->jport1 < JSEM_MICE) {
+	if (prefs->jport1 - JSEM_JOYS >= joy_count)
+	    prefs->jport1 = (prefs->jport0 != JSEM_KBDLAYOUT) ? JSEM_KBDLAYOUT : JSEM_NONE;
     }
 }
 
@@ -283,8 +267,6 @@ static void fix_options (void)
     if (currprefs.input_mouse_speed < 1 || currprefs.input_mouse_speed > 1000) {
 	currprefs.input_mouse_speed = 100;
     }
-    if (currprefs.cpu_cycle_exact || currprefs.blitter_cycle_exact)
-	currprefs.fast_copper = 0;
 
     if (currprefs.collision_level < 0 || currprefs.collision_level > 3) {
 	write_log ("Invalid collision support level.  Using 1.\n");
@@ -361,24 +343,6 @@ void uae_restart (int opengui, char *cfgfile)
 	strcpy (restart_config, cfgfile);
 }
 
-const char *gameport_state (int nr)
-{
-    if (JSEM_ISJOY0 (nr, &currprefs) && inputdevice_get_device_total (IDTYPE_JOYSTICK) > 0)
-	return "using joystick #0";
-    else if (JSEM_ISJOY1 (nr, &currprefs) && inputdevice_get_device_total (IDTYPE_JOYSTICK) > 1)
-	return "using joystick #1";
-    else if (JSEM_ISMOUSE (nr, &currprefs))
-	return "using mouse";
-    else if (JSEM_ISNUMPAD (nr, &currprefs))
-	return "using numeric pad as joystick";
-    else if (JSEM_ISCURSOR (nr, &currprefs))
-	return "using cursor keys as joystick";
-    else if (JSEM_ISSOMEWHEREELSE (nr, &currprefs))
-	return "using T/F/H/B/Alt as joystick";
-
-    return "not connected";
-}
-
 #ifndef DONT_PARSE_CMDLINE
 
 void usage (void)
@@ -393,6 +357,7 @@ static void show_version (void)
 #else
     write_log ("UAE %d.%d.%d\n", UAEMAJOR, UAEMINOR, UAESUBREV);
 #endif
+    write_log ("Build date: " __DATE__ " " __TIME__ "\n");
 }
 
 static void show_version_full (void)
@@ -400,8 +365,8 @@ static void show_version_full (void)
     write_log ("\n");
     show_version ();
     write_log ("\nCopyright 1995-2002 Bernd Schmidt\n");
-    write_log ("          1999-2004 Toni Wilen\n");
-    write_log ("          2003-2004 Richard Drummond\n\n");
+    write_log ("          1999-2005 Toni Wilen\n");
+    write_log ("          2003-2005 Richard Drummond\n\n");
     write_log ("See the source for a full list of contributors.\n");
 
     write_log ("This is free software; see the file COPYING for copying conditions.  There is NO\n");
@@ -421,7 +386,8 @@ static void parse_cmdline (int argc, char **argv)
             free_mountinfo (currprefs.mountinfo);
             currprefs.mountinfo = alloc_mountinfo ();
 #endif
-	    cfgfile_load (&currprefs, argv[i] + 8, 0);
+	    if (cfgfile_load (&currprefs, argv[i] + 8, 0))
+		strcpy (optionsfile, argv[i] + 8);
 	}
 	/* Check for new-style "-f xxx" argument, where xxx is config-file */
 	else if (strcmp (argv[i], "-f") == 0) {
@@ -432,7 +398,8 @@ static void parse_cmdline (int argc, char **argv)
                 free_mountinfo (currprefs.mountinfo);
 	        currprefs.mountinfo = alloc_mountinfo ();
 #endif
-		cfgfile_load (&currprefs, argv[++i], 0);
+		if (cfgfile_load (&currprefs, argv[++i], 0))
+		    strcpy (optionsfile, argv[i]);
 	    }
 	} else if (strcmp (argv[i], "-s") == 0) {
 	    if (i + 1 == argc)
@@ -503,6 +470,8 @@ static void parse_cmdline_and_init_file (int argc, char **argv)
     fix_options ();
 
     parse_cmdline (argc, argv);
+
+    fix_options ();
 }
 
 void reset_all_systems (void)
@@ -549,6 +518,10 @@ void do_leave_program (void)
 {
     graphics_leave ();
     inputdevice_close ();
+
+#ifdef SCSIEMU
+    scsidev_exit ();
+#endif
     DISK_free ();
     close_sound ();
     dump_counts ();
@@ -590,6 +563,10 @@ static void real_main2 (int argc, char **argv)
 #endif
     {
 
+    if (! graphics_setup ()) {
+	exit (1);
+    }
+
     if (restart_config[0]) {
 #ifdef FILESYS
 	free_mountinfo (currprefs.mountinfo);
@@ -597,10 +574,6 @@ static void real_main2 (int argc, char **argv)
 #endif
 	default_prefs (&currprefs, 0);
 	fix_options ();
-    }
-
-    if (! graphics_setup ()) {
-	exit (1);
     }
 
 #ifdef NATMEM_OFFSET
@@ -616,6 +589,9 @@ static void real_main2 (int argc, char **argv)
         parse_cmdline_and_init_file (argc, argv);
     else
 	currprefs = changed_prefs;
+
+    uae_inithrtimer ();
+    sleep_test ();
 
     machdep_init ();
 
@@ -685,7 +661,6 @@ static void real_main2 (int argc, char **argv)
     filesys_install ();
 #endif
 #ifdef AUTOCONFIG
-    gfxlib_install ();
     bsdlib_install ();
     emulib_install ();
     uaeexe_install ();
@@ -765,7 +740,7 @@ int init_sdl (void)
 #ifndef NO_MAIN_IN_MAIN_C
 int main (int argc, char **argv)
 {
-    init_sdl();
+    init_sdl ();
     real_main (argc, argv);
     return 0;
 }

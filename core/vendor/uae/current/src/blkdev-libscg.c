@@ -3,7 +3,7 @@
   *
   * Block device access using libscg
   *
-  * Copyright 2004 Richard Drummond
+  * Copyright 2004-2005 Richard Drummond
   *
   * Heavily based on code:
   * Copyright 1995 Bernd Schmidt
@@ -48,7 +48,7 @@ struct scsidevdata {
 static struct scsidevdata drives[MAX_DRIVES];
 static int total_drives;
 
-static uae_u8 *execscsicmd_in (int unitnum, uae_u8 *data, int len, int *outlen);
+static const uae_u8 *execscsicmd_in (int unitnum, const uae_u8 *data, int len, int *outlen);
 
 /*
  * scg_isatapi() is not implemented on all platforms. Therefore,
@@ -57,10 +57,10 @@ static uae_u8 *execscsicmd_in (int unitnum, uae_u8 *data, int len, int *outlen);
  */
 static int is_atapi_drive (int unitnum)
 {
-     uae_u8 cmd[6] = { 0x12,0,0,0,36,0 }; /* INQUIRY */
+     static const uae_u8 cmd[6] = {0x12, 0, 0, 0, 36, 0}; /* INQUIRY */
      uae_u8 out[36];
      int outlen = sizeof (out);
-     uae_u8 *p = execscsicmd_in (unitnum, cmd, sizeof (cmd), &outlen);
+     const uae_u8 *p = execscsicmd_in (unitnum, cmd, sizeof (cmd), &outlen);
      if (!p)
 	return 0;
      if (outlen >= 2 && (p[0] & 31) == 5 && (p[2] & 7) == 0)
@@ -176,7 +176,7 @@ static int unit_ready (SCSI *scgp)
     return (scg_sense_key (scgp) != SC_NOT_READY);
 }
 
-static void print_product (struct scsi_inquiry *ip)
+static void print_product (const struct scsi_inquiry *ip)
 {
     write_log ("'%.8s' ",  ip->vendor_info);
     write_log ("'%.16s' ", ip->prod_ident);
@@ -237,7 +237,7 @@ static void closescsi (SCSI *scgp)
 
 static uae_u8 scsibuf [DEVICE_SCSI_BUFSIZE];
 
-static int execscsicmd (int unitnum, uae_u8 *data, int len, uae_u8 *inbuf,
+static int execscsicmd (int unitnum, const uae_u8 *data, int len, uae_u8 *inbuf,
 			int inlen)
 {
     int sactual = 0;
@@ -255,7 +255,7 @@ static int execscsicmd (int unitnum, uae_u8 *data, int len, uae_u8 *inbuf,
 
     scmd->timeout   = 80 * 60;
     if (inbuf) {
-	scmd->addr      = inbuf;
+	scmd->addr      = (caddr_t) inbuf;
 	scmd->size      = inlen;
 	scmd->flags     = SCG_RECV_DATA;
 	memset (inbuf, 0, inlen);
@@ -335,7 +335,7 @@ static int execscsicmd_direct (int unitnum, uaecptr acmd)
     if (sdd->isatapi)
 	scsi_atapi_fixup_pre (scmd->cdb.cmd_cdb, &scsi_cmd_len, &scsi_datap,
 			      &scsi_len, &parm);
-    scmd->addr      = scsi_datap;
+    scmd->addr      = (caddr_t)scsi_datap;
     scmd->cdb_len   = scsi_cmd_len;
 
     scg_settarget (scgp, sdd->bus, sdd->target, sdd->lun);
@@ -398,7 +398,7 @@ static int execscsicmd_direct (int unitnum, uaecptr acmd)
     return io_error;
 }
 
-static uae_u8 *execscsicmd_out (int unitnum, uae_u8 *data, int len)
+static const uae_u8 *execscsicmd_out (int unitnum, const uae_u8 *data, int len)
 {
     DEBUG_LOG ("SCSIDEV: unit=%d: execscsicmd_out\n", unitnum);
 
@@ -408,7 +408,7 @@ static uae_u8 *execscsicmd_out (int unitnum, uae_u8 *data, int len)
     return data;
 }
 
-static uae_u8 *execscsicmd_in (int unitnum, uae_u8 *data, int len, int *outlen)
+static const uae_u8 *execscsicmd_in (int unitnum, const uae_u8 *data, int len, int *outlen)
 {
     int v;
 
@@ -615,9 +615,15 @@ static int check_isatapi (int unitnum)
 }
 
 struct device_functions devicefunc_scsi_libscg = {
-    open_scsi_bus, close_scsi_bus,
-    open_scsi_device, close_scsi_device, info_device,
-    execscsicmd_out, execscsicmd_in, execscsicmd_direct,
+    open_scsi_bus,
+    close_scsi_bus,
+    open_scsi_device,
+    close_scsi_device,
+    info_device,
+    execscsicmd_out,
+    execscsicmd_in,
+    execscsicmd_direct,
     0, 0, 0, 0, 0, 0, 0,
-    check_isatapi
+    check_isatapi,
+    0, 0
 };

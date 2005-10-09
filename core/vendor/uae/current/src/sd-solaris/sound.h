@@ -11,13 +11,13 @@ extern uae_u16 *sndbufpt;
 extern int sound_fd;
 extern int sndbufsize;
 
-static __inline__ void flush_sound_buffer (void)
+STATIC_INLINE void flush_sound_buffer (void)
 {
     write (sound_fd, sndbuffer, sndbufsize);
     sndbufpt = sndbuffer;
 }
 
-static __inline__ void check_sound_buffers (void)
+STATIC_INLINE void check_sound_buffers (void)
 {
     if ((char *)sndbufpt - (char *)sndbuffer >= sndbufsize) {
 	flush_sound_buffer();

@@ -21,9 +21,11 @@ void init_shm (void);
 #endif
 
 #ifdef ADDRESS_SPACE_24BIT
-#define MEMORY_BANKS 256
+# define MEMORY_BANKS		256
+# define MEMORY_RANGE_MASK	((1<<24)-1)
 #else
-#define MEMORY_BANKS 65536
+# define MEMORY_BANKS		65536
+# define MEMORY_RANGE_MASK	(~0)
 #endif
 
 typedef uae_u32 (*mem_get_func)(uaecptr) REGPARAM;
@@ -81,7 +83,6 @@ typedef struct {
 } addrbank;
 
 extern uae_u8 *filesysory;
-extern uae_u8 *rtarea;
 
 extern addrbank chipmem_bank;
 extern addrbank chipmem_bank_ce2;
@@ -137,8 +138,6 @@ extern void memory_cleanup (void);
 extern void map_banks (addrbank *bank, int first, int count, int realsize);
 extern void map_overlay (int chip);
 
-#ifndef NO_INLINE_MEMORY_ACCESS
-
 #define longget(addr) (call_mem_get_func(get_mem_bank(addr).lget, addr))
 #define wordget(addr) (call_mem_get_func(get_mem_bank(addr).wget, addr))
 #define byteget(addr) (call_mem_get_func(get_mem_bank(addr).bget, addr))
@@ -146,62 +145,46 @@ extern void map_overlay (int chip);
 #define wordput(addr,w) (call_mem_put_func(get_mem_bank(addr).wput, addr, w))
 #define byteput(addr,b) (call_mem_put_func(get_mem_bank(addr).bput, addr, b))
 
-#else
-
-extern uae_u32 alongget(uaecptr addr);
-extern uae_u32 awordget(uaecptr addr);
-extern uae_u32 longget(uaecptr addr);
-extern uae_u32 wordget(uaecptr addr);
-extern uae_u32 byteget(uaecptr addr);
-extern void longput(uaecptr addr, uae_u32 l);
-extern void wordput(uaecptr addr, uae_u32 w);
-extern void byteput(uaecptr addr, uae_u32 b);
-
-#endif
-
-#ifndef MD_HAVE_MEM_1_FUNCS
-
-#define longget_1 longget
-#define wordget_1 wordget
-#define byteget_1 byteget
-#define longput_1 longput
-#define wordput_1 wordput
-#define byteput_1 byteput
-
-#endif
-
 STATIC_INLINE uae_u32 get_long(uaecptr addr)
 {
-    return longget_1(addr);
+    addr &= MEMORY_RANGE_MASK;
+    return longget(addr);
 }
 STATIC_INLINE uae_u32 get_word(uaecptr addr)
 {
-    return wordget_1(addr);
+    addr &= MEMORY_RANGE_MASK;
+    return wordget(addr);
 }
 STATIC_INLINE uae_u32 get_byte(uaecptr addr)
 {
-    return byteget_1(addr);
+    addr &= MEMORY_RANGE_MASK;
+    return byteget(addr);
 }
 STATIC_INLINE void put_long(uaecptr addr, uae_u32 l)
 {
-    longput_1(addr, l);
+    addr &= MEMORY_RANGE_MASK;
+    longput(addr, l);
 }
 STATIC_INLINE void put_word(uaecptr addr, uae_u32 w)
 {
-    wordput_1(addr, w);
+    addr &= MEMORY_RANGE_MASK;
+    wordput(addr, w);
 }
 STATIC_INLINE void put_byte(uaecptr addr, uae_u32 b)
 {
-    byteput_1(addr, b);
+    addr &= MEMORY_RANGE_MASK;
+    byteput(addr, b);
 }
 
 STATIC_INLINE uae_u8 *get_real_address(uaecptr addr)
 {
+    addr &= MEMORY_RANGE_MASK;
     return get_mem_bank(addr).xlateaddr(addr);
 }
 
 STATIC_INLINE int valid_address(uaecptr addr, uae_u32 size)
 {
+    addr &= MEMORY_RANGE_MASK;
     return get_mem_bank(addr).check(addr, size);
 }
 

@@ -261,6 +261,9 @@
 /* Define to 1 if the system has the type `_Bool'. */
 #undef HAVE__BOOL
 
+/* Define to 1 if your CPU profitably supports multiplication. */
+#undef MULTIPLICATION_PROFITABLE
+
 /* Name of package */
 #undef PACKAGE
 
@@ -378,6 +381,9 @@
 
 /* Define to `unsigned' if <sys/types.h> does not define. */
 #undef size_t
+
+/* Substitute for socklen_t */
+#undef socklen_t
 
 /* Define to unsigned long or unsigned long long if <stdint.h> and
    <inttypes.h> don't define. */

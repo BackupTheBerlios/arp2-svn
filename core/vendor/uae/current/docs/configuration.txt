@@ -21,9 +21,10 @@ the command line, which, again, will override options found in the default
 file.
 
 The default values for E-UAE's configuration options will cause E-UAE to
-emulate a 68020-based ECS system with 2 MB of Chip memory. The only option
-you absolutely need to specify is the path to the Kickstart image you want
-to use (unless you wish to use E-UAE's minimal Kickstart emulation).
+emulate a 68000-based ECS system with 512 KB of Chip memory and 512 KB of
+Slow memory. The only option you absolutely need to specify is the path to
+the Kickstart image you want to use (unless you wish to use E-UAE's minimal
+Kickstart emulation).
 
 In the following descriptions of E-UAE's configuration options, the template
 <n> refers to an integer value, <boolean> to a value of 'true' or 'false',
@@ -86,25 +87,53 @@ use_debugger=<boolean> (default=false)
   debugger cannot be opened due to platform-specific restrictions.
 
 
-CPU options
-===========
+Host CPU-specific options
+=========================
 
-cpu_type=<type> (default=68020)
+x86.use_tsc=<boolean> (default=true)
+
+  On x86 machines, if this option is true then the processor's timestamp
+  counter will be used for timing in E-UAE. This used to be a problem for
+  machines which did power-saving by scaling down the CPU's clock frequency,
+  but with E-UAE 0.8.28 this should no longer be an issue on Linux. If you
+  are running E-UAE on some other x86 platform which does frequency scaling,
+  then set this option to false. Performance will suffer, but at least
+  timing won't be affected by changes in CPU frequency.
+
+
+amd64.use_tsc=<boolean> (default=true)
+
+  Same as the option above, but applies to AMD64 processors.
+
+
+ppc.use_tbc=<boolean> (default=true)
+
+  On PPC machines, if this option is true then use the processor's timebase
+  register for timing in E-UAE. Since the PPC's TBC isn't affected by
+  frequency scaling, this option is of little use and is supported only for
+  completeness. It may be useful if E-UAE misdetects or miscalibrates your
+  machine's timebase frequency (if it does, please let me know).
+
+
+CPU emulation options
+=====================
+
+cpu_type=<type> (default=68000)
 
   Select model of 68k processor to emulate. Valid values for <type> are
-  68000, 68010, 68ec020, 68ec020/881, 68020, 68020/881, 68040 and 68060.
+  68000, 68010, 68ec020, 68ec020/68881, 68020, 68020/68881, 68040 and 68060.
 
   Note:
 
-  1) The values '68ec020' and '68ec20/881' correspond to the 68020 model
+  1) The values '68ec020' and '68ec20/68881' correspond to the 68020 model
      with a 24-bit address bus (as found in the A1200). Zorro III memory
      and/or a RTG graphics card cannot be emulated.
-  2) The values '68ec020/881' and '68020/881' correspond to an 020 with a
+  2) The values '68ec020/68881' and '68020/68881' correspond to an 020 with a
      68881 floating point co-processor.
   3) The 68060 emulation is incomplete and not yet useful.
 
 
-cpu_speed=<speed> (default=max)
+cpu_speed=<speed> (default=real)
 
   <speed> configures the performance of the interpretive CPU emulation
   relative to the Amiga chipset. This may have the value 'real', 'max' or
@@ -157,8 +186,8 @@ cpu_cycle_exact=<boolean> (default=false)
   This option only applies when emulating a plain 68000 CPU.
 
 
-JIT options
-===========
+JIT compiler options
+====================
 
   The following options configure the dynamically-recompiling CPU emulation
   (or JIT compiler). The JIT engine is much faster than the interpretative
@@ -212,11 +241,6 @@ immediate_blits=<boolean> (default=false)
   If enabled then blits performed by the Amiga chipset emulation will be
   reported as finishing immediately. This may improve performance at the
   price of compatibility. This option is ignored in cycle-exact mode.
-
-
-fast_copper=<boolean> (default=true)
-
-  To do.
 
 
 collision_level=<type> (default=playfields)
@@ -310,7 +334,7 @@ kickshifter=<boolean> (default=false)
 RAM options
 ===========
 
-chipmem_size=<n> (default=4, that is, 2MB)
+chipmem_size=<n> (default=1, that is, 512 KB)
 
   Emulate <n> * 512 KB of Chip memory (memory that is accessible by the Amiga
   chipset). The valid range of values for <n> is between 1 and 16, that is,
@@ -327,13 +351,13 @@ chipmem_size=<n> (default=4, that is, 2MB)
   would provide 1 MB of Chip memory.
 
 
-bogomem_size=<n> (default=0)
+bogomem_size=<n> (default=2, that is, 512 KB)
 
   Emulate <n> * 256 KB of "Slow" memory. The valid range of values for <n>
   is 0, 2, 4 and 6, that is 0 KB, 512 KB, 1 MB and 1.5 MB, respectively.
 
   "Slow" memory is the type of memory provided by the A500 trapdoor slot.
-  It cannot be accessed by the Amiga chipset like Chip memory, but unlike
+  It cannot be accessed by the Amiga chipset like Chip memory, but, unlike
   Fast memory, this memory cannot be accessed by the CPU when the custom
   chipset is busy - hence the term "Slow".
 
@@ -356,7 +380,7 @@ gfxcard_size=<n> (default=0)
 
   Emulate an RTG graphics card with <n> MB of graphics memory. Selecting <n>
   greater than 0, enables the graphics card or so-called 'Picasso96'
-  emulation. A maximum of 8 MB of graphics card memory may be emulated.
+  emulation. A maximum of 32 MB of graphics card memory may be emulated.
 
   E-UAE must emulate a 32-bit CPU (a 68020 or better, not an 68ec020) to
   support the graphics card emulation.
@@ -371,8 +395,8 @@ corresponding to the AmigaDOS devices DF0: to DF3:, respectively. Drive 0 is
 the first drive, and drive in which you would typically insert a floppy disk
 to boot from.
 
-E-UAE support file-based images of Amiga floppy disks in a number of
-different file formats.
+E-UAE supports file-based images of Amiga floppy disks in a number of
+different file formats (see floppies.txt).
 
 
 floppy<drive>=<path>
@@ -384,7 +408,7 @@ floppy<drive>=<path>
   option.
 
 
-floppy<drive>=<type> (default=0 for drives 0 and 1, -1 for drives 2 and 3)
+floppy<drive>type=<type> (default=0 for drives 0 and 1, -1 for drives 2 and 3)
 
   Specifies the type of disk mounted in the emulated for drive DF<drive>:.
   <type> may have the following values
@@ -426,7 +450,8 @@ Hard disk options
   virtual AmigaOS volume. The main advantages of a virtual filesystem are
   ease of use (no special setting-up is required) and the fact that both
   the host system and the emulated environment can access it at the same
-  time.
+  time (although this is not guaranteed to be safe, especially if host and
+  emulated environment write to a directory simultaneously).
 
   A hard file is a file containing the raw image of a real AmigaOS
   filesystem or disk (an image of a partitionable disk is known as an "RDB"
@@ -515,8 +540,8 @@ Display options
 ===============
 
 The following options configure the emulation of native Amiga screenmodes
-(displays generated by the Amiga chipset - not of display generated by
-Picasso96).
+(displays generated by the built-in Amiga chipset - not of display generated
+by Picasso96).
 
 Todo: need some general blurb about how Amiga screens are output,
 resolution, etc.
@@ -538,17 +563,35 @@ gfx_framerate=<n> (default=1)
   frame in 4 and thus its display will updated only 12.5 times a second.
 
 
-gfx_width=<n> (default=800)
-gfx_height=<n> (default=600)
-gfx_width_windowed=<n> (default=800)
-gfx_height_windowed=<n> (default=600)
+gfx_width_windowed=<n> (default=720)
+gfx_height_windowed=<n> (default=568)
 gfx_width_fullscreen=<n> (default=800)
 gfx_height_fullscreen=<n> (defaullt=600)
 
-  Specifies the dimensions of the E-UAE display. To do.
-  (Note that, currently, E-UAE does not use the gfx_*_fullscreen options,
-  even when the disply is full-screen.)
+  Specify the dimensions of the E-UAE display for graphical ouptut from the
+  Amiga chipset. 
+  
+  Ideally, the gfx_*_windowed options should specify the dimensions when
+  E-UAE is running in a window on your desktop and the gfx_*_fullscreen 
+  options will apply when running full-screen. However, this is not supported 
+  yet, and E-UAE will use the gfx_*_windowed dimensions in both windowed and
+  full-screen modes.
 
+  To emulate a high-resolution, fully overscanned PAL screen - either
+  non-interlaced with line-doubling, or interlaced - you need to use a
+  display of at least 720 by 568 pixels. If you specify a smaller size,
+  E-UAE's display will be clipped to fit (and you can use the gfx_center_*
+  options - see below - to centre the clipped region of the display).
+  Similarly, to fully display an over-scanned lo-res PAL screen, you need a
+  display of 360 by 284 pixels.
+
+
+gfx_width=<n> 
+gfx_height=<n>
+
+  These option are for backwards-compatibility and have been superceded by
+  the gfx_*_windowed and gfx_*_fullscreen options above.
+  
 
 gfx_fullscreen_amiga=<bool> (default=false)
 
@@ -570,7 +613,7 @@ gfx_lores=<boolean> (default=false)
   high-resolution screen by default.
 
 
-gfx_linemode=<type> (default=scanlines)
+gfx_linemode=<type> (default=double)
 
   Determines how many times each display line is drawn. Valid values for
   <type> are:
@@ -610,7 +653,7 @@ gfx_center_vertical=<type> (default=none)
   the E-UAE display.
 
 
-show_leds=<bool>
+show_leds=<bool> (default=false)
 
   If true, show drive activity and power LEDs at the bottom right corner of
   the E-UAE display.
@@ -696,6 +739,7 @@ joyport0=<mode>
   Selects the method used to emulate the device attached to the Amiga
   joystick port 0 (the mouse port).
 
+  none  - no device is connected to this port.
   mouse - a mouse will be emulated on this port and input will be supplied
           from the host's default mouse (the device you use to move the
           mouse pointer on the host).
@@ -761,10 +805,26 @@ The following options apply when E-UAE has been built with the X11 graphics
 driver.
 
 x11.low_bandwidth=<bool> (default=false)
+
+  If this option is set to true, then E-UAE will try to minimize the amount
+  of data sent to the X server by only redrawing areas of the amiga screen
+  that have changed. This may increase frame rate on slow machines or when
+  running E-UAE on a separate host from the X server.
+
+
 x11.use_mitshm=<bool> (default=true)
+
+  If this option is set to true, your X server supports the MITSHM extension
+  and E-UAE is running on the same host as the server, then E-UAE will use
+  memory shared between itself and the server for display buffers. This will
+  increase display refresh speed.
+
+
 x11.hide_cursor=<bool> (default=true)
 
-  To do.
+  If this option is set to true then the X cursor is hidden when it is
+  inside the E-UAE window; otherwise it is not.
+
 
 SDL-specific options
 ====================
@@ -778,6 +838,7 @@ sdl.map_raw_keys=<bool> (default=false)
   otherwise, the driver tries to map translated key codes, possible leading
   to poorer support for international keyboard layouts (see
   docs/keyboard.txt).
+
 
 AmigaOS-specific options
 ========================
@@ -799,6 +860,7 @@ amiga.screen_type=<type> (default=public)
   ask      E-UAE will present you with a requester to select the screenmode
            to use for display. If this requester is cancelled, E-UAE will
            use a window on the default or named public screen.
+
 
 amiga.publicscreen=<name>
 

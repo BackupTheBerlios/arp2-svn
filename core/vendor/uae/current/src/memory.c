@@ -65,33 +65,6 @@ addrbank *mem_banks[MEMORY_BANKS];
 uae_u8 *baseaddr[MEMORY_BANKS];
 #endif
 
-#ifdef NO_INLINE_MEMORY_ACCESS
-__inline__ uae_u32 longget (uaecptr addr)
-{
-    return call_mem_get_func (get_mem_bank (addr).lget, addr);
-}
-__inline__ uae_u32 wordget (uaecptr addr)
-{
-    return call_mem_get_func (get_mem_bank (addr).wget, addr);
-}
-__inline__ uae_u32 byteget (uaecptr addr)
-{
-    return call_mem_get_func (get_mem_bank (addr).bget, addr);
-}
-__inline__ void longput (uaecptr addr, uae_u32 l)
-{
-    call_mem_put_func (get_mem_bank (addr).lput, addr, l);
-}
-__inline__ void wordput (uaecptr addr, uae_u32 w)
-{
-    call_mem_put_func (get_mem_bank (addr).wput, addr, w);
-}
-__inline__ void byteput (uaecptr addr, uae_u32 b)
-{
-    call_mem_put_func (get_mem_bank (addr).bput, addr, b);
-}
-#endif
-
 uae_u32 chipmem_mask, kickmem_mask, extendedkickmem_mask, bogomem_mask, a3000mem_mask;
 
 static int illegal_count;
@@ -905,8 +878,8 @@ uae_u8 REGPARAM2 *default_xlate (uaecptr a)
 	    if (be_cnt < 3) {
 		int i, j;
 		uaecptr a2 = a - 32;
-		uaecptr a3 = m68k_getpc() - 32;
-		write_log ("Your Amiga program just did something terribly stupid %p PC=%p\n", a, m68k_getpc());
+		uaecptr a3 = m68k_getpc (&regs) - 32;
+		write_log ("Your Amiga program just did something terribly stupid %p PC=%p\n", a, m68k_getpc (&regs));
 		m68k_dumpstate (0, 0);
 		for (i = 0; i < 10; i++) {
 		    write_log ("%08.8X ", i >= 5 ? a3 : a2);
@@ -923,9 +896,9 @@ uae_u8 REGPARAM2 *default_xlate (uaecptr a)
 		be_cnt = 0;
 	    } else {
 		regs.panic = 1;
-		regs.panic_pc = m68k_getpc ();
+		regs.panic_pc = m68k_getpc (&regs);
 		regs.panic_addr = a;
-		set_special (SPCFLAG_BRK);
+		set_special (&regs, SPCFLAG_BRK);
 	    }
 	}
     }
@@ -1174,7 +1147,7 @@ static int load_kickstart (void)
     struct zfile *f = zfile_fopen (currprefs.romfile, "rb");
 
     if (f == NULL) {
-#if defined AMIGA && !defined __amigaos4__ && !defined __MORPHOS__ && !defined __AROS__
+#if defined TARGET_AMIGAOS && TARGET_M68K
 # define USE_UAE_ERSATZ "USE_UAE_ERSATZ"
 	if (!getenv (USE_UAE_ERSATZ)) {
 	    write_log ("Using current ROM. (create ENV:%s to "
@@ -1197,7 +1170,7 @@ static int load_kickstart (void)
 	kickmem_mask = size - 1;
     }
 
-#if defined AMIGA && !defined __amigaos4__ && !defined MORPHOS
+#if defined TARGET_AMIGAOS && TARGET_M68K
     chk_sum:
 #endif
 
@@ -1546,7 +1519,7 @@ void map_overlay (int chip)
     else
 	map_banks (&kickmem_bank, 0, i, 0x80000);
     if (savestate_state != STATE_RESTORE && savestate_state != STATE_REWIND)
-        m68k_setpc(m68k_getpc());
+        m68k_setpc (&regs, m68k_getpc (&regs));
 }
 
 void memory_reset (void)

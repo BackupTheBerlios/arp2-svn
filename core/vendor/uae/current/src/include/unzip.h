@@ -45,6 +45,15 @@
 extern "C" {
 #endif
 
+/* Work-around for NetBSD. Its zconf.h doesn't define OF(x) */
+#ifndef OF
+#ifdef __STDC__
+#define OF(x) x
+#else
+#define OF(x) ()
+#endif
+#endif
+
 #ifndef _ZLIB_H
 #include "zlib.h"
 #endif

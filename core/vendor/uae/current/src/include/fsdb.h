@@ -16,6 +16,7 @@
 #endif
 
 /* AmigaOS errors */
+#define ERROR_BAD_NUMBER		  6
 #define ERROR_NO_FREE_STORE		103
 #define ERROR_OBJECT_IN_USE		202
 #define ERROR_OBJECT_EXISTS		203
@@ -35,6 +36,7 @@
 #define ERROR_NO_MORE_ENTRIES		232
 #define ERROR_NOT_IMPLEMENTED		236
 
+#define A_FIBF_HIDDEN  (1<<7)
 #define A_FIBF_SCRIPT  (1<<6)
 #define A_FIBF_PURE    (1<<5)
 #define A_FIBF_ARCHIVE (1<<4)
@@ -108,7 +110,9 @@ STATIC_INLINE int same_aname (const char *an1, const char *an2)
 
 /* Filesystem-dependent functions.  */
 extern int fsdb_name_invalid (const char *n);
-extern int fsdb_fill_file_attrs (a_inode *);
-extern int fsdb_set_file_attrs (a_inode *, int);
+extern int fsdb_fill_file_attrs (a_inode *, a_inode *);
+extern int fsdb_set_file_attrs (a_inode *);
 extern int fsdb_mode_representable_p (const a_inode *);
 extern char *fsdb_create_unique_nname (a_inode *base, const char *);
+
+extern int dos_errno (void);

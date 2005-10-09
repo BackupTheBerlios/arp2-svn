@@ -67,7 +67,6 @@ static const struct cfg_lines opttable[] =
     {"gfx_center_horizontal", "Center display horizontally?" },
     {"gfx_center_vertical", "Center display vertically?" },
     {"gfx_colour_mode", "" },
-    {"32bit_blits", "Enable 32 bit blitter emulation" },
     {"immediate_blits", "Perform blits immediately" },
     {"show_leds", "LED display" },
     {"keyboard_leds", "Keyboard LEDs" },
@@ -84,8 +83,6 @@ static const struct cfg_lines opttable[] =
     {"compforcesettings", "Whether to force the JIT compiler settings" },
     {"cachesize", "How many MB to use to buffer translated instructions"},
     {"avoid_cmov", "Set to yes on machines that lack the CMOV instruction" },
-    {"avoid_dga", "Set to yes if the use of DGA extension creates problems" },
-    {"avoid_vid", "Set to yes if the use of the Vidmode extension creates problems" },
     {"parallel_on_demand", "" },
     {"serial_on_demand", "" },
     {"scsi", "scsi.device emulation" },
@@ -117,7 +114,6 @@ static const char *cpumode[] = {
     "68000", "68000", "68010", "68010", "68ec020", "68020", "68ec020/68881", "68020/68881",
     "68040", "68040", "xxxxx", "xxxxx", "68060", "68060", 0
 };
-static const char *portmode[] = { "joy0", "joy1", "mouse", "kbd1", "kbd2", "kbd3", 0 };
 static const char *colormode1[] = { "8bit", "15bit", "16bit", "8bit_dither", "4bit_dither", "32bit", 0 };
 static const char *colormode2[] = { "8", "15", "16", "8d", "4d", "32", 0 };
 static const char *soundmode1[] = { "none", "interrupts", "normal", "exact", 0 };
@@ -141,7 +137,10 @@ static const char *filtermode2[] = { "0x", "1x", "2x", "3x", "4x", 0 };
 static const char *obsolete[] = {
     "accuracy","gfx_opengl","gfx_32bit_blits","32bit_blits",
     "gfx_immediate_blits","gfx_ntsc","win32",
-    "sound_pri_cutoff", "sound_pri_time", 0 };
+    "sound_pri_cutoff", "sound_pri_time",
+    "avoid_dga", "override_dga_address", "avoid_vid",
+    "fast_copper",
+    0 };
 
 #define UNEXPANDED "$(FILE_PATH)"
 
@@ -219,6 +218,7 @@ void save_options (FILE *f, struct uae_prefs *p, int type)
     cfgfile_write (f, "%s.cpu_idle=%d\n", TARGET_NAME, p->cpu_idle);
 #endif
 
+    machdep_save_options (f, p);
     target_save_options (f, p);
     gfx_save_options (f, p);
 
@@ -266,7 +266,9 @@ void save_options (FILE *f, struct uae_prefs *p, int type)
     cfgfile_write (f, "serial_hardware_ctsrts=%s\n", p->serial_hwctsrts ? "true" : "false");
     cfgfile_write (f, "serial_direct=%s\n", p->serial_direct ? "true" : "false");
     cfgfile_write (f, "scsi=%s\n", p->scsi ? "true" : "false");
+#ifndef WIN32
     cfgfile_write (f, "scsi_device=%s\n", p->scsi_device);
+#endif
 
     cfgfile_write (f, "sound_output=%s\n", soundmode1[p->produce_sound]);
     cfgfile_write (f, "sound_bits=%d\n", p->sound_bits);
@@ -292,14 +294,24 @@ void save_options (FILE *f, struct uae_prefs *p, int type)
     cfgfile_write (f, "comp_midopt=%s\n", p->comp_midopt ? "true" : "false");
     cfgfile_write (f, "comp_lowopt=%s\n", p->comp_lowopt ? "true" : "false");
     cfgfile_write (f, "avoid_cmov=%s\n", p->avoid_cmov ? "true" : "false" );
-    cfgfile_write (f, "avoid_dga=%s\n", p->avoid_dga ? "true" : "false" );
-    cfgfile_write (f, "avoid_vid=%s\n", p->avoid_vid ? "true" : "false" );
     cfgfile_write (f, "cachesize=%d\n", p->cachesize);
-    if (p->override_dga_address)
-	cfgfile_write (f, "override_dga_address=0x%08x\n", p->override_dga_address);
 
-    cfgfile_write (f, "joyport0=%s\n", portmode[p->jport0]);
-    cfgfile_write (f, "joyport1=%s\n", portmode[p->jport1]);
+    for (i = 0; i < 2; i++) {
+	int v = i == 0 ? p->jport0 : p->jport1;
+	char tmp1[100], tmp2[50];
+	if (v < JSEM_JOYS) {
+	    sprintf (tmp2, "kbd%d", v + 1);
+	} else if (v < JSEM_MICE) {
+	    sprintf (tmp2, "joy%d", v - JSEM_JOYS);
+	} else if (v < JSEM_END) {
+	    strcpy (tmp2, "mouse");
+	    if (v - JSEM_MICE > 0)
+		sprintf (tmp2, "mouse%d", v - JSEM_MICE);
+	} else
+	    sprintf (tmp2, "none");
+	sprintf (tmp1, "joyport%d=%s\n", i, tmp2);
+	cfgfile_write (f, tmp1);
+    }
 
     cfgfile_write (f, "bsdsocket_emu=%s\n", p->socket_emu ? "true" : "false");
 
@@ -362,7 +374,6 @@ void save_options (FILE *f, struct uae_prefs *p, int type)
 #endif
 
     cfgfile_write (f, "immediate_blits=%s\n", p->immediate_blits ? "true" : "false");
-    cfgfile_write (f, "fast_copper=%s\n", p->fast_copper ? "true" : "false");
     cfgfile_write (f, "ntsc=%s\n", p->ntscmode ? "true" : "false");
     cfgfile_write (f, "show_leds=%s\n", p->leds_on_screen ? "true" : "false");
     cfgfile_write (f, "keyboard_leds=numlock:%s,capslock:%s,scrolllock:%s\n",
@@ -575,6 +586,8 @@ static int cfgfile_parse_host (struct uae_prefs *p, char *option, char *value)
 	    if (target_parse_option (p, option, value))
 		return 1;
 	}
+	if (strcmp (section, MACHDEP_NAME) == 0)
+	    return machdep_parse_option (p, option, value);
 	if (strcmp (section, GFX_NAME) == 0)
 	    return gfx_parse_option (p, option, value);
 
@@ -620,8 +633,7 @@ static int cfgfile_parse_host (struct uae_prefs *p, char *option, char *value)
 	|| cfgfile_intval (option, value, "floppy1sound", &p->dfxclick[1], 1)
 	|| cfgfile_intval (option, value, "floppy2sound", &p->dfxclick[2], 1)
 	|| cfgfile_intval (option, value, "floppy3sound", &p->dfxclick[3], 1)
-	|| cfgfile_intval (option, value, "floppy_volume", &p->dfxclickvolume, 1)
-	|| cfgfile_intval (option, value, "override_dga_address", &p->override_dga_address, 1))
+	|| cfgfile_intval (option, value, "floppy_volume", &p->dfxclickvolume, 1))
 	    return 1;
 
 	if (cfgfile_string (option, value, "floppy0soundext", p->dfxclickexternal[0], 256)
@@ -635,8 +647,6 @@ static int cfgfile_parse_host (struct uae_prefs *p, char *option, char *value)
 	if (cfgfile_yesno (option, value, "use_debugger", &p->start_debugger)
 	|| cfgfile_yesno (option, value, "state_replay", &p->statecapture)
 	|| cfgfile_yesno (option, value, "avoid_cmov", &p->avoid_cmov)
-	|| cfgfile_yesno (option, value, "avoid_dga", &p->avoid_dga)
-	|| cfgfile_yesno (option, value, "avoid_vid", &p->avoid_vid)
 	|| cfgfile_yesno (option, value, "log_illegal_mem", &p->illegal_mem)
 	|| cfgfile_yesno (option, value, "filesys_no_fsdb", &p->filesys_no_uaefsdb)
 	|| cfgfile_yesno (option, value, "gfx_vsync", &p->gfx_vsync)
@@ -653,8 +663,6 @@ static int cfgfile_parse_host (struct uae_prefs *p, char *option, char *value)
 	|| cfgfile_strval (option, value, "sound_output", &p->produce_sound, soundmode2, 0)
 	|| cfgfile_strval (option, value, "sound_interpol", &p->sound_interpol, interpolmode, 0)
 	|| cfgfile_strval (option, value, "sound_filter", &p->sound_filter, soundfiltermode, 0)
-	|| cfgfile_strval (option, value, "joyport0", &p->jport0, portmode, 0)
-	|| cfgfile_strval (option, value, "joyport1", &p->jport1, portmode, 0)
 	|| cfgfile_strval (option, value, "use_gui", &p->start_gui, guimode1, 1)
 	|| cfgfile_strval (option, value, "use_gui", &p->start_gui, guimode2, 1)
 	|| cfgfile_strval (option, value, "use_gui", &p->start_gui, guimode3, 0)
@@ -721,6 +729,43 @@ static int cfgfile_parse_host (struct uae_prefs *p, char *option, char *value)
 	cfgfile_intval (option, value, "gfx_height", &p->gfx_height_win, 1);
 	p->gfx_width_fs = p->gfx_width_win;
 	p->gfx_height_fs = p->gfx_height_win;
+	return 1;
+    }
+
+    if (strcmp (option, "joyport0") == 0 || strcmp (option, "joyport1") == 0) {
+	int port = strcmp (option, "joyport0") == 0 ? 0 : 1;
+	int start = 0;
+	char *pp = 0;
+
+	if (port)
+	   p->jport1 = JSEM_NONE;
+	else
+	   p->jport0 = JSEM_NONE;
+
+	if (strncmp (value, "kbd", 3) == 0) {
+	    start = JSEM_KBDLAYOUT;
+	    pp = value + 3;
+	} else if (strncmp (value, "joy", 3) == 0) {
+	    start = JSEM_JOYS;
+	    pp = value + 3;
+	} else if (strncmp (value, "mouse", 5) == 0) {
+	    start = JSEM_MICE;
+	    pp = value + 5;
+	}
+	if (pp) {
+	    int v = atol (pp);
+	    if (start >= 0) {
+		if (start == JSEM_KBDLAYOUT)
+		    v--;
+		if (v >= 0) {
+		    start += v;
+		    if (port)
+			p->jport1 = start;
+		    else
+			p->jport0 = start;
+		}
+	    }
+	}
 	return 1;
     }
 
@@ -813,7 +858,6 @@ static int cfgfile_parse_hardware (struct uae_prefs *p, char *option, char *valu
     char tmpbuf[CONFIG_BLEN];
 
     if (cfgfile_yesno (option, value, "immediate_blits", &p->immediate_blits)
-	|| cfgfile_yesno (option, value, "fast_copper", &p->fast_copper)
 	|| cfgfile_yesno (option, value, "kickshifter", &p->kickshifter)
 	|| cfgfile_yesno (option, value, "ntsc", &p->ntscmode)
 	|| cfgfile_yesno (option, value, "cpu_compatible", &p->cpu_compatible)
@@ -834,18 +878,18 @@ static int cfgfile_parse_hardware (struct uae_prefs *p, char *option, char *valu
 	|| cfgfile_yesno (option, value, "scsi", &p->scsi))
 	return 1;
     if (cfgfile_intval (option, value, "cachesize", &p->cachesize, 1)
-	|| cfgfile_intval (option, value, "fastmem_size", &p->fastmem_size, 0x100000)
-	|| cfgfile_intval (option, value, "a3000mem_size", &p->a3000mem_size, 0x100000)
-	|| cfgfile_intval (option, value, "z3mem_size", &p->z3fastmem_size, 0x100000)
-	|| cfgfile_intval (option, value, "bogomem_size", &p->bogomem_size, 0x40000)
-	|| cfgfile_intval (option, value, "gfxcard_size", &p->gfxmem_size, 0x100000)
+	|| cfgfile_intval (option, value, "fastmem_size", (int *)&p->fastmem_size, 0x100000)
+	|| cfgfile_intval (option, value, "a3000mem_size", (int *)&p->a3000mem_size, 0x100000)
+	|| cfgfile_intval (option, value, "z3mem_size", (int *)&p->z3fastmem_size, 0x100000)
+	|| cfgfile_intval (option, value, "bogomem_size", (int *)&p->bogomem_size, 0x40000)
+	|| cfgfile_intval (option, value, "gfxcard_size", (int *)&p->gfxmem_size, 0x100000)
 	|| cfgfile_intval (option, value, "floppy_speed", &p->floppy_speed, 1)
 	|| cfgfile_intval (option, value, "nr_floppies", &p->nr_floppies, 1)
 	|| cfgfile_intval (option, value, "floppy0type", &p->dfxtype[0], 1)
 	|| cfgfile_intval (option, value, "floppy1type", &p->dfxtype[1], 1)
 	|| cfgfile_intval (option, value, "floppy2type", &p->dfxtype[2], 1)
 	|| cfgfile_intval (option, value, "floppy3type", &p->dfxtype[3], 1)
-	|| cfgfile_intval (option, value, "maprom", &p->maprom, 1)
+	|| cfgfile_intval (option, value, "maprom", (int *)&p->maprom, 1)
 	|| cfgfile_intval (option, value, "catweasel_io", &p->catweasel_io, 1))
 	return 1;
     if (cfgfile_strval (option, value, "comp_trustbyte", &p->comptrustbyte, compmode, 0)
@@ -861,7 +905,10 @@ static int cfgfile_parse_hardware (struct uae_prefs *p, char *option, char *valu
 	|| cfgfile_string (option, value, "flash_file", p->flashfile, 256)
 	|| cfgfile_string (option, value, "cart_file", p->cartfile, 256)
 	|| cfgfile_string (option, value, "pci_devices", p->pci_devices, 256)
-	|| cfgfile_string (option, value, "scsi_device", p->scsi_device, 256))
+#ifndef WIN32
+	|| cfgfile_string (option, value, "scsi_device", p->scsi_device, 256)
+#endif
+	)
 	return 1;
 
     for (i = 0; i < 4; i++) {
@@ -1437,22 +1484,22 @@ static void parse_joy_spec (struct uae_prefs *p, char *spec)
 	goto bad;
 
     switch (spec[0]) {
-     case '0': v0 = 0; break;
-     case '1': v0 = 1; break;
-     case 'M': case 'm': v0 = 2; break;
-     case 'A': case 'a': v0 = 3; break;
-     case 'B': case 'b': v0 = 4; break;
-     case 'C': case 'c': v0 = 5; break;
+     case '0': v0 = JSEM_JOYS; break;
+     case '1': v0 = JSEM_JOYS + 1; break;
+     case 'M': case 'm': v0 = JSEM_MICE; break;
+     case 'A': case 'a': v0 = JSEM_KBDLAYOUT; break;
+     case 'B': case 'b': v0 = JSEM_KBDLAYOUT + 1; break;
+     case 'C': case 'c': v0 = JSEM_KBDLAYOUT + 2; break;
      default: goto bad;
     }
 
     switch (spec[1]) {
-     case '0': v1 = 0; break;
-     case '1': v1 = 1; break;
-     case 'M': case 'm': v1 = 2; break;
-     case 'A': case 'a': v1 = 3; break;
-     case 'B': case 'b': v1 = 4; break;
-     case 'C': case 'c': v1 = 5; break;
+     case '0': v1 = JSEM_JOYS; break;
+     case '1': v1 = JSEM_JOYS + 1; break;
+     case 'M': case 'm': v1 = JSEM_MICE; break;
+     case 'A': case 'a': v1 = JSEM_KBDLAYOUT; break;
+     case 'B': case 'b': v1 = JSEM_KBDLAYOUT + 1; break;
+     case 'C': case 'c': v1 = JSEM_KBDLAYOUT + 2; break;
      default: goto bad;
     }
     if (v0 == v1)
@@ -1582,7 +1629,7 @@ int parse_cmdline_option (struct uae_prefs *p, char c, char *arg)
     u->option = malloc (2);
     u->option[0] = c;
     u->option[1] = 0;
-    u->value = my_strdup(arg);
+    u->value = arg ? my_strdup (arg) : NULL;
     u->next = p->all_lines;
     p->all_lines = u;
 
@@ -1611,6 +1658,8 @@ int parse_cmdline_option (struct uae_prefs *p, char c, char *arg)
 #elif defined USE_AMIGA_GFX
     case 'T': p->amiga_use_grey = 1; break;
     case 'x': p->amiga_use_dither = 0; break;
+#elif defined USE_CURSES_GFX
+    case 'x': p->curses_reverse_video = 1; break;
 #endif
     case 'w': p->m68k_speed = atoi (arg); break;
 
@@ -1690,11 +1739,11 @@ int parse_cmdline_option (struct uae_prefs *p, char c, char *arg)
 	}
 #else
         p->amiga_screen_type = atoi (arg);
-        if (p->amiga_screen_type < 0 || p->amiga_screen_type > 2) { 
+        if (p->amiga_screen_type < 0 || p->amiga_screen_type > 2) {
 	    write_log ("Bad screen-type selected. Defaulting to public screen.\n");
 	    p->amiga_screen_type = 2;
 	}
-#endif	    	    
+#endif
 	break;
     default:
 	write_log ("Unknown option `-%c'!\n", c);
@@ -1796,16 +1845,12 @@ void default_prefs (struct uae_prefs *p, int type)
     p->serial_hwctsrts = 1;
     p->parallel_demand = 0;
 
-    p->jport0 = JPORT_MOUSE;
-#ifndef AMIGA
-    p->jport1 = JPORT_JOY0;
-#else
-    p->jport1 = JPORT_JOY1;
-#endif
+    p->jport0 = JSEM_MICE;
+    p->jport1 = JSEM_KBDLAYOUT;
     p->keyboard_lang = KBD_LANG_US;
 
     p->produce_sound = 3;
-    p->stereo = 0;
+    p->stereo = 1;
     p->sound_bits = DEFAULT_SOUND_BITS;
     p->sound_freq = DEFAULT_SOUND_FREQ;
     p->sound_maxbsiz = DEFAULT_SOUND_MAXB;
@@ -1824,11 +1869,8 @@ void default_prefs (struct uae_prefs *p, int type)
     p->compforcesettings = 0;
     p->cachesize = 0;
     p->avoid_cmov = 0;
-    p->avoid_dga = 0;
-    p->avoid_vid = 0;
     p->comp_midopt = 0;
     p->comp_lowopt = 0;
-    p->override_dga_address = 0;
     {
 	int i;
 	for (i = 0;i < 10; i++)
@@ -1842,10 +1884,12 @@ void default_prefs (struct uae_prefs *p, int type)
 	p->optcount[5] = 0;
     }
     p->gfx_framerate = 1;
-    p->gfx_width_win = p->gfx_width_fs = 800;
-    p->gfx_height_win = p->gfx_height_fs = 600;
+    p->gfx_width_fs = 800;
+    p->gfx_height_fs = 600;
+    p->gfx_width_win = 720;
+    p->gfx_height_win = 568;
     p->gfx_lores = 0;
-    p->gfx_linedbl = 2;
+    p->gfx_linedbl = 1;
     p->gfx_afullscreen = 0;
     p->gfx_pfullscreen = 0;
     p->gfx_correct_aspect = 0;
@@ -1853,6 +1897,7 @@ void default_prefs (struct uae_prefs *p, int type)
     p->gfx_ycenter = 0;
     p->color_mode = 0;
 
+    machdep_default_options (p);
     target_default_options (p);
     gfx_default_options (p);
 
@@ -1861,7 +1906,6 @@ void default_prefs (struct uae_prefs *p, int type)
     p->leds_on_screen = 0;
     p->keyboard_leds_in_use = 0;
     p->keyboard_leds[0] = p->keyboard_leds[1] = p->keyboard_leds[2] = 0;
-    p->fast_copper = 1;
     p->scsi = 0;
     p->cpu_idle = 0;
     p->catweasel_io = 0;
@@ -1872,10 +1916,10 @@ void default_prefs (struct uae_prefs *p, int type)
     p->gfx_filter_filtermode = 1;
     p->gfx_filter_scanlineratio = (1 << 4) | 1;
 
-    strcpy (p->df[0], "df0.adf");
-    strcpy (p->df[1], "df1.adf");
-    strcpy (p->df[2], "df2.adf");
-    strcpy (p->df[3], "df3.adf");
+    p->df[0][0] = '\0';
+    p->df[1][0] = '\0';
+    p->df[2][0] = '\0';
+    p->df[3][0] = '\0';
 
     strcpy (p->romfile, "kick.rom");
     strcpy (p->keyfile, "");
@@ -1893,20 +1937,10 @@ void default_prefs (struct uae_prefs *p, int type)
     strcpy (p->prtname, DEFPRTNAME);
     strcpy (p->sername, DEFSERNAME);
 
-#ifdef CPUEMU_68000_ONLY
     p->cpu_level = 0;
     p->m68k_speed = 0;
-#else
-    p->m68k_speed = -1;
-    p->cpu_level = 2;
-#endif
-#ifdef CPUEMU_0
-    p->cpu_compatible = 0;
-    p->address_space_24 = 0;
-#else
     p->cpu_compatible = 1;
     p->address_space_24 = 1;
-#endif
     p->cpu_cycle_exact = 0;
     p->blitter_cycle_exact = 0;
     p->chipset_mask = CSMASK_ECS_AGNUS;
@@ -1914,8 +1948,8 @@ void default_prefs (struct uae_prefs *p, int type)
     p->fastmem_size = 0x00000000;
     p->a3000mem_size = 0x00000000;
     p->z3fastmem_size = 0x00000000;
-    p->chipmem_size = 0x00200000;
-    p->bogomem_size = 0x00000000;
+    p->chipmem_size = 0x00080000;
+    p->bogomem_size = 0x00080000;
     p->gfxmem_size = 0x00000000;
 
     p->nr_floppies = 2;

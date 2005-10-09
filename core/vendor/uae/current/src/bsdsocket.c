@@ -26,6 +26,10 @@
 
 #ifdef BSDSOCKET
 
+#ifdef WIN32
+# include <winsock2.h>
+#endif
+
 static uae_u32 SockLibBase;
 
 #define SOCKPOOLSIZE 128
@@ -39,7 +43,7 @@ uae_u32 sockpoolflags[SOCKPOOLSIZE];
 long curruniqid = 65536;
 
 /* Memory-related helper functions */
-static void memcpyha (uae_u32 dst, char *src, int size)
+STATIC_INLINE void memcpyha (uae_u32 dst, const char *src, int size)
 {
     while (size--)
 	put_byte (dst++, *src++);
@@ -59,7 +63,7 @@ char *strcpyah (char *dst, uae_u32 src)
     return res;
 }
 
-uae_u32 strcpyha (uae_u32 dst, char *src)
+uae_u32 strcpyha (uae_u32 dst, const char *src)
 {
     uae_u32 res = dst;
 
@@ -70,7 +74,7 @@ uae_u32 strcpyha (uae_u32 dst, char *src)
     return res;
 }
 
-uae_u32 strncpyha (uae_u32 dst, char *src, int size)
+uae_u32 strncpyha (uae_u32 dst, const char *src, int size)
 {
     uae_u32 res = dst;
     while (size--) {
@@ -81,7 +85,7 @@ uae_u32 strncpyha (uae_u32 dst, char *src, int size)
     return res;
 }
 
-uae_u32 addstr (uae_u32 * dst, char *src)
+uae_u32 addstr (uae_u32 * dst, const char *src)
 {
     uae_u32 res = *dst;
     int len;
@@ -94,7 +98,7 @@ uae_u32 addstr (uae_u32 * dst, char *src)
     return res;
 }
 
-uae_u32 addmem (uae_u32 * dst, char *src, int len)
+uae_u32 addmem (uae_u32 * dst, const char *src, int len)
 {
     uae_u32 res = *dst;
 
@@ -110,12 +114,12 @@ uae_u32 addmem (uae_u32 * dst, char *src, int len)
 /* Get current task */
 static uae_u32 gettask (void)
 {
-    uae_u32 currtask, a1 = m68k_areg (regs, 1);
+    uae_u32 currtask, a1 = m68k_areg (&regs, 1);
 
-    m68k_areg (regs, 1) = 0;
+    m68k_areg (&regs, 1) = 0;
     currtask = CallLib (get_long (4), -0x126);	/* FindTask */
 
-    m68k_areg (regs, 1) = a1;
+    m68k_areg (&regs, 1) = a1;
 
     TRACE (("[%s] ", get_real_address (get_long (currtask + 10))));
     return currtask;
@@ -216,7 +220,7 @@ int getsd (SB, int s)
 int getsock (SB, int sd)
 {
     if ((unsigned int) (sd - 1) >= (unsigned int) sb->dtablesize) {
-	TRACE (("Invalid Socket Descriptor (%d)\n", sd));
+	TRACE (("Invalid Socket Descriptor (%d, %d)\n", sd - 1, sb->dtablesize));
 	seterrno (sb, 38);	/* ENOTSOCK */
 
 	return -1;
@@ -258,14 +262,13 @@ static uae_u32 bsdsock_int_handler (void)
 {
     SB;
 
-    if (sbsigqueue != NULL) {
 	locksigqueue ();
-
+    if (sbsigqueue != NULL) {
 	for (sb = sbsigqueue; sb; sb = sb->nextsig) {
 	    if (sb->dosignal == 1) {
 		struct regstruct sbved_regs = regs;
-		m68k_areg (regs, 1) = sb->ownertask;
-		m68k_dreg (regs, 0) = sb->sigstosend;
+		m68k_areg (&regs, 1) = sb->ownertask;
+		m68k_dreg (&regs, 0) = sb->sigstosend;
 		CallLib (get_long (4), -0x144);		/* Signal() */
 
 		regs = sbved_regs;
@@ -276,22 +279,22 @@ static uae_u32 bsdsock_int_handler (void)
 	}
 
 	sbsigqueue = NULL;
-	unlocksigqueue ();
     }
+	unlocksigqueue ();
     return 0;
 }
 
 void waitsig (SB)
 {
     long sigs;
-    m68k_dreg (regs, 0) = (((uae_u32) 1) << sb->signal) | sb->eintrsigs;
+    m68k_dreg (&regs, 0) = (((uae_u32) 1) << sb->signal) | sb->eintrsigs;
     if ((sigs = CallLib (get_long (4), -0x13e)) & sb->eintrsigs) {
 	sockabort (sb);
 	seterrno (sb, 4);	/* EINTR */
 
 	// Set signal
-	m68k_dreg (regs, 0) = sigs;
-	m68k_dreg (regs, 1) = sb->eintrsigs;
+	m68k_dreg (&regs, 0) = sigs;
+	m68k_dreg (&regs, 1) = sb->eintrsigs;
 	sigs = CallLib (get_long (4), -0x132);	/* SetSignal() */
 
 	sb->eintr = 1;
@@ -306,8 +309,8 @@ void cancelsig (SB)
 	sb->dosignal = 2;
     unlocksigqueue ();
 
-    m68k_dreg (regs, 0) = 0;
-    m68k_dreg (regs, 1) = ((uae_u32) 1) << sb->signal;
+    m68k_dreg (&regs, 0) = 0;
+    m68k_dreg (&regs, 1) = ((uae_u32) 1) << sb->signal;
     CallLib (get_long (4), -0x132);	/* SetSignal() */
 
 }
@@ -321,7 +324,7 @@ static struct socketbase *alloc_socketbase (void)
     if ((sb = calloc (sizeof (struct socketbase), 1)) != NULL) {
 	sb->ownertask = gettask ();
 
-	m68k_dreg (regs, 0) = -1;
+	m68k_dreg (&regs, 0) = -1;
 	sb->signal = CallLib (get_long (4), -0x14A);
 
 	if (sb->signal == -1) {
@@ -329,8 +332,8 @@ static struct socketbase *alloc_socketbase (void)
 	    free (sb);
 	    return NULL;
 	}
-	m68k_dreg (regs, 0) = SCRATCHBUFSIZE;
-	m68k_dreg (regs, 1) = 0;
+	m68k_dreg (&regs, 0) = SCRATCHBUFSIZE;
+	m68k_dreg (&regs, 1) = 0;
 
 	sb->dtablesize = DEFAULT_DTABLE_SIZE;
 	/* @@@ check malloc() result */
@@ -356,8 +359,12 @@ static struct socketbase *alloc_socketbase (void)
 
 struct socketbase *get_socketbase (void)
 {
-    /* @@@ make portable for sizeof(void *) != sizeof(uae_u32) */
-    return (struct socketbase *) get_long (m68k_areg (regs, 6) + offsetof (struct UAEBSDBase, sb));
+    unsigned int i;
+    uae_u32 p[sizeof(void*) / 4];
+
+    for (i = 0; i < (sizeof p) / 4; i++)
+	p[i] = get_long (m68k_areg (&regs, 6) + offsetof (struct UAEBSDBase, sb) + i * 4);
+    return *((struct socketbase**)p);
 }
 
 static void free_socketbase (void)
@@ -365,24 +372,24 @@ static void free_socketbase (void)
     struct socketbase *sb, *nsb;
 
     if ((sb = get_socketbase ()) != NULL) {
-	m68k_dreg (regs, 0) = sb->signal;
+	m68k_dreg (&regs, 0) = sb->signal;
 	CallLib (get_long (4), -0x150);		/* FreeSignal */
 
 	if (sb->hostent) {
-	    m68k_areg (regs, 1) = sb->hostent;
-	    m68k_dreg (regs, 0) = sb->hostentsize;
+	    m68k_areg (&regs, 1) = sb->hostent;
+	    m68k_dreg (&regs, 0) = sb->hostentsize;
 	    CallLib (get_long (4), -0xD2);	/* FreeMem */
 
 	}
 	if (sb->protoent) {
-	    m68k_areg (regs, 1) = sb->protoent;
-	    m68k_dreg (regs, 0) = sb->protoentsize;
+	    m68k_areg (&regs, 1) = sb->protoent;
+	    m68k_dreg (&regs, 0) = sb->protoentsize;
 	    CallLib (get_long (4), -0xD2);	/* FreeMem */
 
 	}
 	if (sb->servent) {
-	    m68k_areg (regs, 1) = sb->servent;
-	    m68k_dreg (regs, 0) = sb->serventsize;
+	    m68k_areg (&regs, 1) = sb->servent;
+	    m68k_dreg (&regs, 0) = sb->serventsize;
 	    CallLib (get_long (4), -0xD2);	/* FreeMem */
 
 	}
@@ -435,7 +442,9 @@ static uae_u32 bsdsocklib_Open (void)
 {
     uae_u32 result = 0;
     int opencount;
+    unsigned int i;
     SB;
+    uae_u32 p[sizeof (void*) / 4];
 
     locksigqueue ();
 
@@ -444,15 +453,16 @@ static uae_u32 bsdsocklib_Open (void)
     if ((sb = alloc_socketbase ()) != NULL) {
 	put_word (SockLibBase + 32, opencount = get_word (SockLibBase + 32) + 1);
 
-	m68k_areg (regs, 0) = functable;
-	m68k_areg (regs, 1) = datatable;
-	m68k_areg (regs, 2) = 0;
-	m68k_dreg (regs, 0) = sizeof (struct UAEBSDBase);
-	m68k_dreg (regs, 1) = 0;
+	m68k_areg (&regs, 0) = functable;
+	m68k_areg (&regs, 1) = datatable;
+	m68k_areg (&regs, 2) = 0;
+	m68k_dreg (&regs, 0) = sizeof (struct UAEBSDBase);
+	m68k_dreg (&regs, 1) = 0;
 	result = CallLib (get_long (4), -0x54);
 
-	/* @@@ make portable for sizeof(void *) != sizeof(uae_u32) */
-	put_long (result + offsetof (struct UAEBSDBase, sb), (uae_u32) sb);
+	*((struct socketbase**)p) = sb;
+	for (i = 0; i < (sizeof p) / 4; i++)
+	    put_long (result + offsetof (struct UAEBSDBase, sb) + i * 4, p[i]);
 
 	TRACE (("%0lx [%d]\n", result, opencount));
     } else {
@@ -468,15 +478,15 @@ static uae_u32 bsdsocklib_Close (void)
 {
     int opencount;
 
-    uae_u32 base = m68k_areg (regs, 6);
+    uae_u32 base = m68k_areg (&regs, 6);
     uae_u32 negsize = get_word (base + 16);
 
     free_socketbase ();
 
     put_word (SockLibBase + 32, opencount = get_word (SockLibBase + 32) - 1);
 
-    m68k_areg (regs, 1) = base - negsize;
-    m68k_dreg (regs, 0) = negsize + get_word (base + 18);
+    m68k_areg (&regs, 1) = base - negsize;
+    m68k_dreg (&regs, 0) = negsize + get_word (base + 18);
     CallLib (get_long (4), -0xD2);	/* FreeMem */
 
     TRACE (("CloseLibrary() -> [%d]\n", opencount));
@@ -487,28 +497,28 @@ static uae_u32 bsdsocklib_Close (void)
 /* socket(domain, type, protocol)(d0/d1/d2) */
 static uae_u32 bsdsocklib_socket (void)
 {
-    return host_socket (SOCKETBASE, m68k_dreg (regs, 0), m68k_dreg (regs, 1),
-			m68k_dreg (regs, 2));
+    return host_socket (SOCKETBASE, m68k_dreg (&regs, 0), m68k_dreg (&regs, 1),
+			m68k_dreg (&regs, 2));
 }
 
 /* bind(s, name, namelen)(d0/a0/d1) */
 static uae_u32 bsdsocklib_bind (void)
 {
-    return host_bind (SOCKETBASE, m68k_dreg (regs, 0), m68k_areg (regs, 0),
-		      m68k_dreg (regs, 1));
+    return host_bind (SOCKETBASE, m68k_dreg (&regs, 0), m68k_areg (&regs, 0),
+		      m68k_dreg (&regs, 1));
 }
 
 /* listen(s, backlog)(d0/d1) */
 static uae_u32 bsdsocklib_listen (void)
 {
-    return host_listen (SOCKETBASE, m68k_dreg (regs, 0), m68k_dreg (regs, 1));
+    return host_listen (SOCKETBASE, m68k_dreg (&regs, 0), m68k_dreg (&regs, 1));
 }
 
 /* accept(s, addr, addrlen)(d0/a0/a1) */
 static uae_u32 bsdsocklib_accept (void)
 {
     SB = get_socketbase ();
-    host_accept (sb, m68k_dreg (regs, 0), m68k_areg (regs, 0), m68k_areg (regs, 1));
+    host_accept (sb, m68k_dreg (&regs, 0), m68k_areg (&regs, 0), m68k_areg (&regs, 1));
     return sb->resultval;
 }
 
@@ -516,7 +526,7 @@ static uae_u32 bsdsocklib_accept (void)
 static uae_u32 bsdsocklib_connect (void)
 {
     SB = get_socketbase ();
-    host_connect (sb, m68k_dreg (regs, 0), m68k_areg (regs, 0), m68k_dreg (regs, 1));
+    host_connect (sb, m68k_dreg (&regs, 0), m68k_areg (&regs, 0), m68k_dreg (&regs, 1));
     return sb->sb_errno ? -1 : 0;
 }
 
@@ -524,8 +534,8 @@ static uae_u32 bsdsocklib_connect (void)
 static uae_u32 bsdsocklib_sendto (void)
 {
     SB = get_socketbase ();
-    host_sendto (sb, m68k_dreg (regs, 0), m68k_areg (regs, 0), m68k_dreg (regs, 1),
-		 m68k_dreg (regs, 2), m68k_areg (regs, 1), m68k_dreg (regs, 3));
+    host_sendto (sb, m68k_dreg (&regs, 0), m68k_areg (&regs, 0), m68k_dreg (&regs, 1),
+		 m68k_dreg (&regs, 2), m68k_areg (&regs, 1), m68k_dreg (&regs, 3));
     return sb->resultval;
 }
 
@@ -533,8 +543,8 @@ static uae_u32 bsdsocklib_sendto (void)
 static uae_u32 bsdsocklib_send (void)
 {
     SB = get_socketbase ();
-    host_sendto (sb, m68k_dreg (regs, 0), m68k_areg (regs, 0), m68k_dreg (regs, 1),
-		 m68k_dreg (regs, 2), 0, 0);
+    host_sendto (sb, m68k_dreg (&regs, 0), m68k_areg (&regs, 0), m68k_dreg (&regs, 1),
+		 m68k_dreg (&regs, 2), 0, 0);
     return sb->resultval;
 }
 
@@ -542,8 +552,8 @@ static uae_u32 bsdsocklib_send (void)
 static uae_u32 bsdsocklib_recvfrom (void)
 {
     SB = get_socketbase ();
-    host_recvfrom (sb, m68k_dreg (regs, 0), m68k_areg (regs, 0), m68k_dreg (regs, 1),
-		   m68k_dreg (regs, 2), m68k_areg (regs, 1), m68k_areg (regs, 2));
+    host_recvfrom (sb, m68k_dreg (&regs, 0), m68k_areg (&regs, 0), m68k_dreg (&regs, 1),
+		   m68k_dreg (&regs, 2), m68k_areg (&regs, 1), m68k_areg (&regs, 2));
     return sb->resultval;
 }
 
@@ -551,65 +561,65 @@ static uae_u32 bsdsocklib_recvfrom (void)
 static uae_u32 bsdsocklib_recv (void)
 {
     SB = get_socketbase ();
-    host_recvfrom (sb, m68k_dreg (regs, 0), m68k_areg (regs, 0), m68k_dreg (regs, 1),
-		   m68k_dreg (regs, 2), 0, 0);
+    host_recvfrom (sb, m68k_dreg (&regs, 0), m68k_areg (&regs, 0), m68k_dreg (&regs, 1),
+		   m68k_dreg (&regs, 2), 0, 0);
     return sb->resultval;
 }
 
 /* shutdown(s, how)(d0/d1) */
 static uae_u32 bsdsocklib_shutdown (void)
 {
-    return host_shutdown (SOCKETBASE, m68k_dreg (regs, 0), m68k_dreg (regs, 1));
+    return host_shutdown (SOCKETBASE, m68k_dreg (&regs, 0), m68k_dreg (&regs, 1));
 }
 
 /* setsockopt(s, level, optname, optval, optlen)(d0/d1/d2/a0/d3) */
 static uae_u32 bsdsocklib_setsockopt (void)
 {
     SB = get_socketbase ();
-    host_setsockopt (sb, m68k_dreg (regs, 0), m68k_dreg (regs, 1), m68k_dreg (regs, 2),
-		     m68k_areg (regs, 0), m68k_dreg (regs, 3));
+    host_setsockopt (sb, m68k_dreg (&regs, 0), m68k_dreg (&regs, 1), m68k_dreg (&regs, 2),
+		     m68k_areg (&regs, 0), m68k_dreg (&regs, 3));
     return sb->resultval;
 }
 
 /* getsockopt(s, level, optname, optval, optlen)(d0/d1/d2/a0/a1) */
 static uae_u32 bsdsocklib_getsockopt (void)
 {
-    return host_getsockopt (SOCKETBASE, m68k_dreg (regs, 0), m68k_dreg (regs, 1), m68k_dreg (regs, 2),
-			    m68k_areg (regs, 0), m68k_areg (regs, 1));
+    return host_getsockopt (SOCKETBASE, m68k_dreg (&regs, 0), m68k_dreg (&regs, 1), m68k_dreg (&regs, 2),
+			    m68k_areg (&regs, 0), m68k_areg (&regs, 1));
 }
 
 /* getsockname(s, hostname, namelen)(d0/a0/a1) */
 static uae_u32 bsdsocklib_getsockname (void)
 {
-    return host_getsockname (SOCKETBASE, m68k_dreg (regs, 0), m68k_areg (regs, 0), m68k_areg (regs, 1));
+    return host_getsockname (SOCKETBASE, m68k_dreg (&regs, 0), m68k_areg (&regs, 0), m68k_areg (&regs, 1));
 }
 
 /* getpeername(s, hostname, namelen)(d0/a0/a1) */
 static uae_u32 bsdsocklib_getpeername (void)
 {
-    return host_getpeername (SOCKETBASE, m68k_dreg (regs, 0), m68k_areg (regs, 0), m68k_areg (regs, 1));
+    return host_getpeername (SOCKETBASE, m68k_dreg (&regs, 0), m68k_areg (&regs, 0), m68k_areg (&regs, 1));
 }
 
 /* *------ generic system calls related to sockets */
 /* IoctlSocket(d, request, argp)(d0/d1/a0) */
 static uae_u32 bsdsocklib_IoctlSocket (void)
 {
-    return host_IoctlSocket (SOCKETBASE, m68k_dreg (regs, 0), m68k_dreg (regs, 1), m68k_areg (regs, 0));
+    return host_IoctlSocket (SOCKETBASE, m68k_dreg (&regs, 0), m68k_dreg (&regs, 1), m68k_areg (&regs, 0));
 }
 
 /* *------ AmiTCP/IP specific stuff */
 /* CloseSocket(d)(d0) */
 static uae_u32 bsdsocklib_CloseSocket (void)
 {
-    return host_CloseSocket (SOCKETBASE, m68k_dreg (regs, 0));
+    return host_CloseSocket (SOCKETBASE, m68k_dreg (&regs, 0));
 }
 
 /* WaitSelect(nfds, readfds, writefds, execptfds, timeout, maskp)(d0/a0/a1/a2/a3/d1) */
 static uae_u32 bsdsocklib_WaitSelect (void)
 {
     SB = get_socketbase ();
-    host_WaitSelect (sb, m68k_dreg (regs, 0), m68k_areg (regs, 0), m68k_areg (regs, 1),
-		     m68k_areg (regs, 2), m68k_areg (regs, 3), m68k_dreg (regs, 1));
+    host_WaitSelect (sb, m68k_dreg (&regs, 0), m68k_areg (&regs, 0), m68k_areg (&regs, 1),
+		     m68k_areg (&regs, 2), m68k_areg (&regs, 3), m68k_dreg (&regs, 1));
     return sb->resultval;
 }
 
@@ -618,9 +628,9 @@ static uae_u32 bsdsocklib_SetSocketSignals (void)
 {
     SB = get_socketbase ();
 
-    TRACE (("SetSocketSignals(0x%08lx,0x%08lx,0x%08lx) -> ", m68k_dreg (regs, 0), m68k_dreg (regs, 1), m68k_dreg (regs, 2)));
-    sb->eintrsigs = m68k_dreg (regs, 0);
-    sb->eventsigs = m68k_dreg (regs, 1);
+    TRACE (("SetSocketSignals(0x%08lx,0x%08lx,0x%08lx) -> ", m68k_dreg (&regs, 0), m68k_dreg (&regs, 1), m68k_dreg (&regs, 2)));
+    sb->eintrsigs = m68k_dreg (&regs, 0);
+    sb->eventsigs = m68k_dreg (&regs, 1);
 
     return 0;
 }
@@ -680,9 +690,9 @@ static uae_u32 bsdsocklib_ObtainSocket (void)
     int s;
     int i;
 
-    id = m68k_dreg (regs, 0);
+    id = m68k_dreg (&regs, 0);
 
-    TRACE (("ObtainSocket(%d,%d,%d,%d) -> ", id, m68k_dreg (regs, 1), m68k_dreg (regs, 2), m68k_dreg (regs, 3)));
+    TRACE (("ObtainSocket(%d,%d,%d,%d) -> ", id, m68k_dreg (&regs, 1), m68k_dreg (&regs, 2), m68k_dreg (&regs, 3)));
 
     i = sockpoolindex (id);
 
@@ -693,14 +703,15 @@ static uae_u32 bsdsocklib_ObtainSocket (void)
     s = sockpoolsocks[i];
 
     sd = getsd (sb, s);
+	TRACE (("%d, %d\n", s, sd));
 
+	if (sd != -1) {
     sb->ftable[sd - 1] = sockpoolflags[i];
-
-    TRACE (("%d\n", sd));
-
     sockpoolids[i] = UNIQUE_ID;
-
     return sd-1;
+}
+
+    return -1;
 }
 
 /* ReleaseSocket(fd, id)(d0/d1) */
@@ -713,8 +724,8 @@ static uae_u32 bsdsocklib_ReleaseSocket (void)
     int i;
     uae_u32 flags;
 
-    sd = m68k_dreg (regs, 0);
-    id = m68k_dreg (regs, 1);
+    sd = m68k_dreg (&regs, 0);
+    id = m68k_dreg (&regs, 1);
 
 	sd++;
     TRACE (("ReleaseSocket(%d,%d) -> ", sd, id));
@@ -757,7 +768,7 @@ static uae_u32 bsdsocklib_ReleaseSocket (void)
 	sockpoolsocks[i] = s;
 	sockpoolflags[i] = flags;
 
-	TRACE (("id %d s 0x%x\n", id,s));
+	TRACE (("id %d s %d\n", id,s));
     } else {
 	TRACE (("[invalid socket descriptor]\n"));
 	return -1;
@@ -785,7 +796,7 @@ static uae_u32 bsdsocklib_Errno (void)
 static uae_u32 bsdsocklib_SetErrnoPtr (void)
 {
     SB = get_socketbase ();
-    uae_u32 errnoptr = m68k_areg (regs, 0), size = m68k_dreg (regs, 0);
+    uae_u32 errnoptr = m68k_areg (&regs, 0), size = m68k_dreg (&regs, 0);
 
     TRACE (("SetErrnoPtr(0x%lx,%d) -> ", errnoptr, size));
 
@@ -804,13 +815,13 @@ static uae_u32 bsdsocklib_SetErrnoPtr (void)
 /* Inet_NtoA(in)(d0) */
 static uae_u32 bsdsocklib_Inet_NtoA (void)
 {
-    return host_Inet_NtoA (SOCKETBASE, m68k_dreg (regs, 0));
+    return host_Inet_NtoA (SOCKETBASE, m68k_dreg (&regs, 0));
 }
 
 /* inet_addr(cp)(a0) */
 static uae_u32 bsdsocklib_inet_addr (void)
 {
-    return host_inet_addr (m68k_areg (regs, 0));
+    return host_inet_addr (m68k_areg (&regs, 0));
 }
 
 /* Inet_LnaOf(in)(d0) */
@@ -837,7 +848,7 @@ static uae_u32 bsdsocklib_Inet_MakeAddr (void)
 /* inet_network(cp)(a0) */
 static uae_u32 bsdsocklib_inet_network (void)
 {
-    return host_inet_addr (m68k_areg (regs, 0));
+    return host_inet_addr (m68k_areg (&regs, 0));
 }
 
 /* *------ gethostbyname etc */
@@ -845,16 +856,16 @@ static uae_u32 bsdsocklib_inet_network (void)
 static uae_u32 bsdsocklib_gethostbyname (void)
 {
     SB = get_socketbase ();
-    host_gethostbynameaddr (sb, m68k_areg (regs, 0), 0, -1);
-    return sb->sb_errno ? 0 : sb->hostent;
+    host_gethostbynameaddr (sb, m68k_areg (&regs, 0), 0, -1);
+    return sb->sb_herrno ? 0 : sb->hostent;
 }
 
 /* gethostbyaddr(addr, len, type)(a0/d0/d1) */
 static uae_u32 bsdsocklib_gethostbyaddr (void)
 {
     SB = get_socketbase ();
-    host_gethostbynameaddr (sb, m68k_areg (regs, 0), m68k_dreg (regs, 0), m68k_dreg (regs, 1));
-    return sb->sb_errno ? 0 : sb->hostent;
+    host_gethostbynameaddr (sb, m68k_areg (&regs, 0), m68k_dreg (&regs, 0), m68k_dreg (&regs, 1));
+    return sb->sb_herrno ? 0 : sb->hostent;
 }
 
 /* getnetbyname(name)(a0) */
@@ -875,7 +886,7 @@ static uae_u32 bsdsocklib_getnetbyaddr (void)
 static uae_u32 bsdsocklib_getservbyname (void)
 {
     SB = get_socketbase ();
-    host_getservbynameport (sb, m68k_areg (regs, 0), m68k_areg (regs, 1), 0);
+    host_getservbynameport (sb, m68k_areg (&regs, 0), m68k_areg (&regs, 1), 0);
     return sb->sb_errno ? 0 : sb->servent;
 }
 
@@ -883,7 +894,7 @@ static uae_u32 bsdsocklib_getservbyname (void)
 static uae_u32 bsdsocklib_getservbyport (void)
 {
     SB = get_socketbase ();
-    host_getservbynameport (sb, m68k_dreg (regs, 0), m68k_areg (regs, 0), 1);
+    host_getservbynameport (sb, m68k_dreg (&regs, 0), m68k_areg (&regs, 0), 1);
     return sb->sb_errno ? 0 : sb->servent;
 }
 
@@ -891,7 +902,7 @@ static uae_u32 bsdsocklib_getservbyport (void)
 static uae_u32 bsdsocklib_getprotobyname (void)
 {
     SB = get_socketbase ();
-    host_getprotobyname (sb, m68k_areg (regs, 0));
+    host_getprotobyname (sb, m68k_areg (&regs, 0));
     return sb->sb_errno ? 0 : sb->protoent;
 }
 
@@ -899,7 +910,7 @@ static uae_u32 bsdsocklib_getprotobyname (void)
 static uae_u32 bsdsocklib_getprotobynumber (void)
 {
     SB = get_socketbase ();
-    host_getprotobynumber (sb, m68k_dreg (regs, 0));
+    host_getprotobynumber (sb, m68k_dreg (&regs, 0));
     return sb->sb_errno ? 0 : sb->protoent;
 }
 
@@ -915,7 +926,7 @@ static uae_u32 bsdsocklib_vsyslog (void)
 /* Dup2Socket(fd1, fd2)(d0/d1) */
 static uae_u32 bsdsocklib_Dup2Socket (void)
 {
-    return host_dup2socket (SOCKETBASE, m68k_dreg (regs, 0), m68k_dreg (regs, 1));
+    return host_dup2socket (SOCKETBASE, m68k_dreg (&regs, 0), m68k_dreg (&regs, 1));
 }
 
 static uae_u32 bsdsocklib_sendmsg (void)
@@ -932,7 +943,7 @@ static uae_u32 bsdsocklib_recvmsg (void)
 
 static uae_u32 bsdsocklib_gethostname (void)
 {
-    return host_gethostname (m68k_areg (regs, 0), m68k_dreg (regs, 0));
+    return host_gethostname (m68k_areg (&regs, 0), m68k_dreg (&regs, 0));
 }
 
 static uae_u32 bsdsocklib_gethostid (void)
@@ -1049,7 +1060,7 @@ static void tagcopy (uae_u32 currtag, uae_u32 currval, uae_u32 tagptr, uae_u32 *
 static uae_u32 bsdsocklib_SocketBaseTagList (void)
 {
     SB = SOCKETBASE;
-    uae_u32 tagptr = m68k_areg (regs, 0);
+    uae_u32 tagptr = m68k_areg (&regs, 0);
     uae_u32 tagsprocessed = 1;
     uae_u32 currtag;
     uae_u32 currval;
@@ -1099,11 +1110,11 @@ static uae_u32 bsdsocklib_SocketBaseTagList (void)
 		    break;
 		 case SBTC_ERRNO:
 		    TRACE (("SBTC_ERRNO),%d", currval));
-		    tagcopy (currtag, currval, tagptr, &sb->sb_errno);
+		    tagcopy (currtag, currval, tagptr, (uae_u32 *)&sb->sb_errno);
 		    break;
 		 case SBTC_HERRNO:
 		    TRACE (("SBTC_HERRNO),%d", currval));
-		    tagcopy (currtag, currval, tagptr, &sb->sb_herrno);
+		    tagcopy (currtag, currval, tagptr, (uae_u32 *)&sb->sb_herrno);
 		    break;
 		 case SBTC_DTABLESIZE:
 		    TRACE (("SBTC_DTABLESIZE),0x%lx", currval));
@@ -1193,7 +1204,7 @@ static uae_u32 bsdsocklib_GetSocketEvents (void)
     SB = SOCKETBASE;
     int i;
     int flags;
-    uae_u32 ptr = m68k_areg (regs, 0);
+    uae_u32 ptr = m68k_areg (&regs, 0);
 
     TRACE (("GetSocketEvents(0x%x) -> ", ptr));
 
@@ -1205,7 +1216,7 @@ static uae_u32 bsdsocklib_GetSocketEvents (void)
 	    flags = sb->ftable[sb->eventindex] & SET_ALL;
 	    if (flags) {
 		sb->ftable[sb->eventindex] &= ~SET_ALL;
-		put_long (m68k_areg (regs, 0), flags >> 8);
+		put_long (m68k_areg (&regs, 0), flags >> 8);
 		TRACE (("%d (0x%x)\n", sb->eventindex + 1, flags >> 8));
 		return sb->eventindex; // xxx
 	    }
@@ -1236,24 +1247,24 @@ static uae_u32 bsdsocklib_init (void)
     if (SockLibBase)
 	bsdlib_reset ();
 
-    m68k_areg (regs, 0) = functable;
-    m68k_areg (regs, 1) = datatable;
-    m68k_areg (regs, 2) = 0;
-    m68k_dreg (regs, 0) = LIBRARY_SIZEOF;
-    m68k_dreg (regs, 1) = 0;
-    tmp1 = CallLib (m68k_areg (regs, 6), -0x54);
+    m68k_areg (&regs, 0) = functable;
+    m68k_areg (&regs, 1) = datatable;
+    m68k_areg (&regs, 2) = 0;
+    m68k_dreg (&regs, 0) = LIBRARY_SIZEOF;
+    m68k_dreg (&regs, 1) = 0;
+    tmp1 = CallLib (m68k_areg (&regs, 6), -0x54);
 
     if (!tmp1) {
 	write_log ("bsdoscket: FATAL: Cannot create bsdsocket.library!\n");
 	return 0;
     }
-    m68k_areg (regs, 1) = tmp1;
-    CallLib (m68k_areg (regs, 6), -0x18c);
+    m68k_areg (&regs, 1) = tmp1;
+    CallLib (m68k_areg (&regs, 6), -0x18c);
     SockLibBase = tmp1;
 #if 0
-    m68k_areg (regs, 1) = ds ("dos.library");
-    m68k_dreg (regs, 0) = 0;
-    dosbase = CallLib (m68k_areg (regs, 6), -552);
+    m68k_areg (&regs, 1) = ds ("dos.library");
+    m68k_dreg (&regs, 0) = 0;
+    dosbase = CallLib (m68k_areg (&regs, 6), -552);
     printf ("%08lx\n", dosbase);
 #endif
 
@@ -1268,8 +1279,8 @@ static uae_u32 bsdsocklib_init (void)
 
     tmp1 += strlen(strErr) + 1;
 
-    m68k_dreg (regs, 0) = tmp1;
-    m68k_dreg (regs, 1) = 0;
+    m68k_dreg (&regs, 0) = tmp1;
+    m68k_dreg (&regs, 1) = 0;
     tmp1 = CallLib (get_long (4), -0xC6);
 
     if (!tmp1) {
@@ -1291,7 +1302,7 @@ static uae_u32 bsdsocklib_init (void)
     dl (get_long (regs.vbr + 0x78));
     put_long (regs.vbr + 0x78, tmp1);
 
-    m68k_dreg (regs, 0) = 1;
+    m68k_dreg (&regs, 0) = 1;
     return 0;
 }
 

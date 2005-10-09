@@ -6,4 +6,4 @@ noinst_LIBRARIES = libgfxdep.a
 
 libgfxdep_a_SOURCES = be-UAE.cpp be-Window.cpp be-Input.cpp
 
-noinst_HEADERS = gfx.h be-UAE.h be-Window.h be-Input.h
+noinst_HEADERS = gfx.h be-UAE.h be-Window.h

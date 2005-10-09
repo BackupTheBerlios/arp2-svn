@@ -1,7 +1,7 @@
 /*
  * UAE - The Un*x Amiga Emulator
  *
- * Copyright 2004 Richard Drummond
+ * Copyright 2004-2005 Richard Drummond
  *
  * Start-up and support functions for Amiga target
  */
@@ -17,7 +17,10 @@
 
 #include "signal.h"
 
+#define  __USE_BASETYPE__
 #include <proto/exec.h>
+#undef   __USE_BASETYPE__
+#include <exec/execbase.h>
 
 #ifdef USE_SDL
 # include <SDL.h>
@@ -42,18 +45,53 @@ unsigned int __stack = MIN_STACK_SIZE;
 
 static int fromWB;
 
+
+struct Device *TimerBase;
+#ifdef __amigaos4__
+struct Library *ExpansionBase;
+struct TimerIFace *ITimer;
+struct ExpansionIFace *IExpansion;
+#endif
+
+static void free_libs (void)
+{
+#ifdef __amigaos4__
+    if (ITimer)
+	DropInterface ((struct Interface *)ITimer);
+    if (IExpansion)
+	DropInterface ((struct Interface *)IExpansion);
+    if (ExpansionBase)
+	CloseLibrary (ExpansionBase);
+#endif
+}
+
+static void init_libs (void)
+{
+    atexit (free_libs);
+
+    TimerBase = (struct Device *) FindName(&SysBase->DeviceList, "timer.device");
+
+#ifdef __amigaos4__
+    ITimer = (struct TimerIFace *) GetInterface((struct Library *)TimerBase, "main", 1, 0);
+
+    ExpansionBase = OpenLibrary ("expansion.library", 0);
+    if (ExpansionBase)
+	IExpansion = (struct ExpansionIFace *) GetInterface(ExpansionBase, "main", 1, 0);
+
+    if(!ITimer || !IExpansion)
+	exit (20);
+#endif
+}
+
 /*
  * Amiga-specific main entry
  */
 int main (int argc, char *argv[])
-{
+{    
     fromWB = argc == 0;
 
-#ifdef HAVE_OSDEP_RPT
-    /* On 68k machines, open timer.device so that
-     * we can use ReadEClock() for timing */
-    osdep_open_timer ();
-#endif
+    init_libs ();
+   
 #ifdef USE_SDL
     init_sdl();
 #endif

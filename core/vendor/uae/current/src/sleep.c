@@ -3,18 +3,19 @@
   *
   * Sleeping for *nix systems
   *
-  * Copyright 2003-2004 Richard Drummond
+  * Copyright 2003-2005 Richard Drummond
   */
 
-#ifndef _WIN32
+#if 1 //ndef _WIN32
 
 #include "sysconfig.h"
 #include "sysdeps.h"
 
 #include "uae.h"
 #include "custom.h"
-#include "events.h"
 #include "options.h"
+#include "events.h"
+#include "hrtimer.h"
 #include "sleep.h"
 
 
@@ -40,28 +41,25 @@
  */
 void sleep_millis (int ms)
 {
-    frame_time_t start = read_processor_time ();
-    int sleep_time;
+    frame_time_t start = uae_gethrtime ();
+    frame_time_t sleep_time;
 
 #ifndef SLEEP_DONT_BUSY_WAIT
     if (!currprefs.dont_busy_wait && ms < SLEEP_BUSY_THRESHOLD) {
 	/* Typical sleep routines can't sleep for less than 10ms. If we want
 	 * to sleep for a period shorter than the threshold, we'll have to busy wait . . .
 	 */
-	int end = start + ms * syncbase / 1000;
-	int v;
+	frame_time_t end = start + ms * uae_gethrtimebase () / 1000;
+	frame_time_t v;
 
         do {
-	    v = (int)read_processor_time ();
+	    v = uae_gethrtime ();
 	} while (v < end && v > -end);
     } else
 #endif
 	uae_msleep (ms);
 
-    sleep_time = read_processor_time () - start;
-    if (sleep_time < 0)
-	sleep_time = -sleep_time;
-
+    sleep_time = uae_gethrtime () - start;
     idletime += sleep_time;
 }
 
@@ -83,12 +81,12 @@ void sleep_millis_busy (int ms)
  */
 static int do_sleep_test (int ms)
 {
-    int t;
-    int t2;
+    frame_time_t t;
+    frame_time_t t2;
 
-    t = read_processor_time ();
+    t = uae_gethrtime ();
     uae_msleep (ms);
-    t2 = read_processor_time () - t;
+    t2 = uae_gethrtime () - t;
 
     if (t2 < 0)
 	t2 = -t2;
@@ -102,17 +100,20 @@ static int do_sleep_test (int ms)
  */
 void sleep_test (void)
 {
+    static int done = 0;
     int result;
 
-    currprefs.dont_busy_wait = 1;
+
 
 #ifndef SLEEP_DONT_BUSY_WAIT
-
-    if (rpt_available) {
+    if (!done) {
 	uae_u64 total = 0;
 	int result;
 	int num_tests;
 	int i;
+
+	currprefs.dont_busy_wait = 1;
+	done = 1;
 
 	write_log ("Testing system sleep function"); flush_log ();
 
@@ -123,7 +124,7 @@ void sleep_test (void)
 	    total += do_sleep_test (1);
 
 	/* How many for 2 seconds worth of tests . . . */
-	num_tests = 2 * syncbase * num_tests / total;
+	num_tests = 2 * uae_gethrtimebase () * num_tests / total;
 	total = 0;
 
 	/* Now the test proper */
@@ -136,7 +137,7 @@ void sleep_test (void)
 	    }
 	}
 
-	result = (1000 * total / syncbase) / num_tests;
+	result = (1000 * total / uae_gethrtimebase ()) / num_tests;
 	write_log ("\nAverage duration of a 1ms sleep: %d ms\n", result);
 
 	if (result > SLEEP_BUSY_THRESHOLD) {
@@ -144,7 +145,8 @@ void sleep_test (void)
 	    write_log ("Enabling busy-waiting for sub-%dms sleeps\n", SLEEP_BUSY_THRESHOLD);
 	}
     }
-
+#else
+    currprefs.dont_busy_wait = 1;
 #endif
 }
 

@@ -33,7 +33,7 @@ static int caps_locked[4];
 static int caps_flags = DI_LOCK_DENVAR|DI_LOCK_DENNOISE|DI_LOCK_NOISE|DI_LOCK_UPDATEFD;
 
 
-#ifndef AMIGA
+#ifndef TARGET_AMIGAOS
 
 /*
  * Repository for function pointers to the CAPSLib routines
@@ -317,7 +317,7 @@ LONG CAPSUnlockAllTracks (LONG id)
 #endif
 
 
-#ifdef AMIGA
+#ifdef TARGET_AMIGAOS
 
 #if 0
 /* proto file is broken in current CAPS API */
@@ -377,7 +377,7 @@ static int load_capslib (void)
 #endif
 
 
-#ifndef AMIGA
+#ifndef TARGET_AMIGAOS
 
 /*
  * Some defines so that we don't care that CAPSLib

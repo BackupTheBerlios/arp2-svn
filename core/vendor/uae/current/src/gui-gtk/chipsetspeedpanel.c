@@ -29,7 +29,6 @@ static void update_state (ChipsetSpeedPanel *panel);
 static void on_framerate_changed (GtkWidget *w, ChipsetSpeedPanel *panel);
 static void on_sprite_collisions_changed (GtkWidget *w, ChipsetSpeedPanel *panel);
 static void on_immediate_blits_changed (GtkWidget *w, ChipsetSpeedPanel *panel);
-static void on_fast_copper_changed (GtkWidget *w, ChipsetSpeedPanel *panel);
 
 guint chipsetspeedpanel_get_type (void)
 {
@@ -55,7 +54,6 @@ enum {
     FRAMERATE_CHANGE_SIGNAL,
     SPRITE_COLLISION_CHANGE_SIGNAL,
     IMMEDIATE_BLITS_CHANGE_SIGNAL,
-    FAST_COPPER_CHANGE_SIGNAL,
     LAST_SIGNAL
 };
 
@@ -69,7 +67,6 @@ static void chipsetspeedpanel_class_init (ChipsetSpeedPanelClass *class)
 				   "framerate-changed",
 				   "sprite-collisions-changed",
 				   "immediate-blits-changed",
-				   "fast-copper-changed",
 				   0);
     class->chipsetspeedpanel = NULL;
 }
@@ -92,8 +89,6 @@ static void chipsetspeedpanel_init (ChipsetSpeedPanel *panel)
 	GTKUTIL_ROW_END,
 	panel->immediate_blits_widget = gtk_check_button_new_with_label ("Immediate blits"), 1, 2, GTK_EXPAND,
 	GTKUTIL_ROW_END,
-	panel->fast_copper_widget = gtk_check_button_new_with_label ("Fast copper emulation"), 1, 2, GTK_EXPAND,
-	GTKUTIL_ROW_END,
 	GTKUTIL_TABLE_END
     );
     gtk_scale_set_value_pos (GTK_SCALE (panel->framerate_widget), GTK_POS_TOP);
@@ -107,9 +102,6 @@ static void chipsetspeedpanel_init (ChipsetSpeedPanel *panel)
 			panel);
     gtk_signal_connect (GTK_OBJECT (panel->immediate_blits_widget), "toggled",
 			GTK_SIGNAL_FUNC (on_immediate_blits_changed),
-			panel);
-    gtk_signal_connect (GTK_OBJECT (panel->fast_copper_widget), "toggled",
-			GTK_SIGNAL_FUNC (on_fast_copper_changed),
 			panel);
 }
 
@@ -129,12 +121,6 @@ static void on_immediate_blits_changed (GtkWidget *w, ChipsetSpeedPanel *panel)
 {
      panel->immediate_blits = gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (panel->immediate_blits_widget));
      gtk_signal_emit_by_name (GTK_OBJECT(panel), "immediate-blits-changed");
-}
-
-static void on_fast_copper_changed (GtkWidget *w, ChipsetSpeedPanel *panel)
-{
-     panel->fast_copper = gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (panel->fast_copper_widget));
-     gtk_signal_emit_by_name (GTK_OBJECT(panel), "fast-copper-changed");
 }
 
 
@@ -158,9 +144,4 @@ void chipsetspeedpanel_set_collision_level (ChipsetSpeedPanel *panel, guint coll
 void chipsetspeedpanel_set_immediate_blits (ChipsetSpeedPanel *panel, guint immediate_blits)
 {
     gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (panel->immediate_blits_widget), immediate_blits != 0);
-}
-
-void chipsetspeedpanel_set_fast_copper (ChipsetSpeedPanel *panel, guint fast_copper)
-{
-    gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (panel->fast_copper_widget), fast_copper != 0);
 }

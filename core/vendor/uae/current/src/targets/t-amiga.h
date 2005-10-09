@@ -4,8 +4,10 @@
   * Target specific stuff, AmigaOS version
   *
   * Copyright 1997 Bernd Schmidt
-  * Copyright 2003-2004 Richard Drummond
+  * Copyright 2003-2005 Richard Drummond
   */
+
+#define TARGET_AMIGAOS
 
 #define TARGET_NAME		"amiga"
 
@@ -34,12 +36,8 @@
 #define write_log write_log_amigaos
 #define flush_log flush_log_amigaos
 
-/*
- * On a 68k Amiga we don't have access to a CPU time counter, so
- * use the EClock-based substitute in osdep/support.c instead
- */
-#if defined __mc68000__ || defined mc68000
-#define HAVE_OSDEP_RPT
-#endif
-
 #define NO_MAIN_IN_MAIN_C
+
+#if defined __amigaos4__ || defined __morphos__  
+# define SLEEP_DONT_BUSY_WAIT
+#endif

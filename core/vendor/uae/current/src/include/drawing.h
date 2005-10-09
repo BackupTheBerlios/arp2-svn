@@ -28,7 +28,7 @@
 
 #define max_diwlastword (PIXEL_XPOS(0x1d4 >> 1))
 
-extern int lores_factor, lores_shift, sprite_width;
+extern int lores_factor, lores_shift;
 
 STATIC_INLINE int coord_hw_to_window_x (int x)
 {
@@ -149,7 +149,7 @@ STATIC_INLINE void color_reg_cpy (struct color_entry *dst, struct color_entry *s
 struct color_change {
     int linepos;
     int regno;
-    unsigned long value;
+    unsigned int value;
 };
 
 /* 440 rather than 880, since sprites are always lores.  */
@@ -228,8 +228,6 @@ struct draw_info {
     int first_color_change, last_color_change;
     int nr_color_changes, nr_sprites;
 };
-
-extern int next_sprite_entry;
 
 extern struct decision line_decisions[2 * (MAXVPOS+1) + 1];
 extern struct draw_info line_drawinfo[2][2 * (MAXVPOS+1) + 1];

@@ -15,12 +15,12 @@ installed in the LIBS: directory in your Amiga environment. (Find this in
 the amiga/ directory in the E-UAE distribution. Note that the stubs library
 has also been updated with this version. To take full advantage of the
 improved support, please install the new version). A new bsdsocket emulation
-is also available as a compile-time option in this version and is largely
-the work of Jeff Shepherd. This is based on the WinUAE bsdsocket emulation
-and requires no stubs library (the bsdsocket.library is created in RAM like
-any real Amiga network stack such as AmiTCP or Miami). It only works on x86
-and PPC hosts currently and even then still has problems on some hosts, so
-it is not built by default (see the section further on about configuring).
+is also available as a compile-time option in this version and this is
+largely the work of Jeff Shepherd. This is based on the WinUAE bsdsocket
+emulation and requires no stubs library (the bsdsocket.library is created in
+RAM like any real Amiga network stack such as AmiTCP or Miami). It currently
+only works on Unix-like hosts with x86, AMD64 and PPC processors, however.
+
 To enable support for either bsdsocket emulation (assuming you have support
 for one or the other compiled in), add the option
 

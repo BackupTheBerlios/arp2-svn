@@ -269,19 +269,20 @@ addrbank hrtmem_bank = {
     hrtmem_xlate, hrtmem_check, NULL
 };
 
-static void copyfromamiga(uae_u8 *dst,uae_u8 *src,int len)
+static void copyfromamiga (uae_u8 *dst, uaecptr src, int len)
 {
-while(len--) {
-    *dst++ = get_byte ((uaecptr)src);
-    src++;
+    while(len--) {
+	*dst++ = (uae_u8) get_byte (src);
+	src++;
+    }
 }
-}
-static void copytoamiga(uae_u8 *dst,uae_u8 *src,int len)
+
+static void copytoamiga (uaecptr dst, const uae_u8 *src, int len)
 {
-while(len--) {
-    put_byte ((uaecptr)dst, *src++);
-    dst++;
-}
+    while (len--) {
+	put_byte (dst, *src++);
+	dst++;
+    }
 }
 
 int action_replay_flag = ACTION_REPLAY_INACTIVE;
@@ -302,14 +303,14 @@ uaecptr wait_for_pc = 0;	/* The program counter that we wait for. */
 /* returns true if the Program counter is currently in the AR rom. */
 int is_ar_pc_in_rom()
 {
-    uaecptr pc = m68k_getpc() & 0xFFFFFF;
+    uaecptr pc = m68k_getpc (&regs) & 0xFFFFFF;
     return pc >= arrom_start && pc < arrom_start+arrom_size;
 }
 
 /* returns true if the Program counter is currently in the AR RAM. */
 int is_ar_pc_in_ram()
 {
-    uaecptr pc = m68k_getpc() & 0xFFFFFF;
+    uaecptr pc = m68k_getpc (&regs) & 0xFFFFFF;
     return pc >= arram_start && pc < arram_start+arram_size;
 }
 
@@ -321,9 +322,9 @@ STATIC_INLINE int ar3a (uaecptr addr, uae_u8 b, int writing)
 /*	if ( addr < 8 ) //|| writing ) */
 /*	{ */
 /*		if ( writing ) */
-/*   write_log_debug("ARSTATUS armode:%d, Writing %d to address %p, PC=%p\n", armode, b, addr, m68k_getpc()); */
+/*   write_log_debug("ARSTATUS armode:%d, Writing %d to address %p, PC=%p\n", armode, b, addr, m68k_getpc (&regs)); */
 /*		else */
-/*    write_log_debug("ARSTATUS armode:%d, Reading %d from address %p, PC=%p\n", armode, armemory_rom[addr], addr, m68k_getpc()); */
+/*    write_log_debug("ARSTATUS armode:%d, Reading %d from address %p, PC=%p\n", armode, armemory_rom[addr], addr, m68k_getpc (&regs)); */
 /*	}	 */
 
     if (armodel == 1 ) /* With AR1. It is always a read. Actually, it is a strobe on exit of the AR.
@@ -336,21 +337,21 @@ STATIC_INLINE int ar3a (uaecptr addr, uae_u8 b, int writing)
 		if ( ar_wait_pop )
 		{
 		    action_replay_flag = ACTION_REPLAY_WAIT_PC;
-/*		    write_log_debug("SP %p\n", m68k_areg(regs,7));  */
-/*		    write_log_debug("SP+2 %p\n", m68k_areg(regs,7)+2 );  */
-/*		    write_log_debug("(SP+2) %p\n", longget(m68k_areg(regs,7)+2));  */
+/*		    write_log_debug("SP %p\n", m68k_areg (&regs, 7));  */
+/*		    write_log_debug("SP+2 %p\n", m68k_areg (&regs, 7)+2 );  */
+/*		    write_log_debug("(SP+2) %p\n", longget (m68k_areg (&regs,7)+2));  */
 		    ar_wait_pop = 0;
 		    /* We get (SP+2) here, as the first word on the stack is the status register. */
 		    /* We want the following long, which is the return program counter. */
-		    wait_for_pc = longget(m68k_areg(regs,7)+2); /* Get (SP+2) */
-    		    set_special (SPCFLAG_ACTION_REPLAY);
+		    wait_for_pc = longget (m68k_areg (&regs, 7)+2); /* Get (SP+2) */
+    		    set_special (&regs, SPCFLAG_ACTION_REPLAY);
 
-    		    pc = m68k_getpc();
+    		    pc = m68k_getpc (&regs);
 /*      	    write_log_debug("Action Replay marked as ACTION_REPLAY_WAIT_PC, PC=%p\n",pc);*/
 		}
 		else
 		{
-    		    uaecptr pc = m68k_getpc();
+    		    uaecptr pc = m68k_getpc (&regs);
 /*      	    write_log_debug("Action Replay marked as IDLE, PC=%p\n",pc);*/
 		    action_replay_flag = ACTION_REPLAY_IDLE;
 		}
@@ -395,10 +396,10 @@ STATIC_INLINE int ar3a (uaecptr addr, uae_u8 b, int writing)
 	} else {
             write_log("AR: exit with armode(%d)\n", armode);
         }
-        set_special (SPCFLAG_ACTION_REPLAY);
+        set_special (&regs, SPCFLAG_ACTION_REPLAY);
         action_replay_flag = ACTION_REPLAY_HIDE;
     } else if (addr == 6) {
-        copytoamiga ((uae_u8*)regs.vbr + 0x7c, artemp, 4);
+        copytoamiga (regs.vbr + 0x7c, artemp, 4);
         write_log ("AR: chipmem returned\n");
     }
     return 0;
@@ -489,19 +490,19 @@ static uae_u32 REGPARAM2 arram_lget (uaecptr addr)
     addr &= arram_mask;
     m = (uae_u32 *)(armemory_ram + addr);
     if (strncmp("T8", (char*)m, 2) == 0)
-    	write_log_debug("Reading T8 from addr %08.08x PC=%p\n", addr, m68k_getpc());
+    	write_log_debug("Reading T8 from addr %08.08x PC=%p\n", addr, m68k_getpc (&regs));
     if (strncmp("LAME", (char*)m, 4) == 0)
-	write_log_debug("Reading LAME from addr %08.08x PC=%p\n", addr, m68k_getpc());
+	write_log_debug("Reading LAME from addr %08.08x PC=%p\n", addr, m68k_getpc (&regs));
     if (strncmp("RES1", (char*)m, 4) == 0)
-	write_log_debug("Reading RES1 from addr %08.08x PC=%p\n", addr, m68k_getpc());
+	write_log_debug("Reading RES1 from addr %08.08x PC=%p\n", addr, m68k_getpc (&regs));
     if (strncmp("ARON", (char*)m, 4) == 0)
-	write_log_debug("Reading ARON from addr %08.08x PC=%p\n", addr, m68k_getpc());
+	write_log_debug("Reading ARON from addr %08.08x PC=%p\n", addr, m68k_getpc (&regs));
     if (strncmp("KILL", (char*)m, 4) == 0)
-	write_log_debug("Reading KILL from addr %08.08x PC=%p\n", addr, m68k_getpc());
+	write_log_debug("Reading KILL from addr %08.08x PC=%p\n", addr, m68k_getpc (&regs));
     if (strncmp("BRON", (char*)m, 4) == 0)
-	write_log_debug("Reading BRON from addr %08.08x PC=%p\n", addr, m68k_getpc());
+	write_log_debug("Reading BRON from addr %08.08x PC=%p\n", addr, m68k_getpc (&regs));
     if (strncmp("PRIN", (char*)m, 4) == 0)
-	write_log_debug("Reading PRIN from addr %08.08x PC=%p\n", addr, m68k_getpc());
+	write_log_debug("Reading PRIN from addr %08.08x PC=%p\n", addr, m68k_getpc (&regs));
     return do_get_mem_long (m);
 }
 
@@ -535,19 +536,19 @@ void REGPARAM2 arram_lput (uaecptr addr, uae_u32 l)
     addr &= arram_mask;
     m = (uae_u32 *)(armemory_ram + addr);
     if (strncmp("T8", (char*)m, 2) == 0)
-	write_log_debug("Writing T8 to addr %08.08x PC=%p\n", addr, m68k_getpc());
+	write_log_debug("Writing T8 to addr %08.08x PC=%p\n", addr, m68k_getpc (&regs));
     if (strncmp("LAME", (char*)m, 4) == 0)
-	write_log_debug("Writing LAME to addr %08.08x PC=%p\n", addr, m68k_getpc());
+	write_log_debug("Writing LAME to addr %08.08x PC=%p\n", addr, m68k_getpc (&regs));
     if (strncmp("RES1", (char*)m, 4) == 0)
-	write_log_debug("Writing RES1 to addr %08.08x PC=%p\n", addr, m68k_getpc());
+	write_log_debug("Writing RES1 to addr %08.08x PC=%p\n", addr, m68k_getpc (&regs));
     if (strncmp("ARON", (char*)m, 4) == 0)
-	write_log_debug("Writing ARON to addr %08.08x PC=%p\n", addr, m68k_getpc());
+	write_log_debug("Writing ARON to addr %08.08x PC=%p\n", addr, m68k_getpc (&regs));
     if (strncmp("KILL", (char*)m, 4) == 0)
-	write_log_debug("Writing KILL to addr %08.08x PC=%p\n", addr, m68k_getpc());
+	write_log_debug("Writing KILL to addr %08.08x PC=%p\n", addr, m68k_getpc (&regs));
     if (strncmp("BRON", (char*)m, 4) == 0)
-	write_log_debug("Writing BRON to addr %08.08x PC=%p\n", addr, m68k_getpc());
+	write_log_debug("Writing BRON to addr %08.08x PC=%p\n", addr, m68k_getpc (&regs));
     if (strncmp("PRIN", (char*)m, 4) == 0)
-	write_log_debug("Writing PRIN to addr %08.08x PC=%p\n", addr, m68k_getpc());
+	write_log_debug("Writing PRIN to addr %08.08x PC=%p\n", addr, m68k_getpc (&regs));
     do_put_mem_long (m, l);
 }
 
@@ -717,9 +718,9 @@ static void action_replay_go (void)
     hide_cart (0);
     memcpy (armemory_ram + 0xf000, ar_custom, 2 * 256);
     action_replay_flag = ACTION_REPLAY_ACTIVE;
-    set_special (SPCFLAG_ACTION_REPLAY);
-    copyfromamiga (artemp, (uae_u8*)regs.vbr + 0x7c, 4);
-    copytoamiga ((uae_u8*)regs.vbr+0x7c, armemory_rom + 0x7c, 4);
+    set_special (&regs, SPCFLAG_ACTION_REPLAY);
+    copyfromamiga (artemp, regs.vbr + 0x7c, 4);
+    copytoamiga (regs.vbr + 0x7c, armemory_rom + 0x7c, 4);
     Interrupt (7);
 }
 
@@ -736,8 +737,8 @@ static void hrtmon_go (int mode)
 {
     memcpy (hrtmon_custom, ar_custom, 2 * 256);
     hrtmon_flag = ACTION_REPLAY_ACTIVE;
-    set_special (SPCFLAG_ACTION_REPLAY);
-    put_long ((uaecptr)((uae_u8*)regs.vbr+0x7c), hrtmem_start + 8 + (mode ? 4 : 0));
+    set_special (&regs, SPCFLAG_ACTION_REPLAY);
+    put_long (regs.vbr + 0x7c, hrtmem_start + 8 + (mode ? 4 : 0));
     Interrupt (7);
 }
 
@@ -752,9 +753,9 @@ void action_replay_enter(void)
 {
     if (!armemory_rom) return;
     if (armodel == 1) {
-	write_log("AR1: Enter PC:%p\n", m68k_getpc());
+	write_log("AR1: Enter PC:%p\n", m68k_getpc (&regs));
         action_replay_go1 (7);
-        unset_special (SPCFLAG_ACTION_REPLAY);
+        unset_special (&regs, SPCFLAG_ACTION_REPLAY);
         return;
     }
     if (action_replay_flag == ACTION_REPLAY_DORESET) {
@@ -839,9 +840,9 @@ void action_replay_ciaread(void)
     if (action_replay_flag != ACTION_REPLAY_IDLE) return;
     if (action_replay_flag == ACTION_REPLAY_INACTIVE) return;
     if (armode < 2) /* If there are no active breakpoints*/ return;
-    if (m68k_getpc() >= 0x200) return;
+    if (m68k_getpc (&regs) >= 0x200) return;
     action_replay_flag = ACTION_REPLAY_ACTIVATE;
-    set_special (SPCFLAG_ACTION_REPLAY);
+    set_special (&regs, SPCFLAG_ACTION_REPLAY);
 }
 
 int action_replay_freeze(void)
@@ -855,13 +856,13 @@ int action_replay_freeze(void)
 	else
 	{
 	    action_replay_flag = ACTION_REPLAY_ACTIVATE;
-	    set_special (SPCFLAG_ACTION_REPLAY);
+	    set_special (&regs, SPCFLAG_ACTION_REPLAY);
 	    armode = ARMODE_FREEZE;
     	}
 	return 1;
     } else if(hrtmon_flag == ACTION_REPLAY_IDLE) {
         hrtmon_flag = ACTION_REPLAY_ACTIVATE;
-        set_special (SPCFLAG_ACTION_REPLAY);
+        set_special (&regs, SPCFLAG_ACTION_REPLAY);
 	return 1;
     }
     return 0;
@@ -872,18 +873,18 @@ void action_replay_chipwrite(void)
     if (armodel > 1)
     {
         action_replay_flag = ACTION_REPLAY_DORESET;
-        set_special (SPCFLAG_ACTION_REPLAY);
+        set_special (&regs, SPCFLAG_ACTION_REPLAY);
     }
     else
     {
 	/* copy 0x60 addr info to level 7 */
 	/* This is to emulate the 0x60 interrupt. */
-    	copyfromamiga (artemp, (uae_u8*)regs.vbr + 0x60, 4);
-    	copytoamiga ((uae_u8*)regs.vbr + 0x7c, artemp, 4);
+    	copyfromamiga (artemp, regs.vbr + 0x60, 4);
+    	copytoamiga (regs.vbr + 0x7c, artemp, 4);
 	ar_wait_pop = 1; /* Wait for stack to pop. */
 
 	action_replay_flag = ACTION_REPLAY_ACTIVATE;
-	set_special (SPCFLAG_ACTION_REPLAY);
+	set_special (&regs, SPCFLAG_ACTION_REPLAY);
     }
 }
 
@@ -902,7 +903,7 @@ void hrtmon_hide(void)
 void hrtmon_breakenter(void)
 {
     hrtmon_flag = ACTION_REPLAY_HIDE;
-    set_special (SPCFLAG_ACTION_REPLAY);
+    set_special (&regs, SPCFLAG_ACTION_REPLAY);
 /*    write_log_debug("HRTMON: In hrtmon routine.\n"); */
 }
 
@@ -1241,7 +1242,7 @@ int action_replay_unload(int in_memory_reset)
 		}
 	}
 
-	unset_special(SPCFLAG_ACTION_REPLAY); /* This shouldn't be necessary here, but just in case. */
+	unset_special (&regs, SPCFLAG_ACTION_REPLAY); /* This shouldn't be necessary here, but just in case. */
 	action_replay_flag = ACTION_REPLAY_INACTIVE;
 	hrtmon_flag = ACTION_REPLAY_INACTIVE;
 	action_replay_unsetbanks();
@@ -1397,19 +1398,19 @@ do_put_mem_long(&cfg->max_chip,currprefs.chipmem_size);
 hrtmon_custom = do_get_mem_long ((uae_u32*)&cfg->custom)+hrtmemory;
 }
 
-static void hrtmon_reloc(uae_u32 *mem,uae_u32 *header)
+static void hrtmon_reloc (uae_u32 *mem, uae_u32 *header)
 {
     uae_u32 *p;
     uae_u8 *base;
     uae_u32 len, i;
 
-    len=do_get_mem_long(header+7); /* Get length of file from exe header.*/
-    p=mem+len+3;
-    len=do_get_mem_long(p-2);
-    for(i=0;i<len;i++) {
-        base=(uae_u8*)do_get_mem_long(p)+(uae_u32)mem;
-        do_put_mem_long((uae_u32*)base, do_get_mem_long((uae_u32*)base)+hrtmem_start);
-        p++;
+    len = do_get_mem_long (header + 7); /* Get length of file from exe header.*/
+    p = mem + len + 3;
+    len = do_get_mem_long (p - 2);
+    for (i = 0; i < len; i++) {
+	base = (uae_u8 *)((unsigned long)do_get_mem_long (p) + (unsigned long)mem);
+	do_put_mem_long ((uae_u32*)base, do_get_mem_long ((uae_u32 *)base) + hrtmem_start);
+	p++;
     }
 }
 

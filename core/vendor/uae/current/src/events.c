@@ -7,7 +7,7 @@
   * slowdown.
   *
   * Copyright 1995-1998 Bernd Schmidt
-  * Copyright 2004      Richard Drummond
+  * Copyright 2004-2005 Richard Drummond
   */
 
 #include "sysconfig.h"
@@ -21,16 +21,17 @@
 #include "blitter.h"
 #include "disk.h"
 #include "audio.h"
+#include "hrtimer.h"
 
 /* Current time in cycles */
-unsigned int currcycle;
+unsigned long currcycle;
 
 /* Cycles to next event pending */
-static unsigned int nextevent;
+unsigned long nextevent;
 
 #ifdef JIT
 /* For faster cycles handling */
-signed int pissoff = 0;
+signed long pissoff = 0;
 #endif
 
 struct ev eventtab[ev_max];
@@ -80,47 +81,6 @@ void events_schedule (void)
 	}
     }
     nextevent = currcycle + mintime;
-}
-
-/*
- * Handle all events pending within the next cycles_to_add cycles
- */
-void do_cycles_slow (unsigned int cycles_to_add)
-{
-#ifdef JIT
-    if ((pissoff -= cycles_to_add) >= 0)
-	return;
-
-    cycles_to_add = -pissoff;
-    pissoff = 0;
-#endif
-
-    if (is_lastline && eventtab[ev_hsync].evtime - currcycle <= cycles_to_add) {
-	int rpt = read_processor_time ();
-	int v   = rpt - vsyncmintime;
-	if (v > (int)syncbase || v < -((int)syncbase))
-	    vsyncmintime = rpt;
-	if (v < 0) {
-#ifdef JIT
-            pissoff = 3000 * CYCLE_UNIT;
-#endif
-	    return;
-	}
-    }
-
-    while ((nextevent - currcycle) <= cycles_to_add) {
-	int i;
-	cycles_to_add -= (nextevent - currcycle);
-	currcycle = nextevent;
-
-	for (i = 0; i < ev_max; i++) {
-	    if (eventtab[i].active && eventtab[i].evtime == currcycle) {
-		(*eventtab[i].handler)();
-	    }
-	}
-	events_schedule ();
-    }
-    currcycle += cycles_to_add;
 }
 
 /*

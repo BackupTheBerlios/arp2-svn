@@ -6,6 +6,8 @@
   * (c) 1995 Bernd Schmidt
   */
 
+#include "machdep/rpt.h"
+
 /* These are the masks that are ORed together in the chipset_mask option.
  * If CSMASK_AGA is set, the ECS bits are guaranteed to be set as well.  */
 #define CSMASK_ECS_AGNUS 1
@@ -98,7 +100,7 @@ extern unsigned int maxhpos;
 extern unsigned int maxvpos;
 extern unsigned int minfirstline;
 extern int vblank_hz, fake_vblank_hz, vblank_skip;
-extern unsigned long syncbase;
+extern frame_time_t syncbase;
 #define NUMSCRLINES (maxvpos+1-minfirstline+1)
 
 #define DMA_AUD0      0x0001
@@ -122,7 +124,8 @@ extern unsigned long syncbase;
 #define CYCLE_CPU	0x40
 #define CYCLE_NOCPU	0x80
 
-extern unsigned long frametime, timeframes;
+extern unsigned int frametime;
+extern unsigned int timeframes;
 extern unsigned int plfstrt;
 extern unsigned int plfstop;
 extern unsigned int plffirstline, plflastline;
@@ -136,12 +139,6 @@ extern uae_u16 htotal, vtotal;
 #else
 #define MAX_WORDS_PER_LINE 100
 #endif
-
-extern uae_u32 hirestab_h[256][2];
-extern uae_u32 lorestab_h[256][4];
-
-extern uae_u32 hirestab_l[256][1];
-extern uae_u32 lorestab_l[256][2];
 
 #ifdef AGA
 /* AGA mode color lookup tables */
@@ -169,7 +166,7 @@ STATIC_INLINE int GET_RES (uae_u16 con0)
 #define GET_PLANES(x) ((((x) >> 12) & 7) | (((x) & 0x10) >> 1))
 
 extern void fpscounter_reset (void);
-extern unsigned long idletime;
+extern frame_time_t idletime;
 
 struct customhack {
     uae_u16 v;

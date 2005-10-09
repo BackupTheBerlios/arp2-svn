@@ -111,9 +111,10 @@ typedef struct {
     uae_u8 is_addx;
     uae_u8 is_const_jump;
 } op_properties;
+
 extern op_properties prop[65536];
 
-static __inline__ int end_block(uae_u16 opcode)
+STATIC_INLINE int end_block(uae_u16 opcode)
 {
     return prop[opcode].is_jump ||
 	(prop[opcode].is_const_jump && !currprefs.comp_constjump);
@@ -221,7 +222,7 @@ extern int touchcnt;
 #define MENDFUNC(nargs,func,args)
 #define COMPCALL(func) func
 
-#define LOWFUNC(flags,mem,nargs,func,args) static __inline__ void func args
+#define LOWFUNC(flags,mem,nargs,func,args) STATIC_INLINE void func args
 #define LENDFUNC(flags,mem,nargs,func,args)
 
 #if USE_OPTIMIZER

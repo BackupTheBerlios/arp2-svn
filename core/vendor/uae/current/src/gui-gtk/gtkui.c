@@ -95,7 +95,7 @@ static GtkWidget *comp_constjump_widget[2];
 static GtkAdjustment *cachesize_adj;
 #endif
 
-static GtkWidget *joy_widget[2][6];
+static GtkWidget *joy_widget[2][7];
 
 static unsigned int prevledstate;
 
@@ -167,9 +167,9 @@ static volatile int quit_gui = 0, quitted_gui = 0;
 static void create_guidlg (void);
 void gui_set_paused (int state);
 
-static void do_message_box( const guchar *title, const guchar *message, gboolean modal, gboolean wait );
+static void do_message_box (const gchar *title, const gchar *message, gboolean modal, gboolean wait);
 static void handle_message_box_request (smp_comm_pipe *msg_pipe);
-static GtkWidget *make_message_box( const guchar *title, const guchar *message, int modal, uae_sem_t *sem );
+static GtkWidget *make_message_box (const gchar *title, const gchar *message, int modal, uae_sem_t *sem);
 void on_message_box_quit (GtkWidget *w, gpointer user_data);
 
 
@@ -224,7 +224,7 @@ static void save_config (void)
 static void set_mem32_widgets_state (void)
 {
     int enable = changed_prefs.cpu_level >= 2 && ! changed_prefs.address_space_24;
-   
+
 #ifdef AUTOCONFIG
     int i;
 
@@ -255,9 +255,7 @@ static void set_cpu_state (void)
 
     cpuspeedpanel_set_cpuspeed     (CPUSPEEDPANEL (cspanel), changed_prefs.m68k_speed);
     cpuspeedpanel_set_dontbusywait (CPUSPEEDPANEL (cspanel), changed_prefs.dont_busy_wait);
-#ifdef JIT
     cpuspeedpanel_set_cpuidle      (CPUSPEEDPANEL (cspanel), changed_prefs.cpu_idle);
-#endif
 
     set_mem32_widgets_state ();
 }
@@ -269,7 +267,6 @@ static void set_chipset_state (void)
     chipsetspeedpanel_set_framerate       (CHIPSETSPEEDPANEL (chipsetspeed_panel), currprefs.gfx_framerate);
     chipsetspeedpanel_set_collision_level (CHIPSETSPEEDPANEL (chipsetspeed_panel), currprefs.collision_level);
     chipsetspeedpanel_set_immediate_blits (CHIPSETSPEEDPANEL (chipsetspeed_panel), currprefs.immediate_blits);
-    chipsetspeedpanel_set_fast_copper     (CHIPSETSPEEDPANEL (chipsetspeed_panel), currprefs.fast_copper);
 }
 
 static void set_sound_state (void)
@@ -346,26 +343,75 @@ static void set_comp_state (void)
 }
 #endif
 
+
+/*
+ * Temporary hacks for joystick widgets
+ */
+
+/*
+ * widget 0 = none
+ *        1 = joy 0
+ *        2 = joy 1
+ *        3 = mouse
+ *        4 = numpad
+ *        5 = cursor
+ *        6 = other
+ */
+static int map_jsem_to_widget (int jsem)
+{
+    int widget = 0;
+
+    if (jsem >= JSEM_END)
+	widget = 0;
+    else if (jsem >= JSEM_MICE)
+	widget = 3;
+    else if (jsem == JSEM_JOYS || jsem == JSEM_JOYS + 1 )
+	widget = jsem - JSEM_JOYS + 1;
+    else if (jsem >= JSEM_KBDLAYOUT)
+	widget = jsem - JSEM_KBDLAYOUT + 4;
+
+    return widget;
+}
+
+static int map_widget_to_jsem (int widget)
+{
+   int jsem;
+
+   switch (widget) {
+	default:
+	case 0: jsem = JSEM_NONE;          break;
+	case 1: jsem = JSEM_JOYS;          break;
+	case 2: jsem = JSEM_JOYS + 1;      break;
+	case 3: jsem = JSEM_MICE;          break;
+	case 4: jsem = JSEM_KBDLAYOUT;     break;
+	case 5: jsem = JSEM_KBDLAYOUT + 1; break;
+	case 6: jsem = JSEM_KBDLAYOUT + 2; break;
+   }
+
+   return jsem;
+}
+
 static void set_joy_state (void)
 {
-    int j0t = changed_prefs.jport0;
-    int j1t = changed_prefs.jport1;
+    int j0t = map_jsem_to_widget (changed_prefs.jport0);
+    int j1t = map_jsem_to_widget (changed_prefs.jport1);
+
     int joy_count = inputdevice_get_device_total (IDTYPE_JOYSTICK);
     int i;
 
-    if (j0t == j1t) {
+    if (j0t != 0 && j0t == j1t) {
 	/* Can't happen */
 	j0t++;
-	j0t %= 6;
+	j0t %= 7;
     }
 
-    for (i = 0; i < 6; i++) {
-	if (i == 0 && joy_count == 0) continue;
-	if (i == 1 && joy_count <= 1) continue;
+    for (i = 0; i < 7; i++) {
+	if (i == 1 && joy_count == 0) continue;
+	if (i == 2 && joy_count <= 1) continue;
 	gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (joy_widget[0][i]), j0t == i);
 	gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (joy_widget[1][i]), j1t == i);
-	gtk_widget_set_sensitive (joy_widget[0][i], j1t != i);
-	gtk_widget_set_sensitive (joy_widget[1][i], j0t != i);
+	gtk_widget_set_sensitive (joy_widget[0][i], i == 0 || j1t != i);
+	gtk_widget_set_sensitive (joy_widget[1][i], i == 0 || j0t != i);
     }
 }
 
@@ -436,6 +482,9 @@ static void set_hd_state (void)
 static void set_floppy_state( void )
 {
     floppyfileentry_set_filename (FLOPPYFILEENTRY (floppy_widget[0]), currprefs.df[0]);
+    floppyfileentry_set_filename (FLOPPYFILEENTRY (floppy_widget[1]), currprefs.df[1]);
+    floppyfileentry_set_filename (FLOPPYFILEENTRY (floppy_widget[2]), currprefs.df[2]);
+    floppyfileentry_set_filename (FLOPPYFILEENTRY (floppy_widget[3]), currprefs.df[3]);   
 }
 
 static void update_state (void)
@@ -570,8 +619,8 @@ static void joy_changed (void)
 {
     if (! gui_active)
 	return;
-    changed_prefs.jport0 = find_current_toggle (joy_widget[0], 6);
-    changed_prefs.jport1 = find_current_toggle (joy_widget[1], 6);
+    changed_prefs.jport0 = map_widget_to_jsem (find_current_toggle (joy_widget[0], 7));
+    changed_prefs.jport1 = map_widget_to_jsem (find_current_toggle (joy_widget[1], 7));
 
     if( changed_prefs.jport0 != currprefs.jport0 || changed_prefs.jport1 != currprefs.jport1 )
 	inputdevice_config_change();
@@ -1114,13 +1163,6 @@ static void on_immediate_blits_changed (void)
     DEBUG_LOG("immediate_blits = %d\n", changed_prefs.immediate_blits);
 }
 
-static void on_fast_copper_changed (void)
-{
-    changed_prefs.fast_copper = CHIPSETSPEEDPANEL (chipsetspeed_panel)->fast_copper;
-    DEBUG_LOG("fast_copper = %d\n", changed_prefs.fast_copper);
-}
-
-
 static void make_chipset_widgets (GtkWidget *vbox)
 {
     GtkWidget *table;
@@ -1155,9 +1197,6 @@ static void make_chipset_widgets (GtkWidget *vbox)
                         NULL);
     gtk_signal_connect (GTK_OBJECT (chipsetspeed_panel), "immediate-blits-changed",
                         GTK_SIGNAL_FUNC (on_immediate_blits_changed),
-                        NULL);
-    gtk_signal_connect (GTK_OBJECT (chipsetspeed_panel), "fast-copper-changed",
-                        GTK_SIGNAL_FUNC (on_fast_copper_changed),
                         NULL);
 }
 
@@ -1209,7 +1248,7 @@ static void make_mem_widgets (GtkWidget *vbox)
 	"512 KB", "1 MB", "2 MB", "4 MB", "8 MB", NULL
     };
     static const char *bogolabels[] = {
-	"None", "512 KB", "1 MB", "1.8 MB", NULL
+	"None", "512 KB", "1 MB", "1.5 MB", NULL
     };
     static const char *fastlabels[] = {
 	"None", "1 MB", "2 MB", "4 MB", "8 MB", NULL
@@ -1365,7 +1404,7 @@ static void make_comp_widgets (GtkWidget *vbox)
     add_centered_to_vbox (vbox, newbox);
 #endif
 
-    cachesize_adj = GTK_ADJUSTMENT (gtk_adjustment_new (currprefs.cachesize, 0.0, 16384.0, 1.0, 1.0, 1.0));
+    cachesize_adj = GTK_ADJUSTMENT (gtk_adjustment_new (currprefs.cachesize, 0.0, 16385.0, 1.0, 1.0, 1.0));
     gtk_signal_connect (GTK_OBJECT (cachesize_adj), "value_changed",
 			GTK_SIGNAL_FUNC (comp_changed), NULL);
 
@@ -1377,7 +1416,7 @@ static void make_comp_widgets (GtkWidget *vbox)
     add_labelled_widget_centered ("Translation buffer(kB):", thing, vbox);
 
     add_empty_vbox (vbox);
-   
+
     /* Kludge - remember pointer to JIT page, so that we can easily disable it */
     jit_page = vbox;
 }
@@ -1390,6 +1429,7 @@ static void make_joy_widgets (GtkWidget *dvbox)
     GtkWidget *hbox = gtk_hbox_new (FALSE, 10);
 
     static const char *joylabels[] = {
+	"None",
 	"Joystick 0",
 	"Joystick 1",
 	"Mouse",
@@ -1413,9 +1453,9 @@ static void make_joy_widgets (GtkWidget *dvbox)
 	gtk_box_pack_start (GTK_BOX (hbox), frame, FALSE, TRUE, 0);
 
 	if (joy_count < 2)
-	    gtk_widget_set_sensitive (joy_widget[i][1], 0);
+	    gtk_widget_set_sensitive (joy_widget[i][2], 0);
 	if (joy_count == 0)
-	    gtk_widget_set_sensitive (joy_widget[i][0], 0);
+	    gtk_widget_set_sensitive (joy_widget[i][1], 0);
     }
 
     add_empty_vbox (dvbox);
@@ -1725,7 +1765,7 @@ static void make_hd_widgets (GtkWidget *dvbox)
     gtk_container_set_border_width (GTK_CONTAINER (scrollbox), 8);
     gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (scrollbox), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
 
-    thing = gtk_clist_new_with_titles (HDLIST_MAX_COLS, hdlist_col_titles );
+    thing = gtk_clist_new_with_titles (HDLIST_MAX_COLS, (gchar **)hdlist_col_titles );
     gtk_clist_set_selection_mode (GTK_CLIST (thing), GTK_SELECTION_SINGLE);
     gtk_signal_connect (GTK_OBJECT (thing), "select_row", (GtkSignalFunc) hdselect, NULL);
     gtk_signal_connect (GTK_OBJECT (thing), "unselect_row", (GtkSignalFunc) hdunselect, NULL);
@@ -2263,7 +2303,7 @@ void gui_set_paused (int state)
  * modal   - should the dialog block input to the rest of the GUI
  * wait    - should the dialog wait until the user has acknowledged it
  */
-static void do_message_box( const guchar *title, const guchar *message, gboolean modal, gboolean wait )
+static void do_message_box (const gchar *title, const gchar *message, gboolean modal, gboolean wait )
 {
     uae_sem_t msg_quit_sem;
 
@@ -2292,8 +2332,8 @@ static void do_message_box( const guchar *title, const guchar *message, gboolean
  */
 static void handle_message_box_request (smp_comm_pipe *msg_pipe)
 {
-    const guchar *title     = (const guchar *) read_comm_pipe_pvoid_blocking (msg_pipe);
-    const guchar *msg       = (const guchar *) read_comm_pipe_pvoid_blocking (msg_pipe);
+    const gchar *title      = (const gchar *)  read_comm_pipe_pvoid_blocking (msg_pipe);
+    const gchar *msg        = (const gchar *)  read_comm_pipe_pvoid_blocking (msg_pipe);
     int modal               =                  read_comm_pipe_int_blocking   (msg_pipe);
     uae_sem_t *msg_quit_sem = (uae_sem_t *)    read_comm_pipe_pvoid_blocking (msg_pipe);
 
@@ -2323,7 +2363,7 @@ void on_message_box_quit (GtkWidget *w, gpointer user_data)
  *
  * TODO: Make that semaphore go away. We shouldn't need to know about it here.
  */
-static GtkWidget *make_message_box( const guchar *title, const guchar *message, int modal, uae_sem_t *sem )
+static GtkWidget *make_message_box (const gchar *title, const gchar *message, int modal, uae_sem_t *sem )
 {
     GtkWidget *dialog;
     GtkWidget *vbox;

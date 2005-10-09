@@ -124,7 +124,7 @@ static struct device_info *devinfo (int mode, int unitnum, struct device_info *d
     return sys_command_info (mode, unitnum, di);
 }
 
-static void io_log (char *msg, uaecptr request)
+static void io_log (const char *msg, uaecptr request)
 {
     if (log_scsi)
 	write_log ("%s: %08X %d %08.8X %d %d io_actual=%d io_error=%d\n",
@@ -132,7 +132,7 @@ static void io_log (char *msg, uaecptr request)
 	    get_long (request + 32), get_byte (request + 31));
 }
 
-STATIC_INLINE void memcpyha (uae_u32 dst, char *src, int size)
+STATIC_INLINE void memcpyha (uae_u32 dst, const uae_u8 *src, int size)
 {
     while (size--)
 	put_byte (dst++, *src++);
@@ -197,7 +197,7 @@ static void dev_close_3 (struct devstruct *dev, struct priv_devstruct *pdev)
 
 static uae_u32 dev_close_2 (void)
 {
-    uae_u32 request = m68k_areg (regs, 1);
+    uae_u32 request = m68k_areg (&regs, 1);
     struct priv_devstruct *pdev = getpdevstruct (request);
     struct devstruct *dev;
 
@@ -210,7 +210,7 @@ static uae_u32 dev_close_2 (void)
 	return 0;
     dev_close_3 (dev, pdev);
     put_long (request + 24, 0);
-    put_word (m68k_areg(regs, 6) + 32, get_word (m68k_areg(regs, 6) + 32) - 1);
+    put_word (m68k_areg (&regs, 6) + 32, get_word (m68k_areg (&regs, 6) + 32) - 1);
     return 0;
 }
 
@@ -232,9 +232,9 @@ static int openfail (uaecptr ioreq, int error)
 
 static uae_u32 dev_open_2 (int type)
 {
-    uaecptr ioreq = m68k_areg(regs, 1);
-    uae_u32 unit = m68k_dreg (regs, 0);
-    uae_u32 flags = m68k_dreg (regs, 1);
+    uaecptr ioreq = m68k_areg (&regs, 1);
+    uae_u32 unit = m68k_dreg (&regs, 0);
+    uae_u32 flags = m68k_dreg (&regs, 1);
     struct devstruct *dev = getdevstruct (unit);
     struct priv_devstruct *pdev = 0;
     int i;
@@ -275,7 +275,7 @@ static uae_u32 dev_open_2 (int type)
     }
     dev->opencnt++;
 
-    put_word (m68k_areg(regs, 6) + 32, get_word (m68k_areg(regs, 6) + 32) + 1);
+    put_word (m68k_areg (&regs, 6) + 32, get_word (m68k_areg (&regs, 6) + 32) + 1);
     put_byte (ioreq + 31, 0);
     put_byte (ioreq + 8, 7);
     return 0;
@@ -396,7 +396,7 @@ static void abort_async (struct devstruct *dev, uaecptr request, int errcode, in
 
 static int command_read (int mode, struct devstruct *dev, uaecptr data, int offset, int length, uae_u32 *io_actual)
 {
-    uae_u8 *temp;
+    const uae_u8 *temp;
     int len, sector;
 
     int startoffset = offset % dev->di.bytespersector;
@@ -530,7 +530,7 @@ static int dev_canquick (struct devstruct *dev, uaecptr request)
 
 static uae_u32 dev_beginio (void)
 {
-    uae_u32 request = m68k_areg(regs, 1);
+    uae_u32 request = m68k_areg (&regs, 1);
     uae_u8 flags = get_byte (request + 30);
     int command = get_word (request + 28);
     struct priv_devstruct *pdev = getpdevstruct (request);
@@ -560,6 +560,10 @@ static void *dev_thread (void *devs)
 
     uae_set_thread_priority (2);
     dev->thread_running = 1;
+
+    sys_command_open_thread (DF_SCSI, dev->unitnum);
+    sys_command_open_thread (DF_IOCTL, dev->unitnum);
+
     uae_sem_post (&dev->sync_sem);
     for (;;) {
 	uaecptr request = (uaecptr)read_comm_pipe_u32_blocking (&dev->requests);
@@ -568,7 +572,7 @@ static void *dev_thread (void *devs)
 	    dev->thread_running = 0;
 	    uae_sem_post (&dev->sync_sem);
 	    uae_sem_post (&change_sem);
-	    return 0;
+	    break;
 	} else if (dev_do_io (dev, request) == 0) {
             put_byte (request + 30, get_byte (request + 30) & ~1);
 	    release_async_request (dev, request);
@@ -579,12 +583,16 @@ static void *dev_thread (void *devs)
 	}
 	uae_sem_post (&change_sem);
     }
-    return 0;
+
+    sys_command_close_thread (DF_SCSI, dev->unitnum);
+    sys_command_close_thread (DF_IOCTL, dev->unitnum);
+
+   return 0;
 }
 
 static uae_u32 dev_init_2 (int type)
 {
-    uae_u32 base = m68k_dreg (regs,0);
+    uae_u32 base = m68k_dreg (&regs,0);
     if (log_scsi)
 	write_log ("%s init\n", getdevname (type));
     return base;
@@ -601,7 +609,7 @@ static uae_u32 diskdev_init (void)
 
 static uae_u32 dev_abortio (void)
 {
-    uae_u32 request = m68k_areg(regs, 1);
+    uae_u32 request = m68k_areg (&regs, 1);
     struct priv_devstruct *pdev = getpdevstruct (request);
     struct devstruct *dev;
 
@@ -623,6 +631,38 @@ static uae_u32 dev_abortio (void)
 
 #define BTL2UNIT(bus, target, lun) (2 * (bus) + (target) / 8) * 100 + (lun) * 10 + (target % 8)
 
+/*
+ * Shut down SCSI layer
+ */
+static void dev_exit (void)
+{
+    int i, j;
+    struct devstruct *dev;
+
+    for (i = 0; i < MAX_TOTAL_DEVICES; i++) {
+	dev = &devst[i];
+	if (dev->opencnt > 0) {
+	    /* Abort any outstanding requests */
+	    for (j = 0; j < MAX_ASYNC_REQUESTS; j++) {
+	        uaecptr request;
+		if ((request = dev->d_request[i]))
+		    abort_async (dev, request, 0, 0);
+	    }
+
+	    /* Kill dev thread and wait for it to die */
+	    write_comm_pipe_u32 (&dev->requests, 0, 1);
+	    uae_sem_wait (&dev->sync_sem);
+
+	    /* Close device */
+	    dev->opencnt = 0;
+	    sys_command_close (DF_SCSI, dev->unitnum);
+	    sys_command_close (DF_IOCTL, dev->unitnum);
+	}
+	memset (dev, 0, sizeof (struct devstruct));
+	dev->unitnum = dev->aunit = -1;
+    }
+}
+
 static void dev_reset (void)
 {
     int i, j;
@@ -631,21 +671,9 @@ static void dev_reset (void)
     int unitnum = 0;
 
     device_func_init (DEVICE_TYPE_SCSI);
-    for (i = 0; i < MAX_TOTAL_DEVICES; i++) {
-	dev = &devst[i];
-	if (dev->opencnt > 0) {
-	    for (j = 0; j < MAX_ASYNC_REQUESTS; j++) {
-	        uaecptr request;
-		if ((request = dev->d_request[i]))
-		    abort_async (dev, request, 0, 0);
-	    }
-	    dev->opencnt = 1;
-	    sys_command_close (DF_SCSI, dev->unitnum);
-	    sys_command_close (DF_IOCTL, dev->unitnum);
-	}
-	memset (dev, 0, sizeof (struct devstruct));
-	dev->unitnum = dev->aunit = -1;
-    }
+
+    dev_exit();
+
     for (i = 0; i < MAX_OPEN_DEVICES; i++)
 	memset (&pdevst[i], 0, sizeof (struct priv_devstruct));
 
@@ -904,6 +932,13 @@ void scsidev_start_threads (void)
     if (log_scsi)
 	write_log ("scsidev_start_threads()\n");
     uae_sem_init (&change_sem, 0, 1);
+}
+
+void scsidev_exit (void)
+{
+    if (!currprefs.scsi)
+	return;
+    dev_exit ();
 }
 
 void scsidev_reset (void)

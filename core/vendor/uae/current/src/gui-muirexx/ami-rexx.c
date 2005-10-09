@@ -230,7 +230,7 @@ static int INSERT (const unsigned char *line)
 
 static void QUIT (void)
 {
-    set_special (SPCFLAG_BRK);
+    set_special (&regs, SPCFLAG_BRK);
     quit_program = 1;
 }
 

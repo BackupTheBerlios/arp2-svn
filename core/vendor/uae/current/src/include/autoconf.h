@@ -9,7 +9,7 @@
 typedef uae_u32 (*TrapFunction) (void);
 
 extern int lasttrap;
-extern uae_u8 *rtarea;
+
 extern void do_emultrap (int nr);
 
 extern uae_u32 addr (int);
@@ -80,8 +80,6 @@ extern void hardfile_reset (void);
 extern void emulib_install (void);
 extern void expansion_init (void);
 extern void expansion_cleanup (void);
-
-extern uae_u8* rtarea;
 
 #define TRAPFLAG_NO_REGSAVE 1
 #define TRAPFLAG_NO_RETVAL 2

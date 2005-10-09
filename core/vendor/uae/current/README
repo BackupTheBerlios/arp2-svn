@@ -1,19 +1,19 @@
-E-UAE 0.8.27
+E-UAE 0.8.28
 ============
 
-This is a version of UAE, the Ubiquitous Amiga Emulator, with an emulation
-core based on WinUAE 0.8.27. It attempts to bring many of the great features
-of WinUAE to non-Windows platforms. This version now finally has a name,
-E-UAE, since that's what everybody was calling it anyway. The 'E' can stand
-for anything you fancy. Experimental, extreme, exciting, egalitarian,
-eggplant, . . .
+This is a fork of UAE, the Ubiquitous Amiga Emulator, with an emulation core
+based on WinUAE. It attempts to bring many of the great features of WinUAE
+to non-Windows platforms. This version now finally has a name, E-UAE, since
+that's what everybody was calling it anyway. The 'E' can stand for anything
+you fancy. Experimental, extreme, exciting, egalitarian, eggplant, . . .
 
 Currently it will build and run (with a varying degree of supported
-features) on Linux and other Unices, Mac OS X, BeOS and AmigaOS itself
-(either for 68k machines or PPC machines with OS4.0). OS X requires either
-LibSDL or an X server for graphics output, but native graphics are
-supported on AmigaOS and BeOS, although, at the moment, SDL is also
-preferred on BeOS since the native driver is incomplete.
+features) on Linux and other Unices, Mac OS X, BeOS, AmigaOS itself
+(either for 68k machines or PPC machines with OS4.0) and the AmigaOS clones
+AROS and MorphOS. OS X requires either LibSDL or an X server for graphics
+output, but native graphics are supported on AmigaOS and BeOS, although, at
+the moment, SDL is also preferred on BeOS since the native driver is
+incomplete.
 
 E-UAE is open-source software and is made available under the terms of the
 GPL. See the COPYING file included with the E-UAE archive for details.
@@ -33,61 +33,64 @@ selection of ROM images are available for purchase online from Cloanto
 http://www.amigaforever.com/
 
 
-What's new since 0.8.25
+What's new since 0.8.27
 =======================
 
 General
 -------
-* Core emulation updated to WinUAE 0.8.27 with bug fixes incorporated from
-  later WinUAE versions.
-* Improved compatibility with Amiga software.
-* Lots of clean up to the code. Builds more cleanly and quickly and requires
-  much less memory to do so.
-* Bug fixes and speed improvements to the P96 emulation, including fully working
-  32-bit modes on big-endian machines.
-* Speed improvements and bug fixes when using LibSDL for graphics,
-* Better networking support, plus a new bsdsocket emulation from Jeff
-  Shepherd based on the WinUAE code. (This doesn't work everywhere yet, so
-  the old bsdsocket emulation is still there.)
-* Fixed date-stamp discrepancies between host and the emulation when using
-  virtual filesystems on (most) Unix-like hosts (it now takes account of local
-  timezone).
-* Support for SFS-formatted hard files with newer versions of SFS.
-* Support for Action Replay cartridge ROMs now enabled.
+* Many core emulation changes and fixes merged from WinUAE 1.0.
+* Optimized interpretive 68k emulation with speed improvements of up to 30%.
+* Fixes for building with GCC 4.0.
+* Fixes for building on 64-bit hosts such as the AMD64.
+* Option not to use the CPU's time-stamp counter for synchronization on x86,
+  AMD64 and PPC machines (generally you will want to).
+* Fixed virtual filesystem bug that was causing IBrowse to crash.
+* Improved 'new' bsdsocket emulation (and it now works on OS X and on
+  AMD64/Linux too).
+* Better screenmode support in SDL graphics driver.
+* X11 driver supports raw key-mapping for xfree86 keycodes.
+* Documentation updates (thanks to Henrik Farre for documenting the
+  command-line options).
 
-Unix platforms
---------------
-* Many improvements to Gtk+ configuration GUI.
-* ALSA sound driver (for Linux). This is based on Heikki Orsila's driver
-  from UADE.
+Linux
+-----
+* Faster start-up on x86 and AMD64 systems and PPC systems with Open
+  Firmware (it's no longer necessary to perform TSC/TBC calibration at
+  start-up).
+* CPU frequency scaling supported on x86/AMD64 systems.
 
 OS X
 ----
-* A Cocoa dialog for inserting floppy images has been implemented (thanks to
-  Steven J. Saunders).
-* SCSI emulation now fully works on OS X.
-* Raw key-mapping supported on OS X when using SDL graphics.
-* Building against pthreads supported on OS X (and other platforms with
-  named semaphores).
-
-BeOS
-----
-* Partial merge of Axel Doerfler's BeUAE (the BeOS native graphics driver is
-  is now mostly working and native BeOS threads are supported).
+* Faster start-up (it's no longer necessary to perform timing calibration at
+  start-up).
+* Improved Cocoa menus and dialogs (thanks to Steve Saunders).
 
 AmigaOS (and clones)
 --------------------
+* Fixed virtual filesystem bug that broke mounting of a host path ending in
+  a ':' or a '/'.
+* Faster start-up on OS4 on AmigaONE hardware and on MorphOS (it's no longer
+  ncessary to perform timing calibration at start-up).
+* Improved native AmigaOS graphics driver:
+  - now works on OS4 update 3
+  - high/true-colour rendering now supported on AROS
+  - better speed on MorphOS.
+* Emulated SCSI device and hence CD32 emulation now work.
+* Added AmigaInput joystick driver for AmigaOS 4.0.
 
-* Sound is now supported in AmigaOS versions (either native Paula or AHI
-  sound).
-* Many bug fixes and improvements to the AmigaOS gfx driver
-  - Requesters now appear on E-UAE screen.
-  - Intelligent hiding of host mouse pointer.
-* ARexx port supported in AmigaOS versions (and hence the MUIRexx GUI).
-* CAPS disk images supported on AmigaOS versions.
-* Support for MorphOS and AROS now officially included.
+BeOS
+----
+* Faster start-up on x86 systems (it's no longer necessary to perform
+  TSC calibration at start-up).
+* Re-worked and bug-fixed BeOS graphics driver (P96 emulation not yet
+  supported).
+* New BeOS joystick driver which supports multiple joysticks.
 
-And lots more. See the Changelog for the gory details.
+Win32
+-----
+* Rudimentary support added for compiling with MinGW32 against SDL (and I've
+  also heard that it works with Cygwin). This is just for fun right now, and
+  if you want UAE on Windows you're much better off sticking to WinUAE.
 
 
 Still to do
@@ -100,7 +103,6 @@ The following features of WinUAE are not supported:
 * Catweasel support.
 * OpenGL rendering and graphics filters.
 * Snapshots
-* Emulation of a CD32 controller.
 * Floppy drive sounds.
 * Everything else that I've forgotten about.
 
@@ -112,20 +114,17 @@ Some significant misfeatures that I know about and am working to fix:
 
 * Only platforms supporting the GTK+ toolkit have a useable configuration
   GUI (and the GTK+ GUI is still incomplete).
-* JIT direct memory access only works on Linux/x86 and due to a limit in
-  glibc and the way direct memory is implemented, you can only emulate up to
-  32MB of ZIII RAM. Select more than that and the JIT will fall back on
-  indirect memory access and hence will be slower.
+* JIT direct memory access only works on Linux/x86 and, by default, you may
+  only emulate up to 32MB of direct ZIII RAM; select more than that and the
+  JIT will fall back on indirect memory access and hence will be slower.
+  This is due to a system limit on the size of a POSIX shared memory
+  segment. You can overcome this limit my modifying the value of the procfs
+  setting, /proc/sys/kernel/shmmax.
 * Autoscroll screens are broken in Picasso96 emulation.
 * Virtual filesystem doesn't support platforms which use UTF-8 for filenames
   (e.g., OS X, Linux with a UTF-8 locale, etc.). Filenames with characters
   outside of the core ASCII range will be mangled.
-* Virtual filesystem has a bug which if used to host an IBrowse cache
-  causes IBrowse to crash at start-up (temporary solution: use a hardfile
-  for IBrowse's cache).
 * Hard files are limited to 2GB in size.
-* Timing problems occurs on x86 and PPC hosts which employ CPU frequency
-  scaling.
 * Full documentation is lacking.
 
 

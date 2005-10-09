@@ -584,7 +584,7 @@ uae_u32 REGPARAM2 dmac_wget (uaecptr addr)
     special_mem |= S_READ;
 #endif
 #ifdef CDTV_DEBUG
-    write_log ("dmac_wget %08.8X PC=%X\n", addr, m68k_getpc());
+    write_log ("dmac_wget %08.8X PC=%X\n", addr, m68k_getpc (&regs));
 #endif
     return (dmac_bget (addr) << 8) | dmac_bget (addr + 1);
 }
@@ -595,7 +595,7 @@ uae_u32 REGPARAM2 dmac_bget (uaecptr addr)
     special_mem |= S_READ;
 #endif
 #ifdef CDTV_DEBUG
-    write_log ("dmac_bget %08.8X PC=%X\n", addr, m68k_getpc());
+    write_log ("dmac_bget %08.8X PC=%X\n", addr, m68k_getpc (&regs));
 #endif
     addr -= dmac_start;
     addr &= 65535;
@@ -637,7 +637,7 @@ static void REGPARAM2 dmac_bput (uaecptr addr, uae_u32 b)
     special_mem |= S_WRITE;
 #endif
 #ifdef CDTV_DEBUG
-    write_log ("dmac_bput %08.8X = %02.2X PC=%X\n", addr, b & 255, m68k_getpc());
+    write_log ("dmac_bput %08.8X = %02.2X PC=%X\n", addr, b & 255, m68k_getpc (&regs));
 #endif
     addr -= dmac_start;
     addr &= 65535;
@@ -729,7 +729,7 @@ static void REGPARAM2 filesys_lput (uaecptr addr, uae_u32 l)
 #ifdef JIT
     special_mem |= S_WRITE;
 #endif
-    write_log ("filesys_lput called PC=%p\n", m68k_getpc());
+    write_log ("filesys_lput called PC=%p\n", m68k_getpc (&regs));
 }
 
 static void REGPARAM2 filesys_wput (uaecptr addr, uae_u32 w)
@@ -737,7 +737,7 @@ static void REGPARAM2 filesys_wput (uaecptr addr, uae_u32 w)
 #ifdef JIT
     special_mem |= S_WRITE;
 #endif
-    write_log ("filesys_wput called PC=%p\n", m68k_getpc());
+    write_log ("filesys_wput called PC=%p\n", m68k_getpc (&regs));
 }
 
 static void REGPARAM2 filesys_bput (uaecptr addr, uae_u32 b)

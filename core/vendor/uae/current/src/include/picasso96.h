@@ -1,5 +1,5 @@
 
-#ifdef WIN32
+#if 0//def WIN32
 
 #include "picasso96_win.h"
 
@@ -200,7 +200,7 @@ struct CLUTEntry {
 #define PSSO_BitMap_Planes 8
 #define PSSO_BitMap_sizeof 40
 
-#if defined __AMIGA__ || defined __amiga__
+#ifdef TARGET_AMIGAOS
 #include <graphics/gfx.h>
 #else
 struct BitMap
@@ -309,7 +309,7 @@ struct RenderInfo {
 #define PSSO_Pattern_DrawMode 17
 #define PSSO_Pattern_sizeof 18
 struct Pattern {
-    char *Memory;
+    uae_u8 *Memory;
     uae_u16 XOffset, YOffset;
     uae_u32 FgPen, BgPen;
     uae_u8 Size;					/* Width: 16, Height: (1<<pat_Size) */
@@ -325,7 +325,7 @@ struct Pattern {
 #define PSSO_Template_sizeof 16
 
 struct Template {
-    char *Memory;
+    uae_u8 *Memory;
     uae_s16 BytesPerRow;
     uae_u8 XOffset;
     uae_u8 DrawMode;
@@ -582,9 +582,6 @@ extern int NDX_BlitPlanar2Direct(struct RenderInfo* ri, struct BitMap* bm, unsig
 extern int NDX_FillRect(struct RenderInfo* ri, unsigned long X, unsigned long Y, unsigned long Width, unsigned long Height, uae_u32 Pen, uae_u8 Mask, uae_u32 RGBFormat);
 extern int NDX_BlitRect(struct RenderInfo* ri, unsigned long srcx, unsigned long srcy, unsigned long dstx, unsigned long dsty, unsigned long width, unsigned long height, uae_u8 Mask);
 extern int NDX_BlitRectNoMaskComplete(struct RenderInfo* sri,struct RenderInfo* dri, unsigned long srcx, unsigned long srcy, unsigned long dstx, unsigned long dsty, unsigned long width, unsigned long height, uae_u8 OpCode, uae_u32 RGBFmt);
-
-extern int picasso_is_special;
-extern int picasso_is_special_read;
 
 extern int p96hack_vpos2;
 extern int p96refresh_active;
