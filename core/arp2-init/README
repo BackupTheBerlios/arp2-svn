@@ -1,9 +1,0 @@
-This package contains an init-script for booting into ARP2-UAE
-directly from GRUB.
-
-A sample GRUB configuration entry:
-
-title ARP2-UAE
-        root (hd0,6)
-        kernel /boot/vmlinuz-2.6.13-1.1526_FC4 ro root=LABEL=/1 rhgb quiet plip=0 init=/opt/arp2/sbin/init
-        initrd /boot/initrd-2.6.13-1.1526_FC4.img
