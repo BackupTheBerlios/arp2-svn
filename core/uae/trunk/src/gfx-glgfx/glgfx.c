@@ -79,7 +79,7 @@ static struct uae_hotkeyseq default_hotkeys[] =
 };
 
 static void* p96_buffer;
-static size_t p96_size;
+static size_t p96_bytes_per_row;
 
 static int screen_is_picasso;
 static char picasso_invalid_lines[1201];
@@ -146,11 +146,11 @@ void flush_line(int y) {
 }
 
 void flush_block(int ystart, int ystop) {
-//  printf("flush_block(%d, %d)\n", ystart, ystop);
+  //  printf("flush_block(%d, %d)\n", ystart, ystop);
 }
 
 void flush_screen(int ystart, int ystop) {
-//  printf("flush_screen(%d, %d)\n", ystart, ystop);
+  //  printf("flush_screen(%d, %d)\n", ystart, ystop);
   glgfx_view_render(view);
   glgfx_monitor_waittof(glgfx_monitors[0]);
   glgfx_monitor_swapbuffers(glgfx_monitors[0]);
@@ -175,7 +175,7 @@ int graphics_setup(void) {
 
 	if (view != NULL) {
 	  if (glgfx_view_addviewport(view, viewport)) {
-	    if (glgfx_input_acquire()) {
+	    if (glgfx_input_acquire(false)) {
 	      return 1;
 	    }
 	  }
@@ -248,7 +248,7 @@ static int viewport_setup(void) {
     picasso_vidinfo.extra_mem	= 1;
 
     p96_buffer = malloc(width*height*pixbytes);
-    p96_size = width*height*pixbytes;
+    p96_bytes_per_row = width*pixbytes;
     
     memset (picasso_invalid_lines, 0, sizeof picasso_invalid_lines);
   }
@@ -273,7 +273,7 @@ static void viewport_shutdown(void) {
   if (p96_buffer == NULL) {
     free(p96_buffer);
     p96_buffer = NULL;
-    p96_size = 0;
+    p96_bytes_per_row = 0;
   }
   
   if (gfxvidinfo.emergmem != NULL) {
@@ -384,9 +384,11 @@ void handle_events(void)
   }
   
   if (screen_is_picasso && picasso_has_invalid_lines) {
-    glgfx_bitmap_update(bitmap, p96_buffer, p96_size);
+    glgfx_bitmap_update(bitmap, 0, 0, bm_width, bm_height,
+			p96_buffer, bm_format, p96_bytes_per_row);
     glgfx_view_render(view);
     glgfx_monitor_swapbuffers(glgfx_monitors[0]);
+    printf("update from %d to %d\n", picasso_invalid_start, picasso_invalid_stop);
   }
 
   picasso_has_invalid_lines = 0;
@@ -428,11 +430,20 @@ void LED(int on) {
 #ifdef PICASSO96
 
 void DX_Invalidate(int first, int last) {
+  printf("DX_Invalidate(%d, %d)\n", first, last);
   if (first > last) {
     return;
   }
 
   picasso_has_invalid_lines = 1;
+
+  if (first < picasso_invalid_start) {
+    picasso_invalid_start = first;
+  }
+
+  if (last > picasso_invalid_stop) {
+    picasso_invalid_stop = last;
+  }
 }
 
 int DX_BitsPerCannon(void) {
@@ -588,20 +599,20 @@ void gfx_set_picasso_state (int on)
 uae_u8* gfx_lock_picasso(void) {
   return p96_buffer;
   
-  uae_u8* base = NULL;
+/*   uae_u8* base = NULL; */
   
-  if (glgfx_bitmap_lock(bitmap, false, true)) {
-    base = glgfx_bitmap_map(bitmap);
-  }
+/*   if (glgfx_bitmap_lock(bitmap, false, true)) { */
+/*     base = glgfx_bitmap_map(bitmap); */
+/*   } */
 
 //  printf("gfx_lock_picasso -> %p\n", base);
-  return base;
+/*   return base; */
 }
 
 void gfx_unlock_picasso(void) {
   return;
-  glgfx_bitmap_unmap(bitmap);
-  glgfx_bitmap_unlock(bitmap);
+/*   glgfx_bitmap_unmap(bitmap); */
+/*   glgfx_bitmap_unlock(bitmap); */
 //  printf("gfx_unlock_picasso\n");
 }
 
@@ -609,11 +620,17 @@ void gfx_unlock_picasso(void) {
 
 int lockscr (void) {
   if (glgfx_bitmap_lock(bitmap, false, true)) {
-    gfxvidinfo.bufmem = glgfx_bitmap_map(bitmap);
+    uintptr_t addr = 0;
+    //    gfxvidinfo.bufmem = glgfx_bitmap_map(bitmap);
 
-    if (gfxvidinfo.bufmem != NULL) {
+    if (glgfx_bitmap_getattr(bitmap, 
+			     glgfx_bitmap_attr_mapaddr, 
+			     &addr) &&
+	addr != 0) {
       static void* old_addr = NULL;
       
+      gfxvidinfo.bufmem = (void*) addr;
+
       if (gfxvidinfo.bufmem != old_addr) {
 	old_addr = gfxvidinfo.bufmem;
 	init_row_map();
@@ -627,11 +644,7 @@ int lockscr (void) {
 }
 
 void unlockscr (void) {
-  if (gfxvidinfo.bufmem != NULL) {
-    glgfx_bitmap_unmap(bitmap);
-  }
-
-  glgfx_bitmap_unlock(bitmap);
+  glgfx_bitmap_unlock(bitmap, 0, 0, bm_width, bm_height);
 }
 
 
