@@ -388,7 +388,7 @@ void handle_events(void)
 			p96_buffer, bm_format, p96_bytes_per_row);
     glgfx_view_render(view);
     glgfx_monitor_swapbuffers(glgfx_monitors[0]);
-    printf("update from %d to %d\n", picasso_invalid_start, picasso_invalid_stop);
+    //    printf("update from %d to %d\n", picasso_invalid_start, picasso_invalid_stop);
   }
 
   picasso_has_invalid_lines = 0;
@@ -430,7 +430,7 @@ void LED(int on) {
 #ifdef PICASSO96
 
 void DX_Invalidate(int first, int last) {
-  printf("DX_Invalidate(%d, %d)\n", first, last);
+  //  printf("DX_Invalidate(%d, %d)\n", first, last);
   if (first > last) {
     return;
   }
