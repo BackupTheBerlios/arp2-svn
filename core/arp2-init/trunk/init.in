@@ -101,7 +101,9 @@ for module in $scsi; do
 done
 
 # Floppy
-load_module floppy
+if ! strstr "$cmdline" nofloppy; then
+	load_module floppy
+fi
 
 # Network
 for module in $network ; do
