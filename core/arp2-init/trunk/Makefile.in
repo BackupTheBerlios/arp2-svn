@@ -37,9 +37,10 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 subdir = .
 DIST_COMMON = README $(am__configure_deps) $(srcdir)/Makefile.am \
-	$(srcdir)/Makefile.in $(srcdir)/arp2-init.in \
-	$(top_srcdir)/configure AUTHORS COPYING ChangeLog INSTALL NEWS \
-	aux/install-sh aux/missing aux/mkinstalldirs
+	$(srcdir)/Makefile.in $(srcdir)/arp2-config.in \
+	$(srcdir)/arp2-init.in $(top_srcdir)/configure AUTHORS COPYING \
+	ChangeLog INSTALL NEWS aux/install-sh aux/missing \
+	aux/mkinstalldirs
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
@@ -47,7 +48,7 @@ am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 am__CONFIG_DISTCLEAN_FILES = config.status config.cache config.log \
  configure.lineno configure.status.lineno
 mkinstalldirs = $(SHELL) $(top_srcdir)/aux/mkinstalldirs
-CONFIG_CLEAN_FILES = arp2-init
+CONFIG_CLEAN_FILES = arp2-config arp2-init
 am__installdirs = "$(DESTDIR)$(sbindir)" "$(DESTDIR)$(etcdir)" \
 	"$(DESTDIR)$(fontdir)"
 sbinSCRIPT_INSTALL = $(INSTALL_SCRIPT)
@@ -130,7 +131,7 @@ sysconfdir = @sysconfdir@
 target_alias = @target_alias@
 etcdir = $(sysconfdir)
 fontdir = $(datadir)/fonts
-sbin_SCRIPTS = arp2-init
+sbin_SCRIPTS = arp2-config arp2-init
 etc_DATA = etc/arp2.conf.example \
 		  etc/arp2-ati-xorg.conf etc/arp2-nvidia-xorg.conf \
 		  etc/issue-1.0 etc/issue-1.1 etc/issue-1.2 etc/issue-1.3 \
@@ -178,6 +179,8 @@ $(top_srcdir)/configure:  $(am__configure_deps)
 	cd $(srcdir) && $(AUTOCONF)
 $(ACLOCAL_M4):  $(am__aclocal_m4_deps)
 	cd $(srcdir) && $(ACLOCAL) $(ACLOCAL_AMFLAGS)
+arp2-config: $(top_builddir)/config.status $(srcdir)/arp2-config.in
+	cd $(top_builddir) && $(SHELL) ./config.status $@
 arp2-init: $(top_builddir)/config.status $(srcdir)/arp2-init.in
 	cd $(top_builddir) && $(SHELL) ./config.status $@
 install-sbinSCRIPTS: $(sbin_SCRIPTS)

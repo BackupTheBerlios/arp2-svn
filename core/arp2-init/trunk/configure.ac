@@ -16,5 +16,5 @@ AM_INIT_AUTOMAKE([arp2-init], [0.1])
 
 # Checks for library functions.
 
-AC_CONFIG_FILES([Makefile arp2-init])
+AC_CONFIG_FILES([Makefile arp2-config arp2-init])
 AC_OUTPUT

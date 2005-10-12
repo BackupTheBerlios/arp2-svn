@@ -1,16 +1,17 @@
 #!/bin/bash
 #
-# /etc/arp2-init: Start UAE/ARP2 in stand-alone mode
+# arp2-init: Start UAE/ARP2 in stand-alone mode
 #
 # Based on /etc/rc.sysinit from RedHat FC4.
 
 prefix=@prefix@
 exec_prefix=@exec_prefix@
+bindir=@bindir@
 sbindir=@sbindir@
 sysconfdir=@sysconfdir@
 datadir=@datadir@
 
-export PATH=/sbin:/bin:/usr/X11R6/bin:${exec_prefix}
+export PATH=/sbin:/bin:/usr/X11R6/bin:${bindir}
 
 strstr() {
   [ "${1#*$2*}" = "$1" ] && return 1
