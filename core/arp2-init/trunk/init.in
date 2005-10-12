@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# /etc/arp2-init: Start UAE/ARP2 alone
+# /etc/arp2-init: Start UAE/ARP2 in stand-alone mode
 #
 # Based on /etc/rc.sysinit from RedHat FC4.
 
@@ -11,17 +11,22 @@ datadir=@datadir@
 
 export PATH=/sbin:/bin:/usr/X11R6/bin:${exec_prefix}
 
+strstr() {
+  [ "${1#*$2*}" = "$1" ] && return 1
+  return 0
+}
+
 # Import configuration
 . ${sysconfdir}/arp2.conf
+
+# Gimme a nice font!
+setfont ${datadir}/fonts/${FONT}
 
 # Turn on a brown/orange soft cursor, no blinking
 echo -en '\033[?81;240;145c'
 
 # White (grey+intensitivity) text on blue backround
 echo -en "\033[0m\033[44m\033[34m\033[4m"
-
-# Gimme a nice font!
-setfont ${datadir}/fonts/${FONT}
 
 # Clear screen, goto 0,0
 echo -en '\e[2J\e[0;0f'
@@ -45,15 +50,26 @@ mount -n -t sysfs /sys /sys >/dev/null 2>&1
 cmdline=$(cat /proc/cmdline)
 
 # Initialize hardware
-sysctl -w kernel.modprobe="/sbin/modprobe" >/dev/null 2>&1
-sysctl -w kernel.hotplug="/sbin/udevsend" >/dev/null 2>&1
+if [ -f /proc/sys/kernel/modprobe ]; then
+   if ! strstr "$cmdline" nomodules && [ -f /proc/modules ] ; then
+       sysctl -w kernel.modprobe="/sbin/modprobe" >/dev/null 2>&1
+       sysctl -w kernel.hotplug="/sbin/udevsend" >/dev/null 2>&1
+   else
+       # We used to set this to NULL, but that causes 'failed to exec' messages"
+       sysctl -w kernel.modprobe="/bin/true" >/dev/null 2>&1
+       sysctl -w kernel.hotplug="/bin/true" >/dev/null 2>&1
+   fi
+fi
+
+echo
+echo -n "Loading drivers "
 
 ide=""
 scsi=""
 network=""
 audio=""
 other=""
-eval `kmodule -d | while read devtype mod ; do
+eval `kmodule | while read devtype mod ; do
 	case "$devtype" in
 		"IDE")	ide="$ide $mod"
 		   echo "ide=\"$ide"\";;
@@ -69,8 +85,10 @@ eval `kmodule -d | while read devtype mod ; do
 done`
 
 load_module () {
+	echo -n "."
 	LC_ALL=C fgrep -xq "$1" /etc/hotplug/blacklist 2>/dev/null || modprobe $1 >/dev/null 2>&1
 }
+
 
 # IDE
 for module in $ide ; do
@@ -78,57 +96,31 @@ for module in $ide ; do
 done
 
 # SCSI
-for module in `/sbin/modprobe -c | LC_ALL=C awk '/^alias[[:space:]]+scsi_hostadapter[0-9]*[[:space:]]/ { print $3 }'` $scsi; do
+for module in $scsi; do
 	load_module $module
 done
+
+# Floppy
 load_module floppy
 
-#echo -n $" storage"
-
 # Network
-pushd /etc/sysconfig/network-scripts >/dev/null 2>&1
-interfaces=`ls ifcfg* | LC_ALL=C egrep -v '(ifcfg-lo|:|rpmsave|rpmorig|rpmnew)' | \
-            LC_ALL=C egrep -v '(~|\.bak)$' | \
-            LC_ALL=C egrep 'ifcfg-[A-Za-z0-9\._-]+$' | \
-	    sed 's/^ifcfg-//g' |
-	    sed 's/[0-9]/ &/' | LC_ALL=C sort -k 1,1 -k 2n | sed 's/ //'`
-
-for i in $interfaces ; do
-	eval $(LC_ALL=C fgrep "DEVICE=" ifcfg-$i)
-	load_module $DEVICE
-done
-popd >/dev/null 2>&1
-
 for module in $network ; do
 	load_module $module
 done
 
-#echo -n $" network"
-
-# Sound
-for module in `/sbin/modprobe -c | LC_ALL=C awk '/^alias[[:space:]]+snd-card-[[:digit:]]+[[:space:]]/ { print $3 }'` $audio; do
-	load_module $module
-done
-
-#echo -n $" audio"
+# Sound (optional)
+if strstr "$cmdline" audio; then
+	for module in $audio; do
+		load_module $module
+	done
+fi
 
 # Everything else (duck and cover)
 for module in $other ; do
 	load_module $module
 done
 
-#echo -n $" done"
-#echo
-
-# Load other user-defined modules
-for file in /etc/sysconfig/modules/*.modules ; do
-  [ -x $file ] && $file
-done
-
-# Load modules (for backward compatibility with VARs)
-if [ -f /etc/rc.modules ]; then
-	/etc/rc.modules
-fi
+echo " Done."
 
 mount -n /dev/pts
 
@@ -142,19 +134,17 @@ if [ -d /proc/acpi ]; then
    done
 fi
 
-if LC_ALL=C fgrep -q /initrd /proc/mounts && ! LC_ALL=C fgrep -q /initrd/loopfs /proc/mounts ; then
-   umount /initrd
-   /sbin/blockdev --flushbufs /dev/ram0 >/dev/null 2>&1
-fi
+##if LC_ALL=C fgrep -q /initrd /proc/mounts && ! LC_ALL=C fgrep -q /initrd/loopfs /proc/mounts ; then
+##   echo "*** Unmounting /initrd"
+##   umount /initrd
+##   /sbin/blockdev --flushbufs /dev/ram0 >/dev/null 2>&1
+##fi
 
 # Remount the root filesystem read-write.
 mount -n -o remount,rw /
 
 # Clear mtab
 (> /etc/mtab) &> /dev/null
-
-# Remove stale backups
-rm -f /etc/mtab~ /etc/mtab~~
 
 # Enter mounted filesystems into /etc/mtab
 mount -f /
@@ -171,11 +161,11 @@ mount -a -t nonfs,nfs4,smbfs,ncpfs,cifs,gfs -O no_netdev
 swapon -a -e
 
 # Set up binfmt_misc
-/bin/mount -t binfmt_misc none /proc/sys/fs/binfmt_misc > /dev/null 2>&1
+##/bin/mount -t binfmt_misc none /proc/sys/fs/binfmt_misc > /dev/null 2>&1
 
 # Now that we have all of our basic modules loaded and the kernel going,
 # let's dump the syslog ring somewhere so we can find it later
-dmesg -s 131072 > /var/log/dmesg
+##dmesg -s 131072 > /var/log/dmesg
 
 if read -n 1 -t 1 -s; then
   echo "(Configuring)"
@@ -184,9 +174,10 @@ fi
 echo -n "System ready. Starting virtual machine ..."
 export XORGCONFIG=${sysconfdir}/${XCONFIG}
 xinit 2> /dev/null
+echo " Done"
+
 # Drop into a shell
 bash
-echo " Done"
 
 echo -n "Unmounting filesystems ..."
 umount -a
