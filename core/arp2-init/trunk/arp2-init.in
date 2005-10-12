@@ -34,7 +34,7 @@ echo -en '\e[2J\e[0;0f'
 cat ${sysconfdir}/${ISSUE}
 
 echo 
-echo -n "Press any key for configuration menu. Loading "
+echo -n "Press any key for config menu. Loading..."
 
 
 # Mount /proc and /sys (done here so volume labels can work with fsck)
@@ -172,7 +172,7 @@ if read -n 1 -t 1 -s; then
   . ${sysconfdir}/arp2.conf
 fi
 
-echo -n "System ready. Starting virtual machine ..."
+echo -n "System ready. Starting virtual machine..."
 export XORGCONFIG=${sysconfdir}/${XCONFIG}
 xinit 2> /dev/null
 echo " Done"
@@ -180,9 +180,9 @@ echo " Done"
 # Drop into a shell
 bash
 
-echo -n "Unmounting filesystems ..."
+echo -n "Unmounting filesystems..."
 umount -a
 mount -n -o remount,ro /
 echo " Done."
-echo -n "Rebooting ..."
+echo -n "Rebooting..."
 reboot -f
