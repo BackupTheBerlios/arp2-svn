@@ -120,8 +120,6 @@ for module in $other ; do
 	load_module $module
 done
 
-echo " Done."
-
 mount -n /dev/pts
 
 # Set the system clock.
@@ -166,6 +164,8 @@ swapon -a -e
 # Now that we have all of our basic modules loaded and the kernel going,
 # let's dump the syslog ring somewhere so we can find it later
 ##dmesg -s 131072 > /var/log/dmesg
+
+echo " Done."
 
 if read -n 1 -t 1 -s; then
   arp2-config
