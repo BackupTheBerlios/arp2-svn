@@ -34,7 +34,7 @@ echo -en '\e[2J\e[0;0f'
 cat ${sysconfdir}/${ISSUE}
 
 echo 
-echo -n "Press any key for configuration menu. Loading drivers "
+echo -n "Press any key for configuration menu. Loading "
 
 
 # Mount /proc and /sys (done here so volume labels can work with fsck)
