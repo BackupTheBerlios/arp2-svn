@@ -6,6 +6,7 @@
 
 prefix=@prefix@
 exec_prefix=@exec_prefix@
+sbindir=@sbindir@
 sysconfdir=@sysconfdir@
 datadir=@datadir@
 
@@ -168,14 +169,14 @@ swapon -a -e
 echo " Done."
 
 if read -n 1 -t 1 -s; then
-  arp2-config
+  ${sbindir}/arp2-config
   . ${sysconfdir}/arp2.conf
 fi
 
 echo -n "System ready. Starting virtual machine..."
 export XORGCONFIG=${sysconfdir}/${XCONFIG}
 xinit 2> /dev/null
-echo " Done"
+echo " Done."
 
 # Drop into a shell
 bash
