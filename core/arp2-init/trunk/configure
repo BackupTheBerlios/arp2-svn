@@ -1682,7 +1682,7 @@ am__tar='${AMTAR} chof - "$$tardir"'; am__untar='${AMTAR} xf -'
 
 # Checks for library functions.
 
-                    ac_config_files="$ac_config_files Makefile init"
+                    ac_config_files="$ac_config_files Makefile arp2-init"
 
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
@@ -2236,7 +2236,7 @@ do
   case "$ac_config_target" in
   # Handling of arguments.
   "Makefile" ) CONFIG_FILES="$CONFIG_FILES Makefile" ;;
-  "init" ) CONFIG_FILES="$CONFIG_FILES init" ;;
+  "arp2-init" ) CONFIG_FILES="$CONFIG_FILES arp2-init" ;;
   *) { { echo "$as_me:$LINENO: error: invalid argument: $ac_config_target" >&5
 echo "$as_me: error: invalid argument: $ac_config_target" >&2;}
    { (exit 1); exit 1; }; };;
