@@ -34,7 +34,8 @@ echo -en '\e[2J\e[0;0f'
 cat ${sysconfdir}/${ISSUE}
 
 echo 
-echo "Press any key to enter APR2 configuration."
+echo -n "Press any key for configuration menu. Loading drivers "
+
 
 # Mount /proc and /sys (done here so volume labels can work with fsck)
 mount -n -t proc /proc /proc
@@ -60,9 +61,6 @@ if [ -f /proc/sys/kernel/modprobe ]; then
        sysctl -w kernel.hotplug="/bin/true" >/dev/null 2>&1
    fi
 fi
-
-echo
-echo -n "Loading drivers "
 
 ide=""
 scsi=""
@@ -170,7 +168,8 @@ swapon -a -e
 ##dmesg -s 131072 > /var/log/dmesg
 
 if read -n 1 -t 1 -s; then
-  echo "(Configuring)"
+  arp2-config
+  . ${sysconfdir}/arp2.conf
 fi
 
 echo -n "System ready. Starting virtual machine ..."

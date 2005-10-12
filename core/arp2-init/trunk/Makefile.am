@@ -2,7 +2,7 @@
 etcdir		= $(sysconfdir)
 fontdir		= $(datadir)/fonts
 
-sbin_SCRIPTS	= init
+sbin_SCRIPTS	= arp2-init
 
 etc_DATA	= etc/arp2.conf.example \
 		  etc/arp2-ati-xorg.conf etc/arp2-nvidia-xorg.conf \
@@ -15,4 +15,4 @@ font_DATA	= share/fonts/tech8dbl.psf      share/fonts/tech8.psf \
 		  share/fonts/xen13dbl.psf      share/fonts/xen13.psf
 
 
-EXTRA_DIST	= etc/ init share/
+EXTRA_DIST	= etc/ arp2-init share/
