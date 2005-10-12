@@ -178,8 +178,10 @@ export XORGCONFIG=${sysconfdir}/${XCONFIG}
 xinit 2> /dev/null
 echo " Done."
 
-# Drop into a shell
-bash
+# Drop into a shell if requested
+if strstr "$cmdline" shell; then
+	bash
+fi
 
 echo -n "Unmounting filesystems..."
 umount -a
