@@ -10,8 +10,6 @@
   * support still to come . . .
   */
 
-#define _FILE_OFFSET_BITS 64
-
 #include "sysconfig.h"
 #include "sysdeps.h"
 
@@ -47,7 +45,7 @@ static int hdf_seek (struct hardfiledata *hfd, uae_u64 offset)
 	abort ();
     }
 
-    if (offset >= 0x80000000 && _FILE_OFFSET_BITS != 64) {
+    if (offset >= 0x80000000 && sizeof (off_t) < sizeof (uae_u64)) {
 	DEBUG_LOG ("Failed to seek passed 2GB limit (0x%llx)\n", offset);
 	return -1;
     }

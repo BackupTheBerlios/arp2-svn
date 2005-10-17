@@ -136,6 +136,7 @@ AC_CHECK_FUNCS(nanosleep usleep sleep)
 dnl AC_CHECK_FUNCS(statvfs statfs)
 dnl AC_VAR_TIMEZONE_EXTERNALS - broken on *BSD
 AC_CHECK_FUNCS(localtime_r timegm gmtime_r)
+AC_SYS_LARGEFILE
 
 dnl
 dnl  Checks for fsuage
