@@ -429,3 +429,13 @@ B<gateproto>.
 =item
 
 Added the B<autoopen> mode.
+
+=item B<1.4b (2005-09-26)>
+
+Merged Fabio's AROS patch for __funcname_WB() macros. AmigaOS 4 macros
+now define xxx_BASE_NAME just like the rest, except that it is set to
+Ixxx instead of xxxBase per default.
+
+=item
+
+Minor bug fixes from AROS.

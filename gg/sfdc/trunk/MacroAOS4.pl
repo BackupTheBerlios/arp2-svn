@@ -10,8 +10,24 @@ BEGIN {
 	my $proto  = shift;
 	my $class  = ref($proto) || $proto;
 	my $self   = $class->SUPER::new( @_ );
+	my $sfd    = $self->{SFD};
+	$self->{CALLBASE} = "I$sfd->{BaseName}";
 	bless ($self, $class);
 	return $self;
+    }
+
+    sub header {
+	my $self = shift;
+	my $sfd  = $self->{SFD};
+
+	$self->SUPER::header (@_);
+	
+	if ($$sfd{'base'} ne '') {
+	    print "#ifndef $self->{BASE}\n";
+	    print "#define $self->{BASE} I$sfd->{BaseName}\n";
+	    print "#endif /* !$self->{BASE} */\n";
+	    print "\n";
+	}
     }
 
     sub function_start {
@@ -22,7 +38,7 @@ BEGIN {
 
 	if ($prototype->{type} eq 'function' ||
 	    $prototype->{type} eq 'varargs') {
-	    printf "	I$sfd->{BaseName}->$prototype->{funcname}(";
+	    printf "	(((struct $sfd->{BaseName}IFace *)(_base))->$prototype->{funcname})(";
 	}
 	else {
 	    $self->SUPER::function_start (@_);
@@ -46,7 +62,7 @@ BEGIN {
 		print "$argname";
 	    }
 	    else {
-		print "__VA_ARGS__";
+		print "## __VA_ARGS__";
 	    }
 	}
 	else {

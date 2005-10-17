@@ -101,9 +101,24 @@ BEGIN {
 	my $prototype = $params{'prototype'};
 	my $sfd      = $self->{SFD};
 
-	print "#define $$prototype{'funcname'}(";
-	print join (', ', @{$$prototype{'___argnames'}});
-	print ") \\\n";
+	my $funcname  = $$prototype{'funcname'};
+	
+	my $argnames_ref  = $$prototype{'___argnames'};
+	my $argnames      = join (', ', @{$argnames_ref});
+
+	my $argnames2;
+	my $argnames3 = join (', ', "_base", @{$argnames_ref});
+	
+	if ($$prototype{'type'} eq 'varargs') {
+	    my $argnames_size = scalar(@{$argnames_ref});
+	    $argnames2 = join (', ', $self->{BASE}, @{$argnames_ref}[0..($argnames_size-2)], "## __VA_ARGS__");
+	}
+	else {
+	    $argnames2 = join (', ', $self->{BASE}, @{$argnames_ref});;
+	}
+	
+	print "#define $funcname($argnames) __${funcname}_WB($argnames2)\n";
+	print "#define __${funcname}_WB($argnames3)\\\n";
     }
 
     sub function_start {
@@ -119,14 +134,13 @@ BEGIN {
 		my $first_stdargnum = $$prototype{'numargs'} - 2;
 		my $first_stdarg = $$prototype{'___argnames'}[$first_stdargnum];
 	    
-		printf "	({_sfdc_vararg _%s[] = { $first_stdarg, __VA_ARGS__ }; ",
+		printf "	({_sfdc_vararg _%s[] = { $first_stdarg, ## __VA_ARGS__ }; ",
 		$prototype->{subtype} eq 'tagcall' ? "tags" : "message";
-		print "$$prototype{'real_funcname'}(";
+		print "__$prototype->{real_funcname}_WB((_base), ";
 	    }
 	    else {
 		print "	({_sfdc_vararg _args[] = { __VA_ARGS__ }; ";
-
-		print "$$prototype{'real_funcname'}(";
+		print "__$prototype->{real_funcname}_WB((_base), ";
 	    }
 	}
 	elsif ($prototype->{type} eq 'cfunction') {
@@ -149,21 +163,21 @@ BEGIN {
 	    if ($$classes{'target'} eq 'morphos') {
 		# Skip jmp instruction (is m68k ILLEGAL in MorphOS)
 		my $o = $$prototype{'bias'} - 2;
-		print "	    *((ULONG*) (((char*) $self->{BASE}) - $o));\\\n";
+		print "	    *((ULONG*) (((char*) (_base)) - $o));\\\n";
 	    }
 	    elsif ($classes->{target} eq 'aros') {
 		my $o = $$prototype{'bias'} / 6;
-		print "	    __AROS_GETVECADDR($self->{BASE}, $o);\\\n";
+		print "	    __AROS_GETVECADDR((_base), $o);\\\n";
 	    }
 	    else {
 		my $o = $$prototype{'bias'};
-		print "	    (((char*) $self->{BASE}) - $o);\\\n";
+		print "	    (((char*) (_base)) - $o);\\\n";
 	    }
 
 	    print "	  (*_func)(";
 
 	    if (!$prototype->{nb}) {
-		print "($self->{BASE})";
+		print "(_base)";
 		print ", " unless $prototype->{numargs} == 0;
 	    }
 	}
@@ -214,7 +228,7 @@ BEGIN {
 	}
 	elsif ($prototype->{type} eq 'cfunction') {
 	    if ($argname eq '...' ) {
-		print ($argnum != 0 ? ", __VA_ARGS__" : "__VA_ARGS__");
+		print ($argnum != 0 ? ", ## __VA_ARGS__" : "__VA_ARGS__");
 	    }
 	    else {
 		print ($argnum != 0 ? ", ($argname)" : "($argname)");
