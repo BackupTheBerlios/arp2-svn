@@ -1,11 +1,11 @@
 %define Name libdebug
 %define Version 1.0
 %define Target ppc-morphos
-%define __spec_install_post /usr/lib/rpm/brp-compress
+%define __os_install_post /usr/lib/rpm/brp-compress; /usr/lib/rpm/brp-strip-comment-note
 
 Name        	: gg-%{Target}-%{Name}-devel
 Version     	: %{Version}
-Release     	: 1
+Release     	: 2
 
 Summary     	: A debug.lib-style library for %{Target} development.
 Group       	: Development/Libraries
@@ -71,5 +71,9 @@ rm -rf ${RPM_BUILD_ROOT}
 %{_libdir}/*
 
 %changelog
+* Sun Sep 11 2005 Martin Blom <martin@blom.org>
+- Release 1.0-1.
+- Rebuilt on CentOS 4.1.
+
 * Sun Jan 23 2005 Martin Blom <martin@blom.org>
 - Initial RPM

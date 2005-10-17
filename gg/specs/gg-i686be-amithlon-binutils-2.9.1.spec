@@ -1,11 +1,12 @@
 %define Name binutils
 %define Version 2.9.1
+%define Target i686be-amithlon
 
-Name        	: gg-i686be-amithlon-%{Name}
+Name        	: gg-%{Target}-%{Name}
 Version     	: %{Version}
-Release     	: 4
+Release     	: 5
 
-Summary     	: A GNU collection of binary utilities for i686be-amithlon.
+Summary     	: A GNU collection of binary utilities for %{Target}.
 Group       	: Development/Tools
 Copyright   	: GPL
 URL         	: http://sources.redhat.com/binutils/
@@ -42,10 +43,9 @@ This package is for ix86 Amithlon development.
 %build
 # Binutils come with its own custom libtool
 %define __libtoolize echo
-%define _target_platform i686be-amithlon
+%define _target_platform %{Target}
+%define _program_prefix %{Target}-
 %configure --enable-shared			\
-           --build=%{_build}			\
-           --host=%{_host}			\
            --enable-targets="m68k-amigaos ppc-morphos"
 make all info
 
@@ -54,6 +54,13 @@ rm -rf ${RPM_BUILD_ROOT}
 
 %makeinstall install-info
 install -m 644 include/libiberty.h ${RPM_BUILD_ROOT}%{_prefix}/include
+
+# We don't want to package these files
+rm -f ${RPM_BUILD_ROOT}/opt/gg/guide/standards.guide
+rm -f ${RPM_BUILD_ROOT}/opt/gg/info/dir
+rm -rf ${RPM_BUILD_ROOT}/opt/gg/include
+rm -rf ${RPM_BUILD_ROOT}/opt/gg/info
+rm -rf ${RPM_BUILD_ROOT}/opt/gg/lib
 
 
 %clean
@@ -65,10 +72,15 @@ rm -rf ${RPM_BUILD_ROOT}
 %doc README COPYING COPYING.LIB ChangeLog Product-Info
 %{_bindir}/*
 %{_mandir}/man1/*
-%{_prefix}/i686be-amithlon
+%{_prefix}/%{Target}
 
 
 %changelog
+* Fri Sep  9 2005 Martin Blom <martin@blom.org>
+- Release 2.9.1-5.
+- Rebuilt on CentOS 4.1.
+- Enabled missing m68k-amigaos target that was disabled by accident.
+
 * Fri Feb  8 2002 Martin Blom <martin@blom.org>
 - Objects can now be stripped from most symbols.
 

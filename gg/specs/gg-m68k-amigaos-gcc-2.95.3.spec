@@ -1,10 +1,11 @@
 %define Name gcc
 %define Version 2.95.3
 %define Target m68k-amigaos
+%define __os_install_post /usr/lib/rpm/brp-compress; /usr/lib/rpm/brp-strip; /usr/lib/rpm/brp-strip-comment-note
 
 Name        	: gg-%{Target}-%{Name}
 Version     	: %{Version}
-Release     	: 5
+Release     	: 6
 
 Summary     	: Various compilers (C, C++, Objective-C, Chill, ...) for %{Target}.
 Group       	: Development/Languages
@@ -39,12 +40,16 @@ This package contains files common for all supported targets.
 
 
 %prep
-if [ -r /opt/gg/%{Target}/sys-include ]; then
- echo /opt/gg/%{Target}/sys-include must not exist when building the RPM.
+if [ -r %{_prefix}/%{Target}/sys-include ]; then
+ echo %{_prefix}/%{Target}/sys-include must not exist when building the RPM.
  exit 1
 fi
 %setup -q -n %{Name}-%{Version}
 %patch0 -p1
+
+# Make sure c-parse.c and c-parse.h won't be regenerated with a modern bison
+touch gcc/c-parse.c
+touch gcc/c-parse.h
 
 
 %build
@@ -55,15 +60,21 @@ CFLAGS="-O2"; export CFLAGS
 CXXFLAGS="-O2"; export CXXFLAGS
 FFLAGS="-O2"; export FFLAGS
 %define _target_platform %{Target}
+%define _program_prefix %{Target}-
 %configure --enable-languages=c++			\
-           --enable-version-specific-runtime-libs	\
-           --build=%{_build}				\
-           --host=%{_host}
+           --enable-version-specific-runtime-libs
 make all
+
 
 %install
 rm -rf ${RPM_BUILD_ROOT}
 %makeinstall
+
+# We don't want to package these files
+rm -f ${RPM_BUILD_ROOT}%{_bindir}/cpp
+rm -f ${RPM_BUILD_ROOT}%{_bindir}/gcov
+rm -f ${RPM_BUILD_ROOT}%{_bindir}/%{Target}-c++filt
+rm -f ${RPM_BUILD_ROOT}%{_libdir}/libiberty.a
 
 
 %clean
@@ -104,6 +115,16 @@ fi
 
 
 %changelog
+* Sun Sep 11 2005 Martin Blom <martin@blom.org> - 
+- Release 2.95.3-6.
+- Rebuilt on CentOS 4.1.
+- Added 'iptr' attribute for pointers and integers. Define
+  __HAVE_IPTR_ATTR__.
+- Fixed a 64-bit bug in gcc/config/m68k/m68k.md.
+- -m68020-40 and -m68020-60 now defines __mc68020_40__ and __mc68020_60__ etc.
+- Now builds 020+ libgcc.a libraries in an 060-friendly way
+  (-m68020-60 + fixes in gcc/longlong.h).
+
 * Sun Jun 30 2002 Martin Blom <martin@blom.org>
 - Release 2.95.3-5.
 - Applied GG patches for libio.

@@ -1,11 +1,11 @@
 %define Name libnix
 %define Version 2.0
 %define Target m68k-amigaos
-%define __spec_install_post /usr/lib/rpm/brp-compress
+%define __os_install_post /usr/lib/rpm/brp-compress; /usr/lib/rpm/brp-strip-comment-note
 
 Name        	: gg-%{Target}-%{Name}-devel
 Version     	: %{Version}
-Release     	: 8
+Release     	: 9
 
 Summary     	: A library for %{Target} specific gcc development.
 Group       	: Development/Libraries
@@ -115,6 +115,9 @@ rm -rf ${RPM_BUILD_ROOT}
 mv ${RPM_BUILD_ROOT}/%{_prefix}/%{Target}/lib/libnix/libamiga.a ${RPM_BUILD_ROOT}/%{_prefix}/%{Target}/lib/
 test -r ${RPM_BUILD_ROOT}/%{_prefix}/%{Target}/lib/libb/libnix/libamiga.a && mv ${RPM_BUILD_ROOT}/%{_prefix}/%{Target}/lib/libb/libnix/libamiga.a ${RPM_BUILD_ROOT}/%{_prefix}/%{Target}/lib/libb/
 
+# We don't want to package these files
+rm -f ${RPM_BUILD_ROOT}/opt/gg/guidedir/libnix.guide
+
 
 %clean
 rm -rf ${RPM_BUILD_ROOT}
@@ -143,6 +146,12 @@ fi
 
 
 %changelog
+* Sun Sep 11 2005 Martin Blom <martin@blom.org> - 
+- Release 2.0-9.
+- Rebuilt on CentOS 4.1.
+- The '020 libraries are now built with the -m68020-60
+  switch instead of plain -m68020.
+
 * Mon Jan 10 2005 Martin Blom <martin@blom.org>
 - Enforcer hits when using bad FDs removed from libsocket.a
 
