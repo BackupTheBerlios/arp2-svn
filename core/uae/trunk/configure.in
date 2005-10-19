@@ -6,9 +6,9 @@ dnl Updated, re-written and generally mauled 2003 Richard Drummond
 AC_PREREQ(2.55)
 AC_INIT(E-UAE, 0.8.28, ,e-uae)
 AC_CONFIG_SRCDIR([config.h])
-AC_CONFIG_HEADERS([src/sysconfig.h])
+AM_CONFIG_HEADER([src/sysconfig.h])
 AC_CANONICAL_TARGET
-AM_INIT_AUTOMAKE(1.7 dist-bzip2)
+AM_INIT_AUTOMAKE(1.7 dist-bzip2 foreign)
 
 dnl
 dnl  Checks for programs.
