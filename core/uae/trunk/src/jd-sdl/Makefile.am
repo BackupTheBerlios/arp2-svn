@@ -3,3 +3,4 @@ INCLUDES =  -I$(top_srcdir)/src/include -I$(top_builddir)/src -I$(top_srcdir)/sr
 noinst_LIBRARIES = libjoydep.a
 
 libjoydep_a_SOURCES = joystick.c
+libjoydep_a_CPPFLAGS = @SDL_CFLAGS@

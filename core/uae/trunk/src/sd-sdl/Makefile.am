@@ -3,5 +3,6 @@ INCLUDES =  -I$(top_srcdir)/src/include -I$(top_builddir)/src -I$(top_srcdir)/sr
 noinst_LIBRARIES = libsnddep.a
 
 libsnddep_a_SOURCES = sound.c
+libsnddep_a_CPPFLAGS = @SDL_CFLAGS@
 
 noinst_HEADERS = sound.h

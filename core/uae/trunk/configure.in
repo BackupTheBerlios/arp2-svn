@@ -1238,6 +1238,11 @@ if [[ "x$WANT_THREADS" = "xyes" -o "x$NEED_THREAD_SUPPORT" = "xyes" ]]; then
       UAE_DEFINES="$UAE_DEFINES -DUSE_NAMED_SEMAPHORES"
     fi
   fi
+  if [[ "$THREADDEP" = "td-sdl" ]]; then
+    UAE_CFLAGS="$UAE_CFLAGS $SDL_CFLAGS"
+    UAE_LIBS="$UAE_LIBS $SDL_LIBS"
+  fi
+  
   UAE_DEFINES="$UAE_DEFINES -DSUPPORT_THREADS"
   AC_MSG_RESULT($THREADNAME)
 else
