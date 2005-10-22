@@ -1,3 +1,16 @@
+2005-10-19  Martin Blom  <martin@blom.org>
+
+	* src/od-generic/memory.c: Re-applied the AMD64 JIT patch (32-bit
+	mode).
+
+	* configure.in, src/hardfile_unix.c, src/sysconfig.h.in: Re-did
+	the large hardfile support.
+
+	* configure.in, src/jd-sdl/Makefile.am, src/sd-sdl/Makefile.am:
+	Fix build process.
+
+	* Imported E-UAE 0.8.28 into the repo.
+
 2005-09-20 11:28  tag E-UAE-0_8_28
 
 2005-09-20 11:28  evi1rich
@@ -1161,6 +1174,36 @@
 	* src/picasso96.c: Renamed picasso96.c bswap32 function to
 	  p96_bswap32 to avoid collisions with system bswap32 function on
 	  NetBSD. Thanks to Bernhard Moellemann for reporting this.
+
+2005-03-18  Martin Blom	 <martin@blom.org>
+
+	* all: gfx-glgfx backend "finished".
+
+2005-03-13  Martin Blom	 <martin@blom.org>
+
+	* all: Libtoolized and added new gfx-glgfx backend.
+
+2005-02-28  Martin Blom	 <martin@blom.org>
+
+	* src/autoconf.c, src/expansion.c, src/memory.c,
+	src/include/memory.h: Implemented support for NATMEM_OFFSET=0
+	(i.e., the ix86 and m68k see the same address space) using posix
+	shared memory.
+
+2005-02-24  Martin Blom	 <martin@blom.org>
+
+	* configure, configure.in, src/Makefile.am, src/gencomp.c,
+	src/gencpu.c, src/newcpu.c, src/readcpu.c, src/sysconfig.h.in,
+	src/table68k, src/include/readcpu.h, src/blomcall.c,
+	src/include/blomcall.h: Added new op-codes for multitasking x86
+	calls: BJMP, BJMPNR and BRESUME.
+
+	* src/od-generic/memory.c: Made it work even on NX-enabled CPUs
+	like Athlon64.
+
+	* src/hardfile_unix.c: Made it work with > 2 GB hardfiles.
+
+	* all: Imported E-UAE 0.8.27 into local CVS.
 
 2005-01-25 04:00  evi1rich
 
