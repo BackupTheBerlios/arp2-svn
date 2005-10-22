@@ -62,6 +62,9 @@
 /* Define to 1 if you have the <libraries/cybergraphics.h> header file. */
 #undef HAVE_LIBRARIES_CYBERGRAPHICS_H
 
+/* Define to 1 if you have the `rt' library (-lrt). */
+#undef HAVE_LIBRT
+
 /* Define to 1 if you have the `z' library (-lz). */
 #undef HAVE_LIBZ
 

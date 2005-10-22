@@ -61,6 +61,7 @@ AC_CHECK_LIB(ossaudio,_oss_ioctl, HAVE_LIBOSSAUDIO=yes, HAVE_LIBOSSAUDIO=no)
 AC_CHECK_LIB(AF, AFOpenAudioConn, HAVE_AF_LIB=yes, HAVE_AF_LIB=no)
 AC_CHECK_LIB(mme, waveOutGetNumDevs, HAVE_MME_LIB=yes, HAVE_MME_LIB=no)
 AC_CHECK_LIB(audio, alOpenPort, HAVE_SGIAUDIO_LIB=yes, HAVE_SGIAUDIO_LIB=no)
+AC_CHECK_LIB(rt, shm_open)
 
 AC_PATH_XTRA
 
@@ -679,9 +680,6 @@ if [[ "x$WANT_JIT" != "xno" -a "$HOST_CPU" = "i386" ]]; then
   if [[ "x$NATMEM" = "xyes" ]]; then
     NATMEM="0x50000000"
   fi
-  if [[ "x$NATMEM" != "xno" ]]; then
-    UAE_DEFINES="$UAE_DEFINES -DNATMEM_OFFSET=$NATMEM"
-  fi
   JITOBJS="compstbl.o compemu.o compemu_support.o compemu_fpp.o"
   if [[ "x$NOFLAGS" != "xno" ]]; then
     JITOBJS="$JITOBJS cpustbl_nf.o"
@@ -706,6 +704,13 @@ if [[ "x$WANT_JIT" != "xno" -a "$HOST_CPU" = "i386" ]]; then
   CFLAGS="$SAVE_CFLAGS"
 else
   AC_MSG_RESULT(no)
+fi
+
+dnl
+dnl  Check whether to use NATMEM_OFFSET
+dnl
+if [[ "x$NATMEM" != "xno" ]]; then
+  UAE_DEFINES="$UAE_DEFINES -DNATMEM_OFFSET=$NATMEM"
 fi
 
 AC_CACHE_SAVE

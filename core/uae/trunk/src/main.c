@@ -539,6 +539,7 @@ void do_leave_program (void)
 #endif
 #ifdef FILESYS
     filesys_cleanup ();
+    rtarea_cleanup ();
 #endif
     savestate_free ();
     memory_cleanup ();

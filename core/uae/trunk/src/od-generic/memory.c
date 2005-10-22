@@ -38,11 +38,11 @@ void cache_free (void *cache)
     free (cache);
 }
 
+#endif
+
 #ifdef NATMEM_OFFSET
 void init_shm (void)
 {
     canbang = 1;
 }
-#endif
-
 #endif

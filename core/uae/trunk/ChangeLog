@@ -1,3 +1,12 @@
+2005-10-22  Martin Blom  <martin@blom.org>
+
+	* configure.in, src/ar.c, src/autoconf.c, src/cia.c, src/custom.c,
+	src/enforcer,c, src/expansion.c, src/main.c, src/memory.c,
+	src/newcpu.c, src/picasso96.c, src/od-generic/memory.c,
+	src/sysconfig.h.in, src/include/memory.h: Ported the new posix
+	shared memory code for NATMEM_OFFSET (which allows
+	NATMEM_OFFSET=0). Replaced the old SVr4 version.
+
 2005-10-19  Martin Blom  <martin@blom.org>
 
 	* src/od-generic/memory.c: Re-applied the AMD64 JIT patch (32-bit

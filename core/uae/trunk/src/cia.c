@@ -1028,7 +1028,7 @@ static void cia_bput (uaecptr, uae_u32) REGPARAM;
 addrbank cia_bank = {
     cia_lget, cia_wget, cia_bget,
     cia_lput, cia_wput, cia_bput,
-    default_xlate, default_check, NULL
+    default_xlate, default_check, MAPPED_MALLOC_FAILED
 };
 
 
@@ -1276,7 +1276,7 @@ static void clock_bput (uaecptr, uae_u32) REGPARAM;
 addrbank clock_bank = {
     clock_lget, clock_wget, clock_bget,
     clock_lput, clock_wput, clock_bput,
-    default_xlate, default_check, NULL
+    default_xlate, default_check, MAPPED_MALLOC_FAILED
 };
 
 uae_u32 REGPARAM2 clock_lget (uaecptr addr)

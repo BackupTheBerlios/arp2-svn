@@ -1927,12 +1927,14 @@ void m68k_go (int may_quit)
 	     * fastram state restore breaks
 	     */
 	    reset_all_systems ();
-	    customreset ();
-	    m68k_reset ();
 	    if (hardreset) {
+	        // This must be done before resetting CIA, which makes chip
+	        // memory go away.
 	        memset (chipmemory, 0, allocated_chipmem);
 		write_log ("chipmem cleared\n");
 	    }
+	    customreset ();
+	    m68k_reset ();
 	    /* We may have been restoring state, but we're done now.  */
 	    if (savestate_state == STATE_RESTORE || savestate_state == STATE_REWIND) {
 	        map_overlay (1);

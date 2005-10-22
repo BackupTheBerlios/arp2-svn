@@ -2367,6 +2367,7 @@ static void vec(int x, struct sigcontext sc)
 	}
     }
     write_log ("JIT: can't handle access!\n");
+    write_log ("JIT: fault address is %08x at %08x\n", sc. cr2, sc.eip);
     for (j=0;j<10;j++) {
 	write_log ("JIT: instruction byte %2d is %02x\n", j, i[j]);
     }

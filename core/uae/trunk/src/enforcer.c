@@ -448,7 +448,7 @@ static uae_u8 * REGPARAM2 chipmem_xlate2 (uaecptr addr)
 static const addrbank enforcer_chipmem_bank = {
     chipmem_lget2, chipmem_wget2, chipmem_bget2,
     chipmem_lput2, chipmem_wput2, chipmem_bput2,
-    chipmem_xlate2, chipmem_check2, NULL
+    chipmem_xlate2, chipmem_check2, MAPPED_MALLOC_FAILED
 };
 
 /*
@@ -537,7 +537,7 @@ static int REGPARAM2 dummy_check2 (uaecptr addr, uae_u32 size)
 const addrbank enforcer_dummy_bank = {
     dummy_lget2, dummy_wget2, dummy_bget2,
     dummy_lput2, dummy_wput2, dummy_bput2,
-    default_xlate, dummy_check2, NULL
+    default_xlate, dummy_check2, MAPPED_MALLOC_FAILED
 };
 
 /*************************************************************

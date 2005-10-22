@@ -16,6 +16,9 @@ extern int special_mem;
 extern void *cache_alloc (int);
 extern void cache_free (void*);
 
+#endif
+
+#ifdef NATMEM_OFFSET
 extern int canbang;
 void init_shm (void);
 #endif
@@ -78,7 +81,7 @@ typedef struct {
     /* For those banks that refer to real memory, we can save the whole trouble
        of going through function calls, and instead simply grab the memory
        ourselves. This holds the memory address where the start of memory is
-       for this particular bank. */
+       for this particular bank, else MAPPED_MALLOC_FAILED. */
     uae_u8 *baseaddr;
 } addrbank;
 
@@ -97,6 +100,7 @@ extern addrbank gfxmem_bank;
 
 extern void rtarea_init (void);
 extern void rtarea_setup (void);
+extern void rtarea_cleanup (void);
 extern void expamem_init (void);
 extern void expamem_reset (void);
 
@@ -123,7 +127,7 @@ extern uae_u8 *baseaddr[MEMORY_BANKS];
 #ifdef JIT
 # define put_mem_bank(addr, b, realstart) do { \
     (mem_banks[bankindex(addr)] = (b)); \
-    if ((b)->baseaddr) \
+    if ((b)->baseaddr != MAPPED_MALLOC_FAILED) \
         baseaddr[bankindex(addr)] = (b)->baseaddr - (realstart); \
     else \
         baseaddr[bankindex(addr)] = (uae_u8*)(((long)b)+1); \
@@ -209,21 +213,11 @@ extern void chipmem_lput_ce2 (uaecptr, uae_u32) REGPARAM;
 extern void chipmem_wput_ce2 (uaecptr, uae_u32) REGPARAM;
 extern void chipmem_bput_ce2 (uaecptr, uae_u32) REGPARAM;
 
-#ifdef NATMEM_OFFSET
 
-typedef struct shmpiece_reg {
-    uae_u8 *native_address;
-    int id;
-    uae_u32 size;
-    struct shmpiece_reg *next;
-    struct shmpiece_reg *prev;
-} shmpiece;
+#define MAPPED_MALLOC_FAILED   ((uae_u8*) -1)
+#define MAPPED_MALLOC_UNKNOWN  ((uae_u32) -1)
 
-extern shmpiece *shm_start;
-
-#endif
-
-extern uae_u8 *mapped_malloc (size_t, char *);
+extern uae_u8 *mapped_malloc (size_t, char *, uae_u32);
 extern void mapped_free (uae_u8 *);
 extern void clearexec (void);
 extern void mapkick (void);
