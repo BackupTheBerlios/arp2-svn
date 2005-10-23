@@ -1,3 +1,9 @@
+2005-10-23  Martin Blom  <martin@blom.org>
+
+	* configure.in, src/Makefile.am, src/main.c: Handle
+	NATMEM_OFFSET=0, either by changing the program load address
+	(x86_64) or by using uae-preloader (i386).
+
 2005-10-22  Martin Blom  <martin@blom.org>
 
 	* configure.in, src/ar.c, src/autoconf.c, src/cia.c, src/custom.c,
