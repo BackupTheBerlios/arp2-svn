@@ -138,6 +138,9 @@ uae_DEPENDENCIES = \
 	@THREADDEP@/libthreaddep.a	\
 	@OSDEP@/libosdep.a
 
+uae_LDFLAGS = \
+	@UAE_LDFLAGS@
+
 uae_LDADD = \
 	@MACHDEP@/libmachdep.a		\
 	@JOY_DEP@/libjoydep.a		\

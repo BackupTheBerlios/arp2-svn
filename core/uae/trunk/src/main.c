@@ -46,6 +46,10 @@
 #include "SDL.h"
 #endif
 
+#if defined (HAVE_SYS_MMAN_H)
+#include <sys/mman.h>
+#endif
+
 long int version = 256*65536L*UAEMAJOR + 65536L*UAEMINOR + UAESUBREV;
 
 struct uae_prefs currprefs, changed_prefs;
@@ -707,9 +711,34 @@ static void real_main2 (int argc, char **argv)
 #endif
 }
 
+
+#if defined (NATMEM_OFFSET)
+struct {
+    void  *addr;
+    size_t size;
+} *uae_main_preload_info = NULL;
+#endif
+
 void real_main (int argc, char **argv)
 {
     show_version ();
+
+#if defined (NATMEM_OFFSET)
+    if (uae_main_preload_info != NULL) {
+	int i;
+	for (i = 0; uae_main_preload_info[i].size; i++) {
+	    write_log ("Unmapping pre-reserved memory area at %p (length 0x%zx)\n",
+		       uae_main_preload_info[i].addr, uae_main_preload_info[i].size);
+	    munmap(uae_main_preload_info[i].addr, uae_main_preload_info[i].size);
+	}
+    }
+    else {
+	if (NATMEM_OFFSET == 0 && sizeof (void*) < 8) {
+	    write_log ("NATMEM_OFFSET==0 and uae-preloader not used. "
+		       "This doesn't look too good ...\n");
+	}
+    }
+#endif
 
     restart_program = 1;
 #ifdef _WIN32
