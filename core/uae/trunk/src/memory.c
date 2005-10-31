@@ -1266,7 +1266,7 @@ static uae_u8* create_memarea(char* name, int fd, struct memarea* real,
       address += NATMEM_OFFSET;
     }
 
-    mem = mmap((void*) address, s, PROT_EXEC | PROT_READ | PROT_WRITE,
+    mem = mmap((void*) (uintptr_t) address, s, PROT_EXEC | PROT_READ | PROT_WRITE,
 	       flags, fd, 0);
 //    printf("******* mapped %s/%x at %p\n", memarea->name, memarea->amiga_addr, mem);
     if (mem == MAP_FAILED) {
@@ -1333,7 +1333,7 @@ static void add_mirror (uae_u32 start, addrbank *what) {
 	if (create_memarea(mas->name, mas->fd, mas, start, mas->size) ==
 	    MAPPED_MALLOC_FAILED) {
 	    write_log ("NATMEM: Failed to create mapping to %p at %p\n",
-		       what->baseaddr, (void*) start);
+		       what->baseaddr, (void*) (uintptr_t) start);
 	    canbang = 0;
 	}
     }
