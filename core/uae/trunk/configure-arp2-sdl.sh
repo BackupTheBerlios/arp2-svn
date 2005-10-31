@@ -1,0 +1,12 @@
+$(dirname $0)/configure --prefix=/opt/arp2 --program-prefix=sdl- \
+	--enable-aga --enable-cdtv --enable-cd32 \
+	--with-sdl-gfx \
+	--enable-audio \
+	--disable-fdi --without-caps \
+	--enable-cycle-exact-cpu --enable-compatible-cpu --enable-jit \
+	--enable-natmem=0 --with-program-base=0x08000000 --enable-blomcall \
+	--enable-autoconfig \
+	--enable-scsi-device  --with-libscg-includedir=/usr/include/schily/ \
+	--enable-enforcer --enable-action-replay \
+	--disable-bsdsock --enable-bsdsock-new \
+	--enable-threads --enable-ui 
