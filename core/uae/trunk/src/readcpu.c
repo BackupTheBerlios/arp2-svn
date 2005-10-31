@@ -138,6 +138,10 @@ struct mnemolookup lookuptab[] = {
     { i_MOVE16, "MOVE16" },
 
     { i_MMUOP, "MMUOP" },
+
+    { i_BJMP,    "BJMP" },
+    { i_BJMPNR,  "BJMPNR" },
+    { i_BRESUME, "BRESUME" },
     { i_ILLG, "" },
 };
 

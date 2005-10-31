@@ -2848,6 +2848,12 @@ gen_opcode (unsigned long int opcode)
 	isjump;
 	failure;
 	break;
+     case i_BJMP:
+     case i_BJMPNR:
+     case i_BRESUME:
+	isjump;
+	failure;
+	break;
      default:
 	abort ();
 	break;

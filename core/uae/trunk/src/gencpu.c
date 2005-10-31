@@ -2812,6 +2812,22 @@ static void gen_opcode (unsigned long int opcode)
 	sync_m68k_pc ();
 	printf ("\tmmu_op (opcode, regs, extra);\n");
 	break;
+    case i_BJMP:
+    case i_BJMPNR:
+    case i_BRESUME:
+	printf ("\tunsigned long cycles = blomcall_ops(opcode, regs);\n");
+	if (using_ce) {
+	    addcycles3 ("\t");
+	}
+	m68k_pc_offset = 0;
+	fill_prefetch_full ();
+	if (using_ce) {
+	    printf ("\treturn 0;\n");
+	}
+	else {
+	    printf ("\treturn cycles * %d;\n", CYCLE_UNIT / 2);
+	}
+	break;
     default:
 	abort ();
 	break;
@@ -2841,6 +2857,7 @@ static void generate_includes (FILE * f)
     fprintf (f, "#include \"machdep/m68kops.h\"\n");
     fprintf (f, "#include \"cpu_prefetch.h\"\n");
     fprintf (f, "#include \"cputbl.h\"\n");
+    fprintf (f, "#include \"blomcall.h\"\n");
 
     fprintf (f, "#define CPUFUNC(x) x##_ff\n"
 	     "#define SET_CFLG_ALWAYS(flags, x) SET_CFLG(flags, x)\n"

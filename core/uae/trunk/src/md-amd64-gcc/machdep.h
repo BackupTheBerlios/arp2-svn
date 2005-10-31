@@ -17,4 +17,6 @@
 typedef uae_s64 frame_time_t;
 #define MAX_FRAME_TIME 9223372036854775807LL
 
+#define RED_ZONE_SIZE 128
+
 #endif

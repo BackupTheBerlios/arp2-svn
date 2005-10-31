@@ -24,6 +24,7 @@
 #include "savestate.h"
 #include "blitter.h"
 #include "ar.h"
+#include "blomcall.h"
 
 #ifdef JIT
 extern uae_u8* compiled_code;
@@ -1382,6 +1383,10 @@ void m68k_reset (void)
     fill_prefetch_slow (&regs);
 
     warned_cpu68020 = 0;
+
+#ifdef BLOMCALL
+    blomcall_reset();
+#endif
 }
 
 STATIC_INLINE int in_rom (uaecptr pc)

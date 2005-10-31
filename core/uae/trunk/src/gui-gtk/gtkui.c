@@ -33,6 +33,7 @@
 #include "inputdevice.h"
 #include "xwin.h"
 #include "picasso96.h"
+#include "blomcall.h"
 
 #include <gtk/gtk.h>
 #include <gdk/gdk.h>
@@ -2457,6 +2458,13 @@ int main (int argc, char **argv)
 {
     uae_thread_id tid;
 
+#ifdef BLOMCALL
+    // Set up blomcalls BEFORE creating ANY threads
+    if (blomcall_init()) {
+      write_log ("bcalls enabled\n");
+    }
+#endif
+    
 #ifdef USE_SDL
     init_sdl ();
 #endif

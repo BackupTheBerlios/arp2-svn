@@ -41,6 +41,7 @@
 #include "akiko.h"
 #include "savestate.h"
 #include "hrtimer.h"
+#include "blomcall.h"
 
 #ifdef USE_SDL
 #include "SDL.h"
@@ -48,6 +49,13 @@
 
 #if defined (HAVE_SYS_MMAN_H)
 #include <sys/mman.h>
+#endif
+
+#if defined (NATMEM_OFFSET)
+struct {
+    void  *addr;
+    size_t size;
+} *uae_main_preload_info = NULL;
 #endif
 
 long int version = 256*65536L*UAEMAJOR + 65536L*UAEMINOR + UAESUBREV;
@@ -712,13 +720,6 @@ static void real_main2 (int argc, char **argv)
 }
 
 
-#if defined (NATMEM_OFFSET)
-struct {
-    void  *addr;
-    size_t size;
-} *uae_main_preload_info = NULL;
-#endif
-
 void real_main (int argc, char **argv)
 {
     show_version ();
@@ -770,6 +771,12 @@ int init_sdl (void)
 #ifndef NO_MAIN_IN_MAIN_C
 int main (int argc, char **argv)
 {
+#ifdef BLOMCALL
+    // Set up blomcalls BEFORE creating ANY threads
+    if (blomcall_init()) {
+        write_log ("bcalls enabled\n");
+    }
+#endif
     init_sdl ();
     real_main (argc, argv);
     return 0;
