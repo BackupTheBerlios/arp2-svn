@@ -23,6 +23,7 @@
 #include "ar.h"
 
 #ifdef NATMEM_OFFSET
+#include <inttypes.h>
 #include <sys/mman.h>
 
 int canbang;
