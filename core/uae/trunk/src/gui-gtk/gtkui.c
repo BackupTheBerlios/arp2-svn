@@ -2497,5 +2497,8 @@ int main (int argc, char **argv)
     /* That's all, folks */
     gui_shutdown ();
 
+#ifdef BLOMCALL
+    blomcall_destroy();
+#endif
     return 0;
 }

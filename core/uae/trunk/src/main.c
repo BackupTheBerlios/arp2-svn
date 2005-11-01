@@ -779,6 +779,9 @@ int main (int argc, char **argv)
 #endif
     init_sdl ();
     real_main (argc, argv);
+#ifdef BLOMCALL
+    blomcall_destroy();
+#endif
     return 0;
 }
 #endif

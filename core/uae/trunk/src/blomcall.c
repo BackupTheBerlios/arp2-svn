@@ -8,9 +8,9 @@
   * Features:
   *
   * 1) "Multitasking" native code (emulation keeps running).
-  * 2) Native code uses m68k stack.
+  * 2) Native code uses m68k stack (you definately want SA_ONSTACK!).
   * 3) m68k-to-native and native-to-m68k calls use no extra stack, so it's
-  *    possible to pass parameters on the stack on i386 for example.
+  *    possible to pass parameters on the stack on i386.
   * 5) Arguments can be in d0-d7/a0-a6/fp0-fp7 or stack via sp.
   * 4) Fast short-circuit of native-to-native calls via BJMP.
   */
@@ -48,30 +48,16 @@ volatile int blomcall_cycles;
 volatile int blomcall_counter;
 volatile int blomcall_code;
 
-// fixme
-#ifndef REG_EIP
-#define REG_EIP REG_RIP
-#define REG_ESP REG_RSP
-#endif
-
 /*** Macros *******************************************************************/
 
 #define limited_cycles(x) ((x) < 1000 ? (x) : 1000)
 
 #if defined (__i386__)
 # define get_jmpbuf_sp(jb) ((uintptr_t) ((jb)[0]->__jmpbuf[JB_SP]))
-# ifdef BLOMCALL_USES_OBSOLETE_SIGHANDLER    
-#  define get_sigctx_sp(bc) ((uintptr_t) ((bc)->sc.esp))
-# else
-#  define get_sigctx_sp(bc) ((uintptr_t) ((bc)->uc.uc_mcontext.gregs[REG_ESP]))
-# endif
+# define get_sigctx_sp(bc) ((uintptr_t) ((bc)->uc.uc_mcontext.gregs[REG_ESP]))
 #elif defined (__x86_64__)
 # define get_jmpbuf_sp(jb) ((uintptr_t) ((jb)[0]->__jmpbuf[JB_RSP]))
-# ifdef BLOMCALL_USES_OBSOLETE_SIGHANDLER    
-#  define get_sigctx_sp(bc) ((uintptr_t) ((bc)->sc.rsp))
-# else
-#  define get_sigctx_sp(bc) ((uintptr_t) ((bc)->uc.uc_mcontext.gregs[REG_RSP]))
-# endif
+# define get_sigctx_sp(bc) ((uintptr_t) ((bc)->uc.uc_mcontext.rsp))
 #else
 # error Unsupported architecture!
 #endif
@@ -85,6 +71,10 @@ static sigset_t                 blomcall_usr1sigset;
 static sigset_t                 blomcall_usr2sigset;
 static struct blomcall_context* blomcall_ctx;
 static struct blomcall_segment* blomcall_segment;
+
+#define SIGHANDLER_STACK_SIZE 65536 /* Remember that the UAE debugger
+				       runs on this stack too! */
+static void* sighandler_stack;
 
 static const struct itimerspec blomcall_timer_cont = {
   { 0, 1e9/2000 }, { 0, 1e9/2000 } // 2 kHz (or less, depending on your OS and tick rate)
@@ -282,10 +272,10 @@ uae_u32 REGPARAM2 __blomcall_callfunc68k(uae_u32 args[16], fptype fp[8], uae_u32
     siglongjmp(blomcall_ctx->emuljmp, 3);
   }
 
+  assert (blomcall_ctx != NULL);
+
   // Now we're back from emulation again
   pthread_sigmask(SIG_UNBLOCK, &blomcall_usr1sigset, NULL);
-  
-  assert (blomcall_ctx != NULL);
 
   // Transfer UAE's register array back to caller, then restore it
   memcpy(args, blomcall_ctx->regs->regs, 16*4);
@@ -293,11 +283,11 @@ uae_u32 REGPARAM2 __blomcall_callfunc68k(uae_u32 args[16], fptype fp[8], uae_u32
 
   if (fp != NULL) {
     memcpy(fp, blomcall_ctx->regs->fp, 8*4);
-    memcpy(blomcall_ctx->regs->fp, blomcall_ctx->saved_fpregs, 16*4);
+    memcpy(blomcall_ctx->regs->fp, blomcall_ctx->saved_fpregs, 8*4);
   }
   
   // Return d0 for convenience
-  return m68k_dreg(blomcall_ctx->regs, 0);
+  return args[0];
 }
 
 
@@ -351,6 +341,8 @@ blomcall_callfunc68k: 					\n\
 	jmp	*%ecx					\n\
 ");
 
+#define blomcall_exit   __blomcall_exit 
+
 #elif defined (__x86_64__)
 
 __asm ("						\n\
@@ -358,7 +350,7 @@ __asm ("						\n\
 	.globl	blomcall_calllib68k 			\n\
 	.type	blomcall_calllib68k,@function 		\n\
 blomcall_calllib68k: 					\n\
-	add	(8+6)*4(%rdi),%esi 			\n\
+	add	(8+6)*4(%rdi),%edx 			\n\
 	mov	%esp,(8+7)*4(%rdi) 			\n\
 	cmpb	$0xff,(%rdx)				\n\
 	jne	__blomcall_callfunc68k		 	\n\
@@ -376,24 +368,28 @@ blomcall_callfunc68k: 					\n\
 	mov	2(%rdx),%edx				\n\
 	bswap	%edx					\n\
 	jmp	*%rdx					\n\
+							\n\
+	.p2align 4,,15					\n\
+	.type	blomcall_exit,@function		 	\n\
+blomcall_exit: 						\n\
+	mov	%rax,%rdi				\n\
+	jmp	__blomcall_exit				\n\
 ");
+
+void blomcall_exit(uae_u64 rc) REGPARAM;
 
 #else
 # error Unsupported architecture!
 #endif
 
 
-static void blomcall_exit(uae_u64 rc) REGPARAM;
-static void REGPARAM2 blomcall_exit(uae_u64 rc)
+static void __blomcall_exit(uae_u64 rc) REGPARAM;
+static void REGPARAM2 __attribute__((used)) __blomcall_exit(uae_u64 rc)
 {
-  int stack;
-
-  pthread_sigmask(SIG_BLOCK, &blomcall_usr1sigset, NULL);
-/*   printf("in blomcall_exit(%Ld)\n", rc); */
-/*   printf("stack is ~0x%p\n", &stack); */
-
   m68k_dreg (blomcall_ctx->regs, 0) = (uae_u32) rc;          // eax -> d0
   m68k_dreg (blomcall_ctx->regs, 1) = (uae_u32) (rc >> 32);  // edx -> d1
+
+  pthread_sigmask(SIG_BLOCK, &blomcall_usr1sigset, NULL);
   siglongjmp(blomcall_ctx->emuljmp, 1);
 }
 
@@ -405,118 +401,68 @@ static void blomcall_exitnr(void)
 }
 
 
-#ifdef BLOMCALL_USES_OBSOLETE_SIGHANDLER    
-
-static void blomcall_timer_handler(int x, struct sigcontext sc) {
-  assert (blomcall_ctx != NULL);
-
-  ++blomcall_counter;
-
-  blomcall_ctx->sc = sc;
-  blomcall_ctx->fp = *sc.fpstate;
-
-/*   printf("saving state to context %p at %p\n", blomcall_ctx, sc.rip); */
-/*   printf("stack is %p\n", sc.rsp); */
-  
-  // SIGUSR1 already blocked, since we're in a signal handler
-  // pthread_sigmask(SIG_BLOCK, &blomcall_usr1sigset, NULL);
-  siglongjmp(blomcall_ctx->emuljmp, 2);
-}
-
-static void blomcall_resume_handler(int x, struct sigcontext sc) {
-  assert (blomcall_ctx != NULL);
-
-  // fpstate is a pointer in Linux!
-  struct _fpstate* fpp = sc.fpstate; 
-
-  sc = blomcall_ctx->sc;
-  *fpp = blomcall_ctx->fp;
-  sc.fpstate = fpp;
-}
-
-#else
-
 static void blomcall_timer_handler(int x, siginfo_t* si, void* extra) {
-  ucontext_t* uc = extra;
+  struct kernel_ucontext* uc = extra;
 
   assert (blomcall_ctx != NULL);
 
   ++blomcall_counter;
 
   blomcall_ctx->uc = *uc;
-  blomcall_ctx->fp = *uc->uc_mcontext.fpregs;
+  blomcall_ctx->fp = *uc->uc_mcontext.fpstate;
 
-/*   printf("saving state to context %p at %p, stack %p\n", */
-/* 	 blomcall_ctx, uc->uc_mcontext.gregs[REG_EIP], uc->uc_mcontext.gregs[REG_ESP]); */
   // SIGUSR1 already blocked, since we're in a signal handler
   // pthread_sigmask(SIG_BLOCK, &blomcall_usr1sigset, NULL);
   siglongjmp(blomcall_ctx->emuljmp, 2);
 }
 
 static void blomcall_resume_handler(int x, siginfo_t* si, void* extra) {
-  ucontext_t* uc = extra;
+  struct kernel_ucontext* uc = extra;
 
   assert (blomcall_ctx != NULL);
 
-  // fpregs is a pointer in Linux!
-  struct _libc_fpstate* fpp = uc->uc_mcontext.fpregs;
+  // fpstate is a pointer in Linux!
+  struct _fpstate* fpp = uc->uc_mcontext.fpstate;
 
   *uc = blomcall_ctx->uc;
   *fpp = blomcall_ctx->fp;
-  uc->uc_mcontext.fpregs = fpp;
-
-/*   printf("restoring state from context %p at %p, stack %p\n", */
-/* 	 blomcall_ctx, uc->uc_mcontext.gregs[REG_EIP], uc->uc_mcontext.gregs[REG_ESP]); */
+  uc->uc_mcontext.fpstate = fpp;
 }
-
-#endif
 
 
 /*** Initialization code ******************************************************/
 
 int blomcall_init (void) {
+  stack_t ss;
   struct sigaction sa;
   struct sigevent ev;
 
-#ifdef BLOMCALL_USES_OBSOLETE_SIGHANDLER    
-  // Install signal handler for SIGUSR1 (timer) and SIGUSR2
-  sa.sa_handler = (__sighandler_t) blomcall_timer_handler;
-  sigemptyset(&sa.sa_mask);
-  sa.sa_flags = 0;
+  // Create and install a new stack for all signal handlers. This is
+  // important since we're executing on AmigaOS' stack, which can be
+  // really tiny.
+  ss.ss_sp = sighandler_stack = malloc(SIGHANDLER_STACK_SIZE);
+  ss.ss_flags = 0;
+  ss.ss_size = SIGHANDLER_STACK_SIZE;
 
-  if (sigaction(SIGUSR1, &sa, NULL) == -1 ) {
-    perror("sigaction(SIGUSR1)");
-    return 0;
+  if (sigaltstack(&ss, NULL) == -1) {
+    perror("sigaltstack");
   }
-
-  sa.sa_handler = (__sighandler_t) blomcall_resume_handler;
-  sigemptyset(&sa.sa_mask);
-  sa.sa_flags = SA_RESTART;
-
-  if (sigaction(SIGUSR2, &sa, NULL) == -1 ) {
-    perror("sigaction(SIGUSR2)");
-    return 0;
-  }
-#else
+  
   // Install signal handler for SIGUSR1 (timer) and SIGUSR2
+  sigemptyset(&sa.sa_mask);
+  sa.sa_flags = SA_RESTART | SA_SIGINFO | SA_ONSTACK;
+
   sa.sa_sigaction = blomcall_timer_handler;
-  sigemptyset(&sa.sa_mask);
-  sa.sa_flags = SA_SIGINFO;
-
   if (sigaction(SIGUSR1, &sa, NULL) == -1 ) {
     perror("sigaction(SIGUSR1)");
     return 0;
   }
 
   sa.sa_sigaction = blomcall_resume_handler;
-  sigemptyset(&sa.sa_mask);
-  sa.sa_flags = SA_SIGINFO;
-
   if (sigaction(SIGUSR2, &sa, NULL) == -1 ) {
     perror("sigaction(SIGUSR2)");
     return 0;
   }
-#endif
   
   // Block SIGUSR1 signals (from the timer)
   sigemptyset(&blomcall_usr1sigset);
@@ -540,7 +486,7 @@ int blomcall_init (void) {
   ev.sigev_notify = SIGEV_SIGNAL;
   ev.sigev_signo  = SIGUSR1;
 
-  if (timer_create (CLOCK_REALTIME, &ev, &blomcall_timer) == -1) {
+  if (timer_create(CLOCK_REALTIME, &ev, &blomcall_timer) == -1) {
     perror("timer_create");
     return 0;
   }
@@ -553,6 +499,7 @@ int blomcall_init (void) {
 
   return 1;
 }
+
 
 int blomcall_reset(void) {
   // Unblock SIGUSR2 for CPU emulation thread
@@ -572,26 +519,82 @@ int blomcall_reset(void) {
 }
 
 
+void blomcall_destroy(void) {
+  struct sigaction sa;
+  stack_t ss;
+
+  // Restore signal handlers
+  sa.sa_handler = SIG_DFL;
+  sigemptyset(&sa.sa_mask);
+  sa.sa_flags = 0;
+
+  sigaction(SIGUSR1, &sa, NULL);
+  sigaction(SIGUSR2, &sa, NULL);
+
+  // Unblock signals
+  pthread_sigmask(SIG_UNBLOCK, &blomcall_usr1sigset, NULL);
+  pthread_sigmask(SIG_UNBLOCK, &blomcall_usr2sigset, NULL);
+
+  // Disable and restore signal stack to the default
+  ss.ss_sp = NULL;
+  ss.ss_flags = SS_DISABLE;
+  ss.ss_size = 0;
+
+  sigaltstack(&ss, NULL);
+  free(sighandler_stack);
+
+  // Delete timer
+  timer_delete(&blomcall_timer);
+}
+
 /*** Opcode handling **********************************************************/
 
-uae_u64 blomcall_test(uae_u32* regs, double* fregs) REGPARAM;
+#include <byteswap.h>
 
-uae_u64 REGPARAM2 blomcall_test(uae_u32* regs, double* fregs) {
-  int i;
-  char line[100];
+#define _LVOOpenLibrary  -0x228
+#define _LVOCloseLibrary -0x19e
+#define _LVOOpenWindowTagList -0x25e
 
-  printf("inside blomcall_test(d0: %08x; d1: %08x; a0: %08x; a1: %08x)\n",
-	 regs[0], regs[1], regs[8], regs[9]);
-  line[0]=0;
-  while(gets(line) == NULL || line[0] == 0) {
-    if ((get_byte(0xbfe001) & (1<<6)) == 0) {
-      break;
-    }
-  }
+uae_u32 blomcall_test(uae_u32 volatile* regs, double* fregs) REGPARAM;
 
-  printf("line is '%s'\n", line);
+uae_u32 REGPARAM2 blomcall_test(uae_u32 volatile* regs, double* fregs) {
+  uae_u32 execbase = bswap_32(*(uae_u32*) 4);
+  char intui[] = "intuition.library";
+  uae_u32 intuibase;
+  uae_u32 r[16];
+  uae_u32 tags[] = { 0, 0 };
 
-  return atoi(line);
+  r[0+0] = 0;
+  r[8+1] = intui;
+  r[8+6] = execbase;
+  intuibase = blomcall_calllib68k(r, NULL, _LVOOpenLibrary);
+
+  r[8+0] = 0;
+  r[8+1] = tags;
+  r[8+6] = intuibase;
+  blomcall_calllib68k(r, NULL, _LVOOpenWindowTagList);
+  
+  r[8+1] = intuibase;
+  r[8+6] = execbase;
+  blomcall_calllib68k(r, NULL, _LVOCloseLibrary);
+  
+  return execbase;
+  
+/*   int i; */
+/*   char line[100]; */
+
+/*   printf("inside blomcall_test(d0: %08x; d1: %08x; a0: %08x; a1: %08x)\n", */
+/* 	 regs[0], regs[1], regs[8], regs[9]); */
+/*   line[0]=0; */
+/*   while(gets(line) == NULL || line[0] == 0) { */
+/*     if ((get_byte(0xbfe001) & (1<<6)) == 0) { */
+/*       break; */
+/*     } */
+/*   } */
+
+/*   printf("line is '%s'\n", line); */
+
+/*   return atoi(line); */
 }
 
 
@@ -603,7 +606,6 @@ unsigned long REGPARAM2 blomcall_ops (uae_u32 opcode, struct regstruct* regs) {
   uae_u8* ix86addr;
 
   cycles = limited_cycles(remaining_cycles);
-//  printf("entry cycles: %ld/%ld\n", cycles, remaining_cycles);
   if (cycles != 0) {
     remaining_cycles -= cycles;
     return cycles;
@@ -628,9 +630,9 @@ unsigned long REGPARAM2 blomcall_ops (uae_u32 opcode, struct regstruct* regs) {
   else {
     uae_u32 bcctx;
 
-/*     printf("sp at bjmp: %08x\n", m68k_areg(regs, 7)); */
-
     // TODO: Cache and reuse used contexts
+//    blomcall_ctx = sbrk(sizeof (struct blomcall_context));
+//    assert(blomcall_ctx != (void*) -1);
     blomcall_ctx = malloc (sizeof (struct blomcall_context));
 
     blomcall_ctx->op_resume         = OP_BRESUME;
@@ -648,25 +650,6 @@ unsigned long REGPARAM2 blomcall_ops (uae_u32 opcode, struct regstruct* regs) {
     put_mem_bank (bcctx, &directmem_bank, 0);
   }
 
-  uae_u32 usp = blomcall_ctx->rts_a7 ;
-  int i;
-
-/*   printf("Dumping rts_a7: %08lx\n", usp); */
-/*   for (i = -4096; i < 0; i += 32) { */
-/*     printf(" %08x %08x %08x %08x %08x %08x %08x %08x\n", */
-/* 	   get_long(usp+i+0), get_long(usp+i+4), get_long(usp+i+8), get_long(usp+i+12), */
-/* 	   get_long(usp+i+16), get_long(usp+i+20), get_long(usp+i+24), get_long(usp+i+28)); */
-/*   } */
-/*   printf("*%08x %08x %08x %08x %08x %08x %08x %08x\n", */
-/* 	 get_long(usp+0), get_long(usp+4), get_long(usp+8), get_long(usp+12), */
-/* 	 get_long(usp+16), get_long(usp+20), get_long(usp+24), get_long(usp+28)); */
-/*   for (i = 32; i < 128; i += 32) { */
-/*     printf(" %08x %08x %08x %08x %08x %08x %08x %08x\n", */
-/* 	   get_long(usp+i+0), get_long(usp+i+4), get_long(usp+i+8), get_long(usp+i+12), */
-/* 	   get_long(usp+i+16), get_long(usp+i+20), get_long(usp+i+24), get_long(usp+i+28)); */
-/*   } */
-
-  
   switch (sigsetjmp(blomcall_ctx->emuljmp, 0)) {
     case 0: {
       // m68k code executed blomcall trap
@@ -690,24 +673,13 @@ unsigned long REGPARAM2 blomcall_ops (uae_u32 opcode, struct regstruct* regs) {
 		       (void*) blomcall_exit :
 		       (void*) blomcall_exitnr);
 
-//	newpc = blomcall_test;
+	newpc = blomcall_test;
 	
 	assert ((((uae_u64) (uintptr_t) retpc) & 0xffffffff00000000ULL) == 0);
-	
-/* 	printf("blomcall from %08lx to %08lx, then via %p back to %08lx\n", */
-/* 	       m68k_getpc(blomcall_ctx->regs), newpc, */
-/* 	       retpc, blomcall_ctx->rts_pc); */
 
-/* 	m68k_setpc(blomcall_ctx->regs, (uae_u32) (uintptr_t) blomcall_ctx); */
-/* 	fill_prefetch_slow(blomcall_ctx->regs); */
+	m68k_setpc(blomcall_ctx->regs, (uae_u32) (uintptr_t) blomcall_ctx);
+	fill_prefetch_slow(blomcall_ctx->regs);
 
-/* 	printf("newpc dump: $%02x $%02x $%02x $%02x $%02x $%02x $%02x $%02x\n", */
-/* 	       get_byte(newpc+0),get_byte(newpc+1),get_byte(newpc+2),get_byte(newpc+3), */
-/* 	       get_byte(newpc+4),get_byte(newpc+5),get_byte(newpc+6),get_byte(newpc+7)); */
-
-
-/* 	printf("native stack is ~%p\n", &ix86addr); */
-	
 	// Don't do this until we have reloaded the stack pointer:
 	// pthread_sigmask(SIG_UNBLOCK, &blomcall_usr1sigset, NULL);
 	// Also note that the only memory constraint allowed is the stack
@@ -738,15 +710,12 @@ unsigned long REGPARAM2 blomcall_ops (uae_u32 opcode, struct regstruct* regs) {
 
 #elif defined (__x86_64__)
 	__asm__ __volatile__ ("		\n\
-#		mov   %%rsp,%%rax	\n\
 		mov   %0,%%esp		\n\
-#		mov   %%rax,%%rsp	\n\
-#		jmp   *%6		\n\
 		push  %6		\n\
-#		xor   %%edx,%%edx	\n\
-#		mov   %1,%%esi		\n\
-#		mov   %2,%%edi		\n\
-#		call  pthread_sigmask	\n\
+		xor   %%edx,%%edx	\n\
+		mov   %1,%%esi		\n\
+		mov   %2,%%edi		\n\
+		call  pthread_sigmask	\n\
 		mov   %3,%%rdi		\n\
 		mov   %4,%%rsi		\n\
 		jmp   *%5"
@@ -773,13 +742,6 @@ unsigned long REGPARAM2 blomcall_ops (uae_u32 opcode, struct regstruct* regs) {
     case 1: {
       // Native code returned (via blomcall_exit()/blomcall_exitnr())
 
-/*       printf("blomcall returned\n"); */
-/*       printf("native stack is ~%p\n", &ix86addr); */
-      
-/*       printf("restored pc: %08x, a7: %08x\n", */
-/* 	     blomcall_ctx->rts_pc, blomcall_ctx->rts_a7); */
-
-      put_long(m68k_areg(regs, 7) - 4, blomcall_ctx->rts_pc);
       m68k_areg(blomcall_ctx->regs, 7) = blomcall_ctx->rts_a7;
       m68k_setpc (blomcall_ctx->regs, blomcall_ctx->rts_pc);
       fill_prefetch_slow(blomcall_ctx->regs);
@@ -791,12 +753,8 @@ unsigned long REGPARAM2 blomcall_ops (uae_u32 opcode, struct regstruct* regs) {
     case 2: {
       // Native code interrupted by timer
 
-/*       printf("blomcall interrupted\n"); */
-
       assert ((((uae_u64) get_sigctx_sp(blomcall_ctx))
 	       & 0xffffffff00000000ULL) == 0);
-
-/*       printf("sc.sp=%p\n", get_sigctx_sp(blomcall_ctx)); */
 
       m68k_areg(blomcall_ctx->regs, 7) =
 	(uae_u32) get_sigctx_sp(blomcall_ctx) - RED_ZONE_SIZE;
@@ -810,7 +768,6 @@ unsigned long REGPARAM2 blomcall_ops (uae_u32 opcode, struct regstruct* regs) {
       uae_u8* a7 = (uae_u8*) (uintptr_t) m68k_areg(blomcall_ctx->regs, 7);
       uae_u8* sp = (uae_u8*) get_jmpbuf_sp(&blomcall_ctx->m68kjmp) - RED_ZONE_SIZE;
 
-/*       printf("blomcall calls m68k function\n"); */
       // a7 has been set up by the assembly code and
       // __blomcall_callfunc68k() so it's the same as the native stack
       // pointer at the time just before blomcall_callfunc68k() was
@@ -847,23 +804,7 @@ unsigned long REGPARAM2 blomcall_ops (uae_u32 opcode, struct regstruct* regs) {
 
   // BJMP/BRESUME not active at this point
   blomcall_ctx = NULL;
-/*   printf("going back; sp is now %08lx\n", m68k_areg(regs, 7)); */
 
-/*   printf("Dumping rts_a7: %08lx\n", usp); */
-/*   for (i = -4096; i < 0; i += 32) { */
-/*     printf(" %08x %08x %08x %08x %08x %08x %08x %08x\n", */
-/* 	   get_long(usp+i+0), get_long(usp+i+4), get_long(usp+i+8), get_long(usp+i+12), */
-/* 	   get_long(usp+i+16), get_long(usp+i+20), get_long(usp+i+24), get_long(usp+i+28)); */
-/*   } */
-/*   printf("*%08x %08x %08x %08x %08x %08x %08x %08x\n", */
-/* 	 get_long(usp+0), get_long(usp+4), get_long(usp+8), get_long(usp+12), */
-/* 	 get_long(usp+16), get_long(usp+20), get_long(usp+24), get_long(usp+28)); */
-/*   for (i = 32; i < 128; i += 32) { */
-/*     printf(" %08x %08x %08x %08x %08x %08x %08x %08x\n", */
-/* 	   get_long(usp+i+0), get_long(usp+i+4), get_long(usp+i+8), get_long(usp+i+12), */
-/* 	   get_long(usp+i+16), get_long(usp+i+20), get_long(usp+i+24), get_long(usp+i+28)); */
-/*   } */
-  
   call_time = read_processor_time () - start_time;
 /*   printf("call_time: %lld, syncbase: %ld\n", call_time, syncbase); */
 

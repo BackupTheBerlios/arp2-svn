@@ -8,18 +8,26 @@ enum {
 
 #ifdef BLOMCALL
 
-#include <signal.h>
 #include <setjmp.h>
+#include <signal.h>
+#include <sys/ucontext.h>
+
+#if defined(__linux__)
+# define ucontext kernel_ucontext /* argh!! */
+# include <asm/ucontext.h>
+#else
+# define kernel_ucontext ucontext /* assume libc's and kernel's ucontext match */
+#endif
+
+
 #include "machdep/machdep.h"
 
 #ifndef RED_ZONE_SIZE
 #define RED_ZONE_SIZE 0
 #endif
 
-#define BRESUME_MAGIC 0x42526573756d6530ULL // 'BResume0'
 
-#undef BLOMCALL_USES_OBSOLETE_SIGHANDLER
-#include <sys/ucontext.h>
+#define BRESUME_MAGIC 0x42526573756d6530ULL // 'BResume0'
 
 struct blomcall_context {
     uae_u16           op_resume;
@@ -31,13 +39,8 @@ struct blomcall_context {
     uae_u32           saved_regs[16];
     fptype            saved_fpregs[8];
     uae_u8            saved_stack[128+RED_ZONE_SIZE];
-#ifdef BLOMCALL_USES_OBSOLETE_SIGHANDLER    
-    struct sigcontext sc;
-    struct _fpstate   fp;
-#else
-    ucontext_t        uc;
-    struct _libc_fpstate fp;
-#endif
+    struct kernel_ucontext uc;
+    struct _fpstate        fp;
     sigjmp_buf        emuljmp;
     sigjmp_buf        m68kjmp;
 };
@@ -52,6 +55,7 @@ struct blomcall_segment {
 
 
 int blomcall_init (void);
+void blomcall_destroy(void);
 int blomcall_reset(void);
 unsigned long blomcall_ops(uae_u32 opcode, struct regstruct *regs) REGPARAM;
 
