@@ -48,13 +48,13 @@ volatile int blomcall_cycles;
 volatile int blomcall_counter;
 volatile int blomcall_code;
 
-/*** Macros *******************************************************************/
+/*** Macros ******************************************************************/
 
 #define limited_cycles(x) ((x) < 1000 ? (x) : 1000)
 
 #if defined (__i386__)
 # define get_jmpbuf_sp(jb) ((uintptr_t) ((jb)[0]->__jmpbuf[JB_SP]))
-# define get_sigctx_sp(bc) ((uintptr_t) ((bc)->uc.uc_mcontext.gregs[REG_ESP]))
+# define get_sigctx_sp(bc) ((uintptr_t) ((bc)->uc.uc_mcontext.esp))
 #elif defined (__x86_64__)
 # define get_jmpbuf_sp(jb) ((uintptr_t) ((jb)[0]->__jmpbuf[JB_RSP]))
 # define get_sigctx_sp(bc) ((uintptr_t) ((bc)->uc.uc_mcontext.rsp))
@@ -63,7 +63,7 @@ volatile int blomcall_code;
 #endif
 
 
-/*** Globals ******************************************************************/
+/*** Globals *****************************************************************/
 
 static int                      blomcall_enable = 0;
 static timer_t                  blomcall_timer;
@@ -81,7 +81,7 @@ static const struct itimerspec blomcall_timer_cont = {
 };
 
 
-/*** Direct 1:1 access memory *************************************************/
+/*** Direct 1:1 access memory ************************************************/
 
 static uae_u32 directmem_lget (uaecptr) REGPARAM;
 static uae_u32 directmem_wget (uaecptr) REGPARAM;
@@ -139,7 +139,7 @@ addrbank directmem_bank = {
 };
 
 
-/*** FS/GS segment handling ***************************************************/
+/*** FS/GS segment handling **************************************************/
 
 #if defined (__linux__) && defined (__i386__)
 
@@ -241,7 +241,7 @@ static int install_segment(void) {
 }
 
 
-/*** Code to return back from native code *************************************/
+/*** Code to return back from native code ************************************/
 
 uae_u32 __blomcall_callfunc68k(uae_u32 args[16], fptype fp[8], uae_u32 addr) REGPARAM;
 uae_u32 REGPARAM2 __blomcall_callfunc68k(uae_u32 args[16], fptype fp[8], uae_u32 addr) {
@@ -341,7 +341,7 @@ blomcall_callfunc68k: 					\n\
 	jmp	*%ecx					\n\
 ");
 
-#define blomcall_exit   __blomcall_exit 
+# define blomcall_exit   __blomcall_exit 
 
 #elif defined (__x86_64__)
 
@@ -430,7 +430,7 @@ static void blomcall_resume_handler(int x, siginfo_t* si, void* extra) {
 }
 
 
-/*** Initialization code ******************************************************/
+/*** Initialization code *****************************************************/
 
 int blomcall_init (void) {
   stack_t ss;
@@ -491,7 +491,7 @@ int blomcall_init (void) {
     return 0;
   }
 
-  // Start it
+  // Start it (but signals are still blocked)
   if (timer_settime(blomcall_timer, 0, &blomcall_timer_cont, NULL) == -1) {
     perror("timer_settime");
     return 0;
@@ -523,6 +523,9 @@ void blomcall_destroy(void) {
   struct sigaction sa;
   stack_t ss;
 
+  // Delete timer
+  timer_delete(&blomcall_timer);
+
   // Restore signal handlers
   sa.sa_handler = SIG_DFL;
   sigemptyset(&sa.sa_mask);
@@ -542,12 +545,9 @@ void blomcall_destroy(void) {
 
   sigaltstack(&ss, NULL);
   free(sighandler_stack);
-
-  // Delete timer
-  timer_delete(&blomcall_timer);
 }
 
-/*** Opcode handling **********************************************************/
+/*** Opcode handling *********************************************************/
 
 #include <byteswap.h>
 
