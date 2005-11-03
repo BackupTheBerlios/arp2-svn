@@ -18,6 +18,8 @@
 
 #define _GNU_SOURCE
 
+#include <inttypes.h>
+#include <pthread.h>
 #include <setjmp.h>
 #include <signal.h>
 #include <stdint.h>
@@ -25,15 +27,11 @@
 #include <stdlib.h>
 #include <time.h>
 #include <unistd.h>
-#include <pthread.h>
-#include <inttypes.h>
 
 #include "sysconfig.h"
 #include "sysdeps.h"
 
-#include "config.h"
 #include "options.h"
-//#include "events.h" //fixme
 #include "uae.h"
 #include "memory.h"
 #include "custom.h"
@@ -44,13 +42,10 @@
 # error NATMEM_OFFSET must be 0!
 #endif
 
-volatile int blomcall_cycles;
-volatile int blomcall_counter;
-volatile int blomcall_code;
-
 /*** Macros ******************************************************************/
 
-#define limited_cycles(x) ((x) < 1000 ? (x) : 1000)
+// Execute half a raster line at the time
+#define limited_cycles(x) ((x) < 113 ? (x) : 113)
 
 #if defined (__i386__)
 # define get_jmpbuf_sp(jb) ((uintptr_t) ((jb)[0]->__jmpbuf[JB_SP]))
@@ -406,8 +401,6 @@ static void blomcall_timer_handler(int x, siginfo_t* si, void* extra) {
 
   assert (blomcall_ctx != NULL);
 
-  ++blomcall_counter;
-
   blomcall_ctx->uc = *uc;
   blomcall_ctx->fp = *uc->uc_mcontext.fpstate;
 
@@ -524,7 +517,15 @@ void blomcall_destroy(void) {
   stack_t ss;
 
   // Delete timer
-  timer_delete(&blomcall_timer);
+  timer_delete(blomcall_timer);
+
+  // Unblock signals (we will probably get a SIGUSR1 here!)
+  sa.sa_handler = SIG_IGN;
+  sigemptyset(&sa.sa_mask);
+  sa.sa_flags = 0;
+  sigaction(SIGUSR1, &sa, NULL);
+  pthread_sigmask(SIG_UNBLOCK, &blomcall_usr1sigset, NULL);
+  pthread_sigmask(SIG_UNBLOCK, &blomcall_usr2sigset, NULL);
 
   // Restore signal handlers
   sa.sa_handler = SIG_DFL;
@@ -533,10 +534,6 @@ void blomcall_destroy(void) {
 
   sigaction(SIGUSR1, &sa, NULL);
   sigaction(SIGUSR2, &sa, NULL);
-
-  // Unblock signals
-  pthread_sigmask(SIG_UNBLOCK, &blomcall_usr1sigset, NULL);
-  pthread_sigmask(SIG_UNBLOCK, &blomcall_usr2sigset, NULL);
 
   // Disable and restore signal stack to the default
   ss.ss_sp = NULL;
@@ -547,56 +544,16 @@ void blomcall_destroy(void) {
   free(sighandler_stack);
 }
 
-/*** Opcode handling *********************************************************/
 
-#include <byteswap.h>
+volatile long bc_cnt = 0;
 
-#define _LVOOpenLibrary  -0x228
-#define _LVOCloseLibrary -0x19e
-#define _LVOOpenWindowTagList -0x25e
-
-uae_u32 blomcall_test(uae_u32 volatile* regs, double* fregs) REGPARAM;
-
-uae_u32 REGPARAM2 blomcall_test(uae_u32 volatile* regs, double* fregs) {
-  uae_u32 execbase = bswap_32(*(uae_u32*) 4);
-  char intui[] = "intuition.library";
-  uae_u32 intuibase;
-  uae_u32 r[16];
-  uae_u32 tags[] = { 0, 0 };
-
-  r[0+0] = 0;
-  r[8+1] = intui;
-  r[8+6] = execbase;
-  intuibase = blomcall_calllib68k(r, NULL, _LVOOpenLibrary);
-
-  r[8+0] = 0;
-  r[8+1] = tags;
-  r[8+6] = intuibase;
-  blomcall_calllib68k(r, NULL, _LVOOpenWindowTagList);
-  
-  r[8+1] = intuibase;
-  r[8+6] = execbase;
-  blomcall_calllib68k(r, NULL, _LVOCloseLibrary);
-  
-  return execbase;
-  
-/*   int i; */
-/*   char line[100]; */
-
-/*   printf("inside blomcall_test(d0: %08x; d1: %08x; a0: %08x; a1: %08x)\n", */
-/* 	 regs[0], regs[1], regs[8], regs[9]); */
-/*   line[0]=0; */
-/*   while(gets(line) == NULL || line[0] == 0) { */
-/*     if ((get_byte(0xbfe001) & (1<<6)) == 0) { */
-/*       break; */
-/*     } */
-/*   } */
-
-/*   printf("line is '%s'\n", line); */
-
-/*   return atoi(line); */
+void blomcall_test() {
+  while(1) {
+    ++bc_cnt;
+  }
 }
 
+/*** Opcode handling *********************************************************/
 
 unsigned long REGPARAM2 blomcall_ops (uae_u32 opcode, struct regstruct* regs) {
   static unsigned long remaining_cycles = 0;
@@ -623,16 +580,11 @@ unsigned long REGPARAM2 blomcall_ops (uae_u32 opcode, struct regstruct* regs) {
 
     assert (blomcall_ctx->magic == BRESUME_MAGIC &&
 	    blomcall_ctx->saved_stack_bytes <= sizeof (blomcall_ctx->saved_stack));
-    
-/*     printf("BRESUME: stack=%08x context=%p\n", */
-/* 	   m68k_areg (regs, 7), blomcall_ctx); */
   }
   else {
     uae_u32 bcctx;
 
     // TODO: Cache and reuse used contexts
-//    blomcall_ctx = sbrk(sizeof (struct blomcall_context));
-//    assert(blomcall_ctx != (void*) -1);
     blomcall_ctx = malloc (sizeof (struct blomcall_context));
 
     blomcall_ctx->op_resume         = OP_BRESUME;
@@ -646,6 +598,7 @@ unsigned long REGPARAM2 blomcall_ops (uae_u32 opcode, struct regstruct* regs) {
 
     // Make sure the emulation can access this address
     assert ((((uae_u64) (uintptr_t) blomcall_ctx) & 0xffffffff00000000ULL) == 0);
+
     bcctx = ((uae_u32) (uintptr_t) blomcall_ctx) & 0xffff0000;
     put_mem_bank (bcctx, &directmem_bank, 0);
   }
@@ -673,8 +626,8 @@ unsigned long REGPARAM2 blomcall_ops (uae_u32 opcode, struct regstruct* regs) {
 		       (void*) blomcall_exit :
 		       (void*) blomcall_exitnr);
 
-	newpc = blomcall_test;
-	
+//	newpc = blomcall_test;
+
 	assert ((((uae_u64) (uintptr_t) retpc) & 0xffffffff00000000ULL) == 0);
 
 	m68k_setpc(blomcall_ctx->regs, (uae_u32) (uintptr_t) blomcall_ctx);
@@ -800,21 +753,30 @@ unsigned long REGPARAM2 blomcall_ops (uae_u32 opcode, struct regstruct* regs) {
       put_long(m68k_areg(blomcall_ctx->regs, 7), (uae_u32) (uintptr_t) blomcall_ctx);
       break;
     }    
+
+    default:
+      // Never reached
+      abort();
   }
 
   // BJMP/BRESUME not active at this point
   blomcall_ctx = NULL;
 
   call_time = read_processor_time () - start_time;
-/*   printf("call_time: %lld, syncbase: %ld\n", call_time, syncbase); */
 
-  blomcall_cycles += (unsigned long) ((double) call_time / syncbase * 7.09e6 * 0.5);
-/*   printf("%10.3g; ",  (double) call_time * 16 / 2e9 * 7.14e6 * 256); */
+  remaining_cycles = (unsigned long) ((double) call_time / syncbase * 7.09e6);
 
-  remaining_cycles = (unsigned long) ((double) call_time / syncbase * 7.09e6 * 0.5);
-  remaining_cycles *= 3;
+/*   { */
+/*     static int c = 0; */
+    
+/*     ++c; */
+/*     if ((c % 10) == 0) { */
+/*       printf("c: %d, bc_cnt: %ld, call_time: %ld, syncbase: %ld, cycles; %ld     \r", */
+/* 	     c, bc_cnt / 1000000, call_time, syncbase, remaining_cycles); */
+/*     } */
+/*   } */
+
   cycles = limited_cycles(remaining_cycles);
-/*   printf("exit cycles: %ld/%ld\n", cycles, remaining_cycles); */
   remaining_cycles -= cycles;
   return cycles;
 }
