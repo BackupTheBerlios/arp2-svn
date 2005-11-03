@@ -764,7 +764,8 @@ unsigned long REGPARAM2 blomcall_ops (uae_u32 opcode, struct regstruct* regs) {
 
   call_time = read_processor_time () - start_time;
 
-  remaining_cycles = (unsigned long) ((double) call_time / syncbase * 7.09e6);
+  remaining_cycles = (unsigned long) ((double) call_time / 
+				      syncbase * 7.16e6 * 1.2 /* lie some */);
 
 /*   { */
 /*     static int c = 0; */
