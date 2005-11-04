@@ -120,17 +120,25 @@ static RETSIGTYPE alarmhandler(int foo)
 #endif
 {
     frame_time_t bar;
+    struct sigaction sa;
+    sa.sa_flags = SA_RESTART;
+#ifdef SA_ONSTACK
+    sa.sa_flags |= SA_ONSTACK;
+#endif
+    sigemptyset (&sa.sa_mask);
     bar = read_processor_time ();
     if (! first_loop && bar - last_time < best_time)
 	best_time = bar - last_time;
     first_loop = 0;
     if (--loops_to_go > 0) {
-	signal (SIGALRM, alarmhandler);
+	sa.sa_handler = alarmhandler;
+	sigaction (SIGALRM, &sa, NULL);
 	last_time = read_processor_time ();
 	set_the_alarm ();
     } else {
 	alarm (0);
-	signal (SIGALRM, SIG_IGN);
+	sa.sa_handler = SIG_IGN;
+	sigaction (SIGALRM, &sa, NULL);
     }
 }
 #endif /* USE_ALARM */
@@ -153,13 +161,21 @@ int machdep_inithrtimer (void)
     static int done = 0;
 
     if (!done) {
+	struct sigaction sa;
+	sa.sa_flags = SA_RESTART;
+#ifdef SA_ONSTACK
+	sa.sa_flags |= SA_ONSTACK;
+#endif
+	sigemptyset (&sa.sa_mask);
 	rpt_available = 1;
 
 	write_log ("Testing the RDTSC instruction ... ");
-	signal (SIGILL, illhandler);
+	sa.sa_handler = illhandler;
+	sigaction (SIGILL, &sa, NULL);
 	if (setjmp (catch_test) == 0)
 	    read_processor_time ();
-	signal (SIGILL, SIG_DFL);
+	sa.sa_handler = SIG_DFL;
+	sigaction (SIGILL, &sa, NULL);
 	write_log ("done.\n");
 
 	if (! rpt_available) {
@@ -178,6 +194,14 @@ int machdep_inithrtimer (void)
 #endif
 
 	if (timebase <= 0) {
+#ifdef USE_ALARM
+	    struct sigaction sa;
+	    sa.sa_flags = SA_RESTART;
+#ifdef SA_ONSTACK
+	    sa.sa_flags |= SA_ONSTACK;
+#endif
+	    sigemptyset (&sa.sa_mask);
+#endif
 
 	    write_log ("Calibrating TSC frequency...");
 	    flush_log ();
@@ -186,7 +210,8 @@ int machdep_inithrtimer (void)
 	    loops_to_go = 5;
 
 #ifdef USE_ALARM
-	    signal (SIGALRM, alarmhandler);
+	    sa.sa_handler = alarmhandler;
+	    sigaction (SIGALRM, &sa, NULL);
 #endif
 
  	    /* We want exact values... */

@@ -5615,7 +5615,23 @@ void build_comp(void)
 #ifdef NATMEM_OFFSET
     write_log ("JIT: Setting signal handler\n");
 #ifndef _WIN32
+#ifdef HAVE_SIGACTION
+    {
+	struct sigaction sa;
+	sa.sa_handler = vec;
+	sa.sa_flags = 0;
+#ifdef SA_RESTART
+	sa.sa_flags = SA_RESTART;
+#endif
+#ifdef SA_ONSTACK
+	sa.sa_flags |= SA_ONSTACK;
+#endif
+	sigemptyset (&sa.sa_mask);
+	sigaction (SIGSEGV, &sa, NULL);
+    }
+#else
     signal(SIGSEGV,vec);
+#endif
 #endif
 #endif
     write_log ("JIT: Building Compiler function table\n");

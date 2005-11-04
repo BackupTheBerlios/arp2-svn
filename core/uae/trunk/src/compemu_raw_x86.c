@@ -2377,7 +2377,17 @@ static void vec(int x, struct sigcontext sc)
 	   "This shouldn't happen ;-)\n");
     flush_log ();
 #endif
+#ifdef HAVE_SIGACTION
+    {
+	struct sigaction sa;
+	sa.sa_handler = SIG_DFL;
+	sa.sa_flags = 0;
+	sigemptyset(&sa.sa_mask);
+	sigaction(SIGSEGV, &sa, NULL);  /* returning here will cause a "real" SEGV */
+    }
+#else
     signal(SIGSEGV,SIG_DFL);  /* returning here will cause a "real" SEGV */
+#endif
 }
 #endif
 #endif

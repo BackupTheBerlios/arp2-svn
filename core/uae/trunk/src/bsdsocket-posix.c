@@ -1419,8 +1419,25 @@ void bsdlib_install (void)
 #ifdef BSDSOCKET
     uae_sem_init (&key_sem, 0, 1);
 
+#ifdef HAVE_SIGACTION
+    {
+	struct sigaction sa, oldsa;
+	sigemptyset (&sa.sa_mask);
+	sa.sa_flags = 0;
+#ifdef SA_RESTART
+	sa.sa_flags = SA_RESTART;
+#endif
+#ifdef SA_ONSTACK
+	sa.sa_flags |= SA_ONSTACK;
+#endif
+	sa.sa_handler = sigio_sighandler;
+	sigaction (SIGIO, &sa, &oldsa);
+	DEBUG_LOG ("bsdlib_install: SIGIO was %d\n", oldsa.sa_handler);
+    }
+#else
     foo = (long) signal (SIGIO, sigio_sighandler);
     DEBUG_LOG ("bsdlib_install: SIGIO was %d\n", foo);
+#endif
     bsdlib_reset ();
 #endif
 }

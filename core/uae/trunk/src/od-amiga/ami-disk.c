@@ -320,13 +320,14 @@ int readdevice(char *name, char *dst)
     int   device_unit;
     int   retstatus = 0;
 #ifdef HAVE_SIGACTION
-    struct sigaction oldsa;
+    struct sigaction sa, oldsa;
     int oldsa_valid;
 
     /* disable break */
-    oldsa_valid = (0==sigaction(SIGINT, NULL, &oldsa));
-    signal(SIGINT, SIG_IGN); /* <--- gcc complains about something */
-                             /* in there but I don't know why. */
+    sa.sa_handler = SIG_IGN;
+    sa.sa_flags = 0;
+    sigemptymask(&sa.sa_mask);
+    oldsa_valid = (0==sigaction(SIGINT, &sa, &oldsa));
 #endif
 
     /* get device name & unit */

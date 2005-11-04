@@ -21,6 +21,8 @@
  */
 #include <signal.h>
 
+void setup_brkhandler (void);
+
 #ifdef __cplusplus
 static RETSIGTYPE sigbrkhandler(...)
 #else
@@ -30,7 +32,7 @@ static RETSIGTYPE sigbrkhandler (int foo)
     activate_debugger ();
 
 #if !defined(__unix) || defined(__NeXT__)
-    signal (SIGINT, sigbrkhandler);
+    setup_brkhandler ();
 #endif
 }
 
@@ -42,6 +44,9 @@ void setup_brkhandler (void)
     sa.sa_flags = 0;
 #ifdef SA_RESTART
     sa.sa_flags = SA_RESTART;
+#endif
+#ifdef SA_ONSTACK
+    sa.sa_flags |= SA_ONSTACK;
 #endif
     sigemptyset (&sa.sa_mask);
     sigaction (SIGINT, &sa, NULL);

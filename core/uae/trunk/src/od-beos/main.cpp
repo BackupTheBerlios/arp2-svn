@@ -95,6 +95,9 @@ void setup_brkhandler (void)
     struct sigaction sa;
     sa.sa_handler = sigbrkhandler;
     sa.sa_flags = 0;
+#ifdef SA_ONSTACK
+    sa.sa_flags |= SA_ONSTACK;
+#endif
     sigemptyset (&sa.sa_mask);
     sigaction (SIGINT, &sa, NULL);
 }
