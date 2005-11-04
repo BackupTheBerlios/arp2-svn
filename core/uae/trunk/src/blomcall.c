@@ -544,15 +544,6 @@ void blomcall_destroy(void) {
   free(sighandler_stack);
 }
 
-
-volatile long bc_cnt = 0;
-
-void blomcall_test() {
-  while(1) {
-    ++bc_cnt;
-  }
-}
-
 /*** Opcode handling *********************************************************/
 
 unsigned long REGPARAM2 blomcall_ops (uae_u32 opcode, struct regstruct* regs) {
@@ -625,8 +616,6 @@ unsigned long REGPARAM2 blomcall_ops (uae_u32 opcode, struct regstruct* regs) {
 	void* retpc = (opcode == OP_BJMP ?
 		       (void*) blomcall_exit :
 		       (void*) blomcall_exitnr);
-
-//	newpc = blomcall_test;
 
 	assert ((((uae_u64) (uintptr_t) retpc) & 0xffffffff00000000ULL) == 0);
 
