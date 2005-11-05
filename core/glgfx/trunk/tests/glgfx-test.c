@@ -114,11 +114,11 @@ int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) 
 	    }
 	  }
 #if UPLOAD_MODE == 0
-	  glgfx_bitmap_update(bm, 
+	  glgfx_bitmap_update(bm,
 			      glgfx_bitmap_tag_width,       width,
 			      glgfx_bitmap_tag_height,      height,
-			      glgfx_bitmap_tag_data,        data, 
-			      glgfx_bitmap_tag_format,      PIXEL_FORMAT, 
+			      glgfx_bitmap_tag_data,        data,
+			      glgfx_bitmap_tag_format,      PIXEL_FORMAT,
 			      glgfx_tag_end);
 #endif
 #if UPLOAD_MODE == 1
