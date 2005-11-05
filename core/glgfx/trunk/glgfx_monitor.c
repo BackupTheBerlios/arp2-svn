@@ -1,6 +1,7 @@
 
 #include "glgfx-config.h"
 
+#define GLX_GLXEXT_PROTOTYPES
 #include <errno.h>
 #include <inttypes.h>
 #include <setjmp.h>
@@ -12,7 +13,9 @@
 #include "glgfx_monitor.h"
 #include "glgfx_intern.h"
 
+#include <GL/glxext.h>
 #include <X11/extensions/xf86dga.h>
+
 
 #define glXChooseVisualAttrs(d, s, tag1 ...) \
   ({ int _attrs[] = { tag1 }; glXChooseVisual((d), (s), _attrs); })
@@ -20,14 +23,8 @@
 struct glgfx_monitor* glgfx_monitor_create(char const* display_name,
 					   struct glgfx_monitor const* friend) {
   struct glgfx_monitor* monitor;
-  sigjmp_buf jmpbuf;
-  struct sigaction sa, old_sa;
 
   errno = EAGAIN;
-
-  void handler() {
-    siglongjmp(jmpbuf, 1);
-  }
 
   monitor = calloc(1, sizeof (*monitor));
 
@@ -41,25 +38,7 @@ struct glgfx_monitor* glgfx_monitor_create(char const* display_name,
 
   monitor->friend = friend;
   
-  sa.sa_handler = (__sighandler_t) handler;
-  sigemptyset(&sa.sa_mask);
-  sa.sa_flags = 0;
-
-  sigaction(SIGALRM, &sa, &old_sa);
-
-  // Don't spend more than one second trying to find a display
-  // Yeah ... it's ugly and might cause resource leaks.
-  alarm(1);
-
-  if (sigsetjmp(jmpbuf, 1) == 0) {
-    monitor->display = XOpenDisplay(display_name);
-  }
-  else {
-    monitor->display = 0;
-  }
-
-  alarm(0);
-  sigaction(SIGALRM, &old_sa, NULL);
+  monitor->display = XOpenDisplay(display_name);
 
   if (monitor->display == NULL) {
     glgfx_monitor_destroy(monitor);

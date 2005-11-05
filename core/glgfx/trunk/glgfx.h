@@ -4,12 +4,8 @@
 #include <stdbool.h>
 #include <inttypes.h>
 
-bool glgfx_init(void);
-void glgfx_cleanup();
-bool glgfx_create_monitors(void);
-void glgfx_destroy_monitors(void);
-bool glgfx_waitblit(void);
-bool glgfx_swapbuffers(void);
+
+/*** Tag handling ************************************************************/
 
 enum glgfx_tag {
   glgfx_tag_done   = 0,
@@ -27,6 +23,28 @@ struct glgfx_tagitem {
 
 struct glgfx_tagitem* glgfx_nexttagitem(struct glgfx_tagitem** taglist_ptr);
 
+
+/*** Montor handling *********************************************************/
+
+enum glgfx_init_tag {
+  glgfx_init_unknown = glgfx_tag_user,
+  
+  glgfx_init_display,	/* data is display name string */
+  
+  glgfx_init_max
+};
+
+
+bool glgfx_init(void);
+void glgfx_cleanup();
+bool glgfx_create_monitors(struct glgfx_tagitem* tags);
+void glgfx_destroy_monitors(void);
+bool glgfx_waitblit(void);
+bool glgfx_swapbuffers(void);
+
+
+/*** Private stuff ***********************************************************/
+
 struct glgfx_monitor;
 #define max_monitors  8               // Four cards, two outputs/card max
 extern int                   glgfx_num_monitors;
@@ -37,4 +55,3 @@ extern struct glgfx_monitor* glgfx_monitors[max_monitors];
 void glgfx_check_error(char const* func, char const* file, int line);
 
 #endif /* ARP2_glgfx_glgfx_h */
-

@@ -58,42 +58,38 @@ void glgfx_cleanup() {
 }
 
 
-bool glgfx_create_monitors(void) {
+bool glgfx_create_monitors(struct glgfx_tagitem* tags) {
   bool rc;
-  char name[8];
-  int display;
-  int screen;
   struct glgfx_monitor* friend = NULL;
+  struct glgfx_tagitem* taglist = tags;
+  struct glgfx_tagitem* tag;
 
   pthread_mutex_lock(&glgfx_mutex);
   
   glgfx_destroy_monitors();
 
   glgfx_num_monitors = 0;
-  
-  for (display = 0; glgfx_num_monitors < max_monitors; ++display) {
-    for (screen = 0; glgfx_num_monitors < max_monitors; ++screen) {
-      sprintf(name, ":%d.%d", display, screen);
 
-      glgfx_monitors[glgfx_num_monitors] = glgfx_monitor_create(name, friend);
+  while ((tag = glgfx_nexttagitem(&taglist)) != NULL) {
+    switch ((enum glgfx_init_tag) tag->tag) {
 
-      if (glgfx_monitors[glgfx_num_monitors] == NULL) {
-	if (errno == ENXIO) {
-	  break;
+      case glgfx_init_display: {
+	char const* name = (char const*) tag->data;
+
+	glgfx_monitors[glgfx_num_monitors] = glgfx_monitor_create(name, friend);
+
+	if (glgfx_monitors[glgfx_num_monitors] != NULL) {
+	  friend = glgfx_monitors[glgfx_num_monitors];
+      
+	  ++glgfx_num_monitors;
 	}
-	else {
-	  continue;
-	}
+
+	break;
       }
 
-      friend = glgfx_monitors[glgfx_num_monitors];
-      
-      ++glgfx_num_monitors;
-    }
-
-    if (screen == 0) {
-      // Failed to open display ":x.0"
-      break;
+      case glgfx_init_unknown:
+      case glgfx_init_max:
+	break;
     }
   }
  
@@ -150,7 +146,7 @@ void glgfx_check_error(char const* func, char const* file, int line) {
   GLenum error = glGetError();
 
   if (error != 0) {
-    char const* msg = gluErrorString(error);
+    char const* msg = (char const*) gluErrorString(error);
     
     BUG("OpenGL error %d %s:%d (%s): %s\n", error, file, line, func, msg);
     abort();
