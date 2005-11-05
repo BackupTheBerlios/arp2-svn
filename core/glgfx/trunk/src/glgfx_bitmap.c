@@ -263,8 +263,8 @@ bool glgfx_bitmap_unlock(struct glgfx_bitmap* bitmap,
 
   pthread_mutex_lock(&glgfx_mutex);
 
-  if (bitmap->monitor->have_GL_ARB_pixel_buffer_object) {
-    if (bitmap->locked_memory != NULL) {
+  if (bitmap->locked_memory != NULL) {
+    if (bitmap->monitor->have_GL_ARB_pixel_buffer_object) {
       glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, bitmap->pbo);
       if (glUnmapBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB)) {
 	rc = true;
@@ -285,20 +285,17 @@ bool glgfx_bitmap_unlock(struct glgfx_bitmap* bitmap,
 	check_error();
 	glPixelStorei(GL_PACK_ROW_LENGTH, 0);
       }
-    
-      bitmap->locked_memory = NULL;
-    }
 
-    glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, 0);
-    check_error();
-  }
-  else {
-    if (bitmap->locked_memory != NULL) {
+      glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, 0);
+      check_error();
+    }
+    else {
       if (width != 0 && height != 0 &&
-	  bitmap->locked_usage & 2) {
+	  (bitmap->locked_access == GL_READ_WRITE_ARB ||
+	   bitmap->locked_access == GL_WRITE_ONLY_ARB)) {
 	glBindTexture(GL_TEXTURE_RECTANGLE_ARB, bitmap->texture);
 	check_error();
-
+	
 	glPixelStorei(GL_PACK_ROW_LENGTH, bitmap->width);
 	glTexSubImage2D(GL_TEXTURE_RECTANGLE_ARB, 0,
 			0, 0, width, height,
@@ -307,10 +304,10 @@ bool glgfx_bitmap_unlock(struct glgfx_bitmap* bitmap,
 			(void*) (bitmap->buffer + x + y * bitmap->pbo_bytes_per_row));
 	check_error();
 	glPixelStorei(GL_PACK_ROW_LENGTH, 0);
+      }
     }
-    
-      bitmap->locked_memory = NULL;
-    }
+
+    bitmap->locked_memory = NULL;
   }
 
   bitmap->locked = false;
