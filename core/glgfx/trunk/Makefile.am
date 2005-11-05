@@ -1,6 +1,6 @@
 ## Process this file with automake to produce Makefile.in
 
-AM_CPPFLAGS		= -I$(srcdir)/src
+INCLUDES		= -I$(srcdir)/src
 
 include_HEADERS		= \
 			src/glgfx.h \

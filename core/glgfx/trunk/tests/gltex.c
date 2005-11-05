@@ -37,7 +37,7 @@ void display(void) {
 		  0, 0, width, height,
 		  format, type,
 		  buf);
-  int x;
+  size_t x;
 
   for (x = 0; x < width*height; ++x) {
     buf[x] = 0;
@@ -83,7 +83,7 @@ void display(void) {
     secs /= cnt;
     cnt = 0;
     
-    printf("%dx%dx%d textels *2 in %f milliseconds; %f Mtextels/s; %f MiB/s\n",
+    printf("%zdx%zdx%zd textels *2 in %f milliseconds; %f Mtextels/s; %f MiB/s\n",
 	   width, height, sizeof *buf, secs * 1e3,
 	   2 * width * height / secs / 1e6,
 	   2 * width * height * (sizeof *buf) / secs / 1024 / 1024);
@@ -127,12 +127,12 @@ int main(int argc, char** argv) {
 	       NULL);
   buf = calloc(width * height, sizeof *buf);
 
-  int x, y;
+  size_t x, y;
   for (y = 0; y < height; ++y) {
     uint32_t* line = buf + width * y;
 
     for (x = 0; x < width; ++x) {
-      line[x] = (0xff * x / width) | (0xff00 * y / height) & 0xff00;
+      line[x] = (0xff * x / width) | ((0xff00 * y / height) & 0xff00);
     }
   }
   
