@@ -1,3 +1,9 @@
+2005-11-05  Martin Blom  <martin@blom.org>
+
+	* glgfx: Cleanup, changed more APIs to use taglists, varargs
+	taglists, runtime-check for pixel_buffer_object, correct
+	initialization of used OpenGL extensions.
+
 2005-03-08  Martin Blom  <martin@blom.org>
 
 	* glgfx: Converted to automake.

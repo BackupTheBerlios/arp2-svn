@@ -2,6 +2,7 @@
 #define _GNU_SOURCE  // for PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP
 #include "glgfx-config.h"
 #include <stdlib.h>
+#include <string.h>
 #include <errno.h>
 #include <pthread.h>
 
@@ -17,19 +18,19 @@ pthread_mutex_t glgfx_mutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
 int                   glgfx_num_monitors;
 struct glgfx_monitor* glgfx_monitors[max_monitors];
 
-struct glgfx_tagitem* glgfx_nexttagitem(struct glgfx_tagitem** taglist_ptr) {
+struct glgfx_tagitem const* glgfx_nexttagitem(struct glgfx_tagitem const** taglist_ptr) {
   if (taglist_ptr == NULL || *taglist_ptr == NULL) {
     return NULL;
   }
 
   while (true) {
     switch ((*taglist_ptr)->tag) {
-      case glgfx_tag_done:
+      case glgfx_tag_end:
 	*taglist_ptr = NULL;
 	return NULL;
 
       case glgfx_tag_more:
-	*taglist_ptr = (struct glgfx_tagitem*) (*taglist_ptr)->data;
+	*taglist_ptr = (struct glgfx_tagitem const*) (*taglist_ptr)->data;
 	break;
 
       case glgfx_tag_ignore:
@@ -41,7 +42,7 @@ struct glgfx_tagitem* glgfx_nexttagitem(struct glgfx_tagitem** taglist_ptr) {
 	break;
 
       default: {
-	struct glgfx_tagitem* res = *taglist_ptr;
+	struct glgfx_tagitem const* res = *taglist_ptr;
 
 	++(*taglist_ptr);
 	return res;
@@ -50,19 +51,21 @@ struct glgfx_tagitem* glgfx_nexttagitem(struct glgfx_tagitem** taglist_ptr) {
   }
 }
 
-bool glgfx_init() {
+
+bool glgfx_init_a(struct glgfx_tagitem const* tags) {
+  (void) tags;
   return true;
 }
+
 
 void glgfx_cleanup() {
 }
 
 
-bool glgfx_create_monitors(struct glgfx_tagitem* tags) {
+bool glgfx_create_monitors_a(struct glgfx_tagitem const* tags) {
   bool rc;
   struct glgfx_monitor* friend = NULL;
-  struct glgfx_tagitem* taglist = tags;
-  struct glgfx_tagitem* tag;
+  struct glgfx_tagitem const* tag;
 
   pthread_mutex_lock(&glgfx_mutex);
   
@@ -70,10 +73,10 @@ bool glgfx_create_monitors(struct glgfx_tagitem* tags) {
 
   glgfx_num_monitors = 0;
 
-  while ((tag = glgfx_nexttagitem(&taglist)) != NULL) {
-    switch ((enum glgfx_init_tag) tag->tag) {
+  while ((tag = glgfx_nexttagitem(&tags)) != NULL) {
+    switch ((enum glgfx_create_monitors_tag) tag->tag) {
 
-      case glgfx_init_display: {
+      case glgfx_create_monitors_tag_display: {
 	char const* name = (char const*) tag->data;
 
 	glgfx_monitors[glgfx_num_monitors] = glgfx_monitor_create(name, friend);
@@ -87,8 +90,9 @@ bool glgfx_create_monitors(struct glgfx_tagitem* tags) {
 	break;
       }
 
-      case glgfx_init_unknown:
-      case glgfx_init_max:
+      case glgfx_create_monitors_tag_unknown:
+      case glgfx_create_monitors_tag_max:
+	/* Make compiler happy */
 	break;
     }
   }

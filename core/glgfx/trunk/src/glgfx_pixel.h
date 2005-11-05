@@ -17,7 +17,7 @@ enum glgfx_pixel_format {
   glgfx_pixel_format_a8r8g8b8,
 
   glgfx_pixel_format_max
-};
+} __attribute__((mode(__pointer__)));
 
 enum glgfx_pixel_attr {
   glgfx_pixel_attr_unknown = glgfx_tag_user,
@@ -42,13 +42,18 @@ enum glgfx_pixel_attr {
   glgfx_pixel_attr_alphamask,
   
   glgfx_pixel_attr_max
-};
+} __attribute__((mode(__pointer__)));
 
-enum glgfx_pixel_format glgfx_pixel_getformat(struct glgfx_tagitem* tags);
+enum glgfx_pixel_format glgfx_pixel_getformat_a(struct glgfx_tagitem const* tags);
 
 bool glgfx_pixel_getattr(enum glgfx_pixel_format format,
 			 enum glgfx_pixel_attr attr,
-			 uintptr_t* storage);
+			 intptr_t* storage);
+
+
+#define glgfx_pixel_getformat(tag1, ...) \
+  ({ intptr_t const _tags[] = { tag1, ## __VA_ARGS__ }; \
+    glgfx_pixel_getformat_a((struct glgfx_tagitem const*) _tags); })
 
 
 #endif /* ARP2_glgfx_glgfx_pixel_h */

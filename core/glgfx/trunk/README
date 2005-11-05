@@ -1,42 +1,43 @@
 
-This is a X11 based, OpenGL-accelerated Amiga-like graphics
-library. Currently, it handles "monitors" (some kind of physical
+This is a X11 based, OpenGL-accelerated Amiga-like graphics library.
+Currently, it handles "monitors" (some kind of physical
 screen/display), "bitmaps" (a surface you can draw to and display in
-various ways), "viewports" (a screen area that displays a bitmap),
-"views" (a collection of viewports) and input events from the keyboard
-and the mouse.
+various ways), "viewports" (a screen area that displays one or more
+bitmaps), "views" (a collection of viewports) and input events from
+the keyboard and the mouse.
 
 It is designed to operate at a fixed resolution (like on a flat panel
 or projector setup), but does support custom frame rates for smooth
-video playback at PAL or NTSC speeds.
+video playback at PAL or NTSC speeds (or rather, it will).
 
 In the future, it's going to handle OpenGL for the clients as well,
 sprites, bobs and accelerated rendering into bitmaps.
 
 It requires a modern 3D card (DirectX 8 class or better) and
-top-quality OpenGL drivers. To be honest, I don't expect to to run on
-anything else than NVIDIA's cards.
+top-quality OpenGL drivers.  To be honest, I don't expect to to run on
+anything else than NVIDIA's or ATI's cards.
 
 The following OpenGL extensions are required:
 
- * ARB_texture_rectangle
- * ARB_vertex_buffer_object
- * ARB_vertex_shader
- * EXT_framebuffer_object
- * EXT_pixel_buffer_object
+ * GL_ARB_texture_rectangle/GL_EXT_texture_rectangle
+ * GL_ARB_vertex_buffer_object
+ * GL_ARB_vertex_shader
+ * GL_EXT_framebuffer_object
+ * GL_EXT_pixel_buffer_object
 
 In addition, the following extensions can be used if present but are
 not required:
 
- * ARB_fragment_shader
+ * GLX_SGI_video_sync
+ * GL_ARB_fragment_shader
 
 The following "Amiga" features are currently supported:
 
- * The display is composed from one or more viewports. Each viewport
+ * The display is composed from one or more viewports.  Each viewport
 can display one or more bitmaps (like "dual playfield" but up to at
 least four bitmaps can be used).
 
- * The bitmaps in a viewport can be displayed in a different
+ * Every bitmap in a viewport can be displayed in a different
 resolution, be palette based etc.
 
  * Different viewports can use the same bitmap.
@@ -44,6 +45,6 @@ resolution, be palette based etc.
 The following extra features are on the to-do list:
 
  * It is possible to add one or more GLSL vertex and fragment shaders
-to a viewport. It is also possible, if the hardware supports it, to
+to a viewport.  It is also possible, if the hardware supports it, to
 add more additional GLSL fragment shaders to each individual bitmap in
 a viewport.

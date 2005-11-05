@@ -9,6 +9,9 @@
 #include "glgfx_viewport.h"
 #include "glgfx_input.h"
 
+#include <stdio.h>
+#include <sys/time.h>
+
 #define UPLOAD_MODE 1
 #define DATA_TYPE 1
 
@@ -25,23 +28,13 @@ int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) 
 /*   setenv("__GL_SYNC_TO_VBLANK", "1", 0); */
 /*   setenv("__GL_NV30_EMULATE", "1", 0); */
 
-  if (!glgfx_init()) {
+  if (!glgfx_init(glgfx_tag_end)) {
     return 10;
   }
 
-/* Section "Device" */
-/*     Identifier "NV AGP" */
-/*     Driver     "nvidia" */
-/*     VendorName "nvidia" */
-/*     BusID      "PCI:2:0:0" */
-/*     Option     "NvEmulate" "30" */
-/* EndSection */
-  struct glgfx_tagitem cm_tags[] = {
-    { glgfx_init_display, (uintptr_t) getenv("DISPLAY") },
-    { glgfx_tag_end,      0 }
-  };
-
-  if (glgfx_create_monitors(cm_tags)) {
+  char const* d = getenv("DISPLAY");
+  if (glgfx_create_monitors(glgfx_create_monitors_tag_display, (intptr_t) d,
+			    glgfx_tag_end)) {
     int width = 512;
     int height = 512;
     PIXEL_TYPE* data;
@@ -50,8 +43,13 @@ int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) 
     data = calloc(sizeof (*data), width * height);
 #endif
     
-    struct glgfx_bitmap* bm = glgfx_bitmap_create(width, height, 24, 0, NULL,
-						  PIXEL_FORMAT, glgfx_monitors[0]);
+    struct glgfx_bitmap* bm = glgfx_bitmap_create(glgfx_monitors[0],
+						  glgfx_bitmap_tag_width,  width,
+						  glgfx_bitmap_tag_height, height, 
+						  glgfx_bitmap_tag_bits,   24,
+						  glgfx_bitmap_tag_friend, NULL,
+						  glgfx_bitmap_tag_format, PIXEL_FORMAT,
+						  glgfx_tag_end);
     
     if (bm != NULL) {
 #if UPLOAD_MODE == 1
@@ -60,7 +58,7 @@ int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) 
 	int x, y;
       
 #if UPLOAD_MODE == 1
-	glgfx_bitmap_getattr(bm, glgfx_bitmap_attr_mapaddr, (uintptr_t*) &data);
+	glgfx_bitmap_getattr(bm, glgfx_bitmap_attr_mapaddr, (intptr_t*) &data);
 #endif
 	for (y = 0; y < height; y+=1) {
 	  for (x = 0; x < width; x+=1) {
@@ -69,15 +67,29 @@ int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) 
 	  }
 	}
 #if UPLOAD_MODE == 0
-	glgfx_bitmap_update(bm, 0, 0, width, height, data, PIXEL_FORMAT, sizeof (PIXEL_TYPE) * width);
+	glgfx_bitmap_update(bm, 
+			    glgfx_bitmap_tag_width,       width,
+			    glgfx_bitmap_tag_height,      height,
+			    glgfx_bitmap_tag_data,        data, 
+			    glgfx_bitmap_tag_format,      PIXEL_FORMAT, 
+			    glgfx_tag_end);
 #endif
 #if UPLOAD_MODE == 1
 	glgfx_bitmap_unlock(bm, 0, 0, width, height);
       }
 #endif
 
-      struct glgfx_viewport* vp = glgfx_viewport_create(320, 256, 100, 200);
-      struct glgfx_rasinfo*  ri = glgfx_viewport_addbitmap(vp, bm, 0, 0, 320, 256);
+      struct glgfx_viewport* vp = glgfx_viewport_create(glgfx_viewport_tag_width,   320,
+							glgfx_viewport_tag_height,  256,
+							glgfx_viewport_tag_xoffset, 100,
+							glgfx_viewport_tag_yoffset, 200,
+							glgfx_tag_end);
+      struct glgfx_rasinfo*  ri = glgfx_viewport_addbitmap(vp, bm, 
+							   glgfx_viewport_tag_width,   320,
+							   glgfx_viewport_tag_height,  256,
+							   glgfx_viewport_tag_xoffset, 0,
+							   glgfx_viewport_tag_yoffset, 0,
+							   glgfx_tag_end);
       struct glgfx_view*     v  = glgfx_view_create(glgfx_monitors[0]);
 
       glgfx_view_addviewport(v, vp);
@@ -94,7 +106,7 @@ int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) 
 	  int x, y;
 
 #if UPLOAD_MODE == 1
-	  glgfx_bitmap_getattr(bm, glgfx_bitmap_attr_mapaddr, (uintptr_t*) &data);
+	  glgfx_bitmap_getattr(bm, glgfx_bitmap_attr_mapaddr, (intptr_t*) &data);
 #endif
 	  for (y = 0; y < height; y+=10) {
 	    for (x = 0; x < width; x+=10) {
@@ -102,15 +114,22 @@ int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) 
 	    }
 	  }
 #if UPLOAD_MODE == 0
-	  glgfx_bitmap_update(bm, 0, 0, width, height, data, PIXEL_FORMAT, sizeof (PIXEL_TYPE) * width);
+	  glgfx_bitmap_update(bm, 
+			      glgfx_bitmap_tag_width,       width,
+			      glgfx_bitmap_tag_height,      height,
+			      glgfx_bitmap_tag_data,        data, 
+			      glgfx_bitmap_tag_format,      PIXEL_FORMAT, 
+			      glgfx_tag_end);
 #endif
 #if UPLOAD_MODE == 1
 	  glgfx_bitmap_unlock(bm, 0, 0, width, height);
 	}
 #endif
 
-	glgfx_viewport_move(vp, 100+i*3, 256, 100, i*4-100);
-//	glgfx_viewport_setbitmap(vp, ri, bm, 0, 0, 320, 256);
+	glgfx_viewport_move(vp, 
+			    glgfx_viewport_tag_width,   100+i*3,
+			    glgfx_viewport_tag_yoffset, i*4-100,
+			    glgfx_tag_end);
 	
 	glgfx_view_render(v);
 	glgfx_monitor_waittof(glgfx_monitors[0]);

@@ -1,6 +1,7 @@
 ## Process this file with automake to produce Makefile.in
 
-INCLUDES		= -I$(srcdir)/src
+AM_CPPFLAGS		= -I$(srcdir)/src
+AM_CFLAGS		= -ggdb
 
 include_HEADERS		= \
 			src/glgfx.h \
@@ -17,14 +18,15 @@ bin_PROGRAMS		= tests/glgfx-test tests/gltex
 libglgfx_la_SOURCES	= \
 			src/glgfx.c \
 			src/glgfx_bitmap.c \
+			src/glgfx_glext.c src/glgfx_glext.h \
 			src/glgfx_input.c \
 			src/glgfx_monitor.c \
 			src/glgfx_pixel.c \
 			src/glgfx_view.c \
 			src/glgfx_viewport.c
 
-libglgfx_la_CFLAGS	= @GLIB_CFLAGS@
-libglgfx_la_CPPFLAGS	= -DDEBUG
+libglgfx_la_CFLAGS	= @GLIB_CFLAGS@ -ggdb
+libglgfx_la_CPPFLAGS	= -DDEBUG -I$(srcdir)/src
 libglgfx_la_LIBADD	= @GLIB_LIBS@
 
 tests_glgfx_test_LDADD	= libglgfx.la

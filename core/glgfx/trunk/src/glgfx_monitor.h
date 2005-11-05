@@ -18,7 +18,7 @@ enum glgfx_monitor_attr {
   glgfx_monitor_attr_dotclock,
 
   glgfx_monitor_attr_max
-};
+} __attribute__((mode(__pointer__)));
 
 struct glgfx_monitor* glgfx_monitor_create(char const* display_name,
 					   struct glgfx_monitor const* friend);
@@ -36,7 +36,7 @@ bool glgfx_monitor_swapbuffers(struct glgfx_monitor* monitor);
 
 bool glgfx_monitor_getattr(struct glgfx_monitor* bm,
 			   enum glgfx_monitor_attr attr,
-			   uintptr_t* storage);
+			   intptr_t* storage);
 
 
 

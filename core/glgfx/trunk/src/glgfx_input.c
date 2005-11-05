@@ -311,6 +311,7 @@ bool glgfx_input_release(void) {
   }
 
   void free_event(gpointer* data, gpointer* userdata) {
+    (void) userdata;
     free(data);
   }  
   

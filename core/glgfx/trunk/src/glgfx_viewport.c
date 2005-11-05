@@ -13,8 +13,7 @@
 # define GL_TEXTURE_RECTANGLE_ARB GL_TEXTURE_RECTANGLE_EXT
 #endif
 
-struct glgfx_viewport* glgfx_viewport_create(int width, int height,
-					     int xoffset, int yoffset) {
+struct glgfx_viewport* glgfx_viewport_create_a(struct glgfx_tagitem const* tags) {
   struct glgfx_viewport* viewport;
 
   viewport = calloc(1, sizeof (*viewport));
@@ -23,7 +22,7 @@ struct glgfx_viewport* glgfx_viewport_create(int width, int height,
     return NULL;
   }
 
-  if (!glgfx_viewport_move(viewport, width, height, xoffset, yoffset)) {
+  if (!glgfx_viewport_move_a(viewport, tags)) {
     glgfx_viewport_destroy(viewport);
     return NULL;
   }
@@ -31,22 +30,49 @@ struct glgfx_viewport* glgfx_viewport_create(int width, int height,
   return viewport;
 }
 
-bool glgfx_viewport_move(struct glgfx_viewport* viewport,
-			 int width, int height,
-			 int xoffset, int yoffset) {
-  if (viewport == NULL || width <= 0 || height <= 0) {
+bool glgfx_viewport_move_a(struct glgfx_viewport* viewport,
+			   struct glgfx_tagitem const* tags) {
+  struct glgfx_tagitem const* tag;
+  bool rc = true;
+
+  if (viewport == NULL) {
     return false;
   }
 
   pthread_mutex_lock(&glgfx_mutex);
 
-  viewport->width = width;
-  viewport->height = height;
-  viewport->xoffset = xoffset;
-  viewport->yoffset = yoffset;
+  while ((tag = glgfx_nexttagitem(&tags)) != NULL) {
+    switch ((enum glgfx_viewport_tag) tag->tag) {
+      case glgfx_viewport_tag_width:
+	viewport->width = tag->data;
+	break;
+
+      case glgfx_viewport_tag_height:
+	viewport->height = tag->data;
+	break;
+
+      case glgfx_viewport_tag_xoffset:
+	viewport->xoffset = tag->data;
+	break;
+
+      case glgfx_viewport_tag_yoffset:
+	viewport->yoffset = tag->data;
+	break;
+
+      case glgfx_viewport_tag_unknown:
+      case glgfx_viewport_tag_max:
+	/* Make compiler happy */
+	break;
+    }
+  }
+
+  if (viewport->width <= 0 || 
+      viewport->height <= 0) {
+    rc = false;
+  }
 
   pthread_mutex_unlock(&glgfx_mutex);
-  return true;
+  return rc;
 }
 
 
@@ -68,10 +94,10 @@ void glgfx_viewport_destroy(struct glgfx_viewport* viewport) {
   pthread_mutex_unlock(&glgfx_mutex);
 }
 
-struct glgfx_rasinfo* glgfx_viewport_addbitmap(struct glgfx_viewport* viewport,
-					       struct glgfx_bitmap* bitmap,
-					       int xoffset, int yoffset,
-					       int width, int height) {
+
+struct glgfx_rasinfo* glgfx_viewport_addbitmap_a(struct glgfx_viewport* viewport,
+						 struct glgfx_bitmap* bitmap,
+						 struct glgfx_tagitem const* tags) {
   struct glgfx_rasinfo* rasinfo;
   
   if (viewport == NULL || bitmap == NULL) {
@@ -86,8 +112,7 @@ struct glgfx_rasinfo* glgfx_viewport_addbitmap(struct glgfx_viewport* viewport,
 
   pthread_mutex_lock(&glgfx_mutex);
 
-  if (!glgfx_viewport_setbitmap(viewport, rasinfo, bitmap,
-				xoffset, yoffset, width, height)) {
+  if (!glgfx_viewport_setbitmap_a(viewport, rasinfo, bitmap, tags)) {
     free(rasinfo);
     pthread_mutex_unlock(&glgfx_mutex);
     return NULL;
@@ -98,6 +123,7 @@ struct glgfx_rasinfo* glgfx_viewport_addbitmap(struct glgfx_viewport* viewport,
   pthread_mutex_unlock(&glgfx_mutex);
   return rasinfo;
 }
+
 
 bool glgfx_viewport_rembitmap(struct glgfx_viewport* viewport,
 			      struct glgfx_rasinfo* rasinfo) {
@@ -114,11 +140,12 @@ bool glgfx_viewport_rembitmap(struct glgfx_viewport* viewport,
   return true;
 }
 
-bool glgfx_viewport_setbitmap(struct glgfx_viewport* viewport,
-			      struct glgfx_rasinfo* rasinfo,
-			      struct glgfx_bitmap* bitmap,
-			      int xoffset, int yoffset,
-			      int width, int height) {
+bool glgfx_viewport_setbitmap_a(struct glgfx_viewport* viewport,
+				struct glgfx_rasinfo* rasinfo,
+				struct glgfx_bitmap* bitmap,
+				struct glgfx_tagitem const* tags) {
+  struct glgfx_tagitem const* tag;
+
   if (viewport == NULL || rasinfo == NULL || bitmap == NULL) {
     return false;
   }
@@ -126,10 +153,31 @@ bool glgfx_viewport_setbitmap(struct glgfx_viewport* viewport,
   pthread_mutex_lock(&glgfx_mutex);
 
   rasinfo->bitmap = bitmap;
-  rasinfo->xoffset = xoffset;
-  rasinfo->yoffset = yoffset;
-  rasinfo->width = width;
-  rasinfo->height = height;
+
+  while ((tag = glgfx_nexttagitem(&tags)) != NULL) {
+    switch ((enum glgfx_viewport_tag) tag->tag) {
+      case glgfx_viewport_tag_width:
+	rasinfo->width = tag->data;
+	break;
+
+      case glgfx_viewport_tag_height:
+	rasinfo->height = tag->data;
+	break;
+
+      case glgfx_viewport_tag_xoffset:
+	rasinfo->xoffset = tag->data;
+	break;
+
+      case glgfx_viewport_tag_yoffset:
+	rasinfo->yoffset = tag->data;
+	break;
+
+      case glgfx_viewport_tag_unknown:
+      case glgfx_viewport_tag_max:
+	/* Make compiler happy */
+	break;
+    }
+  }
 
   pthread_mutex_unlock(&glgfx_mutex);
   return true;

@@ -73,75 +73,78 @@ static uint64_t get_alphamask(enum glgfx_pixel_format format) {
   return swap_mask(format, res);
 }
 
-enum glgfx_pixel_format glgfx_pixel_getformat(struct glgfx_tagitem* tags) {
+enum glgfx_pixel_format glgfx_pixel_getformat_a(struct glgfx_tagitem const* tags) {
   int i;
 
   for (i = 1; i < glgfx_pixel_format_max; ++i) {
-    struct glgfx_tagitem* taglist = tags;
-    struct glgfx_tagitem* tag;
+    struct glgfx_tagitem const* taglist = tags;
+    struct glgfx_tagitem const* tag;
 
-    D(BUG("checking format %d\n", i));
-    
     while ((tag = glgfx_nexttagitem(&taglist)) != NULL) {
       switch ((enum glgfx_pixel_attr) tag->tag) {
 	case glgfx_pixel_attr_bytesperpixel:
-	  if (formats[i].size != tag->data) goto next_mode;
+	  if (formats[i].size != (size_t) tag->data) goto next_mode;
 	  break;
 
 	case glgfx_pixel_attr_bigendian:
-	  if (formats[i].is_bigendian != tag->data) goto next_mode;
+	  if (formats[i].is_bigendian != (bool) tag->data) goto next_mode;
 	  break;
 
 	case glgfx_pixel_attr_rgb:
-	  if (formats[i].is_rgb != tag->data) goto next_mode;
+	  if (formats[i].is_rgb != (bool) tag->data) goto next_mode;
 	  break;
   
 	case glgfx_pixel_attr_redbits:
-	  if (formats[i].redbits != tag->data) goto next_mode;
+	  if (formats[i].redbits != (uint8_t) tag->data) goto next_mode;
 	  break;
 
 	case glgfx_pixel_attr_greenbits:
-	  if (formats[i].greenbits != tag->data) goto next_mode;
+	  if (formats[i].greenbits != (uint8_t) tag->data) goto next_mode;
 	  break;
 
 	case glgfx_pixel_attr_bluebits:
-	  if (formats[i].bluebits != tag->data) goto next_mode;
+	  if (formats[i].bluebits != (uint8_t) tag->data) goto next_mode;
 	  break;
 
 	case glgfx_pixel_attr_alphabits:
-	  if (formats[i].alphabits != tag->data) goto next_mode;
+	  if (formats[i].alphabits != (uint8_t) tag->data) goto next_mode;
 	  break;
   
 	case glgfx_pixel_attr_redshift:
-	  if (formats[i].redshift != tag->data) goto next_mode;
+	  if (formats[i].redshift != (uint8_t) tag->data) goto next_mode;
 	  break;
 
 	case glgfx_pixel_attr_greenshift:
-	  if (formats[i].greenshift != tag->data) goto next_mode;
+	  if (formats[i].greenshift != (uint8_t) tag->data) goto next_mode;
 	  break;
 
 	case glgfx_pixel_attr_blueshift:
-	  if (formats[i].blueshift != tag->data) goto next_mode;
+	  if (formats[i].blueshift != (uint8_t) tag->data) goto next_mode;
 	  break;
 
 	case glgfx_pixel_attr_alphashift:
-	  if (formats[i].alphashift != tag->data) goto next_mode;
+	  if (formats[i].alphashift != (uint8_t) tag->data) goto next_mode;
 	  break;
 
 	case glgfx_pixel_attr_redmask:
-	  if (get_redmask(i) != tag->data) goto next_mode;
+	  if (get_redmask(i) != (uint64_t) (uintptr_t) tag->data) goto next_mode;
 	  break;
 
 	case glgfx_pixel_attr_greenmask:
-	  if (get_greenmask(i) != tag->data) goto next_mode;
+	  if (get_greenmask(i) != (uint64_t) (uintptr_t) tag->data) goto next_mode;
 	  break;
 
 	case glgfx_pixel_attr_bluemask:
-	  if (get_bluemask(i) != tag->data) goto next_mode;
+	  if (get_bluemask(i) != (uint64_t) (uintptr_t) tag->data) goto next_mode;
 	  break;
 
 	case glgfx_pixel_attr_alphamask:
-	  if (get_alphamask(i) != tag->data) goto next_mode;
+	  if (get_alphamask(i) != (uint64_t) (uintptr_t) tag->data) goto next_mode;
+	  break;
+
+	case glgfx_pixel_attr_unknown:
+	case glgfx_pixel_attr_max:
+	  /* Make compiler happy */
 	  break;
       }
     }
@@ -164,7 +167,7 @@ enum glgfx_pixel_format glgfx_pixel_getformat(struct glgfx_tagitem* tags) {
 
 bool glgfx_pixel_getattr(enum glgfx_pixel_format format,
 			 enum glgfx_pixel_attr attr,
-			 uintptr_t* storage) {
+			 intptr_t* storage) {
   if (format <= glgfx_pixel_format_unknown || format >= glgfx_pixel_format_max ||
       storage == NULL ||
       attr <= glgfx_pixel_attr_unknown || attr >= glgfx_pixel_attr_max) {

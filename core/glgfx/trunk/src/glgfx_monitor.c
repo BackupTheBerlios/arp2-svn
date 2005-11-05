@@ -1,7 +1,6 @@
 
 #include "glgfx-config.h"
 
-#define GLX_GLXEXT_PROTOTYPES
 #include <errno.h>
 #include <inttypes.h>
 #include <setjmp.h>
@@ -10,6 +9,7 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "glgfx_glext.h"
 #include "glgfx_monitor.h"
 #include "glgfx_intern.h"
 
@@ -20,11 +20,90 @@
 #define glXChooseVisualAttrs(d, s, tag1 ...) \
   ({ int _attrs[] = { tag1 }; glXChooseVisual((d), (s), _attrs); })
 
+
+static bool check_extensions(struct glgfx_monitor* monitor) {
+  void populate(char const* e) {
+    if (e == NULL) {
+      return;
+    }
+
+    char* ext_str  = strdup(e);
+    char* ext_tail = ext_str;
+    char* ext;
+
+    while((ext = strsep(&ext_tail, " ")) != NULL) {
+      if (ext[0] != 0) {
+	if (!g_hash_table_lookup(monitor->extensions, ext)) {
+	  g_hash_table_insert(monitor->extensions, strdup(ext), (gpointer) 1);
+	}
+      }
+    }
+      
+    free(ext_str);
+  }
+
+  populate((char const*) glGetString(GL_EXTENSIONS));
+  populate(glXGetClientString(monitor->display, GLX_EXTENSIONS));
+  populate(glXQueryExtensionsString(monitor->display, 
+				    DefaultScreen(monitor->display)));
+  populate(glXQueryServerString(monitor->display,
+				DefaultScreen(monitor->display), 
+				GLX_EXTENSIONS)); 
+
+  
+
+  // Check for render-to-texture support
+  if (g_hash_table_lookup(monitor->extensions, "GL_EXT_framebuffer_object") != NULL) {
+    monitor->have_GL_EXT_framebuffer_object = true;
+  }
+  else {
+    BUG("Required extension GL_EXT_framebuffer_object missing from display %s!\n",
+	monitor->name);
+  }
+
+  // Check for texture rectangle extension
+  if (g_hash_table_lookup(monitor->extensions, "GL_ARB_texture_rectangle") != NULL ||
+      g_hash_table_lookup(monitor->extensions, "GL_EXT_texture_rectangle") != NULL) {
+    monitor->have_GL_texture_rectangle = true;
+  }
+  else {
+    BUG("Required extension GL_{ARB,EXT}_texture_rectangle missing from display %s!\n",
+	monitor->name);
+  }
+
+  // Check for VBLANK sync
+  if (g_hash_table_lookup(monitor->extensions, "GLX_SGI_video_sync") != NULL) {
+    monitor->have_GLX_SGI_video_sync = true;
+  }
+
+  // Check for GL_ARB_vertex_buffer_object and GL_ARB_pixel_buffer_object
+  if (g_hash_table_lookup(monitor->extensions, "GL_ARB_vertex_buffer_object") != NULL) {
+    monitor->have_GL_ARB_vertex_buffer_object = true;
+
+    if (g_hash_table_lookup(monitor->extensions, "GL_EXT_pixel_buffer_object") != NULL) {
+      monitor->have_GL_ARB_pixel_buffer_object = true;
+    }
+  }
+
+  if (!monitor->have_GL_ARB_pixel_buffer_object) {
+    BUG("Warning: GL_EXT_pixel_buffer_object not supported; will emulate.\n");
+  }
+
+  // Init all extensions we might use
+  glgfx_glext_init();
+
+  // Return true if all required extensions are present
+  return (monitor->have_GL_EXT_framebuffer_object && 
+	  monitor->have_GL_texture_rectangle);
+}
+
+
 struct glgfx_monitor* glgfx_monitor_create(char const* display_name,
 					   struct glgfx_monitor const* friend) {
   struct glgfx_monitor* monitor;
 
-  errno = EAGAIN;
+  // Default error code
+  errno = ENOTSUP;
 
   monitor = calloc(1, sizeof (*monitor));
 
@@ -33,6 +112,15 @@ struct glgfx_monitor* glgfx_monitor_create(char const* display_name,
     return NULL;
   }
 
+  monitor->extensions = g_hash_table_new(g_str_hash, g_str_equal);
+
+  if (monitor->extensions == NULL) {
+    glgfx_monitor_destroy(monitor);
+    errno = ENOMEM;
+    return NULL;
+  }
+
+  D(BUG("Opening display %s\n", display_name));
   monitor->name = strdup(display_name);
   monitor->xa_win_state = None;
 
@@ -45,9 +133,6 @@ struct glgfx_monitor* glgfx_monitor_create(char const* display_name,
     errno = ENXIO;
     return NULL;
   }
-
-  D(BUG("Opened display %s. Extensions: %s\n", display_name,
-	glXQueryExtensionsString(monitor->display, DefaultScreen(monitor->display))));
 
   int dummy;
   if (!XF86DGAQueryExtension(monitor->display, &dummy, &dummy)) {
@@ -128,15 +213,15 @@ struct glgfx_monitor* glgfx_monitor_create(char const* display_name,
     return NULL;
   }
 
-  struct glgfx_tagitem tags[] = {
+  struct glgfx_tagitem const tags[] = {
     { glgfx_pixel_attr_rgb,       true                       },
     { glgfx_pixel_attr_redmask,   monitor->vinfo->red_mask   },
     { glgfx_pixel_attr_greenmask, monitor->vinfo->green_mask },
     { glgfx_pixel_attr_bluemask,  monitor->vinfo->blue_mask  },
-    { glgfx_tag_done,             0                          }
+    { glgfx_tag_end,              0                          }
   };
 
-  monitor->format = glgfx_pixel_getformat(tags);
+  monitor->format = glgfx_pixel_getformat_a(tags);
   
   swa.colormap = XCreateColormap(monitor->display,
 				 RootWindow(monitor->display,
@@ -191,6 +276,12 @@ struct glgfx_monitor* glgfx_monitor_create(char const* display_name,
 		KeyReleaseMask));
   XFlush(monitor->display);
   
+  // Everything is now setup. Check if all the required extensions are present
+  if (!check_extensions(monitor)) {
+    glgfx_monitor_destroy(monitor);
+    return NULL;
+  }
+
   errno = 0;
   return monitor;
 }
@@ -230,6 +321,17 @@ void glgfx_monitor_destroy(struct glgfx_monitor* monitor) {
     XCloseDisplay(monitor->display);
     monitor->display = NULL;
     D(BUG("Closed display.\n"));
+  }
+
+  if (monitor->extensions != NULL) {
+    void cleanup(gpointer key, gpointer value, gpointer userdata) {
+      (void) value;
+      (void) userdata;
+      free(key);
+    }
+
+    g_hash_table_foreach(monitor->extensions, cleanup, NULL);
+    g_hash_table_destroy(monitor->extensions);
   }
 
   free(monitor);
@@ -280,19 +382,18 @@ struct glgfx_context* glgfx_monitor_createcontext(struct glgfx_monitor* monitor)
 
   pthread_mutex_lock(&glgfx_mutex);
 
-  context = glXCreateContext(monitor->display,
-			     monitor->vinfo,
-			     (GLXContext) (monitor->main_context != NULL ? monitor->main_context :
-					   monitor->friend != NULL ? monitor->friend->main_context : NULL),
-			     True);
+  context = glXCreateContext(
+    monitor->display,
+    monitor->vinfo,
+    (GLXContext) (monitor->main_context != NULL ? monitor->main_context :
+		  monitor->friend != NULL ? monitor->friend->main_context : NULL),
+    True);
 
   if (!glXMakeCurrent(monitor->display, monitor->window, context)) {
     BUG("Unable to make GL context current!\n");
     glXDestroyContext(monitor->display, context);
     return NULL;
   }
-
-//  D(BUG("Supported extensions: %s\n", glGetString(GL_EXTENSIONS)));
 
   // Setup a standard integer 2D coordinate system
   glViewport(0, 0, monitor->mode.hdisplay, monitor->mode.vdisplay);
@@ -308,7 +409,8 @@ struct glgfx_context* glgfx_monitor_createcontext(struct glgfx_monitor* monitor)
   return (struct glgfx_context*) context;
 }
 
-void glgfx_monitor_destroycontext(struct glgfx_monitor* monitor, struct glgfx_context* context) {
+void glgfx_monitor_destroycontext(struct glgfx_monitor* monitor,
+				  struct glgfx_context* context) {
   pthread_mutex_lock(&glgfx_mutex);
   glXMakeCurrent(monitor->display, None, NULL);
   glXDestroyContext(monitor->display, (GLXContext) context);
@@ -317,16 +419,17 @@ void glgfx_monitor_destroycontext(struct glgfx_monitor* monitor, struct glgfx_co
 
 static __thread struct glgfx_context* current_context  = NULL;
 
-bool glgfx_monitor_selectcontext(struct glgfx_monitor* monitor, struct glgfx_context* context) {
+bool glgfx_monitor_selectcontext(struct glgfx_monitor* monitor,
+				 struct glgfx_context* context) {
   bool rc;
   
   if (monitor == NULL || context == NULL) {
     return false;
   }
 
-  pthread_mutex_lock(&glgfx_mutex);
-
   if (current_context != context) {
+    pthread_mutex_lock(&glgfx_mutex);
+
     if (glXMakeCurrent(monitor->display,
 		       monitor->window,
 		       (GLXContext) context)) {
@@ -336,18 +439,19 @@ bool glgfx_monitor_selectcontext(struct glgfx_monitor* monitor, struct glgfx_con
     else {
       rc = false;
     }
+
+    pthread_mutex_unlock(&glgfx_mutex);
   }
   else {
     rc = true;
   }
 
-  pthread_mutex_unlock(&glgfx_mutex);
   return rc;
 }
 
 bool glgfx_monitor_getattr(struct glgfx_monitor* monitor,
 			   enum glgfx_monitor_attr attr,
-			   uintptr_t* storage) {
+			   intptr_t* storage) {
   if (monitor == NULL || storage == NULL ||
       attr <= glgfx_monitor_attr_unknown || attr >= glgfx_monitor_attr_max) {
     return false;
@@ -412,22 +516,26 @@ bool glgfx_monitor_swapbuffers(struct glgfx_monitor* monitor) {
 }
 
 bool glgfx_monitor_waittof(struct glgfx_monitor* monitor) {
-  GLuint frame_count;
+  if (monitor->have_GLX_SGI_video_sync) {
+    GLuint frame_count;
   
-  if (!glgfx_monitor_select(monitor)) {
+    if (!glgfx_monitor_select(monitor)) {
+      return false;
+    }
+
+    // Don't lock mutex here, since it will sleep!
+    if (glXGetVideoSyncSGI(&frame_count) != 0) {
+      return false;
+    }
+
+    if (glXWaitVideoSyncSGI(1, 0, &frame_count) != 0) {
+      return false;
+    }
+
+    return true;
+  }
+  else {
+    D(BUG("Don't know how to wait for vertical blank interrupt!\n"));
     return false;
   }
-
-  // Don't lock mutex here, since it will sleep!
-  if (glXGetVideoSyncSGI(&frame_count) != 0) {
-    return false;
-  }
-
-  if (glXWaitVideoSyncSGI(1, 0, &frame_count) != 0) {
-    return false;
-  }
-
-  return true;
 }
-
-

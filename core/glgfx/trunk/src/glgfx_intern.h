@@ -1,15 +1,17 @@
 #ifndef arp2_glgfx_glgfx_intern_h
 #define arp2_glgfx_glgfx_intern_h
 
-#include <stdbool.h>
-#include <inttypes.h>
 #include <glib.h>
+#include <inttypes.h>
+#include <pthread.h>
+#include <stdbool.h>
+#include <stdio.h>
+
 #include <GL/glx.h>
 #include <X11/Xatom.h>
 #include <X11/Xlib.h>
 #include <X11/extensions/xf86vmode.h>
 
-#include <stdio.h>
 #define BUG(...) printf(__VA_ARGS__)
 
 #if defined(DEBUG)
@@ -20,8 +22,7 @@
 
 #include "glgfx_pixel.h"
 
-#include <pthread.h>
-pthread_mutex_t glgfx_mutex;
+extern pthread_mutex_t glgfx_mutex;
 
 struct glgfx_monitor {
     char const*             name;
@@ -37,6 +38,13 @@ struct glgfx_monitor {
     XF86VidModeModeLine     mode;
     int                     dotclock;
     XF86VidModeMonitor      monitor_info;
+
+    GHashTable*             extensions;
+    bool                    have_GL_EXT_framebuffer_object;
+    bool                    have_GL_texture_rectangle;
+    bool                    have_GLX_SGI_video_sync;
+    bool                    have_GL_ARB_vertex_buffer_object;
+    bool                    have_GL_ARB_pixel_buffer_object;
 };
 
 struct glgfx_bitmap {
@@ -44,7 +52,6 @@ struct glgfx_bitmap {
     int                     width;
     int                     height;
     int                     bits;
-    int                     flags;
     enum glgfx_pixel_format format;
     GLuint                  texture;
     union {
