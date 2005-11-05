@@ -8,6 +8,8 @@
 #include "glgfx_glext.h"
 #include "glgfx_intern.h"
 
+#define GL_PIXEL_UNPACK_BUFFER_ARB GL_PIXEL_UNPACK_BUFFER_EXT
+#define GL_PIXEL_PACK_BUFFER_ARB GL_PIXEL_PACK_BUFFER_EXT
 
 static enum glgfx_pixel_format select_format(int bits,
 					     struct glgfx_bitmap* friend,
@@ -287,7 +289,7 @@ bool glgfx_bitmap_unlock(struct glgfx_bitmap* bitmap,
       bitmap->locked_memory = NULL;
     }
 
-    glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, 0);
+    glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, 0);
     check_error();
   }
   else {

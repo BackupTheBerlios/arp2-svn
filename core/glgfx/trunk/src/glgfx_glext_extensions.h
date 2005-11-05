@@ -3,7 +3,6 @@
 /* GLX_SGI_video_sync */
 GLGFX_GLEXT(PFNGLXGETVIDEOSYNCSGIPROC,             glXGetVideoSyncSGI)
 GLGFX_GLEXT(PFNGLXWAITVIDEOSYNCSGIPROC,            glXWaitVideoSyncSGI)
-GLGFX_GLEXT(PFNGLXGETREFRESHRATESGIPROC,           glXGetRefreshRateSGI)
 
 /* GL_ARB_vertex_buffer_object & GL_ARB_pixel_buffer_object */
 GLGFX_GLEXT(PFNGLBINDBUFFERARBPROC,                glBindBufferARB)

@@ -48,7 +48,16 @@ AC_CHECK_LIB([glut],     [gluErrorString],,            [AC_MSG_ERROR([libglut no
 
 # Checks for header files.
 AC_HEADER_STDC
-AC_CHECK_HEADERS([stdlib.h string.h unistd.h],, [AC_MSG_ERROR([Required header file missing])])
+AC_CHECK_HEADERS([stdlib.h string.h unistd.h GL/gl.h GL/glx.h GL/glut.h],, [AC_MSG_ERROR([Required header file missing])])
+AC_CHECK_HEADERS([GL/glATI.h GL/glxATI.h],,,
+[#if HAVE_GL_GL_H
+#include <GL/gl.h>
+#endif
+
+#if HAVE_GL_GLX_H
+#include <GL/glx.h>
+#endif
+])
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_HEADER_STDBOOL
@@ -58,7 +67,7 @@ AC_C_BIGENDIAN
 
 # Checks for library functions.
 AC_TYPE_SIGNAL
-AC_CHECK_FUNCS([alarm setenv strdup])
+AC_CHECK_FUNCS([setenv strdup])
 
 #AC_CONFIG_FILES(
 AC_OUTPUT([Makefile])
