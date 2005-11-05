@@ -535,7 +535,7 @@ bool glgfx_monitor_waittof(struct glgfx_monitor* monitor) {
     return true;
   }
   else {
-    D(BUG("Don't know how to wait for vertical blank interrupt!\n"));
+    //    D(BUG("Don't know how to wait for vertical blank interrupt!\n"));
     return false;
   }
 }
