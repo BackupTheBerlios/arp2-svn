@@ -34,7 +34,7 @@ fi
 CFLAGS="${CFLAGS} ${X_CFLAGS}"
 LIBS="${LIBS} ${X_LIBS} ${X_PRE_LIBS} ${X_EXTRA_LIBS}"
 
-PKG_CHECK_MODULES(GLIB, glib-2.0,, 	AC_ERROR([glib is required]))
+PKG_CHECK_MODULES(GLIB, glib-2.0,,AC_MSG_ERROR([glib is required]))
 AC_SUBST(GLIB_CFLAGS)
 AC_SUBST(GLIB_LIBS)
 			
@@ -49,7 +49,7 @@ AC_CHECK_LIB([glut],     [gluErrorString],,            [AC_MSG_ERROR([libglut no
 
 # Checks for header files.
 AC_HEADER_STDC
-AC_CHECK_HEADERS([stdlib.h string.h unistd.h])
+AC_CHECK_HEADERS([stdlib.h string.h unistd.h],, [AC_MSG_ERROR([Required header file missing])])
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_HEADER_STDBOOL
