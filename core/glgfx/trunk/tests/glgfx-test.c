@@ -36,8 +36,12 @@ int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) 
 /*     BusID      "PCI:2:0:0" */
 /*     Option     "NvEmulate" "30" */
 /* EndSection */
+  struct glgfx_tagitem cm_tags[] = {
+    { glgfx_init_display, (uintptr_t) getenv("DISPLAY") },
+    { glgfx_tag_end,      0 }
+  };
 
-  if (glgfx_create_monitors()) {
+  if (glgfx_create_monitors(cm_tags)) {
     int width = 512;
     int height = 512;
     PIXEL_TYPE* data;

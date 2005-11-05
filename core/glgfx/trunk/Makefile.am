@@ -1,13 +1,30 @@
 ## Process this file with automake to produce Makefile.in
 
-include_HEADERS		= glgfx.h glgfx_monitor.h glgfx_input.h glgfx_pixel.h \
-			  glgfx_view.h glgfx_viewport.h glgfx_bitmap.h
+AM_CPPFLAGS		= -I$(srcdir)/src
+
+include_HEADERS		= \
+			src/glgfx.h \
+			src/glgfx_bitmap.h \
+			src/glgfx_input.h \
+			src/glgfx_monitor.h \
+			src/glgfx_pixel.h \
+			src/glgfx_view.h \
+			src/glgfx_viewport.h
+
 lib_LTLIBRARIES		= libglgfx.la
 bin_PROGRAMS		= tests/glgfx-test tests/gltex
 
-libglgfx_la_SOURCES	= glgfx.c glgfx_monitor.c glgfx_input.c glgfx_pixel.c \
-			  glgfx_view.c glgfx_viewport.c glgfx_bitmap.c
-libglgfx_la_CFLAGS	= @GLIB_CFLAGS@ -DDEBUG
+libglgfx_la_SOURCES	= \
+			src/glgfx.c \
+			src/glgfx_bitmap.c \
+			src/glgfx_input.c \
+			src/glgfx_monitor.c \
+			src/glgfx_pixel.c \
+			src/glgfx_view.c \
+			src/glgfx_viewport.c
+
+libglgfx_la_CFLAGS	= @GLIB_CFLAGS@
+libglgfx_la_CPPFLAGS	= -DDEBUG
 libglgfx_la_LIBADD	= @GLIB_LIBS@
 
 tests_glgfx_test_LDADD	= libglgfx.la
