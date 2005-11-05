@@ -344,7 +344,7 @@ void glgfx_monitor_destroy(struct glgfx_monitor* monitor) {
 void glgfx_monitor_fullscreen(struct glgfx_monitor* monitor, bool fullscreen) {
   long propvalue[3];
 
-  if (monitor == NULL || monitor->display == NULL) {
+  if (monitor == NULL || monitor->display == NULL || monitor->window == 0) {
     return;
   }
 
