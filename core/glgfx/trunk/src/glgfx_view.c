@@ -12,6 +12,7 @@
 struct glgfx_view {
     struct glgfx_monitor* monitor;
     GList*                viewports;
+    GList*                sprites;
 };
 
 struct glgfx_view* glgfx_view_create(struct glgfx_monitor* monitor) {
@@ -86,24 +87,75 @@ int glgfx_view_numviewports(struct glgfx_view* view) {
   return res;
 }
 
-bool glgfx_view_render(struct glgfx_view* view) {
 
-  void render(gpointer* data, gpointer* userdata) {
-    struct glgfx_viewport* viewport = (struct glgfx_viewport*) data;
-    struct glgfx_view* view __attribute__((unused)) = (struct glgfx_view*) userdata;
+bool glgfx_view_addsprite(struct glgfx_view* view,
+			  struct glgfx_sprite* sprite) {
+  if (view == NULL || sprite == NULL) {
+    return false;
+  }
 
-    glDrawBuffer(GL_BACK);
-    glClearColor( 0, 0, 0, 1);
-    glClear(GL_COLOR_BUFFER_BIT);
-    glDisable(GL_BLEND);
-/*     glEnable(GL_BLEND); */
-/*     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); */
-    glgfx_viewport_render(viewport);
+  pthread_mutex_lock(&glgfx_mutex);
+  view->sprites = g_list_append(view->sprites, sprite);
+  pthread_mutex_unlock(&glgfx_mutex);
+
+  return true;
+}
+
+bool glgfx_view_remsprite(struct glgfx_view* view,
+			    struct glgfx_sprite* sprite) {
+  if (view == NULL || sprite == NULL) {
+    return false;
+  }
+
+  pthread_mutex_lock(&glgfx_mutex);
+  view->sprites = g_list_remove(view->sprites, sprite);
+  pthread_mutex_unlock(&glgfx_mutex);
+  return true;
+}
+
+int glgfx_view_numsprites(struct glgfx_view* view) {
+  int res;
+  
+  if (view == NULL) {
+    return 0;
   }
 
   pthread_mutex_lock(&glgfx_mutex);
 
-  g_list_foreach(view->viewports, (GFunc) render, view);
+  res = g_list_length(view->sprites);
+
+  pthread_mutex_unlock(&glgfx_mutex);
+  return res;
+}
+
+bool glgfx_view_render(struct glgfx_view* view) {
+
+  void render_viewport(gpointer* data, gpointer* userdata) {
+    struct glgfx_viewport* viewport = (struct glgfx_viewport*) data;
+    struct glgfx_view* view = (struct glgfx_view*) userdata;
+
+    (void) view;
+    glgfx_viewport_render(viewport);
+  }
+
+  void render_sprite(gpointer* data, gpointer* userdata) {
+    struct glgfx_sprite* sprite = (struct glgfx_sprite*) data;
+    struct glgfx_view* view = (struct glgfx_view*) userdata;
+
+    (void) view;
+    glgfx_sprite_render(sprite);
+  }
+
+  pthread_mutex_lock(&glgfx_mutex);
+
+  glDrawBuffer(GL_BACK);
+  glClearColor( 0, 0, 0, 1);
+  glClear(GL_COLOR_BUFFER_BIT);
+  glDisable(GL_BLEND);
+/*     glEnable(GL_BLEND); */
+/*     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); */
+  g_list_foreach(view->viewports, (GFunc) render_viewport, view);
+  g_list_foreach(view->sprites, (GFunc) render_sprite, view);
 
   pthread_mutex_unlock(&glgfx_mutex);
   return true;

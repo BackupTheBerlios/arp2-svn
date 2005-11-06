@@ -56,6 +56,7 @@ struct glgfx_monitor {
     XF86VidModeMonitor      monitor_info;
 };
 
+
 struct glgfx_bitmap {
     struct glgfx_monitor*   monitor;
     int                     width;
@@ -75,6 +76,7 @@ struct glgfx_bitmap {
     void*                   locked_memory;
 };
 
+
 struct glgfx_rasinfo {
     struct glgfx_bitmap* bitmap;
     int                  xoffset;
@@ -83,12 +85,22 @@ struct glgfx_rasinfo {
     int                  height;
 };
 
+
 struct glgfx_viewport {
     int    width;
     int    height;
     int    xoffset;
     int    yoffset;
     GList* rasinfos;
+};
+
+
+struct glgfx_sprite {
+    struct glgfx_bitmap* bitmap;
+    int                  x;
+    int                  y;
+    int                  width;
+    int                  height;
 };
 
 

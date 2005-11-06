@@ -9,6 +9,7 @@ include_HEADERS		= \
 			src/glgfx_input.h \
 			src/glgfx_monitor.h \
 			src/glgfx_pixel.h \
+			src/glgfx_sprite.h \
 			src/glgfx_view.h \
 			src/glgfx_viewport.h
 
@@ -22,6 +23,7 @@ libglgfx_la_SOURCES	= \
 			src/glgfx_input.c \
 			src/glgfx_monitor.c \
 			src/glgfx_pixel.c \
+			src/glgfx_sprite.c \
 			src/glgfx_view.c \
 			src/glgfx_viewport.c
 

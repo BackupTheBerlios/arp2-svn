@@ -5,6 +5,7 @@
 #include "glgfx_bitmap.h"
 #include "glgfx_monitor.h"
 #include "glgfx_pixel.h"
+#include "glgfx_sprite.h"
 #include "glgfx_view.h"
 #include "glgfx_viewport.h"
 #include "glgfx_input.h"
@@ -39,6 +40,9 @@ int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) 
     int height = 512;
     PIXEL_TYPE* data;
 
+    int mouse_x = 100;
+    int mouse_y = 100;
+
 #if UPLOAD_MODE == 0
     data = calloc(sizeof (*data), width * height);
 #endif
@@ -46,7 +50,7 @@ int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) 
     struct glgfx_bitmap* bm = glgfx_bitmap_create(glgfx_bitmap_tag_width,  width,
 						  glgfx_bitmap_tag_height, height, 
 						  glgfx_bitmap_tag_bits,   24,
-						  glgfx_bitmap_tag_friend, NULL,
+						  glgfx_bitmap_tag_friend, 0,
 						  glgfx_bitmap_tag_format, PIXEL_FORMAT,
 						  glgfx_tag_end);
     
@@ -78,20 +82,29 @@ int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) 
       }
 #endif
 
-      struct glgfx_viewport* vp = glgfx_viewport_create(glgfx_viewport_tag_width,   320,
-							glgfx_viewport_tag_height,  256,
-							glgfx_viewport_tag_xoffset, 100,
-							glgfx_viewport_tag_yoffset, 200,
+      struct glgfx_viewport* vp = glgfx_viewport_create(glgfx_viewport_attr_width, 320,
+							glgfx_viewport_attr_height,256,
+							glgfx_viewport_attr_x,     100,
+							glgfx_viewport_attr_y,     200,
 							glgfx_tag_end);
       struct glgfx_rasinfo*  ri = glgfx_viewport_addbitmap(vp, bm, 
-							   glgfx_viewport_tag_width,   320,
-							   glgfx_viewport_tag_height,  256,
-							   glgfx_viewport_tag_xoffset, 0,
-							   glgfx_viewport_tag_yoffset, 0,
+							   glgfx_rasinfo_attr_width, 320,
+							   glgfx_rasinfo_attr_height,256,
+							   glgfx_rasinfo_attr_x,     0,
+							   glgfx_rasinfo_attr_y,     0,
 							   glgfx_tag_end);
       struct glgfx_view*     v  = glgfx_view_create(glgfx_monitors[0]);
 
       glgfx_view_addviewport(v, vp);
+
+      struct glgfx_sprite* sp = glgfx_sprite_create(glgfx_sprite_attr_width,  32,
+						   glgfx_sprite_attr_height, 32,
+						   glgfx_sprite_attr_bitmap, (intptr_t) bm,
+						   glgfx_tag_end);
+
+      if (sp != NULL) {
+	glgfx_view_addsprite(v, sp);
+      }
 
       glgfx_input_acquire(false);
       int i;
@@ -125,19 +138,31 @@ int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) 
 	}
 #endif
 
-	glgfx_viewport_move(vp, 
-			    glgfx_viewport_tag_width,   100+i*3,
-			    glgfx_viewport_tag_yoffset, i*4-100,
-			    glgfx_tag_end);
+	glgfx_viewport_setattrs(vp,
+				glgfx_viewport_attr_width, 100+i*3,
+				glgfx_viewport_attr_y,     i*4-100,
+				glgfx_tag_end);
 	
+	glgfx_sprite_setattrs(sp, 
+			      glgfx_sprite_attr_x, mouse_x,
+			      glgfx_sprite_attr_y, mouse_y,
+			      glgfx_tag_end);
+
+	glgfx_context_unbindfbo(glgfx_context_getcurrent());
 	glgfx_monitor_waittof(glgfx_monitors[0]);
 	glgfx_view_render(v);
 	glgfx_monitor_swapbuffers(glgfx_monitors[0]);
 
-/* 	enum glgfx_input_code code; */
-/* 	while ((code = glgfx_input_getcode()) != glgfx_input_none) { */
-/* 	  printf("%08lx\n", code); */
-/* 	} */
+	enum glgfx_input_code code;
+	while ((code = glgfx_input_getcode()) != glgfx_input_none) {
+	  if ((code & glgfx_input_typemask) == glgfx_input_mouse_xyz) {
+	    int8_t dx = ((code & glgfx_input_valuemask) >> 0) & 0xff;
+	    int8_t dy = ((code & glgfx_input_valuemask) >> 8) & 0xff;
+
+	    mouse_x += dx;
+	    mouse_y += dy;
+	  }
+	}
       }
       gettimeofday(&e, NULL);
       double sec = (e.tv_sec + e.tv_usec * 1e-6) - (s.tv_sec + s.tv_usec * 1e-6);
@@ -145,7 +170,8 @@ int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) 
       printf("uploaded %d images in %g seconds -> %g fps/%d MB/s\n",
 	     i, sec, i / sec, (int) (i * width * height * sizeof (*data) / sec / 1e6));
       glgfx_input_release();
-	   
+
+      glgfx_sprite_destroy(sp);
       glgfx_viewport_destroy(vp);
     }
     glgfx_bitmap_destroy(bm);

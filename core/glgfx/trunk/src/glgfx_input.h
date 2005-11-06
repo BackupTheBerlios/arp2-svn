@@ -168,11 +168,11 @@ enum glgfx_input_code {
   glgfx_input_term_powerup = 0xfe,
 
   
-  glgfx_input_key          = 0x0000 << 24,
-  glgfx_input_mouse_xyz    = 0x0001 << 24,
-  glgfx_input_mouse_button = 0x0003 << 24,
-  glgfx_input_mouse_vwheel = 0x0004 << 24,
-  glgfx_input_mouse_hwheel = 0x0005 << 24,
+  glgfx_input_key          = 0x00 << 24,
+  glgfx_input_mouse_xyz    = 0x01 << 24,
+  glgfx_input_mouse_button = 0x03 << 24,
+  glgfx_input_mouse_vwheel = 0x04 << 24,
+  glgfx_input_mouse_hwheel = 0x05 << 24,
 
   glgfx_input_releasemask  = 0x80000000,
   glgfx_input_typemask     = 0x7f000000,
