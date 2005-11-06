@@ -36,6 +36,9 @@ struct glgfx_tagitem const* glgfx_nexttagitem(struct glgfx_tagitem const** tagli
 
       case glgfx_tag_more:
 	*taglist_ptr = (struct glgfx_tagitem const*) (*taglist_ptr)->data;
+	if (*taglist_ptr == NULL) {
+	  return NULL;
+	}
 	break;
 
       case glgfx_tag_ignore:
