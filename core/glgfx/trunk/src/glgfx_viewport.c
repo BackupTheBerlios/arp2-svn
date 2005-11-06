@@ -22,57 +22,12 @@ struct glgfx_viewport* glgfx_viewport_create_a(struct glgfx_tagitem const* tags)
     return NULL;
   }
 
-  if (!glgfx_viewport_move_a(viewport, tags)) {
+  if (!glgfx_viewport_setattrs_a(viewport, tags)) {
     glgfx_viewport_destroy(viewport);
     return NULL;
   }
 
   return viewport;
-}
-
-bool glgfx_viewport_move_a(struct glgfx_viewport* viewport,
-			   struct glgfx_tagitem const* tags) {
-  struct glgfx_tagitem const* tag;
-  bool rc = true;
-
-  if (viewport == NULL) {
-    return false;
-  }
-
-  pthread_mutex_lock(&glgfx_mutex);
-
-  while ((tag = glgfx_nexttagitem(&tags)) != NULL) {
-    switch ((enum glgfx_viewport_tag) tag->tag) {
-      case glgfx_viewport_tag_width:
-	viewport->width = tag->data;
-	break;
-
-      case glgfx_viewport_tag_height:
-	viewport->height = tag->data;
-	break;
-
-      case glgfx_viewport_tag_xoffset:
-	viewport->xoffset = tag->data;
-	break;
-
-      case glgfx_viewport_tag_yoffset:
-	viewport->yoffset = tag->data;
-	break;
-
-      case glgfx_viewport_tag_unknown:
-      case glgfx_viewport_tag_max:
-	/* Make compiler happy */
-	break;
-    }
-  }
-
-  if (viewport->width <= 0 || 
-      viewport->height <= 0) {
-    rc = false;
-  }
-
-  pthread_mutex_unlock(&glgfx_mutex);
-  return rc;
 }
 
 
@@ -95,6 +50,84 @@ void glgfx_viewport_destroy(struct glgfx_viewport* viewport) {
 }
 
 
+bool glgfx_viewport_setattrs_a(struct glgfx_viewport* viewport,
+			       struct glgfx_tagitem const* tags) {
+  struct glgfx_tagitem const* tag;
+  bool rc = true;
+
+  if (viewport == NULL) {
+    return false;
+  }
+
+  pthread_mutex_lock(&glgfx_mutex);
+
+  while ((tag = glgfx_nexttagitem(&tags)) != NULL) {
+    switch ((enum glgfx_viewport_attr) tag->tag) {
+      case glgfx_viewport_attr_width:
+	viewport->width = tag->data;
+	break;
+
+      case glgfx_viewport_attr_height:
+	viewport->height = tag->data;
+	break;
+
+      case glgfx_viewport_attr_x:
+	viewport->xoffset = tag->data;
+	break;
+
+      case glgfx_viewport_attr_y:
+	viewport->yoffset = tag->data;
+	break;
+
+      case glgfx_viewport_attr_unknown:
+      case glgfx_viewport_attr_max:
+	/* Make compiler happy */
+	break;
+    }
+  }
+
+  if (viewport->width <= 0 || 
+      viewport->height <= 0) {
+    rc = false;
+  }
+
+  pthread_mutex_unlock(&glgfx_mutex);
+  return rc;
+}
+
+
+bool glgfx_viewport_getattr(struct glgfx_viewport* viewport,
+			    enum glgfx_viewport_attr attr,
+			    intptr_t* storage) {
+  if (viewport == NULL || storage == NULL ) {
+    return false;
+  }
+
+  switch (attr) {
+    case glgfx_viewport_attr_width:
+      *storage = viewport->width;
+      break;
+
+    case glgfx_viewport_attr_height:
+      *storage = viewport->height;
+      break;
+
+    case glgfx_viewport_attr_x:
+      *storage = viewport->xoffset;
+      break;
+
+    case glgfx_viewport_attr_y:
+      *storage = viewport->yoffset;
+      break;
+
+    default:
+      return false;
+  }
+
+  return true;
+}
+
+
 struct glgfx_rasinfo* glgfx_viewport_addbitmap_a(struct glgfx_viewport* viewport,
 						 struct glgfx_bitmap* bitmap,
 						 struct glgfx_tagitem const* tags) {
@@ -112,7 +145,12 @@ struct glgfx_rasinfo* glgfx_viewport_addbitmap_a(struct glgfx_viewport* viewport
 
   pthread_mutex_lock(&glgfx_mutex);
 
-  if (!glgfx_viewport_setbitmap_a(viewport, rasinfo, bitmap, tags)) {
+  struct glgfx_tagitem bm_tags[] = {
+    { glgfx_rasinfo_attr_bitmap, (intptr_t) bitmap },
+    { glgfx_tag_more,            (intptr_t) tags }
+  };
+
+  if (!glgfx_rasinfo_setattrs_a(rasinfo, bm_tags)) {
     free(rasinfo);
     pthread_mutex_unlock(&glgfx_mutex);
     return NULL;
@@ -140,48 +178,85 @@ bool glgfx_viewport_rembitmap(struct glgfx_viewport* viewport,
   return true;
 }
 
-bool glgfx_viewport_setbitmap_a(struct glgfx_viewport* viewport,
-				struct glgfx_rasinfo* rasinfo,
-				struct glgfx_bitmap* bitmap,
-				struct glgfx_tagitem const* tags) {
+bool glgfx_rasinfo_setattrs_a(struct glgfx_rasinfo* rasinfo,
+			      struct glgfx_tagitem const* tags) {
   struct glgfx_tagitem const* tag;
 
-  if (viewport == NULL || rasinfo == NULL || bitmap == NULL) {
+  if (rasinfo == NULL) {
     return false;
   }
   
   pthread_mutex_lock(&glgfx_mutex);
 
-  rasinfo->bitmap = bitmap;
-
   while ((tag = glgfx_nexttagitem(&tags)) != NULL) {
-    switch ((enum glgfx_viewport_tag) tag->tag) {
-      case glgfx_viewport_tag_width:
+    switch ((enum glgfx_viewport_attr) tag->tag) {
+      case glgfx_rasinfo_attr_width:
 	rasinfo->width = tag->data;
 	break;
 
-      case glgfx_viewport_tag_height:
+      case glgfx_rasinfo_attr_height:
 	rasinfo->height = tag->data;
 	break;
 
-      case glgfx_viewport_tag_xoffset:
+      case glgfx_rasinfo_attr_x:
 	rasinfo->xoffset = tag->data;
 	break;
 
-      case glgfx_viewport_tag_yoffset:
+      case glgfx_rasinfo_attr_y:
 	rasinfo->yoffset = tag->data;
 	break;
 
-      case glgfx_viewport_tag_unknown:
-      case glgfx_viewport_tag_max:
+      case glgfx_rasinfo_attr_bitmap:
+	rasinfo->bitmap = (struct glgfx_bitmap*) tag->data;
+	break;
+
+      case glgfx_rasinfo_attr_unknown:
+      case glgfx_rasinfo_attr_max:
 	/* Make compiler happy */
 	break;
     }
   }
 
   pthread_mutex_unlock(&glgfx_mutex);
+  return rasinfo->bitmap != NULL;
+}
+
+
+bool glgfx_rasinfo_getattr(struct glgfx_rasinfo* rasinfo,
+			    enum glgfx_rasinfo_attr attr,
+			    intptr_t* storage) {
+  if (rasinfo == NULL || storage == NULL ) {
+    return false;
+  }
+
+  switch (attr) {
+    case glgfx_rasinfo_attr_width:
+      *storage = rasinfo->width;
+      break;
+
+    case glgfx_rasinfo_attr_height:
+      *storage = rasinfo->height;
+      break;
+
+    case glgfx_rasinfo_attr_x:
+      *storage = rasinfo->xoffset;
+      break;
+
+    case glgfx_rasinfo_attr_y:
+      *storage = rasinfo->yoffset;
+      break;
+
+    case glgfx_rasinfo_attr_bitmap:
+      *storage = (intptr_t) rasinfo->bitmap;
+      break;
+
+    default:
+      return false;
+  }
+
   return true;
 }
+
 
 int glgfx_viewport_numbitmaps(struct glgfx_viewport* viewport) {
   int res;
@@ -197,6 +272,7 @@ int glgfx_viewport_numbitmaps(struct glgfx_viewport* viewport) {
   pthread_mutex_unlock(&glgfx_mutex);
   return res;
 }
+
 
 bool glgfx_viewport_render(struct glgfx_viewport* viewport) {
 
