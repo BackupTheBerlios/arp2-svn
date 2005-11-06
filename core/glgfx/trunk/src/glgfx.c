@@ -7,16 +7,21 @@
 #include <pthread.h>
 
 #include <GL/gl.h>
+#include <GL/glext.h>
 #include <GL/glut.h>
 
 #include "glgfx.h"
+#include "glgfx_glext.h"
 #include "glgfx_monitor.h"
 #include "glgfx_intern.h"
+
+static __thread struct glgfx_context* current_context  = NULL;
 
 pthread_mutex_t glgfx_mutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
 
 int                   glgfx_num_monitors;
 struct glgfx_monitor* glgfx_monitors[max_monitors];
+
 
 struct glgfx_tagitem const* glgfx_nexttagitem(struct glgfx_tagitem const** taglist_ptr) {
   if (taglist_ptr == NULL || *taglist_ptr == NULL) {
@@ -62,14 +67,13 @@ void glgfx_cleanup() {
 }
 
 
-bool glgfx_create_monitors_a(struct glgfx_tagitem const* tags) {
-  bool rc;
+int glgfx_createmonitors_a(struct glgfx_tagitem const* tags) {
   struct glgfx_monitor* friend = NULL;
   struct glgfx_tagitem const* tag;
 
   pthread_mutex_lock(&glgfx_mutex);
   
-  glgfx_destroy_monitors();
+  glgfx_destroymonitors();
 
   glgfx_num_monitors = 0;
 
@@ -97,14 +101,12 @@ bool glgfx_create_monitors_a(struct glgfx_tagitem const* tags) {
     }
   }
  
-  rc = glgfx_num_monitors != 0;
-
   pthread_mutex_unlock(&glgfx_mutex);
-  return rc;
+  return glgfx_num_monitors;
 }
 
 
-void glgfx_destroy_monitors(void) {
+void glgfx_destroymonitors(void) {
   int i;
 
   pthread_mutex_lock(&glgfx_mutex);
@@ -120,33 +122,135 @@ void glgfx_destroy_monitors(void) {
 }
 
 
-bool glgfx_waitblit(void) {
-  bool rc = true;
-  int i;
+struct glgfx_context* glgfx_context_create() {
+  if (glgfx_monitors[0] == NULL) {
+    BUG("No monitors created!\n");
+    errno = ENXIO;
+    return NULL;
+  }
 
-  for (i = 0; i < glgfx_num_monitors; ++i) {
-    if (!glgfx_monitor_waitblit(glgfx_monitors[i])) {
+  return glgfx_monitor_createcontext(glgfx_monitors[0]);
+}
+
+
+bool glgfx_context_select(struct glgfx_context* context) {
+  if (context == NULL || context->monitor == NULL) {
+    errno = EINVAL;
+    return false;
+  }
+
+  bool rc;
+
+  if (current_context != context) {
+    pthread_mutex_lock(&glgfx_mutex);
+
+    if (glXMakeCurrent(context->monitor->display,
+		       context->monitor->window,
+		       context->glx_context)) {
+      current_context = context;
+      rc = true;
+    }
+    else {
+      errno = EINVAL;
       rc = false;
     }
+
+    pthread_mutex_unlock(&glgfx_mutex);
+  }
+  else {
+    rc = true;
   }
 
   return rc;
 }
 
-bool glgfx_swapbuffers(void) {
-  bool rc = true;
-  int i;
 
-  for (i = 0; i < glgfx_num_monitors; ++i) {
-    if (!glgfx_monitor_swapbuffers(glgfx_monitors[i])) {
-      rc = false;
+struct glgfx_context* glgfx_context_getcurrent(void) {
+  if (current_context == NULL) {
+    BUG("No current context!\n");
+    abort();
+  }
+
+  return current_context;
+}
+
+bool glgfx_context_bindfbo(struct glgfx_context* context) {
+  if (context == NULL) {
+    errno = EINVAL;
+    return false;
+  }
+
+  if (!context->fbo_bound) {
+    glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, context->fbo);
+
+    if (glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT) 
+	!= GL_FRAMEBUFFER_COMPLETE_EXT) {
+      BUG("FBO incomplete! (%d)\n", glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT));
+    }
+    else {
+      context->fbo_bound = true;
     }
   }
 
-  return rc;
+  return context->fbo_bound;
 }
 
-void glgfx_check_error(char const* func, char const* file, int line) {
+
+bool glgfx_context_unbindfbo(struct glgfx_context* context) {
+  if (context == NULL) {
+    errno = EINVAL;
+    return false;
+  }
+
+  if (context->fbo_bound) {
+    glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
+    context->fbo_bound = false;
+  }
+
+  return true;
+}
+
+
+bool glgfx_context_destroy(struct glgfx_context* context) {
+  if (context == NULL || context->monitor == NULL) {
+    errno = EINVAL;
+    return false;
+  }
+
+  pthread_mutex_lock(&glgfx_mutex);
+
+  if (context->monitor != NULL) {
+    if (current_context == context) {
+      glXMakeCurrent(context->monitor->display, None, NULL);
+      current_context = NULL;
+    }
+
+    glXDestroyContext(context->monitor->display, context->glx_context);
+  }
+  
+  if (context->fbo != 0) {
+    glDeleteFramebuffersEXT(1, &context->fbo);
+  }
+
+  if (context->extensions != NULL) {
+    void cleanup(gpointer key, gpointer value, gpointer userdata) {
+      (void) value;
+      (void) userdata;
+      free(key);
+    }
+
+    g_hash_table_foreach(context->extensions, cleanup, NULL);
+    g_hash_table_destroy(context->extensions);
+  }
+
+  free(context);
+
+  pthread_mutex_unlock(&glgfx_mutex);
+  return true;
+}
+
+
+void glgfx_checkerror(char const* func, char const* file, int line) {
   GLenum error = glGetError();
 
   if (error != 0) {

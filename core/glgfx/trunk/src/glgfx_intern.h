@@ -24,6 +24,22 @@
 
 extern pthread_mutex_t glgfx_mutex;
 
+struct glgfx_context {
+    struct glgfx_monitor*   monitor;
+    GLXContext              glx_context;
+    GLuint                  fbo;
+
+    bool                    fbo_bound;
+
+    GHashTable*             extensions;
+    bool                    have_GL_EXT_framebuffer_object;
+    bool                    have_GL_texture_rectangle;
+    bool                    have_GLX_SGI_video_sync;
+    bool                    have_GL_ARB_vertex_buffer_object;
+    bool                    have_GL_ARB_pixel_buffer_object;
+};
+
+
 struct glgfx_monitor {
     char const*             name;
     Display*                display;
@@ -38,13 +54,6 @@ struct glgfx_monitor {
     XF86VidModeModeLine     mode;
     int                     dotclock;
     XF86VidModeMonitor      monitor_info;
-
-    GHashTable*             extensions;
-    bool                    have_GL_EXT_framebuffer_object;
-    bool                    have_GL_texture_rectangle;
-    bool                    have_GLX_SGI_video_sync;
-    bool                    have_GL_ARB_vertex_buffer_object;
-    bool                    have_GL_ARB_pixel_buffer_object;
 };
 
 struct glgfx_bitmap {

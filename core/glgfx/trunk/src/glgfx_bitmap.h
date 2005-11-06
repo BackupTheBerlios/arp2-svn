@@ -2,7 +2,6 @@
 #define arp2_glgfx_glgfx_bitmap_h
 
 #include <glgfx.h>
-#include <glgfx_monitor.h>
 #include <glgfx_pixel.h>
 #include <inttypes.h>
 
@@ -39,8 +38,7 @@ enum glgfx_bitmap_tag {
 } __attribute__((mode(__pointer__)));
 
 
-struct glgfx_bitmap* glgfx_bitmap_create_a(struct glgfx_monitor* monitor,
-					   struct glgfx_tagitem const* tags);
+struct glgfx_bitmap* glgfx_bitmap_create_a(struct glgfx_tagitem const* tags);
 void glgfx_bitmap_destroy(struct glgfx_bitmap* bitmap);
 bool glgfx_bitmap_lock(struct glgfx_bitmap* bitmap, bool read, bool write);
 bool glgfx_bitmap_unlock(struct glgfx_bitmap* bitmap, 
@@ -56,9 +54,9 @@ bool glgfx_bitmap_select(struct glgfx_bitmap* bitmap);
 bool glgfx_bitmap_waitblit(struct glgfx_bitmap* bitmap);
 
 
-#define glgfx_bitmap_create(monitor, tag1, ...)	\
+#define glgfx_bitmap_create(tag1, ...)	\
   ({ intptr_t const _tags[] = { tag1, ## __VA_ARGS__ }; \
-    glgfx_bitmap_create_a((monitor), (struct glgfx_tagitem const*) _tags); })
+    glgfx_bitmap_create_a((struct glgfx_tagitem const*) _tags); })
 
 #define glgfx_bitmap_update(bitmap, tag1, ...)	\
   ({ intptr_t const _tags[] = { tag1, ## __VA_ARGS__ }; \

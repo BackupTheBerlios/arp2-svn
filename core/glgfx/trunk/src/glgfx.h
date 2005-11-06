@@ -1,3 +1,4 @@
+
 #ifndef arp2_glgfx_glgfx_h
 #define arp2_glgfx_glgfx_h
 
@@ -23,7 +24,19 @@ struct glgfx_tagitem {
 struct glgfx_tagitem const* glgfx_nexttagitem(struct glgfx_tagitem const** taglist_ptr);
 
 
-/*** Montor handling *********************************************************/
+/*** Context handling ********************************************************/
+
+struct glgfx_context;
+
+struct glgfx_context* glgfx_context_create();
+bool glgfx_context_select(struct glgfx_context* context);
+struct glgfx_context* glgfx_context_getcurrent(void);
+bool glgfx_context_bindfbo(struct glgfx_context* context);
+bool glgfx_context_unbindfbo(struct glgfx_context* context);
+bool glgfx_context_destroy(struct glgfx_context* context);
+
+
+/*** System setup ************************************************************/
 
 enum glgfx_init_tag {
   glgfx_init_tag_unknown = glgfx_tag_user,
@@ -43,20 +56,19 @@ enum glgfx_create_monitors_tag {
 
 
 bool glgfx_init_a(struct glgfx_tagitem const* tags);
+int glgfx_createmonitors_a(struct glgfx_tagitem const* tags);
+void glgfx_destroymonitors(void);
 void glgfx_cleanup();
-bool glgfx_create_monitors_a(struct glgfx_tagitem const* tags);
-void glgfx_destroy_monitors(void);
-bool glgfx_waitblit(void);
-bool glgfx_swapbuffers(void);
 
 
 #define glgfx_init(tag1, ...) \
   ({ intptr_t const _tags[] = { tag1, ## __VA_ARGS__ }; \
     glgfx_init_a((struct glgfx_tagitem const*) _tags); })
 
-#define glgfx_create_monitors(tag1, ...) \
+#define glgfx_createmonitors(tag1, ...) \
   ({ intptr_t const _tags[] = { tag1, ## __VA_ARGS__ }; \
-    glgfx_create_monitors_a((struct glgfx_tagitem const*) _tags); })
+    glgfx_createmonitors_a((struct glgfx_tagitem const*) _tags); })
+
 
 
 /*** Private stuff ***********************************************************/
@@ -67,7 +79,7 @@ extern int                   glgfx_num_monitors;
 extern struct glgfx_monitor* glgfx_monitors[max_monitors];
 
 
-#define check_error() glgfx_check_error(__PRETTY_FUNCTION__, __FILE__, __LINE__);
-void glgfx_check_error(char const* func, char const* file, int line);
+#define GLGFX_CHECKERROR() glgfx_checkerror(__PRETTY_FUNCTION__, __FILE__, __LINE__);
+void glgfx_checkerror(char const* func, char const* file, int line);
 
 #endif /* arp2_glgfx_glgfx_h */

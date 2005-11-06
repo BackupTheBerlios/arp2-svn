@@ -6,9 +6,16 @@
 # include "glgfx_glext_extensions.h"
 #undef GLGFX_GLEXT
 
+
 bool glgfx_glext_init() {
   void missing(char const* name) {
     D(BUG("Warning: extension %s is missing!\n", name));
+  }
+  
+  static bool initialized = false;
+
+  if (initialized) {
+    return true;
   }
 
   bool rc = true;
@@ -21,5 +28,6 @@ bool glgfx_glext_init() {
 # include "glgfx_glext_extensions.h"
 #undef GLGFX_GLEXT
 
+  initialized = true;
   return rc;
 }

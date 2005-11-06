@@ -33,8 +33,8 @@ int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) 
   }
 
   char const* d = getenv("DISPLAY");
-  if (glgfx_create_monitors(glgfx_create_monitors_tag_display, (intptr_t) d,
-			    glgfx_tag_end)) {
+  if (glgfx_createmonitors(glgfx_create_monitors_tag_display, (intptr_t) d,
+			   glgfx_tag_end)) {
     int width = 512;
     int height = 512;
     PIXEL_TYPE* data;
@@ -43,8 +43,7 @@ int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) 
     data = calloc(sizeof (*data), width * height);
 #endif
     
-    struct glgfx_bitmap* bm = glgfx_bitmap_create(glgfx_monitors[0],
-						  glgfx_bitmap_tag_width,  width,
+    struct glgfx_bitmap* bm = glgfx_bitmap_create(glgfx_bitmap_tag_width,  width,
 						  glgfx_bitmap_tag_height, height, 
 						  glgfx_bitmap_tag_bits,   24,
 						  glgfx_bitmap_tag_friend, NULL,
@@ -131,8 +130,8 @@ int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) 
 			    glgfx_viewport_tag_yoffset, i*4-100,
 			    glgfx_tag_end);
 	
-	glgfx_view_render(v);
 	glgfx_monitor_waittof(glgfx_monitors[0]);
+	glgfx_view_render(v);
 	glgfx_monitor_swapbuffers(glgfx_monitors[0]);
 
 /* 	enum glgfx_input_code code; */
@@ -151,7 +150,7 @@ int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) 
     }
     glgfx_bitmap_destroy(bm);
       
-    glgfx_destroy_monitors();
+    glgfx_destroymonitors();
   }
   
   glgfx_cleanup();

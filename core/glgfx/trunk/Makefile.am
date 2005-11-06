@@ -13,7 +13,7 @@ include_HEADERS		= \
 			src/glgfx_viewport.h
 
 lib_LTLIBRARIES		= libglgfx.la
-bin_PROGRAMS		= tests/glgfx-test tests/gltex
+noinst_PROGRAMS		= tests/glgfx-test tests/gltex
 
 libglgfx_la_SOURCES	= \
 			src/glgfx.c \
