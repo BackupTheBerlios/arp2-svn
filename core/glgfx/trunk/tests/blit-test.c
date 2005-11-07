@@ -1,5 +1,6 @@
 
 #include "glgfx-config.h"
+#include <pthread.h>
 #include <stdlib.h>
 
 #include "glgfx.h"
@@ -13,6 +14,25 @@
 
 #include <stdio.h>
 #include <sys/time.h>
+
+bool volatile renderer_quit = false;
+
+
+void* renderer(void* _m) {
+  struct glgfx_monitor* monitor = _m;
+
+  while (!renderer_quit) {
+    glgfx_monitor_waittof(monitor);
+    glgfx_monitor_render(monitor);
+    glgfx_monitor_swapbuffers(monitor);
+  }
+
+  return NULL;
+}
+
+bool blit(struct glgfx_bitmap* bitmap) {
+}
+
 
 int main(int argc, char** argv) {
   int rc = 0;
@@ -87,7 +107,20 @@ int main(int argc, char** argv) {
 	  rc = 10;
 	}
 	else {
-	  
+	  pthread_t pid = -1;
+
+	  if (pthread_create(&pid, NULL, renderer, glgfx_monitors[0]) != 0) {
+	    printf("Unable to start render thread\n");
+	    rc = 10;
+	  }
+	  else {
+	    if (!blit(bm)) {
+	      rc = 5;
+	    }
+
+	    renderer_quit = true;
+	    pthread_join(pid, NULL);
+	  }
 	}
 
 	glgfx_viewport_rembitmap(vp1, ri1);
