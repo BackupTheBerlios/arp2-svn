@@ -2,8 +2,9 @@
 This is a X11 based, OpenGL-accelerated Amiga-like graphics library.
 Currently, it handles "monitors" (some kind of physical
 screen/display), "bitmaps" (a surface you can draw to and display in
-various ways), "viewports" (a screen area that displays one or more
-bitmaps), "views" (a collection of viewports) and input events from
+various ways), "sprites" (a bitmap rendered on top of everything
+else), "viewports" (a screen area that displays one or more bitmaps),
+"views" (a collection of viewports and sprites) and input events from
 the keyboard and the mouse.
 
 It is designed to operate at a fixed resolution (like on a flat panel
@@ -11,7 +12,7 @@ or projector setup), but does support custom frame rates for smooth
 video playback at PAL or NTSC speeds (or rather, it will).
 
 In the future, it's going to handle OpenGL for the clients as well,
-sprites, bobs and accelerated rendering into bitmaps.
+blits/bobs and accelerated rendering into bitmaps.
 
 It requires a modern 3D card (DirectX 8 class or better) and
 top-quality OpenGL drivers.  To be honest, I don't expect to to run on
@@ -38,9 +39,9 @@ can display one or more bitmaps (like "dual playfield" but up to at
 least four bitmaps can be used).
 
  * Every bitmap in a viewport can be displayed in a different
-resolution, be palette based etc.
+resolution, be palette based (not yet) etc.
 
- * Different viewports can use the same bitmap.
+ * Different viewports and sprites can use the same bitmap.
 
 The following extra features are on the to-do list:
 
