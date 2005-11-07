@@ -2,13 +2,12 @@
 #define arp2_glgfx_glgfx_view_h
 
 #include <glgfx.h>
-#include <glgfx_monitor.h>
 #include <glgfx_sprite.h>
 #include <glgfx_viewport.h>
 
 struct glgfx_view;
 
-struct glgfx_view* glgfx_view_create(struct glgfx_monitor* monitor);
+struct glgfx_view* glgfx_view_create(void);
 
 void glgfx_view_destroy(struct glgfx_view* view);
 

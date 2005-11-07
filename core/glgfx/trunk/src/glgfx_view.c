@@ -10,25 +10,18 @@
 #include "glgfx_viewport.h"
 
 struct glgfx_view {
-    struct glgfx_monitor* monitor;
-    GList*                viewports;
-    GList*                sprites;
+    GList* viewports;
+    GList* sprites;
 };
 
-struct glgfx_view* glgfx_view_create(struct glgfx_monitor* monitor) {
+struct glgfx_view* glgfx_view_create(void) {
   struct glgfx_view* view;
-
-  if (monitor == NULL) {
-    return NULL;
-  }
 
   view = calloc(1, sizeof (*view));
 
   if (view == NULL) {
     return NULL;
   }
-
-  view->monitor = monitor;
 
   return view;
 }

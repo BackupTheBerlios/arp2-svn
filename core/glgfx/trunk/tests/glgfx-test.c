@@ -93,7 +93,7 @@ int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) 
 							   glgfx_rasinfo_attr_x,     0,
 							   glgfx_rasinfo_attr_y,     0,
 							   glgfx_tag_end);
-      struct glgfx_view*     v  = glgfx_view_create(glgfx_monitors[0]);
+      struct glgfx_view*     v  = glgfx_view_create();
 
       glgfx_view_addviewport(v, vp);
 
