@@ -141,8 +141,6 @@ struct glgfx_bitmap* glgfx_bitmap_create_a(struct glgfx_tagitem const* tags) {
   glEnable(GL_TEXTURE_RECTANGLE_ARB);
   GLGFX_CHECKERROR();
 
-  D(BUG("Returning bitmap %p\n", bitmap));
-
   pthread_mutex_unlock(&glgfx_mutex);
   return bitmap;
 }
