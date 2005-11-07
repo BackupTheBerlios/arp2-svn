@@ -47,7 +47,6 @@ void display(void) {
 		format, type,
 		buf);
   
-
   glBegin(GL_QUADS); {
     glActiveTexture(GL_TEXTURE0);
 
@@ -62,6 +61,12 @@ void display(void) {
   }
   glEnd();
 
+  glEnable(GL_COLOR_LOGIC_OP);
+  glLogicOp(GL_XOR);
+  glRasterPos2i(100,100);
+  glCopyPixels(50,50,50,50,GL_COLOR);
+  glDisable(GL_COLOR_LOGIC_OP);
+  
   glutSwapBuffers();
 
   static int cnt = 0;
