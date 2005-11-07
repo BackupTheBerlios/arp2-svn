@@ -6,7 +6,7 @@
 #include <inttypes.h>
 
 
-/*** Tag handling ************************************************************/
+/*** Tag/attribute handling **************************************************/
 
 enum glgfx_tag {
   glgfx_tag_end    = 0,
@@ -22,6 +22,19 @@ struct glgfx_tagitem {
 };
 
 struct glgfx_tagitem const* glgfx_nexttagitem(struct glgfx_tagitem const** taglist_ptr);
+
+typedef bool glgfx_getattr_proto(void* object, 
+				 enum glgfx_tag attr, 
+				 intptr_t* storage);
+
+int glgfx_getattrs_a(void* object, 
+		     glgfx_getattr_proto* fn, 
+		     struct glgfx_tagitem const* tags);
+
+
+#define glgfx_getattrs(object, fn, tag1, ...) \
+  ({ intptr_t const _tags[] = { tag1, ## __VA_ARGS__ }; \
+    glgfx_getattrs_a((object), (fn), (struct glgfx_tagitem const*) _tags); })
 
 
 /*** Context handling ********************************************************/

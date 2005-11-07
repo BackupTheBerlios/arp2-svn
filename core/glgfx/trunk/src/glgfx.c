@@ -60,6 +60,22 @@ struct glgfx_tagitem const* glgfx_nexttagitem(struct glgfx_tagitem const** tagli
 }
 
 
+int glgfx_getattrs_a(void* object, 
+		     glgfx_getattr_proto* fn, 
+		     struct glgfx_tagitem const* tags) {
+  struct glgfx_tagitem const* tag;
+  int count = 0;
+
+  while ((tag = glgfx_nexttagitem(&tags)) != NULL) {
+    if (fn(object, tag->tag, (intptr_t*) tag->data)) {
+      ++count;
+    }
+  }
+
+  return count;
+}
+
+
 bool glgfx_init_a(struct glgfx_tagitem const* tags) {
   (void) tags;
   return true;
