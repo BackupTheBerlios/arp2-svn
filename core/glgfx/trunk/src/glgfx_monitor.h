@@ -2,6 +2,7 @@
 #define arp2_glgfx_glgfx_monitor_h
 
 #include <glgfx.h>
+#include <glgfx_view.h>
 #include <inttypes.h>
 
 struct glgfx_monitor;
@@ -32,8 +33,16 @@ bool glgfx_monitor_getattr(struct glgfx_monitor* bm,
 
 struct glgfx_context* glgfx_monitor_createcontext(struct glgfx_monitor* monitor);
 
+bool glgfx_monitor_addview(struct glgfx_monitor* monitor,
+			   struct glgfx_view* view);
+bool glgfx_monitor_loadview(struct glgfx_monitor* monitor,
+			    struct glgfx_view* view);
+bool glgfx_monitor_remview(struct glgfx_monitor* monitor,
+			   struct glgfx_view* view);
+
 bool glgfx_monitor_select(struct glgfx_monitor* monitor);
 bool glgfx_monitor_waittof(struct glgfx_monitor* monitor);
+bool glgfx_monitor_render(struct glgfx_monitor* monitor);
 bool glgfx_monitor_swapbuffers(struct glgfx_monitor* monitor);
 
 #endif /* arp2_glgfx_glgfx_monitor_h */

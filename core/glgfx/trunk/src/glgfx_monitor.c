@@ -483,6 +483,54 @@ struct glgfx_context* glgfx_monitor_createcontext(struct glgfx_monitor* monitor)
 }
 
 
+bool glgfx_monitor_addview(struct glgfx_monitor* monitor,
+			   struct glgfx_view* view) {
+  if (monitor == NULL || view == NULL) {
+    errno = EINVAL;
+    return false;
+  }
+
+  pthread_mutex_lock(&glgfx_mutex);
+  monitor->views = g_list_append(monitor->views, view);
+  pthread_mutex_unlock(&glgfx_mutex);
+
+  return true;
+}
+
+
+bool glgfx_monitor_loadview(struct glgfx_monitor* monitor,
+			    struct glgfx_view* view) {
+  if (monitor == NULL || view == NULL || 
+      g_list_find(monitor->views, view) == NULL) {
+    errno = EINVAL;
+    return false;
+  }
+
+  pthread_mutex_lock(&glgfx_mutex);
+  monitor->views = g_list_remove(monitor->views, view);
+  monitor->views = g_list_prepend(monitor->views, view);
+  pthread_mutex_unlock(&glgfx_mutex);
+
+  return true;
+}
+
+
+bool glgfx_monitor_remview(struct glgfx_monitor* monitor,
+			   struct glgfx_view* view) {
+
+  if (monitor == NULL || view == NULL ||
+      g_list_find(monitor->views, view) == NULL) {
+    errno = EINVAL;
+    return false;
+  }
+
+  pthread_mutex_lock(&glgfx_mutex);
+  monitor->views = g_list_remove(monitor->views, view);
+  pthread_mutex_unlock(&glgfx_mutex);
+  return true;
+}
+
+
 bool glgfx_monitor_select(struct glgfx_monitor* monitor) {
   return glgfx_context_select(monitor->main_context);
 }
@@ -511,6 +559,18 @@ bool glgfx_monitor_waittof(struct glgfx_monitor* monitor) {
     //    D(BUG("Don't know how to wait for vertical blank interrupt!\n"));
     return false;
   }
+}
+
+
+bool glgfx_monitor_render(struct glgfx_monitor* monitor) {
+  if (monitor == NULL || monitor->views == NULL) {
+    errno = EINVAL;
+    return false;
+  }
+
+  glgfx_view_render(monitor->views->data);
+
+  return true;
 }
 
 

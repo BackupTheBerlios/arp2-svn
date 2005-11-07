@@ -54,6 +54,8 @@ struct glgfx_monitor {
     XF86VidModeModeLine     mode;
     int                     dotclock;
     XF86VidModeMonitor      monitor_info;
+
+    GList*                  views;
 };
 
 
