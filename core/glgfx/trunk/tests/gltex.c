@@ -7,7 +7,7 @@
 GLuint tex;
 uint32_t* buf;
 
-size_t width = 1920, height = 1080;
+size_t width = 800, height = 600;
 
 #define FORMAT 1
 
@@ -47,6 +47,9 @@ void display(void) {
 		format, type,
 		buf);
   
+  glEnable(GL_COLOR_LOGIC_OP);
+  glLogicOp(GL_COPY_INVERTED);
+
   glBegin(GL_QUADS); {
     glActiveTexture(GL_TEXTURE0);
 
@@ -61,10 +64,9 @@ void display(void) {
   }
   glEnd();
 
-  glEnable(GL_COLOR_LOGIC_OP);
-  glLogicOp(GL_XOR);
   glRasterPos2i(100,100);
   glCopyPixels(50,50,50,50,GL_COLOR);
+
   glDisable(GL_COLOR_LOGIC_OP);
   
   glutSwapBuffers();
