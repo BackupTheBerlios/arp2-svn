@@ -141,14 +141,17 @@ void glgfx_destroymonitors(void) {
 }
 
 
-struct glgfx_context* glgfx_context_create() {
-  if (glgfx_monitors[0] == NULL) {
-    BUG("No monitors created!\n");
-    errno = ENXIO;
-    return NULL;
+struct glgfx_context* glgfx_context_create(struct glgfx_monitor* monitor) {
+  struct glgfx_context* context;
+
+  context = glgfx_monitor_createcontext(monitor);
+
+  // Make the newly created context active
+  if (context != NULL) {
+    glgfx_context_select(context);
   }
 
-  return glgfx_monitor_createcontext(glgfx_monitors[0]);
+  return context;
 }
 
 

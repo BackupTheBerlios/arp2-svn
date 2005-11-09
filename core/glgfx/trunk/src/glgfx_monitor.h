@@ -32,6 +32,7 @@ bool glgfx_monitor_getattr(struct glgfx_monitor* bm,
 
 
 struct glgfx_context* glgfx_monitor_createcontext(struct glgfx_monitor* monitor);
+struct glgfx_context* glgfx_monitor_getcontext(struct glgfx_monitor* monitor);
 
 bool glgfx_monitor_addview(struct glgfx_monitor* monitor,
 			   struct glgfx_view* view);

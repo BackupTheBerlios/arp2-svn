@@ -472,14 +472,13 @@ struct glgfx_context* glgfx_monitor_createcontext(struct glgfx_monitor* monitor)
     errno = ENOTSUP;
   }
 
-
-  // Make the newly created context active
-  if (context != NULL) {
-    glgfx_context_select(context);
-  }
-
   pthread_mutex_unlock(&glgfx_mutex);
   return context;
+}
+
+
+struct glgfx_context* glgfx_monitor_getcontext(struct glgfx_monitor* monitor) {
+  return monitor != NULL ? monitor->main_context : NULL;
 }
 
 

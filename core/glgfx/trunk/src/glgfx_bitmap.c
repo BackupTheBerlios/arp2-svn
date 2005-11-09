@@ -264,7 +264,9 @@ bool glgfx_bitmap_unlock(struct glgfx_bitmap* bitmap,
   struct glgfx_context* context = glgfx_context_getcurrent();
   bool rc = false;
 
-  if (bitmap == NULL || !bitmap->locked) {
+  if (bitmap == NULL || !bitmap->locked ||
+      x < 0 || y < 0 || width < 0 || height < 0 ||
+      (x + width) > bitmap->width || (y + height) > bitmap->height) {
     return false;
   }
 
@@ -283,34 +285,40 @@ bool glgfx_bitmap_unlock(struct glgfx_bitmap* bitmap,
 	glBindTexture(GL_TEXTURE_RECTANGLE_ARB, bitmap->texture);
 	GLGFX_CHECKERROR();
 
-	glPixelStorei(GL_PACK_ROW_LENGTH, bitmap->width);
+	glPixelStorei(GL_UNPACK_ROW_LENGTH, bitmap->width);
 	glTexSubImage2D(GL_TEXTURE_RECTANGLE_ARB, 0,
-			0, 0, width, height,
+			x, y, width, height,
 			formats[bitmap->format].format,
 			formats[bitmap->format].type,
-			(void*) (x + y * bitmap->pbo_bytes_per_row));
+			(void*) (x * formats[bitmap->format].size +
+				 y * bitmap->pbo_bytes_per_row));
 	GLGFX_CHECKERROR();
-	glPixelStorei(GL_PACK_ROW_LENGTH, 0);
+	glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
       }
 
       glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, 0);
       GLGFX_CHECKERROR();
     }
     else {
+      rc = true;
+
       if (width != 0 && height != 0 &&
 	  (bitmap->locked_access == GL_READ_WRITE_ARB ||
 	   bitmap->locked_access == GL_WRITE_ONLY_ARB)) {
 	glBindTexture(GL_TEXTURE_RECTANGLE_ARB, bitmap->texture);
 	GLGFX_CHECKERROR();
 	
-	glPixelStorei(GL_PACK_ROW_LENGTH, bitmap->width);
+	glPixelStorei(GL_UNPACK_ROW_LENGTH, bitmap->width);
+	GLGFX_CHECKERROR();
 	glTexSubImage2D(GL_TEXTURE_RECTANGLE_ARB, 0,
-			0, 0, width, height,
+			x, y, width, height,
 			formats[bitmap->format].format,
 			formats[bitmap->format].type,
-			(void*) (bitmap->buffer + x + y * bitmap->pbo_bytes_per_row));
+			(void*) (bitmap->buffer +
+				 x * formats[bitmap->format].size +
+				 y * bitmap->pbo_bytes_per_row));
 	GLGFX_CHECKERROR();
-	glPixelStorei(GL_PACK_ROW_LENGTH, 0);
+	glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
       }
     }
 
@@ -377,7 +385,9 @@ bool glgfx_bitmap_update_a(struct glgfx_bitmap* bitmap,
     }
   }
 
-  if (width <= 0 || height <= 0 || data == NULL || bitmap->locked ||
+  if (width <= 0 || height <= 0 || 
+      (x + width) > bitmap->width || (y + height) > bitmap->height ||
+      data == NULL || bitmap->locked ||
       format <= glgfx_pixel_format_unknown || format >= glgfx_pixel_format_max) {
     return false;
   }
@@ -391,13 +401,14 @@ bool glgfx_bitmap_update_a(struct glgfx_bitmap* bitmap,
   glBindTexture(GL_TEXTURE_RECTANGLE_ARB, bitmap->texture);
   GLGFX_CHECKERROR();
    
-  glPixelStorei(GL_PACK_ROW_LENGTH, bytes_per_row / formats[format].size);
+  glPixelStorei(GL_UNPACK_ROW_LENGTH, bytes_per_row / formats[format].size);
   glTexSubImage2D(GL_TEXTURE_RECTANGLE_ARB, 0,
-		  0, 0, width, height,
+		  x, y, width, height,
 		  formats[format].format,
 		  formats[format].type,
 		  data);
   GLGFX_CHECKERROR();
+  glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
 
   pthread_mutex_unlock(&glgfx_mutex);
   return true;

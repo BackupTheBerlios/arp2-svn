@@ -68,7 +68,7 @@ struct glgfx_bitmap {
     GLuint                  texture;
     union {
       GLuint                  pbo;
-      void*                   buffer;
+      uint8_t*                buffer;
     };
     size_t                  pbo_size;
     size_t                  pbo_bytes_per_row;

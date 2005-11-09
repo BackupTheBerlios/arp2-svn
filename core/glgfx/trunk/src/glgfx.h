@@ -40,8 +40,9 @@ int glgfx_getattrs_a(void* object,
 /*** Context handling ********************************************************/
 
 struct glgfx_context;
+struct glgfx_monitor;
 
-struct glgfx_context* glgfx_context_create();
+struct glgfx_context* glgfx_context_create(struct glgfx_monitor* monitor);
 bool glgfx_context_select(struct glgfx_context* context);
 struct glgfx_context* glgfx_context_getcurrent(void);
 bool glgfx_context_bindfbo(struct glgfx_context* context);
