@@ -12,6 +12,7 @@
 
 #include <stdio.h>
 #include <sys/time.h>
+#include <sched.h>
 
 #define UPLOAD_MODE 1
 #define DATA_TYPE 1
@@ -24,10 +25,25 @@
 # define PIXEL_TYPE   unsigned int
 #endif
 
+bool go_realtime() {
+  struct sched_param sched_param;
+  
+  sched_param.sched_priority = sched_get_priority_max(SCHED_RR) - 10;
+  
+  if (sched_setscheduler(0, SCHED_RR, &sched_param) == -1) {
+    perror("Unable to go realtime");
+    return false;
+  }
+
+  return true;
+}
+
 int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) {
   // If unset, sync to vblank as default (nvidia driver)
 /*   setenv("__GL_SYNC_TO_VBLANK", "1", 0); */
 /*   setenv("__GL_NV30_EMULATE", "1", 0); */
+
+  go_realtime();
 
   if (!glgfx_init(glgfx_tag_end)) {
     return 10;
@@ -43,6 +59,8 @@ int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) 
     int mouse_x = 100;
     int mouse_y = 100;
 
+    glgfx_context_select(glgfx_monitor_getcontext(glgfx_monitors[0]));
+    
 #if UPLOAD_MODE == 0
     data = calloc(sizeof (*data), width * height);
 #endif
@@ -97,14 +115,16 @@ int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) 
 
       glgfx_view_addviewport(v, vp);
 
-      struct glgfx_sprite* sp = glgfx_sprite_create(glgfx_sprite_attr_width,  32,
-						   glgfx_sprite_attr_height, 32,
+      struct glgfx_sprite* sp = glgfx_sprite_create(glgfx_sprite_attr_width,  128,
+						   glgfx_sprite_attr_height, 128,
 						   glgfx_sprite_attr_bitmap, (intptr_t) bm,
 						   glgfx_tag_end);
 
       if (sp != NULL) {
 	glgfx_view_addsprite(v, sp);
       }
+
+      glgfx_monitor_addview(glgfx_monitors[0], v);
 
       glgfx_input_acquire(false);
       int i;
@@ -149,9 +169,12 @@ int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) 
 			      glgfx_tag_end);
 
 	glgfx_context_unbindfbo(glgfx_context_getcurrent());
-	glgfx_monitor_waittof(glgfx_monitors[0]);
-	glgfx_view_render(v);
-	glgfx_monitor_swapbuffers(glgfx_monitors[0]);
+
+	glgfx_monitor_render(glgfx_monitors[0]);
+/* 	glgfx_monitor_waittof(glgfx_monitors[0]); */
+/* 	glgfx_view_render(v); */
+/* 	glgfx_view_rendersprites(v); */
+/* 	glgfx_monitor_swapbuffers(glgfx_monitors[0]); */
 
 	enum glgfx_input_code code;
 	while ((code = glgfx_input_getcode()) != glgfx_input_none) {

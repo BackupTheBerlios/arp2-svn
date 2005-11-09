@@ -442,6 +442,7 @@ struct glgfx_context* glgfx_monitor_createcontext(struct glgfx_monitor* monitor)
 
       if (context->fbo != 0) {
 	// Setup a standard integer 2D coordinate system
+	glDrawBuffer(GL_BACK);
 	glViewport(0, 0, monitor->mode.hdisplay, monitor->mode.vdisplay);
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
@@ -567,7 +568,17 @@ bool glgfx_monitor_render(struct glgfx_monitor* monitor) {
     return false;
   }
 
+  glDrawBuffer(GL_BACK);
+  glDrawBuffer(GL_FRONT);
+  glClearColor( 0, 0, 0, 1);
+  glClear(GL_COLOR_BUFFER_BIT);
+  glDisable(GL_BLEND);
+  glFlush();
+  glgfx_monitor_waittof(glgfx_monitors[0]);
   glgfx_view_render(monitor->views->data);
+  glgfx_view_rendersprites(monitor->views->data);
+//  glDrawBuffer(GL_FRONT);
+//  glgfx_monitor_swapbuffers(glgfx_monitors[0]);
 
   return true;
 }

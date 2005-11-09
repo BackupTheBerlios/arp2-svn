@@ -131,7 +131,19 @@ bool glgfx_view_render(struct glgfx_view* view) {
     glgfx_viewport_render(viewport);
   }
 
-  void render_sprite(gpointer* data, gpointer* userdata) {
+/*   pthread_mutex_lock(&glgfx_mutex); */
+
+/*     glEnable(GL_BLEND); */
+/*     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); */
+  g_list_foreach(view->viewports, (GFunc) render_viewport, view);
+
+/*   pthread_mutex_unlock(&glgfx_mutex); */
+  return true;
+}
+
+bool glgfx_view_rendersprites(struct glgfx_view* view) {
+
+  void render_sprites(gpointer* data, gpointer* userdata) {
     struct glgfx_sprite* sprite = (struct glgfx_sprite*) data;
     struct glgfx_view* view = (struct glgfx_view*) userdata;
 
@@ -139,17 +151,12 @@ bool glgfx_view_render(struct glgfx_view* view) {
     glgfx_sprite_render(sprite);
   }
 
-  pthread_mutex_lock(&glgfx_mutex);
+/*   pthread_mutex_lock(&glgfx_mutex); */
 
-  glDrawBuffer(GL_BACK);
-  glClearColor( 0, 0, 0, 1);
-  glClear(GL_COLOR_BUFFER_BIT);
-  glDisable(GL_BLEND);
 /*     glEnable(GL_BLEND); */
 /*     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); */
-  g_list_foreach(view->viewports, (GFunc) render_viewport, view);
-  g_list_foreach(view->sprites, (GFunc) render_sprite, view);
+  g_list_foreach(view->sprites, (GFunc) render_sprites, view);
 
-  pthread_mutex_unlock(&glgfx_mutex);
+/*   pthread_mutex_unlock(&glgfx_mutex); */
   return true;
 }
