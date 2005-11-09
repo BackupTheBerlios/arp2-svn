@@ -25,25 +25,10 @@
 # define PIXEL_TYPE   unsigned int
 #endif
 
-bool go_realtime() {
-  struct sched_param sched_param;
-  
-  sched_param.sched_priority = sched_get_priority_max(SCHED_RR) - 10;
-  
-  if (sched_setscheduler(0, SCHED_RR, &sched_param) == -1) {
-    perror("Unable to go realtime");
-    return false;
-  }
-
-  return true;
-}
-
 int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) {
   // If unset, sync to vblank as default (nvidia driver)
 /*   setenv("__GL_SYNC_TO_VBLANK", "1", 0); */
 /*   setenv("__GL_NV30_EMULATE", "1", 0); */
-
-  go_realtime();
 
   if (!glgfx_init(glgfx_tag_end)) {
     return 10;
