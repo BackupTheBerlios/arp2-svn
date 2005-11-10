@@ -398,6 +398,7 @@ bool glgfx_monitor_getattr(struct glgfx_monitor* monitor,
   return true;
 }
 
+#include <time.h>
 
 struct glgfx_context* glgfx_monitor_createcontext(struct glgfx_monitor* monitor) {
   struct glgfx_context* context;
@@ -531,20 +532,12 @@ bool glgfx_monitor_remview(struct glgfx_monitor* monitor,
 }
 
 
-bool glgfx_monitor_select(struct glgfx_monitor* monitor) {
-  return glgfx_context_select(monitor->main_context);
-}
-
-
 bool glgfx_monitor_waittof(struct glgfx_monitor* monitor) {
-  if (monitor->main_context->have_GLX_SGI_video_sync) {
+  struct glgfx_context* ctx = glgfx_context_getcurrent();
+
+  if (ctx->have_GLX_SGI_video_sync) {
     GLuint frame_count;
   
-    if (!glgfx_context_select(monitor->main_context)) {
-      return false;
-    }
-
-    // Don't lock mutex here, since it will sleep!
     if (glXGetVideoSyncSGI(&frame_count) != 0) {
       return false;
     }
@@ -561,6 +554,9 @@ bool glgfx_monitor_waittof(struct glgfx_monitor* monitor) {
   }
 }
 
+static uint64_t rdtsc(void) {
+  __asm__ volatile ("rdtsc");
+}
 
 bool glgfx_monitor_render(struct glgfx_monitor* monitor) {
   if (monitor == NULL || monitor->views == NULL) {
@@ -568,25 +564,53 @@ bool glgfx_monitor_render(struct glgfx_monitor* monitor) {
     return false;
   }
 
+#define NSEC(ts) (ts / (2211.341 * 1e6) * 1e9)
+#define GETT(ts) ts = rdtsc();
+  uint64_t start, db, cc, cl, dis, rend, wait, rendspr, swap;
+
+  GETT(start);
+
   glDrawBuffer(GL_BACK);
-  glDrawBuffer(GL_FRONT);
+  GETT(db);
+
   glClearColor( 0, 0, 0, 1);
+  GETT(cc);
+
   glClear(GL_COLOR_BUFFER_BIT);
+  GETT(cl);
+
   glDisable(GL_BLEND);
-  glFlush();
-  glgfx_monitor_waittof(glgfx_monitors[0]);
+  GETT(dis);
+
+  pthread_mutex_lock(&glgfx_mutex);
   glgfx_view_render(monitor->views->data);
-  glgfx_view_rendersprites(monitor->views->data);
+  pthread_mutex_unlock(&glgfx_mutex);
+  GETT(rend);
+
 //  glDrawBuffer(GL_FRONT);
-//  glgfx_monitor_swapbuffers(glgfx_monitors[0]);
+
+  glgfx_monitor_waittof(glgfx_monitors[0]);
+  GETT(wait);
+
+  pthread_mutex_lock(&glgfx_mutex);
+  glgfx_view_rendersprites(monitor->views->data);
+  pthread_mutex_unlock(&glgfx_mutex);
+  GETT(rendspr);
+
+  glgfx_monitor_swapbuffers(glgfx_monitors[0]);
+  GETT(swap);
+
+/*   printf("db=%g, cc=%g, cl=%g, dis=%g, rend=%g, wait=%g, rendspr=%g, swap=%g tot=%g\n", */
+/* 	 NSEC(db) - NSEC(start), NSEC(cc) - NSEC(db), NSEC(cl) - NSEC(cc), */
+/* 	 NSEC(dis) - NSEC(cl), NSEC(rend) - NSEC(dis), NSEC(wait) - NSEC(rend), */
+/* 	 NSEC(rendspr) - NSEC(wait), NSEC(swap) - NSEC(rendspr),  */
+/* 	 NSEC(swap) - NSEC(start)); */
 
   return true;
 }
 
 
 bool glgfx_monitor_swapbuffers(struct glgfx_monitor* monitor) {
-  pthread_mutex_lock(&glgfx_mutex);
   glXSwapBuffers(monitor->display, monitor->window);
-  pthread_mutex_unlock(&glgfx_mutex);
   return true;
 }

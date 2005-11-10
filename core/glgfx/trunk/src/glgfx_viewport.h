@@ -58,9 +58,6 @@ bool glgfx_rasinfo_getattr(struct glgfx_rasinfo* rasinfo,
 			   intptr_t* storage);
 
 
-bool glgfx_viewport_render(struct glgfx_viewport* viewport);
-
-
 #define glgfx_viewport_create(tag1, ...) \
   ({ intptr_t const _tags[] = { tag1, ## __VA_ARGS__ }; \
     glgfx_viewport_create_a((struct glgfx_tagitem const*) _tags); })

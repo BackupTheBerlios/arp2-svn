@@ -58,6 +58,7 @@ struct glgfx_monitor {
     GList*                  views;
 };
 
+struct glgfx_view;
 
 struct glgfx_bitmap {
     struct glgfx_monitor*   monitor;
@@ -124,5 +125,16 @@ struct pixel_info {
 };
 
 extern struct pixel_info formats[glgfx_pixel_format_max];
+
+
+#define GLGFX_CHECKERROR() glgfx_checkerror(__PRETTY_FUNCTION__, __FILE__, __LINE__);
+void glgfx_checkerror(char const* func, char const* file, int line);
+
+bool glgfx_monitor_waittof(struct glgfx_monitor* monitor);
+bool glgfx_monitor_swapbuffers(struct glgfx_monitor* monitor);
+bool glgfx_view_render(struct glgfx_view* view);
+bool glgfx_view_rendersprites(struct glgfx_view* view);
+bool glgfx_viewport_render(struct glgfx_viewport* viewport);
+bool glgfx_sprite_render(struct glgfx_sprite* sprite);
 
 #endif /* arp2_glgfx_glgfx_intern_h */

@@ -121,6 +121,8 @@ int glgfx_view_numsprites(struct glgfx_view* view) {
   return res;
 }
 
+
+
 bool glgfx_view_render(struct glgfx_view* view) {
 
   void render_viewport(gpointer* data, gpointer* userdata) {
@@ -131,15 +133,10 @@ bool glgfx_view_render(struct glgfx_view* view) {
     glgfx_viewport_render(viewport);
   }
 
-/*   pthread_mutex_lock(&glgfx_mutex); */
-
-/*     glEnable(GL_BLEND); */
-/*     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); */
   g_list_foreach(view->viewports, (GFunc) render_viewport, view);
-
-/*   pthread_mutex_unlock(&glgfx_mutex); */
   return true;
 }
+
 
 bool glgfx_view_rendersprites(struct glgfx_view* view) {
 
@@ -151,12 +148,6 @@ bool glgfx_view_rendersprites(struct glgfx_view* view) {
     glgfx_sprite_render(sprite);
   }
 
-/*   pthread_mutex_lock(&glgfx_mutex); */
-
-/*     glEnable(GL_BLEND); */
-/*     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); */
   g_list_foreach(view->sprites, (GFunc) render_sprites, view);
-
-/*   pthread_mutex_unlock(&glgfx_mutex); */
   return true;
 }

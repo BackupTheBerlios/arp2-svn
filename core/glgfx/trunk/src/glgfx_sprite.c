@@ -123,9 +123,6 @@ bool glgfx_sprite_getattr(struct glgfx_sprite* sprite,
 
 
 bool glgfx_sprite_render(struct glgfx_sprite* sprite) {
-
-  pthread_mutex_lock(&glgfx_mutex);
-
   glBindTexture(GL_TEXTURE_RECTANGLE_ARB, sprite->bitmap->texture);
   glColor4f(1,1,1,1);
   glBegin(GL_QUADS);
@@ -146,8 +143,5 @@ bool glgfx_sprite_render(struct glgfx_sprite* sprite) {
 	     sprite->y + sprite->height, 0);
   glEnd();
 
-
-  pthread_mutex_unlock(&glgfx_mutex);
-  
   return true;
 }

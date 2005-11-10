@@ -302,11 +302,6 @@ bool glgfx_viewport_render(struct glgfx_viewport* viewport) {
     glEnd();
   }
 
-  pthread_mutex_lock(&glgfx_mutex);
-
   g_list_foreach(viewport->rasinfos, (GFunc) render, viewport);
-
-  pthread_mutex_unlock(&glgfx_mutex);
-  
   return true;
 }

@@ -30,8 +30,5 @@ bool glgfx_view_remsprite(struct glgfx_view* view,
 int glgfx_view_numsprites(struct glgfx_view* view);
 
 
-bool glgfx_view_render(struct glgfx_view* view);
-bool glgfx_view_rendersprites(struct glgfx_view* view);
-
 #endif /* arp2_glgfx_glgfx_view_h */
 

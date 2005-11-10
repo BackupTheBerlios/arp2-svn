@@ -87,13 +87,8 @@ void glgfx_cleanup();
 
 /*** Private stuff ***********************************************************/
 
-struct glgfx_monitor;
 #define max_monitors  8               // Four cards, two outputs/card max
 extern int                   glgfx_num_monitors;
 extern struct glgfx_monitor* glgfx_monitors[max_monitors];
-
-
-#define GLGFX_CHECKERROR() glgfx_checkerror(__PRETTY_FUNCTION__, __FILE__, __LINE__);
-void glgfx_checkerror(char const* func, char const* file, int line);
 
 #endif /* arp2_glgfx_glgfx_h */
