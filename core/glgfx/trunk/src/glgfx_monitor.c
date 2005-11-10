@@ -532,12 +532,25 @@ bool glgfx_monitor_remview(struct glgfx_monitor* monitor,
 }
 
 
+static int __GL_SYNC_TO_VBLANK = -1;
+
 bool glgfx_monitor_waittof(struct glgfx_monitor* monitor) {
   struct glgfx_context* ctx = glgfx_context_getcurrent();
 
+  if (__GL_SYNC_TO_VBLANK == -1) {
+    char const* var = getenv("__GL_SYNC_TO_VBLANK");
+      
+    __GL_SYNC_TO_VBLANK = var != NULL ? atoi(var) : 0;
+  }
+  else if (__GL_SYNC_TO_VBLANK != 0) {
+    // Return immediately, since glgfx_monitor_swapbuffers() will
+    // sleep for us.
+    return false;
+  }
+
   if (ctx->have_GLX_SGI_video_sync) {
     GLuint frame_count;
-  
+
     if (glXGetVideoSyncSGI(&frame_count) != 0) {
       return false;
     }
@@ -549,7 +562,26 @@ bool glgfx_monitor_waittof(struct glgfx_monitor* monitor) {
     return true;
   }
   else {
-    //    D(BUG("Don't know how to wait for vertical blank interrupt!\n"));
+    static struct timeval now = { 0, 0 };
+    struct timeval then = now;
+
+    if (gettimeofday(&now, NULL) == 0) {
+      double vsync = (monitor->dotclock * 1000.0 / 
+		      (monitor->mode.htotal * monitor->mode.vtotal));
+      double ns = ((now.tv_sec * 1e9 + now.tv_usec * 1e3) -
+		   (then.tv_sec * 1e9 + then.tv_usec * 1e3));
+      double wait = 1e9 / vsync - ns;
+
+      if (wait > 0 && wait < 1e9) {
+	struct timespec ts = { 0, (long) wait };
+
+	while (nanosleep(&ts, &ts) == -1 && errno == EINTR);
+      }
+
+      return true;
+    }
+
+    BUG("Unable to wait for vertical blank interrupt!\n");
     return false;
   }
 }
@@ -559,6 +591,8 @@ static uint64_t rdtsc(void) {
 }
 
 bool glgfx_monitor_render(struct glgfx_monitor* monitor) {
+  static const bool late_sprites = true;
+
   if (monitor == NULL || monitor->views == NULL) {
     errno = EINVAL;
     return false;
@@ -573,28 +607,34 @@ bool glgfx_monitor_render(struct glgfx_monitor* monitor) {
   glDrawBuffer(GL_BACK);
   GETT(db);
 
-  glClearColor( 0, 0, 0, 1);
+  glClearColor(0, 0, 0, 0);
+  glClearDepth(1);
   GETT(cc);
 
-  glClear(GL_COLOR_BUFFER_BIT);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
   GETT(cl);
 
   glDisable(GL_BLEND);
   GETT(dis);
 
   pthread_mutex_lock(&glgfx_mutex);
+
   glgfx_view_render(monitor->views->data);
+  if (!late_sprites) {
+    glgfx_view_rendersprites(monitor->views->data);
+  }
+
   pthread_mutex_unlock(&glgfx_mutex);
   GETT(rend);
-
-//  glDrawBuffer(GL_FRONT);
 
   glgfx_monitor_waittof(glgfx_monitors[0]);
   GETT(wait);
 
-  pthread_mutex_lock(&glgfx_mutex);
-  glgfx_view_rendersprites(monitor->views->data);
-  pthread_mutex_unlock(&glgfx_mutex);
+  if (late_sprites) {
+    pthread_mutex_lock(&glgfx_mutex);
+    glgfx_view_rendersprites(monitor->views->data);
+    pthread_mutex_unlock(&glgfx_mutex);
+  }
   GETT(rendspr);
 
   glgfx_monitor_swapbuffers(glgfx_monitors[0]);
@@ -603,7 +643,7 @@ bool glgfx_monitor_render(struct glgfx_monitor* monitor) {
 /*   printf("db=%g, cc=%g, cl=%g, dis=%g, rend=%g, wait=%g, rendspr=%g, swap=%g tot=%g\n", */
 /* 	 NSEC(db) - NSEC(start), NSEC(cc) - NSEC(db), NSEC(cl) - NSEC(cc), */
 /* 	 NSEC(dis) - NSEC(cl), NSEC(rend) - NSEC(dis), NSEC(wait) - NSEC(rend), */
-/* 	 NSEC(rendspr) - NSEC(wait), NSEC(swap) - NSEC(rendspr),  */
+/* 	 NSEC(rendspr) - NSEC(wait), NSEC(swap) - NSEC(rendspr), */
 /* 	 NSEC(swap) - NSEC(start)); */
 
   return true;
