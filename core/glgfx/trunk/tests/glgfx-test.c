@@ -12,7 +12,6 @@
 
 #include <stdio.h>
 #include <sys/time.h>
-#include <sched.h>
 
 #define UPLOAD_MODE 1
 #define DATA_TYPE 1
@@ -100,10 +99,11 @@ int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) 
 
       glgfx_view_addviewport(v, vp);
 
-      struct glgfx_sprite* sp = glgfx_sprite_create(glgfx_sprite_attr_width,  128,
-						   glgfx_sprite_attr_height, 128,
-						   glgfx_sprite_attr_bitmap, (intptr_t) bm,
-						   glgfx_tag_end);
+      struct glgfx_sprite* sp = glgfx_sprite_create(
+	glgfx_sprite_attr_width,  32,
+	glgfx_sprite_attr_height, 32,
+	glgfx_sprite_attr_bitmap, (intptr_t) bm,
+	glgfx_tag_end);
 
       if (sp != NULL) {
 	glgfx_view_addsprite(v, sp);
@@ -116,7 +116,7 @@ int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) 
       struct timeval s, e;
 
       gettimeofday(&s, NULL);
-      for (i = 0; i < 256; i+=1) {
+      for (i = 0; i < 256*4; i+=1) {
 #if UPLOAD_MODE == 1
 	if (glgfx_bitmap_lock(bm, false, true)) {
 #endif
@@ -144,8 +144,8 @@ int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) 
 #endif
 
 	glgfx_viewport_setattrs(vp,
-				glgfx_viewport_attr_width, 100+i*3,
-				glgfx_viewport_attr_y,     i*4-100,
+				glgfx_viewport_attr_width, 100+i,
+				glgfx_viewport_attr_y,     i-100,
 				glgfx_tag_end);
 	
 	glgfx_sprite_setattrs(sp, 
@@ -155,11 +155,6 @@ int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) 
 
 	glgfx_context_unbindfbo(glgfx_context_getcurrent());
 
-	glgfx_monitor_render(glgfx_monitors[0]);
-/* 	glgfx_monitor_waittof(glgfx_monitors[0]); */
-/* 	glgfx_view_render(v); */
-/* 	glgfx_view_rendersprites(v); */
-/* 	glgfx_monitor_swapbuffers(glgfx_monitors[0]); */
 
 	enum glgfx_input_code code;
 	while ((code = glgfx_input_getcode()) != glgfx_input_none) {
@@ -171,6 +166,8 @@ int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) 
 	    mouse_y += dy;
 	  }
 	}
+
+	glgfx_monitor_render(glgfx_monitors[0]);
       }
       gettimeofday(&e, NULL);
       double sec = (e.tv_sec + e.tv_usec * 1e-6) - (s.tv_sec + s.tv_usec * 1e-6);
