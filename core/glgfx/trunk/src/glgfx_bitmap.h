@@ -40,7 +40,7 @@ enum glgfx_bitmap_tag {
 
 struct glgfx_bitmap* glgfx_bitmap_create_a(struct glgfx_tagitem const* tags);
 void glgfx_bitmap_destroy(struct glgfx_bitmap* bitmap);
-bool glgfx_bitmap_lock(struct glgfx_bitmap* bitmap, bool read, bool write);
+void* glgfx_bitmap_lock(struct glgfx_bitmap* bitmap, bool read, bool write);
 bool glgfx_bitmap_unlock(struct glgfx_bitmap* bitmap, 
 			 int x, int y, int width, int height);
 bool glgfx_bitmap_update_a(struct glgfx_bitmap* bitmap, 

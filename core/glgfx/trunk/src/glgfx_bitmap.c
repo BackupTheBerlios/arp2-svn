@@ -165,12 +165,12 @@ void glgfx_bitmap_destroy(struct glgfx_bitmap* bitmap) {
 }
 
 
-bool glgfx_bitmap_lock(struct glgfx_bitmap* bitmap, bool read, bool write) {
+void* glgfx_bitmap_lock(struct glgfx_bitmap* bitmap, bool read, bool write) {
   struct glgfx_context* context = glgfx_context_getcurrent();
   void* res = NULL;
 
   if (bitmap == NULL || (!read && !write)) {
-    return false;
+    return NULL;
   }
 
   pthread_mutex_lock(&glgfx_mutex);
@@ -255,7 +255,7 @@ bool glgfx_bitmap_lock(struct glgfx_bitmap* bitmap, bool read, bool write) {
 
   pthread_mutex_unlock(&glgfx_mutex);
 
-  return res != NULL;
+  return res;
 }
 
 
