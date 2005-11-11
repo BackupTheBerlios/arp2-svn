@@ -44,12 +44,28 @@ enum glgfx_pixel_attr {
   glgfx_pixel_attr_max
 } __attribute__((mode(__pointer__)));
 
+
+#define glgfx_pixel_create_a4r4g4b4(r, g, b, a) \
+  (uint16_t) (((a) << 12) | ((r) << 8) | ((g) << 4) | (b))
+
+#define glgfx_pixel_create_r5g6b5(r, g, b) \
+  (uint16_t) (((r) << 11) | ((g) << 5) | (b))
+
+#define glgfx_pixel_create_a1r5g6b5(r, g, b, a) \
+  (uint16_t) (((a) << 15) |((r) << 10) | ((g) << 5) | (b))
+
+#define glgfx_pixel_create_a8b8g8r8(r, g, b, a) \
+  (uint32_t) (((a) << 24) |((b) << 16) | ((g) << 5) | (r))
+
+#define glgfx_pixel_create_a8r8g8b8(r, g, b, a)	\
+  (uint32_t) (((a) << 24) |((r) << 16) | ((g) << 5) | (b))
+
+
 enum glgfx_pixel_format glgfx_pixel_getformat_a(struct glgfx_tagitem const* tags);
 
 bool glgfx_pixel_getattr(enum glgfx_pixel_format format,
 			 enum glgfx_pixel_attr attr,
 			 intptr_t* storage);
-
 
 #define glgfx_pixel_getformat(tag1, ...) \
   ({ intptr_t const _tags[] = { tag1, ## __VA_ARGS__ }; \
