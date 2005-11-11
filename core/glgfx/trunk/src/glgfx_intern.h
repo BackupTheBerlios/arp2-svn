@@ -58,7 +58,12 @@ struct glgfx_monitor {
     GList*                  views;
 };
 
-struct glgfx_view;
+struct glgfx_view {
+    GList* viewports;
+    GList* sprites;
+    bool   has_changed;
+};
+
 
 struct glgfx_bitmap {
     struct glgfx_monitor*   monitor;
@@ -77,6 +82,8 @@ struct glgfx_bitmap {
     GLenum                  locked_usage;
     GLenum                  locked_access;
     void*                   locked_memory;
+
+    bool                    has_changed;
 };
 
 
@@ -86,6 +93,7 @@ struct glgfx_rasinfo {
     int                  yoffset;
     int                  width;
     int                  height;
+    bool                 has_changed;
 };
 
 
@@ -95,6 +103,7 @@ struct glgfx_viewport {
     int    xoffset;
     int    yoffset;
     GList* rasinfos;
+    bool   has_changed;
 };
 
 
@@ -104,6 +113,7 @@ struct glgfx_sprite {
     int                  y;
     int                  width;
     int                  height;
+    bool                 has_changed;
 };
 
 
@@ -132,6 +142,12 @@ void glgfx_checkerror(char const* func, char const* file, int line);
 
 bool glgfx_monitor_waittof(struct glgfx_monitor* monitor);
 bool glgfx_monitor_swapbuffers(struct glgfx_monitor* monitor);
+
+bool glgfx_view_haschanged(struct glgfx_view* view);
+bool glgfx_viewport_haschanged(struct glgfx_viewport* viewport);
+bool glgfx_sprite_haschanged(struct glgfx_sprite* sprite);
+bool glgfx_bitmap_haschanged(struct glgfx_bitmap* bitmap);
+
 bool glgfx_view_render(struct glgfx_view* view);
 bool glgfx_view_rendersprites(struct glgfx_view* view);
 bool glgfx_viewport_render(struct glgfx_viewport* viewport);

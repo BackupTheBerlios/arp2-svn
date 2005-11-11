@@ -598,53 +598,41 @@ bool glgfx_monitor_render(struct glgfx_monitor* monitor) {
     return false;
   }
 
-#define NSEC(ts) (ts / (2211.341 * 1e6) * 1e9)
-#define GETT(ts) ts = rdtsc();
-  uint64_t start, db, cc, cl, dis, rend, wait, rendspr, swap;
-
-  GETT(start);
-
-  glDrawBuffer(GL_BACK);
-  GETT(db);
-
-  glClearColor(0, 0, 0, 0);
-  glClearDepth(1);
-  GETT(cc);
-
-  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-  GETT(cl);
-
-  glDisable(GL_BLEND);
-  GETT(dis);
-
   pthread_mutex_lock(&glgfx_mutex);
 
-  glgfx_view_render(monitor->views->data);
-  if (!late_sprites) {
-    glgfx_view_rendersprites(monitor->views->data);
-  }
+  bool has_changed = glgfx_view_haschanged(monitor->views->data);
 
   pthread_mutex_unlock(&glgfx_mutex);
-  GETT(rend);
 
-  glgfx_monitor_waittof(glgfx_monitors[0]);
-  GETT(wait);
+  if (has_changed) {
+    glDrawBuffer(GL_BACK);
+    glClearColor(0, 0, 0, 0);
+    glClearDepth(1);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glDisable(GL_BLEND);
 
-  if (late_sprites) {
     pthread_mutex_lock(&glgfx_mutex);
-    glgfx_view_rendersprites(monitor->views->data);
+
+    glgfx_view_render(monitor->views->data);
+
+    if (!late_sprites) {
+      glgfx_view_rendersprites(monitor->views->data);
+    }
+
     pthread_mutex_unlock(&glgfx_mutex);
   }
-  GETT(rendspr);
 
-  glgfx_monitor_swapbuffers(glgfx_monitors[0]);
-  GETT(swap);
+  glgfx_monitor_waittof(glgfx_monitors[0]);
 
-/*   printf("db=%g, cc=%g, cl=%g, dis=%g, rend=%g, wait=%g, rendspr=%g, swap=%g tot=%g\n", */
-/* 	 NSEC(db) - NSEC(start), NSEC(cc) - NSEC(db), NSEC(cl) - NSEC(cc), */
-/* 	 NSEC(dis) - NSEC(cl), NSEC(rend) - NSEC(dis), NSEC(wait) - NSEC(rend), */
-/* 	 NSEC(rendspr) - NSEC(wait), NSEC(swap) - NSEC(rendspr), */
-/* 	 NSEC(swap) - NSEC(start)); */
+  if (has_changed) {
+    if (late_sprites) {
+      pthread_mutex_lock(&glgfx_mutex);
+      glgfx_view_rendersprites(monitor->views->data);
+      pthread_mutex_unlock(&glgfx_mutex);
+    }
+
+    glgfx_monitor_swapbuffers(glgfx_monitors[0]);
+  }
 
   return true;
 }

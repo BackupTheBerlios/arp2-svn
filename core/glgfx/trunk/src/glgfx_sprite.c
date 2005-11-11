@@ -121,10 +121,22 @@ bool glgfx_sprite_getattr(struct glgfx_sprite* sprite,
   return true;
 }
 
+bool glgfx_sprite_haschanged(struct glgfx_sprite* sprite) {
+  bool has_changed = sprite->has_changed;
+
+  sprite->has_changed = false;
+
+  // Always call glgfx_bitmap_haschanged, since we want to reset its
+  // has_changed flag.
+  return glgfx_bitmap_haschanged(sprite->bitmap) || sprite->has_changed;
+}
 
 bool glgfx_sprite_render(struct glgfx_sprite* sprite) {
-  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, sprite->bitmap->texture);
   glColor4f(1,1,1,1);
+  glEnable(GL_TEXTURE_RECTANGLE_ARB);
+
+  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, sprite->bitmap->texture);
+
   glBegin(GL_QUADS);
   glTexCoord2i(0, 0);
   glVertex3f(sprite->x,
@@ -142,6 +154,7 @@ bool glgfx_sprite_render(struct glgfx_sprite* sprite) {
   glVertex3f(sprite->x,
 	     sprite->y + sprite->height, 0);
   glEnd();
+  GLGFX_CHECKERROR();
 
   return true;
 }

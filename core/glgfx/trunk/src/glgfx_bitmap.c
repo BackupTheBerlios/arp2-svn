@@ -141,6 +141,8 @@ struct glgfx_bitmap* glgfx_bitmap_create_a(struct glgfx_tagitem const* tags) {
   glEnable(GL_TEXTURE_RECTANGLE_ARB);
   GLGFX_CHECKERROR();
 
+  bitmap->has_changed = true;
+
   pthread_mutex_unlock(&glgfx_mutex);
   return bitmap;
 }
@@ -326,6 +328,7 @@ bool glgfx_bitmap_unlock(struct glgfx_bitmap* bitmap,
   }
 
   bitmap->locked = false;
+  bitmap->has_changed = true;
   
   pthread_mutex_unlock(&glgfx_mutex);
 
@@ -410,6 +413,8 @@ bool glgfx_bitmap_update_a(struct glgfx_bitmap* bitmap,
   GLGFX_CHECKERROR();
   glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
 
+  bitmap->has_changed = true;
+
   pthread_mutex_unlock(&glgfx_mutex);
   return true;
 }
@@ -481,4 +486,13 @@ bool glgfx_bitmap_waitblit(struct glgfx_bitmap* bitmap) {
   
   pthread_mutex_unlock(&glgfx_mutex);
   return true;
+}
+
+
+bool glgfx_bitmap_haschanged(struct glgfx_bitmap* bitmap) {
+  bool has_changed = bitmap->has_changed;
+
+  bitmap->has_changed = false;
+
+  return has_changed;
 }

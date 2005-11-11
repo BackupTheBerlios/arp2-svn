@@ -26,6 +26,8 @@ struct glgfx_viewport* glgfx_viewport_create_a(struct glgfx_tagitem const* tags)
     glgfx_viewport_destroy(viewport);
     return NULL;
   }
+  
+  viewport->has_changed = true;
 
   return viewport;
 }
@@ -85,6 +87,8 @@ bool glgfx_viewport_setattrs_a(struct glgfx_viewport* viewport,
 	break;
     }
   }
+
+  viewport->has_changed = true;
 
   if (viewport->width <= 0 || 
       viewport->height <= 0) {
@@ -158,6 +162,8 @@ struct glgfx_rasinfo* glgfx_viewport_addbitmap_a(struct glgfx_viewport* viewport
   
   viewport->rasinfos = g_list_append(viewport->rasinfos, rasinfo);
 
+  viewport->has_changed = true;
+
   pthread_mutex_unlock(&glgfx_mutex);
   return rasinfo;
 }
@@ -174,6 +180,8 @@ bool glgfx_viewport_rembitmap(struct glgfx_viewport* viewport,
   viewport->rasinfos = g_list_remove(viewport->rasinfos, rasinfo);
   free(rasinfo);
 
+  viewport->has_changed = true;
+
   pthread_mutex_unlock(&glgfx_mutex);
   return true;
 }
@@ -189,7 +197,7 @@ bool glgfx_rasinfo_setattrs_a(struct glgfx_rasinfo* rasinfo,
   pthread_mutex_lock(&glgfx_mutex);
 
   while ((tag = glgfx_nexttagitem(&tags)) != NULL) {
-    switch ((enum glgfx_viewport_attr) tag->tag) {
+    switch ((enum glgfx_rasinfo_attr) tag->tag) {
       case glgfx_rasinfo_attr_width:
 	rasinfo->width = tag->data;
 	break;
@@ -216,6 +224,8 @@ bool glgfx_rasinfo_setattrs_a(struct glgfx_rasinfo* rasinfo,
 	break;
     }
   }
+
+  rasinfo->has_changed = true;
 
   pthread_mutex_unlock(&glgfx_mutex);
   return rasinfo->bitmap != NULL;
@@ -274,6 +284,30 @@ int glgfx_viewport_numbitmaps(struct glgfx_viewport* viewport) {
 }
 
 
+bool glgfx_viewport_haschanged(struct glgfx_viewport* viewport) {
+  bool has_changed = viewport->has_changed;
+
+  viewport->has_changed = false;
+
+  void check(gpointer* data, gpointer* userdata) {
+    struct glgfx_rasinfo* rasinfo = (struct glgfx_rasinfo*) data;
+    (void*) userdata;
+
+    if (glgfx_bitmap_haschanged(rasinfo->bitmap) || rasinfo->has_changed) {
+      has_changed = true;
+    }
+
+    rasinfo->has_changed = false;
+  }
+
+  // Always call glgfx_bitmap_haschanged, since we want to reset its
+  // has_changed flag.
+  g_list_foreach(viewport->rasinfos, (GFunc) check, viewport);
+
+  return has_changed;
+}
+
+
 bool glgfx_viewport_render(struct glgfx_viewport* viewport) {
 
   void render(gpointer* data, gpointer* userdata) {
@@ -281,7 +315,7 @@ bool glgfx_viewport_render(struct glgfx_viewport* viewport) {
     struct glgfx_viewport* viewport = (struct glgfx_viewport*) userdata;
 
     glBindTexture(GL_TEXTURE_RECTANGLE_ARB, rasinfo->bitmap->texture);
-    glColor4f(1,1,1,1);
+
     glBegin(GL_QUADS);
     glTexCoord2i(rasinfo->xoffset,
 		 rasinfo->yoffset);
@@ -300,7 +334,11 @@ bool glgfx_viewport_render(struct glgfx_viewport* viewport) {
     glVertex3f(viewport->xoffset,
 	       viewport->yoffset + viewport->height, 0);
     glEnd();
+    GLGFX_CHECKERROR();
   }
+
+  glColor4f(1,1,1,1);
+  glEnable(GL_TEXTURE_RECTANGLE_ARB);
 
   g_list_foreach(viewport->rasinfos, (GFunc) render, viewport);
   return true;
