@@ -74,20 +74,19 @@ bool blit(struct glgfx_bitmap* bitmap, int width, int height) {
     }
   }
 
-  sleep(1);
-  if (glgfx_bitmap_blit(bitmap,
-			glgfx_bitmap_blit_x,       0,
-			glgfx_bitmap_blit_y,       0,
-			glgfx_bitmap_blit_width,   100,
-			glgfx_bitmap_blit_height,  100,
+  int i;
+  for (i = 0; i < 100000; ++i) {
+    glgfx_bitmap_blit(bitmap,
+		      glgfx_bitmap_blit_x,       0,
+		      glgfx_bitmap_blit_y,       0,
+		      glgfx_bitmap_blit_width,   100,
+		      glgfx_bitmap_blit_height,  100,
 
-			glgfx_bitmap_blit_dst_x,   50,
-			glgfx_bitmap_blit_dst_y,   10,
-			glgfx_bitmap_blit_minterm, 0xc0,
-			glgfx_tag_end)) {
-    printf("blitted\n");
+		      glgfx_bitmap_blit_dst_x,   100+i/1000*10,
+		      glgfx_bitmap_blit_dst_y,   100+i/1000,
+		      glgfx_bitmap_blit_minterm, 0x30, // inverted source
+		      glgfx_tag_end);
   }
-
 
   sleep(3);
   printf("going home\n");
