@@ -22,14 +22,11 @@ bool volatile renderer_quit = false;
 void* renderer(void* _m) {
   struct glgfx_monitor* monitor = _m;
   
-  glgfx_context_select(glgfx_monitor_getcontext(monitor));
+//  glgfx_context_select(glgfx_monitor_getcontext(monitor));
+  glgfx_context_create(glgfx_monitors[0]);
   
   while (!renderer_quit) {
-    if (!glgfx_monitor_waittof(monitor)) {
-      usleep(1000000/60);
-    }
     glgfx_monitor_render(monitor);
-    glgfx_monitor_swapbuffers(monitor);
   }
 
   return NULL;
@@ -38,15 +35,14 @@ void* renderer(void* _m) {
 bool blit(struct glgfx_bitmap* bitmap, int width, int height) {
   uint16_t* buffer;
   
-  sleep(1);
-  if (glgfx_bitmap_lock(bitmap, false, true)) {
-    glgfx_bitmap_getattr(bitmap, glgfx_bitmap_attr_mapaddr, (intptr_t*) &buffer);
+  struct glgfx_context* ctx = glgfx_context_create(glgfx_monitors[0]);
+
+  if ((buffer = glgfx_bitmap_lock(bitmap, false, true)) != NULL) {
     int x, y;
 
     for (y = 0; y < height; y += 1) {
       for (x = 0; x < width; x += 1) {
-/* 	buffer[x+y*width] = (255 << 24) | ((255*x/width) << 16) | ((255*y/height) << 8) | 0; */
-	buffer[x+y*width] = 0x8ff8;
+	buffer[x+y*width] = glgfx_pixel_create_r5g6b5(y*31/height, 0, x*31/width);
       }
     }
 
@@ -55,7 +51,8 @@ bool blit(struct glgfx_bitmap* bitmap, int width, int height) {
     }
   }
 
-  sleep(1);
+  sleep(3);
+  glgfx_context_destroy(ctx);
 
   //  while(true);
   return true;
@@ -94,7 +91,8 @@ int main(int argc, char** argv) {
       struct glgfx_bitmap* bm = 
 	glgfx_bitmap_create(glgfx_bitmap_tag_width,  width,
 			    glgfx_bitmap_tag_height, height/3, 
-			    glgfx_bitmap_tag_format, glgfx_pixel_format_a8b8g8r8,
+			    glgfx_bitmap_tag_format, glgfx_pixel_format_r5g6b5,
+//			    glgfx_bitmap_tag_format, glgfx_pixel_format_a8b8g8r8,
 			    glgfx_tag_end);
     
       if (bm == NULL) {
@@ -108,7 +106,8 @@ int main(int argc, char** argv) {
 				glgfx_tag_end);
 
 	struct glgfx_viewport* vp2 =
-	  glgfx_viewport_create(glgfx_viewport_attr_width,  width,
+	  glgfx_viewport_create(glgfx_viewport_attr_y,      height / 3 + 1,
+				glgfx_viewport_attr_width,  width,
 				glgfx_viewport_attr_height, height * 2 / 3,
 				glgfx_tag_end);
 
@@ -121,8 +120,7 @@ int main(int argc, char** argv) {
 	struct glgfx_rasinfo* ri2 =
 	  glgfx_viewport_addbitmap(vp2, bm,
 				   glgfx_rasinfo_attr_width,  width,
-				   glgfx_rasinfo_attr_height, height * 2 / 3,
-				   glgfx_rasinfo_attr_y,      height / 3,
+				   glgfx_rasinfo_attr_height, height / 3,
 				   glgfx_tag_end);
 	
 	struct glgfx_view* v = glgfx_view_create();
@@ -130,43 +128,30 @@ int main(int argc, char** argv) {
 	if (vp1 == NULL || vp2 == NULL || ri1 == NULL || ri2 == NULL ||
 	    v == NULL ||
 	    !glgfx_view_addviewport(v, vp1) ||
-	    !glgfx_view_addviewport(v, vp2)) {
+	    !glgfx_view_addviewport(v, vp2) ||
+	    !glgfx_monitor_addview(glgfx_monitors[0], v)) {
 	  printf("Unable to create view/viewport\n");
 	  rc = 20;
 	}
-	else{
-	  struct glgfx_context* ctx = glgfx_context_create(glgfx_monitors[0]);
+	else {
+	  pthread_t pid = -1;
 
-	  if (ctx == NULL) {
-	    printf("Unable to create new context\n");
+	  if (pthread_create(&pid, NULL, renderer, glgfx_monitors[0]) != 0) {
+	    printf("Unable to start render thread\n");
 	    rc = 20;
 	  }
 	  else {
-	    pthread_t pid = -1;
-
-	    if (pthread_create(&pid, NULL, renderer, glgfx_monitors[0]) != 0) {
-	      printf("Unable to start render thread\n");
-	      rc = 20;
+	    if (!blit(bm, width, height / 3)) {
+	      rc = 5;
 	    }
-	    else {
-	      if (!blit(bm, width, height / 3)) {
-		rc = 5;
-	      }
-	    }
-
-	    renderer_quit = true;
-	    pthread_join(pid, NULL);
-
-	    printf("1\n");
-	    glgfx_context_select(glgfx_monitor_getcontext(glgfx_monitors[0]));
-	    printf("1\n");
-	    glgfx_context_destroy(ctx);
-	    printf("1\n");
 	  }
+
+	  renderer_quit = true;
+	  pthread_join(pid, NULL);
+
+	  glgfx_context_select(glgfx_monitor_getcontext(glgfx_monitors[0]));
 	}
 
-	glgfx_viewport_rembitmap(vp1, ri1);
-	glgfx_viewport_rembitmap(vp2, ri2);
 	glgfx_viewport_destroy(vp1);
 	glgfx_viewport_destroy(vp2);
 	glgfx_view_destroy(v);
