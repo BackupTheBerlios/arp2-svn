@@ -1,5 +1,6 @@
 
 #include "glgfx-config.h"
+#include <errno.h>
 #include <stdlib.h>
 #include <GL/gl.h>
 #include <GL/glext.h>
@@ -211,12 +212,8 @@ void* glgfx_bitmap_lock(struct glgfx_bitmap* bitmap, bool read, bool write) {
   bitmap->locked = true;
 
   if (read) {
-    // Make sure FBO is bound
-    glgfx_context_bindfbo(context);
-
-    // Attach texture
-    glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT,
-                              GL_TEXTURE_RECTANGLE_ARB, bitmap->texture, 0);
+    // Bind FBO and attach texture
+    glgfx_context_bindfbo(context, bitmap);
 
     if (context->have_GL_ARB_pixel_buffer_object) {
       glBindBufferARB(GL_PIXEL_PACK_BUFFER_ARB, bitmap->pbo);
@@ -498,33 +495,216 @@ bool glgfx_bitmap_haschanged(struct glgfx_bitmap* bitmap) {
 }
 
 
-/* Blitter minterms
+/* Blitter minterms -> glLogicOp() argument
 
-# ABC
-0 000
-1 001
-2 010
-3 011
-4 100
-5 101
-6 110
-7 111
+# Bit number in minterm
+A Source rectangle (always on for non-twisted blits)
+B Source pixel
+C Destination pixel
 
-00	GL_CLEAR		
-10	GL_NOR			
-20	GL_AND_INVERTED		
-30	GL_COPY_INVERTED	
-40	GL_AND_REVERSE		
-50	GL_INVERT		
-60	GL_XOR			
-70	GL_NAND			
-80	GL_AND			
-90	GL_EQUIV		
-a0	GL_NOOP			
-b0	GL_OR_INVERTED		
-c0	GL_COPY			
-d0	GL_OR_REVERSE		
-e0	GL_OR			
-f0	GL_SET			
-
+# ABC		Minterm 	glLogicOp
+- ---		-------		---------
+0 000		00		GL_CLEAR	
+1 001		10		GL_NOR		
+2 010		20		GL_AND_INVERTED	
+3 011		30		GL_COPY_INVERTED
+4 100		40		GL_AND_REVERSE	
+5 101		50		GL_INVERT	
+6 110		60		GL_XOR		
+7 111		70		GL_NAND		
+		80		GL_AND		
+		90		GL_EQUIV	
+		a0		GL_NOOP		
+		b0		GL_OR_INVERTED	
+		c0		GL_COPY		
+		d0		GL_OR_REVERSE	
+		e0		GL_OR		
+		f0		GL_SET		
 */
+
+bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap, 
+			 struct glgfx_tagitem const* tags) {
+  struct glgfx_context* context = glgfx_context_getcurrent();
+
+  struct glgfx_tagitem const* tag;
+  int src_x = -1, src_y = -1, src_width = -1, src_height = -1;
+  int dst_x = -1, dst_y = -1;
+  struct glgfx_bitmap* dst_bitmap = bitmap;
+  int minterm = 0xc0;
+
+  static GLenum const ops[16] = {
+    GL_CLEAR, GL_NOR, GL_AND_INVERTED, GL_COPY_INVERTED, 
+    GL_AND_REVERSE, GL_INVERT, GL_XOR, GL_NAND,
+    GL_AND, GL_EQUIV, GL_NOOP, GL_OR_INVERTED,
+    GL_COPY, GL_OR_REVERSE, GL_OR, GL_SET
+  };
+
+
+  if (bitmap == NULL || tags == NULL) {
+    errno = EINVAL;
+    return false;
+  }
+
+  while ((tag = glgfx_nexttagitem(&tags)) != NULL) {
+    switch ((enum glgfx_bitmap_blit_tag) tag->tag) {
+      case glgfx_bitmap_blit_x:
+	src_x = tag->data;
+	break;
+
+      case glgfx_bitmap_blit_y:
+	src_y = tag->data;
+	break;
+
+      case glgfx_bitmap_blit_width:
+	src_width = tag->data;
+	break;
+
+      case glgfx_bitmap_blit_height:
+	src_height = tag->data;
+	break;
+
+      case glgfx_bitmap_blit_dst_x:
+	dst_x = tag->data;
+	break;
+
+      case glgfx_bitmap_blit_dst_y:
+	dst_y = tag->data;
+	break;
+
+      case glgfx_bitmap_blit_dst_bitmap:
+	dst_bitmap = (struct glgfx_bitmap*) tag->data;
+	break;
+	
+      case glgfx_bitmap_blit_minterm:
+	minterm = tag->data;
+	break;
+
+      case glgfx_bitmap_blit_unknown:
+      case glgfx_bitmap_blit_max:
+	break;
+    }
+  }
+
+  if (src_x < 0 || src_y < 0 || src_width <= 0 || src_height <= 0 ||
+      dst_x < 0 || dst_y < 0 ||
+      dst_bitmap == NULL || (minterm & ~0xff) != 0 ||
+      src_x + src_width >= bitmap->width || 
+      dst_x + src_width >= dst_bitmap->width || 
+      src_y + src_height >= bitmap->height ||
+      dst_y + src_height >= dst_bitmap->height) {
+    errno = EINVAL;
+    return false;
+  }
+
+  if (bitmap == dst_bitmap && !context->miss_pixel_ops) {
+    if ((minterm & 0xf0) == 0xc0) {
+      glDisable(GL_COLOR_LOGIC_OP);
+    }
+    else {
+      glEnable(GL_COLOR_LOGIC_OP);
+      glLogicOp(ops[minterm >> 4]);
+    }
+
+    GLcharARB const* source = 
+      "void main(void) {\n"
+      "  gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);\n"
+      "}";
+
+    GLhandleARB program = glCreateProgramObjectARB();
+    GLhandleARB shader  = glCreateShaderObjectARB(GL_FRAGMENT_SHADER_ARB);
+    
+    glShaderSourceARB(shader, 1, &source, NULL);
+    glCompileShaderARB(shader);
+    glAttachObjectARB(program, shader);
+    glLinkProgramARB(program);
+
+    void printInfoLog(GLhandleARB obj) {
+      int infologLength = 0;
+      int charsWritten  = 0;
+      char *infoLog;
+
+      glGetObjectParameterivARB(obj, GL_OBJECT_INFO_LOG_LENGTH_ARB,
+				&infologLength);
+
+      if (infologLength > 0) {
+	infoLog = (char*) malloc(infologLength);
+	glGetInfoLogARB(obj, infologLength, &charsWritten, infoLog);
+	printf("%s\n",infoLog);
+	free(infoLog);
+      }
+    }
+
+    printInfoLog(program);
+
+    // Bind FBO and attach texture
+   glgfx_context_bindfbo(context, dst_bitmap);
+   glReadBuffer(GL_COLOR_ATTACHMENT0_EXT);
+   glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
+
+/*     glgfx_context_select(glgfx_monitor_getcontext(glgfx_monitors[0])); */
+/*     glgfx_context_unbindfbo(context); */
+/*     glDrawBuffer(GL_FRONT); */
+
+    glClearColor(1,0,1,0);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    glDisable(GL_TEXTURE_RECTANGLE_ARB);
+    glColor4f(0,1,1,0);
+
+    glUseProgramObjectARB(program);
+
+    printf("%d,%d - %d,%d - %d,%d - %d,%d\n",
+	   dst_x, dst_y,
+	   dst_x + src_width, dst_y,
+	   dst_x + src_width, dst_y + src_height,
+	   dst_x, dst_y + src_height);
+    
+/*     glReadBuffer(GL_FRONT); */
+/*     glDrawBuffer(GL_FRONT); */
+/*     glRasterPos2i(dst_x, dst_y); */
+/*     glCopyPixels(src_x, src_y, src_width, src_height, GL_COLOR); */
+
+    glBegin(GL_QUADS);
+/*     glVertex3f(dst_x, */
+/* 	       dst_y, 0); */
+/*     glVertex3f(dst_x + src_width, */
+/* 	       dst_y, 0); */
+/*     glVertex3f(dst_x + src_width, */
+/* 	       dst_y + src_height, 0); */
+/*     glVertex3f(dst_x, */
+/* 	       dst_y + src_height, 0); */
+    glVertex3f(100, 100, 0);
+    glVertex3f(200, 100, 0);
+    glVertex3f(200, 200, 0);
+    glVertex3f(100, 200, 0);
+    glEnd();
+    GLGFX_CHECKERROR();
+
+    glUseProgramObjectARB(0);
+
+//    glgfx_context_select(context);
+/*     glgfx_context_bindfbo(context, 0); */
+/*     glgfx_context_unbindfbo(context); */
+/*     GLGFX_CHECKERROR(); */
+
+    // Blit using glCopyPixels()
+/*     glReadBuffer(GL_COLOR_ATTACHMENT0_EXT); */
+/*     glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT); */
+/*     glRasterPos2i(dst_x, dst_y); */
+/*     glCopyPixels(src_x, src_y, src_width, src_height, GL_COLOR); */
+
+    if ((minterm & 0xf0) != 0xc0) {
+      glDisable(GL_COLOR_LOGIC_OP);
+    }
+
+    glgfx_context_unbindfbo(context);
+  }
+  else {
+    abort();
+  }
+
+  dst_bitmap->has_changed = true;
+
+  return true;
+}
+		       

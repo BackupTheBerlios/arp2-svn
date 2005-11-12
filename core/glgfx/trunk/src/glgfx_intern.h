@@ -24,12 +24,16 @@
 
 extern pthread_mutex_t glgfx_mutex;
 
+struct glgfx_bitmap;
+
 struct glgfx_context {
     struct glgfx_monitor*   monitor;
     GLXContext              glx_context;
     GLuint                  fbo;
+    struct glgfx_bitmap*    temp_bitmap;
 
     bool                    fbo_bound;
+    struct glgfx_bitmap*    fbo_bitmap;
 
     GHashTable*             extensions;
     bool                    have_GL_EXT_framebuffer_object;
@@ -37,6 +41,8 @@ struct glgfx_context {
     bool                    have_GLX_SGI_video_sync;
     bool                    have_GL_ARB_vertex_buffer_object;
     bool                    have_GL_ARB_pixel_buffer_object;
+    
+    bool                    miss_pixel_ops;
 };
 
 

@@ -37,6 +37,8 @@ bool blit(struct glgfx_bitmap* bitmap, int width, int height) {
   
   struct glgfx_context* ctx = glgfx_context_create(glgfx_monitors[0]);
 
+  // Fill texture with data
+
   if ((buffer = glgfx_bitmap_lock(bitmap, false, true)) != NULL) {
     int x, y;
 
@@ -51,7 +53,44 @@ bool blit(struct glgfx_bitmap* bitmap, int width, int height) {
     }
   }
 
+  // Clear the PBO buffer
+  if ((buffer = glgfx_bitmap_lock(bitmap, true, false)) != NULL) {
+    bzero(buffer, width*height*2);
+    glgfx_bitmap_unlock(bitmap, 0, 0, width, height);
+  }
+
+  // Read texture, modify 100x100 pixels of it and upload 200x200 pixels
+  if ((buffer = glgfx_bitmap_lock(bitmap, true, true)) != NULL) {
+    int x, y;
+
+    for (y = 0; y < 100; y += 1) {
+      for (x = 0; x < 100; x += 1) {
+	buffer[x+y*width] = glgfx_pixel_create_r5g6b5((100-y)*31/100, 0, x*31/100);
+      }
+    }
+
+    if (glgfx_bitmap_unlock(bitmap, 0, 0, 200, 200)) {
+      printf("updated 2\n");
+    }
+  }
+
+  sleep(1);
+  if (glgfx_bitmap_blit(bitmap,
+			glgfx_bitmap_blit_x,       11,
+			glgfx_bitmap_blit_y,       22,
+			glgfx_bitmap_blit_width,   60,
+			glgfx_bitmap_blit_height,  10,
+
+			glgfx_bitmap_blit_dst_x,   30,
+			glgfx_bitmap_blit_dst_y,   20,
+			glgfx_bitmap_blit_minterm, 0xc0,
+			glgfx_tag_end)) {
+    printf("blitted\n");
+  }
+
+
   sleep(3);
+  printf("going home\n");
   glgfx_context_destroy(ctx);
 
   //  while(true);
@@ -77,7 +116,7 @@ int main(int argc, char** argv) {
   else {
     intptr_t width, height;
 
-    if (glgfx_getattrs(glgfx_monitors[0], /*glgfx_getattr_proto */
+    if (glgfx_getattrs(glgfx_monitors[0],
 		       (glgfx_getattr_proto*) glgfx_monitor_getattr,
 		       glgfx_monitor_attr_width,  (intptr_t) &width,
 		       glgfx_monitor_attr_height, (intptr_t) &height,
@@ -86,7 +125,7 @@ int main(int argc, char** argv) {
       rc = 20;
     }
     else{
-      printf("Display width: %dx%d pixels\n", width, height);
+      printf("Display width: %" PRIdPTR "x%" PRIdPTR " pixels\n", width, height);
 
       struct glgfx_bitmap* bm = 
 	glgfx_bitmap_create(glgfx_bitmap_tag_width,  width,
