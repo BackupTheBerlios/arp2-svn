@@ -206,22 +206,21 @@ bool glgfx_context_bindfbo(struct glgfx_context* context,
     return false;
   }
 
+  // Make sure the FBO is bound
   if (!context->fbo_bound) {
     glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, context->fbo);
     check = true;
   }
 
+  // Make sure the bitmap is attached to buffer 0
   if (context->fbo_bitmap != bitmap) {
     glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT,
-                              GL_TEXTURE_RECTANGLE_ARB, 
-			      bitmap != NULL ? bitmap->texture : 0,
-			      0);
+                              GL_TEXTURE_RECTANGLE_ARB, bitmap->texture, 0);
     check = true;
   }
-  
+
   if (check) {
-    if (bitmap != NULL &&
-	glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT) != GL_FRAMEBUFFER_COMPLETE_EXT) {
+    if (glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT) != GL_FRAMEBUFFER_COMPLETE_EXT) {
       BUG("FBO incomplete! (%d)\n", glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT));
       rc = false;
     }
@@ -229,6 +228,20 @@ bool glgfx_context_bindfbo(struct glgfx_context* context,
       context->fbo_bound  = true;
       context->fbo_bitmap = bitmap;
     }
+  }
+
+  // Make sure the viewport and projection are correct
+  if (context->fbo_width != bitmap->width ||
+      context->fbo_height != bitmap->height) {
+    glViewport(0, 0, bitmap->width, bitmap->height);
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glOrtho(0, bitmap->width, bitmap->height, 0, -1, 0);
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+
+    context->fbo_width = bitmap->width;
+    context->fbo_height = bitmap->height;
   }
 
   return rc;

@@ -605,93 +605,14 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
       glLogicOp(ops[minterm >> 4]);
     }
 
-    GLcharARB const* source = 
-      "void main(void) {\n"
-      "  gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);\n"
-      "}";
-
-    GLhandleARB program = glCreateProgramObjectARB();
-    GLhandleARB shader  = glCreateShaderObjectARB(GL_FRAGMENT_SHADER_ARB);
-    
-    glShaderSourceARB(shader, 1, &source, NULL);
-    glCompileShaderARB(shader);
-    glAttachObjectARB(program, shader);
-    glLinkProgramARB(program);
-
-    void printInfoLog(GLhandleARB obj) {
-      int infologLength = 0;
-      int charsWritten  = 0;
-      char *infoLog;
-
-      glGetObjectParameterivARB(obj, GL_OBJECT_INFO_LOG_LENGTH_ARB,
-				&infologLength);
-
-      if (infologLength > 0) {
-	infoLog = (char*) malloc(infologLength);
-	glGetInfoLogARB(obj, infologLength, &charsWritten, infoLog);
-	printf("%s\n",infoLog);
-	free(infoLog);
-      }
-    }
-
-    printInfoLog(program);
-
     // Bind FBO and attach texture
-   glgfx_context_bindfbo(context, dst_bitmap);
-   glReadBuffer(GL_COLOR_ATTACHMENT0_EXT);
-   glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
-
-/*     glgfx_context_select(glgfx_monitor_getcontext(glgfx_monitors[0])); */
-/*     glgfx_context_unbindfbo(context); */
-/*     glDrawBuffer(GL_FRONT); */
-
-    glClearColor(1,0,1,0);
-    glClear(GL_COLOR_BUFFER_BIT);
-
-    glDisable(GL_TEXTURE_RECTANGLE_ARB);
-    glColor4f(0,1,1,0);
-
-    glUseProgramObjectARB(program);
-
-    printf("%d,%d - %d,%d - %d,%d - %d,%d\n",
-	   dst_x, dst_y,
-	   dst_x + src_width, dst_y,
-	   dst_x + src_width, dst_y + src_height,
-	   dst_x, dst_y + src_height);
-    
-/*     glReadBuffer(GL_FRONT); */
-/*     glDrawBuffer(GL_FRONT); */
-/*     glRasterPos2i(dst_x, dst_y); */
-/*     glCopyPixels(src_x, src_y, src_width, src_height, GL_COLOR); */
-
-    glBegin(GL_QUADS);
-/*     glVertex3f(dst_x, */
-/* 	       dst_y, 0); */
-/*     glVertex3f(dst_x + src_width, */
-/* 	       dst_y, 0); */
-/*     glVertex3f(dst_x + src_width, */
-/* 	       dst_y + src_height, 0); */
-/*     glVertex3f(dst_x, */
-/* 	       dst_y + src_height, 0); */
-    glVertex3f(100, 100, 0);
-    glVertex3f(200, 100, 0);
-    glVertex3f(200, 200, 0);
-    glVertex3f(100, 200, 0);
-    glEnd();
-    GLGFX_CHECKERROR();
-
-    glUseProgramObjectARB(0);
-
-//    glgfx_context_select(context);
-/*     glgfx_context_bindfbo(context, 0); */
-/*     glgfx_context_unbindfbo(context); */
-/*     GLGFX_CHECKERROR(); */
+    glgfx_context_bindfbo(context, dst_bitmap);
 
     // Blit using glCopyPixels()
-/*     glReadBuffer(GL_COLOR_ATTACHMENT0_EXT); */
-/*     glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT); */
-/*     glRasterPos2i(dst_x, dst_y); */
-/*     glCopyPixels(src_x, src_y, src_width, src_height, GL_COLOR); */
+    glReadBuffer(GL_COLOR_ATTACHMENT0_EXT);
+    glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
+    glRasterPos2i(dst_x, dst_bitmap->height - dst_y);
+    glCopyPixels(src_x, src_y, src_width, src_height, GL_COLOR);
 
     if ((minterm & 0xf0) != 0xc0) {
       glDisable(GL_COLOR_LOGIC_OP);
@@ -700,6 +621,17 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
     glgfx_context_unbindfbo(context);
   }
   else {
+/*     glBegin(GL_QUADS); */
+/*     glVertex3f(dst_x, */
+/* 	       dst_y, 0); */
+/*     glVertex3f(dst_x + src_width, */
+/* 	       dst_y, 0); */
+/*     glVertex3f(dst_x + src_width, */
+/* 	       dst_y + src_height, 0); */
+/*     glVertex3f(dst_x, */
+/* 	       dst_y + src_height, 0); */
+/*     glEnd(); */
+/*     GLGFX_CHECKERROR(); */
     abort();
   }
 
@@ -708,3 +640,34 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
   return true;
 }
 		       
+
+/*     GLcharARB const* source =  */
+/*       "void main(void) {\n" */
+/*       "  gl_FragColor = vec4(1.0, 1.0, 1.0, 0.5);\n" */
+/*       "}"; */
+
+/*     GLhandleARB program = glCreateProgramObjectARB(); */
+/*     GLhandleARB shader  = glCreateShaderObjectARB(GL_FRAGMENT_SHADER_ARB); */
+    
+/*     glShaderSourceARB(shader, 1, &source, NULL); */
+/*     glCompileShaderARB(shader); */
+/*     glAttachObjectARB(program, shader); */
+/*     glLinkProgramARB(program); */
+
+/*     void printInfoLog(GLhandleARB obj) { */
+/*       int infologLength = 0; */
+/*       int charsWritten  = 0; */
+/*       char *infoLog; */
+
+/*       glGetObjectParameterivARB(obj, GL_OBJECT_INFO_LOG_LENGTH_ARB, */
+/* 				&infologLength); */
+
+/*       if (infologLength > 0) { */
+/* 	infoLog = (char*) malloc(infologLength); */
+/* 	glGetInfoLogARB(obj, infologLength, &charsWritten, infoLog); */
+/* 	printf("%s\n",infoLog); */
+/* 	free(infoLog); */
+/*       } */
+/*     } */
+
+/*     printInfoLog(program); */

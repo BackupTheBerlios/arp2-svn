@@ -34,6 +34,8 @@ struct glgfx_context {
 
     bool                    fbo_bound;
     struct glgfx_bitmap*    fbo_bitmap;
+    int                     fbo_width;
+    int                     fbo_height;
 
     GHashTable*             extensions;
     bool                    have_GL_EXT_framebuffer_object;

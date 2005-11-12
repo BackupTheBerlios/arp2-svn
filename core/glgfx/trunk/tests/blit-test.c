@@ -76,13 +76,13 @@ bool blit(struct glgfx_bitmap* bitmap, int width, int height) {
 
   sleep(1);
   if (glgfx_bitmap_blit(bitmap,
-			glgfx_bitmap_blit_x,       11,
-			glgfx_bitmap_blit_y,       22,
-			glgfx_bitmap_blit_width,   60,
-			glgfx_bitmap_blit_height,  10,
+			glgfx_bitmap_blit_x,       0,
+			glgfx_bitmap_blit_y,       0,
+			glgfx_bitmap_blit_width,   100,
+			glgfx_bitmap_blit_height,  100,
 
-			glgfx_bitmap_blit_dst_x,   30,
-			glgfx_bitmap_blit_dst_y,   20,
+			glgfx_bitmap_blit_dst_x,   50,
+			glgfx_bitmap_blit_dst_y,   10,
 			glgfx_bitmap_blit_minterm, 0xc0,
 			glgfx_tag_end)) {
     printf("blitted\n");
