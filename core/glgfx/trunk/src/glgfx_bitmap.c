@@ -496,3 +496,35 @@ bool glgfx_bitmap_haschanged(struct glgfx_bitmap* bitmap) {
 
   return has_changed;
 }
+
+
+/* Blitter minterms
+
+# ABC
+0 000
+1 001
+2 010
+3 011
+4 100
+5 101
+6 110
+7 111
+
+00	GL_CLEAR		
+10	GL_NOR			
+20	GL_AND_INVERTED		
+30	GL_COPY_INVERTED	
+40	GL_AND_REVERSE		
+50	GL_INVERT		
+60	GL_XOR			
+70	GL_NAND			
+80	GL_AND			
+90	GL_EQUIV		
+a0	GL_NOOP			
+b0	GL_OR_INVERTED		
+c0	GL_COPY			
+d0	GL_OR_REVERSE		
+e0	GL_OR			
+f0	GL_SET			
+
+*/
