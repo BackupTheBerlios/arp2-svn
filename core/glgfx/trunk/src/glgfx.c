@@ -196,7 +196,11 @@ struct glgfx_context* glgfx_context_getcurrent(void) {
   return current_context;
 }
 
-bool glgfx_context_bindfbo(struct glgfx_context* context) {
+bool glgfx_context_bindfbo(struct glgfx_context* context,
+			   struct glgfx_bitmap* bitmap) {
+  bool check = false;
+  bool rc = true;
+
   if (context == NULL) {
     errno = EINVAL;
     return false;
@@ -204,17 +208,30 @@ bool glgfx_context_bindfbo(struct glgfx_context* context) {
 
   if (!context->fbo_bound) {
     glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, context->fbo);
+    check = true;
+  }
 
-    if (glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT) 
-	!= GL_FRAMEBUFFER_COMPLETE_EXT) {
+  if (context->fbo_bitmap != bitmap) {
+    glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT,
+                              GL_TEXTURE_RECTANGLE_ARB, 
+			      bitmap != NULL ? bitmap->texture : 0,
+			      0);
+    check = true;
+  }
+  
+  if (check) {
+    if (bitmap != NULL &&
+	glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT) != GL_FRAMEBUFFER_COMPLETE_EXT) {
       BUG("FBO incomplete! (%d)\n", glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT));
+      rc = false;
     }
     else {
-      context->fbo_bound = true;
+      context->fbo_bound  = true;
+      context->fbo_bitmap = bitmap;
     }
   }
 
-  return context->fbo_bound;
+  return rc;
 }
 
 
