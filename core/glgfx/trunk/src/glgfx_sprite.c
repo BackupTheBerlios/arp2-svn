@@ -128,7 +128,7 @@ bool glgfx_sprite_haschanged(struct glgfx_sprite* sprite) {
 
   // Always call glgfx_bitmap_haschanged, since we want to reset its
   // has_changed flag.
-  return glgfx_bitmap_haschanged(sprite->bitmap) || sprite->has_changed;
+  return glgfx_bitmap_haschanged(sprite->bitmap) || has_changed;
 }
 
 bool glgfx_sprite_render(struct glgfx_sprite* sprite) {
@@ -137,23 +137,21 @@ bool glgfx_sprite_render(struct glgfx_sprite* sprite) {
 
   glBindTexture(GL_TEXTURE_RECTANGLE_ARB, sprite->bitmap->texture);
 
-  glBegin(GL_QUADS);
-  glTexCoord2i(0, 0);
-  glVertex3f(sprite->x,
-	     sprite->y, 0);
-  glTexCoord2i(sprite->bitmap->width,
-	       0);
-  glVertex3f(sprite->x + sprite->width,
-	     sprite->y, 0);
-  glTexCoord2i(sprite->bitmap->width,
-	       sprite->bitmap->height);
-  glVertex3f(sprite->x + sprite->width,
-	     sprite->y + sprite->height, 0);
-  glTexCoord2i(0,
-	       sprite->bitmap->height);
-  glVertex3f(sprite->x,
-	     sprite->y + sprite->height, 0);
+  glBegin(GL_QUADS); {
+    glTexCoord2i(0,                         0);
+    glVertex2i  (sprite->x,                 sprite->y);
+
+    glTexCoord2i(sprite->bitmap->width,     0);
+    glVertex2i  (sprite->x + sprite->width, sprite->y);
+
+    glTexCoord2i(sprite->bitmap->width,     sprite->bitmap->height);
+    glVertex2i  (sprite->x + sprite->width, sprite->y + sprite->height);
+
+    glTexCoord2i(0,                         sprite->bitmap->height);
+    glVertex2i  (sprite->x,                 sprite->y + sprite->height);
+  }
   glEnd();
+
   GLGFX_CHECKERROR();
 
   return true;
