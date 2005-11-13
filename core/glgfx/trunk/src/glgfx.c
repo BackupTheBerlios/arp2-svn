@@ -263,6 +263,32 @@ bool glgfx_context_unbindfbo(struct glgfx_context* context) {
 }
 
 
+struct glgfx_bitmap* glgfx_context_gettempbitmap(struct glgfx_context* context,
+						 int min_width, 
+						 int min_height, 
+						 enum glgfx_pixel_format format) {
+  if (min_width < 0 || min_height < 0 ||
+      format <= glgfx_pixel_format_unknown || format >= glgfx_pixel_format_max) {
+    return NULL;
+  }
+
+  if (context->temp_bitmaps[format] == NULL ||
+      context->temp_bitmaps[format]->width < min_width ||
+      context->temp_bitmaps[format]->height < min_height) {
+
+    glgfx_bitmap_destroy(context->temp_bitmaps[format]);
+
+    context->temp_bitmaps[format] = glgfx_bitmap_create(
+      glgfx_bitmap_attr_width,  min_width,
+      glgfx_bitmap_attr_height, min_height,
+      glgfx_bitmap_attr_format, format,
+      glgfx_tag_end);
+  }
+
+  return context->temp_bitmaps[format];
+}
+
+
 bool glgfx_context_destroy(struct glgfx_context* context) {
   if (context == NULL || context->monitor == NULL) {
     errno = EINVAL;
@@ -270,6 +296,14 @@ bool glgfx_context_destroy(struct glgfx_context* context) {
   }
 
   pthread_mutex_lock(&glgfx_mutex);
+
+  size_t i;
+
+  for (i = 0; 
+       i < sizeof (context->temp_bitmaps) / sizeof (context->temp_bitmaps[0]);
+       ++i) {
+    glgfx_bitmap_destroy(context->temp_bitmaps[i]);
+  }
 
   if (context->monitor != NULL) {
     if (current_context == context) {

@@ -19,7 +19,6 @@
 
 bool volatile renderer_quit = false;
 
-
 void* renderer(void* _m) {
   struct glgfx_monitor* monitor = _m;
   
@@ -34,7 +33,8 @@ void* renderer(void* _m) {
 }
 
 bool blit(struct glgfx_bitmap* bitmap, int width, int height) {
-  uint16_t* buffer;
+//  uint16_t* buffer;
+  uint32_t* buffer;
   
   struct glgfx_context* ctx = glgfx_context_create(glgfx_monitors[0]);
 
@@ -45,7 +45,8 @@ bool blit(struct glgfx_bitmap* bitmap, int width, int height) {
 
     for (y = 0; y < height; y += 1) {
       for (x = 0; x < width; x += 1) {
-	buffer[x+y*width] = glgfx_pixel_create_r5g6b5(y*31/height, 0, x*31/width);
+//	buffer[x+y*width] = glgfx_pixel_create_r5g6b5(y*31/height, 0, x*31/width);
+	buffer[x+y*width] = glgfx_pixel_create_a8r8g8b8(y*255/height, 0, x*255/width, 0);
       }
     }
 
@@ -56,13 +57,13 @@ bool blit(struct glgfx_bitmap* bitmap, int width, int height) {
 
   // Clear the PBO buffer, but don't update bitmap
   if ((buffer = glgfx_bitmap_lock(bitmap, true, false, glgfx_tag_end)) != NULL) {
-    memset(buffer, 0, width*height*2);
+    memset(buffer, 0, width*height*sizeof(*buffer));
     glgfx_bitmap_unlock(bitmap, glgfx_tag_end);
   }
 
-  // Read texture (but only 18x180!), modify 100x100 pixels of it and
-  // upload 200x200 pixels. The ten pixel border that were not read
-  // will have undefined content (but probably zero).
+  // Read texture (but only 180x180!), modify 100x100 pixels of it and
+  // upload 200x200 pixels. The 20 pixel wide border that was not
+  // read will have undefined content (but probably zero).
   if ((buffer = glgfx_bitmap_lock(bitmap, true, true,
 				  glgfx_bitmap_copy_width, 180,
 				  glgfx_bitmap_copy_height, 180,
@@ -71,7 +72,7 @@ bool blit(struct glgfx_bitmap* bitmap, int width, int height) {
     
     for (y = 0; y < 100; y += 1) {
       for (x = 0; x < 100; x += 1) {
-	buffer[x+y*width] = glgfx_pixel_create_r5g6b5((100-y)*31/100, 0, x*31/100);
+	buffer[x+y*width] = glgfx_pixel_create_a8r8g8b8(y*255/100, 0, x*255/100, 0);
       }
     }
 
@@ -85,30 +86,77 @@ bool blit(struct glgfx_bitmap* bitmap, int width, int height) {
 
   int i;
   for (i = 0; i < 100; ++i) {
+    // Blit upper left 100x100 pixels in a stripe down-right
     glgfx_bitmap_blit(bitmap,
-		      glgfx_bitmap_blit_x,       0,
-		      glgfx_bitmap_blit_y,       0,
+		      glgfx_bitmap_blit_x,       100+i*10,
+		      glgfx_bitmap_blit_y,       100+i,
 		      glgfx_bitmap_blit_width,   100,
 		      glgfx_bitmap_blit_height,  100,
 
-		      glgfx_bitmap_blit_dst_x,   100+i*10,
-		      glgfx_bitmap_blit_dst_y,   100+i,
+		      glgfx_bitmap_blit_src_x,   0,
+		      glgfx_bitmap_blit_src_y,   0,
 		      glgfx_bitmap_blit_minterm, 0x30, // inverted source
 		      glgfx_tag_end);
   }
 
-  // Scaled blit test
+  // Scaled blit test, src == dst: blit center 100x100 pixels to upper
+  // right corner, 200x200 pixels
   glgfx_bitmap_blit(bitmap,
-		    glgfx_bitmap_blit_x,          300,
-		    glgfx_bitmap_blit_y,          200,
-		    glgfx_bitmap_blit_width,      100,
-		    glgfx_bitmap_blit_height,     100,
+		    glgfx_bitmap_blit_x,          width-200,
+		    glgfx_bitmap_blit_y,          0,
+		    glgfx_bitmap_blit_width,      200,
+		    glgfx_bitmap_blit_height,     200,
 
-		    glgfx_bitmap_blit_dst_x,      200,
-		    glgfx_bitmap_blit_dst_y,      100,
-		    glgfx_bitmap_blit_dst_width,  300,
-		    glgfx_bitmap_blit_dst_height, 300,
+		    glgfx_bitmap_blit_src_x,      width/2-50,
+		    glgfx_bitmap_blit_src_y,      height/2-50,
+		    glgfx_bitmap_blit_src_width,  100,
+		    glgfx_bitmap_blit_src_height, 100,
 		    glgfx_tag_end);
+
+
+  struct glgfx_bitmap* bm2 = 
+    glgfx_bitmap_create(glgfx_bitmap_attr_width,  100,
+			glgfx_bitmap_attr_height, 100, 
+			glgfx_bitmap_attr_format, glgfx_pixel_format_r5g6b5,
+			glgfx_tag_end);
+
+  if (bm2 != NULL) {
+    uint16_t* buffer;
+
+    if ((buffer = glgfx_bitmap_lock(bm2, false, true, glgfx_tag_end)) != NULL) {
+      int x, y;
+
+      for (y = 0; y < 100; y += 1) {
+	for (x = 0; x < 100; x += 1) {
+	  buffer[x+y*100] = glgfx_pixel_create_r5g6b5(y*31/100, x*63/100, 0);
+	}
+      }
+
+      if (glgfx_bitmap_unlock(bm2, glgfx_tag_end)) {
+	printf("updated bm2\n");
+      }
+    }
+
+    // Scaled blit test, src != dst: blit bm2 (inverted) to middle
+    // left bottom, 50x50 pixels
+    glgfx_bitmap_blit(bitmap,
+		      glgfx_bitmap_blit_x,          200,
+		      glgfx_bitmap_blit_y,          height-50,
+		      glgfx_bitmap_blit_width,      50,
+		      glgfx_bitmap_blit_height,     50,
+
+		      glgfx_bitmap_blit_src_x,      0,
+		      glgfx_bitmap_blit_src_y,      0,
+		      glgfx_bitmap_blit_src_width,  100,
+		      glgfx_bitmap_blit_src_height, 100,
+		      glgfx_bitmap_blit_src_bitmap, (intptr_t) bm2,
+
+		      glgfx_bitmap_blit_minterm, 0x30, // inverted source
+
+		      glgfx_tag_end);
+
+    glgfx_bitmap_destroy(bm2);
+  }
 
   sleep(3);
   printf("going home\n");
@@ -151,8 +199,8 @@ int main(int argc, char** argv) {
       struct glgfx_bitmap* bm = 
 	glgfx_bitmap_create(glgfx_bitmap_attr_width,  width,
 			    glgfx_bitmap_attr_height, height/3, 
-			    glgfx_bitmap_attr_format, glgfx_pixel_format_r5g6b5,
-//			    glgfx_bitmap_attr_format, glgfx_pixel_format_a8b8g8r8,
+//			    glgfx_bitmap_attr_format, glgfx_pixel_format_r5g6b5,
+			    glgfx_bitmap_attr_format, glgfx_pixel_format_a8b8g8r8,
 			    glgfx_tag_end);
     
       if (bm == NULL) {

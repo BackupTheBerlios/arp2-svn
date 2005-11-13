@@ -12,6 +12,8 @@
 #include <X11/Xlib.h>
 #include <X11/extensions/xf86vmode.h>
 
+#include "glgfx_pixel.h"
+
 #define BUG(...) printf(__VA_ARGS__)
 
 #if defined(DEBUG)
@@ -30,7 +32,7 @@ struct glgfx_context {
     struct glgfx_monitor*   monitor;
     GLXContext              glx_context;
     GLuint                  fbo;
-    struct glgfx_bitmap*    temp_bitmap;
+    struct glgfx_bitmap*    temp_bitmaps[glgfx_pixel_format_max];
 
     bool                    fbo_bound;
     struct glgfx_bitmap*    fbo_bitmap;
@@ -164,5 +166,12 @@ bool glgfx_view_render(struct glgfx_view* view);
 bool glgfx_view_rendersprites(struct glgfx_view* view);
 bool glgfx_viewport_render(struct glgfx_viewport* viewport);
 bool glgfx_sprite_render(struct glgfx_sprite* sprite);
+
+bool glgfx_context_bindfbo(struct glgfx_context* context, struct glgfx_bitmap* bitmap);
+bool glgfx_context_unbindfbo(struct glgfx_context* context);
+struct glgfx_bitmap* glgfx_context_gettempbitmap(struct glgfx_context* context,
+						 int min_width, 
+						 int min_height, 
+						 enum glgfx_pixel_format format);
 
 #endif /* arp2_glgfx_glgfx_intern_h */

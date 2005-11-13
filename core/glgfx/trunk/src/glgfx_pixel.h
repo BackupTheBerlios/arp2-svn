@@ -6,7 +6,7 @@
 #include <glgfx.h>
 
 enum glgfx_pixel_format {
-  glgfx_pixel_format_unknown = 0,
+  glgfx_pixel_format_unknown = 0, // MUST start at 0!
   
   glgfx_pixel_format_a4r4g4b4,
   glgfx_pixel_format_r5g6b5,

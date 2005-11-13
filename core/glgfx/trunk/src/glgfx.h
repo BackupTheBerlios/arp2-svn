@@ -46,8 +46,6 @@ struct glgfx_bitmap;
 struct glgfx_context* glgfx_context_create(struct glgfx_monitor* monitor);
 bool glgfx_context_select(struct glgfx_context* context);
 struct glgfx_context* glgfx_context_getcurrent(void);
-bool glgfx_context_bindfbo(struct glgfx_context* context, struct glgfx_bitmap* bitmap);
-bool glgfx_context_unbindfbo(struct glgfx_context* context);
 bool glgfx_context_destroy(struct glgfx_context* context);
 
 

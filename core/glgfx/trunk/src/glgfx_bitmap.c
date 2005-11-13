@@ -637,11 +637,12 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
   struct glgfx_tagitem const* tag;
   int src_x = -1, src_y = -1, src_width = -1, src_height = -1;
   int dst_x = -1, dst_y = -1, dst_width = -1, dst_height = -1;
+  struct glgfx_bitmap* src_bitmap = bitmap;
   struct glgfx_bitmap* dst_bitmap = bitmap;
   int minterm = 0xc0;
 
-  bool got_dst_width = false;
-  bool got_dst_height = false;
+  bool got_src_width = false;
+  bool got_src_height = false;
 
   static GLenum const ops[16] = {
     GL_CLEAR, GL_NOR, GL_AND_INVERTED, GL_COPY_INVERTED, 
@@ -659,41 +660,41 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
   while ((tag = glgfx_nexttagitem(&tags)) != NULL) {
     switch ((enum glgfx_bitmap_blit_tag) tag->tag) {
       case glgfx_bitmap_blit_x:
-	src_x = tag->data;
-	break;
-
-      case glgfx_bitmap_blit_y:
-	src_y = tag->data;
-	break;
-
-      case glgfx_bitmap_blit_width:
-	src_width = tag->data;
-	break;
-
-      case glgfx_bitmap_blit_height:
-	src_height = tag->data;
-	break;
-
-      case glgfx_bitmap_blit_dst_x:
 	dst_x = tag->data;
 	break;
 
-      case glgfx_bitmap_blit_dst_y:
+      case glgfx_bitmap_blit_y:
 	dst_y = tag->data;
 	break;
 
-      case glgfx_bitmap_blit_dst_width:
+      case glgfx_bitmap_blit_width:
 	dst_width = tag->data;
-	got_dst_width = true;
 	break;
 
-      case glgfx_bitmap_blit_dst_height:
+      case glgfx_bitmap_blit_height:
 	dst_height = tag->data;
-	got_dst_height = true;
 	break;
 
-      case glgfx_bitmap_blit_dst_bitmap:
-	dst_bitmap = (struct glgfx_bitmap*) tag->data;
+      case glgfx_bitmap_blit_src_x:
+	src_x = tag->data;
+	break;
+
+      case glgfx_bitmap_blit_src_y:
+	src_y = tag->data;
+	break;
+
+      case glgfx_bitmap_blit_src_width:
+	src_width = tag->data;
+	got_src_width = true;
+	break;
+
+      case glgfx_bitmap_blit_src_height:
+	src_height = tag->data;
+	got_src_height = true;
+	break;
+
+      case glgfx_bitmap_blit_src_bitmap:
+	src_bitmap = (struct glgfx_bitmap*) tag->data;
 	break;
 	
       case glgfx_bitmap_blit_minterm:
@@ -706,26 +707,30 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
     }
   }
 
-  if (!got_dst_width) {
-    dst_width = src_width;
+  if (!got_src_width) {
+    src_width = dst_width;
   }
 
-  if (!got_dst_height) {
-    dst_height = src_height;
+  if (!got_src_height) {
+    src_height = dst_height;
   }
 
   if (src_x < 0 || src_y < 0 || src_width <= 0 || src_height <= 0 ||
       dst_x < 0 || dst_y < 0 || dst_width <= 0 || dst_height <= 0 ||
-      dst_bitmap == NULL || (minterm & ~0xff) != 0 ||
-      src_x + src_width >= bitmap->width || 
-      dst_x + dst_width >= dst_bitmap->width || 
-      src_y + src_height >= bitmap->height ||
-      dst_y + dst_height >= dst_bitmap->height) {
+      src_x + src_width > src_bitmap->width || 
+      dst_x + dst_width > dst_bitmap->width || 
+      src_y + src_height > src_bitmap->height ||
+      dst_y + dst_height > dst_bitmap->height ||
+      src_bitmap == NULL || (minterm & ~0xff) != 0) {
     errno = EINVAL;
+    printf("illegal\n");
     return false;
   }
 
-  if (bitmap == dst_bitmap && 
+
+  bool rc = true;
+
+  if (src_bitmap == dst_bitmap && 
       dst_width == src_width && 
       dst_height == dst_height &&
       (!context->miss_pixel_ops || (minterm & 0xf0) == 0xc0)) {
@@ -753,23 +758,85 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
     glgfx_context_unbindfbo(context);
   }
   else {
-/*     glBegin(GL_QUADS); */
-/*     glVertex3f(dst_x, */
-/* 	       dst_y, 0); */
-/*     glVertex3f(dst_x + src_width, */
-/* 	       dst_y, 0); */
-/*     glVertex3f(dst_x + src_width, */
-/* 	       dst_y + src_height, 0); */
-/*     glVertex3f(dst_x, */
-/* 	       dst_y + src_height, 0); */
-/*     glEnd(); */
-/*     GLGFX_CHECKERROR(); */
-    abort();
+    if (src_bitmap == dst_bitmap) {
+      src_bitmap = glgfx_context_gettempbitmap(context,
+					       src_width, src_height,
+					       src_bitmap->format);
+      if (src_bitmap == NULL) {
+	errno = ENOMEM;
+	rc = false;
+      }
+      else {
+	// Bind FBO and attach source bitmap
+	glgfx_context_bindfbo(context, bitmap);
+
+	glReadBuffer(GL_COLOR_ATTACHMENT0_EXT);
+
+	// Bind temp src bitmap as texture
+	glBindTexture(GL_TEXTURE_RECTANGLE_ARB, src_bitmap->texture);
+	GLGFX_CHECKERROR();
+
+	// Copy source bitmap into temp bitmap
+	glCopyTexSubImage2D(GL_TEXTURE_RECTANGLE_ARB, 0,
+			    0, 0,
+			    src_x, src_y, src_width, src_height);
+	src_x = 0;
+	src_y = 0;
+      }
+    }
+
+    if ((minterm & 0xf0) == 0xc0) {
+      glDisable(GL_COLOR_LOGIC_OP);
+    }
+    else {
+      glEnable(GL_COLOR_LOGIC_OP);
+      glLogicOp(ops[minterm >> 4]);
+    }
+
+    // Bind FBO and attach texture
+    glgfx_context_bindfbo(context, dst_bitmap);
+
+    glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
+
+    // Bind temp src bitmap as texture
+    glBindTexture(GL_TEXTURE_RECTANGLE_ARB, src_bitmap->texture);
+    GLGFX_CHECKERROR();
+
+    printf("blitting 33\n");
+
+    glColor4f(1, 1, 1, 1);
+    glEnable(GL_TEXTURE_RECTANGLE_ARB);
+
+    glBegin(GL_QUADS); {
+      glTexCoord2i(src_x,             src_y);
+      glVertex2i  (dst_x,             dst_bitmap->height - dst_y);
+
+      glTexCoord2i(src_x + src_width, src_y);
+      glVertex2i  (dst_x + dst_width, dst_bitmap->height - dst_y);
+
+      glTexCoord2i(src_x + src_width, src_y + src_height);
+      glVertex2i  (dst_x + dst_width, dst_bitmap->height - (dst_y + dst_height));
+
+      glTexCoord2i(src_x,             src_y + src_height);
+      glVertex2i  (dst_x,             dst_bitmap->height - (dst_y + dst_height));
+    }
+    glEnd();
+
+    GLGFX_CHECKERROR();
+
+    if ((minterm & 0xf0) != 0xc0) {
+      glDisable(GL_COLOR_LOGIC_OP);
+    }
+
+    glgfx_context_unbindfbo(context);
   }
 
-  dst_bitmap->has_changed = true;
+  
+  if (rc) {
+    dst_bitmap->has_changed = true;
+  }
 
-  return true;
+  return rc;
 }
 		       
 
