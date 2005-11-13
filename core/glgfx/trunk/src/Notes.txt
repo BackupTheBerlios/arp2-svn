@@ -1,0 +1,31 @@
+
+The difference between the three single-component texture formats,
+GL_ALPHA, GL_LUMINANCE and GL_INTENSITY, is in the way the
+four-component RGBA color vector is generated. If the value for a
+given texel is X, then the RGBA color vector generated is:
+
+
+    * GL_ALPHA: RGBA = (0, 0, 0, X)
+
+    * GL_LUMINANCE: RGBA = (X, X, X, 1)
+
+    * GL_INTENSITY: RGBA = (X, X, X, X)
+
+
+In other words, if we interpret the alpha as transparency, GL_ALPHA
+would represent a completely black texture with varying transparency,
+GL_LUMINANCE is an opaque texture with varying color (a grayscale
+image), and GL_INTENSITY is a combination where both the color and
+alpha channel is varying.
+
+
+
+I just want to add some information to what you've said about
+GL_ALPHA. Although the RGB channels of a GL_ALPHA texture are defined
+to be black, they don't actually get used during the "standard" tex
+env modes. For modulate, replace, blend, and add, the outgoing RGB
+values of a texture unit that uses a GL_ALPHA texture are the same as
+the incoming RGB values, so the GL_ALPHA texture can only affect the
+fragment's alpha values. Of course if you're using a fragment shader
+or texture combiners, then you may actually make use of the RGB
+values.
