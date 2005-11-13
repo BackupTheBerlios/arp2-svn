@@ -1,6 +1,6 @@
 
-This is a X11 based, OpenGL-accelerated Amiga-like graphics library.
-Currently, it handles "monitors" (some kind of physical
+This is a X11 based, OpenGL-accelerated Amiga-like graphics library
+for Linux.  Currently, it handles "monitors" (some kind of physical
 screen/display), "bitmaps" (a surface you can draw to and display in
 various ways), "sprites" (a bitmap rendered on top of everything
 else), "viewports" (a screen area that displays one or more bitmaps),
@@ -12,15 +12,17 @@ or projector setup), but does support custom frame rates for smooth
 video playback at PAL or NTSC speeds (or rather, it will).
 
 In the future, it's going to handle OpenGL for the clients as well,
-blits/bobs and accelerated rendering into bitmaps.
+more accelerated rendering into bitmaps and YUV pixel formats for
+video.
 
-It requires a modern 3D card (DirectX 8 class or better) and
+It requires a modern 3D card (DirectX 9 class or better) and
 top-quality OpenGL drivers.  To be honest, I don't expect to to run on
-anything else than NVIDIA's or ATI's cards.
+anything else than NVIDIA's and possibly ATI's cards.
 
 The following OpenGL extensions are required:
 
- * GL_ARB_texture_rectangle/GL_EXT_texture_rectangle
+ * OpenGL version 1.3 or later
+ * GL_ARB_texture_rectangle or GL_EXT_texture_rectangle
  * GL_ARB_vertex_buffer_object
  * GL_ARB_vertex_shader
  * GL_EXT_framebuffer_object
@@ -34,14 +36,16 @@ not required:
 
 The following "Amiga" features are currently supported:
 
- * The display is composed from one or more viewports.  Each viewport
-can display one or more bitmaps (like "dual playfield" but up to at
-least four bitmaps can be used).
+ * The display ("view") is composed from one or more viewports.  Each
+viewport can display one or more bitmaps (like "dual playfield" but an
+unlimited number of bitmaps can be used).
 
  * Every bitmap in a viewport can be displayed in a different
-resolution, be palette based (not yet) etc.
+resolution, be palette based (one day) etc.
 
  * Different viewports and sprites can use the same bitmap.
+
+ * Blitting can use arbitrary minterms.
 
 The following extra features are on the to-do list:
 
