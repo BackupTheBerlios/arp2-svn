@@ -723,7 +723,6 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
       dst_y + dst_height > dst_bitmap->height ||
       src_bitmap == NULL || (minterm & ~0xff) != 0) {
     errno = EINVAL;
-    printf("illegal\n");
     return false;
   }
 
@@ -801,8 +800,6 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
     // Bind temp src bitmap as texture
     glBindTexture(GL_TEXTURE_RECTANGLE_ARB, src_bitmap->texture);
     GLGFX_CHECKERROR();
-
-    printf("blitting 33\n");
 
     glColor4f(1, 1, 1, 1);
     glEnable(GL_TEXTURE_RECTANGLE_ARB);
