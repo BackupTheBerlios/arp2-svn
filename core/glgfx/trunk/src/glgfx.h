@@ -54,7 +54,7 @@ bool glgfx_context_destroy(struct glgfx_context* context);
 /*** System setup ************************************************************/
 
 enum glgfx_init_tag {
-  glgfx_init_tag_unknown = glgfx_tag_user,
+  glgfx_init_tag_unknown = glgfx_tag_user + 1000,
 
   /* No tags defined yet */
 
@@ -62,7 +62,7 @@ enum glgfx_init_tag {
 } __attribute__((mode(__pointer__)));
 
 enum glgfx_create_monitors_tag {
-  glgfx_create_monitors_tag_unknown = glgfx_tag_user,
+  glgfx_create_monitors_tag_unknown = glgfx_tag_user + 1100,
   
   glgfx_create_monitors_tag_display, /* data is display name string */
   

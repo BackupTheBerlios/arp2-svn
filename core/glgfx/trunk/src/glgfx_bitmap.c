@@ -61,34 +61,33 @@ struct glgfx_bitmap* glgfx_bitmap_create_a(struct glgfx_tagitem const* tags) {
   }
 
   while ((tag = glgfx_nexttagitem(&tags)) != NULL) {
-    switch ((enum glgfx_bitmap_tag) tag->tag) {
+    switch ((enum glgfx_bitmap_attr) tag->tag) {
       
-      case glgfx_bitmap_tag_width:
+      case glgfx_bitmap_attr_width:
 	width = tag->data;
 	break;
 
-      case glgfx_bitmap_tag_height:
+      case glgfx_bitmap_attr_height:
 	height = tag->data;
 	break;
 
-      case glgfx_bitmap_tag_bits:
+      case glgfx_bitmap_attr_bits:
 	bits = tag->data;
 	break;
 
-      case glgfx_bitmap_tag_friend:
+      case glgfx_bitmap_attr_friend:
 	friend = (struct glgfx_bitmap*) tag->data;
 	break;
 
-      case glgfx_bitmap_tag_format:
+      case glgfx_bitmap_attr_format:
 	format = tag->data;
 	break;
 
-      case glgfx_bitmap_tag_x:
-      case glgfx_bitmap_tag_y:
-      case glgfx_bitmap_tag_data:
-      case glgfx_bitmap_tag_bytesperrow:
-      case glgfx_bitmap_tag_unknown:
-      case glgfx_bitmap_tag_max:
+      case glgfx_bitmap_attr_bytesperrow:
+      case glgfx_bitmap_attr_locked:
+      case glgfx_bitmap_attr_mapaddr:
+      case glgfx_bitmap_attr_unknown:
+      case glgfx_bitmap_attr_max:
 	/* Make compiler happy */
 	break;
     }
@@ -155,7 +154,7 @@ void glgfx_bitmap_destroy(struct glgfx_bitmap* bitmap) {
   }
 
   pthread_mutex_lock(&glgfx_mutex);
-  glgfx_bitmap_unlock(bitmap, 0, 0, 0, 0);
+  glgfx_bitmap_unlock_a(bitmap, NULL);
   if (glgfx_context_getcurrent()->have_GL_ARB_pixel_buffer_object) {
     glDeleteBuffersARB(1, &bitmap->pbo);
   }
@@ -168,16 +167,59 @@ void glgfx_bitmap_destroy(struct glgfx_bitmap* bitmap) {
 }
 
 
-void* glgfx_bitmap_lock(struct glgfx_bitmap* bitmap, bool read, bool write) {
+void* glgfx_bitmap_lock_a(struct glgfx_bitmap* bitmap, bool read, bool write,
+			  struct glgfx_tagitem const* tags) {
   struct glgfx_context* context = glgfx_context_getcurrent();
+  struct glgfx_tagitem const* tag;
   void* res = NULL;
 
   if (bitmap == NULL || (!read && !write)) {
     return NULL;
   }
-
+  
   pthread_mutex_lock(&glgfx_mutex);
-    
+
+  bitmap->locked_x = 0;
+  bitmap->locked_y = 0;
+  bitmap->locked_width = bitmap->width;
+  bitmap->locked_height = bitmap->height;
+
+  while ((tag = glgfx_nexttagitem(&tags)) != NULL) {
+    switch ((enum glgfx_bitmap_copy_tag) tag->tag) {
+      case glgfx_bitmap_copy_x:
+	bitmap->locked_x = tag->data;
+	break;
+
+      case glgfx_bitmap_copy_y:
+	bitmap->locked_y = tag->data;
+	break;
+
+      case glgfx_bitmap_copy_width:
+	bitmap->locked_width = tag->data;
+	break;
+
+      case glgfx_bitmap_copy_height:
+	bitmap->locked_height = tag->data;
+	break;
+
+      case glgfx_bitmap_copy_data:
+      case glgfx_bitmap_copy_format:
+      case glgfx_bitmap_copy_bytesperrow:
+      case glgfx_bitmap_copy_unknown:
+      case glgfx_bitmap_copy_max:
+	/* Make compiler happy */
+	break;
+    }
+  }
+
+  if (bitmap->locked_x < 0 || bitmap->locked_width <= 0 ||
+      bitmap->locked_x + bitmap->locked_width > bitmap->width ||
+      bitmap->locked_y < 0 || bitmap->locked_height <= 0 ||
+      bitmap->locked_y + bitmap->locked_height > bitmap->height) {
+    pthread_mutex_unlock(&glgfx_mutex);
+    return NULL;
+  }
+
   if (read && write) {
     bitmap->locked_usage = GL_STREAM_COPY_ARB;
     bitmap->locked_access = GL_READ_WRITE_ARB;
@@ -218,10 +260,14 @@ void* glgfx_bitmap_lock(struct glgfx_bitmap* bitmap, bool read, bool write) {
     if (context->have_GL_ARB_pixel_buffer_object) {
       glBindBufferARB(GL_PIXEL_PACK_BUFFER_ARB, bitmap->pbo);
       GLGFX_CHECKERROR();
-      glReadPixels(0, 0, bitmap->width, bitmap->height, 
+      glPixelStorei(GL_PACK_ROW_LENGTH, bitmap->width);
+      glReadPixels(bitmap->locked_x, bitmap->locked_y, 
+		   bitmap->locked_width, bitmap->locked_height,
 		   formats[bitmap->format].format, 
 		   formats[bitmap->format].type, 
-		   NULL);
+		   (void*) (bitmap->locked_x * formats[bitmap->format].size +
+			    bitmap->locked_y * bitmap->pbo_bytes_per_row));
+      glPixelStorei(GL_PACK_ROW_LENGTH, 0);
       GLGFX_CHECKERROR();
       glBindBufferARB(GL_PIXEL_PACK_BUFFER_ARB, 0);
     }
@@ -232,10 +278,15 @@ void* glgfx_bitmap_lock(struct glgfx_bitmap* bitmap, bool read, bool write) {
 /* 		    formats[bitmap->format].format, */
 /* 		    formats[bitmap->format].type, */
 /* 		    bitmap->buffer); */
-      glReadPixels(0, 0, bitmap->width, bitmap->height, 
+      glPixelStorei(GL_PACK_ROW_LENGTH, bitmap->width);
+      glReadPixels(bitmap->locked_x, bitmap->locked_y, 
+		   bitmap->locked_width, bitmap->locked_height,
 		   formats[bitmap->format].format, 
 		   formats[bitmap->format].type, 
-		   bitmap->buffer);
+		   (void*) (bitmap->buffer + 
+			    bitmap->locked_x * formats[bitmap->format].size +
+			    bitmap->locked_y * bitmap->pbo_bytes_per_row));
+      glPixelStorei(GL_PACK_ROW_LENGTH, 0);
       
       GLGFX_CHECKERROR();
     }
@@ -258,18 +309,56 @@ void* glgfx_bitmap_lock(struct glgfx_bitmap* bitmap, bool read, bool write) {
 }
 
 
-bool glgfx_bitmap_unlock(struct glgfx_bitmap* bitmap, 
-			 int x, int y, int width, int height) {
+bool glgfx_bitmap_unlock_a(struct glgfx_bitmap* bitmap, 
+			   struct glgfx_tagitem const* tags) {
   struct glgfx_context* context = glgfx_context_getcurrent();
+  struct glgfx_tagitem const* tag;
   bool rc = false;
 
-  if (bitmap == NULL || !bitmap->locked ||
-      x < 0 || y < 0 || width < 0 || height < 0 ||
-      (x + width) > bitmap->width || (y + height) > bitmap->height) {
+  if (bitmap == NULL || !bitmap->locked) {
     return false;
   }
 
   pthread_mutex_lock(&glgfx_mutex);
+
+  int x = bitmap->locked_x;
+  int y = bitmap->locked_y;
+  int width = bitmap->locked_width;
+  int height = bitmap->locked_height;
+
+  while ((tag = glgfx_nexttagitem(&tags)) != NULL) {
+    switch ((enum glgfx_bitmap_copy_tag) tag->tag) {
+      case glgfx_bitmap_copy_x:
+	x = tag->data;
+	break;
+
+      case glgfx_bitmap_copy_y:
+	y = tag->data;
+	break;
+
+      case glgfx_bitmap_copy_width:
+	width = tag->data;
+	break;
+
+      case glgfx_bitmap_copy_height:
+	height = tag->data;
+	break;
+
+      case glgfx_bitmap_copy_data:
+      case glgfx_bitmap_copy_format:
+      case glgfx_bitmap_copy_bytesperrow:
+      case glgfx_bitmap_copy_unknown:
+      case glgfx_bitmap_copy_max:
+	/* Make compiler happy */
+	break;
+    }
+  }
+
+  if (x < 0 || y < 0 || width < 0 || height < 0 ||
+      (x + width) > bitmap->width || (y + height) > bitmap->height) {
+    pthread_mutex_unlock(&glgfx_mutex);
+    return false;
+  }
 
   if (bitmap->locked_memory != NULL) {
     if (context->have_GL_ARB_pixel_buffer_object) {
@@ -333,12 +422,14 @@ bool glgfx_bitmap_unlock(struct glgfx_bitmap* bitmap,
 }
 
 
-bool glgfx_bitmap_update_a(struct glgfx_bitmap* bitmap, 
-			   struct glgfx_tagitem const* tags) {
+bool glgfx_bitmap_write_a(struct glgfx_bitmap* bitmap, 
+			  struct glgfx_tagitem const* tags) {
   int x = 0, y = 0, width = 0, height = 0;
   void* data = NULL;
   enum glgfx_pixel_format format = glgfx_pixel_format_unknown;
   size_t bytes_per_row = 0;
+
+  bool got_bytes_per_row = false;
 
   struct glgfx_tagitem const* tag;
 
@@ -347,53 +438,55 @@ bool glgfx_bitmap_update_a(struct glgfx_bitmap* bitmap,
   }
 
   while ((tag = glgfx_nexttagitem(&tags)) != NULL) {
-    switch ((enum glgfx_bitmap_tag) tag->tag) {
-      case glgfx_bitmap_tag_x:
+    switch ((enum glgfx_bitmap_copy_tag) tag->tag) {
+      case glgfx_bitmap_copy_x:
 	x = tag->data;
 	break;
 
-      case glgfx_bitmap_tag_y:
+      case glgfx_bitmap_copy_y:
 	y = tag->data;
 	break;
 
-      case glgfx_bitmap_tag_width:
+      case glgfx_bitmap_copy_width:
 	width = tag->data;
 	break;
 
-      case glgfx_bitmap_tag_height:
+      case glgfx_bitmap_copy_height:
 	height = tag->data;
 	break;
 
-      case glgfx_bitmap_tag_data:
+      case glgfx_bitmap_copy_data:
 	data = (void*) tag->data;
 	break;
 
-      case glgfx_bitmap_tag_format:
+      case glgfx_bitmap_copy_format:
 	format = tag->data;
 	break;
 
-      case glgfx_bitmap_tag_bytesperrow:
+      case glgfx_bitmap_copy_bytesperrow:
 	bytes_per_row = tag->data;
+	got_bytes_per_row = true;
 	break;
 
-      case glgfx_bitmap_tag_bits:
-      case glgfx_bitmap_tag_friend:
-      case glgfx_bitmap_tag_unknown:
-      case glgfx_bitmap_tag_max:
+      case glgfx_bitmap_copy_unknown:
+      case glgfx_bitmap_copy_max:
 	/* Make compiler happy */
 	break;
     }
   }
 
-  if (width <= 0 || height <= 0 || 
-      (x + width) > bitmap->width || (y + height) > bitmap->height ||
-      data == NULL || bitmap->locked ||
-      format <= glgfx_pixel_format_unknown || format >= glgfx_pixel_format_max) {
+  if (format <= glgfx_pixel_format_unknown || format >= glgfx_pixel_format_max) {
     return false;
   }
 
-  if (bytes_per_row == 0) {
+  if (!got_bytes_per_row) {
     bytes_per_row = formats[format].size * width;
+  }
+
+  if (width <= 0 || height <= 0 || 
+      (x + width) > bitmap->width || (y + height) > bitmap->height ||
+      data == NULL || bitmap->locked || bytes_per_row == 0) {
+    return false;
   }
 
   pthread_mutex_lock(&glgfx_mutex);
@@ -420,6 +513,8 @@ bool glgfx_bitmap_update_a(struct glgfx_bitmap* bitmap,
 bool glgfx_bitmap_getattr(struct glgfx_bitmap* bm,
 			  enum glgfx_bitmap_attr attr,
 			  intptr_t* storage) {
+  bool rc = true;
+
   if (bm == NULL || storage == NULL ||
       attr <= glgfx_bitmap_attr_unknown || attr >= glgfx_bitmap_attr_max) {
     return false;
@@ -434,6 +529,17 @@ bool glgfx_bitmap_getattr(struct glgfx_bitmap* bm,
 
     case glgfx_bitmap_attr_height:
       *storage = bm->height;
+      break;
+
+    case glgfx_bitmap_attr_bits:
+      *storage = (formats[bm->format].redbits + 
+		  formats[bm->format].greenbits + 
+		  formats[bm->format].bluebits + 
+		  formats[bm->format].alphabits);
+      break;
+
+    case glgfx_bitmap_attr_friend:
+      rc = false;
       break;
 
     case glgfx_bitmap_attr_format: 
@@ -451,13 +557,15 @@ bool glgfx_bitmap_getattr(struct glgfx_bitmap* bm,
     case glgfx_bitmap_attr_mapaddr:
       *storage = (intptr_t) bm->locked_memory;
       break;
-      
-    default:
-      abort();
+
+    case glgfx_bitmap_attr_unknown:
+    case glgfx_bitmap_attr_max:
+      rc = false;
+      break;
   }
 
   pthread_mutex_unlock(&glgfx_mutex);
-  return true;
+  return rc;
 }
 
 
@@ -528,9 +636,12 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
 
   struct glgfx_tagitem const* tag;
   int src_x = -1, src_y = -1, src_width = -1, src_height = -1;
-  int dst_x = -1, dst_y = -1;
+  int dst_x = -1, dst_y = -1, dst_width = -1, dst_height = -1;
   struct glgfx_bitmap* dst_bitmap = bitmap;
   int minterm = 0xc0;
+
+  bool got_dst_width = false;
+  bool got_dst_height = false;
 
   static GLenum const ops[16] = {
     GL_CLEAR, GL_NOR, GL_AND_INVERTED, GL_COPY_INVERTED, 
@@ -571,6 +682,16 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
 	dst_y = tag->data;
 	break;
 
+      case glgfx_bitmap_blit_dst_width:
+	dst_width = tag->data;
+	got_dst_width = true;
+	break;
+
+      case glgfx_bitmap_blit_dst_height:
+	dst_height = tag->data;
+	got_dst_height = true;
+	break;
+
       case glgfx_bitmap_blit_dst_bitmap:
 	dst_bitmap = (struct glgfx_bitmap*) tag->data;
 	break;
@@ -585,18 +706,29 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
     }
   }
 
+  if (!got_dst_width) {
+    dst_width = src_width;
+  }
+
+  if (!got_dst_height) {
+    dst_height = src_height;
+  }
+
   if (src_x < 0 || src_y < 0 || src_width <= 0 || src_height <= 0 ||
-      dst_x < 0 || dst_y < 0 ||
+      dst_x < 0 || dst_y < 0 || dst_width <= 0 || dst_height <= 0 ||
       dst_bitmap == NULL || (minterm & ~0xff) != 0 ||
       src_x + src_width >= bitmap->width || 
-      dst_x + src_width >= dst_bitmap->width || 
+      dst_x + dst_width >= dst_bitmap->width || 
       src_y + src_height >= bitmap->height ||
-      dst_y + src_height >= dst_bitmap->height) {
+      dst_y + dst_height >= dst_bitmap->height) {
     errno = EINVAL;
     return false;
   }
 
-  if (bitmap == dst_bitmap && !context->miss_pixel_ops) {
+  if (bitmap == dst_bitmap && 
+      dst_width == src_width && 
+      dst_height == dst_height &&
+      (!context->miss_pixel_ops || (minterm & 0xf0) == 0xc0)) {
     if ((minterm & 0xf0) == 0xc0) {
       glDisable(GL_COLOR_LOGIC_OP);
     }

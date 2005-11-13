@@ -13,7 +13,7 @@
 #include <stdio.h>
 #include <sys/time.h>
 
-#define UPLOAD_MODE 1
+#define UPLOAD_MODE 0
 #define DATA_TYPE 1
 
 #if DATA_TYPE == 0
@@ -49,16 +49,16 @@ int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) 
     data = calloc(sizeof (*data), width * height);
 #endif
     
-    struct glgfx_bitmap* bm = glgfx_bitmap_create(glgfx_bitmap_tag_width,  width,
-						  glgfx_bitmap_tag_height, height, 
-						  glgfx_bitmap_tag_bits,   24,
-						  glgfx_bitmap_tag_friend, 0,
-						  glgfx_bitmap_tag_format, PIXEL_FORMAT,
+    struct glgfx_bitmap* bm = glgfx_bitmap_create(glgfx_bitmap_attr_width,  width,
+						  glgfx_bitmap_attr_height, height, 
+						  glgfx_bitmap_attr_bits,   24,
+						  glgfx_bitmap_attr_friend, 0,
+						  glgfx_bitmap_attr_format, PIXEL_FORMAT,
 						  glgfx_tag_end);
     
     if (bm != NULL) {
 #if UPLOAD_MODE == 1
-      if (glgfx_bitmap_lock(bm, false, true)) {
+      if (glgfx_bitmap_lock(bm, false, true, glgfx_tag_end)) {
 #endif
 	int x, y;
       
@@ -72,15 +72,15 @@ int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) 
 	  }
 	}
 #if UPLOAD_MODE == 0
-	glgfx_bitmap_update(bm, 
-			    glgfx_bitmap_tag_width,       width,
-			    glgfx_bitmap_tag_height,      height,
-			    glgfx_bitmap_tag_data,        data, 
-			    glgfx_bitmap_tag_format,      PIXEL_FORMAT, 
-			    glgfx_tag_end);
+	glgfx_bitmap_write(bm, 
+			   glgfx_bitmap_copy_width,       width,
+			   glgfx_bitmap_copy_height,      height,
+			   glgfx_bitmap_copy_data,        (intptr_t) data, 
+			   glgfx_bitmap_copy_format,      PIXEL_FORMAT, 
+			   glgfx_tag_end);
 #endif
 #if UPLOAD_MODE == 1
-	glgfx_bitmap_unlock(bm, 0, 0, width, height);
+	glgfx_bitmap_unlock(bm, glgfx_tag_end);
       }
 #endif
 
@@ -118,7 +118,7 @@ int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) 
       gettimeofday(&s, NULL);
       for (i = 0; i < 256*4; i+=1) {
 #if UPLOAD_MODE == 1
-	if (glgfx_bitmap_lock(bm, false, true)) {
+	if (glgfx_bitmap_lock(bm, false, true, glgfx_tag_end)) {
 #endif
 	  int x, y;
 
@@ -131,15 +131,15 @@ int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) 
 	    }
 	  }
 #if UPLOAD_MODE == 0
-	  glgfx_bitmap_update(bm,
-			      glgfx_bitmap_tag_width,       width,
-			      glgfx_bitmap_tag_height,      height,
-			      glgfx_bitmap_tag_data,        data,
-			      glgfx_bitmap_tag_format,      PIXEL_FORMAT,
-			      glgfx_tag_end);
+	  glgfx_bitmap_write(bm,
+			     glgfx_bitmap_copy_width,       width,
+			     glgfx_bitmap_copy_height,      height,
+			     glgfx_bitmap_copy_data,        (intptr_t) data,
+			     glgfx_bitmap_copy_format,      PIXEL_FORMAT,
+			     glgfx_tag_end);
 #endif
 #if UPLOAD_MODE == 1
-	  glgfx_bitmap_unlock(bm, 0, 0, width, height);
+	  glgfx_bitmap_unlock(bm, glgfx_tag_end);
 	}
 #endif
 

@@ -20,7 +20,7 @@ enum glgfx_pixel_format {
 } __attribute__((mode(__pointer__)));
 
 enum glgfx_pixel_attr {
-  glgfx_pixel_attr_unknown = glgfx_tag_user,
+  glgfx_pixel_attr_unknown = glgfx_tag_user + 4000,
   
   glgfx_pixel_attr_bytesperpixel,
   glgfx_pixel_attr_bigendian,

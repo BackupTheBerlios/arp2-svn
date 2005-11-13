@@ -2,6 +2,7 @@
 #include "glgfx-config.h"
 #include <pthread.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "glgfx.h"
 #include "glgfx_bitmap.h"
@@ -39,7 +40,7 @@ bool blit(struct glgfx_bitmap* bitmap, int width, int height) {
 
   // Fill texture with data
 
-  if ((buffer = glgfx_bitmap_lock(bitmap, false, true)) != NULL) {
+  if ((buffer = glgfx_bitmap_lock(bitmap, false, true, glgfx_tag_end)) != NULL) {
     int x, y;
 
     for (y = 0; y < height; y += 1) {
@@ -48,45 +49,66 @@ bool blit(struct glgfx_bitmap* bitmap, int width, int height) {
       }
     }
 
-    if (glgfx_bitmap_unlock(bitmap, 0, 0, width, height)) {
+    if (glgfx_bitmap_unlock(bitmap, glgfx_tag_end)) {
       printf("updated\n");
     }
   }
 
-  // Clear the PBO buffer
-  if ((buffer = glgfx_bitmap_lock(bitmap, true, false)) != NULL) {
-    bzero(buffer, width*height*2);
-    glgfx_bitmap_unlock(bitmap, 0, 0, width, height);
+  // Clear the PBO buffer, but don't update bitmap
+  if ((buffer = glgfx_bitmap_lock(bitmap, true, false, glgfx_tag_end)) != NULL) {
+    memset(buffer, 0, width*height*2);
+    glgfx_bitmap_unlock(bitmap, glgfx_tag_end);
   }
 
-  // Read texture, modify 100x100 pixels of it and upload 200x200 pixels
-  if ((buffer = glgfx_bitmap_lock(bitmap, true, true)) != NULL) {
+  // Read texture (but only 18x180!), modify 100x100 pixels of it and
+  // upload 200x200 pixels. The ten pixel border that were not read
+  // will have undefined content (but probably zero).
+  if ((buffer = glgfx_bitmap_lock(bitmap, true, true,
+				  glgfx_bitmap_copy_width, 180,
+				  glgfx_bitmap_copy_height, 180,
+				  glgfx_tag_end)) != NULL) {
     int x, y;
-
+    
     for (y = 0; y < 100; y += 1) {
       for (x = 0; x < 100; x += 1) {
 	buffer[x+y*width] = glgfx_pixel_create_r5g6b5((100-y)*31/100, 0, x*31/100);
       }
     }
 
-    if (glgfx_bitmap_unlock(bitmap, 0, 0, 200, 200)) {
+    if (glgfx_bitmap_unlock(bitmap, 
+			    glgfx_bitmap_copy_width, 200,
+			    glgfx_bitmap_copy_height, 200,
+			    glgfx_tag_end)) {
       printf("updated 2\n");
     }
   }
 
   int i;
-  for (i = 0; i < 100000; ++i) {
+  for (i = 0; i < 100; ++i) {
     glgfx_bitmap_blit(bitmap,
 		      glgfx_bitmap_blit_x,       0,
 		      glgfx_bitmap_blit_y,       0,
 		      glgfx_bitmap_blit_width,   100,
 		      glgfx_bitmap_blit_height,  100,
 
-		      glgfx_bitmap_blit_dst_x,   100+i/1000*10,
-		      glgfx_bitmap_blit_dst_y,   100+i/1000,
+		      glgfx_bitmap_blit_dst_x,   100+i*10,
+		      glgfx_bitmap_blit_dst_y,   100+i,
 		      glgfx_bitmap_blit_minterm, 0x30, // inverted source
 		      glgfx_tag_end);
   }
+
+  // Scaled blit test
+  glgfx_bitmap_blit(bitmap,
+		    glgfx_bitmap_blit_x,          300,
+		    glgfx_bitmap_blit_y,          200,
+		    glgfx_bitmap_blit_width,      100,
+		    glgfx_bitmap_blit_height,     100,
+
+		    glgfx_bitmap_blit_dst_x,      200,
+		    glgfx_bitmap_blit_dst_y,      100,
+		    glgfx_bitmap_blit_dst_width,  300,
+		    glgfx_bitmap_blit_dst_height, 300,
+		    glgfx_tag_end);
 
   sleep(3);
   printf("going home\n");
@@ -127,10 +149,10 @@ int main(int argc, char** argv) {
       printf("Display width: %" PRIdPTR "x%" PRIdPTR " pixels\n", width, height);
 
       struct glgfx_bitmap* bm = 
-	glgfx_bitmap_create(glgfx_bitmap_tag_width,  width,
-			    glgfx_bitmap_tag_height, height/3, 
-			    glgfx_bitmap_tag_format, glgfx_pixel_format_r5g6b5,
-//			    glgfx_bitmap_tag_format, glgfx_pixel_format_a8b8g8r8,
+	glgfx_bitmap_create(glgfx_bitmap_attr_width,  width,
+			    glgfx_bitmap_attr_height, height/3, 
+			    glgfx_bitmap_attr_format, glgfx_pixel_format_r5g6b5,
+//			    glgfx_bitmap_attr_format, glgfx_pixel_format_a8b8g8r8,
 			    glgfx_tag_end);
     
       if (bm == NULL) {

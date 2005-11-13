@@ -7,7 +7,7 @@
 struct glgfx_sprite;
 
 enum glgfx_sprite_attr {
-  glgfx_sprite_attr_unknown = glgfx_tag_user,
+  glgfx_sprite_attr_unknown = glgfx_tag_user + 5000,
   
   glgfx_sprite_attr_width,
   glgfx_sprite_attr_height,

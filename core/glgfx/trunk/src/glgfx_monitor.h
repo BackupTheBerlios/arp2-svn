@@ -9,7 +9,7 @@ struct glgfx_monitor;
 struct glgfx_context;
 
 enum glgfx_monitor_attr {
-  glgfx_monitor_attr_unknown = glgfx_tag_user,
+  glgfx_monitor_attr_unknown = glgfx_tag_user + 3000,
 
   glgfx_monitor_attr_width,
   glgfx_monitor_attr_height,

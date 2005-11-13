@@ -291,7 +291,7 @@ bool glgfx_viewport_haschanged(struct glgfx_viewport* viewport) {
 
   void check(gpointer* data, gpointer* userdata) {
     struct glgfx_rasinfo* rasinfo = (struct glgfx_rasinfo*) data;
-    (void*) userdata;
+    (void) userdata;
 
     if (glgfx_bitmap_haschanged(rasinfo->bitmap) || rasinfo->has_changed) {
       has_changed = true;

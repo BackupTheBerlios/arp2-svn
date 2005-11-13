@@ -8,7 +8,7 @@ struct glgfx_rasinfo;
 struct glgfx_viewport;
 
 enum glgfx_viewport_attr {
-  glgfx_viewport_attr_unknown = glgfx_tag_user,
+  glgfx_viewport_attr_unknown = glgfx_tag_user + 6000,
   
   glgfx_viewport_attr_width,
   glgfx_viewport_attr_height,
@@ -19,7 +19,7 @@ enum glgfx_viewport_attr {
 } __attribute__((mode(__pointer__)));
 
 enum glgfx_rasinfo_attr {
-  glgfx_rasinfo_attr_unknown = glgfx_tag_user,
+  glgfx_rasinfo_attr_unknown = glgfx_tag_user + 6100,
   
   glgfx_rasinfo_attr_width,
   glgfx_rasinfo_attr_height,

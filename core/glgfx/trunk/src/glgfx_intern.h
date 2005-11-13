@@ -90,6 +90,10 @@ struct glgfx_bitmap {
     GLenum                  locked_usage;
     GLenum                  locked_access;
     void*                   locked_memory;
+    int                     locked_x;
+    int                     locked_y;
+    int                     locked_width;
+    int                     locked_height;
 
     bool                    has_changed;
 };
