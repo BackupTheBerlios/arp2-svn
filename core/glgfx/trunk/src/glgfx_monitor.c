@@ -451,6 +451,10 @@ struct glgfx_context* glgfx_monitor_createcontext(struct glgfx_monitor* monitor)
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
 
+	// Fix OpenGL's weired default alignment
+	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+	glPixelStorei(GL_PACK_ALIGNMENT, 1);
+
 	GLGFX_CHECKERROR();
       }
       else {
