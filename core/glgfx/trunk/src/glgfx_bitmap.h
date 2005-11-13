@@ -51,7 +51,12 @@ enum glgfx_bitmap_blit_tag {
   glgfx_bitmap_blit_src_y,
   glgfx_bitmap_blit_src_width,
   glgfx_bitmap_blit_src_height,
-  glgfx_bitmap_blit_src_bitmap,
+  glgfx_bitmap_blit_src_bitmap, /* Can be NULL! */
+  
+  glgfx_bitmap_blit_mod_r, /* Range is 0 - 0xffffffff */
+  glgfx_bitmap_blit_mod_g,
+  glgfx_bitmap_blit_mod_b,
+  glgfx_bitmap_blit_mod_a,
 
   glgfx_bitmap_blit_minterm,
 

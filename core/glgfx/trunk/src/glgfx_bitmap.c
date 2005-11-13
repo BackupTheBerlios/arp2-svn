@@ -640,9 +640,11 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
   struct glgfx_bitmap* src_bitmap = bitmap;
   struct glgfx_bitmap* dst_bitmap = bitmap;
   int minterm = 0xc0;
+  GLuint mod_r = 0xffffffff, mod_g = 0xffffffff, mod_b = 0xffffffff, mod_a = 0xffffffff;
 
   bool got_src_width = false;
   bool got_src_height = false;
+  bool got_mod = false;
 
   static GLenum const ops[16] = {
     GL_CLEAR, GL_NOR, GL_AND_INVERTED, GL_COPY_INVERTED, 
@@ -701,6 +703,26 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
 	minterm = tag->data;
 	break;
 
+      case glgfx_bitmap_blit_mod_r:
+	mod_r = tag->data;
+	got_mod = true;
+	break;
+
+      case glgfx_bitmap_blit_mod_g:
+	mod_g = tag->data;
+	got_mod = true;
+	break;
+
+      case glgfx_bitmap_blit_mod_b:
+	mod_b = tag->data;
+	got_mod = true;
+	break;
+
+      case glgfx_bitmap_blit_mod_a:
+	mod_a = tag->data;
+	got_mod = true;
+	break;
+
       case glgfx_bitmap_blit_unknown:
       case glgfx_bitmap_blit_max:
 	break;
@@ -717,11 +739,11 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
 
   if (src_x < 0 || src_y < 0 || src_width <= 0 || src_height <= 0 ||
       dst_x < 0 || dst_y < 0 || dst_width <= 0 || dst_height <= 0 ||
-      src_x + src_width > src_bitmap->width || 
+      (src_bitmap != NULL && src_x + src_width > src_bitmap->width) || 
       dst_x + dst_width > dst_bitmap->width || 
-      src_y + src_height > src_bitmap->height ||
+      (src_bitmap != NULL && src_y + src_height > src_bitmap->height) ||
       dst_y + dst_height > dst_bitmap->height ||
-      src_bitmap == NULL || (minterm & ~0xff) != 0) {
+      (minterm & ~0xff) != 0) {
     errno = EINVAL;
     return false;
   }
@@ -732,6 +754,7 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
   if (src_bitmap == dst_bitmap && 
       dst_width == src_width && 
       dst_height == dst_height &&
+      !got_mod &&
       (!context->miss_pixel_ops || (minterm & 0xf0) == 0xc0)) {
     if ((minterm & 0xf0) == 0xc0) {
       glDisable(GL_COLOR_LOGIC_OP);
@@ -797,12 +820,18 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
 
     glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
 
-    // Bind temp src bitmap as texture
-    glBindTexture(GL_TEXTURE_RECTANGLE_ARB, src_bitmap->texture);
-    GLGFX_CHECKERROR();
+    if (src_bitmap != NULL) {
+      // Bind temp src bitmap as texture
+      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, src_bitmap->texture);
+      GLGFX_CHECKERROR();
+      
+      glEnable(GL_TEXTURE_RECTANGLE_ARB);
+    }
+    else {
+      glDisable(GL_TEXTURE_RECTANGLE_ARB);
+    }
 
-    glColor4f(1, 1, 1, 1);
-    glEnable(GL_TEXTURE_RECTANGLE_ARB);
+    glColor4ui(mod_r, mod_g, mod_b, mod_a);
 
     glBegin(GL_QUADS); {
       glTexCoord2i(src_x,             src_y);

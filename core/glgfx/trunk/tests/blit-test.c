@@ -138,7 +138,8 @@ bool blit(struct glgfx_bitmap* bitmap, int width, int height) {
     }
 
     // Scaled blit test, src != dst: blit bm2 (inverted) to middle
-    // left bottom, 50x50 pixels
+    // left bottom, 50x50 pixels. Also reduce the source's red
+    // component to 50% (before inverting)
     glgfx_bitmap_blit(bitmap,
 		      glgfx_bitmap_blit_x,          200,
 		      glgfx_bitmap_blit_y,          height-50,
@@ -151,7 +152,10 @@ bool blit(struct glgfx_bitmap* bitmap, int width, int height) {
 		      glgfx_bitmap_blit_src_height, 100,
 		      glgfx_bitmap_blit_src_bitmap, (intptr_t) bm2,
 
-		      glgfx_bitmap_blit_minterm, 0x30, // inverted source
+		      glgfx_bitmap_blit_mod_r,      0x7fffffff,
+		      
+		      glgfx_bitmap_blit_minterm,    0x30, // inverted source
+
 
 		      glgfx_tag_end);
 
