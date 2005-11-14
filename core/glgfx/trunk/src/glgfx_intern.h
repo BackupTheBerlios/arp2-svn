@@ -6,6 +6,7 @@
 #include <pthread.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <time.h>
 
 #include <GL/glx.h>
 #include <X11/Xatom.h>
@@ -25,6 +26,7 @@
 #include "glgfx_pixel.h"
 
 extern pthread_mutex_t glgfx_mutex;
+extern int glgfx_signum;
 
 struct glgfx_bitmap;
 
@@ -62,7 +64,9 @@ struct glgfx_monitor {
     XVisualInfo*            vinfo;
     Atom                    xa_win_state;
 
-
+    timer_t                 vsync_timer;
+    bool                    vsync_timer_valid;
+    pthread_cond_t          vsync_cond;
 
     enum glgfx_pixel_format format;
     XF86VidModeModeLine     mode;

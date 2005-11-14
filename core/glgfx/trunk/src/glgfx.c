@@ -13,7 +13,7 @@
 
 /** Signal used for various glgfx timers, like the vsync emulation in
     glgfx_monitor */
-static int signum = 0;
+int glgfx_signum = 0;
 
 /** A copy of the old signal handler */
 static struct sigaction old_sa;
@@ -23,7 +23,14 @@ pthread_mutex_t glgfx_mutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
 
 /** The global signal handler, used for vsync emulation */
 static void glgfx_sighandler(int sig, siginfo_t * si, void* extra) {
-  printf("vblank\n");
+  if (si->si_signo == glgfx_signum &&
+      si->si_code == SI_TIMER && 
+      si->si_ptr != NULL) {
+    struct glgfx_monitor* monitor = (struct glgfx_monitor*) si->si_ptr;
+
+    // Wake up render thread
+    pthread_cond_signal(&monitor->vsync_cond);
+  }
 }
 
 
@@ -31,12 +38,12 @@ bool glgfx_init_a(struct glgfx_tagitem const* tags) {
   struct glgfx_tagitem const* tag;
   bool rc = false;
 
-  signum = SIGRTMIN + 0;
+  glgfx_signum = SIGRTMIN + 0;
 
   while ((tag = glgfx_nexttagitem(&tags)) != NULL) {
     switch ((enum glgfx_init_tag) tag->tag) {
       case glgfx_init_signal:
-	signum = tag->data;
+	glgfx_signum = tag->data;
 	break;
 
       case glgfx_init_unknown:
@@ -52,7 +59,7 @@ bool glgfx_init_a(struct glgfx_tagitem const* tags) {
   sigemptyset(&sa.sa_mask);
   sa.sa_flags = SA_ONSTACK | SA_RESTART | SA_SIGINFO;
 
-  if (sigaction(signum, &sa, &old_sa) == 0) {
+  if (sigaction(glgfx_signum, &sa, &old_sa) == 0) {
     rc = true;
   }
 
@@ -62,7 +69,7 @@ bool glgfx_init_a(struct glgfx_tagitem const* tags) {
 
 void glgfx_cleanup() {
   // Restore signal handler to default
-  sigaction(signum, &old_sa, NULL);
+  sigaction(glgfx_signum, &old_sa, NULL);
 }
 
 

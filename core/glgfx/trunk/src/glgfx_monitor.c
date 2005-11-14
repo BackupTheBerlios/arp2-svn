@@ -3,10 +3,12 @@
 
 #include <errno.h>
 #include <inttypes.h>
+#include <pthread.h>
 #include <setjmp.h>
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "glgfx_context.h"
@@ -152,6 +154,7 @@ struct glgfx_monitor* glgfx_monitor_create(char const* display_name,
   }
 
   monitor->fullscreen = true;
+  pthread_cond_init(&monitor->vsync_cond, NULL);
 
   while ((tag = glgfx_nexttagitem(&tags)) != NULL) {
     switch ((enum glgfx_monitor_attr) tag->tag) {
@@ -238,7 +241,7 @@ struct glgfx_monitor* glgfx_monitor_create(char const* display_name,
   }
 
   for (i = 0; i < monitor->monitor_info.nvsync; ++i) {
-    D(BUG("BSync: %.1f-%.1f Hz\n",
+    D(BUG("VSync: %.1f-%.1f Hz\n",
 	  monitor->monitor_info.vsync->lo,
 	  monitor->monitor_info.hsync->hi));
   }
@@ -321,6 +324,38 @@ struct glgfx_monitor* glgfx_monitor_create(char const* display_name,
     return NULL;
   }
 
+  if (!monitor->main_context->have_GLX_SGI_video_sync) {
+    // No video sync: Create a timer for vsync emulation
+
+    struct sigevent ev;
+
+    ev.sigev_notify = SIGEV_SIGNAL;
+    ev.sigev_signo  = glgfx_signum;
+    ev.sigev_value.sival_ptr = monitor;
+
+    if (timer_create(CLOCK_REALTIME, &ev, &monitor->vsync_timer) == -1) {
+      BUG("Unable to create vsync emulation timer\n");
+      glgfx_monitor_destroy(monitor);
+      return NULL;
+    }
+    else {
+      monitor->vsync_timer_valid = true;
+      
+      double hz = (monitor->dotclock * 1000.0 /
+		   (monitor->mode.htotal * monitor->mode.vtotal));
+
+      const struct itimerspec spec = {
+	{ 0, 1e9/hz }, { 0, 1e9/hz }
+      };
+
+      if (timer_settime(monitor->vsync_timer, 0, &spec, NULL) == -1) {
+	BUG("Unable to start vsync emulation timer\n");
+	glgfx_monitor_destroy(monitor);
+	return NULL;
+      }
+    }
+  }
+
   go_fullscreen(monitor, monitor->fullscreen);
 
   XMapRaised(monitor->display, monitor->window);
@@ -332,7 +367,7 @@ struct glgfx_monitor* glgfx_monitor_create(char const* display_name,
 		KeyPressMask |
 		KeyReleaseMask));
   XFlush(monitor->display);
-  
+
   errno = 0;
   return monitor;
 }
@@ -346,6 +381,10 @@ void glgfx_monitor_destroy(struct glgfx_monitor* monitor) {
   pthread_mutex_lock(&glgfx_mutex);
 
   D(BUG("Destroying monitor %p (%s)\n", monitor, monitor->name));
+  
+  if (monitor->vsync_timer_valid) {
+    timer_delete(monitor->vsync_timer);
+  }
 
   go_fullscreen(monitor, false);
 
@@ -632,27 +671,15 @@ bool glgfx_monitor_waittof(struct glgfx_monitor* monitor) {
     return true;
   }
   else {
-    static struct timeval now = { 0, 0 };
-    struct timeval then = now;
+    bool rc = true;
 
-    if (gettimeofday(&now, NULL) == 0) {
-      double vsync = (monitor->dotclock * 1000.0 / 
-		      (monitor->mode.htotal * monitor->mode.vtotal));
-      double ns = ((now.tv_sec * 1e9 + now.tv_usec * 1e3) -
-		   (then.tv_sec * 1e9 + then.tv_usec * 1e3));
-      double wait = 1e9 / vsync - ns;
-
-      if (wait > 0 && wait < 1e9) {
-	struct timespec ts = { 0, (long) wait };
-
-	while (nanosleep(&ts, &ts) == -1 && errno == EINTR);
-      }
-
-      return true;
+    pthread_mutex_lock(&glgfx_mutex);
+    if (pthread_cond_wait(&monitor->vsync_cond, &glgfx_mutex) != 0) {
+      rc = false;
     }
-
-    BUG("Unable to wait for vertical blank interrupt!\n");
-    return false;
+    pthread_mutex_unlock(&glgfx_mutex);
+    
+    return true;
   }
 }
 
