@@ -6,6 +6,7 @@
 #include <GL/glext.h>
 
 #include "glgfx_bitmap.h"
+#include "glgfx_context.h"
 #include "glgfx_glext.h"
 #include "glgfx_intern.h"
 

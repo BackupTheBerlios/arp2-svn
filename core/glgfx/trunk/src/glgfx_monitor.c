@@ -9,6 +9,7 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "glgfx_context.h"
 #include "glgfx_glext.h"
 #include "glgfx_monitor.h"
 #include "glgfx_intern.h"
@@ -98,17 +99,50 @@ static bool check_extensions(struct glgfx_context* context) {
 }
 
 
+static void go_fullscreen(struct glgfx_monitor* monitor, bool fullscreen) {
+  long propvalue[3];
+
+  if (monitor == NULL || monitor->display == NULL || monitor->window == 0) {
+    return;
+  }
+
+  pthread_mutex_lock(&glgfx_mutex);
+
+  if (monitor->xa_win_state == None) {
+    monitor->xa_win_state = XInternAtom(monitor->display, "_NET_WM_STATE", False);
+  }
+
+  if (fullscreen) {
+    propvalue[0] = XInternAtom(monitor->display, "_NET_WM_STATE_FULLSCREEN",
+			       False);
+    propvalue[1] = XInternAtom(monitor->display, "_NET_WM_STATE_ABOVE",
+			       False);
+    propvalue[2] = 0;
+
+    XChangeProperty(monitor->display, monitor->window,
+		    monitor->xa_win_state, XA_ATOM,
+		    32, PropModeReplace,
+		    (unsigned char *) propvalue, 2);
+  }
+  else {
+    XDeleteProperty(monitor->display, monitor->window, monitor->xa_win_state);
+  }
+
+  pthread_mutex_unlock(&glgfx_mutex);
+}
+
+
+
+
 struct glgfx_monitor* glgfx_monitor_create(char const* display_name,
-					   struct glgfx_monitor const* friend) {
+					   struct glgfx_tagitem const* tags) {
   struct glgfx_monitor* monitor;
+  struct glgfx_tagitem const* tag;
 
   if (display_name == NULL) {
     errno = EINVAL;
     return NULL;
   }
-
-  // Default error code
-  errno = ENOTSUP;
 
   monitor = calloc(1, sizeof (*monitor));
 
@@ -117,12 +151,38 @@ struct glgfx_monitor* glgfx_monitor_create(char const* display_name,
     return NULL;
   }
 
+  monitor->fullscreen = true;
+
+  while ((tag = glgfx_nexttagitem(&tags)) != NULL) {
+    switch ((enum glgfx_monitor_attr) tag->tag) {
+      case glgfx_monitor_attr_friend:
+	monitor->friend = (struct glgfx_monitor*) tag->data;
+	break;
+
+      case glgfx_monitor_attr_fullscreen:
+	monitor->fullscreen = tag->data;
+	break;
+
+      case glgfx_monitor_attr_width:
+      case glgfx_monitor_attr_height:
+      case glgfx_monitor_attr_format:
+      case glgfx_monitor_attr_vsync:
+      case glgfx_monitor_attr_hsync:
+      case glgfx_monitor_attr_dotclock:
+      case glgfx_monitor_attr_unknown:
+      case glgfx_monitor_attr_max:
+	/* Make compiler happy */
+	break;
+    }
+  }
+
+  // Default error code
+  errno = ENOTSUP;
+
   D(BUG("Opening display %s\n", display_name));
   monitor->name = strdup(display_name);
   monitor->xa_win_state = None;
 
-  monitor->friend = friend;
-  
   monitor->display = XOpenDisplay(display_name);
 
   if (monitor->display == NULL) {
@@ -210,7 +270,7 @@ struct glgfx_monitor* glgfx_monitor_create(char const* display_name,
     return NULL;
   }
 
-  struct glgfx_tagitem const tags[] = {
+  struct glgfx_tagitem const px_tags[] = {
     { glgfx_pixel_attr_rgb,       true                       },
     { glgfx_pixel_attr_redmask,   monitor->vinfo->red_mask   },
     { glgfx_pixel_attr_greenmask, monitor->vinfo->green_mask },
@@ -218,7 +278,7 @@ struct glgfx_monitor* glgfx_monitor_create(char const* display_name,
     { glgfx_tag_end,              0                          }
   };
 
-  monitor->format = glgfx_pixel_getformat_a(tags);
+  monitor->format = glgfx_pixel_getformat_a(px_tags);
   
   swa.colormap = XCreateColormap(monitor->display,
 				 RootWindow(monitor->display,
@@ -261,7 +321,7 @@ struct glgfx_monitor* glgfx_monitor_create(char const* display_name,
     return NULL;
   }
 
-  glgfx_monitor_fullscreen(monitor, true);
+  go_fullscreen(monitor, monitor->fullscreen);
 
   XMapRaised(monitor->display, monitor->window);
   XSelectInput(monitor->display, monitor->window,
@@ -287,7 +347,7 @@ void glgfx_monitor_destroy(struct glgfx_monitor* monitor) {
 
   D(BUG("Destroying monitor %p (%s)\n", monitor, monitor->name));
 
-  glgfx_monitor_fullscreen(monitor, false);
+  go_fullscreen(monitor, false);
 
   monitor->dotclock = 0;
 
@@ -321,36 +381,42 @@ void glgfx_monitor_destroy(struct glgfx_monitor* monitor) {
 }
 
 
-void glgfx_monitor_fullscreen(struct glgfx_monitor* monitor, bool fullscreen) {
-  long propvalue[3];
+bool glgfx_monitor_setattrs_a(struct glgfx_monitor* monitor,
+			      struct glgfx_tagitem const* tags) {
+  struct glgfx_tagitem const* tag;
+  bool rc = true;
 
-  if (monitor == NULL || monitor->display == NULL || monitor->window == 0) {
-    return;
+  if (monitor == NULL || tags == NULL) {
+    errno = EINVAL;
+    return false;
   }
 
   pthread_mutex_lock(&glgfx_mutex);
 
-  if (monitor->xa_win_state == None) {
-    monitor->xa_win_state = XInternAtom(monitor->display, "_NET_WM_STATE", False);
-  }
+  while ((tag = glgfx_nexttagitem(&tags)) != NULL) {
+    switch ((enum glgfx_monitor_attr) tag->tag) {
 
-  if (fullscreen) {
-    propvalue[0] = XInternAtom(monitor->display, "_NET_WM_STATE_FULLSCREEN",
-			       False);
-    propvalue[1] = XInternAtom(monitor->display, "_NET_WM_STATE_ABOVE",
-			       False);
-    propvalue[2] = 0;
+      case glgfx_monitor_attr_fullscreen:
+	monitor->fullscreen = tag->data;
+	go_fullscreen(monitor, monitor->fullscreen);
+	break;
 
-    XChangeProperty(monitor->display, monitor->window,
-		    monitor->xa_win_state, XA_ATOM,
-		    32, PropModeReplace,
-		    (unsigned char *) propvalue, 2);
-  }
-  else {
-    XDeleteProperty(monitor->display, monitor->window, monitor->xa_win_state);
+      case glgfx_monitor_attr_friend:
+      case glgfx_monitor_attr_width:
+      case glgfx_monitor_attr_height:
+      case glgfx_monitor_attr_format:
+      case glgfx_monitor_attr_vsync:
+      case glgfx_monitor_attr_hsync:
+      case glgfx_monitor_attr_dotclock:
+      case glgfx_monitor_attr_unknown:
+      case glgfx_monitor_attr_max:
+	/* Make compiler happy */
+	break;
+    }
   }
 
   pthread_mutex_unlock(&glgfx_mutex);
+  return rc;
 }
 
 
@@ -626,7 +692,7 @@ bool glgfx_monitor_render(struct glgfx_monitor* monitor) {
     pthread_mutex_unlock(&glgfx_mutex);
   }
 
-  glgfx_monitor_waittof(glgfx_monitors[0]);
+  glgfx_monitor_waittof(monitor);
 
   if (has_changed) {
     if (late_sprites) {
@@ -635,7 +701,7 @@ bool glgfx_monitor_render(struct glgfx_monitor* monitor) {
       pthread_mutex_unlock(&glgfx_mutex);
     }
 
-    glgfx_monitor_swapbuffers(glgfx_monitors[0]);
+    glgfx_monitor_swapbuffers(monitor);
   }
 
   return true;

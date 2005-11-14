@@ -52,13 +52,17 @@ struct glgfx_context {
 
 struct glgfx_monitor {
     char const*             name;
+
+    struct glgfx_monitor const*   friend;
+    bool                    fullscreen;
+
     Display*                display;
     Window                  window;
     struct glgfx_context*   main_context;
     XVisualInfo*            vinfo;
-    struct glgfx_monitor const*   friend;
-
     Atom                    xa_win_state;
+
+
 
     enum glgfx_pixel_format format;
     XF86VidModeModeLine     mode;

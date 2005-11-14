@@ -3,17 +3,18 @@
 #include <stdlib.h>
 
 #include "glgfx_bitmap.h"
+#include "glgfx_context.h"
+#include "glgfx_input.h"
 #include "glgfx_monitor.h"
 #include "glgfx_pixel.h"
 #include "glgfx_sprite.h"
 #include "glgfx_view.h"
 #include "glgfx_viewport.h"
-#include "glgfx_input.h"
 
 #include <stdio.h>
 #include <sys/time.h>
 
-#define UPLOAD_MODE 0
+#define UPLOAD_MODE 1
 #define DATA_TYPE 1
 
 #if DATA_TYPE == 0
@@ -34,8 +35,10 @@ int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) 
   }
 
   char const* d = getenv("DISPLAY");
-  if (glgfx_createmonitors(glgfx_create_monitors_tag_display, (intptr_t) d,
-			   glgfx_tag_end)) {
+  struct glgfx_monitor* monitor = glgfx_monitor_create(getenv("DISPLAY"),
+						       glgfx_tag_end);
+
+  if (monitor != NULL) {
     int width = 512;
     int height = 512;
     PIXEL_TYPE* data;
@@ -43,7 +46,7 @@ int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) 
     int mouse_x = 100;
     int mouse_y = 100;
 
-    glgfx_context_select(glgfx_monitor_getcontext(glgfx_monitors[0]));
+    glgfx_context_select(glgfx_monitor_getcontext(monitor));
     
 #if UPLOAD_MODE == 0
     data = calloc(sizeof (*data), width * height);
@@ -109,9 +112,10 @@ int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) 
 	glgfx_view_addsprite(v, sp);
       }
 
-      glgfx_monitor_addview(glgfx_monitors[0], v);
+      glgfx_monitor_addview(monitor, v);
+      glgfx_monitor_loadview(monitor, v);
 
-      glgfx_input_acquire(false);
+      glgfx_input_acquire(monitor);
       int i;
       struct timeval s, e;
 
@@ -153,7 +157,7 @@ int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) 
 			      glgfx_sprite_attr_y, mouse_y,
 			      glgfx_tag_end);
 
-	glgfx_context_unbindfbo(glgfx_context_getcurrent());
+	//	glgfx_context_unbindfbo(glgfx_context_getcurrent());
 
 
 	enum glgfx_input_code code;
@@ -167,21 +171,21 @@ int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) 
 	  }
 	}
 
-	glgfx_monitor_render(glgfx_monitors[0]);
+	glgfx_monitor_render(monitor);
       }
       gettimeofday(&e, NULL);
       double sec = (e.tv_sec + e.tv_usec * 1e-6) - (s.tv_sec + s.tv_usec * 1e-6);
       
       printf("uploaded %d images in %g seconds -> %g fps/%d MB/s\n",
 	     i, sec, i / sec, (int) (i * width * height * sizeof (*data) / sec / 1e6));
-      glgfx_input_release();
+      glgfx_input_release(monitor);
 
       glgfx_sprite_destroy(sp);
       glgfx_viewport_destroy(vp);
     }
     glgfx_bitmap_destroy(bm);
       
-    glgfx_destroymonitors();
+    glgfx_monitor_destroy(monitor);
   }
   
   glgfx_cleanup();

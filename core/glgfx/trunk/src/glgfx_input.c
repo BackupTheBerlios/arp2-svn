@@ -1,5 +1,6 @@
 
 #include "glgfx-config.h"
+#include <errno.h>
 #include <stdlib.h>
 #include <glib.h>
 #include <X11/Xlib.h>
@@ -15,8 +16,9 @@
 #include "glgfx_intern.h"
 #include "glgfx_monitor.h"
 
-static GQueue* pending_queue;
-static GQueue* cache_queue;
+static GList* monitors = NULL;
+static GQueue* pending_queue = NULL;
+static GQueue* cache_queue = NULL;
 
 static enum glgfx_input_code xorg_codes[256] = {
   glgfx_input_none,
@@ -221,10 +223,15 @@ static enum glgfx_input_code xorg_codes[256] = {
 /*   glgfx_input_numbersign = 0x2b, */
 };
 
-bool glgfx_input_acquire(bool safety_net) {
-  static bool safety_net_installed = false;
+bool glgfx_input_acquire(struct glgfx_monitor* monitor) {
   bool rc = true;
-  int i;
+
+  if (monitor == NULL) {
+    errno = EINVAL;
+    return false;
+  }
+
+  pthread_mutex_lock(&glgfx_mutex);
 
   if (pending_queue == NULL) {
     pending_queue = g_queue_new();
@@ -233,107 +240,83 @@ bool glgfx_input_acquire(bool safety_net) {
   if (cache_queue == NULL) {
     cache_queue = g_queue_new();
   }
+
+  if (pending_queue == NULL || cache_queue == NULL) {
+    g_queue_free(pending_queue);
+    g_queue_free(cache_queue);
+
+    pending_queue = NULL;
+    cache_queue = NULL;
+
+    errno = ENOMEM;
+    rc = false;
+  }
+  else {
+    Window rootwin = XRootWindow(monitor->display, 
+				 DefaultScreen(monitor->display));
   
-  for (i = 0; i < glgfx_num_monitors; ++i) {
-    struct glgfx_monitor* monitor = glgfx_monitors[i];
-    Window rootwin = XRootWindow(monitor->display, DefaultScreen(monitor->display));
-    
     XGrabKeyboard(monitor->display, rootwin, 1, GrabModeAsync,
 		  GrabModeAsync,  CurrentTime);
-    XGrabPointer(monitor->display, rootwin, 1, PointerMotionMask | ButtonPressMask | ButtonReleaseMask,
+    XGrabPointer(monitor->display, rootwin, 1, 
+		 PointerMotionMask | ButtonPressMask | ButtonReleaseMask,
 		 GrabModeAsync, GrabModeAsync, None,  None, CurrentTime);
     XF86DGADirectVideo(monitor->display, DefaultScreen(monitor->display),
 		       XF86DGADirectMouse | XF86DGADirectKeyb);
+
+    monitors = g_list_append(monitors, monitor);
   }
 
-  if (safety_net && !safety_net_installed) {
-    safety_net_installed = true;
-
-    printf("forking ...\n");
-    pid_t pid = fork();
-
-    switch (pid)  {
-      case -1:
-	// Fork failed
-	printf("failed\n");
-	safety_net_installed = false;
-	rc = false;
-	break;
-
-      case 0:
-	// Child
-	printf("child\n");
-	break;
-	
-      default: {
-	// Wait for child, then unlock display
-	// and exit
-
-	int rc;
-	
-	printf("ok; sleeping...\n");
-	if (waitpid(pid, &rc, 0) == -1) {
-	  perror("waitpid");
-	  exit(20);
-	}
-
-	printf("releasing\n");
-	glgfx_input_release();
-
-	if (WIFEXITED(rc)) {
-	  printf("exiting\n");
-	  exit(WEXITSTATUS(rc));
-	}
-	else if (WIFSIGNALED(rc)) {
-	  printf("raising signal\n");
-	  raise(WTERMSIG(rc));
-	}
-	else {
-	  printf("aborting\n");
-	  abort();
-	}
-      }
-    }
-  }
+  pthread_mutex_unlock(&glgfx_mutex);
 
   return rc;
 }
 
-bool glgfx_input_release(void) {
-  int i;
-  
-  for (i = 0; i < glgfx_num_monitors; ++i) {
-    struct glgfx_monitor* monitor = glgfx_monitors[i];
 
-    XF86DGADirectVideo(monitor->display, DefaultScreen(monitor->display), 0);
-    XUngrabPointer(monitor->display, CurrentTime);
-    XUngrabKeyboard(monitor->display, CurrentTime);
+bool glgfx_input_release(struct glgfx_monitor* monitor) {
+
+  if (monitor == NULL) {
+    errno = EINVAL;
+    return false;
   }
 
-  void free_event(gpointer* data, gpointer* userdata) {
-    (void) userdata;
-    free(data);
-  }  
-  
-  if (pending_queue != NULL) {
-    g_queue_foreach(pending_queue, (GFunc) free_event, NULL);
-    g_queue_free(pending_queue);
-  }
+  pthread_mutex_lock(&glgfx_mutex);
 
-  if (cache_queue != NULL) {
-    g_queue_foreach(cache_queue, (GFunc) free_event, NULL);
-    g_queue_free(cache_queue);
+  XF86DGADirectVideo(monitor->display, DefaultScreen(monitor->display), 0);
+  XUngrabPointer(monitor->display, CurrentTime);
+  XUngrabKeyboard(monitor->display, CurrentTime);
+
+  monitors = g_list_remove(monitors, monitor);
+
+  if (monitors == NULL) {
+    void free_event(gpointer* data, gpointer* userdata) {
+      (void) userdata;
+      free(data);
+    }
+  
+    if (pending_queue != NULL) {
+      g_queue_foreach(pending_queue, (GFunc) free_event, NULL);
+      g_queue_free(pending_queue);
+    }
+
+    if (cache_queue != NULL) {
+      g_queue_foreach(cache_queue, (GFunc) free_event, NULL);
+      g_queue_free(cache_queue);
+    }
   }
   
+  pthread_mutex_unlock(&glgfx_mutex);
+
   return true;
 }
 
 
 static void fill_queue(void) {
-  int i;
 
-  for (i = 0; i < glgfx_num_monitors; ++i) {
-    while (XPending(glgfx_monitors[i]->display)) {
+  void filler(gpointer* data, gpointer* userdata) {
+    struct glgfx_monitor* monitor = (struct glgfx_monitor*) data;
+    (void) userdata;
+
+    while (XPending(monitor->display)) {
       XEvent* event;
 
       if (!g_queue_is_empty(cache_queue)) {
@@ -343,11 +326,14 @@ static void fill_queue(void) {
 	event = calloc(1, sizeof (*event));
       }
       
-      XNextEvent(glgfx_monitors[i]->display, event);
+      XNextEvent(monitor->display, event);
       g_queue_push_tail(pending_queue, event);
     }
   }
+
+  g_list_foreach(monitors, (GFunc) filler, NULL);
 }
+
 
 enum glgfx_input_code glgfx_input_getcode(void) {
   enum glgfx_input_code code = glgfx_input_none;

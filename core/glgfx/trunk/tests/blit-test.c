@@ -6,12 +6,13 @@
 
 #include "glgfx.h"
 #include "glgfx_bitmap.h"
+#include "glgfx_context.h"
+#include "glgfx_input.h"
 #include "glgfx_monitor.h"
 #include "glgfx_pixel.h"
 #include "glgfx_sprite.h"
 #include "glgfx_view.h"
 #include "glgfx_viewport.h"
-#include "glgfx_input.h"
 
 #include <stdio.h>
 #include <sys/time.h>
@@ -23,7 +24,7 @@ void* renderer(void* _m) {
   struct glgfx_monitor* monitor = _m;
   
 //  glgfx_context_select(glgfx_monitor_getcontext(monitor));
-  glgfx_context_create(glgfx_monitors[0]);
+  glgfx_context_create(monitor);
   
   while (!renderer_quit) {
     glgfx_monitor_render(monitor);
@@ -36,8 +37,6 @@ bool blit(struct glgfx_bitmap* bitmap, int width, int height) {
 //  uint16_t* buffer;
   uint32_t* buffer;
   
-  struct glgfx_context* ctx = glgfx_context_create(glgfx_monitors[0]);
-
   // Fill texture with data
 
   if ((buffer = glgfx_bitmap_lock(bitmap, false, true, glgfx_tag_end)) != NULL) {
@@ -163,10 +162,8 @@ bool blit(struct glgfx_bitmap* bitmap, int width, int height) {
   }
 
   sleep(3);
-  printf("going home\n");
-  glgfx_context_destroy(ctx);
 
-  //  while(true);
+  printf("going home\n");
   return true;
 }
 
@@ -181,15 +178,16 @@ int main(int argc, char** argv) {
     return 20;
   }
 
-  char const* d = getenv("DISPLAY");
-  if (!glgfx_createmonitors(glgfx_create_monitors_tag_display, (intptr_t) d,
-			    glgfx_tag_end)) {
+  struct glgfx_monitor* monitor = glgfx_monitor_create(getenv("DISPLAY"),
+						       glgfx_tag_end);
+
+  if (monitor == NULL) {
     printf("Unable to open display\n");
   }
   else {
     intptr_t width, height;
 
-    if (glgfx_getattrs(glgfx_monitors[0],
+    if (glgfx_getattrs(monitor,
 		       (glgfx_getattr_proto*) glgfx_monitor_getattr,
 		       glgfx_monitor_attr_width,  (intptr_t) &width,
 		       glgfx_monitor_attr_height, (intptr_t) &height,
@@ -241,27 +239,32 @@ int main(int argc, char** argv) {
 	    v == NULL ||
 	    !glgfx_view_addviewport(v, vp1) ||
 	    !glgfx_view_addviewport(v, vp2) ||
-	    !glgfx_monitor_addview(glgfx_monitors[0], v)) {
+	    !glgfx_monitor_addview(monitor, v) ||
+	    !glgfx_monitor_loadview(monitor, v)) {
 	  printf("Unable to create view/viewport\n");
 	  rc = 20;
 	}
 	else {
 	  pthread_t pid = -1;
 
-	  if (pthread_create(&pid, NULL, renderer, glgfx_monitors[0]) != 0) {
+	  if (pthread_create(&pid, NULL, renderer, monitor) != 0) {
 	    printf("Unable to start render thread\n");
 	    rc = 20;
 	  }
 	  else {
+	    struct glgfx_context* ctx = glgfx_context_create(monitor);
+
 	    if (!blit(bm, width, height / 3)) {
 	      rc = 5;
 	    }
+	    
+	    glgfx_context_destroy(ctx);
 	  }
 
 	  renderer_quit = true;
 	  pthread_join(pid, NULL);
 
-	  glgfx_context_select(glgfx_monitor_getcontext(glgfx_monitors[0]));
+	  glgfx_context_select(glgfx_monitor_getcontext(monitor));
 	}
 
 	glgfx_viewport_destroy(vp1);
@@ -271,7 +274,7 @@ int main(int argc, char** argv) {
       }
     }
 
-    glgfx_destroymonitors();
+    glgfx_monitor_destroy(monitor);
   }
   
   glgfx_cleanup();

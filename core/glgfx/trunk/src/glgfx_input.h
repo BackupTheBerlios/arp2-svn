@@ -3,6 +3,8 @@
 
 #include <glgfx.h>
 
+struct glgfx_monitor;
+
 enum glgfx_input_code {
   glgfx_input_none         = 0x00000000,
 
@@ -180,8 +182,8 @@ enum glgfx_input_code {
 };
 
 
-bool glgfx_input_acquire(bool safety_net);
-bool glgfx_input_release(void);
+bool glgfx_input_acquire(struct glgfx_monitor* monitor);
+bool glgfx_input_release(struct glgfx_monitor* monitor);
 enum glgfx_input_code glgfx_input_getcode(void);
 
 #endif /* ARP2_glgfx_glgfx_input_h */

@@ -6,6 +6,7 @@ AM_CFLAGS		= -ggdb
 include_HEADERS		= \
 			src/glgfx.h \
 			src/glgfx_bitmap.h \
+			src/glgfx_context.h \
 			src/glgfx_input.h \
 			src/glgfx_monitor.h \
 			src/glgfx_pixel.h \
@@ -22,6 +23,7 @@ noinst_PROGRAMS		= \
 libglgfx_la_SOURCES	= \
 			src/glgfx.c \
 			src/glgfx_bitmap.c \
+			src/glgfx_context.c \
 			src/glgfx_glext.c src/glgfx_glext.h \
 			src/glgfx_input.c \
 			src/glgfx_monitor.c \
