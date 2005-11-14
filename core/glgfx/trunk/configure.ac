@@ -38,17 +38,18 @@ AC_SUBST(GLIB_CFLAGS)
 AC_SUBST(GLIB_LIBS)
 			
 # Checks for libraries.
-AC_CHECK_LIB([pthread],  [pthread_create],,            [AC_MSG_ERROR([libpthread not found])])
-AC_CHECK_LIB([X11],      [XCreateWindow],,             [AC_MSG_ERROR([libX11 not found])])
-AC_CHECK_LIB([Xxf86vm],  [XF86VidModeQueryExtension],, [AC_MSG_ERROR([libXxf86vm not found])])
-AC_CHECK_LIB([Xxf86dga], [XF86DGAQueryExtension],,     [AC_MSG_ERROR([libXxf86dga not found])])
-AC_CHECK_LIB([GL],       [glGetError],,                [AC_MSG_ERROR([libGL not found])])
-AC_CHECK_LIB([glut],     [gluErrorString],,            [AC_MSG_ERROR([libglut not found])])
-#AC_CHECK_LIB([dl], [main])
+AC_CHECK_LIB([pthread],  [pthread_create],,     [AC_MSG_ERROR([libpthread not found])])
+AC_CHECK_LIB([X11],      [XCreateWindow],,      [AC_MSG_ERROR([libX11 not found])])
+AC_CHECK_LIB([Xxf86vm],  [XF86VidModeSetGamma],,[AC_MSG_ERROR([libXxf86vm not found])])
+AC_CHECK_LIB([Xxf86dga], [XF86DGADirectVideo],, [AC_MSG_ERROR([libXxf86dga not found])])
+AC_CHECK_LIB([GL],       [glGetError],,         [AC_MSG_ERROR([libGL not found])])
+AC_CHECK_LIB([glut],     [gluErrorString],,     [AC_MSG_ERROR([libglut not found])])
+AC_CHECK_LIB([rt],       [timer_create],,       [AC_MSG_ERROR([librt not found])])
 
 # Checks for header files.
 AC_HEADER_STDC
-AC_CHECK_HEADERS([stdlib.h string.h unistd.h GL/gl.h GL/glx.h GL/glut.h],, [AC_MSG_ERROR([Required header file missing])])
+AC_CHECK_HEADERS([stdlib.h string.h unistd.h GL/gl.h GL/glx.h GL/glut.h],, 
+                 [AC_MSG_ERROR([Required header file missing])])
 AC_CHECK_HEADERS([GL/glATI.h GL/glxATI.h],,,
 [#if HAVE_GL_GL_H
 #include <GL/gl.h>
