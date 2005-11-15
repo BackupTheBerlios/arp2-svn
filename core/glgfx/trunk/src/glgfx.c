@@ -52,6 +52,11 @@ bool glgfx_init_a(struct glgfx_tagitem const* tags) {
   struct glgfx_tagitem const* tag;
   bool rc = false;
 
+  if (!XInitThreads()) {
+    BUG("Failed to make Xlib thread safe!\n");
+    return false;
+  }
+
   glgfx_signum = SIGRTMIN + 0;
 
   while ((tag = glgfx_nexttagitem(&tags)) != NULL) {
