@@ -341,14 +341,26 @@ struct glgfx_monitor* glgfx_monitor_create(char const* display_name,
     else {
       monitor->vsync_timer_valid = true;
       
-      double hz = (monitor->dotclock * 1000.0 /
-		   (monitor->mode.htotal * monitor->mode.vtotal));
+      long ns = (long) (1e9 / (monitor->dotclock * 1000.0 /
+			       (monitor->mode.htotal * monitor->mode.vtotal)));
+      struct timespec now;
 
-      const struct itimerspec spec = {
-	{ 0, 1e9/hz }, { 0, 1e9/hz }
-      };
+      if (clock_gettime(CLOCK_REALTIME, &now) != 0) {
+	BUG("Unable to get current time\n");
+	glgfx_monitor_destroy(monitor);
+	return NULL;
+      }
 
-      if (timer_settime(monitor->vsync_timer, 0, &spec, NULL) == -1) {
+      monitor->vsync_itimerspec.it_value.tv_nsec = now.tv_nsec + ns;
+      monitor->vsync_itimerspec.it_value.tv_sec  = now.tv_sec;
+
+      while (monitor->vsync_itimerspec.it_value.tv_nsec > 1e9) {
+	monitor->vsync_itimerspec.it_value.tv_nsec -= 1e9;
+	++monitor->vsync_itimerspec.it_value.tv_sec;
+      }
+
+      if (timer_settime(monitor->vsync_timer, TIMER_ABSTIME, 
+			&monitor->vsync_itimerspec, NULL) != 0) {
 	BUG("Unable to start vsync emulation timer\n");
 	glgfx_monitor_destroy(monitor);
 	return NULL;
@@ -683,9 +695,6 @@ bool glgfx_monitor_waittof(struct glgfx_monitor* monitor) {
   }
 }
 
-static uint64_t rdtsc(void) {
-  __asm__ volatile ("rdtsc");
-}
 
 bool glgfx_monitor_render(struct glgfx_monitor* monitor) {
   static const bool late_sprites = true;

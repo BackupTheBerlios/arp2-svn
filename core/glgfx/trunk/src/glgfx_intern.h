@@ -65,6 +65,7 @@ struct glgfx_monitor {
     Atom                    xa_win_state;
 
     timer_t                 vsync_timer;
+    struct itimerspec       vsync_itimerspec;
     bool                    vsync_timer_valid;
     pthread_cond_t          vsync_cond;
 

@@ -28,6 +28,20 @@ static void glgfx_sighandler(int sig, siginfo_t * si, void* extra) {
       si->si_ptr != NULL) {
     struct glgfx_monitor* monitor = (struct glgfx_monitor*) si->si_ptr;
 
+    // Re-arm timer
+    long ns = (long) (1e9 / (monitor->dotclock * 1000.0 /
+			     (monitor->mode.htotal * monitor->mode.vtotal)));
+
+    monitor->vsync_itimerspec.it_value.tv_nsec += ns;
+
+    while (monitor->vsync_itimerspec.it_value.tv_nsec > 1e9) {
+      monitor->vsync_itimerspec.it_value.tv_nsec -= 1e9;
+      ++monitor->vsync_itimerspec.it_value.tv_sec;
+    }
+    
+    timer_settime(monitor->vsync_timer, TIMER_ABSTIME, 
+		  &monitor->vsync_itimerspec, NULL);
+
     // Wake up render thread
     pthread_cond_signal(&monitor->vsync_cond);
   }
