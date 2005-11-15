@@ -136,8 +136,8 @@ static void go_fullscreen(struct glgfx_monitor* monitor, bool fullscreen) {
 
 
 
-struct glgfx_monitor* glgfx_monitor_create(char const* display_name,
-					   struct glgfx_tagitem const* tags) {
+struct glgfx_monitor* glgfx_monitor_create_a(char const* display_name,
+					     struct glgfx_tagitem const* tags) {
   struct glgfx_monitor* monitor;
   struct glgfx_tagitem const* tag;
 
@@ -379,6 +379,8 @@ struct glgfx_monitor* glgfx_monitor_create(char const* display_name,
 		KeyPressMask |
 		KeyReleaseMask));
   XFlush(monitor->display);
+
+  glgfx_context_select(monitor->main_context);
 
   errno = 0;
   return monitor;

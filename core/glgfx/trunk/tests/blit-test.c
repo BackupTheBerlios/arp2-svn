@@ -16,15 +16,25 @@
 
 #include <stdio.h>
 #include <sys/time.h>
+#include <errno.h>
 #include <unistd.h>
+
+struct glgfx_bitmap* bitmap;
+intptr_t width, height;
 
 bool volatile renderer_quit = false;
 
+// A non-broken sleep()
+unsigned int sleep(unsigned int seconds) {
+  struct timespec ts = { seconds, 0 };
+
+  while (nanosleep(&ts, &ts) == -1 && errno == EINTR);
+  return 0;
+}
+
+
 void* renderer(void* _m) {
   struct glgfx_monitor* monitor = _m;
-  
-//  glgfx_context_select(glgfx_monitor_getcontext(monitor));
-  glgfx_context_create(monitor);
   
   while (!renderer_quit) {
     glgfx_monitor_render(monitor);
@@ -33,19 +43,25 @@ void* renderer(void* _m) {
   return NULL;
 }
 
-bool blit(struct glgfx_bitmap* bitmap, int width, int height) {
+void* blit(void* _m) {
+  struct glgfx_monitor* monitor = _m;
+  int w = width, h = height / 3;
+  
 //  uint16_t* buffer;
   uint32_t* buffer;
   
+  struct glgfx_context* ctx = glgfx_context_create(monitor);
+  
+#if 0
   // Fill texture with data
 
   if ((buffer = glgfx_bitmap_lock(bitmap, false, true, glgfx_tag_end)) != NULL) {
     int x, y;
 
-    for (y = 0; y < height; y += 1) {
-      for (x = 0; x < width; x += 1) {
-//	buffer[x+y*width] = glgfx_pixel_create_r5g6b5(y*31/height, 0, x*31/width);
-	buffer[x+y*width] = glgfx_pixel_create_a8r8g8b8(y*255/height, 0, x*255/width, 0);
+    for (y = 0; y < h; y += 1) {
+      for (x = 0; x < w; x += 1) {
+//	buffer[x+y*w] = glgfx_pixel_create_r5g6b5(y*31/h, 0, x*31/w);
+	buffer[x+y*w] = glgfx_pixel_create_a8r8g8b8(y*255/h, 0, x*255/w, 0);
       }
     }
 
@@ -56,7 +72,7 @@ bool blit(struct glgfx_bitmap* bitmap, int width, int height) {
 
   // Clear the PBO buffer, but don't update bitmap
   if ((buffer = glgfx_bitmap_lock(bitmap, true, false, glgfx_tag_end)) != NULL) {
-    memset(buffer, 0, width*height*sizeof(*buffer));
+    memset(buffer, 0, w*h*sizeof(*buffer));
     glgfx_bitmap_unlock(bitmap, glgfx_tag_end);
   }
 
@@ -71,7 +87,7 @@ bool blit(struct glgfx_bitmap* bitmap, int width, int height) {
     
     for (y = 0; y < 100; y += 1) {
       for (x = 0; x < 100; x += 1) {
-	buffer[x+y*width] = glgfx_pixel_create_a8r8g8b8(y*255/100, 0, x*255/100, 0);
+	buffer[x+y*w] = glgfx_pixel_create_a8r8g8b8(y*255/100, 0, x*255/100, 0);
       }
     }
 
@@ -101,13 +117,13 @@ bool blit(struct glgfx_bitmap* bitmap, int width, int height) {
   // Scaled blit test, src == dst: blit center 100x100 pixels to upper
   // right corner, 200x200 pixels
   glgfx_bitmap_blit(bitmap,
-		    glgfx_bitmap_blit_x,          width-200,
+		    glgfx_bitmap_blit_x,          w-200,
 		    glgfx_bitmap_blit_y,          0,
 		    glgfx_bitmap_blit_width,      200,
 		    glgfx_bitmap_blit_height,     200,
 
-		    glgfx_bitmap_blit_src_x,      width/2-50,
-		    glgfx_bitmap_blit_src_y,      height/2-50,
+		    glgfx_bitmap_blit_src_x,      w/2-50,
+		    glgfx_bitmap_blit_src_y,      h/2-50,
 		    glgfx_bitmap_blit_src_width,  100,
 		    glgfx_bitmap_blit_src_height, 100,
 		    glgfx_tag_end);
@@ -141,7 +157,7 @@ bool blit(struct glgfx_bitmap* bitmap, int width, int height) {
     // component to 50% (before inverting)
     glgfx_bitmap_blit(bitmap,
 		      glgfx_bitmap_blit_x,          200,
-		      glgfx_bitmap_blit_y,          height-50,
+		      glgfx_bitmap_blit_y,          h-50,
 		      glgfx_bitmap_blit_width,      50,
 		      glgfx_bitmap_blit_height,     50,
 
@@ -160,11 +176,16 @@ bool blit(struct glgfx_bitmap* bitmap, int width, int height) {
 
     glgfx_bitmap_destroy(bm2);
   }
+#endif  
 
-  sleep(3);
+  sleep(10);
 
   printf("going home\n");
-  return true;
+
+  glgfx_context_destroy(ctx);
+
+  renderer_quit = true;
+  return NULL;
 }
 
 
@@ -177,16 +198,16 @@ int main(int argc, char** argv) {
     printf("Unable to initialize glgfx\n");
     return 20;
   }
-
-  struct glgfx_monitor* monitor = glgfx_monitor_create(getenv("DISPLAY"),
-						       glgfx_tag_end);
+  
+  struct glgfx_monitor* monitor = 
+    glgfx_monitor_create(getenv("DISPLAY"),
+			 glgfx_monitor_attr_fullscreen, false,
+			 glgfx_tag_end);
 
   if (monitor == NULL) {
     printf("Unable to open display\n");
   }
   else {
-    intptr_t width, height;
-
     if (glgfx_getattrs(monitor,
 		       (glgfx_getattr_proto*) glgfx_monitor_getattr,
 		       glgfx_monitor_attr_width,  (intptr_t) &width,
@@ -198,14 +219,13 @@ int main(int argc, char** argv) {
     else{
       printf("Display width: %" PRIdPTR "x%" PRIdPTR " pixels\n", width, height);
 
-      struct glgfx_bitmap* bm = 
-	glgfx_bitmap_create(glgfx_bitmap_attr_width,  width,
-			    glgfx_bitmap_attr_height, height/3, 
-//			    glgfx_bitmap_attr_format, glgfx_pixel_format_r5g6b5,
-			    glgfx_bitmap_attr_format, glgfx_pixel_format_a8b8g8r8,
-			    glgfx_tag_end);
+      bitmap = glgfx_bitmap_create(glgfx_bitmap_attr_width,  width,
+				   glgfx_bitmap_attr_height, height/3, 
+				   //glgfx_bitmap_attr_format, glgfx_pixel_format_r5g6b5,
+				   glgfx_bitmap_attr_format, glgfx_pixel_format_a8b8g8r8,
+				   glgfx_tag_end);
     
-      if (bm == NULL) {
+      if (bitmap == NULL) {
 	printf("Unable to allocate bitmap\n");
 	rc = 20;
       }
@@ -222,13 +242,13 @@ int main(int argc, char** argv) {
 				glgfx_tag_end);
 
 	struct glgfx_rasinfo* ri1 =
-	  glgfx_viewport_addbitmap(vp1, bm,
+	  glgfx_viewport_addbitmap(vp1, bitmap,
 				   glgfx_rasinfo_attr_width,  width,
 				   glgfx_rasinfo_attr_height, height / 3,
 				   glgfx_tag_end);
 
 	struct glgfx_rasinfo* ri2 =
-	  glgfx_viewport_addbitmap(vp2, bm,
+	  glgfx_viewport_addbitmap(vp2, bitmap,
 				   glgfx_rasinfo_attr_width,  width,
 				   glgfx_rasinfo_attr_height, height / 3,
 				   glgfx_tag_end);
@@ -247,30 +267,23 @@ int main(int argc, char** argv) {
 	else {
 	  pthread_t pid = -1;
 
-	  if (pthread_create(&pid, NULL, renderer, monitor) != 0) {
-	    printf("Unable to start render thread\n");
+	  if (pthread_create(&pid, NULL, blit, monitor) != 0) {
+	    printf("Unable to start blit thread\n");
 	    rc = 20;
 	  }
 	  else {
-	    struct glgfx_context* ctx = glgfx_context_create(monitor);
-
-	    if (!blit(bm, width, height / 3)) {
-	      rc = 5;
-	    }
-	    
-	    glgfx_context_destroy(ctx);
+	    renderer(monitor);	    
 	  }
 
-	  renderer_quit = true;
 	  pthread_join(pid, NULL);
-
-	  glgfx_context_select(glgfx_monitor_getcontext(monitor));
+	  
+	  printf("blit thread joined\n");
 	}
 
 	glgfx_viewport_destroy(vp1);
 	glgfx_viewport_destroy(vp2);
 	glgfx_view_destroy(v);
-	glgfx_bitmap_destroy(bm);
+	glgfx_bitmap_destroy(bitmap);
       }
     }
 

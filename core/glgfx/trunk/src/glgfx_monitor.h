@@ -24,8 +24,8 @@ enum glgfx_monitor_attr {
   glgfx_monitor_attr_max
 } __attribute__((mode(__pointer__)));
 
-struct glgfx_monitor* glgfx_monitor_create(char const* display_name,
-					   struct glgfx_tagitem const* tags);
+struct glgfx_monitor* glgfx_monitor_create_a(char const* display_name,
+					     struct glgfx_tagitem const* tags);
 void glgfx_monitor_destroy(struct glgfx_monitor* monitor);
 
 bool glgfx_monitor_setattrs_a(struct glgfx_monitor* monitor, 
@@ -35,6 +35,10 @@ bool glgfx_monitor_getattr(struct glgfx_monitor* bm,
 			   enum glgfx_monitor_attr attr,
 			   intptr_t* storage);
 
+
+#define glgfx_monitor_create(display_name, tag1, ...) \
+  ({ intptr_t const _tags[] = { tag1, ##__VA_ARGS__ }; \
+    glgfx_monitor_create_a((display_name), (struct glgfx_tagitem const*) _tags); })
 
 #define glgfx_monitor_setattrs(monitor, tag1, ...) \
   ({ intptr_t const _tags[] = { tag1, ##__VA_ARGS__ }; \
