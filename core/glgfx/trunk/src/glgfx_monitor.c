@@ -24,7 +24,7 @@
   ({ int _attrs[] = { tag1 }; glXChooseVisual((d), (s), _attrs); })
 
 
-static bool check_extensions(struct glgfx_context* context) {
+static bool check_extensions(struct glgfx_monitor* monitor) {
   void populate(char const* e) {
     if (e == NULL) {
       return;
@@ -36,8 +36,8 @@ static bool check_extensions(struct glgfx_context* context) {
 
     while((ext = strsep(&ext_tail, " ")) != NULL) {
       if (ext[0] != 0) {
-	if (!g_hash_table_lookup(context->extensions, ext)) {
-	  g_hash_table_insert(context->extensions, strdup(ext), (gpointer) 1);
+	if (!g_hash_table_lookup(monitor->gl_extensions, ext)) {
+	  g_hash_table_insert(monitor->gl_extensions, strdup(ext), (gpointer) 1);
 	}
       }
     }
@@ -46,58 +46,58 @@ static bool check_extensions(struct glgfx_context* context) {
   }
 
   populate((char const*) glGetString(GL_EXTENSIONS));
-  populate(glXGetClientString(context->monitor->display, GLX_EXTENSIONS));
-  populate(glXQueryExtensionsString(context->monitor->display, 
-				    DefaultScreen(context->monitor->display)));
-  populate(glXQueryServerString(context->monitor->display,
-				DefaultScreen(context->monitor->display), 
+  populate(glXGetClientString(monitor->monitor->display, GLX_EXTENSIONS));
+  populate(glXQueryExtensionsString(monitor->monitor->display, 
+				    DefaultScreen(monitor->monitor->display)));
+  populate(glXQueryServerString(monitor->monitor->display,
+				DefaultScreen(monitor->monitor->display), 
 				GLX_EXTENSIONS)); 
 
   
 
   // Check for framebuffer_object support
-  if (g_hash_table_lookup(context->extensions, "GL_EXT_framebuffer_object") != NULL) {
-    context->have_GL_EXT_framebuffer_object = true;
+  if (g_hash_table_lookup(monitor->gl_extensions, "GL_EXT_framebuffer_object") != NULL) {
+    monitor->have_GL_EXT_framebuffer_object = true;
   }
   else {
     BUG("Required extension GL_EXT_framebuffer_object missing from display %s!\n",
-	context->monitor->name);
+	monitor->monitor->name);
   }
 
   // Check for texture_rectangle extension
-  if (g_hash_table_lookup(context->extensions, "GL_ARB_texture_rectangle") != NULL ||
-      g_hash_table_lookup(context->extensions, "GL_EXT_texture_rectangle") != NULL) {
-    context->have_GL_texture_rectangle = true;
+  if (g_hash_table_lookup(monitor->gl_extensions, "GL_ARB_texture_rectangle") != NULL ||
+      g_hash_table_lookup(monitor->gl_extensions, "GL_EXT_texture_rectangle") != NULL) {
+    monitor->have_GL_texture_rectangle = true;
   }
   else {
     BUG("Required extension GL_{ARB,EXT}_texture_rectangle missing from display %s!\n",
-	context->monitor->name);
+	monitor->monitor->name);
   }
 
   // Check for video_sync
-  if (g_hash_table_lookup(context->extensions, "GLX_SGI_video_sync") != NULL) {
-    context->have_GLX_SGI_video_sync = true;
+  if (g_hash_table_lookup(monitor->gl_extensions, "GLX_SGI_video_sync") != NULL) {
+    monitor->have_GLX_SGI_video_sync = true;
   }
   else {
     BUG("Warning: GLX_SGI_video_sync not supported; will emulate.\n");
   }
 
   // Check for vertex_buffer_object and pixel_buffer_object
-  if (g_hash_table_lookup(context->extensions, "GL_ARB_vertex_buffer_object") != NULL) {
-    context->have_GL_ARB_vertex_buffer_object = true;
+  if (g_hash_table_lookup(monitor->gl_extensions, "GL_ARB_vertex_buffer_object") != NULL) {
+    monitor->have_GL_ARB_vertex_buffer_object = true;
 
-    if (g_hash_table_lookup(context->extensions, "GL_EXT_pixel_buffer_object") != NULL) {
-      context->have_GL_ARB_pixel_buffer_object = true;
+    if (g_hash_table_lookup(monitor->gl_extensions, "GL_EXT_pixel_buffer_object") != NULL) {
+      monitor->have_GL_ARB_pixel_buffer_object = true;
     }
   }
 
-  if (!context->have_GL_ARB_pixel_buffer_object) {
+  if (!monitor->have_GL_ARB_pixel_buffer_object) {
     BUG("Warning: GL_EXT_pixel_buffer_object not supported; will emulate.\n");
   }
 
   // Return true if all required extensions are present
-  return (context->have_GL_EXT_framebuffer_object && 
-	  context->have_GL_texture_rectangle);
+  return (monitor->have_GL_EXT_framebuffer_object && 
+	  monitor->have_GL_texture_rectangle);
 }
 
 
@@ -155,6 +155,14 @@ struct glgfx_monitor* glgfx_monitor_create_a(char const* display_name,
 
   monitor->fullscreen = true;
   pthread_cond_init(&monitor->vsync_cond, NULL);
+
+  monitor->gl_extensions = g_hash_table_new(g_str_hash, g_str_equal);
+
+  if (monitor->gl_extensions == NULL) {
+    free(monitor);
+    errno = ENOMEM;
+    return NULL;
+  }
 
   while ((tag = glgfx_nexttagitem(&tags)) != NULL) {
     switch ((enum glgfx_monitor_attr) tag->tag) {
@@ -534,14 +542,6 @@ struct glgfx_context* glgfx_monitor_createcontext(struct glgfx_monitor* monitor)
     return NULL;
   }
 
-  context->extensions = g_hash_table_new(g_str_hash, g_str_equal);
-
-  if (context->extensions == NULL) {
-    glgfx_context_destroy(context);
-    errno = ENOMEM;
-    return NULL;
-  }
-
   pthread_mutex_lock(&glgfx_mutex);
 
   context->monitor = monitor;
@@ -554,7 +554,7 @@ struct glgfx_context* glgfx_monitor_createcontext(struct glgfx_monitor* monitor)
 
   if (glXMakeCurrent(monitor->display, monitor->window, context->glx_context)) {
     // Check that all the required extensions are present
-    if (check_extensions(context)) {
+    if (check_extensions(monitor)) {
       // Init all extensions we might use, if we haven't done so already
       glgfx_glext_init();
 
@@ -721,7 +721,7 @@ bool glgfx_monitor_render(struct glgfx_monitor* monitor) {
 
     pthread_mutex_lock(&glgfx_mutex);
 
-    glgfx_view_render(monitor->views->data);
+   glgfx_view_render(monitor->views->data);
 
     if (!late_sprites) {
       glgfx_view_rendersprites(monitor->views->data);
@@ -730,7 +730,7 @@ bool glgfx_monitor_render(struct glgfx_monitor* monitor) {
     pthread_mutex_unlock(&glgfx_mutex);
   }
 
-  glgfx_monitor_waittof(monitor);
+ glgfx_monitor_waittof(monitor);
 
   if (has_changed) {
     if (late_sprites) {
