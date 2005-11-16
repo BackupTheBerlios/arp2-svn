@@ -35,10 +35,14 @@ unsigned int sleep(unsigned int seconds) {
 
 void* renderer(void* _m) {
   struct glgfx_monitor* monitor = _m;
-  
+
+  struct glgfx_context* ctx = glgfx_context_create(monitor);
+
   while (!renderer_quit) {
     glgfx_monitor_render(monitor);
   }
+
+  glgfx_context_destroy(ctx);
 
   return NULL;
 }
@@ -52,7 +56,7 @@ void* blit(void* _m) {
   
   struct glgfx_context* ctx = glgfx_context_create(monitor);
   
-#if 0
+#if 1
   // Fill texture with data
 
   if ((buffer = glgfx_bitmap_lock(bitmap, false, true, glgfx_tag_end)) != NULL) {
@@ -178,11 +182,11 @@ void* blit(void* _m) {
   }
 #endif  
 
-  sleep(10);
+  sleep(3);
 
   printf("going home\n");
 
-  glgfx_context_destroy(ctx);
+//  glgfx_context_destroy(ctx);
 
   renderer_quit = true;
   return NULL;
@@ -267,12 +271,12 @@ int main(int argc, char** argv) {
 	else {
 	  pthread_t pid = -1;
 
-	  if (pthread_create(&pid, NULL, blit, monitor) != 0) {
+	  if (pthread_create(&pid, NULL, renderer, monitor) != 0) {
 	    printf("Unable to start blit thread\n");
 	    rc = 20;
 	  }
 	  else {
-	    renderer(monitor);	    
+	    blit(monitor);	    
 	  }
 
 	  pthread_join(pid, NULL);

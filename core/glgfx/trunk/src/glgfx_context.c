@@ -35,7 +35,7 @@ bool glgfx_context_select(struct glgfx_context* context) {
     return false;
   }
 
-  bool rc;
+  bool rc = true;
 
   if (current_context != context) {
     pthread_mutex_lock(&glgfx_mutex);
@@ -44,7 +44,6 @@ bool glgfx_context_select(struct glgfx_context* context) {
 		       context->monitor->window,
 		       context->glx_context)) {
       current_context = context;
-      rc = true;
     }
     else {
       errno = EINVAL;
@@ -53,20 +52,12 @@ bool glgfx_context_select(struct glgfx_context* context) {
 
     pthread_mutex_unlock(&glgfx_mutex);
   }
-  else {
-    rc = true;
-  }
 
   return rc;
 }
 
 
 struct glgfx_context* glgfx_context_getcurrent(void) {
-  if (current_context == NULL) {
-    BUG("No current context!\n");
-    abort();
-  }
-
   return current_context;
 }
 
@@ -192,17 +183,6 @@ bool glgfx_context_destroy(struct glgfx_context* context) {
   
   if (context->fbo != 0) {
     glDeleteFramebuffersEXT(1, &context->fbo);
-  }
-
-  if (context->extensions != NULL) {
-    void cleanup(gpointer key, gpointer value, gpointer userdata) {
-      (void) value;
-      (void) userdata;
-      free(key);
-    }
-
-    g_hash_table_foreach(context->extensions, cleanup, NULL);
-    g_hash_table_destroy(context->extensions);
   }
 
   free(context);

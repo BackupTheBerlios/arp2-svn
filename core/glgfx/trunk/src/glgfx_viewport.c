@@ -315,6 +315,7 @@ bool glgfx_viewport_render(struct glgfx_viewport* viewport) {
     struct glgfx_viewport* viewport = (struct glgfx_viewport*) userdata;
 
     glBindTexture(GL_TEXTURE_RECTANGLE_ARB, rasinfo->bitmap->texture);
+    GLGFX_CHECKERROR();
 
     glBegin(GL_QUADS);
     glTexCoord2i(rasinfo->xoffset,

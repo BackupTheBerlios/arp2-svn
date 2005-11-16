@@ -46,11 +46,11 @@ static bool check_extensions(struct glgfx_monitor* monitor) {
   }
 
   populate((char const*) glGetString(GL_EXTENSIONS));
-  populate(glXGetClientString(monitor->monitor->display, GLX_EXTENSIONS));
-  populate(glXQueryExtensionsString(monitor->monitor->display, 
-				    DefaultScreen(monitor->monitor->display)));
-  populate(glXQueryServerString(monitor->monitor->display,
-				DefaultScreen(monitor->monitor->display), 
+  populate(glXGetClientString(monitor->display, GLX_EXTENSIONS));
+  populate(glXQueryExtensionsString(monitor->display, 
+				    DefaultScreen(monitor->display)));
+  populate(glXQueryServerString(monitor->display,
+				DefaultScreen(monitor->display), 
 				GLX_EXTENSIONS)); 
 
   
@@ -61,7 +61,7 @@ static bool check_extensions(struct glgfx_monitor* monitor) {
   }
   else {
     BUG("Required extension GL_EXT_framebuffer_object missing from display %s!\n",
-	monitor->monitor->name);
+	monitor->name);
   }
 
   // Check for texture_rectangle extension
@@ -71,7 +71,7 @@ static bool check_extensions(struct glgfx_monitor* monitor) {
   }
   else {
     BUG("Required extension GL_{ARB,EXT}_texture_rectangle missing from display %s!\n",
-	monitor->monitor->name);
+	monitor->name);
   }
 
   // Check for video_sync
@@ -332,7 +332,7 @@ struct glgfx_monitor* glgfx_monitor_create_a(char const* display_name,
     return NULL;
   }
 
-  if (!monitor->main_context->have_GLX_SGI_video_sync) {
+  if (!monitor->have_GLX_SGI_video_sync) {
     // No video sync: Create a timer for vsync emulation
 
     struct sigevent ev;
@@ -414,7 +414,7 @@ void glgfx_monitor_destroy(struct glgfx_monitor* monitor) {
 
   if (monitor->mode.privsize != 0) {
     XFree(monitor->mode.private);
-    D(BUG("Freed private modeline data.\n"));
+    D(BUG("Destroyed private modeline data.\n"));
   }
 
   if (monitor->main_context != NULL) {
@@ -435,8 +435,19 @@ void glgfx_monitor_destroy(struct glgfx_monitor* monitor) {
     D(BUG("Closed display.\n"));
   }
 
+  if (monitor->gl_extensions != NULL) {
+    void cleanup(gpointer key, gpointer value, gpointer userdata) {
+      (void) value;
+      (void) userdata;
+      free(key);
+    }
+
+    g_hash_table_foreach(monitor->gl_extensions, cleanup, NULL);
+    g_hash_table_destroy(monitor->gl_extensions);
+  }
+
   free(monitor);
-  D(BUG("Freed monitor\n"));
+  D(BUG("Destroyed monitor\n"));
 
   pthread_mutex_unlock(&glgfx_mutex);
 }
@@ -603,7 +614,12 @@ struct glgfx_context* glgfx_monitor_createcontext(struct glgfx_monitor* monitor)
 
 
 struct glgfx_context* glgfx_monitor_getcontext(struct glgfx_monitor* monitor) {
-  return monitor != NULL ? monitor->main_context : NULL;
+  if (monitor == NULL) {
+    errno = EINVAL;
+    return NULL;
+  }
+
+  return monitor->main_context;
 }
 
 
@@ -658,8 +674,6 @@ bool glgfx_monitor_remview(struct glgfx_monitor* monitor,
 static int __GL_SYNC_TO_VBLANK = -1;
 
 bool glgfx_monitor_waittof(struct glgfx_monitor* monitor) {
-  struct glgfx_context* ctx = glgfx_context_getcurrent();
-
   if (__GL_SYNC_TO_VBLANK == -1) {
     char const* var = getenv("__GL_SYNC_TO_VBLANK");
       
@@ -671,7 +685,7 @@ bool glgfx_monitor_waittof(struct glgfx_monitor* monitor) {
     return false;
   }
 
-  if (ctx->have_GLX_SGI_video_sync) {
+  if (monitor->have_GLX_SGI_video_sync) {
     GLuint frame_count;
 
     if (glXGetVideoSyncSGI(&frame_count) != 0) {
@@ -706,6 +720,8 @@ bool glgfx_monitor_render(struct glgfx_monitor* monitor) {
     return false;
   }
 
+//  glgfx_context_select(monitor->main_context);
+
   pthread_mutex_lock(&glgfx_mutex);
 
   bool has_changed = glgfx_view_haschanged(monitor->views->data);
@@ -721,7 +737,7 @@ bool glgfx_monitor_render(struct glgfx_monitor* monitor) {
 
     pthread_mutex_lock(&glgfx_mutex);
 
-   glgfx_view_render(monitor->views->data);
+    glgfx_view_render(monitor->views->data);
 
     if (!late_sprites) {
       glgfx_view_rendersprites(monitor->views->data);
@@ -730,7 +746,7 @@ bool glgfx_monitor_render(struct glgfx_monitor* monitor) {
     pthread_mutex_unlock(&glgfx_mutex);
   }
 
- glgfx_monitor_waittof(monitor);
+  glgfx_monitor_waittof(monitor);
 
   if (has_changed) {
     if (late_sprites) {

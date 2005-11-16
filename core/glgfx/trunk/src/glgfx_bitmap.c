@@ -150,13 +150,15 @@ struct glgfx_bitmap* glgfx_bitmap_create_a(struct glgfx_tagitem const* tags) {
 
 
 void glgfx_bitmap_destroy(struct glgfx_bitmap* bitmap) {
+  struct glgfx_context* context = glgfx_context_getcurrent();
+
   if (bitmap == NULL) {
     return;
   }
 
   pthread_mutex_lock(&glgfx_mutex);
   glgfx_bitmap_unlock_a(bitmap, NULL);
-  if (glgfx_context_getcurrent()->have_GL_ARB_pixel_buffer_object) {
+  if (context->monitor->have_GL_ARB_pixel_buffer_object) {
     glDeleteBuffersARB(1, &bitmap->pbo);
   }
   else {
@@ -234,7 +236,7 @@ void* glgfx_bitmap_lock_a(struct glgfx_bitmap* bitmap, bool read, bool write,
     bitmap->locked_access = GL_READ_ONLY_ARB;
   }
   
-  if (context->have_GL_ARB_pixel_buffer_object) {
+  if (context->monitor->have_GL_ARB_pixel_buffer_object) {
     if (bitmap->pbo == 0) {
       glGenBuffersARB(1, &bitmap->pbo);
       GLGFX_CHECKERROR();
@@ -258,7 +260,7 @@ void* glgfx_bitmap_lock_a(struct glgfx_bitmap* bitmap, bool read, bool write,
     // Bind FBO and attach texture
     glgfx_context_bindfbo(context, bitmap);
 
-    if (context->have_GL_ARB_pixel_buffer_object) {
+    if (context->monitor->have_GL_ARB_pixel_buffer_object) {
       glBindBufferARB(GL_PIXEL_PACK_BUFFER_ARB, bitmap->pbo);
       GLGFX_CHECKERROR();
       glPixelStorei(GL_PACK_ROW_LENGTH, bitmap->width);
@@ -293,7 +295,7 @@ void* glgfx_bitmap_lock_a(struct glgfx_bitmap* bitmap, bool read, bool write,
     }
   }
   
-  if (context->have_GL_ARB_pixel_buffer_object) {
+  if (context->monitor->have_GL_ARB_pixel_buffer_object) {
     glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, bitmap->pbo);
     bitmap->locked_memory = glMapBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB,
 					   bitmap->locked_access);
@@ -362,7 +364,7 @@ bool glgfx_bitmap_unlock_a(struct glgfx_bitmap* bitmap,
   }
 
   if (bitmap->locked_memory != NULL) {
-    if (context->have_GL_ARB_pixel_buffer_object) {
+    if (context->monitor->have_GL_ARB_pixel_buffer_object) {
       glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, bitmap->pbo);
       if (glUnmapBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB)) {
 	rc = true;
@@ -756,7 +758,7 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
       dst_width == src_width && 
       dst_height == dst_height &&
       !got_mod &&
-      (!context->miss_pixel_ops || (minterm & 0xf0) == 0xc0)) {
+      (!context->monitor->miss_pixel_ops || (minterm & 0xf0) == 0xc0)) {
     if ((minterm & 0xf0) == 0xc0) {
       glDisable(GL_COLOR_LOGIC_OP);
     }
