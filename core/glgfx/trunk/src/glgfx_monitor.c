@@ -811,6 +811,6 @@ bool glgfx_monitor_render(struct glgfx_monitor* monitor) {
 
 
 bool glgfx_monitor_swapbuffers(struct glgfx_monitor* monitor) {
-  glXSwapBuffers(monitor->display, monitor->window);
+  glXSwapBuffers(monitor->display, monitor->glx_window);
   return true;
 }
