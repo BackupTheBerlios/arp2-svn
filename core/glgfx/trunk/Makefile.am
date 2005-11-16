@@ -24,6 +24,7 @@ libglgfx_la_SOURCES	= \
 			src/glgfx.c \
 			src/glgfx_bitmap.c \
 			src/glgfx_context.c \
+			src/glgfx_glxemul.c src/glgfx_glxemul.h \
 			src/glgfx_glext.c src/glgfx_glext.h \
 			src/glgfx_input.c \
 			src/glgfx_monitor.c \

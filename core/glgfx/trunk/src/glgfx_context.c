@@ -9,6 +9,7 @@
 #include "glgfx.h"
 #include "glgfx_context.h"
 #include "glgfx_glext.h"
+#include "glgfx_glxemul.h"
 #include "glgfx_monitor.h"
 #include "glgfx_intern.h"
 
