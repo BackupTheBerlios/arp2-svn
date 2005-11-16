@@ -40,9 +40,10 @@ bool glgfx_context_select(struct glgfx_context* context) {
   if (current_context != context) {
     pthread_mutex_lock(&glgfx_mutex);
 
-    if (glXMakeCurrent(context->monitor->display,
-		       context->monitor->window,
-		       context->glx_context)) {
+    if (glXMakeContextCurrent(context->monitor->display, 
+			      context->monitor->glx_window, 
+			      context->monitor->glx_window, 
+			      context->glx_context)) {
       current_context = context;
     }
     else {
@@ -174,7 +175,7 @@ bool glgfx_context_destroy(struct glgfx_context* context) {
 
   if (context->monitor != NULL) {
     if (current_context == context) {
-      glXMakeCurrent(context->monitor->display, None, NULL);
+      glXMakeContextCurrent(context->monitor->display, None, None, NULL);
       current_context = NULL;
     }
 

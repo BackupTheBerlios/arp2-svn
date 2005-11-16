@@ -20,10 +20,6 @@
 #include <X11/extensions/xf86dga.h>
 
 
-#define glXChooseVisualAttrs(d, s, tag1 ...) \
-  ({ int _attrs[] = { tag1 }; glXChooseVisual((d), (s), _attrs); })
-
-
 static bool check_extensions(struct glgfx_monitor* monitor) {
   void populate(char const* e) {
     if (e == NULL) {
@@ -156,14 +152,6 @@ struct glgfx_monitor* glgfx_monitor_create_a(char const* display_name,
   monitor->fullscreen = true;
   pthread_cond_init(&monitor->vsync_cond, NULL);
 
-  monitor->gl_extensions = g_hash_table_new(g_str_hash, g_str_equal);
-
-  if (monitor->gl_extensions == NULL) {
-    free(monitor);
-    errno = ENOMEM;
-    return NULL;
-  }
-
   while ((tag = glgfx_nexttagitem(&tags)) != NULL) {
     switch ((enum glgfx_monitor_attr) tag->tag) {
       case glgfx_monitor_attr_friend:
@@ -187,12 +175,21 @@ struct glgfx_monitor* glgfx_monitor_create_a(char const* display_name,
     }
   }
 
+  D(BUG("Opening display %s\n", display_name));
+
   // Default error code
   errno = ENOTSUP;
 
-  D(BUG("Opening display %s\n", display_name));
   monitor->name = strdup(display_name);
   monitor->xa_win_state = None;
+
+  monitor->gl_extensions = g_hash_table_new(g_str_hash, g_str_equal);
+
+  if (monitor->gl_extensions == NULL) {
+    free(monitor);
+    errno = ENOMEM;
+    return NULL;
+  }
 
   monitor->display = XOpenDisplay(display_name);
 
@@ -259,21 +256,35 @@ struct glgfx_monitor* glgfx_monitor_create_a(char const* display_name,
     glgfx_monitor_destroy(monitor);
     return NULL;
   }
-      
-  XSetWindowAttributes swa;
 
-  // Get a truecolor visual, at least a 555 mode.
-  monitor->vinfo = glXChooseVisualAttrs(monitor->display,
-					DefaultScreen(monitor->display),
-					GLX_USE_GL,
-					GLX_DOUBLEBUFFER,
-					GLX_RGBA,
-					GLX_RED_SIZE,     1,
-					GLX_GREEN_SIZE,   1,
-					GLX_BLUE_SIZE,    1,
-					GLX_DEPTH_SIZE,   12,
-					GLX_STENCIL_SIZE, 1,
-					None);
+
+  static int const fb_attribs[] = { 
+    GLX_RENDER_TYPE,   GLX_RGBA_BIT,
+    GLX_DRAWABLE_TYPE, GLX_WINDOW_BIT | GLX_PBUFFER_BIT,
+    GLX_DOUBLEBUFFER,  True,
+    GLX_RED_SIZE,      4,
+    GLX_GREEN_SIZE,    4,
+    GLX_BLUE_SIZE,     4,
+    GLX_DEPTH_SIZE,    16,
+    GLX_CONFIG_CAVEAT, GLX_NONE,
+    None
+  };
+
+  monitor->fb_config = glXChooseFBConfig(monitor->display, 
+					 DefaultScreen(monitor->display), 
+					 fb_attribs, 
+					 &monitor->fb_configs);
+
+  D(BUG("Found %d suitable FBConfigs\n", monitor->fb_configs));
+
+  if (monitor->fb_configs == 0) {
+    BUG("Unable to get a sane FBConfig for display %s!\n", display_name);
+    glgfx_monitor_destroy(monitor);
+    return NULL;
+  }
+
+
+  monitor->vinfo = glXGetVisualFromFBConfig(monitor->display, monitor->fb_config[0]);
 
   if (monitor->vinfo == NULL) {
     BUG("Unable to get a GL visual for display %s!\n", display_name);
@@ -290,7 +301,15 @@ struct glgfx_monitor* glgfx_monitor_create_a(char const* display_name,
   };
 
   monitor->format = glgfx_pixel_getformat_a(px_tags);
+
+  if (monitor->format == glgfx_pixel_format_unknown) {
+    BUG("Visual for display %s is not supported. Sorry.\n", display_name);
+    glgfx_monitor_destroy(monitor);
+    return NULL;
+  }
   
+  XSetWindowAttributes swa;
+
   swa.colormap = XCreateColormap(monitor->display,
 				 RootWindow(monitor->display,
 					    monitor->vinfo->screen),
@@ -311,7 +330,6 @@ struct glgfx_monitor* glgfx_monitor_create_a(char const* display_name,
 				  monitor->vinfo->depth,
 				  CopyFromParent,
 				  monitor->vinfo->visual,
-//				   0,
 				  (CWBackPixel |
 				   CWBorderPixel |
 				   CWColormap),
@@ -319,6 +337,17 @@ struct glgfx_monitor* glgfx_monitor_create_a(char const* display_name,
       
   if (monitor->window == 0) {
     BUG("Unable to create a window on display %s!\n", display_name);
+    glgfx_monitor_destroy(monitor);
+    return NULL;
+  }
+
+  monitor->glx_window = glXCreateWindow(monitor->display, 
+					monitor->fb_config[0],
+					monitor->window,
+					NULL);
+  
+  if (monitor->glx_window == 0) {
+    BUG("Unable to create a GLX window on display %s!\n", display_name);
     glgfx_monitor_destroy(monitor);
     return NULL;
   }
@@ -403,14 +432,20 @@ void glgfx_monitor_destroy(struct glgfx_monitor* monitor) {
   pthread_mutex_lock(&glgfx_mutex);
 
   D(BUG("Destroying monitor %p (%s)\n", monitor, monitor->name));
-  
+
+  if (monitor->fb_config != NULL) {
+    XFree(monitor->fb_config);
+  }
+
+  if (monitor->vinfo != NULL) {
+    XFree(monitor->vinfo);
+  }
+
   if (monitor->vsync_timer_valid) {
     timer_delete(monitor->vsync_timer);
   }
 
   go_fullscreen(monitor, false);
-
-  monitor->dotclock = 0;
 
   if (monitor->mode.privsize != 0) {
     XFree(monitor->mode.private);
@@ -419,19 +454,21 @@ void glgfx_monitor_destroy(struct glgfx_monitor* monitor) {
 
   if (monitor->main_context != NULL) {
     glgfx_context_destroy(monitor->main_context);
-    monitor->main_context = NULL;
     D(BUG("Destroyed context for window.\n"));
+  }
+
+  if (monitor->glx_window != 0) {
+    glXDestroyWindow(monitor->display, monitor->glx_window);
+    D(BUG("Destroyed GLX window.\n"));
   }
   
   if (monitor->window != 0) {
     XDestroyWindow(monitor->display, monitor->window);
-    monitor->window = 0;
     D(BUG("Closed window.\n"));
   }
 
   if (monitor->display != NULL) {
     XCloseDisplay(monitor->display);
-    monitor->display = NULL;
     D(BUG("Closed display.\n"));
   }
 
@@ -556,56 +593,67 @@ struct glgfx_context* glgfx_monitor_createcontext(struct glgfx_monitor* monitor)
   pthread_mutex_lock(&glgfx_mutex);
 
   context->monitor = monitor;
-  context->glx_context = glXCreateContext(
-    monitor->display,
-    monitor->vinfo,
-    (monitor->main_context != NULL ? monitor->main_context->glx_context :
-     monitor->friend != NULL ? monitor->friend->main_context->glx_context : NULL),
+
+  context->glx_context = glXCreateNewContext(
+    monitor->display, monitor->fb_config[0], GLX_RGBA_TYPE,
+    monitor->friend != NULL ? monitor->friend->main_context->glx_context : NULL,
     True);
 
-  if (glXMakeCurrent(monitor->display, monitor->window, context->glx_context)) {
-    // Check that all the required extensions are present
-    if (check_extensions(monitor)) {
-      // Init all extensions we might use, if we haven't done so already
-      glgfx_glext_init();
-
-      glGenFramebuffersEXT(1, &context->fbo);
-
-      if (context->fbo != 0) {
-	// Setup a standard integer 2D coordinate system
-	glDrawBuffer(GL_BACK);
-	glViewport(0, 0, monitor->mode.hdisplay, monitor->mode.vdisplay);
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
-	glOrtho(0, monitor->mode.hdisplay, monitor->mode.vdisplay, 0, -1, 0);
-	glMatrixMode(GL_MODELVIEW);
-	glLoadIdentity();
-
-	// Fix OpenGL's weired default alignment
-	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-	glPixelStorei(GL_PACK_ALIGNMENT, 1);
-
-	GLGFX_CHECKERROR();
-      }
-      else {
-	BUG("Unable to create framebuffer_object!\n");
-	glgfx_context_destroy(context);
-	context = NULL;
-	errno = ENOTSUP;
-      }
-    }
-    else {
-      // Required extensions missing
+  if (context->glx_context == 0 || 
+      !glXIsDirect(monitor->display, context->glx_context)) {
+    BUG("Failed to create a direct GL context.\n");
+    glgfx_context_destroy(context);
+    context = NULL;
+    errno = ENOTSUP;
+  }
+  else {
+    if (!glXMakeContextCurrent(monitor->display, 
+			       monitor->glx_window, monitor->glx_window,
+			       context->glx_context)) {
+      BUG("Unable to make GL context current!\n");
       glgfx_context_destroy(context);
       context = NULL;
       errno = ENOTSUP;
     }
-  }
-  else {
-    BUG("Unable to make GL context current!\n");
-    glgfx_context_destroy(context);
-    context = NULL;
-    errno = ENOTSUP;
+    else {
+      // Check that all the required extensions are present
+      if (check_extensions(monitor)) {
+	// Init all extensions we might use, if we haven't done so already
+	glgfx_glext_init();
+
+	glGenFramebuffersEXT(1, &context->fbo);
+
+	if (context->fbo != 0) {
+	  // Setup a standard integer 2D coordinate system
+	  glDrawBuffer(GL_BACK);
+	  glViewport(0, 0, monitor->mode.hdisplay, monitor->mode.vdisplay);
+	  glMatrixMode(GL_PROJECTION);
+	  glLoadIdentity();
+	  glOrtho(0, monitor->mode.hdisplay, monitor->mode.vdisplay, 0, -1, 0);
+	  glMatrixMode(GL_MODELVIEW);
+	  glLoadIdentity();
+
+	  // Fix OpenGL's weired default alignment
+	  glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+	  glPixelStorei(GL_PACK_ALIGNMENT, 1);
+
+	  GLGFX_CHECKERROR();
+	}
+	else {
+	  BUG("Unable to create framebuffer_object!\n");
+	  glgfx_context_destroy(context);
+	  context = NULL;
+	  errno = ENOTSUP;
+	}
+      }
+      else {
+	// Required extensions missing
+	glgfx_context_destroy(context);
+	context = NULL;
+	errno = ENOTSUP;
+      }
+      
+    }
   }
 
   pthread_mutex_unlock(&glgfx_mutex);

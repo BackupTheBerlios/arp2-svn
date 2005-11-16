@@ -50,10 +50,14 @@ struct glgfx_monitor {
     bool                    fullscreen;
 
     Display*                display;
-    Window                  window;
-    struct glgfx_context*   main_context;
+    GLXFBConfig*            fb_config;
+    int                     fb_configs;
     XVisualInfo*            vinfo;
+    Window                  window;
+    GLXWindow               glx_window;
     Atom                    xa_win_state;
+
+    struct glgfx_context*   main_context;
 
     GHashTable*             gl_extensions;
     bool                    have_GL_EXT_framebuffer_object;
