@@ -621,30 +621,20 @@ struct glgfx_context* glgfx_monitor_createcontext(struct glgfx_monitor* monitor)
 	// Init all extensions we might use, if we haven't done so already
 	glgfx_glext_init();
 
-	glGenFramebuffersEXT(1, &context->fbo);
+	// Setup a standard integer 2D coordinate system
+	glDrawBuffer(GL_BACK);
+	glViewport(0, 0, monitor->mode.hdisplay, monitor->mode.vdisplay);
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+	glOrtho(0, monitor->mode.hdisplay, monitor->mode.vdisplay, 0, -1, 0);
+	glMatrixMode(GL_MODELVIEW);
+	glLoadIdentity();
 
-	if (context->fbo != 0) {
-	  // Setup a standard integer 2D coordinate system
-	  glDrawBuffer(GL_BACK);
-	  glViewport(0, 0, monitor->mode.hdisplay, monitor->mode.vdisplay);
-	  glMatrixMode(GL_PROJECTION);
-	  glLoadIdentity();
-	  glOrtho(0, monitor->mode.hdisplay, monitor->mode.vdisplay, 0, -1, 0);
-	  glMatrixMode(GL_MODELVIEW);
-	  glLoadIdentity();
+	// Fix OpenGL's weired default alignment
+	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+	glPixelStorei(GL_PACK_ALIGNMENT, 1);
 
-	  // Fix OpenGL's weired default alignment
-	  glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-	  glPixelStorei(GL_PACK_ALIGNMENT, 1);
-
-	  GLGFX_CHECKERROR();
-	}
-	else {
-	  BUG("Unable to create framebuffer_object!\n");
-	  glgfx_context_destroy(context);
-	  context = NULL;
-	  errno = ENOTSUP;
-	}
+	GLGFX_CHECKERROR();
       }
       else {
 	// Required extensions missing
@@ -768,7 +758,10 @@ bool glgfx_monitor_render(struct glgfx_monitor* monitor) {
     return false;
   }
 
-//  glgfx_context_select(monitor->main_context);
+  // Swap to monitor's context
+
+  struct glgfx_context* old_ctx = glgfx_context_getcurrent();
+  glgfx_context_select(monitor->main_context);
 
   pthread_mutex_lock(&glgfx_mutex);
 
@@ -805,6 +798,8 @@ bool glgfx_monitor_render(struct glgfx_monitor* monitor) {
 
     glgfx_monitor_swapbuffers(monitor);
   }
+
+  glgfx_context_select(old_ctx);
 
   return true;
 }

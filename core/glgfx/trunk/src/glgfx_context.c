@@ -17,14 +17,91 @@ static __thread struct glgfx_context* current_context  = NULL;
 
 struct glgfx_context* glgfx_context_create(struct glgfx_monitor* monitor) {
   struct glgfx_context* context;
+  
+  if (monitor == NULL) {
+    errno = EINVAL;
+    return NULL;
+  }
 
-  context = glgfx_monitor_createcontext(monitor);
+  context = calloc(1, sizeof (*context));
+
+  if (context == NULL) {
+    errno = ENOMEM;
+    return NULL;
+  }
+
+  pthread_mutex_lock(&glgfx_mutex);
+
+  context->monitor = monitor;
+
+  context->glx_context = glXCreateNewContext(
+    monitor->display, monitor->fb_config[0], GLX_RGBA_TYPE,
+    monitor->main_context->glx_context,
+    True);
+
+  if (context->glx_context == 0 || 
+      !glXIsDirect(monitor->display, context->glx_context)) {
+    BUG("Failed to create a direct GL context.\n");
+    glgfx_context_destroy(context);
+    context = NULL;
+    errno = ENOTSUP;
+  }
+  else {
+    context->glx_pbuffer = glXCreatePbuffer(monitor->display, 
+					    monitor->fb_config[0],
+					    NULL);
+
+    if (context->glx_pbuffer == 0) {
+      BUG("Unable to make create Pbuffer for context!\n");
+      glgfx_context_destroy(context);
+      context = NULL;
+      errno = ENOTSUP;
+    }
+    else {
+      if (!glXMakeContextCurrent(monitor->display, 
+				 context->glx_pbuffer, context->glx_pbuffer,
+				 context->glx_context)) {
+	BUG("Unable to make GL Pbuffer context current!\n");
+	glgfx_context_destroy(context);
+	context = NULL;
+	errno = ENOTSUP;
+      }
+      else {
+	glGenFramebuffersEXT(1, &context->fbo);
+
+	if (context->fbo == 0) {
+	  BUG("Unable to create framebuffer_object!\n");
+	  glgfx_context_destroy(context);
+	  context = NULL;
+	  errno = ENOTSUP;
+	}
+	else {
+	  // Setup a standard integer 2D coordinate system
+	  glDrawBuffer(GL_BACK);
+	  glViewport(0, 0, monitor->mode.hdisplay, monitor->mode.vdisplay);
+	  glMatrixMode(GL_PROJECTION);
+	  glLoadIdentity();
+	  glOrtho(0, monitor->mode.hdisplay, monitor->mode.vdisplay, 0, -1, 0);
+	  glMatrixMode(GL_MODELVIEW);
+	  glLoadIdentity();
+
+	  // Fix OpenGL's weired default alignment
+	  glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+	  glPixelStorei(GL_PACK_ALIGNMENT, 1);
+	
+	  GLGFX_CHECKERROR();
+	}
+      }
+    }
+  }
+
 
   // Make the newly created context active
   if (context != NULL) {
-    glgfx_context_select(context);
+    current_context = context;
   }
 
+  pthread_mutex_unlock(&glgfx_mutex);
   return context;
 }
 
@@ -175,11 +252,24 @@ bool glgfx_context_destroy(struct glgfx_context* context) {
 
   if (context->monitor != NULL) {
     if (current_context == context) {
-      glXMakeContextCurrent(context->monitor->display, None, None, NULL);
-      current_context = NULL;
+      if (context != context->monitor->main_context && 
+	  context->monitor->main_context != NULL) {
+	// Switch to monitor context if valid
+	glgfx_context_select(context->monitor->main_context);
+      }
+      else {
+	glXMakeContextCurrent(context->monitor->display, None, None, NULL);
+	current_context = NULL;
+      }
     }
 
-    glXDestroyContext(context->monitor->display, context->glx_context);
+    if (context->glx_context != 0) {
+      glXDestroyContext(context->monitor->display, context->glx_context);
+    }
+    
+    if (context->glx_pbuffer != 0) {
+      glXDestroyPbuffer(context->monitor->display, context->glx_pbuffer);
+    }
   }
   
   if (context->fbo != 0) {
@@ -191,3 +281,4 @@ bool glgfx_context_destroy(struct glgfx_context* context) {
   pthread_mutex_unlock(&glgfx_mutex);
   return true;
 }
+

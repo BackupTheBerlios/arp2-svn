@@ -33,6 +33,7 @@ struct glgfx_bitmap;
 struct glgfx_context {
     struct glgfx_monitor*   monitor;
     GLXContext              glx_context;
+    GLXPbuffer              glx_pbuffer;
     GLuint                  fbo;
     struct glgfx_bitmap*    temp_bitmaps[glgfx_pixel_format_max];
 
