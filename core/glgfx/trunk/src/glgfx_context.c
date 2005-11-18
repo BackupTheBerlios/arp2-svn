@@ -48,9 +48,17 @@ struct glgfx_context* glgfx_context_create(struct glgfx_monitor* monitor) {
     errno = ENOTSUP;
   }
   else {
+    static int const pb_attribs[] = { 
+      // ATI's driver need these to be set to non-zero, at least in
+      // version "1.3.5461 (X4.3.0-8.19.10)"
+      GLX_PBUFFER_WIDTH,  1,
+      GLX_PBUFFER_HEIGHT, 1,
+      None
+    };
+
     context->glx_pbuffer = glXCreatePbuffer(monitor->display, 
 					    monitor->fb_config[0],
-					    NULL);
+					    pb_attribs);
 
     if (context->glx_pbuffer == 0) {
       BUG("Unable to make create Pbuffer for context!\n");
