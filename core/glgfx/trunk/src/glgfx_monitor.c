@@ -20,6 +20,18 @@
 #include <GL/glxext.h>
 #include <X11/extensions/xf86dga.h>
 
+static int __GL_SYNC_TO_VBLANK = -1;
+
+static bool swapbuffer_syncs_to_vblank() {
+  if (__GL_SYNC_TO_VBLANK == -1) {
+    char const* var = getenv("__GL_SYNC_TO_VBLANK");
+      
+    __GL_SYNC_TO_VBLANK = var != NULL ? atoi(var) : 0;
+  }
+
+  return __GL_SYNC_TO_VBLANK == 1;
+}
+
 
 static bool check_extensions(struct glgfx_monitor* monitor) {
   void populate(char const* e) {
@@ -362,7 +374,8 @@ struct glgfx_monitor* glgfx_monitor_create_a(char const* display_name,
     return NULL;
   }
 
-  if (!monitor->have_GLX_SGI_video_sync) {
+  if (!monitor->have_GLX_SGI_video_sync &&
+      !swapbuffer_syncs_to_vblank()) {
     // No video sync: Create a timer for vsync emulation
 
     struct sigevent ev;
@@ -710,15 +723,8 @@ bool glgfx_monitor_remview(struct glgfx_monitor* monitor,
 }
 
 
-static int __GL_SYNC_TO_VBLANK = -1;
-
 bool glgfx_monitor_waittof(struct glgfx_monitor* monitor) {
-  if (__GL_SYNC_TO_VBLANK == -1) {
-    char const* var = getenv("__GL_SYNC_TO_VBLANK");
-      
-    __GL_SYNC_TO_VBLANK = var != NULL ? atoi(var) : 0;
-  }
-  else if (__GL_SYNC_TO_VBLANK != 0) {
+  if (swapbuffer_syncs_to_vblank()) {
     // Return immediately, since glgfx_monitor_swapbuffers() will
     // sleep for us.
     return false;
