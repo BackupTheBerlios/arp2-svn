@@ -3,23 +3,16 @@
 
 #include <GL/gl.h>
 #include <GL/glx.h>
-/* #include <GL/glext.h> */
-/* #include <GL/glxext.h> */
-/* #if HAVE_GL_GLATI_H */
-/* # include <GL/glATI.h> */
-/* #endif */
-#if HAVE_GL_GLXATI_H
-# include <GL/glxATI.h>
-#endif
 
-static struct {
-  XID drawable;
-} drawables[128];
+#define DRAWABLES 256
+#define CONTEXTS  256
+
+static XID drawables[DRAWABLES];
 
 static int find_drawable() {
   int i;
 
-  for (i = 127; i > 0 && drawables[i].drawable != 0; --i);
+  for (i = DRAWABLES-1; i > 0 && drawables[i] != 0; --i);
   return i;
 }
 
@@ -30,7 +23,7 @@ GLXWindow glgfxCreateWindow(Display *dpy,
   int i = find_drawable();
   
   if (i != 0) {
-    drawables[i].drawable = window;
+    drawables[i] = window;
   }
 
   return i;
@@ -40,9 +33,9 @@ GLXWindow glgfxCreateWindow(Display *dpy,
 void glgfxDestroyWindow(Display *dpy,
 			GLXWindow Window) {
   if (Window > 0 && 
-      Window < 128 && 
-      drawables[Window].drawable != 0) {
-    drawables[Window].drawable = 0;
+      Window < DRAWABLES && 
+      drawables[Window] != 0) {
+    drawables[Window] = 0;
   }
 }
 
@@ -53,9 +46,9 @@ GLXPbuffer glgfxCreatePbuffer(Display *dpy,
   int i = find_drawable();
   
   if (i != 0) {
-    drawables[i].drawable = glXCreatePbuffer(dpy, config, AttributeList);
+    drawables[i] = glXCreatePbuffer(dpy, config, AttributeList);
 
-    if (drawables[i].drawable == 0) {
+    if (drawables[i] == 0) {
       i = 0;
     }
   }
@@ -67,32 +60,32 @@ GLXPbuffer glgfxCreatePbuffer(Display *dpy,
 void glgfxDestroyPbuffer(Display *dpy,
 			 GLXPbuffer Pbuffer) {
   if (Pbuffer > 0 && 
-      Pbuffer < 128 && 
-      drawables[Pbuffer].drawable != 0) {
-    glXDestroyPbuffer(dpy, drawables[Pbuffer].drawable);
-    drawables[Pbuffer].drawable = 0;
+      Pbuffer < DRAWABLES && 
+      drawables[Pbuffer] != 0) {
+    glXDestroyPbuffer(dpy, drawables[Pbuffer]);
+    drawables[Pbuffer] = 0;
   }
 }
 
 
-GLXContext glgfxCreateNewContext(Display *dpy,
-				 GLXFBConfig config,
-				 int renderType,
-				 GLXContext ShareList,
-				 Bool Direct) {
+/* GLXContext glgfxCreateNewContext(Display *dpy, */
+/* 				 GLXFBConfig config, */
+/* 				 int renderType, */
+/* 				 GLXContext ShareList, */
+/* 				 Bool Direct) { */
+/*   GLXContext ctx; */
 
-  GLXContext ctx;
-  XVisualInfo* vis = glXGetVisualFromFBConfig(dpy, config);
+/*   XVisualInfo* vis = glXGetVisualFromFBConfig(dpy, config); */
 
-  if (vis == 0) {
-    return 0;
-  }
+/*   if (vis == 0) { */
+/*     return 0; */
+/*   } */
 
-  ctx = glXCreateContext(dpy, vis, ShareList, Direct);
-  XFree(vis);
+/*   ctx = glXCreateContext(dpy, vis, ShareList, Direct); */
+/*   XFree(vis); */
 
-  return ctx;
-}
+/*   return ctx; */
+/* } */
 
 
 Bool glgfxMakeContextCurrent(Display *dpy,
@@ -101,17 +94,17 @@ Bool glgfxMakeContextCurrent(Display *dpy,
 			     GLXContext context) {
   if (draw != read ||
       draw <= 0 || 
-      draw >= 128) {
+      draw >= DRAWABLES) {
     return False;
   }
 
-  return glXMakeCurrent(dpy, drawables[draw].drawable, context);
+  return glXMakeCurrent(dpy, drawables[draw], context);
 }
 
 void glgfxSwapBuffers(Display *dpy,
 		      GLXDrawable drawable) {
   if (drawable > 0 &&
-      drawable < 128) {
-    return glXSwapBuffers(dpy, drawables[drawable].drawable);
+      drawable < DRAWABLES) {
+    return glXSwapBuffers(dpy, drawables[drawable]);
   }
 }

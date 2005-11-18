@@ -18,7 +18,7 @@
 #define glXDestroyWindow(d,w)           glgfxDestroyWindow(d,w)
 #define glXCreatePbuffer(d,c,a)         glgfxCreatePbuffer(d,c,a)
 #define glXDestroyPbuffer(d,p)          glgfxDestroyPbuffer(d,p)
-#define glXCreateNewContext(d,p,r,s,di) glgfxCreateNewContext(d,p,r,s,di)
+/* #define glXCreateNewContext(d,p,r,s,di) glgfxCreateNewContext(d,p,r,s,di) */
 #define glXMakeContextCurrent(d,w,r,c)  glgfxMakeContextCurrent(d,w,r,c)
 #define glXSwapBuffers(d, dr)           glgfxSwapBuffers(d,dr)
 
@@ -38,11 +38,11 @@ GLXPbuffer glgfxCreatePbuffer(Display *dpy,
 void glgfxDestroyPbuffer(Display *dpy,
 			 GLXPbuffer Pbuffer);
 
-GLXContext glgfxCreateNewContext(Display *dpy,
-				 GLXFBConfig config,
-				 int renderType,
-				 GLXContext ShareList,
-				 Bool Direct);
+/* GLXContext glgfxCreateNewContext(Display *dpy, */
+/* 				 GLXFBConfig config, */
+/* 				 int renderType, */
+/* 				 GLXContext ShareList, */
+/* 				 Bool Direct); */
 
 Bool glgfxMakeContextCurrent(Display *dpy,
 			     GLXDrawable draw,
