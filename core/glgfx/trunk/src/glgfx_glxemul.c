@@ -87,6 +87,8 @@ void glgfxDestroyPbuffer(Display *dpy,
 /*   return ctx; */
 /* } */
 
+#include <stdio.h>
+#include <pthread.h>
 
 Bool glgfxMakeContextCurrent(Display *dpy,
 			     GLXDrawable draw,
@@ -98,6 +100,8 @@ Bool glgfxMakeContextCurrent(Display *dpy,
     return False;
   }
 
+  printf("%ld: making %d (drawable %d/%d) current\n", 
+	 pthread_self(), context, draw, drawables[draw]);
   return glXMakeCurrent(dpy, drawables[draw], context);
 }
 

@@ -125,10 +125,12 @@ bool glgfx_context_select(struct glgfx_context* context) {
 
   if (current_context != context) {
     pthread_mutex_lock(&glgfx_mutex);
+    
+    GLXDrawable drawable = context->glx_pbuffer != 0 ?
+      context->glx_pbuffer : context->monitor->glx_window;
 
     if (glXMakeContextCurrent(context->monitor->display, 
-			      context->monitor->glx_window, 
-			      context->monitor->glx_window, 
+			      drawable, drawable, 
 			      context->glx_context)) {
       current_context = context;
     }
@@ -141,6 +143,15 @@ bool glgfx_context_select(struct glgfx_context* context) {
   }
 
   return rc;
+}
+
+bool glgfx_context_unselect(void) {
+  if (current_context == NULL) {
+    return false;
+  }
+
+  glXMakeContextCurrent(current_context->monitor->display, None, None, NULL);
+  return true;
 }
 
 
@@ -261,15 +272,15 @@ bool glgfx_context_destroy(struct glgfx_context* context) {
 
   if (context->monitor != NULL) {
     if (current_context == context) {
-      if (context != context->monitor->main_context && 
-	  context->monitor->main_context != NULL) {
-	// Switch to monitor context if valid
-	glgfx_context_select(context->monitor->main_context);
-      }
-      else {
+/*       if (context != context->monitor->main_context &&  */
+/* 	  context->monitor->main_context != NULL) { */
+/* 	// Switch to monitor context if valid */
+/* 	glgfx_context_select(context->monitor->main_context); */
+/*       } */
+/*       else { */
 	glXMakeContextCurrent(context->monitor->display, None, None, NULL);
 	current_context = NULL;
-      }
+/*       } */
     }
 
     if (context->glx_context != 0) {

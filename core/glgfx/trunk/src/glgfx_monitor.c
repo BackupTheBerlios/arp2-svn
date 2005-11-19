@@ -765,11 +765,6 @@ bool glgfx_monitor_render(struct glgfx_monitor* monitor) {
     return false;
   }
 
-  // Swap to monitor's context
-
-  struct glgfx_context* old_ctx = glgfx_context_getcurrent();
-  glgfx_context_select(monitor->main_context);
-
   pthread_mutex_lock(&glgfx_mutex);
 
   bool has_changed = glgfx_view_haschanged(monitor->views->data);
@@ -805,8 +800,6 @@ bool glgfx_monitor_render(struct glgfx_monitor* monitor) {
 
     glgfx_monitor_swapbuffers(monitor);
   }
-
-  glgfx_context_select(old_ctx);
 
   return true;
 }

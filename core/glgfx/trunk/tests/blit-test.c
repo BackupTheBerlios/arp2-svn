@@ -33,12 +33,8 @@ unsigned int sleep(unsigned int seconds) {
 }
 
 
-void* renderer(void* _m) {
-  struct glgfx_monitor* monitor = _m;
-
-  printf("Rendering on thread %p\n", (void*) pthread_self());
-
-  glgfx_context_select(glgfx_monitor_getcontext(monitor));
+void* renderer(struct glgfx_monitor* monitor) {
+  printf("Rendering on thread %ld\n", pthread_self());
 
   while (!renderer_quit) {
     glgfx_monitor_render(monitor);
@@ -47,17 +43,14 @@ void* renderer(void* _m) {
   return NULL;
 }
 
-void* blit(void* _m) {
-  struct glgfx_monitor* monitor = _m;
+void* blit(struct glgfx_monitor* monitor) {
   int w = width, h = height / 3;
   
 //  uint16_t* buffer;
   uint32_t* buffer;
   
-  printf("Blitting on thread %p\n", (void*) pthread_self());
+  printf("Blitting on thread %ld\n", (void*) pthread_self());
 
-  struct glgfx_context* ctx = glgfx_context_create(monitor);
-  
 #if 1
   // Fill texture with data
 
@@ -188,10 +181,21 @@ void* blit(void* _m) {
 
   printf("going home\n");
 
+  return NULL;
+}
+
+
+void* thread(void* _m) {
+  struct glgfx_monitor* monitor = _m;
+  
+  struct glgfx_context* ctx = glgfx_context_create(monitor);
+
+  void* res = blit(monitor);
+
   glgfx_context_destroy(ctx);
 
   renderer_quit = true;
-  return NULL;
+  return res;
 }
 
 
@@ -273,22 +277,18 @@ int main(int argc, char** argv) {
 	else {
 	  pthread_t pid = -1;
 
-	  struct glgfx_context* ctx = glgfx_context_create(monitor);
+	  printf("Main thread is %ld\n", pthread_self());
 
-	  printf("Main thread is %p\n", (void*) pthread_self());
-
-	  if (pthread_create(&pid, NULL, renderer, monitor) != 0) {
+	  if (pthread_create(&pid, NULL, thread, monitor) != 0) {
 	    printf("Unable to start blit thread\n");
 	    rc = 20;
 	  }
 	  else {
-	    blit(monitor);
+	    renderer(monitor);
 	  }
 
-	  glgfx_context_destroy(ctx);
-
 	  pthread_join(pid, NULL);
-	  
+
 	  printf("blit thread joined\n");
 	}
 
