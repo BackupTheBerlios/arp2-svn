@@ -82,6 +82,12 @@ int get_physical_broadcast(void);
 # define apic_write_around(x,y) apic_write_atomic((x),(y))
 #endif
 
+#ifdef CONFIG_X86_UP_APIC_DEFAULT_OFF
+# define X86_APIC_DEFAULT_OFF 1
+#else
+# define X86_APIC_DEFAULT_OFF 0
+#endif
+
 static inline void ack_APIC_irq(void)
 {
 	/*

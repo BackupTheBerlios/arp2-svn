@@ -162,6 +162,11 @@ static inline void clear_in_cr4 (unsigned long mask)
  */
 #define TASK_SIZE64	(0x800000000000UL - 4096)
 
+#define __HAVE_ARCH_ALIGN_STACK
+extern unsigned long arch_align_stack(unsigned long sp);
+
+#define HAVE_ARCH_PICK_MMAP_LAYOUT
+
 /* This decides where the kernel will search for a free chunk of vm
  * space during mmap's.
  */

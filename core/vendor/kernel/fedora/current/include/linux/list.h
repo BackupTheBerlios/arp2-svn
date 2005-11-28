@@ -5,7 +5,9 @@
 
 #include <linux/stddef.h>
 #include <linux/prefetch.h>
+#include <linux/kernel.h>
 #include <asm/system.h>
+#include <asm/bug.h>
 
 /*
  * These are non-NULL pointers that will result in page faults
@@ -160,6 +162,8 @@ static inline void __list_del(struct list_head * prev, struct list_head * next)
  */
 static inline void list_del(struct list_head *entry)
 {
+	BUG_ON(entry->prev->next != entry);
+	BUG_ON(entry->next->prev != entry);
 	__list_del(entry->prev, entry->next);
 	entry->next = LIST_POISON1;
 	entry->prev = LIST_POISON2;

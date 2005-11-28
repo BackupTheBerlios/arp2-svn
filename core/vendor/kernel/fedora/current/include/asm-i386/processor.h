@@ -317,7 +317,10 @@ extern int bootloader_type;
 /* This decides where the kernel will search for a free chunk of vm
  * space during mmap's.
  */
-#define TASK_UNMAPPED_BASE	(PAGE_ALIGN(TASK_SIZE / 3))
+#define TASK_UNMAPPED_BASE	PAGE_ALIGN(TASK_SIZE/3)
+
+#define __HAVE_ARCH_ALIGN_STACK
+extern unsigned long arch_align_stack(unsigned long sp);
 
 #define HAVE_ARCH_PICK_MMAP_LAYOUT
 
@@ -499,6 +502,9 @@ static inline void load_esp0(struct tss_struct *tss, struct thread_struct *threa
 	regs->xcs = __USER_CS;					\
 	regs->eip = new_eip;					\
 	regs->esp = new_esp;					\
+	preempt_disable();					\
+	load_user_cs_desc(smp_processor_id(), current->mm);	\
+	preempt_enable();					\
 } while (0)
 
 /*

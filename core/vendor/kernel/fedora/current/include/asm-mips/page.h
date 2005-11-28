@@ -136,4 +136,6 @@ typedef struct { unsigned long pgprot; } pgprot_t;
 
 #include <asm-generic/page.h>
 
+#define devmem_is_allowed(x) 1
+
 #endif /* _ASM_PAGE_H */

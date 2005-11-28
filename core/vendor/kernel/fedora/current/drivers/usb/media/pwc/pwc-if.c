@@ -1946,6 +1946,12 @@ static int usb_pwc_probe(struct usb_interface *intf, const struct usb_device_id 
 	if (hint < MAX_DEV_HINTS) 
 		device_hint[hint].pdev = pdev;
 
+	if (!power_save) {
+		i = pwc_camera_power(pdev, 1);
+		if (i < 0)
+			Info("Failed to power up the camera! (%d)\n", i);
+	}
+
 	Trace(TRACE_PROBE, "probe() function returning struct at 0x%p.\n", pdev);
 	usb_set_intfdata (intf, pdev);
 	return 0;

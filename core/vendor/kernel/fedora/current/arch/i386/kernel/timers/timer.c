@@ -19,10 +19,10 @@ static struct init_timer_opts* __initdata timers[] = {
 #ifdef CONFIG_HPET_TIMER
 	&timer_hpet_init,
 #endif
+	&timer_tsc_init,
 #ifdef CONFIG_X86_PM_TIMER
 	&timer_pmtmr_init,
 #endif
-	&timer_tsc_init,
 	&timer_pit_init,
 	NULL,
 };

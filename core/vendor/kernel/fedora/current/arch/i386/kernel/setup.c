@@ -857,6 +857,10 @@ static void __init parse_cmdline_early (char ** cmdline_p)
 		/* disable IO-APIC */
 		else if (!memcmp(from, "noapic", 6))
 			disable_ioapic_setup();
+		/* disable IO-APIC */
+		else if (!memcmp(from, "apic", 4))
+			enable_ioapic_setup();
+
 #endif /* CONFIG_X86_IO_APIC */
 #endif /* CONFIG_ACPI */
 

@@ -502,7 +502,20 @@ SK_IOC	IoC)	/* IO Context */
 		/* checksum error */
 		SK_DBG_MSG(pAC, SK_DBGMOD_VPD, SK_DBGCAT_ERR | SK_DBGCAT_FATAL,
 			("VPD Checksum Error\n"));
-		return(1);
+		/* 090105 - JaWi/Timo - Attempt to workaround the faulty VPD
+		 * checksum of the FN95 mainboard. */
+		if ( ( ( unsigned char )pAC->vpd.vpd_buf[0x03] == 'Y' ) &&
+		     ( ( unsigned char )pAC->vpd.vpd_buf[0x04] == 'u' ) &&
+		     ( ( unsigned char )pAC->vpd.vpd_buf[0x05] == 'k' ) &&
+		     ( ( unsigned char )pAC->vpd.vpd_buf[0x06] == 'o' ) &&
+		     ( ( unsigned char )pAC->vpd.vpd_buf[0x07] == 'n' ) ) {
+			printk( "sk98lin: Yukon/FN95 board found?! "
+				"Ignoring faulty checksum (0x%x) ...\n", x );
+		}
+		else {
+			/* Other boards should fail on faulty checksums... */
+			return(1);
+		}
 	}
 
 	/* find and check the end tag of the RW area */

@@ -288,6 +288,10 @@ int kauditd_thread(void *dummy)
 			}
 		} else {
 			DECLARE_WAITQUEUE(wait, current);
+
+			if (try_to_freeze())
+				continue;
+
 			set_current_state(TASK_INTERRUPTIBLE);
 			add_wait_queue(&kauditd_wait, &wait);
 

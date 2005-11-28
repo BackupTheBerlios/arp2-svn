@@ -158,6 +158,8 @@ void show_regs(struct pt_regs *regs)
 		show_trace(0,(unsigned long *) regs->gprs[15]);
 }
 
+EXPORT_SYMBOL(show_regs);
+
 extern void kernel_thread_starter(void);
 
 __asm__(".align 4\n"

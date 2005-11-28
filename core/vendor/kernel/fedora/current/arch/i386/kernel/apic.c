@@ -42,8 +42,9 @@
 
 /*
  * Knob to control our willingness to enable the local APIC.
+ * -2=default-disable, -1=force-disable, 1=force-disable, 0=automatic
  */
-int enable_local_apic __initdata = 0; /* -1=force-disable, +1=force-enable */
+int enable_local_apic __initdata = (X86_APIC_DEFAULT_OFF ? -2 : 0);
 
 /*
  * Debug level
@@ -751,7 +752,7 @@ static int __init detect_init_APIC (void)
 		 * APIC only if "lapic" specified.
 		 */
 		if (enable_local_apic <= 0) {
-			printk("Local APIC disabled by BIOS -- "
+			printk("Local APIC disabled by BIOS (or by default) -- "
 			       "you can enable it with \"lapic\"\n");
 			return -1;
 		}
@@ -1264,6 +1265,12 @@ int __init APIC_init_uniprocessor (void)
 
 	if (!smp_found_config && !cpu_has_apic)
 		return -1;
+
+	/* if local apic is off due to config_x86_apic_off option, jump out here */
+	if (enable_local_apic < -1) {
+		printk(KERN_INFO "Local APIC disabled by default; use 'lapic' to enable it.\n");
+		return -1;
+	}
 
 	/*
 	 * Complain if the BIOS pretends there is one.

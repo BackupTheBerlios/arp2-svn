@@ -147,9 +147,13 @@ void machine_restart(char * __unused)
 	machine_emergency_restart();
 }
 
+EXPORT_SYMBOL(machine_restart);
+
 void machine_halt(void)
 {
 }
+
+EXPORT_SYMBOL(machine_halt);
 
 void machine_power_off(void)
 {

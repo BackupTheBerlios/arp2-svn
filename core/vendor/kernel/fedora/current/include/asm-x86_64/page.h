@@ -126,6 +126,10 @@ typedef struct { unsigned long pgprot; } pgprot_t;
 
 #define __HAVE_ARCH_GATE_AREA 1	
 
+#ifndef __ASSEMBLY__
+extern int devmem_is_allowed(unsigned long pagenr);
+#endif
+
 #endif /* __KERNEL__ */
 
 #include <asm-generic/page.h>

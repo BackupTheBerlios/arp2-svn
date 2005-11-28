@@ -100,7 +100,7 @@ static int __init blacklist_by_year(void)
 	}
 
 	if (year < CONFIG_ACPI_BLACKLIST_YEAR) {
-		printk(KERN_ERR PREFIX "BIOS age (%d) fails cutoff (%d), "
+		printk(KERN_INFO PREFIX "BIOS age (%d) fails cutoff (%d), "
 		       "acpi=force is required to enable ACPI\n",
 		       year, CONFIG_ACPI_BLACKLIST_YEAR);
 		return 1;

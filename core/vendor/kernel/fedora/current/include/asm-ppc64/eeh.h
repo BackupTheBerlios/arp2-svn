@@ -32,6 +32,8 @@ struct notifier_block;
 
 #ifdef CONFIG_EEH
 
+extern int eeh_subsystem_enabled;
+
 /* Values for eeh_mode bits in device_node */
 #define EEH_MODE_SUPPORTED	(1<<0)
 #define EEH_MODE_NOCHECK	(1<<1)
@@ -95,7 +97,7 @@ int eeh_unregister_notifier(struct notifier_block *nb);
  * If this macro yields TRUE, the caller relays to eeh_check_failure()
  * which does further tests out of line.
  */
-#define EEH_POSSIBLE_ERROR(val, type)	((val) == (type)~0)
+#define EEH_POSSIBLE_ERROR(val, type)	(eeh_subsystem_enabled && (val) == (type)~0)
 
 /*
  * Reads from a device which has been isolated by EEH will return

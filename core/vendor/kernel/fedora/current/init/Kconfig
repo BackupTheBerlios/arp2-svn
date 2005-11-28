@@ -339,7 +339,7 @@ config EPOLL
 	  support for epoll family of system calls.
 
 config CC_OPTIMIZE_FOR_SIZE
-	bool "Optimize for size" if EMBEDDED
+	bool "Optimize for size"
 	default y if ARM || H8300
 	help
 	  Enabling this option will pass "-Os" instead of "-O2" to gcc
@@ -481,6 +481,22 @@ config MODULE_SRCVERSION_ALL
 	  others sometimes change the module source without updating
 	  the version).  With this option, such a "srcversion" field
 	  will be created for all modules.  If unsure, say N.
+
+config MODULE_SIG
+	bool "Module signature verification (EXPERIMENTAL)"
+	depends on MODULES && EXPERIMENTAL
+	select CRYPTO
+	select CRYPTO_SHA1
+	select CRYPTO_SIGNATURE
+	help
+	  Check modules for valid signatures upon load.
+
+config MODULE_SIG_FORCE
+	bool "Required modules to be validly signed (EXPERIMENTAL)"
+	depends on MODULE_SIG
+	help
+	  Reject unsigned modules or signed modules for which we don't have a
+	  key.
 
 config KMOD
 	bool "Automatic kernel module loading"

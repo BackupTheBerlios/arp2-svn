@@ -389,6 +389,7 @@ static int idescsi_end_request (ide_drive_t *drive, int uptodate, int nrsecs)
 	int log = test_bit(IDESCSI_LOG_CMD, &scsi->log);
 	struct Scsi_Host *host;
 	u8 *scsi_buf;
+	int errors = rq->errors;
 	unsigned long flags;
 
 	if (!(rq->flags & (REQ_SPECIAL|REQ_SENSE))) {
@@ -415,11 +416,11 @@ static int idescsi_end_request (ide_drive_t *drive, int uptodate, int nrsecs)
 			printk (KERN_WARNING "ide-scsi: %s: timed out for %lu\n",
 					drive->name, pc->scsi_cmd->serial_number);
 		pc->scsi_cmd->result = DID_TIME_OUT << 16;
-	} else if (rq->errors >= ERROR_MAX) {
+	} else if (errors >= ERROR_MAX) {
 		pc->scsi_cmd->result = DID_ERROR << 16;
 		if (log)
 			printk ("ide-scsi: %s: I/O error for %lu\n", drive->name, pc->scsi_cmd->serial_number);
-	} else if (rq->errors) {
+	} else if (errors) {
 		if (log)
 			printk ("ide-scsi: %s: check condition for %lu\n", drive->name, pc->scsi_cmd->serial_number);
 		if (!idescsi_check_condition(drive, rq))
@@ -794,6 +795,8 @@ static ide_driver_t idescsi_driver = {
 	.abort                  = idescsi_atapi_abort,
 };
 
+static int ide_scsi_warned;
+
 static int idescsi_ide_open(struct inode *inode, struct file *filp)
 {
 	struct gendisk *disk = inode->i_bdev->bd_disk;
@@ -806,7 +809,10 @@ static int idescsi_ide_open(struct inode *inode, struct file *filp)
 	drive = scsi->drive;
 
 	drive->usage++;
-
+	if (!ide_scsi_warned++) {
+		printk(KERN_WARNING "ide-scsi: Warning this device driver is only intended for specialist devices.\n");
+		printk(KERN_WARNING "ide-scsi: Do not use for cd burning, use /dev/hdX directly instead.\n");
+	}
 	return 0;
 }
 

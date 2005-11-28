@@ -580,8 +580,10 @@ static int __init i8042_check_mux(void)
 
 	/* Workaround for interference with USB Legacy emulation */
 	/* that causes a v10.12 MUX to be found. */
-	if (mux_version == 0xAC)
+	if (mux_version == 0xAC) {
+		printk(KERN_INFO "i8042.c: MUX probe failed. USB legacy enabled in BIOS?\n");
 		return -1;
+	}
 
 	printk(KERN_INFO "i8042.c: Detected active multiplexing controller, rev %d.%d.\n",
 		(mux_version >> 4) & 0xf, mux_version & 0xf);

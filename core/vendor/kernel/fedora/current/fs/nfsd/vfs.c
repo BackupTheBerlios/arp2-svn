@@ -463,6 +463,16 @@ _get_posix_acl(struct dentry *dentry, char *key)
 	if (error)
 		goto out_err;
 
+	error = -EOPNOTSUPP;
+	if (inode->i_op == NULL)
+		goto out_err;
+	if (inode->i_op->getxattr == NULL)
+		goto out_err;
+
+	error = security_inode_getxattr(dentry, key);
+	if (error)
+		goto out_err;
+
 	buflen = inode->i_op->getxattr(dentry, key, NULL, 0);
 	if (buflen <= 0) {
 		error = buflen < 0 ? buflen : -ENODATA;

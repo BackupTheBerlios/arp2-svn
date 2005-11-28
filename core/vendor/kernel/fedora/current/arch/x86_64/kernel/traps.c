@@ -364,8 +364,11 @@ void oops_end(unsigned long flags)
 	die_owner = -1;
 	bust_spinlocks(0);
 	spin_unlock_irqrestore(&die_lock, flags);
-	if (panic_on_oops)
+	if (panic_on_oops) {
+		if (netdump_func)
+			netdump_func = NULL;
 		panic("Oops");
+	}
 }
 
 void __die(const char * str, struct pt_regs * regs, long err)
@@ -396,6 +399,7 @@ void die(const char * str, struct pt_regs * regs, long err)
 
 	handle_BUG(regs);
 	__die(str, regs, err);
+	try_crashdump(regs);
 	oops_end(flags);
 	do_exit(SIGSEGV); 
 }

@@ -981,7 +981,6 @@ asmlinkage long sys_open(const char __user *filename, int flags, int mode)
 
 	return do_sys_open(filename, flags, mode);
 }
-EXPORT_SYMBOL_GPL(sys_open);
 
 #ifndef __alpha__
 

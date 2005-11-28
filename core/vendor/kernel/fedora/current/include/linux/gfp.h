@@ -51,7 +51,7 @@ struct vm_area_struct;
 			__GFP_NOFAIL|__GFP_NORETRY|__GFP_NO_GROW|__GFP_COMP| \
 			__GFP_NOMEMALLOC|__GFP_NORECLAIM|__GFP_HARDWALL)
 
-#define GFP_ATOMIC	(__GFP_HIGH)
+#define GFP_ATOMIC	(__GFP_HIGH | __GFP_NOWARN)
 #define GFP_NOIO	(__GFP_WAIT)
 #define GFP_NOFS	(__GFP_WAIT | __GFP_IO)
 #define GFP_KERNEL	(__GFP_WAIT | __GFP_IO | __GFP_FS)

@@ -99,7 +99,9 @@ struct smm_regs {
 
 static inline char *i8k_get_dmi_data(int field)
 {
-	return dmi_get_system_info(field) ? : "N/A";
+	char *dmi_data = dmi_get_system_info(field);
+
+	return dmi_data && *dmi_data ? dmi_data : "?";
 }
 
 /*

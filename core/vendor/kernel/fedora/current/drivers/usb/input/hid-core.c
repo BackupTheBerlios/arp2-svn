@@ -1451,6 +1451,9 @@ void hid_init_reports(struct hid_device *hid)
  * Alphabetically sorted blacklist by quirk type.
  */
 
+#define USB_VENDOR_ID_CYPRES		0x04b4
+#define USB_DEVICE_ID_SITECOM_WSL	0x7417
+
 static struct hid_blacklist {
 	__u16 idVendor;
 	__u16 idProduct;
@@ -1566,6 +1569,7 @@ static struct hid_blacklist {
 	{ USB_VENDOR_ID_SAITEK, USB_DEVICE_ID_SAITEK_RUMBLEPAD, HID_QUIRK_BADPAD },
 	{ USB_VENDOR_ID_TOPMAX, USB_DEVICE_ID_TOPMAX_COBRAPAD, HID_QUIRK_BADPAD },
 
+	{ USB_VENDOR_ID_CYPRESS, USB_DEVICE_ID_SITECOM_WSL, HID_QUIRK_IGNORE },
 	{ 0, 0 }
 };
 

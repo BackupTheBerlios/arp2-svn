@@ -88,8 +88,10 @@ core-$(CONFIG_XMON)		+= arch/ppc64/xmon/
 drivers-$(CONFIG_OPROFILE)	+= arch/ppc64/oprofile/
 
 boot := arch/ppc64/boot
+bzImage: vmlinux
+	cp vmlinux arch/ppc64/boot/bzImage
 
-boottargets-$(CONFIG_PPC_PSERIES) += zImage zImage.initrd
+boottargets-$(CONFIG_PPC_PSERIES) += zImage zImage.initrd zImage.stub
 boottargets-$(CONFIG_PPC_PMAC) += zImage.vmode zImage.initrd.vmode
 boottargets-$(CONFIG_PPC_MAPLE) += zImage zImage.initrd
 boottargets-$(CONFIG_PPC_ISERIES) += vmlinux.sminitrd vmlinux.initrd vmlinux.sm

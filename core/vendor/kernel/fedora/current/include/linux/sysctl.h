@@ -24,6 +24,7 @@
 #include <linux/compiler.h>
 
 struct file;
+struct completion;
 
 #define CTL_MAXNAME 10		/* how many path components do we allow in a
 				   call to sysctl?   In other words, what is
@@ -92,6 +93,9 @@ enum
 
 	KERN_CAP_BSET=14,	/* int: capability bounding set */
 	KERN_PANIC=15,		/* int: panic timeout */
+	KERN_EXEC_SHIELD=1000,	/* int: exec-shield enabled (0/1/2) */
+	KERN_PRINT_FATAL=1001,	/* int: print fatal signals (0/1/2) */
+	KERN_VDSO=1002,		/* int: VDSO enabled (0/1) */
 	KERN_REALROOTDEV=16,	/* real root device to mount after initrd */
 
 	KERN_SPARC_REBOOT=21,	/* reboot command on Sparc */
@@ -925,6 +929,8 @@ struct ctl_table_header
 {
 	ctl_table *ctl_table;
 	struct list_head ctl_entry;
+	int used;
+	struct completion *unregistering;
 };
 
 struct ctl_table_header * register_sysctl_table(ctl_table * table, 

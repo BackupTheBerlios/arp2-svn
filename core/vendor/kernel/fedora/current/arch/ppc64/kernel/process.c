@@ -284,6 +284,7 @@ static void show_instructions(struct pt_regs *regs)
 
 	printk("\n");
 }
+EXPORT_SYMBOL_GPL(show_regs);
 
 void show_regs(struct pt_regs * regs)
 {

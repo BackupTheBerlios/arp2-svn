@@ -1030,6 +1030,8 @@ static int hpsbpkt_thread(void *__hi)
 
 	daemonize("khpsbpkt");
 
+	current->flags |= PF_NOFREEZE;
+
 	while (1) {
 		if (down_interruptible(&khpsbpkt_sig)) {
 			if (try_to_freeze())

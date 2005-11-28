@@ -27,9 +27,7 @@ LDFLAGS_vmlinux :=
 
 CHECKFLAGS      += -D__x86_64__ -m64
 
-cflags-$(CONFIG_MK8) += $(call cc-option,-march=k8)
-cflags-$(CONFIG_MPSC) += $(call cc-option,-march=nocona)
-CFLAGS += $(cflags-y)
+CFLAGS += -march=k8 -mtune=nocona
 
 CFLAGS += -mno-red-zone
 CFLAGS += -mcmodel=kernel

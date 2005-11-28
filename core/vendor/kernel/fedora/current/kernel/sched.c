@@ -3371,9 +3371,20 @@ EXPORT_SYMBOL(wait_for_completion_interruptible_timeout);
 	__remove_wait_queue(q, &wait);			\
 	spin_unlock_irqrestore(&q->lock, flags);
 
+#define SLEEP_ON_BKLCHECK				\
+	if (unlikely(!kernel_locked()) &&		\
+	    sleep_on_bkl_warnings < 10) {		\
+		sleep_on_bkl_warnings++;		\
+		WARN_ON(1);				\
+	}
+
+static int sleep_on_bkl_warnings;
+
 void fastcall __sched interruptible_sleep_on(wait_queue_head_t *q)
 {
 	SLEEP_ON_VAR
+
+	SLEEP_ON_BKLCHECK
 
 	current->state = TASK_INTERRUPTIBLE;
 
@@ -3389,6 +3400,8 @@ interruptible_sleep_on_timeout(wait_queue_head_t *q, long timeout)
 {
 	SLEEP_ON_VAR
 
+	SLEEP_ON_BKLCHECK
+
 	current->state = TASK_INTERRUPTIBLE;
 
 	SLEEP_ON_HEAD
@@ -3400,22 +3413,11 @@ interruptible_sleep_on_timeout(wait_queue_head_t *q, long timeout)
 
 EXPORT_SYMBOL(interruptible_sleep_on_timeout);
 
-void fastcall __sched sleep_on(wait_queue_head_t *q)
-{
-	SLEEP_ON_VAR
-
-	current->state = TASK_UNINTERRUPTIBLE;
-
-	SLEEP_ON_HEAD
-	schedule();
-	SLEEP_ON_TAIL
-}
-
-EXPORT_SYMBOL(sleep_on);
-
 long fastcall __sched sleep_on_timeout(wait_queue_head_t *q, long timeout)
 {
 	SLEEP_ON_VAR
+
+	SLEEP_ON_BKLCHECK
 
 	current->state = TASK_UNINTERRUPTIBLE;
 
@@ -4283,6 +4285,8 @@ void show_state(void)
 
 	read_unlock(&tasklist_lock);
 }
+
+EXPORT_SYMBOL_GPL(show_state);
 
 /**
  * init_idle - set up an idle thread for a given CPU

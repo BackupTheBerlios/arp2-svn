@@ -123,6 +123,8 @@ typedef unsigned long pgprot_t;
 #define __va(x)		     ((void *)__phys_to_virt ((unsigned long)(x)))
 
 
+#define devmem_is_allowed(x) 1
+
 #endif /* KERNEL */
 
 #include <asm-generic/page.h>

@@ -397,6 +397,13 @@ void __devinit identify_cpu(struct cpuinfo_x86 *c)
 	if (disable_pse)
 		clear_bit(X86_FEATURE_PSE, c->x86_capability);
 
+	if (exec_shield != 0) {
+#ifdef CONFIG_HIGHMEM64G   /* NX implies PAE */
+		if (!test_bit(X86_FEATURE_NX, c->x86_capability))
+#endif
+		clear_bit(X86_FEATURE_SEP, c->x86_capability);
+	}
+
 	/* If the model name is still unset, do table lookup. */
 	if ( !c->x86_model_id[0] ) {
 		char *p;

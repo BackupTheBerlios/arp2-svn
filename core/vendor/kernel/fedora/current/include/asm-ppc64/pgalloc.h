@@ -13,6 +13,11 @@ extern kmem_cache_t *pgtable_cache[];
 #define PUD_CACHE_NUM	1
 #define PGD_CACHE_NUM	0
 
+/* Dummy functions since we don't support execshield on ppc */
+#define arch_add_exec_range(mm, limit) do { ; } while (0)
+#define arch_flush_exec_range(mm)      do { ; } while (0)
+#define arch_remove_exec_range(mm, limit) do { ; } while (0)
+
 /*
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License

@@ -678,7 +678,7 @@ void fastcall send_IPI_self(int vector)
 #define MAX_PIRQS 8
 static int pirq_entries [MAX_PIRQS];
 static int pirqs_enabled;
-int skip_ioapic_setup;
+int skip_ioapic_setup = X86_APIC_DEFAULT_OFF;
 
 static int __init ioapic_setup(char *str)
 {

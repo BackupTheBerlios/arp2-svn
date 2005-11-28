@@ -134,6 +134,10 @@ static inline void disable_ioapic_setup(void)
 {
 	skip_ioapic_setup = 1;
 }
+static inline void enable_ioapic_setup(void)
+{
+	skip_ioapic_setup = 0;
+}
 
 static inline int ioapic_setup_disabled(void)
 {

@@ -100,9 +100,9 @@ static void bad_page(const char *function, struct page *page)
 {
 	printk(KERN_EMERG "Bad page state at %s (in process '%s', page %p)\n",
 		function, current->comm, page);
-	printk(KERN_EMERG "flags:0x%0*lx mapping:%p mapcount:%d count:%d\n",
+	printk(KERN_EMERG "flags:0x%0*lx mapping:%p mapcount:%d count:%d (%s)\n",
 		(int)(2*sizeof(page_flags_t)), (unsigned long)page->flags,
-		page->mapping, page_mapcount(page), page_count(page));
+		page->mapping, page_mapcount(page), page_count(page), print_tainted());
 	printk(KERN_EMERG "Backtrace:\n");
 	dump_stack();
 	printk(KERN_EMERG "Trying to fix it up, but a reboot is needed\n");

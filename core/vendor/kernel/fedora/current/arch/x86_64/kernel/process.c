@@ -318,6 +318,8 @@ void show_regs(struct pt_regs *regs)
 	show_trace(&regs->rsp);
 }
 
+EXPORT_SYMBOL_GPL(show_regs);
+
 /*
  * Free current thread data structures etc..
  */
@@ -636,12 +638,6 @@ void set_personality_64bit(void)
 
 	/* Make sure to be in 64bit mode */
 	clear_thread_flag(TIF_IA32); 
-
-	/* TBD: overwrites user setup. Should have two bits.
-	   But 64bit processes have always behaved this way,
-	   so it's not too bad. The main problem is just that
-   	   32bit childs are affected again. */
-	current->personality &= ~READ_IMPLIES_EXEC;
 }
 
 asmlinkage long sys_fork(struct pt_regs *regs)
@@ -807,11 +803,4 @@ int dump_task_regs(struct task_struct *tsk, elf_gregset_t *regs)
 	elf_core_copy_regs(regs, &ptregs);
  
 	return 1;
-}
-
-unsigned long arch_align_stack(unsigned long sp)
-{
-	if (randomize_va_space)
-		sp -= get_random_int() % 8192;
-	return sp & ~0xf;
 }

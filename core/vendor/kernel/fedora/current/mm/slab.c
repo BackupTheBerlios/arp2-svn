@@ -1290,11 +1290,37 @@ static void poison_obj(kmem_cache_t *cachep, void *addr, unsigned char val)
 static void dump_line(char *data, int offset, int limit)
 {
 	int i;
+	unsigned char total=0;
+
 	printk(KERN_ERR "%03x:", offset);
 	for (i=0;i<limit;i++) {
-		printk(" %02x", (unsigned char)data[offset+i]);
+		if (data[offset+i] != POISON_FREE)
+			total += data[offset+i];
+		if (check_tainted() == 0)
+			printk(" %02x", (unsigned char)data[offset+i]);
+		else {
+			switch (i) {
+			case 0:	printk(" f3 3d");
+					break;
+			case 1: break;
+			default:
+				printk(" %02x", (unsigned char)data[offset+i]);
+			}
+		}
 	}
 	printk("\n");
+	switch (total) {
+		case 0x36:
+		case 0x6a:
+		case 0x6f:
+		case 0x81:
+		case 0xac:
+		case 0xd3:
+		case 0xd5:
+		case 0xea:
+			printk (KERN_ERR "Single bit error detected. Possibly bad RAM. Run memtest86.\n");
+			return;
+	}
 }
 #endif
 
@@ -1347,9 +1373,10 @@ static void check_poison_obj(kmem_cache_t *cachep, void *objp)
 			/* Mismatch ! */
 			/* Print header */
 			if (lines == 0) {
-				printk(KERN_ERR "Slab corruption: start=%p, len=%d\n",
-						realobj, size);
+				printk(KERN_ERR "Slab corruption: (%s) start=%p, len=%d\n",
+						print_tainted(), realobj, size);
 				print_objinfo(cachep, objp, 0);
+				dump_stack();
 			}
 			/* Hexdump the affected line */
 			i = (i/16)*16;

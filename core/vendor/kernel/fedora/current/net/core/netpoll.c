@@ -20,10 +20,12 @@
 #include <linux/sched.h>
 #include <linux/delay.h>
 #include <linux/rcupdate.h>
+#include <linux/nmi.h>
 #include <linux/workqueue.h>
 #include <net/tcp.h>
 #include <net/udp.h>
 #include <asm/unaligned.h>
+#include <asm/byteorder.h>
 
 /*
  * We maintain a small pool of fully-sized skbs, to make sure the
@@ -132,7 +134,7 @@ static int checksum_udp(struct sk_buff *skb, struct udphdr *uh,
 static void poll_napi(struct netpoll *np)
 {
 	struct netpoll_info *npinfo = np->dev->npinfo;
-	int budget = 16;
+	int budget = netdump_mode ? 64 : 16;
 
 	if (test_bit(__LINK_STATE_RX_SCHED, &np->dev->state) &&
 	    npinfo->poll_owner != smp_processor_id() &&
@@ -203,6 +205,7 @@ static void zap_completion_queue(void)
 	}
 
 	put_cpu_var(softnet_data);
+	touch_nmi_watchdog();
 }
 
 static struct sk_buff * find_skb(struct netpoll *np, int len, int reserve)
@@ -337,7 +340,7 @@ void netpoll_send_udp(struct netpoll *np, const char *msg, int len)
 	iph->check    = 0;
 	put_unaligned(htonl(np->local_ip), &(iph->saddr));
 	put_unaligned(htonl(np->remote_ip), &(iph->daddr));
-	iph->check    = ip_fast_csum((unsigned char *)iph, iph->ihl);
+	iph->check    = ip_fast_csum((unsigned char *)iph, 5);
 
 	eth = (struct ethhdr *) skb_push(skb, ETH_HLEN);
 
@@ -614,6 +617,9 @@ int netpoll_parse_options(struct netpoll *np, char *opt)
 	       np->remote_mac[4],
 	       np->remote_mac[5]);
 
+	if(np->dump_func)
+		netdump_func = np->dump_func;
+
 	return 0;
 
  parse_failed:
@@ -776,6 +782,12 @@ void netpoll_set_trap(int trap)
 		atomic_dec(&trapped);
 }
 
+void netpoll_reset_locks(struct netpoll *np)
+{
+	spin_lock_init(&skb_list_lock);
+	spin_lock_init(&np->dev->xmit_lock);
+}
+
 EXPORT_SYMBOL(netpoll_set_trap);
 EXPORT_SYMBOL(netpoll_trap);
 EXPORT_SYMBOL(netpoll_parse_options);
@@ -784,3 +796,4 @@ EXPORT_SYMBOL(netpoll_cleanup);
 EXPORT_SYMBOL(netpoll_send_udp);
 EXPORT_SYMBOL(netpoll_poll);
 EXPORT_SYMBOL(netpoll_queue);
+EXPORT_SYMBOL_GPL(netpoll_reset_locks);

@@ -284,6 +284,7 @@ retry:
 	/* Found nothing?!?! Either we hang forever, or we panic. */
 	if (!p) {
 		read_unlock(&tasklist_lock);
+		show_mem();
 		panic("Out of memory and no killable processes...\n");
 	}
 

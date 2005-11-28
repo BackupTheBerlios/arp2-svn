@@ -88,6 +88,7 @@ foreach $object (keys(%object)) {
 		    ($from !~ /\.text\.exit$/ &&
 		     $from !~ /\.exit\.text$/ &&
 		     $from !~ /\.data\.exit$/ &&
+		     $from !~ /\.opd$/ &&
 		     $from !~ /\.exit\.data$/ &&
 		     $from !~ /\.altinstructions$/ &&
 		     $from !~ /\.pdr$/ &&
@@ -103,4 +104,4 @@ foreach $object (keys(%object)) {
 }
 # printf("Done\n");
 
-exit(0);
+exit($errorcount);

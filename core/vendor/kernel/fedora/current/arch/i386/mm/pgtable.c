@@ -13,6 +13,7 @@
 #include <linux/slab.h>
 #include <linux/pagemap.h>
 #include <linux/spinlock.h>
+#include <linux/module.h>
 
 #include <asm/system.h>
 #include <asm/pgtable.h>
@@ -62,6 +63,8 @@ void show_mem(void)
 	printk(KERN_INFO "%lu pages slab\n", ps.nr_slab);
 	printk(KERN_INFO "%lu pages pagetables\n", ps.nr_page_table_pages);
 }
+
+EXPORT_SYMBOL_GPL(show_mem);
 
 /*
  * Associate a virtual page frame with a given physical page frame 

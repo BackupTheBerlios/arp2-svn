@@ -357,6 +357,20 @@ asmlinkage long sys_syslog(int type, char __user * buf, int len)
 }
 
 /*
+ * Crashdump special routine. Don't print to global log_buf, just to the
+ * actual console device(s).
+ */
+static void crashdump_call_console_drivers(const char *buf, unsigned long len)
+{
+	struct console *con;
+
+	for (con = console_drivers; con; con = con->next) {
+		if ((con->flags & CON_ENABLED) && con->write)
+			con->write(con, buf, len);
+	}
+}
+
+/*
  * Call the console drivers on a range of log_buf
  */
 static void __call_console_drivers(unsigned long start, unsigned long end)
@@ -542,6 +556,12 @@ asmlinkage int vprintk(const char *fmt, va_list args)
 
 	/* Emit the output into the temporary buffer */
 	printed_len = vscnprintf(printk_buf, sizeof(printk_buf), fmt, args);
+
+	if (unlikely(crashdump_mode())) {
+		crashdump_call_console_drivers(printk_buf, printed_len);
+		spin_unlock_irqrestore(&logbuf_lock, flags);
+		goto out;
+	}
 
 	/*
 	 * Copy the output into log_buf.  If the caller didn't provide

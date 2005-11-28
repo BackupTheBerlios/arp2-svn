@@ -187,7 +187,7 @@ static struct pid_entry tgid_base_stuff[] = {
 	E(PROC_TGID_CMDLINE,   "cmdline", S_IFREG|S_IRUGO),
 	E(PROC_TGID_STAT,      "stat",    S_IFREG|S_IRUGO),
 	E(PROC_TGID_STATM,     "statm",   S_IFREG|S_IRUGO),
-	E(PROC_TGID_MAPS,      "maps",    S_IFREG|S_IRUGO),
+	E(PROC_TGID_MAPS,      "maps",    S_IFREG|S_IRUSR),
 #ifdef CONFIG_NUMA
 	E(PROC_TGID_NUMA_MAPS, "numa_maps", S_IFREG|S_IRUGO),
 #endif
@@ -229,7 +229,7 @@ static struct pid_entry tid_base_stuff[] = {
 	E(PROC_TID_CMDLINE,    "cmdline", S_IFREG|S_IRUGO),
 	E(PROC_TID_STAT,       "stat",    S_IFREG|S_IRUGO),
 	E(PROC_TID_STATM,      "statm",   S_IFREG|S_IRUGO),
-	E(PROC_TID_MAPS,       "maps",    S_IFREG|S_IRUGO),
+	E(PROC_TID_MAPS,       "maps",    S_IFREG|S_IRUSR),
 #ifdef CONFIG_NUMA
 	E(PROC_TID_NUMA_MAPS,  "numa_maps",    S_IFREG|S_IRUGO),
 #endif

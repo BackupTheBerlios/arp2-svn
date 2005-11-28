@@ -5044,28 +5044,18 @@ megaraid_shutdown(struct pci_dev *pdev)
 }
 
 static struct pci_device_id megaraid_pci_tbl[] = {
-	{PCI_VENDOR_ID_DELL, PCI_DEVICE_ID_DISCOVERY,
-		PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0},
-	{PCI_VENDOR_ID_DELL, PCI_DEVICE_ID_PERC4_DI,
-		PCI_ANY_ID, PCI_ANY_ID, 0, 0, BOARD_64BIT},
-	{PCI_VENDOR_ID_LSI_LOGIC, PCI_DEVICE_ID_PERC4_QC_VERDE,
-		PCI_ANY_ID, PCI_ANY_ID, 0, 0, BOARD_64BIT},
 	{PCI_VENDOR_ID_AMI, PCI_DEVICE_ID_AMI_MEGARAID,
 		PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0},
 	{PCI_VENDOR_ID_AMI, PCI_DEVICE_ID_AMI_MEGARAID2,
 		PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0},
-	{PCI_VENDOR_ID_AMI, PCI_DEVICE_ID_AMI_MEGARAID3,
-		PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0},
 	{PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_AMI_MEGARAID3,
-		PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0},
-	{PCI_VENDOR_ID_LSI_LOGIC, PCI_DEVICE_ID_AMI_MEGARAID3,
 		PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0},
 	{0,}
 };
 MODULE_DEVICE_TABLE(pci, megaraid_pci_tbl);
 
 static struct pci_driver megaraid_pci_driver = {
-	.name		= "megaraid",
+	.name		= "megaraid_legacy",
 	.id_table	= megaraid_pci_tbl,
 	.probe		= megaraid_probe_one,
 	.remove		= __devexit_p(megaraid_remove_one),

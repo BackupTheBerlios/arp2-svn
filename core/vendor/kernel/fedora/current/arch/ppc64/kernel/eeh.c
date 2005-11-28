@@ -99,7 +99,8 @@ static int ibm_read_slot_reset_state;
 static int ibm_read_slot_reset_state2;
 static int ibm_slot_error_detail;
 
-static int eeh_subsystem_enabled;
+int eeh_subsystem_enabled;
+EXPORT_SYMBOL(eeh_subsystem_enabled);
 
 /* Buffer for reporting slot-error-detail rtas calls */
 static unsigned char slot_errbuf[RTAS_ERROR_LOG_MAX];

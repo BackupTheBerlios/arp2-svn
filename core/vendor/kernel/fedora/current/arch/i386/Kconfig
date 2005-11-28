@@ -546,6 +546,18 @@ config X86_UP_IOAPIC
 	  to use it. If you say Y here even though your machine doesn't have
 	  an IO-APIC, then the kernel will still run with no slowdown at all.
 
+config X86_UP_APIC_DEFAULT_OFF
+	bool "APIC support on uniprocessors defaults to off"
+	depends on !SMP && X86_UP_APIC
+	help
+	  Some older systems have flaky APICs.  Say Y to turn off APIC
+	  support by default, while still allowing it to be enabled by the
+	  "lapic" and "apic" command line options.
+
+	  Usually this is only necessary for distro installer kernels that
+	  must work with everything.  Everyone else can safely say N here
+	  and configure APIC support in or out as needed.
+
 config X86_LOCAL_APIC
 	bool
 	depends on X86_UP_APIC || ((X86_VISWS || SMP) && !X86_VOYAGER)

@@ -10,7 +10,7 @@ struct open_intent {
 	int	create_mode;
 };
 
-enum { MAX_NESTED_LINKS = 5 };
+enum { MAX_NESTED_LINKS = 8 };
 
 struct nameidata {
 	struct dentry	*dentry;

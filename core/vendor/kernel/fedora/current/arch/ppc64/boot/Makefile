@@ -114,6 +114,9 @@ $(obj)/zImage: $(obj)/zImage.vmode $(obj)/addnote FORCE
 	@cp -f $< $@
 	$(call if_changed,addnote)
 
+$(obj)/zImage.stub: $(obj-boot) FORCE
+	$(call cmd,bootld,$(obj-boot))
+
 $(obj)/zImage.initrd: $(obj)/zImage.initrd.vmode $(obj)/addnote FORCE
 	@cp -f $< $@
 	$(call if_changed,addnote)

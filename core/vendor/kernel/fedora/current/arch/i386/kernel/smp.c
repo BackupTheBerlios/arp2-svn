@@ -23,6 +23,7 @@
 
 #include <asm/mtrr.h>
 #include <asm/tlbflush.h>
+#include <asm/desc.h>
 #include <mach_apic.h>
 
 /*
@@ -314,6 +315,8 @@ fastcall void smp_invalidate_interrupt(struct pt_regs *regs)
 	unsigned long cpu;
 
 	cpu = get_cpu();
+	if (current->active_mm)
+		load_user_cs_desc(cpu, current->active_mm);
 
 	if (!cpu_isset(cpu, flush_cpumask))
 		goto out;
@@ -485,6 +488,7 @@ void smp_send_reschedule(int cpu)
  * static memory requirements. It also looks cleaner.
  */
 static DEFINE_SPINLOCK(call_lock);
+static DEFINE_SPINLOCK(dump_call_lock);
 
 struct call_data_struct {
 	void (*func) (void *info);
@@ -505,6 +509,49 @@ void unlock_ipi_call_lock(void)
 }
 
 static struct call_data_struct * call_data;
+static struct call_data_struct * saved_call_data;
+
+/*
+ * dump version of smp_call_function to avoid deadlock in call_lock
+ */
+void dump_smp_call_function (void (*func) (void *info), void *info)
+{
+	static struct call_data_struct dumpdata;
+	int waitcount;
+
+	spin_lock(&dump_call_lock);
+	/* if another cpu beat us, they win! */
+	if (dumpdata.func) {
+		spin_unlock(&dump_call_lock);
+		func(info);
+		/* NOTREACHED */
+	}
+	/* freeze call_lock or wait for on-going IPIs to settle down */
+	waitcount = 0;
+	while (!spin_trylock(&call_lock)) {
+		if (waitcount++ > 1000) {
+			/* save original for dump analysis */
+			saved_call_data = call_data;
+			break;
+		}
+		udelay(1000);
+		barrier();
+	}
+
+	dumpdata.func = func;
+	dumpdata.info = info;
+	dumpdata.wait = 0; /* not used */
+	atomic_set(&dumpdata.started, 0); /* not used */
+	atomic_set(&dumpdata.finished, 0); /* not used */
+
+	call_data = &dumpdata;
+	mb();
+	send_IPI_allbutself(CALL_FUNCTION_VECTOR);
+	/* Don't wait */
+	spin_unlock(&dump_call_lock);
+}
+
+EXPORT_SYMBOL(dump_smp_call_function);
 
 /*
  * this function sends a 'generic call function' IPI to all other CPUs
