@@ -1,2 +1,0 @@
-/usr/share/doc/subversion-1.1.1/svn_load_dirs.pl -t e-uae-0.8.27 svn+ssh://svn.berlios.de/svnroot/repos/arp2/core/vendor/uae current .
-/usr/share/doc/subversion-1.1.1/svn_load_dirs.pl -t e-uae-0.8.28 svn+ssh://svn.berlios.de/svnroot/repos/arp2/core/vendor/uae current .
