@@ -358,6 +358,8 @@ Patch1910: linux-2.6-unexport-symbols.patch
 Patch2000: linux-2.6-vm-oomkiller-debugging.patch
 Patch2001: linux-2.6-vm-silence-atomic-alloc-failures.patch
 
+# ARP2
+Patch9000: linux-2.6-arp2.patch
 
 #
 # 10000 to 20000 is for stuff that has to come last due to the
