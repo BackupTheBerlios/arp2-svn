@@ -803,6 +803,8 @@ cd linux-%{kversion}
 # be merged upstream
 #
 
+# ARP2
+%patch9000 -p1
 
 #
 # final stuff
@@ -1240,6 +1242,9 @@ fi
 %endif
 
 %changelog
+* Tue Nov 29 2005 Martin Blom <martin@blom.org>
+- Added ARP2 patch
+
 * Wed Nov  9 2005 Dave Jones <davej@redhat.com> [2.6.14-1.1637_FC4]
 - 2.6.14.1
 - 2.6.14.2pre
