@@ -6,6 +6,7 @@
 
 #include "glgfx.h"
 #include "glgfx_bitmap.h"
+#include "glgfx_context.h"
 #include "glgfx_input.h"
 #include "glgfx_monitor.h"
 #include "glgfx_pixel.h"
@@ -18,6 +19,11 @@
 #include <errno.h>
 #include <unistd.h>
 
+struct glgfx_bitmap* bitmap;
+intptr_t width, height;
+
+bool volatile renderer_quit = false;
+
 // A non-broken sleep()
 unsigned int sleep(unsigned int seconds) {
   struct timespec ts = { seconds, 0 };
@@ -26,13 +32,26 @@ unsigned int sleep(unsigned int seconds) {
   return 0;
 }
 
-struct glgfx_monitor* monitor;
 
-int blit(struct glgfx_bitmap* bitmap, int w, int h) {
+void* renderer(struct glgfx_monitor* monitor) {
+  printf("Rendering on thread %ld\n", pthread_self());
+
+  while (!renderer_quit) {
+    glgfx_monitor_render(monitor);
+  }
+
+  return NULL;
+}
+
+void* blit(struct glgfx_monitor* monitor) {
+  int w = width, h = height / 3;
   
 //  uint16_t* buffer;
   uint32_t* buffer;
   
+  printf("Blitting on thread %ld\n", (void*) pthread_self());
+
+#if 1
   // Fill texture with data
 
   if ((buffer = glgfx_bitmap_lock(bitmap, false, true, glgfx_tag_end)) != NULL) {
@@ -50,7 +69,7 @@ int blit(struct glgfx_bitmap* bitmap, int w, int h) {
     }
   }
 
- // Clear the PBO buffer, but don't update bitmap
+  // Clear the PBO buffer, but don't update bitmap
   if ((buffer = glgfx_bitmap_lock(bitmap, true, false, glgfx_tag_end)) != NULL) {
     memset(buffer, 0, w*h*sizeof(*buffer));
     glgfx_bitmap_unlock(bitmap, glgfx_tag_end);
@@ -79,8 +98,6 @@ int blit(struct glgfx_bitmap* bitmap, int w, int h) {
     }
   }
 
-//  glgfx_monitor_render(monitor);
-
   int i;
   for (i = 0; i < 100; ++i) {
     // Blit upper left 100x100 pixels in a stripe down-right
@@ -94,11 +111,7 @@ int blit(struct glgfx_bitmap* bitmap, int w, int h) {
 		      glgfx_bitmap_blit_src_y,   0,
 		      glgfx_bitmap_blit_minterm, 0x30, // inverted source
 		      glgfx_tag_end);
-//    printf("[%d] ",i);
-//    glgfx_monitor_render(monitor);
   }
-
-  glgfx_monitor_render(monitor);
 
   // Scaled blit test, src == dst: blit center 100x100 pixels to upper
   // right corner, 200x200 pixels
@@ -162,11 +175,27 @@ int blit(struct glgfx_bitmap* bitmap, int w, int h) {
 
     glgfx_bitmap_destroy(bm2);
   }
+#endif  
 
-  glgfx_monitor_render(monitor);
+  sleep(3);
+
   printf("going home\n");
 
-  return 0;
+  return NULL;
+}
+
+
+void* thread(void* _m) {
+  struct glgfx_monitor* monitor = _m;
+  
+  struct glgfx_context* ctx = glgfx_context_create(monitor);
+
+  void* res = blit(monitor);
+
+  glgfx_context_destroy(ctx);
+
+  renderer_quit = true;
+  return res;
 }
 
 
@@ -180,17 +209,15 @@ int main(int argc, char** argv) {
     return 20;
   }
   
-  monitor = glgfx_monitor_create(getenv("DISPLAY"),
-				 glgfx_monitor_attr_fullscreen, true,
-				 glgfx_tag_end);
+  struct glgfx_monitor* monitor = 
+    glgfx_monitor_create(getenv("DISPLAY"),
+			 glgfx_monitor_attr_fullscreen, true,
+			 glgfx_tag_end);
 
   if (monitor == NULL) {
     printf("Unable to open display\n");
   }
   else {
-    struct glgfx_bitmap* bitmap;
-    intptr_t width, height;
-
     if (glgfx_getattrs(monitor,
 		       (glgfx_getattr_proto*) glgfx_monitor_getattr,
 		       glgfx_monitor_attr_width,  (intptr_t) &width,
@@ -248,9 +275,21 @@ int main(int argc, char** argv) {
 	  rc = 20;
 	}
 	else {
-	  blit(bitmap, width, height / 3);
-	  glgfx_monitor_render(monitor);
-	  sleep(3);
+	  pthread_t pid = -1;
+
+	  printf("Main thread is %ld\n", pthread_self());
+
+	  if (pthread_create(&pid, NULL, thread, monitor) != 0) {
+	    printf("Unable to start blit thread\n");
+	    rc = 20;
+	  }
+	  else {
+	    renderer(monitor);
+	  }
+
+	  pthread_join(pid, NULL);
+
+	  printf("blit thread joined\n");
 	}
 
 	glgfx_viewport_destroy(vp1);

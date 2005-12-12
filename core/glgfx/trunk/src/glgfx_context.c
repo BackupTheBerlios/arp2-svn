@@ -222,6 +222,24 @@ bool glgfx_context_unbindfbo(struct glgfx_context* context) {
   if (context->fbo_bound) {
     glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
     context->fbo_bound = false;
+    context->fbo_bitmap = 0;
+  }
+
+  if (context->fbo_width != context->monitor->mode.hdisplay ||
+      context->fbo_height != context->monitor->mode.vdisplay) {
+    context->fbo_width = context->monitor->mode.hdisplay;
+    context->fbo_height = context->monitor->mode.vdisplay;
+
+    // Make sure the viewport and projection are correct
+    glViewport(0, 0, 
+	       context->monitor->mode.hdisplay, 
+	       context->monitor->mode.vdisplay);
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glOrtho(0, context->monitor->mode.hdisplay, 
+	    context->monitor->mode.vdisplay, 0, -1, 0);
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
   }
 
   return true;

@@ -139,7 +139,6 @@ struct glgfx_bitmap* glgfx_bitmap_create_a(struct glgfx_tagitem const* tags) {
   glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 //  glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
   
-  glEnable(GL_TEXTURE_RECTANGLE_ARB);
   GLGFX_CHECKERROR();
 
   bitmap->has_changed = true;
@@ -299,6 +298,8 @@ void* glgfx_bitmap_lock_a(struct glgfx_bitmap* bitmap, bool read, bool write,
     glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, bitmap->pbo);
     bitmap->locked_memory = glMapBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB,
 					   bitmap->locked_access);
+    glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, 0);
+    GLGFX_CHECKERROR();
   }
   else {
     bitmap->locked_memory = bitmap->buffer;
@@ -773,14 +774,14 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
     // Blit using glCopyPixels()
     glReadBuffer(GL_COLOR_ATTACHMENT0_EXT);
     glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
+    glDisable(GL_TEXTURE_RECTANGLE_ARB); // This is apparently important. Why??
+
     glRasterPos2i(dst_x, dst_bitmap->height - dst_y);
     glCopyPixels(src_x, src_y, src_width, src_height, GL_COLOR);
 
     if ((minterm & 0xf0) != 0xc0) {
       glDisable(GL_COLOR_LOGIC_OP);
     }
-
-    glgfx_context_unbindfbo(context);
   }
   else {
     if (src_bitmap == dst_bitmap) {
@@ -793,7 +794,7 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
       }
       else {
 	// Bind FBO and attach source bitmap
-	glgfx_context_bindfbo(context, bitmap);
+	glgfx_context_bindfbo(context, dst_bitmap);
 
 	glReadBuffer(GL_COLOR_ATTACHMENT0_EXT);
 
@@ -851,13 +852,15 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
     }
     glEnd();
 
-    GLGFX_CHECKERROR();
+    if (src_bitmap != NULL) {
+      glDisable(GL_TEXTURE_RECTANGLE_ARB);
+    }
 
     if ((minterm & 0xf0) != 0xc0) {
       glDisable(GL_COLOR_LOGIC_OP);
     }
 
-    glgfx_context_unbindfbo(context);
+    GLGFX_CHECKERROR();
   }
 
   
