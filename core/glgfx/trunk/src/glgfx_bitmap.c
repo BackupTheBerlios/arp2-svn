@@ -774,8 +774,7 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
     // Blit using glCopyPixels()
     glReadBuffer(GL_COLOR_ATTACHMENT0_EXT);
     glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
-    glDisable(GL_TEXTURE_RECTANGLE_ARB); // This is apparently important. Why??
-
+    glDisable(GL_TEXTURE_RECTANGLE_ARB);
     glRasterPos2i(dst_x, dst_bitmap->height - dst_y);
     glCopyPixels(src_x, src_y, src_width, src_height, GL_COLOR);
 
