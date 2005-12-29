@@ -8,19 +8,3 @@ all:
 
 clean:
 	$(MAKE) -C /lib/modules/$(shell uname -r)/build M=$(PWD) clean
-
-
-# obj-m    := arp2-irq.o
-
-# INSTDIR := /lib/modules/$(shell uname -r)/kernel/drivers/char
-# KDIR    := /lib/modules/$(shell uname -r)/build
-# PWD    := $(shell pwd)
-
-# default:
-# 	$(MAKE) -C $(KDIR) SUBDIRS=$(PWD) modules
-
-# install:
-# 	$(MAKE) -C $(KDIR) SUBDIRS=$(PWD) modules_install
-
-# clean:
-# 	$(RM) arp2-irq.ko arp2-irq.o arp2-irq.mod.c arp2-irq.mod.o
