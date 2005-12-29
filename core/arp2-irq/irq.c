@@ -15,8 +15,10 @@
 
 
 #include <linux/init.h>
+#include <linux/irq.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/proc_fs.h>
 //#include <linux/moduleparam.h>
 //#include <linux/stat.h>
 
@@ -24,16 +26,66 @@ MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Martin Blom");
 
 
-static int __init arp2_irq_init(void)
-{
+#define PROC_BASE_DIR "driver/arp2-irq"
+
+
+static struct proc_dir_entry* root = NULL;
+
+static int __init arp2_irq_init(void) {
+  int i;
+  char name[40];
+
   printk(KERN_INFO "arp2_irq_init()\n");
+
+  root = proc_mkdir(PROC_BASE_DIR, NULL);
+
+  if (root == NULL) {
+    printk(KERN_ERR "arp2-irq: Unable to create \"" PROC_BASE_DIR "/\".\n");
+    return -EAGAIN;
+  }
+
+
+  for (i = 0; i < NR_IRQS; i++) {
+//    if (can_request_irq(i, 0)) {
+//    if (irq_desc[i].handler != &no_irq_type) {
+      struct proc_dir_entry *entry;
+
+      sprintf(name, "%d", i);
+      
+      entry = create_proc_entry(name, 0600, root);
+
+      if (entry != NULL) {
+	entry->data = (void *)(unsigned long) i;
+	entry->read_proc = NULL;
+	entry->write_proc = NULL;
+	entry->proc_fops = NULL; //&proc_fops;	
+      }
+//    }
+  }
+  
+
   return 0;
 }
 
 
-static void __exit arp2_irq_exit(void)
-{
-	printk(KERN_INFO "arp2_irq_exit()\n");
+static void __exit arp2_irq_exit(void) {
+  if (root != NULL) { 
+    int i;
+    char name[40];
+
+    for (i = 0; i < NR_IRQS; i++) {
+//      if (can_request_irq(i, 0)) {
+//      if (irq_desc[i].handler != &no_irq_type) {
+	sprintf(name, "%d", i);
+      
+	remove_proc_entry(name, root);
+      }
+//    }
+  }
+
+  remove_proc_entry(PROC_BASE_DIR, NULL);
+
+  printk(KERN_INFO "arp2_irq_exit()\n");
 }
 
 module_init(arp2_irq_init);
