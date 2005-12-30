@@ -12,6 +12,15 @@
  * The pcode is a subset of Knuth's MMIX ISA. mmix-knuth-gcc can be
  * used to compile the pcode in case it's too complicated to write it
  * by hand.
+ *
+ * Resources:
+ *
+ * http://lwn.net/Articles/66829/
+ * http://lwn.net/Articles/127293/
+ * http://www.gelato.unsw.edu.au/IA64wiki/UserLevelDrivers
+ *
+ * http://lwn.net/Articles/127294/
+ * http://lwn.net/Articles/127295/
  */
 
 
