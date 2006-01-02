@@ -31,6 +31,8 @@ struct state {
     size_t    alpha;			// (r0 / 8) mod LOCALS
     size_t    beta;			// (alpha + rL) mod LOCALS
     size_t    gamma;			// (rS / 8) mod LOCALS
+
+    uint8_t   text[0];
 };
 
 
@@ -110,7 +112,11 @@ static inline uint64_t shift_imm(uint8_t op, uint64_t yz) {
 }
 
 
-static inline void* calc_m(uint64_t addr, size_t size) {
+static void* calc_m(struct state* state, uint64_t addr, size_t size) {
+  if (addr < 0x10000) {
+    addr += (uintptr_t) &state->text - 0x100;
+  }
+
   return (void*) (uintptr_t) (addr & ~(size-1));
 }
 
@@ -202,6 +208,7 @@ static enum error execute_op(struct state* state, uint8_t** pc) {
   uint8_t op, ox, oy, oz;
   uint64_t x, y, z;
   uint64_t* r = NULL;
+  uint8_t* real_pc;
 
   if (!check_stack(state)) {
     return stack_overflow;
@@ -209,11 +216,12 @@ static enum error execute_op(struct state* state, uint8_t** pc) {
 
   // Fetch instruction
 
-  op = (*pc)[0];
-  ox = (*pc)[1];
-  oy = (*pc)[2];
-  oz = (*pc)[3];
+  real_pc = calc_m(state, (uintptr_t) *pc, 4);
 
+  op = real_pc[0];
+  ox = real_pc[1];
+  oy = real_pc[2];
+  oz = real_pc[3];
 
   // Default source arguments
 
@@ -419,63 +427,63 @@ static enum error execute_op(struct state* state, uint8_t** pc) {
 
 
     case 0x80 ... 0x81:				// ldb/ldbi
-      *r = *(int8_t*) calc_m(y+z, 1);
+      *r = *(int8_t*) calc_m(state, y+z, 1);
       break;
 
     case 0x82 ... 0x83:				// ldbu/ldbui
-      *r = *(uint8_t*) calc_m(y+z, 1);
+      *r = *(uint8_t*) calc_m(state, y+z, 1);
       break;
 
     case 0x84 ... 0x85:				// ldw/ldwi
-      *r = *(int16_t*) calc_m(y+z, 2);
+      *r = *(int16_t*) calc_m(state, y+z, 2);
       break;
 
     case 0x86 ... 0x87:				// ldwu/ldwui
-      *r = *(uint16_t*) calc_m(y+z, 2);
+      *r = *(uint16_t*) calc_m(state, y+z, 2);
       break;
 
     case 0x88 ... 0x89:				// ldt/ldti
-      *r = *(int32_t*) calc_m(y+z, 4);
+      *r = *(int32_t*) calc_m(state, y+z, 4);
       break;
 
     case 0x8a ... 0x8b:				// ldtu/ldtui
-      *r = *(uint32_t*) calc_m(y+z, 4);
+      *r = *(uint32_t*) calc_m(state, y+z, 4);
       break;
 
     case 0x8c ... 0x8f:				// ldo/ldoi/ldou/ldoui
     case 0x96 ... 0x97:				// ldunc/ldunci
-      *r = *(uint64_t*) calc_m(y+z, 8);
+      *r = *(uint64_t*) calc_m(state, y+z, 8);
       break;
 
     case 0x92 ... 0x93:				// ldht/ldhti
-      *r = ((uint64_t) *(uint32_t*) calc_m(y+z, 4)) << 32;
+      *r = ((uint64_t) *(uint32_t*) calc_m(state, y+z, 4)) << 32;
       break;
 
     case 0x9e ... 0x9f:				// go/goi
       *r = (uint64_t) (uintptr_t) *pc;
-      *pc = calc_m(y+z, 4);
+      *pc = calc_m(state, y+z, 4);
       break;
 
     case 0xa0 ... 0xa3:				// stb/stbi/stbu/stbui
     case 0xb4 ... 0xb5:				// stco/stcoi
-      *(uint8_t*) calc_m(y+z, 1) = x;
+      *(uint8_t*) calc_m(state, y+z, 1) = x;
       break;
 
     case 0xa4 ... 0xa7:				// stw/stwi/stwu/stwui
-      *(uint16_t*) calc_m(y+z, 2)= x;
+      *(uint16_t*) calc_m(state, y+z, 2)= x;
       break;
 
     case 0xa8 ... 0xab:				// stt/stti/sttu/sttui
-      *(uint32_t*) calc_m(y+z, 4) = x;
+      *(uint32_t*) calc_m(state, y+z, 4) = x;
       break;
 
     case 0xac ... 0xaf:				// sto/stoi/stou/stoui
     case 0xb6 ... 0xb7:				// stunc/stunci
-      *(uint64_t*) calc_m(y+z, 8) = x;
+      *(uint64_t*) calc_m(state, y+z, 8) = x;
       break;
 
     case 0xb2 ... 0xb3:				// stht/sthti
-      *(uint32_t*) calc_m(y+z, 4) = x >> 32;
+      *(uint32_t*) calc_m(state, y+z, 4) = x >> 32;
       break;
 
 

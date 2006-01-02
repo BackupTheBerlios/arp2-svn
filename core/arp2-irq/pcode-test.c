@@ -1,5 +1,5 @@
 
-#include "pcode-calls.h"
+#include "pcode-traps.h"
 
 __asm("					\n\
 1:					\n\
@@ -21,13 +21,13 @@ int init(struct Locals* l) {
   return 0;
 }
 
-int acknowledge(void* sc, struct Locals* l) {
-  uint16_t intreq = ReadResource16(sc, 13, l->intreqr);
+int acknowledge(struct Locals* l) {
+  uint16_t intreq = ReadResource16(13, l->intreqr);
 
   if (intreq & 0x0080) {
     intreq &= ~0x0080;
 
-    WriteResource16(sc, 12, l->intreq, intreq);
+    WriteResource16(12, l->intreq, intreq);
     return 1;
   }
   else {
@@ -35,4 +35,6 @@ int acknowledge(void* sc, struct Locals* l) {
   }
 }
 
-int release() { return 0; }
+int release() { 
+  return 0; 
+}
