@@ -15,6 +15,7 @@ public arp2/arp2-exp.class
 	static BOOL AddBus(arp2-bus.class)
 	static BOOL RemBus(arp2-bus.class)
 
+	/* Your hook should dispose or store the object! */
 	/* BOOL EnumBusses(Hook, TagList requirements) */
 	BOOL EnumDevices(Hook, TagList requirements)
 
@@ -41,12 +42,13 @@ public arp2/arp2-exp.class
 		ExecIntNum
 		ExecIntType (server/handler/quick)
 
-		InitPCode(data_size, pcode, pcode_size)
+		LoadPCode(data_size, pcode, pcode_size)
 
-		Obtain(app_name, release_pcode, release_pcode_size)
+		Obtain(app_name, init_pcode_offset, _release_pcode_offset)
+		ObtainShared(app_name, init_pcode_offset, release_pcode_offset)
 		Release()
 
-		AddInterrupt(int_code, ack_pcode, ack_pcode_size)
+		AddInterrupt(int_code, ack_pcode_offset)
 		RemInterrupt(int_code)
 
 		AddEventHook(hook) (removed, inserted, status, ...)
