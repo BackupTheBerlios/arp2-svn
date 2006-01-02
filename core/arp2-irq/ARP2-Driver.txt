@@ -1,0 +1,107 @@
+
+public arp2/arp2-exp.class
+	extends arp2.class
+
+	static arp2-expdriver.class DriverBaseClass
+	static arp2-expbus.class    BusBaseClass
+
+	static arp2-expdevice.class DeviceBaseClass
+
+	static arp2-expdevice.class PCIDeviceBaseClass
+	static arp2-expdevice.class ISADeviceBaseClass
+	static arp2-expdevice.class ZorroDeviceBaseClass
+
+
+	static BOOL AddBus(arp2-bus.class)
+	static BOOL RemBus(arp2-bus.class)
+
+	/* BOOL EnumBusses(Hook, TagList requirements) */
+	BOOL EnumDevices(Hook, TagList requirements)
+
+	private arp2-expdriver.class
+		extends arp2.class
+
+		No methods, just NEW/DISPOSE. Calls arp2-exp::AddBus/RemBus
+
+	private arp2-expbus.class
+		extends arp2.class
+
+		enum BusType { Zorro, ISA, PCI, PCIE, IEEE1394, PCMCIA ... } BusType
+
+		BOOL EnumDevices(Hook, TagList requirements)
+
+		/* addr=MapMemory(start, size) */
+		/* addr=MapIO(start, size) */
+		/* Unmap(addr) */
+
+	private arp2-expdevice.class
+		extends arp2.class
+
+		NumResources
+		ExecIntNum
+		ExecIntType (server/handler/quick)
+
+		InitPCode(data_size, pcode, pcode_size)
+
+		Obtain(app_name, release_pcode, release_pcode_size)
+		Release()
+
+		AddInterrupt(int_code, ack_pcode, ack_pcode_size)
+		RemInterrupt(int_code)
+
+		AddEventHook(hook) (removed, inserted, status, ...)
+		RemEventHook(hook)
+
+		addr = MapResource(nr, flags, UQUAD &dmaaddr)
+		[flags: read/write]
+		UnmapResource(addr)
+
+		size=GetResourceSize(nr)
+
+		addr = AllocDMABuffer(size, flags, alignment, offset, UQUAD &dmaaddr)
+		[flags: MEMF_CLEAR, ARP2_ExpDevice_MEMF_COHERENT]
+		FreeDMABuffer(addr)
+
+		enum Endian { Big, Little } Endian
+		val = ReadResource(Byte|Word|Long|Quad)(nr, offset)
+		WriteResource(Byte|Word|Long|Quad)(nr, offset, value)
+
+	private arp2-pcidevice.class
+		extends arp2.class
+
+		VendorID, ProductID, RevisionID, Class, SubVendorID,
+		SubID, SubClass
+
+		Bus, Device, Function ... and everything else
+
+		Resource numbers: 0-5, Config, ROM
+
+	private arp2-zorrodevice.class
+		extends arp2.class
+
+		Manufacturer, Product, SerialNumber
+
+		SlotAddr, SlotSize, everything else
+
+		TryQuickInt()
+
+
+		Resource numbers: 0, ExpansionRom, DiagArea
+
+private arp2/exp/expansion.expdriver
+	extends arp2-expdriver.class
+
+private arp2/exp/expansion-pci.expdriver
+	extends arp2-expdriver.class
+
+private arp2/exp/openpci.expdriver
+	extends arp2-expdriver.class
+
+private arp2/exp/aros-pci.expdriver
+	extends arp2-expdriver.class
+
+private arp2/exp/arp2-pci.expdriver
+	extends arp2-expdriver.class
+
+private arp2/exp/isapnp.expdriver
+	extends arp2-expdriver.class

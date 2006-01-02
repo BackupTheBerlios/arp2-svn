@@ -25,9 +25,24 @@
  * http://www.xml.com/ldd/chapter/book/ch09.html
  */
 
+/*
+PCI methods:
+
+MapMemory(addr, size)
+MapIO(start, size)
+
+MapResource(nr)
+Unmap(addr)
+
+SetDMAMask(mask)
+
+(configbytes by mapping sysfs)
+
+*/
 
 #include <linux/init.h>
 #include <linux/irq.h>
+#include <linux/pci.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/proc_fs.h>
@@ -36,14 +51,18 @@
 
 #include "pcode.h"
 
-MODULE_LICENSE("GPL");
-MODULE_AUTHOR("Martin Blom");
-
-
 #define PROC_BASE_DIR "driver/arp2-irq"
 #define ARP2_ERR      KERN_ERR "arp2-irq: "
 #define ARP2_INFO     KERN_INFO "arp2-irq: "
 
+MODULE_LICENSE("GPL");
+MODULE_AUTHOR("Martin Blom");
+
+struct pci_device_list {
+    struct pci_device_list* next;
+    struct pci_dev* pci_dev;
+    char name[16];
+} *pci_device_list = NULL;
 
 static struct proc_dir_entry* root = NULL;
 
@@ -127,8 +146,7 @@ static int int_release(struct inode* inode, struct file* file)
 
 
 static int __init arp2_irq_init(void) {
-  int i;
-  char name[40];
+  struct pci_dev* device = NULL;
 
   printk(ARP2_INFO "arp2_irq_init()\n");
 
@@ -140,21 +158,41 @@ static int __init arp2_irq_init(void) {
   }
 
 
-  for (i = 0; i < NR_IRQS; i++) {
+  for_each_pci_dev(device) {
     struct proc_dir_entry* entry;
+    struct pci_device_list* pl;
 
-    sprintf(name, "%d", i);
+    pl = kmalloc(sizeof (*pl), GFP_KERNEL);
+    
+    if (pl == NULL) {
+      pci_dev_put(device);
+      return -ENOMEM;
+    }
+
+    pl->next    = pci_device_list;
+    pl->pci_dev = device;
+
+    sprintf(pl->name, "%04x:%02x:%02x.%d", 
+	    pci_domain_nr(device->bus),
+	    device->bus->number, 
+	    PCI_SLOT(device->devfn), 
+	    PCI_FUNC(device->devfn));
       
-    entry = create_proc_entry(name, 0600, root);
+    entry = create_proc_entry(pl->name, 0600, root);
 
     if (entry == NULL) {
-      printk(ARP2_ERR "Unable to create \"%s\".\n", name);
+      printk(ARP2_ERR "Unable to create \"%s\".\n", pl->name);
+      pci_dev_put(device);
+      kfree(pl);
     }
     else {
-      entry->data = (void*) (unsigned long) i;
+      entry->data = device;
       entry->read_proc = NULL;
       entry->write_proc = NULL;
-      entry->proc_fops = NULL; //&proc_fops;	
+      entry->proc_fops = NULL; //&proc_fops;
+      
+      // Add to list
+      pci_device_list = pl;
     }
   }
 
@@ -164,19 +202,22 @@ static int __init arp2_irq_init(void) {
 
 static void __exit arp2_irq_exit(void) {
   if (root != NULL) { 
-    int i;
-    char name[40];
+    struct pci_device_list* pl = pci_device_list;
 
-    for (i = 0; i < NR_IRQS; i++) {
-      sprintf(name, "%d", i);
-      
-      remove_proc_entry(name, root);
+    while (pl != NULL) {
+      struct pci_device_list* next = pl->next;
+
+      remove_proc_entry(pl->name, root);
+      pci_dev_put(pl->pci_dev);
+      kfree(pl);
+
+      pl = next;
     }
   }
 
   remove_proc_entry(PROC_BASE_DIR, NULL);
 
-  printk(KERN_INFO "arp2_irq_exit()\n");
+  printk(ARP2_INFO "arp2_irq_exit()\n");
 }
 
 module_init(arp2_irq_init);
