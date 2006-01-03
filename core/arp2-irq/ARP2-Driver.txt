@@ -39,34 +39,34 @@ public arp2/arp2-exp.class
 		extends arp2.class
 
 		NumResources
+		enum Endian { Big, Little } Endian
 		ExecIntNum
 		ExecIntType (server/handler/quick)
 
-		LoadPCode(data_size, pcode, pcode_size)
+		LoadPCode(data_size, load_address, pcode, pcode_size)
 
-		Obtain(app_name, init_pcode_offset, _release_pcode_offset)
-		ObtainShared(app_name, init_pcode_offset, release_pcode_offset)
+		Obtain(app_name, init_pcode_addr, _release_pcode_addr)
+		ObtainShared(app_name, init_pcode_addr, release_pcode_addr)
 		Release()
 
-		AddInterrupt(int_code, ack_pcode_offset)
+		AddInterrupt(int_code, ack_pcode_addr)
 		RemInterrupt(int_code)
 
 		AddEventHook(hook) (removed, inserted, status, ...)
 		RemEventHook(hook)
 
+		size=GetResourceSize(nr)
+
+		val = ReadResource(Byte|Word|Long|Quad)(nr, offset)
+		WriteResource(Byte|Word|Long|Quad)(nr, offset, value)
+
 		addr = MapResource(nr, flags, UQUAD &dmaaddr)
 		[flags: read/write]
 		UnmapResource(addr)
 
-		size=GetResourceSize(nr)
-
 		addr = AllocDMABuffer(size, flags, alignment, offset, UQUAD &dmaaddr)
 		[flags: MEMF_CLEAR, ARP2_ExpDevice_MEMF_COHERENT]
 		FreeDMABuffer(addr)
-
-		enum Endian { Big, Little } Endian
-		val = ReadResource(Byte|Word|Long|Quad)(nr, offset)
-		WriteResource(Byte|Word|Long|Quad)(nr, offset, value)
 
 	private arp2-pcidevice.class
 		extends arp2.class
