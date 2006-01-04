@@ -1,6 +1,9 @@
 
 #include "pcode.h"
 
+
+/*** State structure *********************************************************/
+
 // Use 32 general-purpose registers
 #define GLOBALS	32
 
@@ -11,30 +14,120 @@
 #define STACK	(512-(32+GLOBALS+LOCALS+2))	// Total space for
 						// registers and stack
 						// (longs)
-#define SP	(32+GLOBALS-3)
-
 enum special_register {
   rB, rD, rE, rH, rJ, rM, rR, rBB, rC, rN, rO, rS, rI,  rT,  rTT, rK,
   rQ, rU, rV, rG, rL, rA, rF, rP,  rW, rX, rY, rZ, rWW, rXX, rYY, rZZ
 };
 
-enum error {
-  ok, stack_overflow, local_register_overflow, illegal_instruction
-};
-
+#define RES	(32+GLOBALS-256+231)
+#define ARG0	(32+GLOBALS-256+231)
+#define ARG1	(32+GLOBALS-256+232)
+#define ARG2	(32+GLOBALS-256+233)
+#define ARG3	(32+GLOBALS-256+234)
+#define FP	(32+GLOBALS-256+253)
+#define SP	(32+GLOBALS-256+254)
+#define TMP	(32+GLOBALS-256+255)
 
 struct state {
-    uint64_t  g[32+GLOBALS];		// Global registers (special+normal)
-    uint64_t  l[LOCALS];		// Local registers
-    uint64_t  s[STACK];			// Spilled registers/stack
+    uint64_t          g[32+GLOBALS];		// Global registers (special+normal)
+    uint64_t          l[LOCALS];
+    uint64_t          s[STACK];			// Local registers/stack
 
-    size_t    alpha;			// (r0 / 8) mod LOCALS
-    size_t    beta;			// (alpha + rL) mod LOCALS
-    size_t    gamma;			// (rS / 8) mod LOCALS
+    size_t            alpha;			// (r0 / 8) mod LOCALS
+    size_t            beta;			// (alpha + rL) mod LOCALS
+    size_t            gamma;			// (rS / 8) mod LOCALS
 
-    uint8_t   text[0];
+    struct pcode_ops const* ops;
+    uint64_t                text_start;
+    uint64_t                text_end;
+    uint8_t                 text[0];
 };
 
+
+/*** Memory access functions (memory is big-endian) **************************/
+
+#ifndef ntohll
+# if __BYTE_ORDER == __BIG_ENDIAN
+#  define ntohll(x) (x);
+# else
+#  define ntohll(x) (((uint64_t) ntohl((x))) << 32) | ntohl((x) >> 32);
+# endif
+#endif
+
+#ifndef htonll
+# define htonll(x) ntohll((x))
+#endif
+
+
+static inline int8_t read_int8(void* addr) {
+  return ((int8_t*) addr)[0];
+}
+
+static inline uint8_t read_uint8(void* addr) {
+  return ((uint8_t*) addr)[0];
+}
+
+static inline void write_int8(void* addr, int8_t value) {
+  ((int8_t*) addr)[0] = value;
+}
+
+static inline void write_uint8(void* addr, uint8_t value) {
+  ((uint8_t*) addr)[0] = value;
+}
+
+
+static inline int16_t read_int16(void* addr) {
+  return (int16_t) ntohs(((uint16_t*) addr)[0]);
+}
+
+static inline uint16_t read_uint16(void* addr) {
+  return ntohs(((uint16_t*) addr)[0]);
+}
+
+static inline void write_int16(void* addr, int16_t value) {
+  ((uint16_t*) addr)[0] = htons((uint16_t) value);
+}
+
+static inline void write_uint16(void* addr, uint16_t value) {
+  ((uint16_t*) addr)[0] = htons(value);
+}
+
+
+static inline int32_t read_int32(void* addr) {
+  return (int32_t) ntohl(((uint32_t*) addr)[0]);
+}
+
+static inline uint32_t read_uint32(void* addr) {
+  return ntohl(((uint32_t*) addr)[0]);
+}
+
+static inline void write_int32(void* addr, int32_t value) {
+  ((uint32_t*) addr)[0] = htonl((uint32_t) value);
+}
+
+static inline void write_uint32(void* addr, uint32_t value) {
+  ((uint32_t*) addr)[0] = htonl(value);
+}
+
+
+static inline int64_t read_int64(void* addr) {
+  return (int64_t) ntohll(((uint64_t*) addr)[0]);
+}
+
+static inline uint64_t read_uint64(void* addr) {
+  return ntohll(((uint64_t*) addr)[0]);
+}
+
+static inline void write_int64(void* addr, int64_t value) {
+  ((uint64_t*) addr)[0] = htonll((uint64_t) value);
+}
+
+static inline void write_uint64(void* addr, uint64_t value) {
+  ((uint64_t*) addr)[0] = htonll(value);
+}
+
+
+/*** Support functions *******************************************************/
 
 // Check that the two stack pointers are reasonable
 
@@ -48,33 +141,33 @@ static inline bool check_stack(struct state* state) {
 
 // Push the "oldest" local register on the register stack
 
-static enum error push_local(struct state* state) {
+static enum pcode_error push_local(struct state* state) {
   uint64_t* S = (uint64_t*) (uintptr_t) state->g[rS];
 
   state->g[rS] += 8;
 
   if (!check_stack(state)) {
     state->g[rS] -= 8; // Undo
-    return stack_overflow;
+    return pcode_stack_overflow;
   }
 
   *S = state->l[state->gamma];
   state->gamma = (state->gamma + 1) % LOCALS;
 
-  return ok;
+  return pcode_ok;
 }
 
 
 // Pop the latest local register from the register stack
 
-static enum error pop_local(struct state* state) {
+static enum pcode_error pop_local(struct state* state) {
   uint64_t* S;
 
   state->g[rS] -= 8;
 
   if (!check_stack(state)) {
     state->g[rS] += 8; // Undo
-    return stack_overflow;
+    return pcode_stack_overflow;
   }
 
   S = (uint64_t*) (uintptr_t) state->g[rS];
@@ -82,27 +175,27 @@ static enum error pop_local(struct state* state) {
   state->gamma = (state->gamma - 1) % LOCALS;
   state->l[state->gamma]= *S;
 
-  return ok;
+  return pcode_ok;
 }
 
 
 // Initialize a previously unused local register for writing
 
-static enum error allocate_local(struct state* state) {
+static inline enum pcode_error allocate_local(struct state* state) {
   if (state->g[rL] == (LOCALS-1)) {
-    return local_register_overflow;
+    return pcode_local_register_overflow;
   }
 
   state->l[state->beta] = 0;
 
-  state->beta = state->beta % LOCALS;
+  state->beta = (state->beta + 1) % LOCALS;
   state->g[rL] += 1;
   
   if (state->beta == state->gamma) {
     return push_local(state);
   }
   else {
-    return ok;
+    return pcode_ok;
   }
 }
 
@@ -113,8 +206,8 @@ static inline uint64_t shift_imm(uint8_t op, uint64_t yz) {
 
 
 static void* calc_m(struct state* state, uint64_t addr, size_t size) {
-  if (addr < 0x10000) {
-    addr += (uintptr_t) &state->text - 0x100;
+  if (addr >= state->text_start && addr < state->text_end) {
+    addr += (uintptr_t) &state->text - state->text_start;
   }
 
   return (void*) (uintptr_t) (addr & ~(size-1));
@@ -204,24 +297,30 @@ static bool cc(uint8_t op, int64_t y) {
 }
 
 
-static enum error execute_op(struct state* state, uint8_t** pc) {
+/*** Execute one instruction *************************************************/
+
+static enum pcode_error execute_op(struct state* state, uint64_t* pc) {
   uint8_t op, ox, oy, oz;
   uint64_t x, y, z;
   uint64_t* r = NULL;
   uint8_t* real_pc;
 
   if (!check_stack(state)) {
-    return stack_overflow;
+    return pcode_stack_overflow;
   }
 
   // Fetch instruction
 
-  real_pc = calc_m(state, (uintptr_t) *pc, 4);
+  real_pc = calc_m(state, *pc, 4);
 
   op = real_pc[0];
   ox = real_pc[1];
   oy = real_pc[2];
   oz = real_pc[3];
+
+  state->ops->kprintf(state->ops,
+		      "Executing instruction at %p: %02x%02x%02x%02x\n",
+		      (void*) *pc, op, ox, oy, oz);
 
   // Default source arguments
 
@@ -252,10 +351,17 @@ static enum error execute_op(struct state* state, uint8_t** pc) {
   // Now fix arguments
 
   switch (op) { 
+    // Handle instructions with immediate x
+    case 0xb4 ... 0xb5:		// stco/stcoi
+      x = ox;
+      break;
+
+
     // Handle instructions with immediate y
     case 0x34 ... 0x37:		// neg/negi/negu/negui
       y = oy;
       break;
+
 
     // Handle instructions with immediate y & z
     case 0x40 ... 0x5f:		// bcc/pbcc
@@ -263,10 +369,6 @@ static enum error execute_op(struct state* state, uint8_t** pc) {
     case 0xf4 ... 0xf5:		// geta/getab
     case 0xf8:			// pop
       z = (oy << 8) | oz;
-      break;
-
-    case 0xb4 ... 0xb5:		// stco/stcoi
-      x = ox;
       break;
 
     case 0xe0 ... 0xe3:		// set{h,mh,ml,l}
@@ -288,8 +390,9 @@ static enum error execute_op(struct state* state, uint8_t** pc) {
       break;
   }
 
+
+  // Handle instructions with immediate z
   switch (op) {
-    // Handle instructions with immediate z
     case 0x08 ... 0x0f:
     case 0x18 ... 0x3f:
     case 0x60 ... 0xdf:
@@ -300,6 +403,8 @@ static enum error execute_op(struct state* state, uint8_t** pc) {
       break;
   }
 
+
+  // Handle instructions where x is destination
   switch (op) {
     case 0x00:			// trap
     case 0x40 ... 0x5f:		// bcc/pbcc
@@ -316,13 +421,13 @@ static enum error execute_op(struct state* state, uint8_t** pc) {
     default:
       // X is destination
       if (ox >= state->g[rG]) {
-	x = state->g[32 + ox - (256-GLOBALS)];
+	r = &state->g[32 + ox - (256-GLOBALS)];
       }
       else {
 	while (ox >= state->g[rL]) {
-	  enum error e = allocate_local(state);
+	  enum pcode_error e = allocate_local(state);
 	  
-	  if (e != ok) {
+	  if (e != pcode_ok) {
 	    return e;
 	  }
 	}
@@ -427,65 +532,69 @@ static enum error execute_op(struct state* state, uint8_t** pc) {
 
 
     case 0x80 ... 0x81:				// ldb/ldbi
-      *r = *(int8_t*) calc_m(state, y+z, 1);
+      *r = read_int8(calc_m(state, y+z, 1));
       break;
 
     case 0x82 ... 0x83:				// ldbu/ldbui
-      *r = *(uint8_t*) calc_m(state, y+z, 1);
+      *r = read_uint8(calc_m(state, y+z, 1));
       break;
 
     case 0x84 ... 0x85:				// ldw/ldwi
-      *r = *(int16_t*) calc_m(state, y+z, 2);
+      *r = read_int16(calc_m(state, y+z, 2));
       break;
 
     case 0x86 ... 0x87:				// ldwu/ldwui
-      *r = *(uint16_t*) calc_m(state, y+z, 2);
+      *r = read_uint16(calc_m(state, y+z, 2));
       break;
 
     case 0x88 ... 0x89:				// ldt/ldti
-      *r = *(int32_t*) calc_m(state, y+z, 4);
+      *r = read_int32(calc_m(state, y+z, 4));
       break;
 
     case 0x8a ... 0x8b:				// ldtu/ldtui
-      *r = *(uint32_t*) calc_m(state, y+z, 4);
+      *r = read_uint32(calc_m(state, y+z, 4));
       break;
 
     case 0x8c ... 0x8f:				// ldo/ldoi/ldou/ldoui
     case 0x96 ... 0x97:				// ldunc/ldunci
-      *r = *(uint64_t*) calc_m(state, y+z, 8);
+      *r = read_uint64(calc_m(state, y+z, 8));
       break;
 
     case 0x92 ... 0x93:				// ldht/ldhti
-      *r = ((uint64_t) *(uint32_t*) calc_m(state, y+z, 4)) << 32;
+      *r = ((uint64_t) read_uint32(calc_m(state, y+z, 4))) << 32;
       break;
 
     case 0x9e ... 0x9f:				// go/goi
-      *r = (uint64_t) (uintptr_t) *pc;
-      *pc = calc_m(state, y+z, 4);
+      *r = *pc;
+      *pc = (uintptr_t) calc_m(state, y+z, 4);
       break;
 
     case 0xa0 ... 0xa3:				// stb/stbi/stbu/stbui
     case 0xb4 ... 0xb5:				// stco/stcoi
-      *(uint8_t*) calc_m(state, y+z, 1) = x;
+      write_uint8(calc_m(state, y+z, 1), x);
       break;
 
     case 0xa4 ... 0xa7:				// stw/stwi/stwu/stwui
-      *(uint16_t*) calc_m(state, y+z, 2)= x;
+      write_uint16(calc_m(state, y+z, 2), x);
       break;
 
     case 0xa8 ... 0xab:				// stt/stti/sttu/sttui
-      *(uint32_t*) calc_m(state, y+z, 4) = x;
+      write_uint32(calc_m(state, y+z, 4), x);
       break;
 
     case 0xac ... 0xaf:				// sto/stoi/stou/stoui
     case 0xb6 ... 0xb7:				// stunc/stunci
-      *(uint64_t*) calc_m(state, y+z, 8) = x;
+      write_uint64(calc_m(state, y+z, 8), x);
       break;
 
     case 0xb2 ... 0xb3:				// stht/sthti
-      *(uint32_t*) calc_m(state, y+z, 4) = x >> 32;
+      write_uint32(calc_m(state, y+z, 4), x >> 32);
       break;
 
+    case 0xbe ... 0xbf:				// pushgo/pushgoi
+      state->g[rJ] = *pc;
+      *pc = (uintptr_t) calc_m(state, y+z, 4);
+      goto push;
 
     case 0xc0 ... 0xc1:				// or/ori
     case 0xe8 ... 0xeb:				// or{h,mh,ml,l}
@@ -537,28 +646,102 @@ static enum error execute_op(struct state* state, uint8_t** pc) {
       *pc = *pc - 4 /* undo */ + calc_ra24(op, z);
       break;
 
+    case 0xf2 ... 0xf3:				// pushj/pushjb
+      state->g[rJ] = *pc;
+      *pc = *pc - 4 /* undo */ + calc_ra16(op, z);
+
+    push:
+      if (ox >= state->g[rG]) {
+	ox = state->g[rL];
+	allocate_local(state);
+      }
+
+      state->l[(state->alpha + ox) % LOCALS] = ox;
+
+      state->alpha  = (state->alpha + (ox + 1)) % LOCALS;
+      state->g[rO] += (ox + 1) * 8;
+
+      state->beta   = (state->beta - (ox + 1)) % LOCALS;
+      state->g[rL] -= (ox + 1);
+      break;
 
     case 0xf4 ... 0xf5:				// geta/getab
-      *r = (uintptr_t) *pc - 4 /* undo */ + calc_ra16(op, z);
+      *r = *pc - 4 /* undo */ + calc_ra16(op, z);
       break;
 
     default:
-      return illegal_instruction;
+      return pcode_illegal_instruction;
   }
   
-  return ok;
+  return pcode_ok;
 }
 
 
+/*** The public API **********************************************************/
+
+pcode_handle pcode_create(size_t data_size, uint64_t load_address,
+			  void const* pcode, size_t pcode_size, 
+			  struct pcode_ops const* ops) {
+  size_t        state_size = sizeof (struct state) + pcode_size + data_size;
+  struct state* state      = ops->malloc(ops, state_size);
+
+  if (state != NULL) {
+    memset(state, 0, sizeof (*state));
+
+    state->ops = ops;
+
+    // Load P-Code
+    state->text_start = load_address;
+    state->text_end   = load_address + pcode_size;
+    memcpy(state->text, pcode, pcode_size);
+  }
+
+  return state;
+}
 
 
-/* struct state* pcode_create(void) { */
-/*   struct state* state = (struct state*) calloc(sizeof (struct state), 1); */
+enum pcode_error pcode_execute(pcode_handle handle, uint64_t address) {
+  struct state*    state = (struct state*) handle;
+  enum pcode_error error;
 
-/*   if (state != NULL) { */
-/*     // Initialize stack/register pointers */
-/*     state->g[rO] = (uintptr_t) &state->l[0]; */
-/*     state->g[rS] = (uintptr_t) &state->s[0]; */
-/*     state->g[SP] = (uintptr_t) &state->s[STACK]; */
-/*   } */
-/* } */
+  // Initialize stack/register pointers
+//  state->g[rO] = (uintptr_t) &state->s[0];
+  state->g[rS] = (uintptr_t) &state->s[0];
+  state->g[SP] = (uintptr_t) &state->s[STACK - 1];
+
+  state->s[STACK - 1] = (uint64_t) -1; // Return address
+
+  state->g[rG] = 256 - GLOBALS;
+  state->g[rL] = 0;
+
+  allocate_local(state);  
+  state->l[0]  = (uintptr_t) &state->text[state->text_end - state->text_start];
+
+  do {
+    uint64_t* d = (uint64_t*) (uintptr_t) &state->text[state->text_end - state->text_start];
+    state->ops->kprintf(state->ops,
+			"R: %016lx %016lx %016lx %016lx\n",
+			state->l[0], state->l[1], state->l[2], state->l[3]);
+    state->ops->kprintf(state->ops,
+			"R: %016lx %016lx %016lx %016lx\n",
+			state->l[4], state->l[5], state->l[6], state->l[7]);
+
+
+    state->ops->kprintf(state->ops,
+			"D: %016lx %016lx %016lx %016lx\n",
+			read_uint64(d+0), read_uint64(d+1), read_uint64(d+2), read_uint64(d+3));
+    error = execute_op(state, &address);
+    state->ops->kprintf(state->ops,"return: %d\n", error);
+  } while (error == pcode_ok && address != (uint64_t) -1);
+
+  return error;
+}
+
+
+void pcode_delete(pcode_handle handle) {
+  struct state* state = (struct state*) handle;
+
+  if (state != NULL) {
+    state->ops->free(state->ops, state);
+  }
+}

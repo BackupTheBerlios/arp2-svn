@@ -1,17 +1,14 @@
 
 #include "pcode-traps.h"
 
+#include "pcode-test.h"
+
 __asm("					\n\
-1:					\n\
-	.int	init-1b			\n\
-	.int	acknowledge-1b		\n\
-	.int	release-1b		\n\
+	.int	init			\n\
+	.int	acknowledge		\n\
+	.int	release			\n\
 ");
 
-struct Locals {
-    uint32_t intreq;
-    uint32_t intreqr;
-};
 
 
 int init(struct Locals* l) {
