@@ -1,6 +1,7 @@
 
 #include <stdio.h>
 #include <stdarg.h>
+#include <byteswap.h>
 
 #include "pcode.h"
 
@@ -42,7 +43,9 @@ int main(void) {
 				pcode_test, pcode_test_size, &ops);
 
   if (h != NULL) {
-    pcode_execute(h, 0x10c);
+    uint32_t* vec = (uint32_t*) pcode_test;
+
+    pcode_execute(h, bswap_32(vec[0]));
     pcode_delete(h);
   }
 

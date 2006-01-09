@@ -9,13 +9,16 @@ __asm("					\n\
 	.int	release			\n\
 ");
 
+int add(int a, int b) {
+  return a + b;
+}
 
 
 int init(struct Locals* l) {
   l->intreq  = 0xdff09c;
   l->intreqr = 0xdff09a;
 
-  return 0;
+  return add(l->intreq, l->intreqr);
 }
 
 int acknowledge(struct Locals* l) {

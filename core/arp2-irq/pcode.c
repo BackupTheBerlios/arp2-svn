@@ -24,9 +24,13 @@ enum special_register {
 #define ARG1	(32+GLOBALS-256+232)
 #define ARG2	(32+GLOBALS-256+233)
 #define ARG3	(32+GLOBALS-256+234)
+
 #define FP	(32+GLOBALS-256+253)
 #define SP	(32+GLOBALS-256+254)
 #define TMP	(32+GLOBALS-256+255)
+
+#define GLOBAL(s, r) ((s)->g[32 + (r) - (256-GLOBALS)])
+#define LOCAL(s, r)  ((s)->l[((s)->alpha + (r)) % LOCALS])
 
 struct state {
     uint64_t          g[32+GLOBALS];		// Global registers (special+normal)
@@ -327,24 +331,24 @@ static enum pcode_error execute_op(struct state* state, uint64_t* pc) {
   x = y = z = 0;
 
   if (ox >= state->g[rG]) {
-    x = state->g[32 + ox - (256-GLOBALS)];
+    x = GLOBAL(state, ox);
   }
   else if (ox < state->g[rL]) {
-    x =  state->l[(state->alpha + ox) % LOCALS];
+    x = LOCAL(state, ox);
   }
 
   if (oy >= state->g[rG]) {
-    y = state->g[32 + oy - (256-GLOBALS)];
+    y = GLOBAL(state, oy);
   }
   else if (oy < state->g[rL]) {
-    y =  state->l[(state->alpha + oy) % LOCALS];
+    y = LOCAL(state, oy);
   }
 
   if (oz >= state->g[rG]) {
-    z = state->g[32 + oz - (256-GLOBALS)];
+    z = GLOBAL(state, oz);
   }
   else if (oz < state->g[rL]) {
-    z =  state->l[(state->alpha + oz) % LOCALS];
+    z = LOCAL(state, oz);
   }
 
 
@@ -352,76 +356,74 @@ static enum pcode_error execute_op(struct state* state, uint64_t* pc) {
 
   switch (op) { 
     // Handle instructions with immediate x
-    case 0xb4 ... 0xb5:		// stco/stcoi
+    case 0xb4 ... 0xb5:				// stco/stcoi
       x = ox;
-      break;
-
+      goto imm_z;
 
     // Handle instructions with immediate y
-    case 0x34 ... 0x37:		// neg/negi/negu/negui
+    case 0x34 ... 0x37:				// neg/negi/negu/negui
       y = oy;
+      goto imm_z;
+
+    // Handle instructions with immediate z
+    case 0x08 ... 0x0f:
+    case 0x18 ... 0x33:
+    case 0x38 ... 0x3f:
+    case 0x60 ... 0xb3:
+    case 0xb6 ... 0xdf:
+    case 0xf6 ... 0xf7:
+    imm_z:
+      if ((op & 0x01) == 0x01) {
+	z = oz;
+      }
       break;
 
-
     // Handle instructions with immediate y & z
-    case 0x40 ... 0x5f:		// bcc/pbcc
-    case 0xf2 ... 0xf3:		// pushj/pushjb
-    case 0xf4 ... 0xf5:		// geta/getab
-    case 0xf8:			// pop
+    case 0x40 ... 0x5f:				// bcc/pbcc
+    case 0xf2 ... 0xf3:				// pushj/pushjb
+    case 0xf4 ... 0xf5:				// geta/getab
+    case 0xf8:					// pop
       z = (oy << 8) | oz;
       break;
 
-    case 0xe0 ... 0xe3:		// set{h,mh,ml,l}
+    case 0xe0 ... 0xe3:				// set{h,mh,ml,l}
       y = 0;	// So add can handle it
       z = shift_imm(op, (oy << 8) | oz);
       break;
 
-    case 0xe4 ... 0xef:		// {inc,or,and}{h,mh,ml,l}
+    case 0xe4 ... 0xef:				// {inc,or,and}{h,mh,ml,l}
       y = x;	// So add/or/and can handle it
       z = shift_imm(op, (oy << 8) | oz);
       break;
 
 
     // Handle instructions with immediate x & y & z
-    case 0xf0 ... 0xf1:		// jmp/jmpb
-    case 0xf9:			// resume
-    case 0xfc:			// sync
+    case 0xf0 ... 0xf1:				// jmp/jmpb
+    case 0xf9:					// resume
+    case 0xfc:					// sync
       z = (ox << 16) | (oy << 8) | oz;
-      break;
-  }
-
-
-  // Handle instructions with immediate z
-  switch (op) {
-    case 0x08 ... 0x0f:
-    case 0x18 ... 0x3f:
-    case 0x60 ... 0xdf:
-    case 0xf6 ... 0xf7:
-      if ((op & 0x01) == 0x01) {
-	z = oz;
-      }
       break;
   }
 
 
   // Handle instructions where x is destination
   switch (op) {
-    case 0x00:			// trap
-    case 0x40 ... 0x5f:		// bcc/pbcc
-    case 0x9a ... 0x9d:		// preld/prego
-    case 0xa0 ... 0xb7:		// st*
-    case 0xb8 ... 0xbd:		// syncd/prest/syncid
-    case 0xf0 ... 0xf1:		// jmp
-    case 0xf6 ... 0xf9:		// put/pop/resume
-    case 0xfb ... 0xfd:		// unsave/sync/swym
-    case 0xff:			// trip
+    case 0x00:					// trap
+    case 0x40 ... 0x5f:				// bcc/pbcc
+    case 0x9a ... 0x9d:				// preld/prego
+    case 0xa0 ... 0xb7:				// st*
+    case 0xb8 ... 0xbd:				// syncd/prest/syncid
+    case 0xf0 ... 0xf1:				// jmp
+    case 0xf6 ... 0xf9:				// put/pop/resume
+    case 0xfb ... 0xfd:				// unsave/sync/swym
+    case 0xff:					// trip
       // Don't do anything
       break;
 
     default:
       // X is destination
       if (ox >= state->g[rG]) {
-	r = &state->g[32 + ox - (256-GLOBALS)];
+	r = &GLOBAL(state, ox);
       }
       else {
 	while (ox >= state->g[rL]) {
@@ -432,7 +434,7 @@ static enum pcode_error execute_op(struct state* state, uint64_t* pc) {
 	  }
 	}
 	
-	r =  &state->l[(state->alpha + ox) % LOCALS];
+	r =  &LOCAL(state, ox);
       }
       break;
   }
@@ -450,21 +452,11 @@ static enum pcode_error execute_op(struct state* state, uint64_t* pc) {
       break;
 
     case 0x1c ... 0x1d:				// div/divi
-      if (z != 0) {
-	*r = (int64_t) y / (int64_t) z;
-      }
-      else {
-	*r = 0;
-      }
+      *r = (z == 0 ? 0 : (int64_t) y / (int64_t) z);
       break;
 
     case 0x1e ... 0x1f:				// div/divi
-      if (z != 0) {
-	*r = y / z;
-      }
-      else {
-	*r = 0;
-      }
+      *r = (z == 0 ? 0 : y / z);
       break;
 
 
@@ -564,6 +556,10 @@ static enum pcode_error execute_op(struct state* state, uint64_t* pc) {
       *r = ((uint64_t) read_uint32(calc_m(state, y+z, 4))) << 32;
       break;
 
+    case 0x9a ... 0x9d:				// preld/prego
+      // nop
+      break;
+
     case 0x9e ... 0x9f:				// go/goi
       *r = *pc;
       *pc = (uintptr_t) calc_m(state, y+z, 4);
@@ -589,6 +585,10 @@ static enum pcode_error execute_op(struct state* state, uint64_t* pc) {
 
     case 0xb2 ... 0xb3:				// stht/sthti
       write_uint32(calc_m(state, y+z, 4), x >> 32);
+      break;
+
+    case 0xba ... 0xbb:				// prest
+      // nop
       break;
 
     case 0xbe ... 0xbf:				// pushgo/pushgoi
@@ -669,6 +669,77 @@ static enum pcode_error execute_op(struct state* state, uint64_t* pc) {
       *r = *pc - 4 /* undo */ + calc_ra16(op, z);
       break;
 
+    case 0xf6 ... 0xf7:				// put/puti
+      if (ox >= rC && ox <= rS) {
+	// rC, rN, rO and rS can't be changed
+	return pcode_illegal_instruction;
+      }
+      else if (ox >= rI && ox <= rV) {
+	// rI, rT, rTT, rK rQ, rU and rV changes not allowed
+	return pcode_priv_instruction;
+      }
+      else if (ox == rG) {
+	if (z < (256-GLOBALS) || z > 255 || z < state->g[rL]) {
+	  // rG must not be out of bounds or less than rL
+	  return pcode_illegal_instruction;
+	}
+	else {
+	  int i;
+
+	  for (i = z; i < (int) state->g[rG]; ++i) {
+	    // Clear new global registers
+	    GLOBAL(state, i) = 0;
+	  }
+	}
+      }
+      else if (ox == rL) {
+	if (z > state->g[rL]) {
+	  // Can't increase rL
+	  z = state->g[rL];
+	}
+      }
+
+      state->g[ox] = z;
+      break;
+
+    case 0xf8: {				// pop
+      uint64_t main_res = 0;
+
+      if (ox > 0 && ox < state->g[rL]) {
+	main_res = LOCAL(state, ox - 1);
+      }
+
+      not finished!
+
+      *pc = state->g[rJ] + 4 * z;
+      break;
+    }
+     
+    case 0xfd:					// swym
+      // nop
+      break;
+
+    case 0xfe:					// get
+      if (z >= 32) {
+	return pcode_illegal_instruction;
+      }
+
+      *r = state->g[z];
+      break;
+
+    case 0x01 ... 0x17:				// (fp insructions)
+    case 0x90 ... 0x91:				// ldsf/ldsfi
+    case 0x94 ... 0x95:				// cswap/cswapi
+    case 0x98 ... 0x99:				// ldvts/ldvtsi
+    case 0xb0 ... 0xb1:				// stsf/stsfi
+    case 0xd0 ... 0xd7:				// {b,w,t,o}dif/{b,w,t,o}difi
+    case 0xda ... 0xdb:				// sadd/saddi
+    case 0xb8 ... 0xb9:				// syncd
+    case 0xbc ... 0xbd:				// syncid
+    case 0xf9:					// resume
+    case 0xfa ... 0xfb:				// save/unsave
+    case 0xfc:					// sync
+    case 0xff:					// trip
     default:
       return pcode_illegal_instruction;
   }

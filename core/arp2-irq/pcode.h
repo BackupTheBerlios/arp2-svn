@@ -84,7 +84,7 @@ struct pcode_ops {
 enum pcode_error {
   pcode_ok, 
   pcode_stack_overflow, pcode_local_register_overflow, 
-  pcode_illegal_instruction
+  pcode_illegal_instruction, pcode_priv_instruction
 };
 
 
