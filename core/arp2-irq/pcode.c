@@ -314,7 +314,6 @@ static enum pcode_error execute_op(struct state* state, uint64_t* pc) {
   }
 
   // Fetch instruction
-
   real_pc = calc_m(state, *pc, 4);
 
   op = real_pc[0];
@@ -778,10 +777,9 @@ enum pcode_error pcode_execute(pcode_handle handle, uint64_t address) {
   // Initialize stack/register pointers
 //  state->g[rO] = (uintptr_t) &state->s[0];
   state->g[rS] = (uintptr_t) &state->s[0];
-  state->g[SP] = (uintptr_t) &state->s[STACK - 1];
+  state->g[SP] = (uintptr_t) &state->s[STACK];
 
-  state->s[STACK - 1] = (uint64_t) -1; // Return address
-
+  state->g[rJ] = (uint64_t) -1; // Return address
   state->g[rG] = 256 - GLOBALS;
   state->g[rL] = 0;
 
