@@ -19,27 +19,22 @@ enum special_register {
   rQ, rU, rV, rG, rL, rA, rF, rP,  rW, rX, rY, rZ, rWW, rXX, rYY, rZZ
 };
 
-#define RES	(32+GLOBALS-256+231)
-#define ARG0	(32+GLOBALS-256+231)
-#define ARG1	(32+GLOBALS-256+232)
-#define ARG2	(32+GLOBALS-256+233)
-#define ARG3	(32+GLOBALS-256+234)
+#define RES	(231)
+#define ARG0	(231)
+#define ARG1	(232)
+#define ARG2	(233)
+#define ARG3	(234)
 
-#define FP	(32+GLOBALS-256+253)
-#define SP	(32+GLOBALS-256+254)
-#define TMP	(32+GLOBALS-256+255)
+#define FP	(253)
+#define SP	(254)
+#define TMP	(255)
 
 #define GLOBAL(s, r) ((s)->g[32 + (r) - (256-GLOBALS)])
-#define LOCAL(s, r)  ((s)->l[((s)->alpha + (r)) % LOCALS])
+#define LOCAL(s, r)  (((uint64_t*) (s)->g[rO])[(r)])
 
 struct state {
     uint64_t          g[32+GLOBALS];		// Global registers (special+normal)
-    uint64_t          l[LOCALS];
     uint64_t          s[STACK];			// Local registers/stack
-
-    size_t            alpha;			// (r0 / 8) mod LOCALS
-    size_t            beta;			// (alpha + rL) mod LOCALS
-    size_t            gamma;			// (rS / 8) mod LOCALS
 
     struct pcode_ops const* ops;
     uint64_t                text_start;
@@ -136,50 +131,10 @@ static inline void write_uint64(void* addr, uint64_t value) {
 // Check that the two stack pointers are reasonable
 
 static inline bool check_stack(struct state* state) {
-  return (state->g[rS] >= (uintptr_t) &state->s[0] &&
-	  state->g[rS] <  (uintptr_t) &state->s[STACK] &&
-	  state->g[SP] >= state->g[rS] && 
-	  state->g[SP] <= (uintptr_t) &state->s[STACK]);
-}
-
-
-// Push the "oldest" local register on the register stack
-
-static enum pcode_error push_local(struct state* state) {
-  uint64_t* S = (uint64_t*) (uintptr_t) state->g[rS];
-
-  state->g[rS] += 8;
-
-  if (!check_stack(state)) {
-    state->g[rS] -= 8; // Undo
-    return pcode_stack_overflow;
-  }
-
-  *S = state->l[state->gamma];
-  state->gamma = (state->gamma + 1) % LOCALS;
-
-  return pcode_ok;
-}
-
-
-// Pop the latest local register from the register stack
-
-static enum pcode_error pop_local(struct state* state) {
-  uint64_t* S;
-
-  state->g[rS] -= 8;
-
-  if (!check_stack(state)) {
-    state->g[rS] += 8; // Undo
-    return pcode_stack_overflow;
-  }
-
-  S = (uint64_t*) (uintptr_t) state->g[rS];
-
-  state->gamma = (state->gamma - 1) % LOCALS;
-  state->l[state->gamma]= *S;
-
-  return pcode_ok;
+  return (state->g[rO] >= state->g[rS] &&
+	  state->g[rO] <  (uintptr_t) &state->s[STACK] &&
+	  GLOBAL(state, SP) >= state->g[rO] && 
+	  GLOBAL(state, SP) <= (uintptr_t) &state->s[STACK]);
 }
 
 
@@ -190,17 +145,10 @@ static inline enum pcode_error allocate_local(struct state* state) {
     return pcode_local_register_overflow;
   }
 
-  state->l[state->beta] = 0;
-
-  state->beta = (state->beta + 1) % LOCALS;
+  LOCAL(state, state->g[rL]) = 0;
   state->g[rL] += 1;
-  
-  if (state->beta == state->gamma) {
-    return push_local(state);
-  }
-  else {
-    return pcode_ok;
-  }
+
+  return pcode_ok;
 }
 
 
@@ -375,6 +323,10 @@ static enum pcode_error execute_op(struct state* state, uint64_t* pc) {
       if ((op & 0x01) == 0x01) {
 	z = oz;
       }
+      break;
+
+    case 0xfe:
+      z = oz;
       break;
 
     // Handle instructions with immediate y & z
@@ -656,11 +608,7 @@ static enum pcode_error execute_op(struct state* state, uint64_t* pc) {
       }
 
       LOCAL(state, ox) = ox;
-
-      state->alpha  = (state->alpha + (ox + 1)) % LOCALS;
       state->g[rO] += (ox + 1) * 8;
-
-      state->beta   = (state->beta - (ox + 1)) % LOCALS;
       state->g[rL] -= (ox + 1);
       break;
 
@@ -703,12 +651,28 @@ static enum pcode_error execute_op(struct state* state, uint64_t* pc) {
 
     case 0xf8: {				// pop
       uint64_t main_res = 0;
+      int pushed = LOCAL(state, -1);
 
-      if (ox > 0 && ox < state->g[rL]) {
+      if (ox > 0 && ox <= state->g[rL]) {
 	main_res = LOCAL(state, ox - 1);
       }
 
-      not finished!
+      if (ox <= state->g[rL]) {
+	state->g[rL] = pushed + ox;
+      }
+      else {
+	state->g[rL] += pushed + 1;
+      }
+
+      if (state->g[rL] > state->g[rG]) {
+	state->g[rL] = state->g[rG];
+      }
+
+      state->g[rO] -= (pushed + 1) * 8;
+
+      if (state->g[rL] > pushed) {
+	LOCAL(state, pushed) = main_res;
+      }
 
       *pc = state->g[rJ] + 4 * z;
       break;
@@ -777,28 +741,30 @@ enum pcode_error pcode_execute(pcode_handle handle, uint64_t address) {
   // Initialize stack/register pointers
 //  state->g[rO] = (uintptr_t) &state->s[0];
   state->g[rS] = (uintptr_t) &state->s[0];
-  state->g[SP] = (uintptr_t) &state->s[STACK];
+  state->g[rO] = (uintptr_t) &state->s[0];
 
   state->g[rJ] = (uint64_t) -1; // Return address
   state->g[rG] = 256 - GLOBALS;
   state->g[rL] = 0;
 
+  GLOBAL(state, SP) = (uintptr_t) &state->s[STACK];
   allocate_local(state);  
-  state->l[0]  = (uintptr_t) &state->text[state->text_end - state->text_start];
+  state->s[0]  = (uintptr_t) &state->text[state->text_end - state->text_start];
 
   do {
     uint64_t* d = (uint64_t*) (uintptr_t) &state->text[state->text_end - state->text_start];
     state->ops->kprintf(state->ops,
 			"R: %016lx %016lx %016lx %016lx\n",
-			state->l[0], state->l[1], state->l[2], state->l[3]);
+			state->s[0], state->s[1], state->s[2], state->s[3]);
     state->ops->kprintf(state->ops,
 			"R: %016lx %016lx %016lx %016lx\n",
-			state->l[4], state->l[5], state->l[6], state->l[7]);
+			state->s[4], state->s[5], state->s[6], state->s[7]);
 
 
     state->ops->kprintf(state->ops,
 			"D: %016lx %016lx %016lx %016lx\n",
 			read_uint64(d+0), read_uint64(d+1), read_uint64(d+2), read_uint64(d+3));
+
     error = execute_op(state, &address);
     state->ops->kprintf(state->ops,"return: %d\n", error);
   } while (error == pcode_ok && address != (uint64_t) -1);
