@@ -9,15 +9,54 @@ __asm("					\n\
 	.int	release			\n\
 ");
 
-int add(int a, int b) {
+long add(long a, long b) {
   return a + b;
 }
 
+long sub(long a, long b) {
+  return a - b;
+}
+
+long neg(long a) {
+  return -a;
+}
+
+long not(long a) {
+  return ~a;
+}
+
+long and(long a, long b) {
+  return a & b;
+}
+
+long andn(long a, long b) {
+  return a & b;
+}
+
+long or(long a, long b) {
+  return a | b;
+}
+
+long orn(long a, long b) {
+  return a | ~b;
+}
+
+void test() {
+  if (add(10, 99) != 109)          __asm("trap 0,0,0");
+  if (sub(10, 99) != -89)          __asm("trap 0,0,1");
+  if (neg(-10) != 10)              __asm("trap 0,0,2");
+  if (not(0x80) != ~0x80)          __asm("trap 0,0,3");
+  if (and(0x180,0x100) != 0x100)   __asm("trap 0,0,5");
+  if (or(0x80,0x100) != 0x180)     __asm("trap 0,0,6");
+  if (andn(0x180,0x100) != 0x100)  __asm("trap 0,0,7");
+  if (orn(0x80,0x100) != ~0x100)   __asm("trap 0,0,8");
+}
 
 int init(struct Locals* l) {
   l->intreq  = 0xdff09c;
   l->intreqr = 0xdff09a;
 
+  test();
   return add(l->intreq, l->intreqr);
 }
 

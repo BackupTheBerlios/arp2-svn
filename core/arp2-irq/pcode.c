@@ -566,7 +566,7 @@ static enum pcode_error execute_op(struct state* state, uint64_t* pc) {
 
     case 0xc8 ... 0xc9:				// and/andi
     case 0xec ... 0xef:				// and{h,mh,ml,l}
-      *r = y | z;
+      *r = y & z;
       break;
 
     case 0xca ... 0xcb:				// andn/andni
@@ -759,6 +759,9 @@ enum pcode_error pcode_execute(pcode_handle handle, uint64_t address) {
     state->ops->kprintf(state->ops,
 			"R: %016lx %016lx %016lx %016lx\n",
 			state->s[4], state->s[5], state->s[6], state->s[7]);
+    state->ops->kprintf(state->ops,
+			"R: %016lx %016lx %016lx %016lx\n",
+			state->s[8], state->s[9], state->s[10], state->s[11]);
 
 
     state->ops->kprintf(state->ops,
