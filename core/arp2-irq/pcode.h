@@ -38,8 +38,8 @@
 
 
 enum Endian {	/* SetEndian() flags */
+  ENDIAN_LITTLE	= 0,
   ENDIAN_BIG	= 1,
-  ENDIAN_LITTLE	= 2,
 };
 
 enum {		/* MapResource() flags */
@@ -97,6 +97,44 @@ pcode_handle pcode_create(size_t data_size, uint64_t load_address,
 enum pcode_error pcode_execute(pcode_handle handle, uint64_t address);
 
 void pcode_delete(pcode_handle handle);
+
+
+/* The P-Code is just a subset of Knuth's MMIX ISA. See
+   <URL:http://www-cs-faculty.stanford.edu/%7Eknuth/mmix-news.html>
+   for further information.
+ 
+   mmix-mmixware-gcc (using the default MMIX ABI, not the GNU variant)
+   can be used to compile C code into P-Code. Use
+   "mmix-mmixware-objcopy -O binary" to generate a binary image and
+   "bin2c", for instance, to include it into your program.
+ 
+   The subset:
+ 
+   * No exceptions. 
+
+   * No overflow checking.
+
+   * No floating point instructions.
+
+   * Only 32 global registers
+
+   * Only 32 local registers
+
+   * 4k shared data/register stack.
+
+   * No segmented memory model.
+
+   * Missing instructions: All FP instrs, CSWAP, LDVTS, BDIF, WDIF,
+   TDIF, ODIF, SADD, SYNCD, SYNCID, RESUME, SAVE, UNSAVE, SYNC, TRIP.
+   
+   * NOP instructions: PRELD, PREGO, PREST.
+
+   * TRAP has predefined meaning. MMIX-sim's stdio traps are not
+   supported.
+
+   * The only supported special registers are: rG, rL, rJ, rO and rM.
+   rS is set but never actually modified.
+*/
 
 
 

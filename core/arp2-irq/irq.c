@@ -2,7 +2,7 @@
 /*
  * arp2-irq kernel module for user-level interrupts for the ARP2
  * project.  Based on Peter Chubb's "User mode drivers: part 1,
- * interrupt handling" patch.
+ * interrupt handling" patch and Dmitry A. Fedorov's irq device.
  *
  * Unlike Peter's patch, this is version is implemented as a
  * stand-alone kernel module (which has it's limitations, but does not
