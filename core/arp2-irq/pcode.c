@@ -656,7 +656,7 @@ static enum pcode_error execute_op(struct state* state, uint64_t* pc) {
 	allocate_local(state);
       }
 
-      state->l[(state->alpha + ox) % LOCALS] = ox;
+      LOCAL(state, ox) = ox;
 
       state->alpha  = (state->alpha + (ox + 1)) % LOCALS;
       state->g[rO] += (ox + 1) * 8;
