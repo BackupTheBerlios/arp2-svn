@@ -248,6 +248,80 @@ static bool cc(uint8_t op, int64_t y) {
   return false; // (Cannot happen)
 }
 
+static enum pcode_error trap(struct state* state, uint8_t x, uint8_t y, uint8_t z) {
+  uint64_t res = 0, arg0, arg1, arg2;
+
+  if (x != 1 && y != 0) {
+    return pcode_illegal_instruction;
+  }
+
+  arg0 = GLOBAL(state, ARG0);
+  arg1 = GLOBAL(state, ARG1);
+  arg2 = GLOBAL(state, ARG2);
+  
+  switch (z) {
+    case 0:
+      res = state->ops->ReadResource8(state->ops, arg0, arg1);
+      break;
+
+    case 1:
+      res = state->ops->ReadResource16(state->ops, arg0, arg1);
+      break;
+
+    case 2:
+      res = state->ops->ReadResource32(state->ops, arg0, arg1);
+      break;
+
+    case 3:
+      res = state->ops->ReadResource64(state->ops, arg0, arg1);
+      break;
+
+    case 4:
+      state->ops->WriteResource8(state->ops, arg0, arg1, arg2);
+      break;
+
+    case 5:
+      state->ops->WriteResource16(state->ops, arg0, arg1, arg2);
+      break;
+
+    case 6:
+      state->ops->WriteResource32(state->ops, arg0, arg1, arg2);
+      break;
+
+    case 7:
+      state->ops->WriteResource64(state->ops, arg0, arg1, arg2);
+      break;
+
+    case 8:
+      state->ops->SetEndian(state->ops, arg0);
+      break;
+
+    case 9:
+      res = state->ops->GetResourceSize(state->ops, arg0);
+      break;
+
+    case 10: {
+      uint64_t dma_addr = 0;
+
+      res = (uintptr_t) state->ops->MapResource(state->ops, arg0, arg1,	&dma_addr);
+      write_uint64(calc_m(state, arg2, 8), dma_addr);
+      break;
+    }
+
+    case 11:
+      state->ops->UnmapResource(state->ops, (void*) (uintptr_t) arg0);
+      break;
+
+    default:
+      return pcode_illegal_instruction;
+      
+  }
+
+  GLOBAL(state, RES) = res;
+
+  return pcode_ok;
+}
+
 
 /*** Execute one instruction *************************************************/
 
@@ -302,6 +376,13 @@ static enum pcode_error execute_op(struct state* state, uint64_t* pc) {
   // Now fix arguments
 
   switch (op) { 
+    // Handle special functions
+    case 0x00:					// trap
+      x = ox;
+      y = oy;
+      z = oz;
+      break;
+
     // Handle instructions with immediate x
     case 0xb4 ... 0xb5:				// stco/stcoi
       x = ox;
@@ -346,7 +427,6 @@ static enum pcode_error execute_op(struct state* state, uint64_t* pc) {
       y = x;	// So add/or/and can handle it
       z = shift_imm(op, (oy << 8) | oz);
       break;
-
 
     // Handle instructions with immediate x & y & z
     case 0xf0 ... 0xf1:				// jmp/jmpb
@@ -398,6 +478,9 @@ static enum pcode_error execute_op(struct state* state, uint64_t* pc) {
   // lots of op-codes will be handled the same.
 
   switch (op) {
+    case 0x00:
+      return trap(state, x, y, z);
+
     case 0x18 ... 0x1b:				// mul/muli/mulu/mului
       *r = y * z;
       break;

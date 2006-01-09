@@ -64,7 +64,7 @@ int acknowledge(struct Locals* l) {
   uint16_t intreq = ReadResource16(13, l->intreqr);
   intreq = bswap16(intreq);
 
-  if (intreq & 0x0080) {
+  if ((intreq & 0x0080) == 0) {
     intreq &= ~0x0080;
 
     SetEndian(ENDIAN_BIG);
