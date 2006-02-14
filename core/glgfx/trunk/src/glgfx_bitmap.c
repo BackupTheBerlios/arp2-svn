@@ -760,10 +760,7 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
       dst_height == dst_height &&
       !got_mod &&
       (!context->monitor->miss_pixel_ops || (minterm & 0xf0) == 0xc0)) {
-    if ((minterm & 0xf0) == 0xc0) {
-      glDisable(GL_COLOR_LOGIC_OP);
-    }
-    else {
+    if ((minterm & 0xf0) != 0xc0) {
       glEnable(GL_COLOR_LOGIC_OP);
       glLogicOp(ops[minterm >> 4]);
     }
@@ -792,6 +789,8 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
 	rc = false;
       }
       else {
+#if 0   // This does not seem to work on ATI cards :-(
+
 	// Bind FBO and attach source bitmap
 	glgfx_context_bindfbo(context, dst_bitmap);
 
@@ -805,15 +804,40 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
 	glCopyTexSubImage2D(GL_TEXTURE_RECTANGLE_ARB, 0,
 			    0, 0,
 			    src_x, src_y, src_width, src_height);
+#else
+	// Bind FBO and attach destination (aka the temp src) bitmap
+	glgfx_context_bindfbo(context, src_bitmap);
+
+	glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
+
+	// Bind dst bitmap as texture
+	glBindTexture(GL_TEXTURE_RECTANGLE_ARB, dst_bitmap->texture);
+	GLGFX_CHECKERROR();
+
+	glEnable(GL_TEXTURE_RECTANGLE_ARB);
+
+	glBegin(GL_QUADS); {
+	  glTexCoord2i(src_x,             src_y);
+	  glVertex2i  (0,                 src_height);
+
+	  glTexCoord2i(src_x + src_width, src_y);
+	  glVertex2i  (src_width,         src_height);
+
+	  glTexCoord2i(src_x + src_width, src_y + src_height);
+	  glVertex2i  (src_width,         0);
+
+	  glTexCoord2i(src_x,             src_y + src_height);
+	  glVertex2i  (0,                 0);
+	}
+	glEnd();
+#endif
+
 	src_x = 0;
 	src_y = 0;
       }
     }
 
-    if ((minterm & 0xf0) == 0xc0) {
-      glDisable(GL_COLOR_LOGIC_OP);
-    }
-    else {
+    if ((minterm & 0xf0) != 0xc0) {
       glEnable(GL_COLOR_LOGIC_OP);
       glLogicOp(ops[minterm >> 4]);
     }
