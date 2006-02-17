@@ -3,24 +3,25 @@
 #include <stdlib.h>
 #include <byteswap.h>
 #include <GL/gl.h>
+#include <GL/glext.h> // for RGBA_FLOAT16_ATI, RGBA_FLOAT32_ATI, GL_HALF_FLOAT_ARB
 
 #include "glgfx.h"
 #include "glgfx_pixel.h"
 #include "glgfx_intern.h"
 
 struct pixel_info formats[glgfx_pixel_format_max] = {
-  { 0, 0, 0, 0, false, false, 0, 0, 0, 0, 0, 0, 0, 0 },
+  { 0, 0, 0, 0, false, false, false, 0, 0, 0, 0, 0, 0, 0, 0 },
 
-  { GL_RGBA4,   GL_BGRA, GL_UNSIGNED_SHORT_4_4_4_4_REV, 2, false, true,  4,  8,  4,  4,  4,  0,  4, 12 },   // glgfx_pixel_a4r4g4b4,   BGRA, 1 * UWORD
-  { GL_RGB5,    GL_RGB,  GL_UNSIGNED_SHORT_5_6_5,       2, false, true,  5, 11,  6,  5,  5,  0,  0,  0 },   // glgfx_pixel_r5g6b5,     BGR,  1 * UWORD
-  { GL_RGB5_A1, GL_BGRA, GL_UNSIGNED_SHORT_1_5_5_5_REV, 2, false, true,  5, 10,  5,  5,  5,  0,  1, 15 },   // glgfx_pixel_a1r5g5b5,   BGRA, 1 * UWORD
-  { GL_RGBA8,   GL_RGBA, GL_UNSIGNED_BYTE,              4, false, true,  8,  0,  8,  8,  8, 16,  8, 24 },   // glgfx_pixel_a8b8g8r8,   RGBA, 1 * ULONG
-  { GL_RGBA8,   GL_BGRA, GL_UNSIGNED_BYTE,              4, false, true,  8, 16,  8,  8,  8,  0,  8, 24 },   // glgfx_pixel_a8r8g8b8    BGRA, 1 * ULONG
-  //  { GL_RGBA8,   GL_RGBA, GL_UNSIGNED_INT_8_8_8_8_REV,   4, false, true,  8,  0,  8,  8,  8, 16,  8, 24 },   // glgfx_pixel_a8b8g8r8,   RGBA, 1 * ULONG
-  //  { GL_RGBA8,   GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV,   4, false, true,  8, 16,  8,  8,  8,  0,  8, 24 },   // glgfx_pixel_a8r8g8b8    BGRA, 1 * ULONG
+//  int.format           format     type                           bpp big    rgb   float   rb  rs  gb  gs  bb  bs  ab  as
 
-//{ GL_RGB8,    GL_RGB,  GL_UNSIGNED_BYTE,              3, xxxxx, true,  },   // glgfx_pixel_r8g8b8,     RGB,  3 * UBYTE
-//{ GL_RGB8,    GL_BGR,  GL_UNSIGNED_BYTE,              3, xxxxx, true,  },   // glgfx_pixel_b8g8r8,     BGR,  3 * UBYTE
+  { GL_RGBA4,            GL_BGRA,   GL_UNSIGNED_SHORT_4_4_4_4_REV,  2, false, true, false,   4,  8,  4,  4,  4,  0,  4, 12 },   // glgfx_pixel_a4r4g4b4
+  { GL_RGB5,             GL_RGB,    GL_UNSIGNED_SHORT_5_6_5,        2, false, true, false,   5, 11,  6,  5,  5,  0,  0,  0 },   // glgfx_pixel_r5g6b5
+  { GL_RGB5_A1,          GL_BGRA,   GL_UNSIGNED_SHORT_1_5_5_5_REV,  2, false, true, false,   5, 10,  5,  5,  5,  0,  1, 15 },   // glgfx_pixel_a1r5g5b5
+  { GL_RGBA8,            GL_RGBA,   GL_UNSIGNED_BYTE,               4, false, true, false,   8,  0,  8,  8,  8, 16,  8, 24 },   // glgfx_pixel_a8b8g8r8
+  { GL_RGBA8,            GL_BGRA,   GL_UNSIGNED_BYTE,               4, false, true, false,   8, 16,  8,  8,  8,  0,  8, 24 },   // glgfx_pixel_a8r8g8b8
+
+  { GL_RGBA_FLOAT16_ATI, GL_RGBA, GL_HALF_FLOAT_ARB,                8, false, true, true,   16, 48, 16, 32, 16, 16, 16,  0 },   // glgfx_pixel_r16g16b16a16f
+  { GL_RGBA_FLOAT32_ATI, GL_RGBA, GL_FLOAT,                        16, false, true, true,   32, 96, 32, 64, 32, 32, 32,  0 },   // glgfx_pixel_r32g32b32a32f
 };
 
 static uint64_t swap_mask(enum glgfx_pixel_format format, uint64_t mask) {
@@ -92,6 +93,10 @@ enum glgfx_pixel_format glgfx_pixel_getformat_a(struct glgfx_tagitem const* tags
 
 	case glgfx_pixel_attr_rgb:
 	  if (formats[i].is_rgb != (bool) tag->data) goto next_mode;
+	  break;
+
+	case glgfx_pixel_attr_float:
+	  if (formats[i].is_float != (bool) tag->data) goto next_mode;
 	  break;
   
 	case glgfx_pixel_attr_redbits:
@@ -185,6 +190,10 @@ bool glgfx_pixel_getattr(enum glgfx_pixel_format format,
 
     case glgfx_pixel_attr_rgb:
       *storage = formats[format].is_rgb;
+      break;
+
+    case glgfx_pixel_attr_float:
+      *storage = formats[format].is_float;
       break;
   
     case glgfx_pixel_attr_redbits:

@@ -151,6 +151,7 @@ struct pixel_info {
     size_t  size;
     bool    is_bigendian;
     bool    is_rgb;
+    bool    is_float;
     uint8_t redbits;
     uint8_t redshift;
     uint8_t greenbits;

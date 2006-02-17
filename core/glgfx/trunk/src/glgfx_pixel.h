@@ -8,13 +8,14 @@
 enum glgfx_pixel_format {
   glgfx_pixel_format_unknown = 0, // MUST start at 0!
   
-  glgfx_pixel_format_a4r4g4b4,
-  glgfx_pixel_format_r5g6b5,
-  glgfx_pixel_format_a1r5g5b5,
-//  glgfx_pixel_format_r8g8b8,
-  glgfx_pixel_format_a8b8g8r8,
-//  glgfx_pixel_format_b8g8r8,
-  glgfx_pixel_format_a8r8g8b8,
+  glgfx_pixel_format_a4r4g4b4,		// BGRA, 1 * UWORD 
+  glgfx_pixel_format_r5g6b5,		// BGR,	 1 * UWORD 
+  glgfx_pixel_format_a1r5g5b5,		// BGRA, 1 * UWORD 
+  glgfx_pixel_format_a8b8g8r8,		// RGBA, 1 * ULONG 
+  glgfx_pixel_format_a8r8g8b8,		// BGRA, 1 * ULONG 
+
+  glgfx_pixel_format_r16g16b16a16f,	// RGBA, 4 * HALF 
+  glgfx_pixel_format_r32g32b32a32f,	// RGBA, 4 * FLOAT
 
   glgfx_pixel_format_max
 } __attribute__((mode(__pointer__)));
@@ -24,6 +25,7 @@ enum glgfx_pixel_attr {
   
   glgfx_pixel_attr_bytesperpixel,
   glgfx_pixel_attr_bigendian,
+  glgfx_pixel_attr_float,
   glgfx_pixel_attr_rgb,
   
   glgfx_pixel_attr_redbits,
@@ -36,7 +38,7 @@ enum glgfx_pixel_attr {
   glgfx_pixel_attr_blueshift,
   glgfx_pixel_attr_alphashift,
 
-  glgfx_pixel_attr_redmask,
+  glgfx_pixel_attr_redmask,		// These only work for < 4 bpp formats
   glgfx_pixel_attr_greenmask,
   glgfx_pixel_attr_bluemask,
   glgfx_pixel_attr_alphamask,
