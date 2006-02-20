@@ -127,6 +127,14 @@ struct glgfx_bitmap* glgfx_bitmap_create_a(struct glgfx_tagitem const* tags) {
 	       formats[bitmap->format].format,
 	       formats[bitmap->format].type,
 	       NULL);
+  if (glGetError() == GL_INVALID_ENUM) {
+    // Format not supported by hardware
+
+    pthread_mutex_unlock(&glgfx_mutex);
+    glgfx_bitmap_destroy(bitmap);
+    return NULL;
+  }
+
   GLGFX_CHECKERROR();
 
 /*   glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); */
