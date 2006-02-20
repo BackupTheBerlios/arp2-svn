@@ -36,6 +36,12 @@ int glgfx_getattrs_a(void* object,
     glgfx_getattrs_a((object), (fn), (struct glgfx_tagitem const*) _tags); })
 
 
+/*** Half-float support ******************************************************/
+
+uint16_t glgfx_float2half(float f);
+float glgfx_half2float(uint16_t h);
+
+
 /*** System setup ************************************************************/
 
 enum glgfx_init_tag {
