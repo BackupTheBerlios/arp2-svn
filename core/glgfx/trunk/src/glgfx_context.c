@@ -185,7 +185,7 @@ bool glgfx_context_bindfbo(struct glgfx_context* context,
   if (check) {
     if (glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT) != 
 	GL_FRAMEBUFFER_COMPLETE_EXT) {
-      BUG("FBO incomplete! (%d)\n", 
+      BUG("FBO incomplete! (%x)\n", 
 	  glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT));
       rc = false;
     }
