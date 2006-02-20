@@ -12,7 +12,7 @@
 struct pixel_info formats[glgfx_pixel_format_max] = {
   { 0, 0, 0, 0, false, false, false, 0, 0, 0, 0, 0, 0, 0, 0 },
 
-//  int.format           format     type                           bpp big    rgb   float   rb  rs  gb  gs  bb  bs  ab  as
+//  int.format      format   type                           bpp big    rgb   float   rb  rs  gb  gs  bb  bs  ab  as
 
   { GL_RGBA4,       GL_BGRA, GL_UNSIGNED_SHORT_4_4_4_4_REV,  2, false, true, false,   4,  8,  4,  4,  4,  0,  4, 12 },   // glgfx_pixel_a4r4g4b4
   { GL_RGB5,        GL_RGB,  GL_UNSIGNED_SHORT_5_6_5,        2, false, true, false,   5, 11,  6,  5,  5,  0,  0,  0 },   // glgfx_pixel_r5g6b5
