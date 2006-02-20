@@ -29,7 +29,7 @@ unsigned int sleep(unsigned int seconds) {
 struct glgfx_monitor* monitor;
 
 int blit(struct glgfx_bitmap* bitmap, int w, int h) {
-  uint32_t* buffer;
+  glgfx_pixel_r16g16b16a16f_t* buffer;
   
   // Fill texture with data
 
@@ -38,7 +38,7 @@ int blit(struct glgfx_bitmap* bitmap, int w, int h) {
 
     for (y = 0; y < h; y += 1) {
       for (x = 0; x < w; x += 1) {
-	buffer[x+y*w] = glgfx_pixel_create_a8b8g8r8(y*255/h, 0, x*255/w, 0);
+	buffer[x+y*w] = glgfx_pixel_create_r16g16b16a16f((float) y/h, 0, (float) x/w, 0);
       }
     }
 
@@ -46,7 +46,7 @@ int blit(struct glgfx_bitmap* bitmap, int w, int h) {
       printf("updated\n");
     }
   }
-
+  
   // Clear the PBO buffer, but don't update bitmap
   if ((buffer = glgfx_bitmap_lock(bitmap, true, false, glgfx_tag_end)) != NULL) {
     memset(buffer, 0, w*h*sizeof(*buffer));
@@ -64,7 +64,7 @@ int blit(struct glgfx_bitmap* bitmap, int w, int h) {
     
     for (y = 0; y < 100; y += 1) {
       for (x = 0; x < 100; x += 1) {
-	buffer[x+y*w] = glgfx_pixel_create_a8b8g8r8(y*255/100, 0, x*255/100, 0);
+	buffer[x+y*w] = glgfx_pixel_create_r16g16b16a16f(y/100.0, 0, x/100.0, 1);
       }
     }
 
@@ -115,18 +115,18 @@ int blit(struct glgfx_bitmap* bitmap, int w, int h) {
   struct glgfx_bitmap* bm2 = 
     glgfx_bitmap_create(glgfx_bitmap_attr_width,  100,
 			glgfx_bitmap_attr_height, 100, 
-			glgfx_bitmap_attr_format, glgfx_pixel_format_r5g6b5,
+			glgfx_bitmap_attr_format, glgfx_pixel_format_r32g32b32a32f,
 			glgfx_tag_end);
 
   if (bm2 != NULL) {
-    uint16_t* buffer;
+    glgfx_pixel_r32g32b32a32f_t* buffer;
 
     if ((buffer = glgfx_bitmap_lock(bm2, false, true, glgfx_tag_end)) != NULL) {
       int x, y;
 
       for (y = 0; y < 100; y += 1) {
 	for (x = 0; x < 100; x += 1) {
-	  buffer[x+y*100] = glgfx_pixel_create_r5g6b5(y*31/100, x*63/100, 0);
+	  buffer[x+y*100] = glgfx_pixel_create_r32g32b32a32f(y/100.0, x/100.0, 0, 1);
 	}
       }
 
@@ -201,7 +201,7 @@ int main(int argc, char** argv) {
 
       bitmap = glgfx_bitmap_create(glgfx_bitmap_attr_width,  width,
 				   glgfx_bitmap_attr_height, height/3, 
-				   glgfx_bitmap_attr_format, glgfx_pixel_format_a8b8g8r8,
+				   glgfx_bitmap_attr_format, glgfx_pixel_format_r16g16b16a16f,
 				   glgfx_tag_end);
     
       if (bitmap == NULL) {

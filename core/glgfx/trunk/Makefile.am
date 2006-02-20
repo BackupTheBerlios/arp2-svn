@@ -17,6 +17,7 @@ include_HEADERS		= \
 lib_LTLIBRARIES		= libglgfx.la
 noinst_PROGRAMS		= \
 			tests/glgfx-test \
+			tests/fpblit-test \
 			tests/blit-test \
 			tests/multithreaded \
 			tests/gltex
@@ -39,5 +40,6 @@ libglgfx_la_CPPFLAGS	= -DDEBUG -I$(srcdir)/src
 libglgfx_la_LIBADD	= @GLIB_LIBS@
 
 tests_glgfx_test_LDADD	= libglgfx.la
+tests_fpblit_test_LDADD	= libglgfx.la
 tests_blit_test_LDADD	= libglgfx.la
 tests_multithreaded_LDADD = libglgfx.la
