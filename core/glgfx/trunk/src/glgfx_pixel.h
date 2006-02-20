@@ -47,6 +47,14 @@ enum glgfx_pixel_attr {
 } __attribute__((mode(__pointer__)));
 
 
+typedef uint16_t glgfx_pixel_a4r4g4b4_t;
+typedef uint16_t glgfx_pixel_r5g6b5_t;
+typedef uint16_t glgfx_pixel_a1r5g6b5_t;
+typedef uint32_t glgfx_pixel_a8b8g8r8_t;
+typedef uint32_t glgfx_pixel_a8r8g8b8_t;
+typedef struct { uint16_t r, g, b, a; } glgfx_pixel_r16g16b16a16f_t;
+typedef struct { float r, g, b, a; } glgfx_pixel_r32g32b32a32f_t;
+
 #define glgfx_pixel_create_a4r4g4b4(r, g, b, a) \
   (uint16_t) (((a) << 12) | ((r) << 8) | ((g) << 4) | (b))
 
@@ -62,12 +70,20 @@ enum glgfx_pixel_attr {
 #define glgfx_pixel_create_a8r8g8b8(r, g, b, a)	\
   (uint32_t) (((a) << 24) |((r) << 16) | ((g) << 5) | (b))
 
+#define glgfx_pixel_create_r16g16b16a16f(r, g, b, a) \
+  ((glgfx_pixel_r16g16b16a16f_t) { glgfx_float2half(r), glgfx_float2half(g), \
+                                   glgfx_float2half(b), glgfx_float2half(a) })
+
+#define glgfx_pixel_create_r32g32b32a32f(r, g, b, a) \
+  ((glgfx_pixel_r32g32b32a32f_t) { r, g, b, a })
 
 enum glgfx_pixel_format glgfx_pixel_getformat_a(struct glgfx_tagitem const* tags);
 
 bool glgfx_pixel_getattr(enum glgfx_pixel_format format,
 			 enum glgfx_pixel_attr attr,
 			 intptr_t* storage);
+
+uint16_t glgfx_float2half(float f);
 
 #define glgfx_pixel_getformat(tag1, ...) \
   ({ intptr_t const _tags[] = { tag1, ## __VA_ARGS__ }; \
