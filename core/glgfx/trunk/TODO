@@ -1,8 +1,6 @@
 
 * Add support for line, triangle and rectangle drawing.
 
-* Add FP16, FP32 bitmap support.
-
 * Add YUV bitmap support.
 
 * Redo the way bitmaps in a viewports are drawn to minimize the number
