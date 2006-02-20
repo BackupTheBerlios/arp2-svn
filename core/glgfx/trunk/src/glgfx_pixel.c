@@ -252,6 +252,22 @@ bool glgfx_pixel_getattr(enum glgfx_pixel_format format,
 }
 
 
+static void _initELut(uint16_t eLut[]);
+static uint32_t _halfToFloat (uint16_t y);
+
+static uint16_t _eLut[1 << 9];
+static union { float f; uint32_t i; } _toFloat[1 << 16];
+
+void glgfx_pixel_init(void) {
+  int i;
+
+  _initELut(_eLut);
+
+  for (i = 0; i < (1 << 16); ++i) {
+    _toFloat[i].i = _halfToFloat(i);
+  }
+}
+
 
 ///////////////////////////////////////////////////////////////////////////
 //
@@ -291,6 +307,120 @@ bool glgfx_pixel_getattr(enum glgfx_pixel_format format,
 //     Florian Kainz <kainz@ilm.com>
 //     Rod Bogart <rgb@ilm.com>
 
+
+static void
+_initELut (uint16_t eLut[])
+{
+  int i;
+
+  for (i = 0; i < 0x100; i++)
+  {
+    int e = (i & 0x0ff) - (127 - 15);
+
+    if (e <= 0 || e >= 30)
+    {
+      //
+      // Special case
+      //
+
+      eLut[i]         = 0;
+      eLut[i | 0x100] = 0;
+    }
+    else
+    {
+      //
+      // Common case - normalized half, no exponent overflow possible
+      //
+
+      eLut[i]         =  (e << 10);
+      eLut[i | 0x100] = ((e << 10) | 0x8000);
+    }
+  }
+}
+
+//---------------------------------------------------
+// Interpret an unsigned short bit pattern as a half,
+// and convert that half to the corresponding float's
+// bit pattern.
+//---------------------------------------------------
+
+static uint32_t
+_halfToFloat (uint16_t y)
+{
+  int s = (y >> 15) & 0x00000001;
+  int e = (y >> 10) & 0x0000001f;
+  int m =  y        & 0x000003ff;
+
+  if (e == 0)
+  {
+    if (m == 0)
+    {
+      //
+      // Plus or minus zero
+      //
+
+      return s << 31;
+    }
+    else
+    {
+      //
+      // Denormalized number -- renormalize it
+      //
+
+      while (!(m & 0x00000400))
+      {
+	m <<= 1;
+	e -=  1;
+      }
+
+      e += 1;
+      m &= ~0x00000400;
+    }
+  }
+  else if (e == 31)
+  {
+    if (m == 0)
+    {
+      //
+      // Positive or negative infinity
+      //
+
+      return (s << 31) | 0x7f800000;
+    }
+    else
+    {
+      //
+      // Nan -- preserve sign and significand bits
+      //
+
+      return (s << 31) | 0x7f800000 | (m << 13);
+    }
+  }
+
+  //
+  // Normalized number
+  //
+
+  e = e + (127 - 15);
+  m = m << 13;
+
+  //
+  // Assemble s, e and m.
+  //
+
+  return (s << 31) | (e << 23) | m;
+}
+
+
+//------------------------------------------
+// Half-to-float conversion via table lookup
+//------------------------------------------
+
+float glgfx_half2float(uint16_t h) {
+  return _toFloat[h].f;
+}
+
+
 //-----------------------------------------------------
 // Float-to-half conversion -- general case, including
 // zeroes, denormalized numbers and exponent overflows.
@@ -299,7 +429,47 @@ bool glgfx_pixel_getattr(enum glgfx_pixel_format format,
 uint16_t glgfx_float2half(float f) {
   union { float f; uint32_t i; } u;
   
+  if (f == 0)
+  {
+    //
+    // Common special case - zero.
+    // For speed, we don't preserve the zero's sign.
+    //
+
+    return 0;
+  }
+
   u.f = f;
+
+  //
+  // We extract the combined sign and exponent, e, from our
+  // floating-point number, f.  Then we convert e to the sign
+  // and exponent of the half number via a table lookup.
+  //
+  // For the most common case, where a normalized half is produced,
+  // the table lookup returns a non-zero value; in this case, all
+  // we have to do, is round f's significand to 10 bits and combine
+  // the result with e.
+  //
+  // For all other cases (overflow, zeroes, denormalized numbers
+  // resulting from underflow, infinities and NANs), the table
+  // lookup returns zero, and we call a longer, non-inline function
+  // to do the float-to-half conversion.
+  //
+
+  register int se = (u.i >> 23) & 0x000001ff;
+
+  se = _eLut[se];
+
+  if (se)
+  {
+    //
+    // Simple case - round the significand and
+    // combine it with the sign and exponent.
+    //
+
+    return se + (((u.i & 0x007fffff) + 0x00001000) >> 13);
+  }
 
   //
   // Our floating point number, f, is represented by the bit

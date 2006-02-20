@@ -82,6 +82,9 @@ bool glgfx_init_a(struct glgfx_tagitem const* tags) {
     rc = true;
   }
 
+  // Init half-float tables
+  glgfx_pixel_init();
+
   return rc;
 }
 

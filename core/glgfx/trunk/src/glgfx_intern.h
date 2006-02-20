@@ -168,6 +168,8 @@ extern struct pixel_info formats[glgfx_pixel_format_max];
 #define GLGFX_CHECKERROR() glgfx_checkerror(__PRETTY_FUNCTION__, __FILE__, __LINE__);
 void glgfx_checkerror(char const* func, char const* file, int line);
 
+void glgfx_pixel_init(void);
+
 bool glgfx_monitor_waittof(struct glgfx_monitor* monitor);
 bool glgfx_monitor_swapbuffers(struct glgfx_monitor* monitor);
 
