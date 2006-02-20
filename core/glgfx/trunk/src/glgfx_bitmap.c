@@ -644,7 +644,7 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
   struct glgfx_bitmap* src_bitmap = bitmap;
   struct glgfx_bitmap* dst_bitmap = bitmap;
   int minterm = 0xc0;
-  GLuint mod_r = 0xffffffff, mod_g = 0xffffffff, mod_b = 0xffffffff, mod_a = 0xffffffff;
+  GLfloat mod_r = 1.0, mod_g = 1.0, mod_b = 1.0, mod_a = 1.0;
 
   bool got_src_width = false;
   bool got_src_height = false;
@@ -708,22 +708,22 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
 	break;
 
       case glgfx_bitmap_blit_mod_r:
-	mod_r = tag->data;
+	mod_r = tag->data / 65536.0;
 	got_mod = true;
 	break;
 
       case glgfx_bitmap_blit_mod_g:
-	mod_g = tag->data;
+	mod_g = tag->data / 65536.0;
 	got_mod = true;
 	break;
 
       case glgfx_bitmap_blit_mod_b:
-	mod_b = tag->data;
+	mod_b = tag->data / 65536.0;
 	got_mod = true;
 	break;
 
       case glgfx_bitmap_blit_mod_a:
-	mod_a = tag->data;
+	mod_a = tag->data / 65536.0;
 	got_mod = true;
 	break;
 
@@ -858,7 +858,7 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
       glDisable(GL_TEXTURE_RECTANGLE_ARB);
     }
 
-    glColor4ui(mod_r, mod_g, mod_b, mod_a);
+    glColor4f(mod_r, mod_g, mod_b, mod_a);
 
     glBegin(GL_QUADS); {
       glTexCoord2i(src_x,             src_y);

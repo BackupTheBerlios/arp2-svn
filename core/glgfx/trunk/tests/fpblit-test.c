@@ -150,7 +150,7 @@ int blit(struct glgfx_bitmap* bitmap, int w, int h) {
 		      glgfx_bitmap_blit_src_height, 100,
 		      glgfx_bitmap_blit_src_bitmap, (intptr_t) bm2,
 
-		      glgfx_bitmap_blit_mod_r,      0x7fffffff,
+		      glgfx_bitmap_blit_mod_r,      0x8000,
 		      
 		      glgfx_bitmap_blit_minterm,    0x30, // inverted source
 
