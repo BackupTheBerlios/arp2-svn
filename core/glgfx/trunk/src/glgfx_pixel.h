@@ -84,6 +84,7 @@ bool glgfx_pixel_getattr(enum glgfx_pixel_format format,
 			 intptr_t* storage);
 
 uint16_t glgfx_float2half(float f);
+float glgfx_half2float(uint16_t h);
 
 #define glgfx_pixel_getformat(tag1, ...) \
   ({ intptr_t const _tags[] = { tag1, ## __VA_ARGS__ }; \
