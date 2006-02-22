@@ -162,7 +162,9 @@ struct pixel_info {
     uint8_t alphashift;
 };
 
-extern struct pixel_info formats[glgfx_pixel_format_max];
+extern struct pixel_info const formats[glgfx_pixel_format_max];
+extern char const* read_shader_funcs[glgfx_pixel_format_max];
+extern char const* write_shader_funcs[glgfx_pixel_format_max];
 
 
 #define GLGFX_CHECKERROR() glgfx_checkerror(__PRETTY_FUNCTION__, __FILE__, __LINE__);

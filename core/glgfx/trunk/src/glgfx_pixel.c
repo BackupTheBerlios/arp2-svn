@@ -9,7 +9,7 @@
 #include "glgfx_pixel.h"
 #include "glgfx_intern.h"
 
-struct pixel_info formats[glgfx_pixel_format_max] = {
+struct pixel_info const formats[glgfx_pixel_format_max] = {
   { 0, 0, 0, 0, false, false, false, 0, 0, 0, 0, 0, 0, 0, 0 },
 
 //  int.format      format   type                           bpp big    rgb   float   rb  rs  gb  gs  bb  bs  ab  as
@@ -23,6 +23,56 @@ struct pixel_info formats[glgfx_pixel_format_max] = {
   { GL_RGBA16F_ARB, GL_RGBA, GL_HALF_FLOAT_ARB,              8, false, true, true,   16, 48, 16, 32, 16, 16, 16,  0 },   // glgfx_pixel_r16g16b16a16f
   { GL_RGBA32F_ARB, GL_RGBA, GL_FLOAT,                      16, false, true, true,   32, 96, 32, 64, 32, 32, 32,  0 },   // glgfx_pixel_r32g32b32a32f
 };
+
+// vec4 readPixel(uniform samplerRect tex, vec2 pos);
+
+static char const readRGBPixel[] =
+  "vec4 readPixel(uniform samplerRect tex, vec2 pos) {"
+  "  return textureRect(tex, pos);"
+  "}";
+
+static char const readRGBPixelFP32[] =
+  "vec4 readPixel(uniform samplerRect tex, vec2 pos) {"
+  "  return textureRect(tex, pos);" // We could read four pixels and
+				    // interpolate here if we really
+				    // want
+  "}";
+
+char const* read_shader_funcs[glgfx_pixel_format_max] = {
+  NULL,
+
+  readRGBPixel,		// glgfx_pixel_a4r4g4b4
+  readRGBPixel,		// glgfx_pixel_r5g6b5
+  readRGBPixel,		// glgfx_pixel_a1r5g5b5
+  readRGBPixel,		// glgfx_pixel_a8b8g8r8
+  readRGBPixel,		// glgfx_pixel_a8r8g8b8
+
+  readRGBPixel,		// glgfx_pixel_r16g16b16a16f
+  readRGBPixelFP32	// glgfx_pixel_r32g32b32a32f
+};
+
+
+// void writePixel(int mrt, vec4 color);
+
+static char const writeRGBPixel[] =
+  "void writePixel(int mrt, vec4 color) {"
+  "  gl_FragData[mrt] = color;"
+  "}";
+
+char const* write_shader_funcs[glgfx_pixel_format_max] = {
+  NULL,
+
+  writeRGBPixel,	// glgfx_pixel_a4r4g4b4
+  writeRGBPixel,	// glgfx_pixel_r5g6b5
+  writeRGBPixel,	// glgfx_pixel_a1r5g5b5
+  writeRGBPixel,	// glgfx_pixel_a8b8g8r8
+  writeRGBPixel,	// glgfx_pixel_a8r8g8b8
+
+  writeRGBPixel,	// glgfx_pixel_r16g16b16a16f
+  writeRGBPixel		// glgfx_pixel_r32g32b32a32f
+};
+
+
 
 static uint64_t swap_mask(enum glgfx_pixel_format format, uint64_t mask) {
 #ifdef WORDS_BIGENDIAN
@@ -98,7 +148,7 @@ enum glgfx_pixel_format glgfx_pixel_getformat_a(struct glgfx_tagitem const* tags
 	case glgfx_pixel_attr_float:
 	  if (formats[i].is_float != (bool) tag->data) goto next_mode;
 	  break;
-  
+
 	case glgfx_pixel_attr_redbits:
 	  if (formats[i].redbits != (uint8_t) tag->data) goto next_mode;
 	  break;
@@ -114,7 +164,7 @@ enum glgfx_pixel_format glgfx_pixel_getformat_a(struct glgfx_tagitem const* tags
 	case glgfx_pixel_attr_alphabits:
 	  if (formats[i].alphabits != (uint8_t) tag->data) goto next_mode;
 	  break;
-  
+
 	case glgfx_pixel_attr_redshift:
 	  if (formats[i].redshift != (uint8_t) tag->data) goto next_mode;
 	  break;
@@ -155,7 +205,7 @@ enum glgfx_pixel_format glgfx_pixel_getformat_a(struct glgfx_tagitem const* tags
     }
 
     break;
-    
+
     next_mode:
     continue;
   }
@@ -195,7 +245,7 @@ bool glgfx_pixel_getattr(enum glgfx_pixel_format format,
     case glgfx_pixel_attr_float:
       *storage = formats[format].is_float;
       break;
-  
+
     case glgfx_pixel_attr_redbits:
       *storage = formats[format].redbits;
       break;
@@ -211,7 +261,7 @@ bool glgfx_pixel_getattr(enum glgfx_pixel_format format,
     case glgfx_pixel_attr_alphabits:
       *storage = formats[format].alphabits;
       break;
-  
+
     case glgfx_pixel_attr_redshift:
       *storage = formats[format].redshift;
       break;
@@ -243,7 +293,7 @@ bool glgfx_pixel_getattr(enum glgfx_pixel_format format,
     case glgfx_pixel_attr_alphamask:
       *storage = get_alphamask(format);
       break;
-      
+
     default:
       return false;
   }
