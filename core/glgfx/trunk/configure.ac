@@ -9,7 +9,7 @@ AC_CONFIG_SRCDIR([src/glgfx.c])
 
 AC_PROG_MAKE_SET
 
-: ${CFLAGS="-W -Wall"}
+: ${CPPFLAGS="-W -Wall"}
 	
 # Checks for programs.
 AC_CHECK_TOOL([STRIP],[strip])
