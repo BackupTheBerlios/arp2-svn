@@ -886,35 +886,3 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
 
   return rc;
 }
-		       
-
-/*     GLcharARB const* source =  */
-/*       "void main(void) {\n" */
-/*       "  gl_FragColor = vec4(1.0, 1.0, 1.0, 0.5);\n" */
-/*       "}"; */
-
-/*     GLhandleARB program = glCreateProgramObjectARB(); */
-/*     GLhandleARB shader  = glCreateShaderObjectARB(GL_FRAGMENT_SHADER_ARB); */
-    
-/*     glShaderSourceARB(shader, 1, &source, NULL); */
-/*     glCompileShaderARB(shader); */
-/*     glAttachObjectARB(program, shader); */
-/*     glLinkProgramARB(program); */
-
-/*     void printInfoLog(GLhandleARB obj) { */
-/*       int infologLength = 0; */
-/*       int charsWritten  = 0; */
-/*       char *infoLog; */
-
-/*       glGetObjectParameterivARB(obj, GL_OBJECT_INFO_LOG_LENGTH_ARB, */
-/* 				&infologLength); */
-
-/*       if (infologLength > 0) { */
-/* 	infoLog = (char*) malloc(infologLength); */
-/* 	glGetInfoLogARB(obj, infologLength, &charsWritten, infoLog); */
-/* 	printf("%s\n",infoLog); */
-/* 	free(infoLog); */
-/*       } */
-/*     } */
-
-/*     printInfoLog(program); */

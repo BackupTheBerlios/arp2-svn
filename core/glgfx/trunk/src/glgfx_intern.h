@@ -44,6 +44,8 @@ struct glgfx_context {
 
     bool                    tex_enable[2];
     struct glgfx_bitmap*    tex_bitmap;
+
+    GLuint                  program;
 };
 
 
@@ -190,6 +192,9 @@ bool glgfx_context_bindtex(struct glgfx_context* context, struct glgfx_bitmap* b
 bool glgfx_context_unbindtex(struct glgfx_context* context);
 bool glgfx_context_bindfbo(struct glgfx_context* context, struct glgfx_bitmap* bitmap);
 bool glgfx_context_unbindfbo(struct glgfx_context* context);
+bool glgfx_context_bindprogram(struct glgfx_context* context, char const* vertex, char const* fragment);
+bool glgfx_context_unbindprogram(struct glgfx_context* context);
+
 struct glgfx_bitmap* glgfx_context_gettempbitmap(struct glgfx_context* context,
 						 int min_width, 
 						 int min_height, 

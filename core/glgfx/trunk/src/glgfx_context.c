@@ -115,6 +115,55 @@ struct glgfx_context* glgfx_context_create(struct glgfx_monitor* monitor) {
 }
 
 
+bool glgfx_context_destroy(struct glgfx_context* context) {
+  if (context == NULL || context->monitor == NULL) {
+    errno = EINVAL;
+    return false;
+  }
+
+  pthread_mutex_lock(&glgfx_mutex);
+
+  size_t i;
+
+  for (i = 0; 
+       i < sizeof (context->temp_bitmaps) / sizeof (context->temp_bitmaps[0]);
+       ++i) {
+    glgfx_bitmap_destroy(context->temp_bitmaps[i]);
+  }
+
+  if (context->monitor != NULL) {
+    if (current_context == context) {
+/*       if (context != context->monitor->main_context &&  */
+/* 	  context->monitor->main_context != NULL) { */
+/* 	// Switch to monitor context if valid */
+/* 	glgfx_context_select(context->monitor->main_context); */
+/*       } */
+/*       else { */
+	glXMakeContextCurrent(context->monitor->display, None, None, NULL);
+	current_context = NULL;
+/*       } */
+    }
+
+    if (context->glx_context != 0) {
+      glXDestroyContext(context->monitor->display, context->glx_context);
+    }
+    
+    if (context->glx_pbuffer != 0) {
+      glXDestroyPbuffer(context->monitor->display, context->glx_pbuffer);
+    }
+  }
+  
+  if (context->fbo != 0) {
+    glDeleteFramebuffersEXT(1, &context->fbo);
+  }
+
+  free(context);
+
+  pthread_mutex_unlock(&glgfx_mutex);
+  return true;
+}
+
+
 bool glgfx_context_select(struct glgfx_context* context) {
   if (context == NULL || context->monitor == NULL) {
     errno = EINVAL;
@@ -145,6 +194,7 @@ bool glgfx_context_select(struct glgfx_context* context) {
   return rc;
 }
 
+
 bool glgfx_context_unselect(void) {
   if (current_context == NULL) {
     return false;
@@ -158,6 +208,7 @@ bool glgfx_context_unselect(void) {
 struct glgfx_context* glgfx_context_getcurrent(void) {
   return current_context;
 }
+
 
 bool glgfx_context_bindfbo(struct glgfx_context* context,
 			   struct glgfx_bitmap* bitmap) {
@@ -313,6 +364,72 @@ bool glgfx_context_unbindtex(struct glgfx_context* context) {
 }
 
 
+bool glgfx_context_bindprogram(struct glgfx_context* context,
+			       char const* vertex,
+			       char const* fragment) {
+  if (context == NULL) {
+    errno = EINVAL;
+    return false;
+  }
+
+  // Find out if we already have this program compiled
+  char state[128];
+
+  sprintf(state, "%d %d %p %p", 
+	  (int) (context->fbo_bitmap != NULL ?
+		 context->fbo_bitmap->format : glgfx_pixel_format_unknown),
+	  (int) (context->tex_bitmap != NULL ?
+		 context->tex_bitmap->format : glgfx_pixel_format_unknown),
+	  vertex, fragment);
+}
+
+
+bool glgfx_context_unbindprogram(struct glgfx_context* context) {
+  if (context == NULL) {
+    errno = EINVAL;
+    return false;
+  }
+
+  if (context->program != 0) {
+    glUseProgram(0);
+  }
+  
+  return true;
+}	       
+
+/*     GLcharARB const* source =  */
+/*       "void main(void) {\n" */
+/*       "  gl_FragColor = vec4(1.0, 1.0, 1.0, 0.5);\n" */
+/*       "}"; */
+
+/*     GLhandleARB program = glCreateProgramObjectARB(); */
+/*     GLhandleARB shader  = glCreateShaderObjectARB(GL_FRAGMENT_SHADER_ARB); */
+    
+/*     glShaderSourceARB(shader, 1, &source, NULL); */
+/*     glCompileShaderARB(shader); */
+/*     glAttachObjectARB(program, shader); */
+/*     glLinkProgramARB(program); */
+
+/*     void printInfoLog(GLhandleARB obj) { */
+/*       int infologLength = 0; */
+/*       int charsWritten  = 0; */
+/*       char *infoLog; */
+
+/*       glGetObjectParameterivARB(obj, GL_OBJECT_INFO_LOG_LENGTH_ARB, */
+/* 				&infologLength); */
+
+/*       if (infologLength > 0) { */
+/* 	infoLog = (char*) malloc(infologLength); */
+/* 	glGetInfoLogARB(obj, infologLength, &charsWritten, infoLog); */
+/* 	printf("%s\n",infoLog); */
+/* 	free(infoLog); */
+/*       } */
+/*     } */
+
+/*     printInfoLog(program); */
+
+
+
 struct glgfx_bitmap* glgfx_context_gettempbitmap(struct glgfx_context* context,
 						 int min_width, 
 						 int min_height, 
@@ -338,52 +455,4 @@ struct glgfx_bitmap* glgfx_context_gettempbitmap(struct glgfx_context* context,
   return context->temp_bitmaps[format];
 }
 
-
-bool glgfx_context_destroy(struct glgfx_context* context) {
-  if (context == NULL || context->monitor == NULL) {
-    errno = EINVAL;
-    return false;
-  }
-
-  pthread_mutex_lock(&glgfx_mutex);
-
-  size_t i;
-
-  for (i = 0; 
-       i < sizeof (context->temp_bitmaps) / sizeof (context->temp_bitmaps[0]);
-       ++i) {
-    glgfx_bitmap_destroy(context->temp_bitmaps[i]);
-  }
-
-  if (context->monitor != NULL) {
-    if (current_context == context) {
-/*       if (context != context->monitor->main_context &&  */
-/* 	  context->monitor->main_context != NULL) { */
-/* 	// Switch to monitor context if valid */
-/* 	glgfx_context_select(context->monitor->main_context); */
-/*       } */
-/*       else { */
-	glXMakeContextCurrent(context->monitor->display, None, None, NULL);
-	current_context = NULL;
-/*       } */
-    }
-
-    if (context->glx_context != 0) {
-      glXDestroyContext(context->monitor->display, context->glx_context);
-    }
-    
-    if (context->glx_pbuffer != 0) {
-      glXDestroyPbuffer(context->monitor->display, context->glx_pbuffer);
-    }
-  }
-  
-  if (context->fbo != 0) {
-    glDeleteFramebuffersEXT(1, &context->fbo);
-  }
-
-  free(context);
-
-  pthread_mutex_unlock(&glgfx_mutex);
-  return true;
-}
 
