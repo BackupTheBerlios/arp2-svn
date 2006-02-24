@@ -222,7 +222,7 @@ bool glgfx_context_unbindfbo(struct glgfx_context* context) {
   if (context->fbo_bound) {
     glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
     context->fbo_bound = false;
-    context->fbo_bitmap = 0;
+    context->fbo_bitmap = NULL;
   }
 
   if (context->fbo_width != context->monitor->mode.hdisplay ||
@@ -241,6 +241,73 @@ bool glgfx_context_unbindfbo(struct glgfx_context* context) {
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
   }
+
+  return true;
+}
+
+
+bool glgfx_context_bindtex(struct glgfx_context* context,
+			   struct glgfx_bitmap* bitmap) {
+  if (context == NULL) {
+    errno = EINVAL;
+    return false;
+  }
+
+  if (/* bitmap->has extra bitmaps*/ false) {
+    glActiveTexture(GL_TEXTURE1);
+
+    if (!context->tex_enable[1]) {
+      glEnable(GL_TEXTURE_RECTANGLE_ARB);
+
+      context->tex_enable[1] = true;
+    }
+
+    if (context->tex_bitmap != bitmap) {
+      /* glBindTexture(GL_TEXTURE_RECTANGLE_ARB, bitmap->secondary_texture); */
+      GLGFX_CHECKERROR();
+    }
+  }
+
+  glActiveTexture(GL_TEXTURE0);
+
+  if (!context->tex_enable[0]) {
+    glEnable(GL_TEXTURE_RECTANGLE_ARB);
+
+    context->tex_enable[0] = true;
+  }
+
+  if (context->tex_bitmap != bitmap) {
+    glBindTexture(GL_TEXTURE_RECTANGLE_ARB, bitmap->texture);
+    GLGFX_CHECKERROR();
+  }
+
+  return true;
+}
+
+
+bool glgfx_context_unbindtex(struct glgfx_context* context) {
+  if (context == NULL) {
+    errno = EINVAL;
+    return false;
+  }
+
+  if (context->tex_enable[1]) {
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_RECTANGLE_ARB, 0);
+    glDisable(GL_TEXTURE_RECTANGLE_ARB);
+
+    context->tex_enable[1] = false;
+  }
+
+  if (context->tex_enable[0]) {
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_RECTANGLE_ARB, 0);
+    glDisable(GL_TEXTURE_RECTANGLE_ARB);
+
+    context->tex_enable[0] = false;
+  }
+
+  context->tex_bitmap = NULL;
 
   return true;
 }

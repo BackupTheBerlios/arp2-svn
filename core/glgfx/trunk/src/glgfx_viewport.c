@@ -9,10 +9,6 @@
 #include "glgfx_viewport.h"
 #include "glgfx_intern.h"
 
-#ifndef GL_TEXTURE_RECTANGLE_ARB
-# define GL_TEXTURE_RECTANGLE_ARB GL_TEXTURE_RECTANGLE_EXT
-#endif
-
 struct glgfx_viewport* glgfx_viewport_create_a(struct glgfx_tagitem const* tags) {
   struct glgfx_viewport* viewport;
 
@@ -309,13 +305,13 @@ bool glgfx_viewport_haschanged(struct glgfx_viewport* viewport) {
 
 
 bool glgfx_viewport_render(struct glgfx_viewport* viewport) {
+  struct glgfx_context* context = glgfx_context_getcurrent();
 
   void render(gpointer* data, gpointer* userdata) {
     struct glgfx_rasinfo* rasinfo = (struct glgfx_rasinfo*) data;
     struct glgfx_viewport* viewport = (struct glgfx_viewport*) userdata;
 
-    glBindTexture(GL_TEXTURE_RECTANGLE_ARB, rasinfo->bitmap->texture);
-    GLGFX_CHECKERROR();
+    glgfx_context_bindtex(context, rasinfo->bitmap);
 
     glBegin(GL_QUADS);
     glTexCoord2i(rasinfo->xoffset,
@@ -339,7 +335,6 @@ bool glgfx_viewport_render(struct glgfx_viewport* viewport) {
   }
 
   glColor4f(1,1,1,1);
-  glEnable(GL_TEXTURE_RECTANGLE_ARB);
 
   g_list_foreach(viewport->rasinfos, (GFunc) render, viewport);
   return true;

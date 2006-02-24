@@ -7,10 +7,6 @@
 #include "glgfx_sprite.h"
 #include "glgfx_intern.h"
 
-#ifndef GL_TEXTURE_RECTANGLE_ARB
-# define GL_TEXTURE_RECTANGLE_ARB GL_TEXTURE_RECTANGLE_EXT
-#endif
-
 struct glgfx_sprite* glgfx_sprite_create_a(struct glgfx_tagitem const* tags) {
   struct glgfx_sprite* sprite;
 
@@ -132,10 +128,11 @@ bool glgfx_sprite_haschanged(struct glgfx_sprite* sprite) {
 }
 
 bool glgfx_sprite_render(struct glgfx_sprite* sprite) {
-  glColor4f(1,1,1,1);
-  glEnable(GL_TEXTURE_RECTANGLE_ARB);
+  struct glgfx_context* context = glgfx_context_getcurrent();
 
-  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, sprite->bitmap->texture);
+  glgfx_context_bindtex(context, sprite->bitmap);
+
+  glColor4f(1,1,1,1);
 
   glBegin(GL_QUADS); {
     glTexCoord2i(0,                         0);

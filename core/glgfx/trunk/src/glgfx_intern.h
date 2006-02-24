@@ -41,6 +41,9 @@ struct glgfx_context {
     struct glgfx_bitmap*    fbo_bitmap;
     int                     fbo_width;
     int                     fbo_height;
+
+    bool                    tex_enable[2];
+    struct glgfx_bitmap*    tex_bitmap;
 };
 
 
@@ -183,6 +186,8 @@ bool glgfx_view_rendersprites(struct glgfx_view* view);
 bool glgfx_viewport_render(struct glgfx_viewport* viewport);
 bool glgfx_sprite_render(struct glgfx_sprite* sprite);
 
+bool glgfx_context_bindtex(struct glgfx_context* context, struct glgfx_bitmap* bitmap);
+bool glgfx_context_unbindtex(struct glgfx_context* context);
 bool glgfx_context_bindfbo(struct glgfx_context* context, struct glgfx_bitmap* bitmap);
 bool glgfx_context_unbindfbo(struct glgfx_context* context);
 struct glgfx_bitmap* glgfx_context_gettempbitmap(struct glgfx_context* context,

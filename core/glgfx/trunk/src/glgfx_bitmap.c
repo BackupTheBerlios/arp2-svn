@@ -49,6 +49,7 @@ static size_t glgfx_texture_size(int width, int height, enum glgfx_pixel_format 
 
 
 struct glgfx_bitmap* glgfx_bitmap_create_a(struct glgfx_tagitem const* tags) {
+  struct glgfx_context* context = glgfx_context_getcurrent();
   struct glgfx_bitmap* bitmap;
 
   int width = 0, height = 0, bits = 0;
@@ -118,8 +119,7 @@ struct glgfx_bitmap* glgfx_bitmap_create_a(struct glgfx_tagitem const* tags) {
   glGenTextures(1, &bitmap->texture);
   GLGFX_CHECKERROR();
 
-  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, bitmap->texture);
-  GLGFX_CHECKERROR();
+  glgfx_context_bindtex(context, bitmap);
 
   glTexImage2D(GL_TEXTURE_RECTANGLE_ARB, 0,
 	       formats[bitmap->format].internal_format,
@@ -286,12 +286,6 @@ void* glgfx_bitmap_lock_a(struct glgfx_bitmap* bitmap, bool read, bool write,
       glBindBufferARB(GL_PIXEL_PACK_BUFFER_ARB, 0);
     }
     else {
-/*       glBindTexture(GL_TEXTURE_RECTANGLE_ARB, bitmap->texture); */
-/*       GLGFX_CHECKERROR(); */
-/*       glGetTexImage(GL_TEXTURE_RECTANGLE_ARB, 0, */
-/* 		    formats[bitmap->format].format, */
-/* 		    formats[bitmap->format].type, */
-/* 		    bitmap->buffer); */
       glPixelStorei(GL_PACK_ROW_LENGTH, bitmap->width);
       glReadPixels(bitmap->locked_x, bitmap->locked_y, 
 		   bitmap->locked_width, bitmap->locked_height,
@@ -386,8 +380,7 @@ bool glgfx_bitmap_unlock_a(struct glgfx_bitmap* bitmap,
       if (width != 0 && height != 0 &&
 	  (bitmap->locked_access == GL_READ_WRITE_ARB ||
 	   bitmap->locked_access == GL_WRITE_ONLY_ARB)) {
-	glBindTexture(GL_TEXTURE_RECTANGLE_ARB, bitmap->texture);
-	GLGFX_CHECKERROR();
+	glgfx_context_bindtex(context, bitmap);
 
 	glPixelStorei(GL_UNPACK_ROW_LENGTH, bitmap->width);
 	glTexSubImage2D(GL_TEXTURE_RECTANGLE_ARB, 0,
@@ -409,8 +402,7 @@ bool glgfx_bitmap_unlock_a(struct glgfx_bitmap* bitmap,
       if (width != 0 && height != 0 &&
 	  (bitmap->locked_access == GL_READ_WRITE_ARB ||
 	   bitmap->locked_access == GL_WRITE_ONLY_ARB)) {
-	glBindTexture(GL_TEXTURE_RECTANGLE_ARB, bitmap->texture);
-	GLGFX_CHECKERROR();
+	glgfx_context_bindtex(context, bitmap);
 	
 	glPixelStorei(GL_UNPACK_ROW_LENGTH, bitmap->width);
 	GLGFX_CHECKERROR();
@@ -440,6 +432,7 @@ bool glgfx_bitmap_unlock_a(struct glgfx_bitmap* bitmap,
 
 bool glgfx_bitmap_write_a(struct glgfx_bitmap* bitmap, 
 			  struct glgfx_tagitem const* tags) {
+  struct glgfx_context* context = glgfx_context_getcurrent();
   int x = 0, y = 0, width = 0, height = 0;
   void* data = NULL;
   enum glgfx_pixel_format format = glgfx_pixel_format_unknown;
@@ -507,8 +500,7 @@ bool glgfx_bitmap_write_a(struct glgfx_bitmap* bitmap,
 
   pthread_mutex_lock(&glgfx_mutex);
 
-  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, bitmap->texture);
-  GLGFX_CHECKERROR();
+  glgfx_context_bindtex(context, bitmap);
    
   glPixelStorei(GL_UNPACK_ROW_LENGTH, bytes_per_row / formats[format].size);
   glTexSubImage2D(GL_TEXTURE_RECTANGLE_ARB, 0,
@@ -780,10 +772,10 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
     // Bind FBO and attach texture
     glgfx_context_bindfbo(context, dst_bitmap);
 
-    // Blit using glCopyPixels()
+    // Blit using glCopyPixels(), no texturing
     glReadBuffer(GL_COLOR_ATTACHMENT0_EXT);
     glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
-    glDisable(GL_TEXTURE_RECTANGLE_ARB);
+    glgfx_context_unbindtex(context);
     glRasterPos2i(dst_x, dst_bitmap->height - dst_y);
     glCopyPixels(src_x, src_y, src_width, src_height, GL_COLOR);
 
@@ -809,8 +801,7 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
 	glReadBuffer(GL_COLOR_ATTACHMENT0_EXT);
 
 	// Bind temp src bitmap as texture
-	glBindTexture(GL_TEXTURE_RECTANGLE_ARB, src_bitmap->texture);
-	GLGFX_CHECKERROR();
+	glgfx_context_bindtex(context, src_bitmap);
 
 	// Copy source bitmap into temp bitmap
 	glCopyTexSubImage2D(GL_TEXTURE_RECTANGLE_ARB, 0,
@@ -823,10 +814,7 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
 	glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
 
 	// Bind dst bitmap as texture
-	glBindTexture(GL_TEXTURE_RECTANGLE_ARB, dst_bitmap->texture);
-	GLGFX_CHECKERROR();
-
-	glEnable(GL_TEXTURE_RECTANGLE_ARB);
+	glgfx_context_bindtex(context, dst_bitmap);
 
 	glBegin(GL_QUADS); {
 	  glTexCoord2i(src_x,             src_y);
@@ -861,13 +849,10 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
 
     if (src_bitmap != NULL) {
       // Bind temp src bitmap as texture
-      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, src_bitmap->texture);
-      GLGFX_CHECKERROR();
-      
-      glEnable(GL_TEXTURE_RECTANGLE_ARB);
+      glgfx_context_bindtex(context, src_bitmap);
     }
     else {
-      glDisable(GL_TEXTURE_RECTANGLE_ARB);
+      glgfx_context_unbindtex(context);
     }
 
     glColor4f(mod_r, mod_g, mod_b, mod_a);
@@ -886,10 +871,6 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
       glVertex2i  (dst_x,             dst_bitmap->height - (dst_y + dst_height));
     }
     glEnd();
-
-    if (src_bitmap != NULL) {
-      glDisable(GL_TEXTURE_RECTANGLE_ARB);
-    }
 
     if ((minterm & 0xf0) != 0xc0) {
       glDisable(GL_COLOR_LOGIC_OP);
