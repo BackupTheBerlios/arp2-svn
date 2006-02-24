@@ -24,55 +24,6 @@ struct pixel_info const formats[glgfx_pixel_format_max] = {
   { GL_RGBA32F_ARB, GL_RGBA, GL_FLOAT,                      16, false, true, true,   32, 96, 32, 64, 32, 32, 32,  0 },   // glgfx_pixel_r32g32b32a32f
 };
 
-// vec4 readPixel(uniform samplerRect tex, vec2 pos);
-
-static char const readRGBPixel[] =
-  "vec4 readPixel(uniform samplerRect tex, vec2 pos) {"
-  "  return textureRect(tex, pos);"
-  "}";
-
-static char const readRGBPixelFP32[] =
-  "vec4 readPixel(uniform samplerRect tex, vec2 pos) {"
-  "  return textureRect(tex, pos);" // We could read four pixels and
-				    // interpolate here if we really
-				    // want
-  "}";
-
-char const* read_shader_funcs[glgfx_pixel_format_max] = {
-  NULL,
-
-  readRGBPixel,		// glgfx_pixel_a4r4g4b4
-  readRGBPixel,		// glgfx_pixel_r5g6b5
-  readRGBPixel,		// glgfx_pixel_a1r5g5b5
-  readRGBPixel,		// glgfx_pixel_a8b8g8r8
-  readRGBPixel,		// glgfx_pixel_a8r8g8b8
-
-  readRGBPixel,		// glgfx_pixel_r16g16b16a16f
-  readRGBPixelFP32	// glgfx_pixel_r32g32b32a32f
-};
-
-
-// void writePixel(int mrt, vec4 color);
-
-static char const writeRGBPixel[] =
-  "void writePixel(int mrt, vec4 color) {"
-  "  gl_FragData[mrt] = color;"
-  "}";
-
-char const* write_shader_funcs[glgfx_pixel_format_max] = {
-  NULL,
-
-  writeRGBPixel,	// glgfx_pixel_a4r4g4b4
-  writeRGBPixel,	// glgfx_pixel_r5g6b5
-  writeRGBPixel,	// glgfx_pixel_a1r5g5b5
-  writeRGBPixel,	// glgfx_pixel_a8b8g8r8
-  writeRGBPixel,	// glgfx_pixel_a8r8g8b8
-
-  writeRGBPixel,	// glgfx_pixel_r16g16b16a16f
-  writeRGBPixel		// glgfx_pixel_r32g32b32a32f
-};
-
-
 
 static uint64_t swap_mask(enum glgfx_pixel_format format, uint64_t mask) {
 #ifdef WORDS_BIGENDIAN

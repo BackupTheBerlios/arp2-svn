@@ -365,22 +365,26 @@ bool glgfx_context_unbindtex(struct glgfx_context* context) {
 
 
 bool glgfx_context_bindprogram(struct glgfx_context* context,
-			       char const* vertex,
-			       char const* fragment) {
-  if (context == NULL) {
+			       char const* source) {
+  if (context == NULL || 
+      context->tex_bitmap == NULL ||
+      context->fbo_bitmap == NULL ) {
     errno = EINVAL;
     return false;
   }
 
-  // Find out if we already have this program compiled
-  char state[128];
+  GLuint program = glgfx_shader_getprogram(context->tex_bitmap->format,
+					   context->fbo_bitmap->format,
+					   source);
 
-  sprintf(state, "%d %d %p %p", 
-	  (int) (context->fbo_bitmap != NULL ?
-		 context->fbo_bitmap->format : glgfx_pixel_format_unknown),
-	  (int) (context->tex_bitmap != NULL ?
-		 context->tex_bitmap->format : glgfx_pixel_format_unknown),
-	  vertex, fragment);
+  if (program == 0) {
+    return false;
+  }
+
+  glUseProgram(program);
+  GLGFX_CHECKERROR();
+
+  return true;
 }
 
 
@@ -396,38 +400,6 @@ bool glgfx_context_unbindprogram(struct glgfx_context* context) {
   
   return true;
 }	       
-
-/*     GLcharARB const* source =  */
-/*       "void main(void) {\n" */
-/*       "  gl_FragColor = vec4(1.0, 1.0, 1.0, 0.5);\n" */
-/*       "}"; */
-
-/*     GLhandleARB program = glCreateProgramObjectARB(); */
-/*     GLhandleARB shader  = glCreateShaderObjectARB(GL_FRAGMENT_SHADER_ARB); */
-    
-/*     glShaderSourceARB(shader, 1, &source, NULL); */
-/*     glCompileShaderARB(shader); */
-/*     glAttachObjectARB(program, shader); */
-/*     glLinkProgramARB(program); */
-
-/*     void printInfoLog(GLhandleARB obj) { */
-/*       int infologLength = 0; */
-/*       int charsWritten  = 0; */
-/*       char *infoLog; */
-
-/*       glGetObjectParameterivARB(obj, GL_OBJECT_INFO_LOG_LENGTH_ARB, */
-/* 				&infologLength); */
-
-/*       if (infologLength > 0) { */
-/* 	infoLog = (char*) malloc(infologLength); */
-/* 	glGetInfoLogARB(obj, infologLength, &charsWritten, infoLog); */
-/* 	printf("%s\n",infoLog); */
-/* 	free(infoLog); */
-/*       } */
-/*     } */
-
-/*     printInfoLog(program); */
-
 
 
 struct glgfx_bitmap* glgfx_context_gettempbitmap(struct glgfx_context* context,

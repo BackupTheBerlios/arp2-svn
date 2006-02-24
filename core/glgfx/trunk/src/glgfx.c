@@ -20,12 +20,14 @@ static struct sigaction old_sa;
 
 pthread_mutex_t glgfx_mutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
 
-
 static void init_halffloat(void);
 
 
 /** The global signal handler, used for vsync emulation */
 static void glgfx_sighandler(int sig, siginfo_t * si, void* extra) {
+  (void) sig;
+  (void) extra;
+
   if (si->si_signo == glgfx_signum &&
       si->si_code == SI_TIMER && 
       si->si_ptr != NULL) {
@@ -50,13 +52,16 @@ static void glgfx_sighandler(int sig, siginfo_t * si, void* extra) {
   }
 }
 
-
 bool glgfx_init_a(struct glgfx_tagitem const* tags) {
   struct glgfx_tagitem const* tag;
   bool rc = false;
 
   if (!XInitThreads()) {
     BUG("Failed to make Xlib thread safe!\n");
+    return false;
+  }
+
+  if (!glgfx_shader_init()) {
     return false;
   }
 
@@ -95,6 +100,7 @@ bool glgfx_init_a(struct glgfx_tagitem const* tags) {
 void glgfx_cleanup() {
   // Restore signal handler to default
   sigaction(glgfx_signum, &old_sa, NULL);
+  glgfx_shader_cleanup();
 }
 
 

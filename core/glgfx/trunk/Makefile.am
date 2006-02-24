@@ -31,6 +31,7 @@ libglgfx_la_SOURCES	= \
 			src/glgfx_input.c \
 			src/glgfx_monitor.c \
 			src/glgfx_pixel.c \
+			src/glgfx_shader.c \
 			src/glgfx_sprite.c \
 			src/glgfx_view.c \
 			src/glgfx_viewport.c
