@@ -170,7 +170,7 @@ void glgfx_bitmap_destroy(struct glgfx_bitmap* bitmap) {
   pthread_mutex_lock(&glgfx_mutex);
   glgfx_bitmap_unlock_a(bitmap, NULL);
   if (context->monitor->have_GL_ARB_pixel_buffer_object) {
-    glDeleteBuffersARB(1, &bitmap->pbo);
+    glDeleteBuffers(1, &bitmap->pbo);
   }
   else {
     free(bitmap->buffer);
@@ -235,28 +235,28 @@ void* glgfx_bitmap_lock_a(struct glgfx_bitmap* bitmap, bool read, bool write,
   }
 
   if (read && write) {
-    bitmap->locked_usage = GL_STREAM_COPY_ARB;
-    bitmap->locked_access = GL_READ_WRITE_ARB;
+    bitmap->locked_usage = GL_STREAM_COPY;
+    bitmap->locked_access = GL_READ_WRITE;
   }
   else if (!read && write) {
-    bitmap->locked_usage = GL_STREAM_DRAW_ARB;
-    bitmap->locked_access = GL_WRITE_ONLY_ARB;
+    bitmap->locked_usage = GL_STREAM_DRAW;
+    bitmap->locked_access = GL_WRITE_ONLY;
   }
   else {
-    bitmap->locked_usage = GL_STATIC_READ_ARB;
-    bitmap->locked_access = GL_READ_ONLY_ARB;
+    bitmap->locked_usage = GL_STATIC_READ;
+    bitmap->locked_access = GL_READ_ONLY;
   }
   
   if (context->monitor->have_GL_ARB_pixel_buffer_object) {
     if (bitmap->pbo == 0) {
-      glGenBuffersARB(1, &bitmap->pbo);
+      glGenBuffers(1, &bitmap->pbo);
       GLGFX_CHECKERROR();
-      glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, bitmap->pbo);
+      glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, bitmap->pbo);
       GLGFX_CHECKERROR();
-      glBufferDataARB(GL_PIXEL_UNPACK_BUFFER_ARB, bitmap->pbo_size, 
+      glBufferData(GL_PIXEL_UNPACK_BUFFER_ARB, bitmap->pbo_size, 
 		      NULL, bitmap->locked_usage);
       GLGFX_CHECKERROR();
-      glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, 0);
+      glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, 0);
     }
   }
   else {
@@ -272,7 +272,7 @@ void* glgfx_bitmap_lock_a(struct glgfx_bitmap* bitmap, bool read, bool write,
     glgfx_context_bindfbo(context, bitmap);
 
     if (context->monitor->have_GL_ARB_pixel_buffer_object) {
-      glBindBufferARB(GL_PIXEL_PACK_BUFFER_ARB, bitmap->pbo);
+      glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, bitmap->pbo);
       GLGFX_CHECKERROR();
       glPixelStorei(GL_PACK_ROW_LENGTH, bitmap->width);
       glReadPixels(bitmap->locked_x, bitmap->locked_y, 
@@ -283,7 +283,7 @@ void* glgfx_bitmap_lock_a(struct glgfx_bitmap* bitmap, bool read, bool write,
 			    bitmap->locked_y * bitmap->pbo_bytes_per_row));
       glPixelStorei(GL_PACK_ROW_LENGTH, 0);
       GLGFX_CHECKERROR();
-      glBindBufferARB(GL_PIXEL_PACK_BUFFER_ARB, 0);
+      glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, 0);
     }
     else {
       glPixelStorei(GL_PACK_ROW_LENGTH, bitmap->width);
@@ -301,10 +301,10 @@ void* glgfx_bitmap_lock_a(struct glgfx_bitmap* bitmap, bool read, bool write,
   }
   
   if (context->monitor->have_GL_ARB_pixel_buffer_object) {
-    glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, bitmap->pbo);
-    bitmap->locked_memory = glMapBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB,
+    glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, bitmap->pbo);
+    bitmap->locked_memory = glMapBuffer(GL_PIXEL_UNPACK_BUFFER_ARB,
 					   bitmap->locked_access);
-    glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, 0);
+    glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, 0);
     GLGFX_CHECKERROR();
   }
   else {
@@ -372,14 +372,14 @@ bool glgfx_bitmap_unlock_a(struct glgfx_bitmap* bitmap,
 
   if (bitmap->locked_memory != NULL) {
     if (context->monitor->have_GL_ARB_pixel_buffer_object) {
-      glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, bitmap->pbo);
-      if (glUnmapBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB)) {
+      glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, bitmap->pbo);
+      if (glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER_ARB)) {
 	rc = true;
       }
 
       if (width != 0 && height != 0 &&
-	  (bitmap->locked_access == GL_READ_WRITE_ARB ||
-	   bitmap->locked_access == GL_WRITE_ONLY_ARB)) {
+	  (bitmap->locked_access == GL_READ_WRITE ||
+	   bitmap->locked_access == GL_WRITE_ONLY)) {
 	glgfx_context_bindtex(context, bitmap);
 
 	glPixelStorei(GL_UNPACK_ROW_LENGTH, bitmap->width);
@@ -393,15 +393,15 @@ bool glgfx_bitmap_unlock_a(struct glgfx_bitmap* bitmap,
 	glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
       }
 
-      glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, 0);
+      glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, 0);
       GLGFX_CHECKERROR();
     }
     else {
       rc = true;
 
       if (width != 0 && height != 0 &&
-	  (bitmap->locked_access == GL_READ_WRITE_ARB ||
-	   bitmap->locked_access == GL_WRITE_ONLY_ARB)) {
+	  (bitmap->locked_access == GL_READ_WRITE ||
+	   bitmap->locked_access == GL_WRITE_ONLY)) {
 	glgfx_context_bindtex(context, bitmap);
 	
 	glPixelStorei(GL_UNPACK_ROW_LENGTH, bitmap->width);
