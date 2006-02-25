@@ -9,6 +9,20 @@
 #include "glgfx_pixel.h"
 #include "glgfx_intern.h"
 
+
+#ifndef GL_RGBA16F_ARB
+#define GL_RGBA16F_ARB GL_RGBA_FLOAT16_ATI
+#endif /* GL_RGBA16F_ARB */
+
+#ifndef GL_RGBA32F_ARB
+#define GL_RGBA32F_ARB GL_RGBA_FLOAT32_ATI
+#endif /* GL_RGBA32F_ARB */
+
+#ifndef GL_HALF_FLOAT_ARB
+#define GL_HALF_FLOAT_ARB GL_HALF_FLOAT_NV
+#endif /* GL_HALF_FLOAT_ARB */
+
+
 struct pixel_info const formats[glgfx_pixel_format_max] = {
   { 0, 0, 0, 0, false, false, false, 0, 0, 0, 0, 0, 0, 0, 0 },
 
