@@ -1,5 +1,10 @@
 /* Define GLGFX_GLEXT and include this file */
 
+#ifndef HAVE_GL_GLATI_H 
+/* Assume X.Org include files if ATI header is present. Now, if
+   glATI.h wasn't broken, it might even have compiled. :-( Bloody
+   crap! */
+
 /* OpenGL 1.2 */
 GLGFX_GLEXT(PFNGLBLENDCOLORPROC,                   glBlendColor)
 GLGFX_GLEXT(PFNGLBLENDEQUATIONPROC,		   glBlendEquation)
@@ -87,6 +92,8 @@ GLGFX_GLEXT(PFNGLCOMPRESSEDTEXSUBIMAGE3DPROC,	   glCompressedTexSubImage3D)
 GLGFX_GLEXT(PFNGLCOMPRESSEDTEXSUBIMAGE2DPROC,	   glCompressedTexSubImage2D)
 GLGFX_GLEXT(PFNGLCOMPRESSEDTEXSUBIMAGE1DPROC,	   glCompressedTexSubImage1D)
 GLGFX_GLEXT(PFNGLGETCOMPRESSEDTEXIMAGEPROC,	   glGetCompressedTexImage)
+
+#endif /* HAVE_GL_GLATI_H */
 
 /* OpenGL 1.4 */
 GLGFX_GLEXT(PFNGLBLENDFUNCSEPARATEPROC,            glBlendFuncSeparate)
