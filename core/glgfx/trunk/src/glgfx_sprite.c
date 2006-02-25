@@ -4,6 +4,7 @@
 #include <GL/gl.h>
 
 #include "glgfx.h"
+#include "glgfx_context.h"
 #include "glgfx_sprite.h"
 #include "glgfx_intern.h"
 

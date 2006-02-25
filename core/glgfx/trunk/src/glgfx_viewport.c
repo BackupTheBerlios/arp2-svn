@@ -6,6 +6,7 @@
 
 #include "glgfx.h"
 #include "glgfx_bitmap.h"
+#include "glgfx_context.h"
 #include "glgfx_viewport.h"
 #include "glgfx_intern.h"
 
