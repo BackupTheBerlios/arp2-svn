@@ -10,6 +10,11 @@
 #include "glgfx_intern.h"
 
 struct shader raw_texture_blitter = {
+/*   .vertex =  */
+/*   "void main() {" */
+/*   "  gl_Position = gl_Vertex;" // No transformation */
+/*   "}", */
+
   .fragment = 
   "uniform samplerRect tex;"
   ""
