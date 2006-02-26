@@ -61,10 +61,6 @@ bool glgfx_init_a(struct glgfx_tagitem const* tags) {
     return false;
   }
 
-  if (!glgfx_shader_init()) {
-    return false;
-  }
-
   glgfx_signum = SIGRTMIN + 0;
 
   while ((tag = glgfx_nexttagitem(&tags)) != NULL) {

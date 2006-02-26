@@ -775,7 +775,6 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
     // Blit using glCopyPixels(), no texturing
     glReadBuffer(GL_COLOR_ATTACHMENT0_EXT);
     glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
-    glgfx_context_unbindtex(context);
     glRasterPos2i(dst_x, dst_bitmap->height - dst_y);
     glCopyPixels(src_x, src_y, src_width, src_height, GL_COLOR);
 
@@ -816,6 +815,9 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
 	// Bind dst bitmap as texture
 	glgfx_context_bindtex(context, dst_bitmap);
 
+	// Make a plain copy, with no color-space transformations
+	glgfx_context_bindprogram(context, &raw_texture_blitter);
+
 	glBegin(GL_QUADS); {
 	  glTexCoord2i(src_x,             src_y);
 	  glVertex2i  (0,                 src_height);
@@ -850,12 +852,20 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
     if (src_bitmap != NULL) {
       // Bind temp src bitmap as texture
       glgfx_context_bindtex(context, src_bitmap);
+
+      if (got_mod) {
+	glColor4f(mod_r, mod_g, mod_b, mod_a);
+	glgfx_context_bindprogram(context, &modulated_texture_blitter);
+      }
+      else {
+	glgfx_context_bindprogram(context, &plain_texture_blitter);
+      }
     }
     else {
-      glgfx_context_unbindtex(context);
+      // NULL source texture -> plain color blit
+      glColor4f(mod_r, mod_g, mod_b, mod_a);
+      glgfx_context_bindprogram(context, &color_blitter);
     }
-
-    glColor4f(mod_r, mod_g, mod_b, mod_a);
 
     glBegin(GL_QUADS); {
       glTexCoord2i(src_x,             src_y);

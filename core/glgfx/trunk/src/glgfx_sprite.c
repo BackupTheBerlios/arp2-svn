@@ -132,8 +132,7 @@ bool glgfx_sprite_render(struct glgfx_sprite* sprite) {
   struct glgfx_context* context = glgfx_context_getcurrent();
 
   glgfx_context_bindtex(context, sprite->bitmap);
-
-  glColor4f(1,1,1,1);
+  glgfx_context_bindprogram(context, &plain_texture_blitter);
 
   glBegin(GL_QUADS); {
     glTexCoord2i(0,                         0);

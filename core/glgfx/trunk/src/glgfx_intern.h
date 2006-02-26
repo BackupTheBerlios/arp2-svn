@@ -170,6 +170,30 @@ struct pixel_info {
 extern struct pixel_info const formats[glgfx_pixel_format_max];
 
 
+enum shader_function_read {
+  shader_function_read_rgba,
+  shader_function_read_fp32rgba,
+  shader_function_read_max
+};
+
+enum shader_function_write {
+  shader_function_write_rgba,
+  shader_function_write_max
+};
+
+struct shader {
+    GLuint programs[shader_function_read_max * shader_function_write_max];
+    char const* vertex;
+    char const* fragment;
+};
+
+
+extern struct shader raw_texture_blitter;
+extern struct shader color_blitter;
+extern struct shader plain_texture_blitter;
+extern struct shader modulated_texture_blitter;
+
+
 #define GLGFX_CHECKERROR() glgfx_checkerror(__PRETTY_FUNCTION__, __FILE__, __LINE__);
 void glgfx_checkerror(char const* func, char const* file, int line);
 
@@ -177,8 +201,7 @@ bool glgfx_shader_init();
 void glgfx_shader_cleanup();
 GLuint glgfx_shader_getprogram(enum glgfx_pixel_format src, 
 			       enum glgfx_pixel_format dst,
-			       char const* shader);
-void glgfx_shader_removeprogram(char const* shader);
+			       struct shader* shader);
 
 bool glgfx_monitor_waittof(struct glgfx_monitor* monitor);
 bool glgfx_monitor_swapbuffers(struct glgfx_monitor* monitor);
@@ -197,7 +220,7 @@ bool glgfx_context_bindtex(struct glgfx_context* context, struct glgfx_bitmap* b
 bool glgfx_context_unbindtex(struct glgfx_context* context);
 bool glgfx_context_bindfbo(struct glgfx_context* context, struct glgfx_bitmap* bitmap);
 bool glgfx_context_unbindfbo(struct glgfx_context* context);
-bool glgfx_context_bindprogram(struct glgfx_context* context, char const* source);
+bool glgfx_context_bindprogram(struct glgfx_context* context, struct shader* shader);
 bool glgfx_context_unbindprogram(struct glgfx_context* context);
 struct glgfx_bitmap* glgfx_context_gettempbitmap(struct glgfx_context* context,
 						 int min_width, 

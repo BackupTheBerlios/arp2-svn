@@ -313,6 +313,7 @@ bool glgfx_viewport_render(struct glgfx_viewport* viewport) {
     struct glgfx_viewport* viewport = (struct glgfx_viewport*) userdata;
 
     glgfx_context_bindtex(context, rasinfo->bitmap);
+    glgfx_context_bindprogram(context, &plain_texture_blitter);
 
     glBegin(GL_QUADS);
     glTexCoord2i(rasinfo->xoffset,

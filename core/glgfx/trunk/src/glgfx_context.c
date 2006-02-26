@@ -306,12 +306,7 @@ bool glgfx_context_bindtex(struct glgfx_context* context,
 
   if (/* bitmap->has extra bitmaps*/ false) {
     glActiveTexture(GL_TEXTURE1);
-
-    if (!context->tex_enable[1]) {
-      glEnable(GL_TEXTURE_RECTANGLE_ARB);
-
-      context->tex_enable[1] = true;
-    }
+    context->tex_enable[1] = true;
 
     if (context->tex_bitmap != bitmap) {
       /* glBindTexture(GL_TEXTURE_RECTANGLE_ARB, bitmap->secondary_texture); */
@@ -320,16 +315,12 @@ bool glgfx_context_bindtex(struct glgfx_context* context,
   }
 
   glActiveTexture(GL_TEXTURE0);
-
-  if (!context->tex_enable[0]) {
-    glEnable(GL_TEXTURE_RECTANGLE_ARB);
-
-    context->tex_enable[0] = true;
-  }
+  context->tex_enable[0] = true;
 
   if (context->tex_bitmap != bitmap) {
     glBindTexture(GL_TEXTURE_RECTANGLE_ARB, bitmap->texture);
     GLGFX_CHECKERROR();
+    context->tex_bitmap = bitmap;
   }
 
   return true;
@@ -345,7 +336,6 @@ bool glgfx_context_unbindtex(struct glgfx_context* context) {
   if (context->tex_enable[1]) {
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_RECTANGLE_ARB, 0);
-    glDisable(GL_TEXTURE_RECTANGLE_ARB);
 
     context->tex_enable[1] = false;
   }
@@ -353,7 +343,6 @@ bool glgfx_context_unbindtex(struct glgfx_context* context) {
   if (context->tex_enable[0]) {
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_RECTANGLE_ARB, 0);
-    glDisable(GL_TEXTURE_RECTANGLE_ARB);
 
     context->tex_enable[0] = false;
   }
@@ -365,17 +354,25 @@ bool glgfx_context_unbindtex(struct glgfx_context* context) {
 
 
 bool glgfx_context_bindprogram(struct glgfx_context* context,
-			       char const* source) {
-  if (context == NULL || 
-      context->tex_bitmap == NULL ||
-      context->fbo_bitmap == NULL ) {
+			       struct shader* shader) {
+  if (context == NULL) {
     errno = EINVAL;
     return false;
   }
 
-  GLuint program = glgfx_shader_getprogram(context->tex_bitmap->format,
-					   context->fbo_bitmap->format,
-					   source);
+  // Defaults
+  enum glgfx_pixel_format src = glgfx_pixel_format_a8r8g8b8;
+  enum glgfx_pixel_format dst = context->monitor->format;
+
+  if (context->tex_bitmap != NULL) {
+    src = context->tex_bitmap->format;
+  }
+
+  if (context->fbo_bitmap != NULL) {
+    dst = context->fbo_bitmap->format;
+  }
+
+  GLuint program = glgfx_shader_getprogram(src, dst, shader);
 
   if (program == 0) {
     return false;
@@ -383,6 +380,8 @@ bool glgfx_context_bindprogram(struct glgfx_context* context,
 
   glUseProgram(program);
   GLGFX_CHECKERROR();
+
+  context->program = program;
 
   return true;
 }
