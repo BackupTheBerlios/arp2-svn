@@ -855,7 +855,7 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
 
       if (got_mod) {
 	glColor4f(mod_r, mod_g, mod_b, mod_a);
-	glgfx_context_bindprogram(context, &modulated_texture_blitter);
+	glgfx_context_bindprogram(context, &color_texture_blitter);
       }
       else {
 	glgfx_context_bindprogram(context, &plain_texture_blitter);
