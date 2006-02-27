@@ -68,7 +68,6 @@ struct glgfx_monitor {
     GHashTable*             gl_extensions;
     bool                    have_GLX_SGI_video_sync;
     bool                    have_GL_ARB_pixel_buffer_object;
-    bool                    have_GL_ARB_window_pos;
     bool                    have_GL_EXT_framebuffer_object;
     bool                    have_GL_texture_rectangle;
     bool                    miss_pixel_ops;
