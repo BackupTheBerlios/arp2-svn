@@ -119,7 +119,7 @@ struct glgfx_bitmap* glgfx_bitmap_create_a(struct glgfx_tagitem const* tags) {
   glGenTextures(1, &bitmap->texture);
   GLGFX_CHECKERROR();
 
-  glgfx_context_bindtex(context, bitmap);
+  glgfx_context_bindtex(context, 0, bitmap);
 
   glTexImage2D(GL_TEXTURE_RECTANGLE_ARB, 0,
 	       formats[bitmap->format].internal_format,
@@ -380,7 +380,7 @@ bool glgfx_bitmap_unlock_a(struct glgfx_bitmap* bitmap,
       if (width != 0 && height != 0 &&
 	  (bitmap->locked_access == GL_READ_WRITE ||
 	   bitmap->locked_access == GL_WRITE_ONLY)) {
-	glgfx_context_bindtex(context, bitmap);
+	glgfx_context_bindtex(context, 0, bitmap);
 
 	glPixelStorei(GL_UNPACK_ROW_LENGTH, bitmap->width);
 	glTexSubImage2D(GL_TEXTURE_RECTANGLE_ARB, 0,
@@ -402,7 +402,7 @@ bool glgfx_bitmap_unlock_a(struct glgfx_bitmap* bitmap,
       if (width != 0 && height != 0 &&
 	  (bitmap->locked_access == GL_READ_WRITE ||
 	   bitmap->locked_access == GL_WRITE_ONLY)) {
-	glgfx_context_bindtex(context, bitmap);
+	glgfx_context_bindtex(context, 0, bitmap);
 	
 	glPixelStorei(GL_UNPACK_ROW_LENGTH, bitmap->width);
 	GLGFX_CHECKERROR();
@@ -500,7 +500,7 @@ bool glgfx_bitmap_write_a(struct glgfx_bitmap* bitmap,
 
   pthread_mutex_lock(&glgfx_mutex);
 
-  glgfx_context_bindtex(context, bitmap);
+  glgfx_context_bindtex(context, 0, bitmap);
    
   glPixelStorei(GL_UNPACK_ROW_LENGTH, bytes_per_row / formats[format].size);
   glTexSubImage2D(GL_TEXTURE_RECTANGLE_ARB, 0,
@@ -800,7 +800,7 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
 	glReadBuffer(GL_COLOR_ATTACHMENT0_EXT);
 
 	// Bind temp src bitmap as texture
-	glgfx_context_bindtex(context, src_bitmap);
+	glgfx_context_bindtex(context, 0, src_bitmap);
 
 	// Copy source bitmap into temp bitmap
 	glCopyTexSubImage2D(GL_TEXTURE_RECTANGLE_ARB, 0,
@@ -813,23 +813,35 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
 	glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
 
 	// Bind dst bitmap as texture
-	glgfx_context_bindtex(context, dst_bitmap);
+	GLenum unit = glgfx_context_bindtex(context, 0, dst_bitmap);
 
 	// Make a plain copy, with no color-space transformations
 	glgfx_context_bindprogram(context, &raw_texture_blitter);
 
 	glBegin(GL_QUADS); {
-	  glTexCoord2i(src_x,             src_y);
-	  glVertex2i  (0,                 src_height);
+	  glMultiTexCoord2i(unit, 
+			    src_x,
+			    src_y);
+	  glVertex2i(0,
+		     src_height);
 
-	  glTexCoord2i(src_x + src_width, src_y);
-	  glVertex2i  (src_width,         src_height);
+	  glMultiTexCoord2i(unit,
+			    src_x + src_width,
+			    src_y);
+	  glVertex2i(src_width,
+		     src_height);
 
-	  glTexCoord2i(src_x + src_width, src_y + src_height);
-	  glVertex2i  (src_width,         0);
+	  glMultiTexCoord2i(unit,
+			    src_x + src_width, 
+			    src_y + src_height);
+	  glVertex2i(src_width,
+		     0);
 
-	  glTexCoord2i(src_x,             src_y + src_height);
-	  glVertex2i  (0,                 0);
+	  glMultiTexCoord2i(unit,
+			    src_x,
+			    src_y + src_height);
+	  glVertex2i(0,  
+		     0);
 	}
 	glEnd();
 #endif
@@ -849,9 +861,11 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
 
     glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
 
+    GLenum unit = GL_TEXTURE0;
+
     if (src_bitmap != NULL) {
       // Bind temp src bitmap as texture
-      glgfx_context_bindtex(context, src_bitmap);
+      unit = glgfx_context_bindtex(context, 0, src_bitmap);
 
       if (got_mod) {
 	glColor4f(mod_r, mod_g, mod_b, mod_a);
@@ -868,17 +882,29 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
     }
 
     glBegin(GL_QUADS); {
-      glTexCoord2i(src_x,             src_y);
-      glVertex2i  (dst_x,             dst_bitmap->height - dst_y);
+      glMultiTexCoord2i(unit,
+			src_x,
+			src_y);
+      glVertex2i(dst_x,
+		 dst_bitmap->height - dst_y);
 
-      glTexCoord2i(src_x + src_width, src_y);
-      glVertex2i  (dst_x + dst_width, dst_bitmap->height - dst_y);
+      glMultiTexCoord2i(unit,
+			src_x + src_width, 
+			src_y);
+      glVertex2i(dst_x + dst_width, 
+		 dst_bitmap->height - dst_y);
 
-      glTexCoord2i(src_x + src_width, src_y + src_height);
-      glVertex2i  (dst_x + dst_width, dst_bitmap->height - (dst_y + dst_height));
+      glMultiTexCoord2i(unit,
+			src_x + src_width, 
+			src_y + src_height);
+      glVertex2i(dst_x + dst_width, 
+		 dst_bitmap->height - (dst_y + dst_height));
 
-      glTexCoord2i(src_x,             src_y + src_height);
-      glVertex2i  (dst_x,             dst_bitmap->height - (dst_y + dst_height));
+      glMultiTexCoord2i(unit,
+			src_x,
+			src_y + src_height);
+      glVertex2i(dst_x,
+		 dst_bitmap->height - (dst_y + dst_height));
     }
     glEnd();
 

@@ -1,12 +1,12 @@
 
 #include "glgfx-config.h"
 #include <stdlib.h>
-#include <glib.h>
 #include <GL/gl.h>
 
 #include "glgfx.h"
 #include "glgfx_bitmap.h"
 #include "glgfx_context.h"
+#include "glgfx_glext.h"
 #include "glgfx_viewport.h"
 #include "glgfx_intern.h"
 
@@ -312,27 +312,36 @@ bool glgfx_viewport_render(struct glgfx_viewport* viewport) {
     struct glgfx_rasinfo* rasinfo = (struct glgfx_rasinfo*) data;
     struct glgfx_viewport* viewport = (struct glgfx_viewport*) userdata;
 
-    glgfx_context_bindtex(context, rasinfo->bitmap);
+    GLenum unit = glgfx_context_bindtex(context, 0, rasinfo->bitmap);
     glgfx_context_bindprogram(context, &plain_texture_blitter);
 
-    glBegin(GL_QUADS);
-    glTexCoord2i(rasinfo->xoffset,
-		 rasinfo->yoffset);
-    glVertex3f(viewport->xoffset,
-	       viewport->yoffset, 0);
-    glTexCoord2i(rasinfo->xoffset + rasinfo->width,
-		 rasinfo->yoffset);
-    glVertex3f(viewport->xoffset + viewport->width,
-	       viewport->yoffset, 0);
-    glTexCoord2i(rasinfo->xoffset + rasinfo->width,
-		 rasinfo->yoffset + rasinfo->height);
-    glVertex3f(viewport->xoffset + viewport->width,
-	       viewport->yoffset + viewport->height, 0);
-    glTexCoord2i(rasinfo->xoffset,
-		 rasinfo->yoffset + rasinfo->height);
-    glVertex3f(viewport->xoffset,
-	       viewport->yoffset + viewport->height, 0);
+    glBegin(GL_QUADS); {
+      glMultiTexCoord2i(unit,
+			rasinfo->xoffset,
+			rasinfo->yoffset);
+      glVertex3f(viewport->xoffset,
+		 viewport->yoffset, 0);
+
+      glMultiTexCoord2i(unit,
+			rasinfo->xoffset + rasinfo->width,
+			rasinfo->yoffset);
+      glVertex3f(viewport->xoffset + viewport->width,
+		 viewport->yoffset, 0);
+
+      glMultiTexCoord2i(unit,
+			rasinfo->xoffset + rasinfo->width,
+			rasinfo->yoffset + rasinfo->height);
+      glVertex3f(viewport->xoffset + viewport->width,
+		 viewport->yoffset + viewport->height, 0);
+
+      glMultiTexCoord2i(unit,
+			rasinfo->xoffset,
+			rasinfo->yoffset + rasinfo->height);
+      glVertex3f(viewport->xoffset,
+		 viewport->yoffset + viewport->height, 0);
+    }
     glEnd();
+
     GLGFX_CHECKERROR();
   }
 

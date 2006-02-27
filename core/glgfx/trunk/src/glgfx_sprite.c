@@ -4,7 +4,9 @@
 #include <GL/gl.h>
 
 #include "glgfx.h"
+#include "glgfx_bitmap.h"
 #include "glgfx_context.h"
+#include "glgfx_glext.h"
 #include "glgfx_sprite.h"
 #include "glgfx_intern.h"
 
@@ -131,21 +133,33 @@ bool glgfx_sprite_haschanged(struct glgfx_sprite* sprite) {
 bool glgfx_sprite_render(struct glgfx_sprite* sprite) {
   struct glgfx_context* context = glgfx_context_getcurrent();
 
-  glgfx_context_bindtex(context, sprite->bitmap);
+  GLenum unit = glgfx_context_bindtex(context, 0, sprite->bitmap);
   glgfx_context_bindprogram(context, &plain_texture_blitter);
 
   glBegin(GL_QUADS); {
-    glTexCoord2i(0,                         0);
-    glVertex2i  (sprite->x,                 sprite->y);
+    glMultiTexCoord2i(unit,
+		      0,
+		      0);
+    glVertex2i(sprite->x,
+	       sprite->y);
 
-    glTexCoord2i(sprite->bitmap->width,     0);
-    glVertex2i  (sprite->x + sprite->width, sprite->y);
+    glMultiTexCoord2i(unit, 
+		      sprite->bitmap->width,
+		      0);
+    glVertex2i(sprite->x + sprite->width, 
+	       sprite->y);
 
-    glTexCoord2i(sprite->bitmap->width,     sprite->bitmap->height);
-    glVertex2i  (sprite->x + sprite->width, sprite->y + sprite->height);
+    glMultiTexCoord2i(unit, 
+		      sprite->bitmap->width,  
+		      sprite->bitmap->height);
+    glVertex2i(sprite->x + sprite->width, 
+	       sprite->y + sprite->height);
 
-    glTexCoord2i(0,                         sprite->bitmap->height);
-    glVertex2i  (sprite->x,                 sprite->y + sprite->height);
+    glMultiTexCoord2i(unit,
+		      0,  
+		      sprite->bitmap->height);
+    glVertex2i(sprite->x,
+	       sprite->y + sprite->height);
   }
   glEnd();
 

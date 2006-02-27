@@ -42,8 +42,7 @@ struct glgfx_context {
     int                     fbo_width;
     int                     fbo_height;
 
-    bool                    tex_enable[2];
-    struct glgfx_bitmap*    tex_bitmap;
+    struct glgfx_bitmap*    tex_bitmap[2];
 
     GLuint                  program;
 };
@@ -202,15 +201,10 @@ void glgfx_checkerror(char const* func, char const* file, int line);
 
 bool glgfx_shader_init();
 void glgfx_shader_cleanup();
-GLuint glgfx_shader_getprogram1(enum glgfx_pixel_format dst,
-				struct shader* shader);
-GLuint glgfx_shader_getprogram2(enum glgfx_pixel_format src,
-				enum glgfx_pixel_format dst,
-				struct shader* shader);
-GLuint glgfx_shader_getprogram3(enum glgfx_pixel_format src1,
-				enum glgfx_pixel_format src2,
-				enum glgfx_pixel_format dst,
-				struct shader* shader);
+GLuint glgfx_shader_getprogram(enum glgfx_pixel_format src0, 
+			       enum glgfx_pixel_format src1,
+			       enum glgfx_pixel_format dst,
+			       struct shader* shader);
 
 bool glgfx_monitor_waittof(struct glgfx_monitor* monitor);
 bool glgfx_monitor_swapbuffers(struct glgfx_monitor* monitor);
@@ -225,8 +219,9 @@ bool glgfx_view_rendersprites(struct glgfx_view* view);
 bool glgfx_viewport_render(struct glgfx_viewport* viewport);
 bool glgfx_sprite_render(struct glgfx_sprite* sprite);
 
-bool glgfx_context_bindtex(struct glgfx_context* context, struct glgfx_bitmap* bitmap);
-bool glgfx_context_unbindtex(struct glgfx_context* context);
+GLenum glgfx_context_bindtex(struct glgfx_context* context, 
+			     int channel, struct glgfx_bitmap* bitmap);
+bool glgfx_context_unbindtex(struct glgfx_context* context, int channel);
 bool glgfx_context_bindfbo(struct glgfx_context* context, struct glgfx_bitmap* bitmap);
 bool glgfx_context_unbindfbo(struct glgfx_context* context);
 bool glgfx_context_bindprogram(struct glgfx_context* context, struct shader* shader);

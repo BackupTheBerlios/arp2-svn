@@ -297,57 +297,50 @@ bool glgfx_context_unbindfbo(struct glgfx_context* context) {
 }
 
 
-bool glgfx_context_bindtex(struct glgfx_context* context,
-			   struct glgfx_bitmap* bitmap) {
-  if (context == NULL) {
+#define TEXUNITS_PER_CHANNEL 2
+
+GLenum glgfx_context_bindtex(struct glgfx_context* context,
+			     int channel,
+			     struct glgfx_bitmap* bitmap) {
+  if (context == NULL || channel < 0 || channel > 1) {
     errno = EINVAL;
-    return false;
+    return 0;
   }
 
   if (/* bitmap->has extra bitmaps*/ false) {
-    glActiveTexture(GL_TEXTURE1);
-    context->tex_enable[1] = true;
+    glActiveTexture(GL_TEXTURE1 + channel * TEXUNITS_PER_CHANNEL);
 
-    if (context->tex_bitmap != bitmap) {
+    if (context->tex_bitmap[channel] != bitmap) {
       /* glBindTexture(GL_TEXTURE_RECTANGLE_ARB, bitmap->secondary_texture); */
       GLGFX_CHECKERROR();
     }
   }
 
-  glActiveTexture(GL_TEXTURE0);
-  context->tex_enable[0] = true;
+  glActiveTexture(GL_TEXTURE0 + channel * TEXUNITS_PER_CHANNEL);
 
-  if (context->tex_bitmap != bitmap) {
+  if (context->tex_bitmap[channel] != bitmap) {
     glBindTexture(GL_TEXTURE_RECTANGLE_ARB, bitmap->texture);
     GLGFX_CHECKERROR();
-    context->tex_bitmap = bitmap;
+    context->tex_bitmap[channel] = bitmap;
   }
 
-  return true;
+  return GL_TEXTURE0 + channel * TEXUNITS_PER_CHANNEL;
 }
 
 
-bool glgfx_context_unbindtex(struct glgfx_context* context) {
-  if (context == NULL) {
+bool glgfx_context_unbindtex(struct glgfx_context* context, int channel) {
+  if (context == NULL || channel < 0 || channel > 1) {
     errno = EINVAL;
     return false;
   }
 
-  if (context->tex_enable[1]) {
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_RECTANGLE_ARB, 0);
+  glActiveTexture(GL_TEXTURE1 + channel * TEXUNITS_PER_CHANNEL);
+  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, 0);
 
-    context->tex_enable[1] = false;
-  }
+  glActiveTexture(GL_TEXTURE0 + channel * TEXUNITS_PER_CHANNEL);
+  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, 0);
 
-  if (context->tex_enable[0]) {
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_RECTANGLE_ARB, 0);
-
-    context->tex_enable[0] = false;
-  }
-
-  context->tex_bitmap = NULL;
+  context->tex_bitmap[channel] = NULL;
 
   return true;
 }
@@ -361,18 +354,23 @@ bool glgfx_context_bindprogram(struct glgfx_context* context,
   }
 
   // Defaults
-  enum glgfx_pixel_format src = glgfx_pixel_format_a8r8g8b8;
-  enum glgfx_pixel_format dst = context->monitor->format;
+  enum glgfx_pixel_format src0 = glgfx_pixel_format_a8r8g8b8;
+  enum glgfx_pixel_format src1 = glgfx_pixel_format_a8r8g8b8;
+  enum glgfx_pixel_format dst  = context->monitor->format;
 
-  if (context->tex_bitmap != NULL) {
-    src = context->tex_bitmap->format;
+  if (context->tex_bitmap[0] != NULL) {
+    src0 = context->tex_bitmap[0]->format;
+  }
+
+  if (context->tex_bitmap[1] != NULL) {
+    src1 = context->tex_bitmap[1]->format;
   }
 
   if (context->fbo_bitmap != NULL) {
     dst = context->fbo_bitmap->format;
   }
 
-  GLuint program = glgfx_shader_getprogram(src, dst, shader);
+  GLuint program = glgfx_shader_getprogram(src0, src1, dst, shader);
 
   if (program == 0) {
     return false;
