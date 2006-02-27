@@ -775,7 +775,7 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
     // Blit using glCopyPixels(), no texturing
     glReadBuffer(GL_COLOR_ATTACHMENT0_EXT);
     glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
-    glRasterPos2i(dst_x, dst_bitmap->height - dst_y);
+    glWindowPos2iARB(dst_x, dst_y);
     glCopyPixels(src_x, src_y, src_width, src_height, GL_COLOR);
 
     if ((minterm & 0xf0) != 0xc0) {

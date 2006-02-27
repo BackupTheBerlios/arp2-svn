@@ -85,6 +85,15 @@ static bool check_extensions(struct glgfx_monitor* monitor) {
 	monitor->name);
   }
 
+  // Check for window_pos extension
+  if (g_hash_table_lookup(monitor->gl_extensions, "GL_ARB_window_pos") != NULL) {
+    monitor->have_GL_ARB_window_pos = true;
+  }
+  else {
+    BUG("Required extension GL_ARB_window_pos missing from display %s!\n",
+	monitor->name);
+  }
+
   // Check for video_sync
   if (g_hash_table_lookup(monitor->gl_extensions, "GLX_SGI_video_sync") != NULL) {
     monitor->have_GLX_SGI_video_sync = true;
@@ -93,22 +102,19 @@ static bool check_extensions(struct glgfx_monitor* monitor) {
     BUG("Warning: GLX_SGI_video_sync not supported; will emulate.\n");
   }
 
-  // Check for vertex_buffer_object and pixel_buffer_object
-  if (g_hash_table_lookup(monitor->gl_extensions, "GL_ARB_vertex_buffer_object") != NULL) {
-    monitor->have_GL_ARB_vertex_buffer_object = true;
-
-    if (g_hash_table_lookup(monitor->gl_extensions, "GL_EXT_pixel_buffer_object") != NULL) {
-      monitor->have_GL_ARB_pixel_buffer_object = true;
-    }
+  // Check for pixel_buffer_object
+  if (g_hash_table_lookup(monitor->gl_extensions, "GL_ARB_pixel_buffer_object") != NULL) {
+    monitor->have_GL_ARB_pixel_buffer_object = true;
   }
 
   if (!monitor->have_GL_ARB_pixel_buffer_object) {
-    BUG("Warning: GL_EXT_pixel_buffer_object not supported; will emulate.\n");
+    BUG("Warning: GL_ARB_pixel_buffer_object not supported; will emulate.\n");
   }
 
   // Return true if all required extensions are present
   return (monitor->have_GL_EXT_framebuffer_object && 
-	  monitor->have_GL_texture_rectangle);
+	  monitor->have_GL_texture_rectangle &&
+	  monitor->have_GL_ARB_window_pos);
 }
 
 
