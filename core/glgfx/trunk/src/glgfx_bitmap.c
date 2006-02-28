@@ -711,10 +711,6 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
 	src_bitmap = (struct glgfx_bitmap*) tag->data;
 	break;
 	
-      case glgfx_bitmap_blit_minterm:
-	minterm = tag->data;
-	break;
-
       case glgfx_bitmap_blit_mod_r:
 	mod_r = tag->data / 65536.0;
 	got_mod_rgba = true;
@@ -757,6 +753,10 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
 	got_mod_height = true;
 	break;
 
+      case glgfx_bitmap_blit_minterm:
+	minterm = tag->data;
+	break;
+
       case glgfx_bitmap_blit_unknown:
       case glgfx_bitmap_blit_max:
 	break;
@@ -764,24 +764,28 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
   }
 
   if (!got_src_width) {
+    // Default is 1:1 copy
     src_width = dst_width;
   }
 
   if (!got_src_height) {
+    // Default is 1:1 copy
     src_height = dst_height;
   }
 
-  if (!got_mod_width) {
-    mod_width = src_width;
+  if (mod_bitmap != NULL && !got_mod_width) {
+    // Default is to use full bitmap
+    mod_width = mod_bitmap->width;
   }
 
-  if (!got_mod_height) {
-    mod_height = src_height;
+  if (mod_bitmap != NULL && !got_mod_height) {
+    // Default is to use full bitmap
+    mod_height = mod_bitmap->height;
   }
 
   if (src_bitmap == NULL && mod_bitmap != NULL) {
     // NULL src bitmap components are always 1.0 and the coordinates are
-    // irrelevant. If mod_bitmap is present, move it to source.
+    // irrelevant. If mod_bitmap is present, set it as the new source.
     src_bitmap = mod_bitmap;
     src_x = mod_x;
     src_y = mod_y;
@@ -792,19 +796,25 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
   }
 
   if (src_x < 0 || src_y < 0 || src_width <= 0 || src_height <= 0 ||
-      mod_x < 0 || mod_y < 0 || mod_width <= 0 || mod_height <= 0 ||
       dst_x < 0 || dst_y < 0 || dst_width <= 0 || dst_height <= 0 ||
       (src_bitmap != NULL && src_x + src_width > src_bitmap->width) || 
-      (mod_bitmap != NULL && mod_x + mod_width > mod_bitmap->width) || 
       dst_x + dst_width > dst_bitmap->width || 
       (src_bitmap != NULL && src_y + src_height > src_bitmap->height) ||
-      (mod_bitmap != NULL && mod_y + mod_height > mod_bitmap->height) ||
       dst_y + dst_height > dst_bitmap->height ||
       (minterm & ~0xff) != 0) {
     errno = EINVAL;
     return false;
   }
 
+  if (mod_bitmap != NULL) {
+    if (mod_x < 0 || mod_y < 0 || mod_width <= 0 || mod_height <= 0 ||
+	mod_x + mod_width > mod_bitmap->width || 
+	mod_y + mod_height > mod_bitmap->height) {
+      errno = EINVAL;
+      return false;
+    }
+  }
+	
 
   bool rc = true;
 

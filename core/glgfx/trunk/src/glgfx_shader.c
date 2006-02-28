@@ -48,9 +48,20 @@ struct shader plain_texture_blitter = {
 struct shader color_texture_blitter = {
   .channels = 2,
 
-  .fragment = 
+  .vertex = 
+  "varying vec4 color;" // gl_FrontColor is clamped!
+  ""
   "void main() {"
-  "   writePixel0(gl_Color * readPixel0(gl_TexCoord[0].xy));"
+  "  color = gl_Color;"
+  "  gl_TexCoord[0] = gl_MultiTexCoord0;"
+  "  gl_Position = ftransform();"
+  "}",
+
+  .fragment = 
+  "varying vec4 color;"
+  ""
+  "void main() {"
+  "   writePixel0(color * readPixel0(gl_TexCoord[0].xy));"
   "}"
 };
 
@@ -58,11 +69,23 @@ struct shader color_texture_blitter = {
 struct shader modulated_texture_blitter = {
   .channels = 3,
 
-  .fragment = 
+  .vertex = 
+  "varying vec4 color;" // gl_FrontColor is clamped!
+  ""
   "void main() {"
-  "   writePixel0(gl_Color *"
+  "  color = gl_Color;"
+  "  gl_TexCoord[0] = gl_MultiTexCoord0;"
+  "  gl_TexCoord[2] = gl_MultiTexCoord2;"
+  "  gl_Position = ftransform();"
+  "}",
+
+  .fragment = 
+  "varying vec4 color;"
+  ""
+  "void main() {"
+  "   writePixel0(color *"
   "               readPixel0(gl_TexCoord[0].xy) *"
-  "               readPixel1(gl_TexCoord[1].xy));"
+  "               readPixel1(gl_TexCoord[2].xy));"
   "}"
 };
 

@@ -42,27 +42,28 @@ enum glgfx_bitmap_copy_tag {
 enum glgfx_bitmap_blit_tag {
   glgfx_bitmap_blit_unknown = glgfx_tag_user + 2200,
 
-  glgfx_bitmap_blit_x,
-  glgfx_bitmap_blit_y,
-  glgfx_bitmap_blit_width,
-  glgfx_bitmap_blit_height,
+  glgfx_bitmap_blit_x,		/* Required */
+  glgfx_bitmap_blit_y,		/* Required */
+  glgfx_bitmap_blit_width,	/* Required */
+  glgfx_bitmap_blit_height,	/* Required */
 
-  glgfx_bitmap_blit_src_x,
-  glgfx_bitmap_blit_src_y,
-  glgfx_bitmap_blit_src_width,
-  glgfx_bitmap_blit_src_height,
-  glgfx_bitmap_blit_src_bitmap, /* Can be NULL! */
+  glgfx_bitmap_blit_src_x,	/* Required */
+  glgfx_bitmap_blit_src_y,	/* Required */
+  glgfx_bitmap_blit_src_width,	/* Default is same as destination width */
+  glgfx_bitmap_blit_src_height,	/* Default is same as destination width */
+  glgfx_bitmap_blit_src_bitmap, /* Can also be NULL for a constant (1,1,1,1) bitmap!
+				 * Default is same as destination. */
   
-  glgfx_bitmap_blit_mod_r, /* Range is 0 - 0x10000 (0.0 - 1.0) */
+  glgfx_bitmap_blit_mod_r,	/* Range is 0 - 0x10000 - ... (0.0 - 1.0 - ...) */
   glgfx_bitmap_blit_mod_g,
   glgfx_bitmap_blit_mod_b,
   glgfx_bitmap_blit_mod_a,
 
-  glgfx_bitmap_blit_mod_x,
-  glgfx_bitmap_blit_mod_y,
-  glgfx_bitmap_blit_mod_width,
-  glgfx_bitmap_blit_mod_height,
-  glgfx_bitmap_blit_mod_bitmap,
+  glgfx_bitmap_blit_mod_x,	/* Default is 0 */
+  glgfx_bitmap_blit_mod_y,	/* Default is 0 */
+  glgfx_bitmap_blit_mod_width,	/* Default is mod_bitmap width */
+  glgfx_bitmap_blit_mod_height,	/* Default is mod_bitmap height */
+  glgfx_bitmap_blit_mod_bitmap, /* Default is NULL, i.e. mod bitmap is disabled */
 
   /* MinTerms are currently ignored by the hardware for floating point
      bitmaps. Never specify anyting but 0xc0 (or leave unspecified) for such
