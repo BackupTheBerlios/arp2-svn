@@ -170,7 +170,6 @@ extern struct pixel_info const formats[glgfx_pixel_format_max];
 
 enum shader_function_read {
   shader_function_read_rgba,
-  shader_function_read_fp32rgba,
   shader_function_read_max
 };
 

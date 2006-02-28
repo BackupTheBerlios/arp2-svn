@@ -70,14 +70,7 @@ static char const* read_shader_source[shader_function_read_max] = {
   "uniform samplerRect tex%d;"
   "vec4 readPixel%d(vec2 pos) {"
   "  return textureRect(tex%d, pos);"
-  "}",
-
-  "uniform samplerRect tex%d;"
-  "vec4 readPixel%d(vec2 pos) {"
-  "  return textureRect(tex%d, pos);" // We could read four pixels and
-				         // interpolate here if we really
-				         // want
-  "}",
+  "}"
 };
 
 static GLuint read0_shader_objects[shader_function_read_max];
@@ -94,7 +87,7 @@ static int read_shader_funcs[glgfx_pixel_format_max] = {
   shader_function_read_rgba,		// glgfx_pixel_a8r8g8b8
 
   shader_function_read_rgba,		// glgfx_pixel_r16g16b16a16f
-  shader_function_read_fp32rgba		// glgfx_pixel_r32g32b32a32f
+  shader_function_read_rgba		// glgfx_pixel_r32g32b32a32f
 };
 
 
