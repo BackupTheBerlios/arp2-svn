@@ -644,15 +644,19 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
 
   struct glgfx_tagitem const* tag;
   int src_x = -1, src_y = -1, src_width = -1, src_height = -1;
+  int mod_x =  0, mod_y =  0, mod_width = -1, mod_height = -1;
   int dst_x = -1, dst_y = -1, dst_width = -1, dst_height = -1;
   struct glgfx_bitmap* src_bitmap = bitmap;
+  struct glgfx_bitmap* mod_bitmap = NULL;
   struct glgfx_bitmap* dst_bitmap = bitmap;
   int minterm = 0xc0;
   GLfloat mod_r = 1.0, mod_g = 1.0, mod_b = 1.0, mod_a = 1.0;
 
   bool got_src_width = false;
   bool got_src_height = false;
-  bool got_mod = false;
+  bool got_mod_width = false;
+  bool got_mod_height = false;
+  bool got_mod_rgba = false;
 
   static GLenum const ops[16] = {
     GL_CLEAR, GL_NOR, GL_AND_INVERTED, GL_COPY_INVERTED, 
@@ -713,22 +717,44 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
 
       case glgfx_bitmap_blit_mod_r:
 	mod_r = tag->data / 65536.0;
-	got_mod = true;
+	got_mod_rgba = true;
 	break;
 
       case glgfx_bitmap_blit_mod_g:
 	mod_g = tag->data / 65536.0;
-	got_mod = true;
+	got_mod_rgba = true;
 	break;
 
       case glgfx_bitmap_blit_mod_b:
 	mod_b = tag->data / 65536.0;
-	got_mod = true;
+	got_mod_rgba = true;
 	break;
 
       case glgfx_bitmap_blit_mod_a:
 	mod_a = tag->data / 65536.0;
-	got_mod = true;
+	got_mod_rgba = true;
+	break;
+
+      case glgfx_bitmap_blit_mod_bitmap:
+	mod_bitmap = (struct glgfx_bitmap*) tag->data;
+	break;
+
+      case glgfx_bitmap_blit_mod_x:
+	mod_x = tag->data;
+	break;
+
+      case glgfx_bitmap_blit_mod_y:
+	mod_y = tag->data;
+	break;
+
+      case glgfx_bitmap_blit_mod_width:
+	mod_width = tag->data;
+	got_mod_width = true;
+	break;
+
+      case glgfx_bitmap_blit_mod_height:
+	mod_height = tag->data;
+	got_mod_height = true;
 	break;
 
       case glgfx_bitmap_blit_unknown:
@@ -745,11 +771,34 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
     src_height = dst_height;
   }
 
+  if (!got_mod_width) {
+    mod_width = src_width;
+  }
+
+  if (!got_mod_height) {
+    mod_height = src_height;
+  }
+
+  if (src_bitmap == NULL && mod_bitmap != NULL) {
+    // NULL src bitmap components are always 1.0 and the coordinates are
+    // irrelevant. If mod_bitmap is present, move it to source.
+    src_bitmap = mod_bitmap;
+    src_x = mod_x;
+    src_y = mod_y;
+    src_width = mod_width;
+    src_height = mod_height;
+
+    mod_bitmap = NULL;
+  }
+
   if (src_x < 0 || src_y < 0 || src_width <= 0 || src_height <= 0 ||
+      mod_x < 0 || mod_y < 0 || mod_width <= 0 || mod_height <= 0 ||
       dst_x < 0 || dst_y < 0 || dst_width <= 0 || dst_height <= 0 ||
       (src_bitmap != NULL && src_x + src_width > src_bitmap->width) || 
+      (mod_bitmap != NULL && mod_x + mod_width > mod_bitmap->width) || 
       dst_x + dst_width > dst_bitmap->width || 
       (src_bitmap != NULL && src_y + src_height > src_bitmap->height) ||
+      (mod_bitmap != NULL && mod_y + mod_height > mod_bitmap->height) ||
       dst_y + dst_height > dst_bitmap->height ||
       (minterm & ~0xff) != 0) {
     errno = EINVAL;
@@ -760,9 +809,10 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
   bool rc = true;
 
   if (src_bitmap == dst_bitmap && 
+      mod_bitmap == NULL &&
       dst_width == src_width && 
       dst_height == dst_height &&
-      !got_mod &&
+      !got_mod_rgba &&
       (!context->monitor->miss_pixel_ops || (minterm & 0xf0) == 0xc0)) {
     if ((minterm & 0xf0) != 0xc0) {
       glEnable(GL_COLOR_LOGIC_OP);
@@ -861,13 +911,21 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
 
     glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
 
-    GLenum unit = GL_TEXTURE0;
+    GLenum src_unit = GL_TEXTURE0;
+    GLenum mod_unit = GL_TEXTURE1;
 
     if (src_bitmap != NULL) {
       // Bind temp src bitmap as texture
-      unit = glgfx_context_bindtex(context, 0, src_bitmap);
+      src_unit = glgfx_context_bindtex(context, 0, src_bitmap);
 
-      if (got_mod) {
+      if (mod_bitmap != NULL) {
+	// Bind mod bitmap as texture
+	mod_unit = glgfx_context_bindtex(context, 1, mod_bitmap);
+
+	glColor4f(mod_r, mod_g, mod_b, mod_a);
+	glgfx_context_bindprogram(context, &modulated_texture_blitter);
+      }
+      else if (got_mod_rgba) {
 	glColor4f(mod_r, mod_g, mod_b, mod_a);
 	glgfx_context_bindprogram(context, &color_texture_blitter);
       }
@@ -876,33 +934,45 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
       }
     }
     else {
-      // NULL source texture -> plain color blit
+      // NULL source texture -> mod_bitmap is also NULL -> plain color blit
       glColor4f(mod_r, mod_g, mod_b, mod_a);
       glgfx_context_bindprogram(context, &color_blitter);
     }
 
     glBegin(GL_QUADS); {
-      glMultiTexCoord2i(unit,
+      glMultiTexCoord2i(src_unit,
 			src_x,
 			src_y);
+      glMultiTexCoord2i(mod_unit,
+			mod_x,
+			mod_y);
       glVertex2i(dst_x,
 		 dst_bitmap->height - dst_y);
 
-      glMultiTexCoord2i(unit,
+      glMultiTexCoord2i(src_unit,
 			src_x + src_width, 
 			src_y);
+      glMultiTexCoord2i(mod_unit,
+			mod_x + mod_width, 
+			mod_y);
       glVertex2i(dst_x + dst_width, 
 		 dst_bitmap->height - dst_y);
 
-      glMultiTexCoord2i(unit,
+      glMultiTexCoord2i(src_unit,
 			src_x + src_width, 
 			src_y + src_height);
+      glMultiTexCoord2i(mod_unit,
+			mod_x + mod_width, 
+			mod_y + mod_height);
       glVertex2i(dst_x + dst_width, 
 		 dst_bitmap->height - (dst_y + dst_height));
 
-      glMultiTexCoord2i(unit,
+      glMultiTexCoord2i(src_unit,
 			src_x,
 			src_y + src_height);
+      glMultiTexCoord2i(mod_unit,
+			mod_x,
+			mod_y + mod_height);
       glVertex2i(dst_x,
 		 dst_bitmap->height - (dst_y + dst_height));
     }

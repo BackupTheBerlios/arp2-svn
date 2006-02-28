@@ -58,6 +58,12 @@ enum glgfx_bitmap_blit_tag {
   glgfx_bitmap_blit_mod_b,
   glgfx_bitmap_blit_mod_a,
 
+  glgfx_bitmap_blit_mod_x,
+  glgfx_bitmap_blit_mod_y,
+  glgfx_bitmap_blit_mod_width,
+  glgfx_bitmap_blit_mod_height,
+  glgfx_bitmap_blit_mod_bitmap,
+
   /* MinTerms are currently ignored by the hardware for floating point
      bitmaps. Never specify anyting but 0xc0 (or leave unspecified) for such
      formats. */
