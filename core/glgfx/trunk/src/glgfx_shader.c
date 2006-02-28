@@ -28,10 +28,10 @@ struct shader raw_texture_blitter = {
   .channels = 0,
 
   .fragment = 
-  "uniform samplerRect tex;"
+  "uniform samplerRect tex0a, tex0b;"
   ""
   "void main() {"
-  "   gl_FragColor = textureRect(tex, gl_TexCoord[0].xy);"
+  "   gl_FragColor = textureRect(tex0a, gl_TexCoord[0].xy);"
   "}"
 };
 
@@ -90,9 +90,10 @@ struct shader modulated_texture_blitter = {
 };
 
 static char const* read_shader_source[shader_function_read_max] = {
-  "uniform samplerRect tex%d;"
+  "uniform samplerRect tex%da, tex%db;"
+  ""
   "vec4 readPixel%d(vec2 pos) {"
-  "  return textureRect(tex%d, pos);"
+  "  return textureRect(tex%da, pos);"
   "}"
 };
 
@@ -235,6 +236,29 @@ static GLuint link(struct shader* shader,
   }
 
   GLGFX_CHECKERROR();
+
+  if (src0 != 0) {
+    shader->tex0a = glGetUniformLocation(program, "tex0a");
+    shader->tex0b = glGetUniformLocation(program, "tex0b");
+  }
+  else {
+    shader->tex0a = shader->tex0b = -2;
+  }
+
+  if (src1 != 0) {
+    shader->tex1a = glGetUniformLocation(program, "tex1a");
+    shader->tex1b = glGetUniformLocation(program, "tex1b");
+  }
+  else {
+    shader->tex1a = shader->tex1b = -2;
+  }
+
+  printf("shader %p: %d %d %d %d\n", 
+	 shader,
+	 shader->tex0a, shader->tex0b,
+	 shader->tex1a, shader->tex1b);
+  GLGFX_CHECKERROR();
+
   return program;
 }
 
@@ -394,7 +418,7 @@ bool glgfx_shader_init() {
   char main_src[4096];
 
   for (i = 0; i < shader_function_read_max; ++i) {
-    snprintf(main_src, sizeof (main_src), read_shader_source[i], 0, 0, 0);
+    snprintf(main_src, sizeof (main_src), read_shader_source[i], 0, 0, 0, 0);
     read0_shader_objects[i] = compile_fragment_shader(main_src);
 
     if (read0_shader_objects[i] == 0) {
@@ -403,7 +427,7 @@ bool glgfx_shader_init() {
   }
 
   for (i = 0; i < shader_function_read_max; ++i) {
-    snprintf(main_src, sizeof (main_src), read_shader_source[i], 1, 1, 1);
+    snprintf(main_src, sizeof (main_src), read_shader_source[i], 1, 1, 1, 1);
     read1_shader_objects[i] = compile_fragment_shader(main_src);
 
     if (read1_shader_objects[i] == 0) {

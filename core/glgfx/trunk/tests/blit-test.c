@@ -118,7 +118,13 @@ int blit(struct glgfx_bitmap* bitmap, int w, int h) {
 			glgfx_bitmap_attr_format, glgfx_pixel_format_r5g6b5,
 			glgfx_tag_end);
 
-  if (bm2 != NULL) {
+  struct glgfx_bitmap* bm3 = 
+    glgfx_bitmap_create(glgfx_bitmap_attr_width,  100,
+			glgfx_bitmap_attr_height, 100, 
+			glgfx_bitmap_attr_format, glgfx_pixel_format_r5g6b5,
+			glgfx_tag_end);
+
+  if (bm2 != NULL && bm3 != NULL) {
     uint16_t* buffer;
 
     if ((buffer = glgfx_bitmap_lock(bm2, false, true, glgfx_tag_end)) != NULL) {
@@ -157,8 +163,43 @@ int blit(struct glgfx_bitmap* bitmap, int w, int h) {
 
 		      glgfx_tag_end);
 
-    glgfx_bitmap_destroy(bm2);
+
+    if ((buffer = glgfx_bitmap_lock(bm3, false, true, glgfx_tag_end)) != NULL) {
+      int x, y;
+
+      for (y = 0; y < 100; y += 1) {
+	for (x = 0; x < 100; x += 1) {
+	  int val = y;
+	  buffer[x+y*100] = glgfx_pixel_create_r5g6b5(val*31/100, val*63/100, val*31/100);
+	}
+      }
+
+      if (glgfx_bitmap_unlock(bm3, glgfx_tag_end)) {
+	printf("updated bm2\n");
+      }
+    }
+
+    glgfx_bitmap_blit(bitmap,
+		      glgfx_bitmap_blit_x,          300,
+		      glgfx_bitmap_blit_y,          h-50,
+		      glgfx_bitmap_blit_width,      50,
+		      glgfx_bitmap_blit_height,     50,
+
+		      glgfx_bitmap_blit_src_x,      0,
+		      glgfx_bitmap_blit_src_y,      0,
+		      glgfx_bitmap_blit_src_width,  100,
+		      glgfx_bitmap_blit_src_height, 100,
+		      glgfx_bitmap_blit_src_bitmap, (intptr_t) bm2,
+
+		      glgfx_bitmap_blit_mod_bitmap, (intptr_t) bm3,
+		      glgfx_bitmap_blit_mod_r,      0x20000,
+		      
+
+		      glgfx_tag_end);
   }
+  
+  glgfx_bitmap_destroy(bm2);
+  glgfx_bitmap_destroy(bm3);
 
   glgfx_monitor_render(monitor);
   printf("going home\n");

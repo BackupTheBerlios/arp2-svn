@@ -181,6 +181,8 @@ enum shader_function_write {
 
 struct shader {
     GLuint* programs;
+    GLint   tex0a, tex0b;
+    GLint   tex1a, tex1b;
     int channels;
     char const* vertex;
     char const* fragment;

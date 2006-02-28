@@ -377,6 +377,31 @@ bool glgfx_context_bindprogram(struct glgfx_context* context,
   }
 
   glUseProgram(program);
+
+  if (context->tex_bitmap[0] != NULL) {
+    if (shader->tex0a >= 0) {
+      glUniform1i(shader->tex0a, 0);
+      GLGFX_CHECKERROR();
+    }
+
+    if (shader->tex0b >= 0) {
+      glUniform1i(shader->tex0b, 1);
+      GLGFX_CHECKERROR();
+    }
+  }
+
+  if (context->tex_bitmap[1] != NULL) {
+    if (shader->tex1a >= 0) {
+      glUniform1i(shader->tex1a, 2);
+      GLGFX_CHECKERROR();
+    }
+
+    if (shader->tex1b >= 0) {
+      glUniform1i(shader->tex1b, 3);
+      GLGFX_CHECKERROR();
+    }
+  }
+
   GLGFX_CHECKERROR();
 
   context->program = program;
