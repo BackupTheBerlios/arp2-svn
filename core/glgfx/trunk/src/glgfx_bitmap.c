@@ -841,7 +841,7 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
   if (mask != NULL) {
     if (mask_bpp < 0 || 
 	mask_x < 0 || mask_y < 0 ||
-	mask_x >= mask_bpp / 8) {
+	mask_x >= mask_bpp * 8) {
       errno = EINVAL;
       return false;
     }
@@ -899,6 +899,46 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
 
 	glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
 
+	if (mask != NULL) {
+	  // Clear area
+	  glColor4f(0, 0, 0, 0);
+	  glgfx_context_bindprogram(context, &color_blitter);
+
+	  glBegin(GL_QUADS); {
+	    glVertex2i(0,
+		       src_height);
+	    glVertex2i(src_width,
+		       src_height);
+	    glVertex2i(src_width,
+		       0);
+	    glVertex2i(0,  
+		       0);
+	  }
+	  glEnd();
+
+	  // Draw mask
+	  glColor4f(1, 1, 1, 1);
+
+	  if (mask_x != 0) {
+	    glPixelStorei(GL_UNPACK_ROW_LENGTH, mask_bpp * 8);
+	  }
+
+	  glWindowPos2i(0, 0);
+	  glBitmap(mask_bpp * 8 - mask_x, src_height,
+		   mask_x, mask_y,
+		   0, 0,
+		   mask);
+	  
+	  if (mask_x != 0) {
+	    glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+	  }
+
+	  // Enable blending
+	  glEnable(GL_BLEND);
+	  glBlendFunc(GL_DST_COLOR, GL_ZERO);
+	  glBlendEquation(GL_FUNC_ADD);
+	}
+
 	GLenum unit = GL_TEXTURE0;
 
 	if (src_bitmap != NULL) {
@@ -914,66 +954,42 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
 	    // here, but we NEED a working alpha channel)
 	    glgfx_context_bindprogram(context, &plain_texture_blitter);
 	  }
+
+	  glBegin(GL_QUADS); {
+	    glMultiTexCoord2i(unit, 
+			      src_x,
+			      src_y);
+	    glVertex2i(0,
+		       src_height);
+
+	    glMultiTexCoord2i(unit,
+			      src_x + src_width,
+			      src_y);
+	    glVertex2i(src_width,
+		       src_height);
+
+	    glMultiTexCoord2i(unit,
+			      src_x + src_width, 
+			      src_y + src_height);
+	    glVertex2i(src_width,
+		       0);
+
+	    glMultiTexCoord2i(unit,
+			      src_x,
+			      src_y + src_height);
+	    glVertex2i(0,  
+		       0);
+	  }
+	  glEnd();
 	}
-	else {
-	  // Draw a white opaque rectangle
 
-	  glColor4f(1, 1, 1, 1);
-	  glgfx_context_bindprogram(context, &color_blitter);
+	if (mask != NULL) {
+	  glDisable(GL_BLEND);
+	  GLGFX_CHECKERROR();
 	}
-
-	glBegin(GL_QUADS); {
-	  glMultiTexCoord2i(unit, 
-			    src_x,
-			    src_y);
-	  glVertex2i(0,
-		     src_height);
-
-	  glMultiTexCoord2i(unit,
-			    src_x + src_width,
-			    src_y);
-	  glVertex2i(src_width,
-		     src_height);
-
-	  glMultiTexCoord2i(unit,
-			    src_x + src_width, 
-			    src_y + src_height);
-	  glVertex2i(src_width,
-		     0);
-
-	  glMultiTexCoord2i(unit,
-			    src_x,
-			    src_y + src_height);
-	  glVertex2i(0,  
-		     0);
-	}
-	glEnd();
 
 	src_x = 0;
 	src_y = 0;
-
-	if (mask != NULL) {
-	  glEnable(GL_BLEND);
-	  glBlendFunc(GL_ZERO, GL_SRC_COLOR);
-	  glBlendEquation(GL_FUNC_ADD);
-	  glColor4f(1, 1, 1, 1);
-
-	  if (mask_x != 0) {
-	    glPixelStorei(GL_UNPACK_ROW_LENGTH, mask_bpp * 8);
-	  }
-
-	  glWindowPos2i(0, 0);
-	  glBitmap(mask_bpp / 8 - mask_x, src_height,
-		   mask_x, mask_y,
-		   0, 0,
-		   mask);
-
-	  if (mask_x != 0) {
-	    glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-	  }
-	  
-	  glDisable(GL_BLEND);
-	}
 
 	// Install tmp bitmap as new source
 	src_bitmap = tmp_bitmap;
