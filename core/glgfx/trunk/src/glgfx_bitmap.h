@@ -86,8 +86,24 @@ enum glgfx_bitmap_blit_tag {
 } __attribute__((mode(__pointer__)));
 
 
+enum glgfx_blend_equation {
+  glgfx_blend_equation_unknown = 0,		// MUST start at 0!
+
+  glgfx_blend_equation_disabled,
+  glgfx_blend_equation_func_add,
+  glgfx_blend_equation_func_subtract,
+  glgfx_blend_equation_func_subtract_rev,
+  glgfx_blend_equation_component_min,
+  glgfx_blend_equation_component_max,
+
+  glgfx_blend_equation_max,
+} __attribute__((mode(__pointer__)));
+
+
 enum glgfx_blend_func {
-  glgfx_blend_func_zero = 0,		// MUST start at 0!
+  glgfx_blend_func_unknown = 0,		// MUST start at 0!
+
+  glgfx_blend_func_zero,
   glgfx_blend_func_one,
   glgfx_blend_func_srccolor,		// Only valid for dst func
   glgfx_blend_func_srccolor_inv,	// only valid for dst func
@@ -104,18 +120,6 @@ enum glgfx_blend_func {
   glgfx_blend_func_srcalpha_sat,
 
   glgfx_blend_func_max
-} __attribute__((mode(__pointer__)));
-
-
-enum glgfx_blend_equation {
-  glgfx_blend_equation_disabled = 0,		// MUST start at 0!
-  glgfx_blend_equation_func_add,
-  glgfx_blend_equation_func_subtract,
-  glgfx_blend_equation_func_subtract_rev,
-  glgfx_blend_equation_component_min,
-  glgfx_blend_equation_component_max,
-
-  glgfx_blend_equation_max,
 } __attribute__((mode(__pointer__)));
 
 

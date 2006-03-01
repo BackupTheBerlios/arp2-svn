@@ -200,8 +200,8 @@ int blit(struct glgfx_bitmap* bitmap, int w, int h) {
     };
 
     glgfx_bitmap_blit(bitmap,
-		      glgfx_bitmap_blit_x,          300,
-		      glgfx_bitmap_blit_y,          h-50,
+		      glgfx_bitmap_blit_x,          225,
+		      glgfx_bitmap_blit_y,          h-75,
 		      glgfx_bitmap_blit_width,      50,
 		      glgfx_bitmap_blit_height,     50,
 
@@ -213,10 +213,13 @@ int blit(struct glgfx_bitmap* bitmap, int w, int h) {
 
 		      glgfx_bitmap_blit_mod_bitmap, (intptr_t) bm3,
 		      glgfx_bitmap_blit_mod_r,      0x20000,
+		      glgfx_bitmap_blit_mod_a,      0xc000,
 
 		      glgfx_bitmap_blit_mask_ptr,   (intptr_t) bitplanes,
 		      glgfx_bitmap_blit_mask_bytesperrow, 2,
 		      glgfx_bitmap_blit_mask_x,     0,
+
+		      glgfx_bitmap_blit_blend_equation, glgfx_blend_equation_func_add,
 
 		      glgfx_tag_end);
   }

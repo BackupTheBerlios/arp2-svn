@@ -662,6 +662,12 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
   int mask_bpp = 0;
   int minterm = 0xc0;
   GLfloat mod_r = 1.0, mod_g = 1.0, mod_b = 1.0, mod_a = 1.0;
+  enum glgfx_blend_equation blend_eq = glgfx_blend_equation_disabled;
+  enum glgfx_blend_equation blend_eq_alpha = glgfx_blend_equation_unknown;
+  enum glgfx_blend_func blend_func_src = glgfx_blend_func_srcalpha;
+  enum glgfx_blend_func blend_func_src_alpha = glgfx_blend_func_unknown;
+  enum glgfx_blend_func blend_func_dst = glgfx_blend_func_srcalpha_inv;
+  enum glgfx_blend_func blend_func_dst_alpha = glgfx_blend_func_unknown;
 
   bool got_src_width = false;
   bool got_src_height = false;
@@ -784,6 +790,30 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
 	minterm = tag->data;
 	break;
 
+      case glgfx_bitmap_blit_blend_equation:
+	blend_eq = tag->data;
+	break;
+	
+      case glgfx_bitmap_blit_blend_equation_alpha:
+	blend_eq_alpha = tag->data;
+	break;
+
+      case glgfx_bitmap_blit_blend_srcfunc:
+	blend_func_src = tag->data;
+	break;
+
+      case glgfx_bitmap_blit_blend_srcfunc_alpha:
+	blend_func_src_alpha = tag->data;
+	break;
+
+      case glgfx_bitmap_blit_blend_dstfunc:
+	blend_func_dst = tag->data;
+	break;
+
+      case glgfx_bitmap_blit_blend_dstfunc_alpha:
+	blend_func_dst_alpha = tag->data;
+	break;
+
       case glgfx_bitmap_blit_unknown:
       case glgfx_bitmap_blit_max:
 	break;
@@ -813,6 +843,20 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
   if (mask_bpp == 0) {
     mask_bpp = src_width / 8;
   }
+
+  if (blend_eq_alpha == glgfx_blend_equation_unknown||
+      blend_eq_alpha == glgfx_blend_equation_disabled) {
+    blend_eq_alpha = blend_eq;
+  }
+
+  if (blend_func_src_alpha == glgfx_blend_func_unknown) {
+    blend_func_src_alpha = blend_func_src;
+  }
+
+  if (blend_func_dst_alpha == glgfx_blend_func_unknown) {
+    blend_func_dst_alpha = blend_func_dst;
+  }
+
 
   if (src_bitmap == NULL && mod_bitmap != NULL) {
     // NULL src bitmap components are always 1.0 and the coordinates are
@@ -854,6 +898,23 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
       return false;
     }
   }
+
+  if (blend_eq <= glgfx_blend_equation_unknown ||
+      blend_eq_alpha <= glgfx_blend_equation_unknown ||
+      blend_func_src <= glgfx_blend_func_unknown ||
+      blend_func_src_alpha <= glgfx_blend_func_unknown ||
+      blend_func_dst <= glgfx_blend_func_unknown ||
+      blend_func_dst_alpha <= glgfx_blend_func_unknown ||
+      blend_eq >= glgfx_blend_equation_max ||
+      blend_eq_alpha >= glgfx_blend_equation_max ||
+      blend_func_src >= glgfx_blend_func_max ||
+      blend_func_src_alpha >= glgfx_blend_func_max ||
+      blend_func_dst >= glgfx_blend_func_max ||
+      blend_func_dst_alpha >= glgfx_blend_func_max) {
+    errno = EINVAL;
+    return false;
+  }
+
 
   bool rc = true;
 
@@ -1042,6 +1103,31 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
       glgfx_context_bindprogram(context, &color_blitter);
     }
 
+    if (blend_eq != glgfx_blend_equation_disabled) {
+      static GLenum const eq[glgfx_blend_equation_max] = {
+	0, 0,
+	GL_FUNC_ADD, GL_FUNC_SUBTRACT, GL_FUNC_REVERSE_SUBTRACT,
+	GL_MIN, GL_MAX
+      };
+
+      static GLenum const func[glgfx_blend_func_max] = {
+	0,
+	GL_ZERO, GL_ONE, 
+	GL_SRC_COLOR, GL_ONE_MINUS_SRC_COLOR,
+	GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA,
+	GL_DST_COLOR, GL_ONE_MINUS_DST_COLOR,
+	GL_DST_ALPHA, GL_ONE_MINUS_DST_ALPHA,
+/* 	GL_CONSTANT_COLOR, GL_ONE_MINUS_CONSTANT_COLOR, */
+/* 	GL_CONSTANT_ALPHA, GL_ONE_MINUS_CONSTANT_ALPHA, */
+	GL_SRC_ALPHA_SATURATE
+      };
+
+      glEnable(GL_BLEND);
+      glBlendEquationSeparate(eq[blend_eq], eq[blend_eq_alpha]);
+      glBlendFuncSeparate(func[blend_func_src], func[blend_func_dst],
+			  func[blend_func_src_alpha], func[blend_func_dst_alpha]);
+    }
+
     glBegin(GL_QUADS); {
       glMultiTexCoord2i(src_unit,
 			src_x,
@@ -1080,6 +1166,10 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
 		 dst_bitmap->height - (dst_y + dst_height));
     }
     glEnd();
+
+    if (blend_eq != glgfx_blend_equation_disabled) {
+      glDisable(GL_BLEND);
+    }
 
     if ((minterm & 0xf0) != 0xc0) {
       glDisable(GL_COLOR_LOGIC_OP);
