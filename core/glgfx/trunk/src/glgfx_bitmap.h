@@ -53,6 +53,11 @@ enum glgfx_bitmap_blit_tag {
   glgfx_bitmap_blit_src_height,	/* Default is same as destination width */
   glgfx_bitmap_blit_src_bitmap, /* Can also be NULL for a constant (1,1,1,1) bitmap!
 				 * Default is same as destination. */
+
+  glgfx_bitmap_blit_mask_x,
+  glgfx_bitmap_blit_mask_y,
+  glgfx_bitmap_blit_mask_ptr,	/* A bitplane pointer */
+  glgfx_bitmap_blit_mask_bytesperrow,
   
   glgfx_bitmap_blit_mod_r,	/* Range is 0 - 0x10000 - ... (0.0 - 1.0 - ...) */
   glgfx_bitmap_blit_mod_g,

@@ -649,6 +649,9 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
   struct glgfx_bitmap* src_bitmap = bitmap;
   struct glgfx_bitmap* mod_bitmap = NULL;
   struct glgfx_bitmap* dst_bitmap = bitmap;
+  void* mask = NULL;
+  int mask_x = 0, mask_y = 0;
+  int mask_bpp = 0;
   int minterm = 0xc0;
   GLfloat mod_r = 1.0, mod_g = 1.0, mod_b = 1.0, mod_a = 1.0;
 
@@ -709,6 +712,22 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
 
       case glgfx_bitmap_blit_src_bitmap:
 	src_bitmap = (struct glgfx_bitmap*) tag->data;
+	break;
+
+      case glgfx_bitmap_blit_mask_x:
+	mask_x = tag->data;
+	break;
+
+      case glgfx_bitmap_blit_mask_y:
+	mask_y = tag->data;
+	break;
+
+      case glgfx_bitmap_blit_mask_ptr:
+	mask = (void*) tag->data;
+	break;
+
+      case glgfx_bitmap_blit_mask_bytesperrow:
+	mask_bpp = tag->data;
 	break;
 	
       case glgfx_bitmap_blit_mod_r:
@@ -783,6 +802,10 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
     mod_height = mod_bitmap->height;
   }
 
+  if (mask_bpp == 0) {
+    mask_bpp = src_width / 8;
+  }
+
   if (src_bitmap == NULL && mod_bitmap != NULL) {
     // NULL src bitmap components are always 1.0 and the coordinates are
     // irrelevant. If mod_bitmap is present, set it as the new source.
@@ -814,7 +837,15 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
       return false;
     }
   }
-	
+
+  if (mask != NULL) {
+    if (mask_bpp < 0 || 
+	mask_x < 0 || mask_y < 0 ||
+	mask_x >= mask_bpp / 8) {
+      errno = EINVAL;
+      return false;
+    }
+  }
 
   bool rc = true;
 
@@ -822,6 +853,7 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
       mod_bitmap == NULL &&
       dst_width == src_width && 
       dst_height == dst_height &&
+      mask == NULL &&
       !got_mod_rgba &&
       (!context->monitor->miss_pixel_ops || (minterm & 0xf0) == 0xc0)) {
     if ((minterm & 0xf0) != 0xc0) {
@@ -843,40 +875,52 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
     }
   }
   else {
-    if (src_bitmap == dst_bitmap) {
-      src_bitmap = glgfx_context_gettempbitmap(context,
+    if (src_bitmap == dst_bitmap || mask != NULL) {
+      struct glgfx_bitmap* tmp_bitmap;
+      enum glgfx_pixel_format fmt;
+      
+      if (mask == NULL) {
+	fmt = src_bitmap->format;
+      }
+      else {
+	fmt = glgfx_pixel_format_a8r8g8b8;
+      }
+
+      tmp_bitmap = glgfx_context_gettempbitmap(context,
 					       src_width, src_height,
-					       src_bitmap->format);
-      if (src_bitmap == NULL) {
+					       fmt);
+      if (tmp_bitmap == NULL) {
 	errno = ENOMEM;
 	rc = false;
       }
       else {
-#if 0   // This does not seem to work on ATI cards :-(
-
-	// Bind FBO and attach source bitmap
-	glgfx_context_bindfbo(context, dst_bitmap);
-
-	glReadBuffer(GL_COLOR_ATTACHMENT0_EXT);
-
-	// Bind temp src bitmap as texture
-	glgfx_context_bindtex(context, 0, src_bitmap);
-
-	// Copy source bitmap into temp bitmap
-	glCopyTexSubImage2D(GL_TEXTURE_RECTANGLE_ARB, 0,
-			    0, 0,
-			    src_x, src_y, src_width, src_height);
-#else
 	// Bind FBO and attach destination (aka the temp src) bitmap
-	glgfx_context_bindfbo(context, src_bitmap);
+	glgfx_context_bindfbo(context, tmp_bitmap);
 
 	glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
 
-	// Bind dst bitmap as texture
-	GLenum unit = glgfx_context_bindtex(context, 0, dst_bitmap);
+	GLenum unit = GL_TEXTURE0;
 
-	// Make a plain copy, with no color-space transformations
-	glgfx_context_bindprogram(context, &raw_texture_blitter);
+	if (src_bitmap != NULL) {
+	  // Bind src bitmap as texture
+	  unit = glgfx_context_bindtex(context, 0, src_bitmap);
+
+	  if (mask == NULL) {
+	    // Make a plain copy, with no color-space transformations
+	    glgfx_context_bindprogram(context, &raw_texture_blitter);
+	  }
+	  else {
+	    // Copy bitmap to RGBA temp bitmap (FP bitmaps will be clamped
+	    // here, but we NEED a working alpha channel)
+	    glgfx_context_bindprogram(context, &plain_texture_blitter);
+	  }
+	}
+	else {
+	  // Draw a white opaque rectangle
+
+	  glColor4f(1, 1, 1, 1);
+	  glgfx_context_bindprogram(context, &color_blitter);
+	}
 
 	glBegin(GL_QUADS); {
 	  glMultiTexCoord2i(unit, 
@@ -904,10 +948,35 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
 		     0);
 	}
 	glEnd();
-#endif
 
 	src_x = 0;
 	src_y = 0;
+
+	if (mask != NULL) {
+	  glEnable(GL_BLEND);
+	  glBlendFunc(GL_ZERO, GL_SRC_COLOR);
+	  glBlendEquation(GL_FUNC_ADD);
+	  glColor4f(1, 1, 1, 1);
+
+	  if (mask_x != 0) {
+	    glPixelStorei(GL_UNPACK_ROW_LENGTH, mask_bpp * 8);
+	  }
+
+	  glWindowPos2i(0, 0);
+	  glBitmap(mask_bpp / 8 - mask_x, src_height,
+		   mask_x, mask_y,
+		   0, 0,
+		   mask);
+
+	  if (mask_x != 0) {
+	    glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+	  }
+	  
+	  glDisable(GL_BLEND);
+	}
+
+	// Install tmp bitmap as new source
+	src_bitmap = tmp_bitmap;
       }
     }
 
