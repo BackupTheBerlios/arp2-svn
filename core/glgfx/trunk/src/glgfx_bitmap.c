@@ -130,6 +130,7 @@ struct glgfx_bitmap* glgfx_bitmap_create_a(struct glgfx_tagitem const* tags) {
   if (glGetError() == GL_INVALID_ENUM) {
     // Format not supported by hardware
 
+    glgfx_context_unbindtex(context, 0);
     pthread_mutex_unlock(&glgfx_mutex);
     glgfx_bitmap_destroy(bitmap);
     return NULL;
@@ -152,6 +153,7 @@ struct glgfx_bitmap* glgfx_bitmap_create_a(struct glgfx_tagitem const* tags) {
   }
 
   GLGFX_CHECKERROR();
+  glgfx_context_unbindtex(context, 0);
 
   bitmap->has_changed = true;
 
@@ -391,6 +393,8 @@ bool glgfx_bitmap_unlock_a(struct glgfx_bitmap* bitmap,
 				 y * bitmap->pbo_bytes_per_row));
 	GLGFX_CHECKERROR();
 	glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+
+	glgfx_context_unbindtex(context, 0);
       }
 
       glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, 0);
@@ -415,6 +419,8 @@ bool glgfx_bitmap_unlock_a(struct glgfx_bitmap* bitmap,
 				 y * bitmap->pbo_bytes_per_row));
 	GLGFX_CHECKERROR();
 	glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+
+	glgfx_context_unbindtex(context, 0);
       }
     }
 
@@ -510,6 +516,8 @@ bool glgfx_bitmap_write_a(struct glgfx_bitmap* bitmap,
 		  data);
   GLGFX_CHECKERROR();
   glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+
+  glgfx_context_unbindtex(context, 0);
 
   bitmap->has_changed = true;
 
@@ -1080,6 +1088,8 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
     GLGFX_CHECKERROR();
   }
 
+  glgfx_context_unbindtex(context, 0);
+  glgfx_context_unbindtex(context, 1);
   
   if (rc) {
     dst_bitmap->has_changed = true;
