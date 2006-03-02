@@ -30,7 +30,7 @@ struct glgfx_monitor* monitor;
 
 int blit(struct glgfx_bitmap* bitmap, int w, int h) {
   uint32_t* buffer;
-  
+
   // Fill texture with data
 
   if ((buffer = glgfx_bitmap_lock(bitmap, false, true, glgfx_tag_end)) != NULL) {
@@ -61,14 +61,14 @@ int blit(struct glgfx_bitmap* bitmap, int w, int h) {
 				  glgfx_bitmap_copy_height, 180,
 				  glgfx_tag_end)) != NULL) {
     int x, y;
-    
+
     for (y = 0; y < 100; y += 1) {
       for (x = 0; x < 100; x += 1) {
 	buffer[x+y*w] = glgfx_pixel_create_a8b8g8r8(y*255/100, 0, x*255/100, 0);
       }
     }
 
-    if (glgfx_bitmap_unlock(bitmap, 
+    if (glgfx_bitmap_unlock(bitmap,
 			    glgfx_bitmap_copy_width, 200,
 			    glgfx_bitmap_copy_height, 200,
 			    glgfx_tag_end)) {
@@ -112,16 +112,16 @@ int blit(struct glgfx_bitmap* bitmap, int w, int h) {
 		    glgfx_tag_end);
 
 
-  struct glgfx_bitmap* bm2 = 
+  struct glgfx_bitmap* bm2 =
     glgfx_bitmap_create(glgfx_bitmap_attr_width,  16,
-			glgfx_bitmap_attr_height, 16, 
+			glgfx_bitmap_attr_height, 16,
 			glgfx_bitmap_attr_format, glgfx_pixel_format_r5g6b5,
 			glgfx_tag_end);
 
 
-  struct glgfx_bitmap* bm3 = 
+  struct glgfx_bitmap* bm3 =
     glgfx_bitmap_create(glgfx_bitmap_attr_width,  16,
-			glgfx_bitmap_attr_height, 16, 
+			glgfx_bitmap_attr_height, 16,
 			glgfx_bitmap_attr_format, glgfx_pixel_format_r5g6b5,
 			glgfx_tag_end);
 
@@ -158,7 +158,7 @@ int blit(struct glgfx_bitmap* bitmap, int w, int h) {
 		      glgfx_bitmap_blit_src_bitmap, (intptr_t) bm2,
 
 		      glgfx_bitmap_blit_mod_r,      0x8000,
-		      
+
 		      glgfx_bitmap_blit_minterm,    0x30, // inverted source
 
 
@@ -181,7 +181,7 @@ int blit(struct glgfx_bitmap* bitmap, int w, int h) {
     }
 
     static unsigned char const bitplanes[] = {
-      0x03, 0xc0, 
+      0x03, 0xc0,
       0x0f, 0xf0,
       0x1f, 0xf8,
       0x3f, 0xfc,
@@ -223,7 +223,7 @@ int blit(struct glgfx_bitmap* bitmap, int w, int h) {
 
 		      glgfx_tag_end);
   }
-  
+
   glgfx_bitmap_destroy(bm2);
   glgfx_bitmap_destroy(bm3);
 
@@ -243,7 +243,7 @@ int main(int argc, char** argv) {
     printf("Unable to initialize glgfx\n");
     return 20;
   }
-  
+
   monitor = glgfx_monitor_create(getenv("DISPLAY"),
 				 glgfx_monitor_attr_fullscreen, true,
 				 glgfx_tag_end);
@@ -267,10 +267,10 @@ int main(int argc, char** argv) {
       printf("Display width: %" PRIdPTR "x%" PRIdPTR " pixels\n", width, height);
 
       bitmap = glgfx_bitmap_create(glgfx_bitmap_attr_width,  width,
-				   glgfx_bitmap_attr_height, height/3, 
+				   glgfx_bitmap_attr_height, height/3,
 				   glgfx_bitmap_attr_format, glgfx_pixel_format_a8b8g8r8,
 				   glgfx_tag_end);
-    
+
       if (bitmap == NULL) {
 	printf("Unable to allocate bitmap\n");
 	rc = 20;
@@ -298,7 +298,7 @@ int main(int argc, char** argv) {
 				   glgfx_rasinfo_attr_width,  width,
 				   glgfx_rasinfo_attr_height, height / 3,
 				   glgfx_tag_end);
-	
+
 	struct glgfx_view* v = glgfx_view_create();
 
 	if (vp1 == NULL || vp2 == NULL || ri1 == NULL || ri2 == NULL ||
@@ -325,7 +325,7 @@ int main(int argc, char** argv) {
 
     glgfx_monitor_destroy(monitor);
   }
-  
+
   glgfx_cleanup();
 
   return rc;

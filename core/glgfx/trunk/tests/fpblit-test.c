@@ -30,7 +30,7 @@ struct glgfx_monitor* monitor;
 
 int blit(struct glgfx_bitmap* bitmap, int w, int h) {
   glgfx_pixel_r32g32b32a32f_t* buffer;
-  
+
   // Fill texture with data
 
   if ((buffer = glgfx_bitmap_lock(bitmap, false, true, glgfx_tag_end)) != NULL) {
@@ -46,7 +46,7 @@ int blit(struct glgfx_bitmap* bitmap, int w, int h) {
       printf("updated\n");
     }
   }
-  
+
   // Clear the PBO buffer, but don't update bitmap
   if ((buffer = glgfx_bitmap_lock(bitmap, true, false, glgfx_tag_end)) != NULL) {
     memset(buffer, 0, w*h*sizeof(*buffer));
@@ -61,14 +61,14 @@ int blit(struct glgfx_bitmap* bitmap, int w, int h) {
 				  glgfx_bitmap_copy_height, 180,
 				  glgfx_tag_end)) != NULL) {
     int x, y;
-    
+
     for (y = 0; y < 100; y += 1) {
       for (x = 0; x < 100; x += 1) {
 	buffer[x+y*w] = glgfx_pixel_create_r32g32b32a32f(y/100.0, 0, x/100.0, 1);
       }
     }
 
-    if (glgfx_bitmap_unlock(bitmap, 
+    if (glgfx_bitmap_unlock(bitmap,
 			    glgfx_bitmap_copy_width, 200,
 			    glgfx_bitmap_copy_height, 200,
 			    glgfx_tag_end)) {
@@ -112,21 +112,27 @@ int blit(struct glgfx_bitmap* bitmap, int w, int h) {
 		    glgfx_tag_end);
 
 
-  struct glgfx_bitmap* bm2 = 
-    glgfx_bitmap_create(glgfx_bitmap_attr_width,  100,
-			glgfx_bitmap_attr_height, 100, 
+  struct glgfx_bitmap* bm2 =
+    glgfx_bitmap_create(glgfx_bitmap_attr_width,  16,
+			glgfx_bitmap_attr_height, 16,
 			glgfx_bitmap_attr_format, glgfx_pixel_format_r16g16b16a16f,
 			glgfx_tag_end);
 
-  if (bm2 != NULL) {
+  struct glgfx_bitmap* bm3 =
+    glgfx_bitmap_create(glgfx_bitmap_attr_width,  16,
+			glgfx_bitmap_attr_height, 16,
+			glgfx_bitmap_attr_format, glgfx_pixel_format_r16g16b16a16f,
+			glgfx_tag_end);
+
+  if (bm2 != NULL && bm3 != NULL) {
     glgfx_pixel_r16g16b16a16f_t* buffer;
 
     if ((buffer = glgfx_bitmap_lock(bm2, false, true, glgfx_tag_end)) != NULL) {
       int x, y;
 
-      for (y = 0; y < 100; y += 1) {
-	for (x = 0; x < 100; x += 1) {
-	  buffer[x+y*100] = glgfx_pixel_create_r16g16b16a16f(y/100.0, x/100.0, 0, 1);
+      for (y = 0; y < 16; y += 1) {
+	for (x = 0; x < 16; x += 1) {
+	  buffer[x+y*16] = glgfx_pixel_create_r16g16b16a16f(y/16.0, x/16.0, 0, 1);
 	}
       }
 
@@ -146,19 +152,79 @@ int blit(struct glgfx_bitmap* bitmap, int w, int h) {
 
 		      glgfx_bitmap_blit_src_x,      0,
 		      glgfx_bitmap_blit_src_y,      0,
-		      glgfx_bitmap_blit_src_width,  100,
-		      glgfx_bitmap_blit_src_height, 100,
+		      glgfx_bitmap_blit_src_width,  16,
+		      glgfx_bitmap_blit_src_height, 16,
 		      glgfx_bitmap_blit_src_bitmap, (intptr_t) bm2,
 
 		      glgfx_bitmap_blit_mod_r,      0x8000,
-		      
+
 		      glgfx_bitmap_blit_minterm,    0x30, // inverted source
 
 
 		      glgfx_tag_end);
 
-    glgfx_bitmap_destroy(bm2);
+    if ((buffer = glgfx_bitmap_lock(bm3, false, true, glgfx_tag_end)) != NULL) {
+      int x, y;
+
+      for (y = 0; y < 16; y += 1) {
+	for (x = 0; x < 16; x += 1) {
+	  int val = y;
+	  buffer[x+y*16] = glgfx_pixel_create_r16g16b16a16f(val/16.0, val/16.0, val/16.0, 1);
+	}
+      }
+
+      if (glgfx_bitmap_unlock(bm3, glgfx_tag_end)) {
+	printf("updated bm3\n");
+      }
+    }
+
+    static unsigned char const bitplanes[] = {
+      0x03, 0xc0,
+      0x0f, 0xf0,
+      0x1f, 0xf8,
+      0x3f, 0xfc,
+      0x73, 0xce,
+      0x73, 0xce,
+      0xff, 0xff,
+      0xff, 0xff,
+      0xff, 0xff,
+      0xff, 0xff,
+      0x6f, 0xf6,
+      0x77, 0xee,
+      0x39, 0x9c,
+      0x1e, 0x78,
+      0x0f, 0xf0,
+      0x03, 0xc0
+    };
+
+    glgfx_bitmap_blit(bitmap,
+		      glgfx_bitmap_blit_x,          225,
+		      glgfx_bitmap_blit_y,          h-75,
+		      glgfx_bitmap_blit_width,      50,
+		      glgfx_bitmap_blit_height,     50,
+
+		      glgfx_bitmap_blit_src_x,      0,
+		      glgfx_bitmap_blit_src_y,      0,
+		      glgfx_bitmap_blit_src_width,  16,
+		      glgfx_bitmap_blit_src_height, 16,
+		      glgfx_bitmap_blit_src_bitmap, (intptr_t) bm2,
+
+		      glgfx_bitmap_blit_mod_bitmap, (intptr_t) bm3,
+		      glgfx_bitmap_blit_mod_r,      0x20000,
+		      glgfx_bitmap_blit_mod_a,      0xc000,
+
+		      glgfx_bitmap_blit_mask_ptr,   (intptr_t) bitplanes,
+		      glgfx_bitmap_blit_mask_bytesperrow, 2,
+		      glgfx_bitmap_blit_mask_x,     0,
+
+		      glgfx_bitmap_blit_blend_equation, glgfx_blend_equation_func_add,
+
+		      glgfx_tag_end);
+
   }
+
+  glgfx_bitmap_destroy(bm2);
+  glgfx_bitmap_destroy(bm3);
 
   glgfx_monitor_render(monitor);
   printf("going home\n");
@@ -176,7 +242,7 @@ int main(int argc, char** argv) {
     printf("Unable to initialize glgfx\n");
     return 20;
   }
-  
+
   monitor = glgfx_monitor_create(getenv("DISPLAY"),
 				 glgfx_monitor_attr_fullscreen, true,
 				 glgfx_tag_end);
@@ -200,10 +266,10 @@ int main(int argc, char** argv) {
       printf("Display width: %" PRIdPTR "x%" PRIdPTR " pixels\n", width, height);
 
       bitmap = glgfx_bitmap_create(glgfx_bitmap_attr_width,  width,
-				   glgfx_bitmap_attr_height, height/3, 
+				   glgfx_bitmap_attr_height, height/3,
 				   glgfx_bitmap_attr_format, glgfx_pixel_format_r32g32b32a32f,
 				   glgfx_tag_end);
-    
+
       if (bitmap == NULL) {
 	printf("Unable to allocate bitmap\n");
 	rc = 20;
@@ -231,7 +297,7 @@ int main(int argc, char** argv) {
 				   glgfx_rasinfo_attr_width,  width,
 				   glgfx_rasinfo_attr_height, height / 3,
 				   glgfx_tag_end);
-	
+
 	struct glgfx_view* v = glgfx_view_create();
 
 	if (vp1 == NULL || vp2 == NULL || ri1 == NULL || ri2 == NULL ||
@@ -258,7 +324,7 @@ int main(int argc, char** argv) {
 
     glgfx_monitor_destroy(monitor);
   }
-  
+
   glgfx_cleanup();
 
   return rc;
