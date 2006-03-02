@@ -25,6 +25,7 @@ The following OpenGL extensions are required:
  * GL_(ARB|EXT)_texture_rectangle
  * GL_ARB_window_pos
  * GL_EXT_framebuffer_object
+ * GL_NV_blend_square (or some blend modes will be missing)
 
 In addition, the following extensions can be used if present but are
 not required:
