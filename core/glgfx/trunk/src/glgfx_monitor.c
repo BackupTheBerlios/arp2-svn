@@ -102,6 +102,14 @@ static bool check_extensions(struct glgfx_monitor* monitor) {
     BUG("Warning: GL_ARB_pixel_buffer_object not supported; will emulate.\n");
   }
 
+  if (g_hash_table_lookup(monitor->gl_extensions, "GL_NV_blend_square") != NULL) {
+    monitor->have_GL_NV_blend_square = true;
+  }
+
+  if (!monitor->have_GL_NV_blend_square) {
+    BUG("Warning: GL_NV_blend_square not supported; some blend modes will not work\n");
+  }
+
   // Return true if all required extensions are present
   return (monitor->have_GL_EXT_framebuffer_object && 
 	  monitor->have_GL_texture_rectangle);

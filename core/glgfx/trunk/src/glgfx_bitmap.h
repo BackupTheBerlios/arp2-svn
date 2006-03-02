@@ -105,12 +105,12 @@ enum glgfx_blend_func {
 
   glgfx_blend_func_zero,
   glgfx_blend_func_one,
-  glgfx_blend_func_srccolor,		// Only valid for dst func
-  glgfx_blend_func_srccolor_inv,	// only valid for dst func
+  glgfx_blend_func_srccolor,
+  glgfx_blend_func_srccolor_inv,
   glgfx_blend_func_srcalpha,
   glgfx_blend_func_srcalpha_inv,
-  glgfx_blend_func_dstcolor,		// Only valid for src func
-  glgfx_blend_func_dstcolor_inv,	// Only valid for src func
+  glgfx_blend_func_dstcolor,
+  glgfx_blend_func_dstcolor_inv,
   glgfx_blend_func_dstalpha,
   glgfx_blend_func_dstalpha_inv,
 /*   glgfx_blend_func_constant_color, */

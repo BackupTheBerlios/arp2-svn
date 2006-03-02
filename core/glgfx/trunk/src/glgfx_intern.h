@@ -68,6 +68,7 @@ struct glgfx_monitor {
     bool                    have_GLX_SGI_video_sync;
     bool                    have_GL_ARB_pixel_buffer_object;
     bool                    have_GL_EXT_framebuffer_object;
+    bool                    have_GL_NV_blend_square;
     bool                    have_GL_texture_rectangle;
     bool                    miss_pixel_ops;
 
