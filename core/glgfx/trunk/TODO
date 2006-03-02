@@ -1,7 +1,8 @@
 
 * Add support for line, triangle and rectangle drawing.
 
-* Add YUV bitmap support. (http://www.fourcc.org/yuv.php#UYVY)
+* Add YUV bitmap support. (http://www.fourcc.org/yuv.php#UYVY,
+http://libquicktime.sourceforge.net/doc/apiref/group__color.html)
 
 * Redo the way bitmaps in a viewports are drawn to minimize the number
 of calculated pixels.
