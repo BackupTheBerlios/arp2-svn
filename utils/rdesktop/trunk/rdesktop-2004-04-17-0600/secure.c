@@ -21,18 +21,11 @@
 #include "rdesktop.h"
 
 #ifdef WITH_OPENSSL
-# ifdef __amigaos4__
-#  include <clib/sha_protos.h>
-#  include <clib/md5_protos.h>
-#  include <clib/rc4_protos.h>
-#  include <proto/amissl.h>
-# else
-#  include <openssl/rc4.h>
-#  include <openssl/md5.h>
-#  include <openssl/sha.h>
-#  include <openssl/bn.h>
-#  include <openssl/x509v3.h>
-# endif
+#include <openssl/rc4.h>
+#include <openssl/md5.h>
+#include <openssl/sha.h>
+#include <openssl/bn.h>
+#include <openssl/x509v3.h>
 #else
 #include "crypto/rc4.h"
 #include "crypto/md5.h"

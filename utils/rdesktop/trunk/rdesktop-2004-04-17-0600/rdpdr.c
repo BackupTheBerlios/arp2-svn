@@ -39,6 +39,9 @@
 #include <dirent.h>		/* opendir, closedir, readdir */
 #include <time.h>
 #include "rdesktop.h"
+#ifdef __amigaos4__
+#include <sys/socket.h>
+#endif
 
 #define IRP_MJ_CREATE			0x00
 #define IRP_MJ_CLOSE			0x02

@@ -1471,6 +1471,9 @@ ui_create_window(void)
 			  IDCMP_SIZEVERIFY |
 			  IDCMP_RAWKEY |
 			  IDCMP_MOUSEBUTTONS |
+#ifdef __amigaos4__
+			  IDCMP_EXTENDEDMOUSE |
+#endif
 			  (g_sendmotion ? IDCMP_MOUSEMOVE : 0)),
       TAG_DONE
     };
@@ -1912,6 +1915,23 @@ ui_select(int rdp_socket)
 	      break;
 	    }
             
+#ifdef __amigaos4__
+	    case IDCMP_EXTENDEDMOUSE:
+	    {
+	       struct IntuiWheelData *wd = (struct IntuiWheelData *)msg->IAddress;
+
+	       if (wd && wd->WheelY)
+	       {
+		  rdp_send_input( ev_time, RDP_INPUT_MOUSE,
+				  wd->WheelY < 0 ? MOUSE_FLAG_BUTTON4 | MOUSE_FLAG_DOWN : MOUSE_FLAG_BUTTON5 | MOUSE_FLAG_DOWN,
+                                  msg->MouseX - amiga_window->BorderLeft,
+                                  msg->MouseY - amiga_window->BorderTop );
+	       }
+
+	       break;
+	    }
+#endif
+
 	    case IDCMP_RAWKEY:
 	    {
 	      int  scancode;

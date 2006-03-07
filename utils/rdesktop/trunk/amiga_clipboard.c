@@ -29,7 +29,9 @@
 
 #include <proto/exec.h>
 #include <proto/iffparse.h>
+#ifndef __amigaos4__
 #include <clib/alib_protos.h>
+#endif
 
 #include <stdio.h>
 #include "amiga_clipboard.h"

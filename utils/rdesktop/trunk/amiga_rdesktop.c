@@ -45,6 +45,8 @@
 # include <proto/bsdsocket.h>
 # include <proto/usergroup.h>
 # include <proto/amissl.h>
+# include <proto/amisslmaster.h>
+# include <libraries/amisslmaster.h>
 #endif
 
 #include <ctype.h>		/* isalpha */
@@ -116,6 +118,7 @@ struct CyberGfxIFace  *ICyberGfx      = NULL;
 struct SocketIFace    *ISocket        = NULL;
 struct UserGroupIFace *IUserGroup     = NULL;
 struct AmiSSLIFace    *IAmiSSL        = NULL;
+struct AmiSSLMasterIFace    *IAmiSSLMaster        = NULL;
 struct KeymapIFace    *IKeymap        = NULL;
 struct LocaleIFace    *ILocale        = NULL;
 uint32 AmiSSL_initialized = FALSE;
@@ -287,14 +290,19 @@ cleanup(void)
 #ifdef __amigaos4__
   if (IAmiSSL)
   {
-    struct Library *LibBase = ((struct Interface *)IAmiSSL)->Data.LibBase;
-
     if (AmiSSL_initialized)
     {
        CleanupAmiSSL(TAG_DONE);
     }
     DropInterface((struct Interface *)IAmiSSL);
     IAmiSSL = NULL;
+    CloseAmiSSL();
+  }
+  if (IAmiSSLMaster)
+  {
+    struct Library *LibBase = ((struct Interface *)IAmiSSLMaster)->Data.LibBase;
+    DropInterface((struct Interface *)IAmiSSLMaster);
+    IAmiSSLMaster = NULL;
     CloseLibrary(LibBase);
   }
   if (ISocket)
@@ -508,22 +516,30 @@ main(int argc, char *argv[])
      return RETURN_FAIL;
   }
 
-  LibBase = OpenLibrary("amissl.library", 1);
+  LibBase = OpenLibrary("amisslmaster.library", 1);
   if (LibBase)
   {
-     IAmiSSL = (struct AmiSSLIFace *)GetInterface(LibBase, "main", 1, NULL);
-     if (!IAmiSSL) CloseLibrary(LibBase);
+     IAmiSSLMaster = (struct AmiSSLMasterIFace *)GetInterface(LibBase, "main", 1, NULL);
+     if (!IAmiSSLMaster) CloseLibrary(LibBase);
+     else
+     {
+        if (! InitAmiSSLMaster(AMISSL_CURRENT_VERSION, TRUE))
+        {
+        } else {
+           struct Library *AmiSSLBase = OpenAmiSSL();
+
+           IAmiSSL = (struct AmiSSLIFace *)GetInterface(AmiSSLBase, "main", 1, NULL);
+        }
+     }
   }
-  if (!LibBase || !IAmiSSL)
+  if (!LibBase || !IAmiSSLMaster)
   {
-     error( "Unable to open '%s'.\n", "amissl.library" );
+     error( "Unable to open '%s'.\n", "amisslmaster.library" );
      return RETURN_FAIL;
   }
 
-  if (!InitAmiSSL(AmiSSL_Version, AmiSSL_CurrentVersion,
-                  AmiSSL_Revision, AmiSSL_CurrentRevision,
-                  /* AmiSSL_VersionOverride, TRUE,*/
-                  AmiSSL_SocketBase, ((struct Interface *)ISocket)->Data.LibBase,
+  if (!InitAmiSSL(AmiSSL_ISocket, ISocket,
+                  AmiSSL_ErrNoPtr, &errno,
                   TAG_DONE))
   {
      AmiSSL_initialized = TRUE;

@@ -40,11 +40,7 @@
 #endif
 
 #ifdef WITH_OPENSSL
-# ifdef __amigaos4__
-#  include <clib/md5_protos.h>
-# else
-#  include <openssl/md5.h>
-# endif
+#include <openssl/md5.h>
 #else
 #include "crypto/md5.h"
 #endif
