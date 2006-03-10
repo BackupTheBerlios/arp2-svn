@@ -11,6 +11,17 @@ size_t width = 800, height = 600;
 
 #define FORMAT 1
 
+#if 0
+GLenum textarget = GL_TEXTURE_RECTANGLE_ARB;
+double texwidthfactor = 1.0;
+double texheightfactor = 1.0;
+#else
+GLenum textarget = GL_TEXTURE_2D;
+double texwidthfactor = 1.0/800;
+double texheightfactor = 1.0/600;
+#endif
+
+
 #if FORMAT == 0
 GLenum iformat = GL_RGBA8;
 GLenum format  = GL_BGRA;
@@ -32,8 +43,8 @@ GLenum type    = GL_UNSIGNED_SHORT_4_4_4_4;
 void display(void) {
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, tex);
-  glTexSubImage2D(GL_TEXTURE_RECTANGLE_ARB, 0,
+  glBindTexture(textarget, tex);
+  glTexSubImage2D(textarget, 0,
 		  0, 0, width, height,
 		  format, type,
 		  buf);
@@ -43,7 +54,7 @@ void display(void) {
     buf[x] = 0;
   }
 
-  glGetTexImage(GL_TEXTURE_RECTANGLE_ARB, 0,
+  glGetTexImage(textarget, 0,
 		format, type,
 		buf);
   
@@ -56,11 +67,11 @@ void display(void) {
     glVertex2f(    0.0f,   0.0f);
     glTexCoord2f(  0.0f,   0.0f);
     glVertex2f(  128.0f,   0.0f);
-    glTexCoord2f( width,   0.0f);
+    glTexCoord2f( width*texwidthfactor,   0.0f);
     glVertex2f(  128.0f, 128.0f);
-    glTexCoord2f( width, height);
+    glTexCoord2f( width*texwidthfactor, height*texheightfactor);
     glVertex2f(    0.0f, 128.0f);
-    glTexCoord2f(  0.0f, height);
+    glTexCoord2f(  0.0f, height*texheightfactor);
   }
   glEnd();
 
@@ -122,12 +133,12 @@ int main(int argc, char** argv) {
   glutIdleFunc(idle);
 
   glGenTextures(1, &tex);
-  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, tex);
-  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-  glTexImage2D(GL_TEXTURE_RECTANGLE_ARB, 0,
+  glBindTexture(textarget, tex);
+  glTexParameteri(textarget, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(textarget, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glTexParameteri(textarget, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(textarget, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glTexImage2D(textarget, 0,
 	       iformat,
 	       width, height, 0,
 	       format, type,
@@ -143,7 +154,7 @@ int main(int argc, char** argv) {
     }
   }
   
-  glEnable(GL_TEXTURE_RECTANGLE_ARB);
+  glEnable(textarget);
 
   glutMainLoop();
   return EXIT_SUCCESS;
