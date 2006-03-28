@@ -123,61 +123,59 @@ int glgfx_view_numsprites(struct glgfx_view* view) {
 }
 
 
+static void check_viewport(gpointer data, gpointer userdata) {
+  struct glgfx_viewport* viewport = (struct glgfx_viewport*) data;
+  bool* has_changed_ptr = (bool*) userdata;
+
+  if (glgfx_viewport_haschanged(viewport)) {
+    *has_changed_ptr = true;
+  }
+}
+
+static void check_sprite(gpointer data, gpointer userdata) {
+  struct glgfx_sprite* sprite = (struct glgfx_sprite*) data;
+  bool* has_changed_ptr = (bool*) userdata;
+
+  if (glgfx_sprite_haschanged(sprite)) {
+    *has_changed_ptr = true;
+  }
+}
 
 bool glgfx_view_haschanged(struct glgfx_view* view) {
   bool has_changed = view->has_changed;
 
   view->has_changed = false;
 
-  void check_viewport(gpointer* data, gpointer* userdata) {
-    struct glgfx_viewport* viewport = (struct glgfx_viewport*) data;
-    (void) userdata;
-
-    if (glgfx_viewport_haschanged(viewport)) {
-      has_changed = true;
-    }
-  }
-
-  void check_sprite(gpointer* data, gpointer* userdata) {
-    struct glgfx_sprite* sprite = (struct glgfx_sprite*) data;
-    (void) userdata;
-
-    if (glgfx_sprite_haschanged(sprite)) {
-      has_changed = true;
-    }
-  }
-
   // Always call glgfx_viewport/sprite_haschanged, since we want to
   // reset their has_changed flags.
-  g_list_foreach(view->viewports, (GFunc) check_viewport, NULL);
-  g_list_foreach(view->sprites, (GFunc) check_sprite, NULL);
+  g_list_foreach(view->viewports, check_viewport, &has_changed);
+  g_list_foreach(view->sprites, check_sprite, &has_changed);
 
   return has_changed;
 }
 
+
+static void render_viewport(gpointer data, gpointer userdata) {
+  struct glgfx_viewport* viewport = (struct glgfx_viewport*) data;
+  (void) userdata;
+
+  glgfx_viewport_render(viewport);
+}
+
 bool glgfx_view_render(struct glgfx_view* view) {
-
-  void render_viewport(gpointer* data, gpointer* userdata) {
-    struct glgfx_viewport* viewport = (struct glgfx_viewport*) data;
-    (void) userdata;
-
-    glgfx_viewport_render(viewport);
-  }
-
-  g_list_foreach(view->viewports, (GFunc) render_viewport, NULL);
+  g_list_foreach(view->viewports, render_viewport, NULL);
   return true;
 }
 
 
+static void render_sprites(gpointer data, gpointer userdata) {
+  struct glgfx_sprite* sprite = (struct glgfx_sprite*) data;
+  (void) userdata;
+
+  glgfx_sprite_render(sprite);
+}
+
 bool glgfx_view_rendersprites(struct glgfx_view* view) {
-
-  void render_sprites(gpointer* data, gpointer* userdata) {
-    struct glgfx_sprite* sprite = (struct glgfx_sprite*) data;
-    (void) userdata;
-
-    glgfx_sprite_render(sprite);
-  }
-
-  g_list_foreach(view->sprites, (GFunc) render_sprites, NULL);
+  g_list_foreach(view->sprites, render_sprites, NULL);
   return true;
 }

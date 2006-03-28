@@ -30,18 +30,21 @@ struct glgfx_viewport* glgfx_viewport_create_a(struct glgfx_tagitem const* tags)
 }
 
 
+static void free_rasinfo(gpointer data, gpointer userdata) {
+  (void) userdata;
+
+  free(data);
+}
+
 void glgfx_viewport_destroy(struct glgfx_viewport* viewport) {
   if (viewport == NULL) {
     return;
   }
 
-  void free_rasinfo(gpointer* data, gpointer* userdata __attribute((unused))) {
-    free(data);
-  }
   
   pthread_mutex_lock(&glgfx_mutex);
 
-  g_list_foreach(viewport->rasinfos, (GFunc) free_rasinfo, NULL);
+  g_list_foreach(viewport->rasinfos, free_rasinfo, NULL);
   g_list_free(viewport->rasinfos);
   free(viewport);
 
@@ -281,72 +284,83 @@ int glgfx_viewport_numbitmaps(struct glgfx_viewport* viewport) {
 }
 
 
+static void check(gpointer data, gpointer userdata) {
+  struct glgfx_rasinfo* rasinfo = (struct glgfx_rasinfo*) data;
+  bool* has_changed_ptr = (bool*) userdata;
+
+  if (glgfx_bitmap_haschanged(rasinfo->bitmap) || rasinfo->has_changed) {
+    *has_changed_ptr = true;
+  }
+
+  rasinfo->has_changed = false;
+}
+
 bool glgfx_viewport_haschanged(struct glgfx_viewport* viewport) {
   bool has_changed = viewport->has_changed;
 
   viewport->has_changed = false;
 
-  void check(gpointer* data, gpointer* userdata) {
-    struct glgfx_rasinfo* rasinfo = (struct glgfx_rasinfo*) data;
-    (void) userdata;
-
-    if (glgfx_bitmap_haschanged(rasinfo->bitmap) || rasinfo->has_changed) {
-      has_changed = true;
-    }
-
-    rasinfo->has_changed = false;
-  }
-
   // Always call glgfx_bitmap_haschanged, since we want to reset its
   // has_changed flag.
-  g_list_foreach(viewport->rasinfos, (GFunc) check, viewport);
+  g_list_foreach(viewport->rasinfos, check, &has_changed);
 
   return has_changed;
 }
 
 
+struct render_params {
+    struct glgfx_viewport* viewport;
+    struct glgfx_context*  context;
+};
+
+static void render(gpointer data, gpointer userdata) {
+  struct glgfx_rasinfo* rasinfo = (struct glgfx_rasinfo*) data;
+  struct render_params* params = (struct render_params*) userdata;
+  struct glgfx_viewport* viewport = params->viewport;
+  struct glgfx_context*  context  = params->context;
+
+  GLenum unit = glgfx_context_bindtex(context, 0, rasinfo->bitmap);
+  glgfx_context_bindprogram(context, &plain_texture_blitter);
+
+  glBegin(GL_QUADS); {
+    glMultiTexCoord2i(unit,
+		      rasinfo->xoffset,
+		      rasinfo->yoffset);
+    glVertex3f(viewport->xoffset,
+	       viewport->yoffset, 0);
+
+    glMultiTexCoord2i(unit,
+		      rasinfo->xoffset + rasinfo->width,
+		      rasinfo->yoffset);
+    glVertex3f(viewport->xoffset + viewport->width,
+	       viewport->yoffset, 0);
+
+    glMultiTexCoord2i(unit,
+		      rasinfo->xoffset + rasinfo->width,
+		      rasinfo->yoffset + rasinfo->height);
+    glVertex3f(viewport->xoffset + viewport->width,
+	       viewport->yoffset + viewport->height, 0);
+
+    glMultiTexCoord2i(unit,
+		      rasinfo->xoffset,
+		      rasinfo->yoffset + rasinfo->height);
+    glVertex3f(viewport->xoffset,
+	       viewport->yoffset + viewport->height, 0);
+  }
+  glEnd();
+
+  GLGFX_CHECKERROR();
+}
+
 bool glgfx_viewport_render(struct glgfx_viewport* viewport) {
   struct glgfx_context* context = glgfx_context_getcurrent();
 
-  void render(gpointer* data, gpointer* userdata) {
-    struct glgfx_rasinfo* rasinfo = (struct glgfx_rasinfo*) data;
-    struct glgfx_viewport* viewport = (struct glgfx_viewport*) userdata;
-
-    GLenum unit = glgfx_context_bindtex(context, 0, rasinfo->bitmap);
-    glgfx_context_bindprogram(context, &plain_texture_blitter);
-
-    glBegin(GL_QUADS); {
-      glMultiTexCoord2i(unit,
-			rasinfo->xoffset,
-			rasinfo->yoffset);
-      glVertex3f(viewport->xoffset,
-		 viewport->yoffset, 0);
-
-      glMultiTexCoord2i(unit,
-			rasinfo->xoffset + rasinfo->width,
-			rasinfo->yoffset);
-      glVertex3f(viewport->xoffset + viewport->width,
-		 viewport->yoffset, 0);
-
-      glMultiTexCoord2i(unit,
-			rasinfo->xoffset + rasinfo->width,
-			rasinfo->yoffset + rasinfo->height);
-      glVertex3f(viewport->xoffset + viewport->width,
-		 viewport->yoffset + viewport->height, 0);
-
-      glMultiTexCoord2i(unit,
-			rasinfo->xoffset,
-			rasinfo->yoffset + rasinfo->height);
-      glVertex3f(viewport->xoffset,
-		 viewport->yoffset + viewport->height, 0);
-    }
-    glEnd();
-
-    GLGFX_CHECKERROR();
-  }
-
   glColor4f(1,1,1,1);
 
-  g_list_foreach(viewport->rasinfos, (GFunc) render, viewport);
+  struct render_params params = {
+    viewport, context
+  };
+
+  g_list_foreach(viewport->rasinfos, render, &params);
   return true;
 }

@@ -444,6 +444,12 @@ struct glgfx_monitor* glgfx_monitor_create_a(char const* display_name,
 }
 
 
+static void cleanup(gpointer key, gpointer value, gpointer userdata) {
+  (void) value;
+  (void) userdata;
+  free(key);
+}
+
 void glgfx_monitor_destroy(struct glgfx_monitor* monitor) {
   if (monitor == NULL) {
     return;
@@ -493,12 +499,6 @@ void glgfx_monitor_destroy(struct glgfx_monitor* monitor) {
   }
 
   if (monitor->gl_extensions != NULL) {
-    void cleanup(gpointer key, gpointer value, gpointer userdata) {
-      (void) value;
-      (void) userdata;
-      free(key);
-    }
-
     g_hash_table_foreach(monitor->gl_extensions, cleanup, NULL);
     g_hash_table_destroy(monitor->gl_extensions);
   }

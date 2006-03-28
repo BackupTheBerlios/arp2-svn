@@ -272,6 +272,11 @@ bool glgfx_input_acquire(struct glgfx_monitor* monitor) {
 }
 
 
+static void free_event(gpointer data, gpointer userdata) {
+  (void) userdata;
+  free(data);
+}
+
 bool glgfx_input_release(struct glgfx_monitor* monitor) {
 
   if (monitor == NULL) {
@@ -288,18 +293,13 @@ bool glgfx_input_release(struct glgfx_monitor* monitor) {
   monitors = g_list_remove(monitors, monitor);
 
   if (monitors == NULL) {
-    void free_event(gpointer* data, gpointer* userdata) {
-      (void) userdata;
-      free(data);
-    }
-  
     if (pending_queue != NULL) {
-      g_queue_foreach(pending_queue, (GFunc) free_event, NULL);
+      g_queue_foreach(pending_queue, free_event, NULL);
       g_queue_free(pending_queue);
     }
 
     if (cache_queue != NULL) {
-      g_queue_foreach(cache_queue, (GFunc) free_event, NULL);
+      g_queue_foreach(cache_queue, free_event, NULL);
       g_queue_free(cache_queue);
     }
   }
@@ -310,28 +310,27 @@ bool glgfx_input_release(struct glgfx_monitor* monitor) {
 }
 
 
-static void fill_queue(void) {
+static void filler(gpointer data, gpointer userdata) {
+  struct glgfx_monitor* monitor = (struct glgfx_monitor*) data;
+  (void) userdata;
 
-  void filler(gpointer* data, gpointer* userdata) {
-    struct glgfx_monitor* monitor = (struct glgfx_monitor*) data;
-    (void) userdata;
+  while (XPending(monitor->display)) {
+    XEvent* event;
 
-    while (XPending(monitor->display)) {
-      XEvent* event;
-
-      if (!g_queue_is_empty(cache_queue)) {
-	event = g_queue_pop_head(cache_queue);
-      }
-      else {
-	event = calloc(1, sizeof (*event));
-      }
-      
-      XNextEvent(monitor->display, event);
-      g_queue_push_tail(pending_queue, event);
+    if (!g_queue_is_empty(cache_queue)) {
+      event = g_queue_pop_head(cache_queue);
     }
+    else {
+      event = calloc(1, sizeof (*event));
+    }
+      
+    XNextEvent(monitor->display, event);
+    g_queue_push_tail(pending_queue, event);
   }
+}
 
-  g_list_foreach(monitors, (GFunc) filler, NULL);
+static void fill_queue(void) {
+  g_list_foreach(monitors, filler, NULL);
 }
 
 
