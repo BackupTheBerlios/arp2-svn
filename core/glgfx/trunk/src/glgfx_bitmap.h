@@ -145,23 +145,23 @@ bool glgfx_bitmap_waitblit(struct glgfx_bitmap* bitmap);
 
 #define glgfx_bitmap_create(tag1, ...)	\
   ({ intptr_t const _tags[] = { tag1, ## __VA_ARGS__ }; \
-    glgfx_bitmap_create_a((struct glgfx_tagitem const*) _tags); })
+    glgfx_bitmap_create_a((struct glgfx_tagitem const*) (void*) _tags); })
 
 #define glgfx_bitmap_write(bitmap, tag1, ...)	\
   ({ intptr_t const _tags[] = { tag1, ## __VA_ARGS__ }; \
-    glgfx_bitmap_write_a((bitmap), (struct glgfx_tagitem const*) _tags); })
+    glgfx_bitmap_write_a((bitmap), (struct glgfx_tagitem const*) (void*) _tags); })
 
 #define glgfx_bitmap_lock(bitmap, read, write, tag1, ...) \
   ({ intptr_t const _tags[] = { tag1, ## __VA_ARGS__ }; \
-    glgfx_bitmap_lock_a((bitmap), (read), (write), (struct glgfx_tagitem const*) _tags); })
+    glgfx_bitmap_lock_a((bitmap), (read), (write), (struct glgfx_tagitem const*) (void*) _tags); })
 
 #define glgfx_bitmap_unlock(bitmap, tag1, ...)	\
   ({ intptr_t const _tags[] = { tag1, ## __VA_ARGS__ }; \
-    glgfx_bitmap_unlock_a((bitmap), (struct glgfx_tagitem const*) _tags); })
+    glgfx_bitmap_unlock_a((bitmap), (struct glgfx_tagitem const*) (void*) _tags); })
 
 #define glgfx_bitmap_blit(bitmap, tag1, ...)	\
   ({ intptr_t const _tags[] = { tag1, ## __VA_ARGS__ }; \
-    glgfx_bitmap_blit_a((bitmap), (struct glgfx_tagitem const*) _tags); })
+    glgfx_bitmap_blit_a((bitmap), (struct glgfx_tagitem const*) (void*) _tags); })
 
 #endif /* arp2_glgfx_glgfx_bitmap_h */
 

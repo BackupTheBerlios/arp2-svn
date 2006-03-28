@@ -60,19 +60,19 @@ bool glgfx_rasinfo_getattr(struct glgfx_rasinfo* rasinfo,
 
 #define glgfx_viewport_create(tag1, ...) \
   ({ intptr_t const _tags[] = { tag1, ## __VA_ARGS__ }; \
-    glgfx_viewport_create_a((struct glgfx_tagitem const*) _tags); })
+    glgfx_viewport_create_a((struct glgfx_tagitem const*) (void*) _tags); })
 
 #define glgfx_viewport_setattrs(viewport, tag1, ...) \
   ({ intptr_t const _tags[] = { tag1, ##__VA_ARGS__ }; \
-    glgfx_viewport_setattrs_a((viewport), (struct glgfx_tagitem const*) _tags); })
+    glgfx_viewport_setattrs_a((viewport), (struct glgfx_tagitem const*) (void*) _tags); })
 
 #define glgfx_viewport_addbitmap(viewport, bitmap, tag1, ...) \
   ({ intptr_t const _tags[] = { tag1, ##__VA_ARGS__ }; \
-    glgfx_viewport_addbitmap_a((viewport), (bitmap), (struct glgfx_tagitem const*) _tags); })
+    glgfx_viewport_addbitmap_a((viewport), (bitmap), (struct glgfx_tagitem const*) (void*) _tags); })
 
 #define glgfx_rasinfo_setattrs(rasinfo, tag1, ...) \
   ({ intptr_t const _tags[] = { tag1, ##__VA_ARGS__ }; \
-    glgfx_rasinfo_setattr_a((rasinfo),(struct glgfx_tagitem const*) _tags); })
+    glgfx_rasinfo_setattr_a((rasinfo),(struct glgfx_tagitem const*) (void*) _tags); })
 
 
 #endif /* arp2_glgfx_glgfx_viewport_h */

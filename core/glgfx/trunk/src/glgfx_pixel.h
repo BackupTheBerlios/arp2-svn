@@ -85,7 +85,7 @@ bool glgfx_pixel_getattr(enum glgfx_pixel_format format,
 
 #define glgfx_pixel_getformat(tag1, ...) \
   ({ intptr_t const _tags[] = { tag1, ## __VA_ARGS__ }; \
-    glgfx_pixel_getformat_a((struct glgfx_tagitem const*) _tags); })
+    glgfx_pixel_getformat_a((struct glgfx_tagitem const*) (void*) _tags); })
 
 
 #endif /* ARP2_glgfx_glgfx_pixel_h */

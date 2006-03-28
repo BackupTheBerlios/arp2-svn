@@ -38,11 +38,11 @@ bool glgfx_monitor_getattr(struct glgfx_monitor* bm,
 
 #define glgfx_monitor_create(display_name, tag1, ...) \
   ({ intptr_t const _tags[] = { tag1, ##__VA_ARGS__ }; \
-    glgfx_monitor_create_a((display_name), (struct glgfx_tagitem const*) _tags); })
+    glgfx_monitor_create_a((display_name), (struct glgfx_tagitem const*) (void*) _tags); })
 
 #define glgfx_monitor_setattrs(monitor, tag1, ...) \
   ({ intptr_t const _tags[] = { tag1, ##__VA_ARGS__ }; \
-    glgfx_monitor_setattrs_a((viewport), (struct glgfx_tagitem const*) _tags); })
+    glgfx_monitor_setattrs_a((viewport), (struct glgfx_tagitem const*) (void*) _tags); })
 
 
 struct glgfx_context* glgfx_monitor_createcontext(struct glgfx_monitor* monitor);

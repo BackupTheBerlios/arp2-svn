@@ -31,11 +31,11 @@ bool glgfx_sprite_getattr(struct glgfx_sprite* sprite,
 
 #define glgfx_sprite_create(tag1, ...) \
   ({ intptr_t const _tags[] = { tag1, ## __VA_ARGS__ }; \
-    glgfx_sprite_create_a((struct glgfx_tagitem const*) _tags); })
+    glgfx_sprite_create_a((struct glgfx_tagitem const*) (void*) _tags); })
 
 #define glgfx_sprite_setattrs(sprite, tag1, ...) \
   ({ intptr_t const _tags[] = { tag1, ##__VA_ARGS__ }; \
-    glgfx_sprite_setattrs_a((sprite), (struct glgfx_tagitem const*) _tags); })
+    glgfx_sprite_setattrs_a((sprite), (struct glgfx_tagitem const*) (void*) _tags); })
 
 
 #endif /* arp2_glgfx_glgfx_sprite_h */
