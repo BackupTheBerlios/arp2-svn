@@ -26,9 +26,9 @@ MODULE_DESCRIPTION("tftp connection tracking helper");
 MODULE_LICENSE("GPL");
 
 #define MAX_PORTS 8
-static short ports[MAX_PORTS];
+static unsigned short ports[MAX_PORTS];
 static int ports_c;
-module_param_array(ports, short, &ports_c, 0400);
+module_param_array(ports, ushort, &ports_c, 0400);
 MODULE_PARM_DESC(ports, "port numbers of tftp servers");
 
 #if 0
@@ -71,6 +71,7 @@ static int tftp_help(struct sk_buff **pskb,
 
 		exp->tuple = ct->tuplehash[IP_CT_DIR_REPLY].tuple;
 		exp->mask.src.ip = 0xffffffff;
+		exp->mask.src.u.udp.port = 0;
 		exp->mask.dst.ip = 0xffffffff;
 		exp->mask.dst.u.udp.port = 0xffff;
 		exp->mask.dst.protonum = 0xff;

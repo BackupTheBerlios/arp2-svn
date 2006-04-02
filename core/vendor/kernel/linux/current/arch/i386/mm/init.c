@@ -27,6 +27,8 @@
 #include <linux/slab.h>
 #include <linux/proc_fs.h>
 #include <linux/efi.h>
+#include <linux/memory_hotplug.h>
+#include <linux/initrd.h>
 
 #include <asm/processor.h>
 #include <asm/system.h>
@@ -266,16 +268,45 @@ static void __init permanent_kmaps_init(pgd_t *pgd_base)
 	pkmap_page_table = pte;	
 }
 
-void __init one_highpage_init(struct page *page, int pfn, int bad_ppro)
+static void __meminit free_new_highpage(struct page *page)
+{
+	set_page_count(page, 1);
+	__free_page(page);
+	totalhigh_pages++;
+}
+
+void __init add_one_highpage_init(struct page *page, int pfn, int bad_ppro)
 {
 	if (page_is_ram(pfn) && !(bad_ppro && page_kills_ppro(pfn))) {
 		ClearPageReserved(page);
-		set_page_count(page, 1);
-		__free_page(page);
-		totalhigh_pages++;
+		free_new_highpage(page);
 	} else
 		SetPageReserved(page);
 }
+
+static int add_one_highpage_hotplug(struct page *page, unsigned long pfn)
+{
+	free_new_highpage(page);
+	totalram_pages++;
+#ifdef CONFIG_FLATMEM
+	max_mapnr = max(pfn, max_mapnr);
+#endif
+	num_physpages++;
+	return 0;
+}
+
+/*
+ * Not currently handling the NUMA case.
+ * Assuming single node and all memory that
+ * has been added dynamically that would be
+ * onlined here is in HIGHMEM
+ */
+void online_page(struct page *page)
+{
+	ClearPageReserved(page);
+	add_one_highpage_hotplug(page, page_to_pfn(page));
+}
+
 
 #ifdef CONFIG_NUMA
 extern void set_highmem_pages_init(int);
@@ -284,7 +315,7 @@ static void __init set_highmem_pages_init(int bad_ppro)
 {
 	int pfn;
 	for (pfn = highstart_pfn; pfn < highend_pfn; pfn++)
-		one_highpage_init(pfn_to_page(pfn), pfn, bad_ppro);
+		add_one_highpage_init(pfn_to_page(pfn), pfn, bad_ppro);
 	totalram_pages += totalhigh_pages;
 }
 #endif /* CONFIG_FLATMEM */
@@ -615,6 +646,28 @@ void __init mem_init(void)
 #endif
 }
 
+/*
+ * this is for the non-NUMA, single node SMP system case.
+ * Specifically, in the case of x86, we will always add
+ * memory to the highmem for now.
+ */
+#ifndef CONFIG_NEED_MULTIPLE_NODES
+int add_memory(u64 start, u64 size)
+{
+	struct pglist_data *pgdata = &contig_page_data;
+	struct zone *zone = pgdata->node_zones + MAX_NR_ZONES-1;
+	unsigned long start_pfn = start >> PAGE_SHIFT;
+	unsigned long nr_pages = size >> PAGE_SHIFT;
+
+	return __add_pages(zone, start_pfn, nr_pages);
+}
+
+int remove_memory(u64 start, u64 size)
+{
+	return -EINVAL;
+}
+#endif
+
 kmem_cache_t *pgd_cache;
 kmem_cache_t *pmd_cache;
 
@@ -681,6 +734,30 @@ void free_initmem(void)
 	}
 	printk (KERN_INFO "Freeing unused kernel memory: %dk freed\n", (__init_end - __init_begin) >> 10);
 }
+
+#ifdef CONFIG_DEBUG_RODATA
+
+extern char __start_rodata, __end_rodata;
+void mark_rodata_ro(void)
+{
+	unsigned long addr = (unsigned long)&__start_rodata;
+
+	for (; addr < (unsigned long)&__end_rodata; addr += PAGE_SIZE)
+		change_page_attr(virt_to_page(addr), 1, PAGE_KERNEL_RO);
+
+	printk ("Write protecting the kernel read-only data: %luk\n",
+			(unsigned long)(&__end_rodata - &__start_rodata) >> 10);
+
+	/*
+	 * change_page_attr() requires a global_flush_tlb() call after it.
+	 * We do this after the printk so that if something went wrong in the
+	 * change, the printk gets out at least to give a better debug hint
+	 * of who is the culprit.
+	 */
+	global_flush_tlb();
+}
+#endif
+
 
 #ifdef CONFIG_BLK_DEV_INITRD
 void free_initrd_mem(unsigned long start, unsigned long end)
