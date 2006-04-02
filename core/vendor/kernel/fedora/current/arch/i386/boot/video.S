@@ -126,8 +126,12 @@ video:	pushw	%ds		# We use different segments
 	call	mode_set			# Set the mode
 	jc	vid1
 
+#if 0
 	leaw	badmdt, %si			# Invalid mode ID
 	call	prtstr
+#else
+	jmp	vid1
+#endif /* CONFIG_VIDEO_IGNORE_BAD_MODE */
 vid2:	call	mode_menu
 vid1:
 #ifdef CONFIG_VIDEO_RETAIN
@@ -1942,12 +1946,22 @@ store_edid:
 	stosl
 
 	movw	$0x4f15, %ax                    # do VBE/DDC
-	movw	$0x01, %bx
+	movw	$0x00, %bx                      # INSTALLATION CHECK / CAPABILITIES
 	movw	$0x00, %cx
-	movw    $0x00, %dx
+	movw	$0x00, %dx
+	movw	$0x140, %di
+	int		$0x10
+	cmpb	$0x01, %ah
+	je		no_edid
+
+	movw	$0x4f15, %ax                    # do VBE/DDC
+	movw	$0x01, %bx                      # READ_EDID
+	movw	$0x00, %cx
+	movw	$0x00, %dx
 	movw	$0x140, %di
 	int	$0x10
 
+no_edid:
 	popw	%di				# restore all registers
 	popw	%dx
 	popw	%cx

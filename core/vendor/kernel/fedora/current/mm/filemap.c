@@ -487,11 +487,18 @@ EXPORT_SYMBOL(unlock_page);
  */
 void end_page_writeback(struct page *page)
 {
+	struct zone *zone = page_zone(page);
 	if (!TestClearPageReclaim(page) || rotate_reclaimable_page(page)) {
 		if (!test_clear_page_writeback(page))
 			BUG();
 	}
 	smp_mb__after_clear_bit();
+	if (zone->all_unreclaimable) {
+		spin_lock(&zone->lock);
+		zone->all_unreclaimable = 0;
+		zone->pages_scanned = 0;
+		spin_unlock(&zone->lock);
+	}
 	wake_up_page(page, PG_writeback);
 }
 EXPORT_SYMBOL(end_page_writeback);
@@ -735,7 +742,8 @@ void do_generic_mapping_read(struct address_space *mapping,
 			     struct file *filp,
 			     loff_t *ppos,
 			     read_descriptor_t *desc,
-			     read_actor_t actor)
+			     read_actor_t actor,
+			     int nonblock)
 {
 	struct inode *inode = mapping->host;
 	unsigned long index;
@@ -785,11 +793,21 @@ void do_generic_mapping_read(struct address_space *mapping,
 find_page:
 		page = find_get_page(mapping, index);
 		if (unlikely(page == NULL)) {
+			if (nonblock) {
+				desc->error = -EWOULDBLOCKIO;
+				break;
+			}
 			handle_ra_miss(mapping, &ra, index);
 			goto no_cached_page;
 		}
-		if (!PageUptodate(page))
+		if (!PageUptodate(page)) {
+			if (nonblock) {
+				page_cache_release(page);
+				desc->error = -EWOULDBLOCKIO;
+				break;
+			}
 			goto page_not_up_to_date;
+		}
 page_ok:
 
 		/* If users can be writing to this page using arbitrary
@@ -1050,7 +1068,7 @@ __generic_file_aio_read(struct kiocb *iocb, const struct iovec *iov,
 			if (desc.count == 0)
 				continue;
 			desc.error = 0;
-			do_generic_file_read(filp,ppos,&desc,file_read_actor);
+			do_generic_file_read(filp,ppos,&desc,file_read_actor,0);
 			retval += desc.written;
 			if (desc.error) {
 				retval = retval ?: desc.error;
@@ -1124,7 +1142,7 @@ ssize_t generic_file_sendfile(struct file *in_file, loff_t *ppos,
 	desc.arg.data = target;
 	desc.error = 0;
 
-	do_generic_file_read(in_file, ppos, &desc, actor);
+	do_generic_file_read(in_file, ppos, &desc, actor, 0);
 	if (desc.written)
 		return desc.written;
 	return desc.error;

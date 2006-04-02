@@ -735,7 +735,7 @@ static __always_inline void follow_dotdot(struct nameidata *nd)
  *  It _is_ time-critical.
  */
 static int do_lookup(struct nameidata *nd, struct qstr *name,
-		     struct path *path)
+		     struct path *path, int atomic)
 {
 	struct vfsmount *mnt = nd->mnt;
 	struct dentry *dentry = __d_lookup(nd->dentry, name);
@@ -751,12 +751,16 @@ done:
 	return 0;
 
 need_lookup:
+	if (atomic)
+		return -EWOULDBLOCKIO;
 	dentry = real_lookup(nd->dentry, name, nd);
 	if (IS_ERR(dentry))
 		goto fail;
 	goto done;
 
 need_revalidate:
+	if (atomic)
+		return -EWOULDBLOCKIO;
 	if (dentry->d_op->d_revalidate(dentry, nd))
 		goto done;
 	if (d_invalidate(dentry))
@@ -780,9 +784,11 @@ static fastcall int __link_path_walk(const char * name, struct nameidata *nd)
 {
 	struct path next;
 	struct inode *inode;
-	int err;
+	int err, atomic;
 	unsigned int lookup_flags = nd->flags;
-	
+
+	atomic = (lookup_flags & LOOKUP_ATOMIC);
+
 	while (*name=='/')
 		name++;
 	if (!*name)
@@ -851,7 +857,7 @@ static fastcall int __link_path_walk(const char * name, struct nameidata *nd)
 				break;
 		}
 		/* This does the actual lookups.. */
-		err = do_lookup(nd, &this, &next);
+		err = do_lookup(nd, &this, &next, atomic);
 		if (err)
 			break;
 
@@ -906,7 +912,7 @@ last_component:
 			if (err < 0)
 				break;
 		}
-		err = do_lookup(nd, &this, &next);
+		err = do_lookup(nd, &this, &next, atomic);
 		if (err)
 			break;
 		inode = next.dentry->d_inode;
@@ -1406,6 +1412,8 @@ static inline int lookup_flags(unsigned int f)
 	
 	if (f & O_DIRECTORY)
 		retval |= LOOKUP_DIRECTORY;
+	if (f & O_ATOMICLOOKUP)
+		retval |= LOOKUP_ATOMIC;
 
 	return retval;
 }

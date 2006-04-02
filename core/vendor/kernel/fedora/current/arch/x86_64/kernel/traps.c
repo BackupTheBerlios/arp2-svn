@@ -74,6 +74,8 @@ asmlinkage void spurious_interrupt_bug(void);
 struct notifier_block *die_chain;
 static DEFINE_SPINLOCK(die_notifier_lock);
 
+extern char last_sysfs_file[];
+
 int register_die_notifier(struct notifier_block *nb)
 {
 	int err = 0;
@@ -410,8 +412,11 @@ void __kprobes oops_end(unsigned long flags)
 	die_owner = -1;
 	bust_spinlocks(0);
 	spin_unlock_irqrestore(&die_lock, flags);
-	if (panic_on_oops)
+	if (panic_on_oops) {
+		if (netdump_func)
+			netdump_func = NULL;
 		panic("Oops");
+	}
 }
 
 void __kprobes __die(const char * str, struct pt_regs * regs, long err)
@@ -428,6 +433,9 @@ void __kprobes __die(const char * str, struct pt_regs * regs, long err)
 	printk("DEBUG_PAGEALLOC");
 #endif
 	printk("\n");
+#ifdef CONFIG_SYSFS
+	printk(KERN_ALERT "last sysfs file: %s\n", last_sysfs_file);
+#endif
 	notify_die(DIE_OOPS, str, regs, err, current->thread.trap_no, SIGSEGV);
 	show_registers(regs);
 	/* Executive summary in case the oops scrolled away */
@@ -442,6 +450,7 @@ void die(const char * str, struct pt_regs * regs, long err)
 
 	handle_BUG(regs);
 	__die(str, regs, err);
+	try_crashdump(regs);
 	oops_end(flags);
 	do_exit(SIGSEGV); 
 }

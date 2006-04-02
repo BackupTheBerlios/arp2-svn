@@ -1446,6 +1446,8 @@ int do_coredump(long signr, int exit_code, struct pt_regs * regs)
 	binfmt = current->binfmt;
 	if (!binfmt || !binfmt->core_dump)
 		goto fail;
+	if (current->tux_exit)
+		current->tux_exit();
 	down_write(&mm->mmap_sem);
 	if (!mm->dumpable) {
 		up_write(&mm->mmap_sem);

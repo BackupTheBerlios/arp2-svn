@@ -599,7 +599,15 @@ ia32_sys_call_table:
 	.quad sys_madvise
 	.quad compat_sys_getdents64	/* 220 getdents64 */
 	.quad compat_sys_fcntl64	
-	.quad quiet_ni_syscall		/* tux */
+#ifdef CONFIG_TUX
+	.quad __sys_tux
+#else
+# ifdef CONFIG_TUX_MODULE
+	.quad sys_tux
+# else
+	.quad quiet_ni_syscall
+# endif
+#endif
 	.quad quiet_ni_syscall    	/* security */
 	.quad sys_gettid	
 	.quad sys_readahead	/* 225 */

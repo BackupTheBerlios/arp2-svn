@@ -247,8 +247,6 @@ elf_core_copy_task_xfpregs(struct task_struct *t, elf_fpxregset_t *xfpu)
 #define elf_check_arch(x) \
 	((x)->e_machine == EM_386)
 
-extern int force_personality32;
-
 #define ELF_EXEC_PAGESIZE PAGE_SIZE
 #define ELF_HWCAP (boot_cpu_data.x86_capability[0])
 #define ELF_PLATFORM  ("i686")
@@ -262,8 +260,6 @@ do {							\
 		set_thread_flag(TIF_ABI_PENDING);		\
 	else							\
 		clear_thread_flag(TIF_ABI_PENDING);		\
-	/* XXX This overwrites the user set personality */	\
-	current->personality |= force_personality32;		\
 } while (0)
 
 /* Override some function names */
@@ -307,7 +303,7 @@ static void elf32_init(struct pt_regs *);
 
 #define ARCH_HAS_SETUP_ADDITIONAL_PAGES 1
 #define arch_setup_additional_pages syscall32_setup_pages
-extern int syscall32_setup_pages(struct linux_binprm *, int exstack);
+extern int syscall32_setup_pages(struct linux_binprm *, int exstack, unsigned long start_code, unsigned long interp_map_address);
 
 #include "../../../fs/binfmt_elf.c" 
 

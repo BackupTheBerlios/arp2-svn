@@ -791,6 +791,8 @@ unsigned int tcp_current_mss(struct sock *sk, int large_allowed)
 	return mss_now;
 }
 
+EXPORT_SYMBOL_GPL(tcp_current_mss);
+
 /* Congestion window validation. (RFC2861) */
 
 static void tcp_cwnd_validate(struct sock *sk, struct tcp_sock *tp)
@@ -1160,6 +1162,7 @@ void __tcp_push_pending_frames(struct sock *sk, struct tcp_sock *tp,
 			tcp_check_probe_timer(sk, tp);
 	}
 }
+EXPORT_SYMBOL_GPL(__tcp_push_pending_frames);
 
 /* Send _single_ skb sitting at the send head. This function requires
  * true push pending frames to setup probe timer etc.

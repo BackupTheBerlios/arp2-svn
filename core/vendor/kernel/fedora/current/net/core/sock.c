@@ -404,8 +404,9 @@ set_rcvbuf:
 			if (!valbool) {
 				sk->sk_bound_dev_if = 0;
 			} else {
-				if (optlen > IFNAMSIZ) 
-					optlen = IFNAMSIZ; 
+				if (optlen > IFNAMSIZ - 1)
+					optlen = IFNAMSIZ - 1;
+				memset(devname, 0, sizeof(devname));
 				if (copy_from_user(devname, optval, optlen)) {
 					ret = -EFAULT;
 					break;
@@ -705,7 +706,7 @@ void sk_free(struct sock *sk)
 	module_put(owner);
 }
 
-struct sock *sk_clone(const struct sock *sk, const gfp_t priority)
+struct sock *sk_clone(struct sock *sk, const gfp_t priority)
 {
 	struct sock *newsk = sk_alloc(sk->sk_family, priority, sk->sk_prot, 0);
 
@@ -741,6 +742,9 @@ struct sock *sk_clone(const struct sock *sk, const gfp_t priority)
 		filter = newsk->sk_filter;
 		if (filter != NULL)
 			sk_filter_charge(newsk, filter);
+
+		if (sk->sk_create_child)
+			sk->sk_create_child(sk, newsk);
 
 		if (unlikely(xfrm_sk_clone_policy(newsk))) {
 			/* It is still raw copy of parent, so invalidate

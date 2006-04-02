@@ -1841,6 +1841,13 @@ static int snd_pcm_oss_open(struct inode *inode, struct file *file)
 	struct snd_pcm_oss_setup *psetup = NULL, *csetup = NULL;
 	int nonblock;
 	wait_queue_t wait;
+	static char printed_comm[16];
+
+	if (strncmp(printed_comm, current->comm, 16)) {
+		printk(KERN_DEBUG "application %s uses obsolete OSS audio interface\n",
+		       current->comm);
+		memcpy(printed_comm, current->comm, 16);
+	}
 
 	pcm = snd_lookup_oss_minor_data(iminor(inode),
 					SNDRV_OSS_DEVICE_TYPE_PCM);

@@ -27,9 +27,7 @@ LDFLAGS_vmlinux :=
 
 CHECKFLAGS      += -D__x86_64__ -m64
 
-cflags-$(CONFIG_MK8) += $(call cc-option,-march=k8)
-cflags-$(CONFIG_MPSC) += $(call cc-option,-march=nocona)
-CFLAGS += $(cflags-y)
+CFLAGS += -march=k8 -mtune=nocona
 
 CFLAGS += -m64
 CFLAGS += -mno-red-zone
@@ -70,6 +68,21 @@ boot := arch/x86_64/boot
 .PHONY: bzImage bzlilo install archmrproper \
 	fdimage fdimage144 fdimage288 archclean
 
+ifdef CONFIG_XEN
+CPPFLAGS := -D__KERNEL__ -Iinclude$(if $(KBUILD_SRC),2)/asm/mach-xen $(LINUXINCLUDE)
+head-y := arch/x86_64/kernel/head-xen.o arch/x86_64/kernel/head64-xen.o arch/x86_64/kernel/init_task.o
+LDFLAGS_vmlinux := -e _start
+boot := arch/i386/boot-xen
+.PHONY: vmlinuz
+#Default target when executing "make"
+all: vmlinuz
+
+vmlinuz: vmlinux
+	$(Q)$(MAKE) $(build)=$(boot) $@
+
+install:
+	$(Q)$(MAKE) $(build)=$(boot) XENGUEST=$(XENGUEST) $@
+else
 #Default target when executing "make"
 all: bzImage
 
@@ -90,6 +103,7 @@ fdimage fdimage144 fdimage288: vmlinux
 
 install:
 	$(Q)$(MAKE) $(build)=$(boot) BOOTIMAGE=$(BOOTIMAGE) $@ 
+endif
 
 archclean:
 	$(Q)$(MAKE) $(clean)=$(boot)

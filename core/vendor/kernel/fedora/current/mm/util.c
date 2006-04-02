@@ -9,7 +9,7 @@
  */
 void *kzalloc(size_t size, gfp_t flags)
 {
-	void *ret = kmalloc(size, flags);
+	void *ret = ____kmalloc(size, flags);
 	if (ret)
 		memset(ret, 0, size);
 	return ret;
@@ -31,7 +31,7 @@ char *kstrdup(const char *s, gfp_t gfp)
 		return NULL;
 
 	len = strlen(s) + 1;
-	buf = kmalloc(len, gfp);
+	buf = ____kmalloc(len, gfp);
 	if (buf)
 		memcpy(buf, s, len);
 	return buf;

@@ -74,6 +74,10 @@ On all -  write a character to /proc/sysrq-trigger.  eg:
 
 'c'	- Will perform a kexec reboot in order to take a crashdump.
 
+'c'     - Intentionally crash the system without syncing or unmounting
+          your disks.  This is most useful if the NETDUMP client package
+          and/or the DISKDUMP package have been installed.
+
 'o'     - Will shut your system off (if configured and supported).
 
 's'     - Will attempt to sync all mounted filesystems.
@@ -126,6 +130,10 @@ and 'U'mount first.
 
 'C'rashdump can be used to manually trigger a crashdump when the system is hung.
 The kernel needs to have been built with CONFIG_KEXEC enabled.
+
+'C'rash immediately crashes your system.  This is most useful if the machine
+has been configured as a NETDUMP client because an OOPS report is generated
+and a kernel crash dump is sent to the NETDUMP server.
 
 'S'ync is great when your system is locked up, it allows you to sync your
 disks and will certainly lessen the chance of data loss and fscking. Note

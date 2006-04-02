@@ -174,7 +174,7 @@ resume:
 		DPRINTK("dentry %p %.*s",
 			dentry, (int)dentry->d_name.len, dentry->d_name.name);
 
-		if (!list_empty(&dentry->d_subdirs)) {
+		if (!simple_empty_nolock(dentry)) {
 			this_parent = dentry;
 			goto repeat;
 		}
@@ -266,7 +266,7 @@ static struct dentry *autofs4_expire(struct super_block *sb,
 			goto next;
 		}
 
-		if ( simple_empty(dentry) )
+		if (simple_empty(dentry))
 			goto next;
 
 		/* Case 2: tree mount, expire iff entire tree is not busy */

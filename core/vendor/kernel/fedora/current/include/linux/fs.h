@@ -1575,7 +1575,7 @@ ssize_t generic_file_write_nolock(struct file *file, const struct iovec *iov,
 extern ssize_t generic_file_sendfile(struct file *, loff_t *, size_t, read_actor_t, void *);
 extern void do_generic_mapping_read(struct address_space *mapping,
 				    struct file_ra_state *, struct file *,
-				    loff_t *, read_descriptor_t *, read_actor_t);
+				    loff_t *, read_descriptor_t *, read_actor_t, int);
 extern void
 file_ra_state_init(struct file_ra_state *ra, struct address_space *mapping);
 extern ssize_t generic_file_readv(struct file *filp, const struct iovec *iov, 
@@ -1607,14 +1607,15 @@ static inline int xip_truncate_page(struct address_space *mapping, loff_t from)
 
 static inline void do_generic_file_read(struct file * filp, loff_t *ppos,
 					read_descriptor_t * desc,
-					read_actor_t actor)
+					read_actor_t actor, int nonblock)
 {
 	do_generic_mapping_read(filp->f_mapping,
 				&filp->f_ra,
 				filp,
 				ppos,
 				desc,
-				actor);
+				actor,
+				nonblock);
 }
 
 ssize_t __blockdev_direct_IO(int rw, struct kiocb *iocb, struct inode *inode,

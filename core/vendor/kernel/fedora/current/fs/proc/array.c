@@ -391,8 +391,12 @@ static int do_task_stat(struct task_struct *task, char * buffer, int whole)
 	ppid = pid_alive(task) ? task->group_leader->real_parent->tgid : 0;
 	read_unlock(&tasklist_lock);
 
-	if (!whole || num_threads<2)
-		wchan = get_wchan(task);
+	if (!whole || num_threads<2) {
+		wchan = 0;
+		if (current->uid == task->uid || current->euid == task->uid ||
+				capable(CAP_SYS_NICE))
+			wchan = get_wchan(task);
+	}
 	if (!whole) {
 		min_flt = task->min_flt;
 		maj_flt = task->maj_flt;

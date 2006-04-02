@@ -95,12 +95,14 @@ static struct sysrq_key_op sysrq_unraw_op = {
 };
 #endif /* CONFIG_VT */
 
-#ifdef CONFIG_KEXEC
 /* crashdump sysrq handler */
 static void sysrq_handle_crashdump(int key, struct pt_regs *pt_regs,
 				struct tty_struct *tty)
 {
+#ifdef CONFIG_KEXEC
 	crash_kexec(pt_regs);
+#endif
+ 	*( (char *) 0) = 0;
 }
 static struct sysrq_key_op sysrq_crashdump_op = {
 	.handler	= sysrq_handle_crashdump,
@@ -108,7 +110,6 @@ static struct sysrq_key_op sysrq_crashdump_op = {
 	.action_msg	= "Trigger a crashdump",
 	.enable_mask	= SYSRQ_ENABLE_DUMP,
 };
-#endif
 
 /* reboot sysrq handler */
 static void sysrq_handle_reboot(int key, struct pt_regs *pt_regs,
@@ -304,7 +305,7 @@ static struct sysrq_key_op *sysrq_key_table[SYSRQ_KEY_TABLE_LENGTH] = {
 		 it is handled specially on the sparc
 		 and will never arrive */
 /* b */	&sysrq_reboot_op,
-#ifdef CONFIG_KEXEC
+#if defined(CONFIG_KEXEC) || defined(CONFIG_NETDUMP) || defined(CONFIG_DISKDUMP)
 /* c */ &sysrq_crashdump_op,
 #else
 /* c */	NULL,

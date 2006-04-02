@@ -47,5 +47,7 @@ call_usermodehelper(char *path, char **argv, char **envp, int wait)
 }
 
 extern void usermodehelper_init(void);
+extern int __exec_usermodehelper(char *path, char **argv, char **envp,
+				 struct key *ring);
 
 #endif /* __LINUX_KMOD_H__ */

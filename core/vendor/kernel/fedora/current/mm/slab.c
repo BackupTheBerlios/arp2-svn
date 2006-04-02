@@ -202,7 +202,7 @@
 
 typedef unsigned int kmem_bufctl_t;
 #define BUFCTL_END	(((kmem_bufctl_t)(~0U))-0)
-#define BUFCTL_FREE	(((kmem_bufctl_t)(~0U))-1)
+#define BUFCTL_ALLOC	(((kmem_bufctl_t)(~0U))-1)
 #define	SLAB_LIMIT	(((kmem_bufctl_t)(~0U))-2)
 
 /* Max number of objs-per-slab for caches which use off-slab slabs.
@@ -431,6 +431,11 @@ struct kmem_cache {
 	 */
 	int obj_offset;
 	int obj_size;
+
+	/*
+	 * Time for next cache verification.
+	 */
+	unsigned long next_verify;
 #endif
 };
 
@@ -446,6 +451,7 @@ struct kmem_cache {
  */
 #define REAPTIMEOUT_CPUC	(2*HZ)
 #define REAPTIMEOUT_LIST3	(4*HZ)
+#define REDZONETIMEOUT		(300*HZ)
 
 #if STATS
 #define	STATS_INC_ACTIVE(x)	((x)->num_active++)
@@ -1488,11 +1494,33 @@ static void poison_obj(struct kmem_cache *cachep, void *addr, unsigned char val)
 static void dump_line(char *data, int offset, int limit)
 {
 	int i;
+	unsigned char total=0, bad_count=0;
 	printk(KERN_ERR "%03x:", offset);
 	for (i = 0; i < limit; i++) {
+		if (data[offset+i] != POISON_FREE) {
+			total += data[offset+i];
+			++bad_count;
+		}
 		printk(" %02x", (unsigned char)data[offset + i]);
 	}
 	printk("\n");
+	if (bad_count == 1) {
+		switch (total) {
+		case POISON_FREE ^ 0x01:
+		case POISON_FREE ^ 0x02:
+		case POISON_FREE ^ 0x04:
+		case POISON_FREE ^ 0x08:
+		case POISON_FREE ^ 0x10:
+		case POISON_FREE ^ 0x20:
+		case POISON_FREE ^ 0x40:
+		case POISON_FREE ^ 0x80:
+			printk (KERN_ERR "Single bit error detected. Possibly bad RAM.\n");
+#ifdef CONFIG_X86
+			printk (KERN_ERR "Run memtest86 or other memory test tool.\n");
+#endif
+			return;
+		}
+	}
 }
 #endif
 
@@ -1546,9 +1574,10 @@ static void check_poison_obj(struct kmem_cache *cachep, void *objp)
 			/* Print header */
 			if (lines == 0) {
 				printk(KERN_ERR
-				       "Slab corruption: start=%p, len=%d\n",
-				       realobj, size);
+				       "Slab corruption: (%s) start=%p, len=%d\n",
+				       print_tainted(), realobj, size);
 				print_objinfo(cachep, objp, 0);
+				dump_stack();
 			}
 			/* Hexdump the affected line */
 			i = (i / 16) * 16;
@@ -2043,6 +2072,11 @@ kmem_cache_create (const char *name, size_t size, size_t align,
 		cachep->limit = BOOT_CPUCACHE_ENTRIES;
 	}
 
+#if DEBUG
+	cachep->next_verify = jiffies + REDZONETIMEOUT +
+		((unsigned long)cachep/L1_CACHE_BYTES)%REDZONETIMEOUT;
+#endif
+
 	/* cache setup completed, link it into the list */
 	list_add(&cachep->next, &cache_chain);
       oops:
@@ -2369,7 +2403,7 @@ static void *slab_get_obj(struct kmem_cache *cachep, struct slab *slabp, int nod
 	slabp->inuse++;
 	next = slab_bufctl(slabp)[slabp->free];
 #if DEBUG
-	slab_bufctl(slabp)[slabp->free] = BUFCTL_FREE;
+	slab_bufctl(slabp)[slabp->free] = BUFCTL_ALLOC;
 	WARN_ON(slabp->nodeid != nodeid);
 #endif
 	slabp->free = next;
@@ -2386,7 +2420,7 @@ static void slab_put_obj(struct kmem_cache *cachep, struct slab *slabp, void *ob
 	/* Verify that the slab belongs to the intended node */
 	WARN_ON(slabp->nodeid != nodeid);
 
-	if (slab_bufctl(slabp)[objnr] != BUFCTL_FREE) {
+	if (slab_bufctl(slabp)[objnr] != BUFCTL_ALLOC) {
 		printk(KERN_ERR "slab: double free detected in cache "
 		       "'%s', objp %p\n", cachep->name, objp);
 		BUG();
@@ -3181,22 +3215,23 @@ static __always_inline void *__do_kmalloc(size_t size, gfp_t flags,
 	return __cache_alloc(cachep, flags, caller);
 }
 
-#ifndef CONFIG_DEBUG_SLAB
 
 void *__kmalloc(size_t size, gfp_t flags)
 {
+#ifndef CONFIG_DEBUG_SLAB
 	return __do_kmalloc(size, flags, NULL);
+#else
+	return __do_kmalloc(size, flags, __builtin_return_address(0));
+#endif
 }
 EXPORT_SYMBOL(__kmalloc);
 
-#else
-
+#ifdef CONFIG_DEBUG_SLAB
 void *__kmalloc_track_caller(size_t size, gfp_t flags, void *caller)
 {
 	return __do_kmalloc(size, flags, caller);
 }
 EXPORT_SYMBOL(__kmalloc_track_caller);
-
 #endif
 
 #ifdef CONFIG_SMP
@@ -3384,6 +3419,116 @@ static int alloc_kmemlist(struct kmem_cache *cachep)
 	return err;
 }
 
+#if DEBUG
+
+static void verify_slab_redzone(struct kmem_cache *cache, struct slab *slab)
+{
+	int i;
+
+	if (!(cache->flags & SLAB_RED_ZONE))
+		return;
+
+#ifdef CONFIG_DEBUG_PAGEALLOC
+	/* Page alloc debugging on for this cache. Mapping & Unmapping happens
+	 * without any locking, thus parallel checks are impossible.
+	 */
+	if ((cache->buffer_size % PAGE_SIZE) == 0 && OFF_SLAB(cache))
+		return;
+#endif
+
+	for (i = 0; i < cache->num; i++) {
+		unsigned long red1, red2;
+		void *obj = slab->s_mem + cache->buffer_size * i;
+
+		red1 = *dbg_redzone1(cache, obj);
+		red2 = *dbg_redzone2(cache, obj);
+
+		/* Simplest case: redzones marked as inactive.  */
+		if (red1 == RED_INACTIVE && red2 == RED_INACTIVE)
+			continue;
+
+		/*
+		 * Tricky case: if the bufctl value is BUFCTL_ALLOC, then
+		 * the object is either allocated or somewhere in a cpu
+		 * cache. The cpu caches are lockless and there might be
+		 * a concurrent alloc/free call, thus we must accept random
+		 * combinations of RED_ACTIVE and _INACTIVE
+		 */
+		if (slab_bufctl(slab)[i] == BUFCTL_ALLOC &&
+				(red1 == RED_INACTIVE || red1 == RED_ACTIVE) &&
+				(red2 == RED_INACTIVE || red2 == RED_ACTIVE))
+			continue;
+
+		printk(KERN_ERR "slab %s: redzone mismatch in slab %p,"
+		       " obj %p, bufctl 0x%lx\n", cache->name, slab, obj,
+		       slab_bufctl(slab)[i]);
+
+		print_objinfo(cache, obj, 2);
+	}
+}
+
+static void print_invalid_slab(const char *list_name, struct kmem_cache *cache,
+			       struct slab *slab)
+{
+	printk(KERN_ERR "slab %s: invalid slab found in %s list at %p (%d/%d).\n",
+	       cache->name, list_name, slab, slab->inuse, cache->num);
+}
+
+static void verify_nodelists(struct kmem_cache *cache,
+			     struct kmem_list3 *lists)
+{
+	struct list_head *q;
+	struct slab *slab;
+
+	list_for_each(q, &lists->slabs_full) {
+		slab = list_entry(q, struct slab, list);
+
+		if (slab->inuse != cache->num)
+			print_invalid_slab("full", cache, slab);
+
+		check_slabp(cache, slab);
+		verify_slab_redzone(cache, slab);
+	}
+	list_for_each(q, &lists->slabs_partial) {
+		slab = list_entry(q, struct slab, list);
+
+		if (slab->inuse == cache->num || slab->inuse == 0)
+			print_invalid_slab("partial", cache, slab);
+
+		check_slabp(cache, slab);
+		verify_slab_redzone(cache, slab);
+	}
+	list_for_each(q, &lists->slabs_free) {
+		slab = list_entry(q, struct slab, list);
+
+		if (slab->inuse != 0)
+			print_invalid_slab("free", cache, slab);
+
+		check_slabp(cache, slab);
+		verify_slab_redzone(cache, slab);
+	}
+}
+
+/*
+ * Perform a self test on all slabs from a cache
+ */
+static void verify_cache(struct kmem_cache *cache)
+{
+	int node;
+
+	check_spinlock_acquired(cache);
+
+	for_each_online_node(node) {
+		struct kmem_list3 *lists = cache->nodelists[node];
+
+		if (!lists)
+			continue;
+		verify_nodelists(cache, lists);
+	}
+}
+
+#endif
+
 struct ccupdate_struct {
 	struct kmem_cache *cachep;
 	struct array_cache *new[NR_CPUS];
@@ -3562,6 +3707,13 @@ static void cache_reap(void *unused)
 
 		drain_array_locked(searchp, cpu_cache_get(searchp), 0,
 				   numa_node_id());
+
+#if DEBUG
+		if (time_before(searchp->next_verify, jiffies)) {
+			searchp->next_verify = jiffies + REDZONETIMEOUT;
+			verify_cache(searchp);
+		}
+#endif
 
 		if (time_after(l3->next_reap, jiffies))
 			goto next_unlock;
@@ -3840,6 +3992,163 @@ ssize_t slabinfo_write(struct file *file, const char __user * buffer,
 		res = count;
 	return res;
 }
+
+#ifdef CONFIG_DEBUG_SLAB_LEAK
+
+static void *leaks_start(struct seq_file *m, loff_t *pos)
+{
+	loff_t n = *pos;
+	struct list_head *p;
+
+	mutex_lock(&cache_chain_mutex);
+	p = cache_chain.next;
+	while (n--) {
+		p = p->next;
+		if (p == &cache_chain)
+			return NULL;
+	}
+	return list_entry(p, struct kmem_cache, next);
+}
+
+static inline int add_caller(unsigned long *n, unsigned long v)
+{
+	unsigned long *p;
+	int l;
+	if (!v)
+		return 1;
+	l = n[1];
+	p = n + 2;
+	while (l) {
+		int i = l/2;
+		unsigned long *q = p + 2 * i;
+		if (*q == v) {
+			q[1]++;
+			return 1;
+		}
+		if (*q > v) {
+			l = i;
+		} else {
+			p = q + 2;
+			l -= i + 1;
+		}
+	}
+	if (++n[1] == n[0])
+		return 0;
+	memmove(p + 2, p, n[1] * 2 * sizeof(unsigned long) - ((void *)p - (void *)n));
+	p[0] = v;
+	p[1] = 1;
+	return 1;
+}
+
+static void handle_slab(unsigned long *n, struct kmem_cache *c, struct slab *s)
+{
+	void *p;
+	int i;
+	if (n[0] == n[1])
+		return;
+	for (i = 0, p = s->s_mem; i < c->num; i++, p += c->buffer_size) {
+		if (slab_bufctl(s)[i] != BUFCTL_ALLOC)
+			continue;
+		if (*dbg_redzone1(c, p) != RED_ACTIVE)
+			continue;
+		if (!add_caller(n, (unsigned long)*dbg_userword(c, p)))
+			return;
+	}
+}
+
+static void show_symbol(struct seq_file *m, unsigned long address)
+{
+#ifdef CONFIG_KALLSYMS
+	char *modname;
+	const char *name;
+	unsigned long offset, size;
+	char namebuf[KSYM_NAME_LEN+1];
+
+	name = kallsyms_lookup(address, &size, &offset, &modname, namebuf);
+
+	if (name) {
+		seq_printf(m, "%s+%#lx/%#lx", name, offset, size);
+		if (modname)
+			seq_printf(m, " [%s]", modname);
+		return;
+	}
+#endif
+	seq_printf(m, "%p", (void *)address);
+}
+
+static int leaks_show(struct seq_file *m, void *p)
+{
+	struct kmem_cache *cachep = p;
+	struct list_head *q;
+	struct slab *slabp;
+	struct kmem_list3 *l3;
+	const char *name;
+	unsigned long *n = m->private;
+	int node;
+	int i;
+
+	if (!(cachep->flags & SLAB_STORE_USER))
+		return 0;
+	if (!(cachep->flags & SLAB_RED_ZONE))
+		return 0;
+
+	/* OK, we can do it */
+
+	n[1] = 0;
+
+	spin_lock(&cachep->spinlock);
+	for_each_online_node(node) {
+		l3 = cachep->nodelists[node];
+		if (!l3)
+			continue;
+
+		check_irq_on();
+		spin_lock_irq(&l3->list_lock);
+
+		list_for_each(q, &l3->slabs_full) {
+			slabp = list_entry(q, struct slab, list);
+			handle_slab(n, cachep, slabp);
+		}
+		list_for_each(q, &l3->slabs_partial) {
+			slabp = list_entry(q, struct slab, list);
+			handle_slab(n, cachep, slabp);
+		}
+		spin_unlock_irq(&l3->list_lock);
+	}
+	name = cachep->name;
+	spin_unlock(&cachep->spinlock);
+	if (n[0] == n[1]) {
+		/* Increase the buffer size */
+		mutex_unlock(&cache_chain_mutex);
+		m->private = kzalloc(n[0] * 4 * sizeof(unsigned long), GFP_KERNEL);
+		if (!m->private) {
+			/* Too bad, we are really out */
+			m->private = n;
+			mutex_lock(&cache_chain_mutex);
+			return -ENOMEM;
+		}
+		*(unsigned long *)m->private = n[0] * 2;
+		kfree(n);
+		mutex_lock(&cache_chain_mutex);
+		/* Now make sure this entry will be retried */
+		m->count = m->size;
+		return 0;
+	}
+	for (i = 0; i < n[1]; i++) {
+		seq_printf(m, "%s: %lu ", name, n[2*i+3]);
+		show_symbol(m, n[2*i+2]);
+		seq_putc(m, '\n');
+	}
+	return 0;
+}
+
+struct seq_operations slabstats_op = {
+	.start = leaks_start,
+	.next = s_next,
+	.stop = s_stop,
+	.show = leaks_show,
+};
+#endif
 #endif
 
 /**

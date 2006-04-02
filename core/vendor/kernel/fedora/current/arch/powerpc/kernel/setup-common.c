@@ -110,6 +110,8 @@ void machine_restart(char *cmd)
 	while (1) ;
 }
 
+EXPORT_SYMBOL_GPL(machine_restart);
+
 void machine_power_off(void)
 {
 	machine_shutdown();

@@ -975,6 +975,11 @@ __init void prefill_possible_map(void)
 	if (possible > NR_CPUS) 
 		possible = NR_CPUS;
 
+	if (possible == 0) {	/* Could be SMP kernel on UP hw with broken BIOS */
+		possible = 1;
+		printk (KERN_DEBUG "BIOS never enumerated boot CPU, fixing.\n");
+	}
+
 	printk(KERN_INFO "SMP: Allowing %d CPUs, %d hotplug CPUs\n",
 		possible,
 	        max_t(int, possible - num_processors, 0));

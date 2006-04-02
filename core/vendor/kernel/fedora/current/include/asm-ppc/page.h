@@ -175,5 +175,7 @@ extern __inline__ int get_order(unsigned long size)
 /* We do define AT_SYSINFO_EHDR but don't use the gate mecanism */
 #define __HAVE_ARCH_GATE_AREA		1
 
+#define devmem_is_allowed(x) 1
+
 #endif /* __KERNEL__ */
 #endif /* _PPC_PAGE_H */

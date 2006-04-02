@@ -34,6 +34,7 @@
 #include <asm/hvconsole.h>
 #include <asm/vio.h>
 #include <asm/prom.h>
+#include "hvc_console.h"
 
 char hvc_driver_name[] = "hvc_console";
 

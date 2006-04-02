@@ -128,14 +128,14 @@ struct subprocess_info {
 /*
  * This is the task which runs the usermode application
  */
-static int ____call_usermodehelper(void *data)
+int
+__exec_usermodehelper(char *path, char **argv, char **envp, struct key *ring)
 {
-	struct subprocess_info *sub_info = data;
 	struct key *new_session, *old_session;
 	int retval;
 
 	/* Unblock all signals and set the session keyring. */
-	new_session = key_get(sub_info->ring);
+	new_session = key_get(ring);
 	flush_signals(current);
 	spin_lock_irq(&current->sighand->siglock);
 	old_session = __install_session_keyring(current, new_session);
@@ -146,12 +146,28 @@ static int ____call_usermodehelper(void *data)
 
 	key_put(old_session);
 
+	retval = -EPERM;
+	if (current->fs->root)
+		retval = execve(path, argv, envp);
+
+	return retval;
+}
+
+EXPORT_SYMBOL_GPL(__exec_usermodehelper);
+
+/*
+ * This is the task which runs the usermode application
+ */
+static int ____call_usermodehelper(void *data)
+{
+	struct subprocess_info *sub_info = data;
+	int retval;
+
 	/* We can run anywhere, unlike our parent keventd(). */
 	set_cpus_allowed(current, CPU_MASK_ALL);
 
-	retval = -EPERM;
-	if (current->fs->root)
-		retval = execve(sub_info->path, sub_info->argv,sub_info->envp);
+	retval = __exec_usermodehelper(sub_info->path,
+			sub_info->argv, sub_info->envp, sub_info->ring);
 
 	/* Exec failed? */
 	sub_info->retval = retval;

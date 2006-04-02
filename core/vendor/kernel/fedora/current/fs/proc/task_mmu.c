@@ -43,7 +43,11 @@ char *task_mem(struct mm_struct *mm, char *buffer)
 		"VmStk:\t%8lu kB\n"
 		"VmExe:\t%8lu kB\n"
 		"VmLib:\t%8lu kB\n"
-		"VmPTE:\t%8lu kB\n",
+		"VmPTE:\t%8lu kB\n"
+		"StaBrk:\t%08lx kB\n"
+		"Brk:\t%08lx kB\n"
+		"StaStk:\t%08lx kB\n"
+		,
 		hiwater_vm << (PAGE_SHIFT-10),
 		(total_vm - mm->reserved_vm) << (PAGE_SHIFT-10),
 		mm->locked_vm << (PAGE_SHIFT-10),
@@ -51,7 +55,13 @@ char *task_mem(struct mm_struct *mm, char *buffer)
 		total_rss << (PAGE_SHIFT-10),
 		data << (PAGE_SHIFT-10),
 		mm->stack_vm << (PAGE_SHIFT-10), text, lib,
-		(PTRS_PER_PTE*sizeof(pte_t)*mm->nr_ptes) >> 10);
+		(PTRS_PER_PTE*sizeof(pte_t)*mm->nr_ptes) >> 10,
+		mm->start_brk, mm->brk, mm->start_stack);
+#ifdef __i386__
+	if (!nx_enabled)
+		buffer += sprintf(buffer,
+			"ExecLim:\t%08lx\n", mm->context.exec_limit);
+#endif
 	return buffer;
 }
 
@@ -140,7 +150,13 @@ static int show_map_internal(struct seq_file *m, void *v, struct mem_size_stats 
 			vma->vm_end,
 			flags & VM_READ ? 'r' : '-',
 			flags & VM_WRITE ? 'w' : '-',
-			flags & VM_EXEC ? 'x' : '-',
+			(flags & VM_EXEC
+#ifdef __i386__
+				|| (!nx_enabled &&
+				(vma->vm_start < task->mm->context.exec_limit))
+#endif
+			)
+				? 'x' : '-',
 			flags & VM_MAYSHARE ? 's' : 'p',
 			vma->vm_pgoff << PAGE_SHIFT,
 			MAJOR(dev), MINOR(dev), ino, &len);
@@ -154,18 +170,22 @@ static int show_map_internal(struct seq_file *m, void *v, struct mem_size_stats 
 		seq_path(m, file->f_vfsmnt, file->f_dentry, "\n");
 	} else {
 		if (mm) {
-			if (vma->vm_start <= mm->start_brk &&
-						vma->vm_end >= mm->brk) {
+			if (vma->vm_end == mm->brk) {
 				pad_len_spaces(m, len);
 				seq_puts(m, "[heap]");
-			} else {
-				if (vma->vm_start <= mm->start_stack &&
+			} else if (vma->vm_start <= mm->start_stack &&
 					vma->vm_end >= mm->start_stack) {
 
 					pad_len_spaces(m, len);
 					seq_puts(m, "[stack]");
 				}
+#ifdef __i386__
+			else if (vma->vm_start ==
+				(unsigned long)mm->context.vdso) {
+				pad_len_spaces(m, len);
+				seq_puts(m, "[vdso]");
 			}
+#endif
 		} else {
 			pad_len_spaces(m, len);
 			seq_puts(m, "[vdso]");

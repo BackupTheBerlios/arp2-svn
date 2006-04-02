@@ -454,6 +454,7 @@ void show_regs(struct pt_regs * regs)
 	if (!user_mode(regs))
 		show_instructions(regs);
 }
+EXPORT_SYMBOL_GPL(show_regs);
 
 void exit_thread(void)
 {

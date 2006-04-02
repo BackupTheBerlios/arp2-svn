@@ -218,7 +218,8 @@ static struct vm_operations_struct vdso_vmops = {
  * vDSO and insert it into the mm struct tree
  */
 int arch_setup_additional_pages(struct linux_binprm *bprm,
-				int executable_stack)
+				int executable_stack, unsigned long start_code,
+				unsigned long interp_map_address)
 {
 	struct mm_struct *mm = current->mm;
 	struct vm_area_struct *vma;

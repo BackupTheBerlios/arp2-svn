@@ -86,6 +86,10 @@ static void d_free(struct dentry *dentry)
 {
 	if (dentry->d_op && dentry->d_op->d_release)
 		dentry->d_op->d_release(dentry);
+ 	if (dentry->d_extra_attributes) {
+ 		kfree(dentry->d_extra_attributes);
+ 		dentry->d_extra_attributes = NULL;
+ 	}
  	call_rcu(&dentry->d_u.d_rcu, d_callback);
 }
 
@@ -742,6 +746,7 @@ struct dentry *d_alloc(struct dentry * parent, const struct qstr *name)
 	dentry->d_sb = NULL;
 	dentry->d_op = NULL;
 	dentry->d_fsdata = NULL;
+	dentry->d_extra_attributes = NULL;
 	dentry->d_mounted = 0;
 #ifdef CONFIG_PROFILING
 	dentry->d_cookie = NULL;
@@ -1317,6 +1322,16 @@ already_unhashed:
 	/* Unhash the target: dput() will then get rid of it */
 	__d_drop(target);
 
+ 	/* flush any possible attributes */
+ 	if (dentry->d_extra_attributes) {
+ 		kfree(dentry->d_extra_attributes);
+ 		dentry->d_extra_attributes = NULL;
+ 	}
+ 	if (target->d_extra_attributes) {
+ 		kfree(target->d_extra_attributes);
+ 		target->d_extra_attributes = NULL;
+ 	}
+ 
 	list_del(&dentry->d_u.d_child);
 	list_del(&target->d_u.d_child);
 
@@ -1360,7 +1375,7 @@ already_unhashed:
  *
  * "buflen" should be positive. Caller holds the dcache_lock.
  */
-static char * __d_path( struct dentry *dentry, struct vfsmount *vfsmnt,
+char * __d_path( struct dentry *dentry, struct vfsmount *vfsmnt,
 			struct dentry *root, struct vfsmount *rootmnt,
 			char *buffer, int buflen)
 {
@@ -1427,6 +1442,8 @@ global_root:
 Elong:
 	return ERR_PTR(-ENAMETOOLONG);
 }
+
+EXPORT_SYMBOL_GPL(__d_path);
 
 /* write full pathname into buffer and return start of pathname */
 char * d_path(struct dentry *dentry, struct vfsmount *vfsmnt,
@@ -1669,6 +1686,23 @@ static void __init dcache_init_early(void)
 	for (loop = 0; loop < (1 << d_hash_shift); loop++)
 		INIT_HLIST_HEAD(&dentry_hashtable[loop]);
 }
+
+void flush_dentry_attributes (void)
+{
+	struct hlist_node *tmp;
+	struct dentry *dentry;
+	int i;
+
+	spin_lock(&dcache_lock);
+	for (i = 0; i <= d_hash_mask; i++)
+		hlist_for_each_entry(dentry, tmp, dentry_hashtable+i, d_hash) {
+			kfree(dentry->d_extra_attributes);
+			dentry->d_extra_attributes = NULL;
+		}
+	spin_unlock(&dcache_lock);
+}
+
+EXPORT_SYMBOL_GPL(flush_dentry_attributes);
 
 static void __init dcache_init(unsigned long mempages)
 {

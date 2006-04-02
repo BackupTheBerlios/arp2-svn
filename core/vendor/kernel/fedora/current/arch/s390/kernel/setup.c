@@ -303,11 +303,15 @@ void machine_restart(char *command)
 	_machine_restart(command);
 }
 
+EXPORT_SYMBOL_GPL(machine_restart);
+
 void machine_halt(void)
 {
 	console_unblank();
 	_machine_halt();
 }
+
+EXPORT_SYMBOL_GPL(machine_halt);
 
 void machine_power_off(void)
 {

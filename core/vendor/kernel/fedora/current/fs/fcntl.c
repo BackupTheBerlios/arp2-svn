@@ -112,7 +112,7 @@ out:
 	return error;
 }
 
-static int dupfd(struct file *file, unsigned int start)
+int dupfd(struct file *file, unsigned int start)
 {
 	struct files_struct * files = current->files;
 	struct fdtable *fdt;
@@ -134,6 +134,8 @@ static int dupfd(struct file *file, unsigned int start)
 
 	return fd;
 }
+
+EXPORT_SYMBOL_GPL(dupfd);
 
 asmlinkage long sys_dup2(unsigned int oldfd, unsigned int newfd)
 {

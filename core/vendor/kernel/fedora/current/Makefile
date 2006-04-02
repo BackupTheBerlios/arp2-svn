@@ -1,7 +1,7 @@
 VERSION = 2
 PATCHLEVEL = 6
 SUBLEVEL = 16
-EXTRAVERSION =
+EXTRAVERSION = -prep
 NAME=Sliding Snow Leopard
 
 # *DOCUMENTATION*
@@ -185,7 +185,7 @@ CONFIG_SHELL := $(shell if [ -x "$$BASH" ]; then echo $$BASH; \
 
 HOSTCC  	= gcc
 HOSTCXX  	= g++
-HOSTCFLAGS	= -Wall -Wstrict-prototypes -O2 -fomit-frame-pointer
+HOSTCFLAGS	= -Wall -Wstrict-prototypes -O2 -fomit-frame-pointer -Wundef -Werror-implicit-function-declaration
 HOSTCXXFLAGS	= -O2
 
 # 	Decide whether to build built-in, modular, or both.

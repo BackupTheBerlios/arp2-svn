@@ -2176,9 +2176,11 @@ static inline void wait_for_xmitr(struct uart_8250_port *up, int bits)
 	/* Wait up to 1s for flow control if necessary */
 	if (up->port.flags & UPF_CONS_FLOW) {
 		tmout = 1000000;
-		while (--tmout &&
-		       ((serial_in(up, UART_MSR) & UART_MSR_CTS) == 0))
+		while (!(serial_in(up, UART_MSR) & UART_MSR_CTS) && --tmout) {
 			udelay(1);
+			if ((tmout % 1000) == 0)
+				touch_nmi_watchdog();
+		}
 	}
 }
 

@@ -54,6 +54,7 @@
 #include <linux/serial_reg.h>
 #include <linux/dma-mapping.h>
 #include <linux/platform_device.h>
+#include <linux/pnp.h>
 
 #include <asm/io.h>
 #include <asm/dma.h>
@@ -69,6 +70,7 @@
 #include "smsc-ircc2.h"
 #include "smsc-sio.h"
 
+static int pnp_registered_port;
 
 MODULE_AUTHOR("Daniele Peri <peri@csai.unipa.it>");
 MODULE_DESCRIPTION("SMC IrCC SIR/FIR controller driver");
@@ -325,6 +327,61 @@ static inline void register_bank(int iobase, int bank)
         outb(((inb(iobase + IRCC_MASTER) & 0xf0) | (bank & 0x07)),
                iobase + IRCC_MASTER);
 }
+
+
+/* PNP probing */
+
+static const struct pnp_device_id smsc_ircc_pnp_table[] = {
+{
+	.id = "SMCf010",
+	.driver_data = 0
+},
+{ }
+};
+
+MODULE_DEVICE_TABLE(pnp, smsc_ircc_pnp_table);
+
+static int __devinit
+smsc_ircc_pnp_probe(struct pnp_dev *dev, const struct pnp_device_id *id)
+{
+	unsigned int firbase, sirbase;
+	u8 dma, irq;
+
+	if (pnp_port_valid(dev, 0) &&
+	   !(pnp_port_flags(dev, 0) & IORESOURCE_DISABLED))
+		sirbase = pnp_port_start(dev, 0);
+	else
+		return -EINVAL;
+
+	if (pnp_port_valid(dev, 1) &&
+	   !(pnp_port_flags(dev, 1) & IORESOURCE_DISABLED))
+		firbase = pnp_port_start(dev, 1);
+	else
+		return -EINVAL;
+
+	if (pnp_irq_valid(dev, 0) &&
+	   !(pnp_irq_flags(dev, 0) & IORESOURCE_DISABLED))
+		irq = pnp_irq(dev, 0);
+	else
+		return -EINVAL;
+
+	if (pnp_dma_valid(dev, 0) &&
+	   !(pnp_dma_flags(dev, 0) & IORESOURCE_DISABLED))
+		dma = pnp_dma(dev, 0);
+	else
+		return -EINVAL;
+
+	if (smsc_ircc_open(firbase, sirbase, dma, irq))
+		return -ENODEV;
+
+	return 0;
+}
+
+static struct pnp_driver smsc_ircc_pnp_driver = {
+	.name = "smsc-ircc2",
+	.id_table = smsc_ircc_pnp_table,
+	.probe = smsc_ircc_pnp_probe,
+};
 
 
 /*******************************************************************************
@@ -1784,6 +1841,8 @@ static void __exit smsc_ircc_cleanup(void)
 
 	IRDA_DEBUG(1, "%s\n", __FUNCTION__);
 
+	if (pnp_registered_port)
+		pnp_unregister_driver(&smsc_ircc_pnp_driver);
 	for (i = 0; i < 2; i++) {
 		if (dev_self[i])
 			smsc_ircc_close(dev_self[i]);
@@ -2041,8 +2100,16 @@ static int __init smsc_ircc_look_for_chips(void)
 	struct smsc_chip_address *address;
 	char *type;
 	unsigned int cfg_base, found;
+	int r;
 
 	found = 0;
+
+	r = pnp_register_driver(&smsc_ircc_pnp_driver);
+	if (r >= 0) {
+		pnp_registered_port = 1;
+		found += r;
+	}
+
 	address = possible_addresses;
 
 	while (address->cfg_base) {

@@ -32,7 +32,7 @@ enum {
 	FW_STATUS_READY_NOHOTPLUG,
 };
 
-static int loading_timeout = 10;	/* In seconds */
+static int loading_timeout = 60;	/* In seconds */
 
 /* fw_lock could be moved to 'struct firmware_priv' but since it is just
  * guarding for corner cases a global lock should be OK */
@@ -211,18 +211,20 @@ static int
 fw_realloc_buffer(struct firmware_priv *fw_priv, int min_size)
 {
 	u8 *new_data;
+	int new_size = fw_priv->alloc_size;
 
 	if (min_size <= fw_priv->alloc_size)
 		return 0;
 
-	new_data = vmalloc(fw_priv->alloc_size + PAGE_SIZE);
+	new_size = ALIGN(min_size, PAGE_SIZE);
+	new_data = vmalloc(new_size);
 	if (!new_data) {
 		printk(KERN_ERR "%s: unable to alloc buffer\n", __FUNCTION__);
 		/* Make sure that we don't keep incomplete data */
 		fw_load_abort(fw_priv);
 		return -ENOMEM;
 	}
-	fw_priv->alloc_size += PAGE_SIZE;
+	fw_priv->alloc_size = new_size;
 	if (fw_priv->fw->data) {
 		memcpy(new_data, fw_priv->fw->data, fw_priv->fw->size);
 		vfree(fw_priv->fw->data);

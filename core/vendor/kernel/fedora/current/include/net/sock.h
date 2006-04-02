@@ -62,7 +62,7 @@
  */
 
 /* Define this to get the SOCK_DBG debugging facility. */
-#define SOCK_DEBUGGING
+//#define SOCK_DEBUGGING
 #ifdef SOCK_DEBUGGING
 #define SOCK_DEBUG(sk, msg...) do { if ((sk) && sock_flag((sk), SOCK_DBG)) \
 					printk(KERN_DEBUG msg); } while (0)
@@ -161,7 +161,7 @@ struct sock_common {
   *	@sk_timer: sock cleanup timer
   *	@sk_stamp: time stamp of last packet received
   *	@sk_socket: Identd and reporting IO signals
-  *	@sk_user_data: RPC layer private data
+  *	@sk_user_data: RPC and Tux layer private data
   *	@sk_sndmsg_page: cached page for sendmsg
   *	@sk_sndmsg_off: cached offset for sendmsg
   *	@sk_send_head: front of stuff to transmit
@@ -171,6 +171,7 @@ struct sock_common {
   *	@sk_data_ready: callback to indicate there is data to be processed
   *	@sk_write_space: callback to indicate there is bf sending space available
   *	@sk_error_report: callback to indicate errors (e.g. %MSG_ERRQUEUE)
+  *	@sk_create_child - callback to get new socket events
   *	@sk_backlog_rcv: callback to process the backlog
   *	@sk_destruct: called at sock freeing time, i.e. when all refcnt == 0
  */
@@ -250,6 +251,7 @@ struct sock {
 	void			(*sk_error_report)(struct sock *sk);
   	int			(*sk_backlog_rcv)(struct sock *sk,
 						  struct sk_buff *skb);  
+	void			(*sk_create_child)(struct sock *sk, struct sock *newsk);
 	void                    (*sk_destruct)(struct sock *sk);
 };
 
@@ -742,7 +744,7 @@ extern struct sock		*sk_alloc(int family,
 					  gfp_t priority,
 					  struct proto *prot, int zero_it);
 extern void			sk_free(struct sock *sk);
-extern struct sock		*sk_clone(const struct sock *sk,
+extern struct sock		*sk_clone(struct sock *sk,
 					  const gfp_t priority);
 
 extern struct sk_buff		*sock_wmalloc(struct sock *sk,

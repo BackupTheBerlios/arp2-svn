@@ -79,6 +79,8 @@ extern unsigned long memory_end;
 
 #endif /* __ASSEMBLY__ */
 
+#define devmem_is_allowed(x) 1
+
 #endif /* __KERNEL__ */
 
 #include <asm-generic/page.h>

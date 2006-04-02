@@ -851,6 +851,13 @@ fastcall NORET_TYPE void do_exit(long code)
  		hrtimer_cancel(&tsk->signal->real_timer);
 		exit_itimers(tsk->signal);
 		acct_process(code);
+		if (current->tux_info) {
+#ifdef CONFIG_TUX_DEBUG
+			printk("Possibly unexpected TUX-thread exit(%ld) at %p?\n",
+				code, __builtin_return_address(0));
+#endif
+			current->tux_exit();
+		}
 	}
 	exit_mm(tsk);
 

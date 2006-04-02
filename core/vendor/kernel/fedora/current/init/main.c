@@ -555,6 +555,31 @@ static int __init initcall_debug_setup(char *str)
 }
 __setup("initcall_debug", initcall_debug_setup);
 
+#ifdef CONFIG_BOOT_DELAY
+
+unsigned int boot_delay = 0; /* msecs delay after each printk during bootup */
+extern long preset_lpj;
+unsigned long long printk_delay_msec = 0; /* per msec, based on boot_delay */
+
+static int __init boot_delay_setup(char *str)
+{
+	unsigned long lpj = preset_lpj ? preset_lpj : 1000000; /* some guess */
+	unsigned long long loops_per_msec = lpj / 1000 * CONFIG_HZ;
+
+	get_option(&str, &boot_delay);
+	if (boot_delay > 10 * 1000)
+		boot_delay = 0;
+
+	printk_delay_msec = loops_per_msec;
+	printk("boot_delay: %u, preset_lpj: %ld, lpj: %lu, CONFIG_HZ: %d, printk_delay_msec: %llu\n",
+		boot_delay, preset_lpj, lpj, CONFIG_HZ, printk_delay_msec);
+
+	return 1;
+}
+__setup("boot_delay=", boot_delay_setup);
+
+#endif
+
 struct task_struct *child_reaper = &init_task;
 
 extern initcall_t __initcall_start[], __initcall_end[];
@@ -615,6 +640,15 @@ static void __init do_basic_setup(void)
 	do_initcalls();
 }
 
+static int __initdata nosoftlockup;
+
+static int __init nosoftlockup_setup(char *str)
+{
+	nosoftlockup = 1;
+	return 1;
+}
+__setup("nosoftlockup", nosoftlockup_setup);
+
 static void do_pre_smp_initcalls(void)
 {
 	extern int spawn_ksoftirqd(void);
@@ -624,7 +658,8 @@ static void do_pre_smp_initcalls(void)
 	migration_init();
 #endif
 	spawn_ksoftirqd();
-	spawn_softlockup_task();
+	if (!nosoftlockup)
+		spawn_softlockup_task();
 }
 
 static void run_init_process(char *init_filename)

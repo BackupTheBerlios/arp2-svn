@@ -166,6 +166,9 @@ extern unsigned int kobjsize(const void *objp);
 #define VM_NONLINEAR	0x00800000	/* Is non-linear (remap_file_pages) */
 #define VM_MAPPED_COPY	0x01000000	/* T if mapped copy of data (nommu mmap) */
 #define VM_INSERTPAGE	0x02000000	/* The vma has had "vm_insert_page()" done on it */
+#ifdef CONFIG_XEN
+#define VM_FOREIGN	0x04000000	/* Has pages belonging to another VM */
+#endif
 
 #ifndef VM_STACK_DEFAULT_FLAGS		/* arch can override this */
 #define VM_STACK_DEFAULT_FLAGS VM_DATA_DEFAULT_FLAGS
@@ -244,6 +247,9 @@ struct page {
 	    };
 #if NR_CPUS >= CONFIG_SPLIT_PTLOCK_CPUS
 	    spinlock_t ptl;
+#endif
+#ifdef CONFIG_XEN
+	    struct list_head ballooned;
 #endif
 	};
 	pgoff_t index;			/* Our offset within mapping. */
@@ -916,7 +922,19 @@ extern struct vm_area_struct *copy_vma(struct vm_area_struct **,
 extern void exit_mmap(struct mm_struct *);
 extern int may_expand_vm(struct mm_struct *mm, unsigned long npages);
 
-extern unsigned long get_unmapped_area(struct file *, unsigned long, unsigned long, unsigned long, unsigned long);
+extern unsigned long get_unmapped_area_prot(struct file *, unsigned long, unsigned long, unsigned long, unsigned long, int);
+
+
+static inline unsigned long get_unmapped_area(struct file * file, unsigned long addr,
+		unsigned long len, unsigned long pgoff, unsigned long flags)
+{
+	return get_unmapped_area_prot(file, addr, len, pgoff, flags, 0);
+}
+
+extern int install_special_mapping(struct mm_struct *mm,
+				   unsigned long addr, unsigned long len,
+				   unsigned long vm_flags, pgprot_t pgprot,
+				   struct page **pages);
 
 extern unsigned long do_mmap_pgoff(struct file *file, unsigned long addr,
 	unsigned long len, unsigned long prot,
@@ -968,7 +986,7 @@ unsigned long page_cache_readahead(struct address_space *mapping,
 			  struct file *filp,
 			  pgoff_t offset,
 			  unsigned long size);
-void handle_ra_miss(struct address_space *mapping, 
+void handle_ra_miss(struct address_space *mapping,
 		    struct file_ra_state *ra, pgoff_t offset);
 unsigned long max_sane_readahead(unsigned long nr);
 
@@ -1012,6 +1030,13 @@ struct page *follow_page(struct vm_area_struct *, unsigned long address,
 #define FOLL_TOUCH	0x02	/* mark page accessed */
 #define FOLL_GET	0x04	/* do get_page on page */
 #define FOLL_ANON	0x08	/* give ZERO_PAGE if no pgtable */
+
+#ifdef CONFIG_XEN
+typedef int (*pte_fn_t)(pte_t *pte, struct page *pte_page, unsigned long addr, 
+                        void *data);
+extern int generic_page_range(struct mm_struct *mm, unsigned long address, 
+                              unsigned long size, pte_fn_t fn, void *data);
+#endif
 
 #ifdef CONFIG_PROC_FS
 void vm_stat_account(struct mm_struct *, unsigned long, struct file *, long);

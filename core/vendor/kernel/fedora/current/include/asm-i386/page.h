@@ -107,6 +107,8 @@ extern int sysctl_legacy_va_layout;
 
 extern int page_is_ram(unsigned long pagenr);
 
+extern int devmem_is_allowed(unsigned long pagenr);
+
 #endif /* __ASSEMBLY__ */
 
 #ifdef __ASSEMBLY__
@@ -118,10 +120,15 @@ extern int page_is_ram(unsigned long pagenr);
 #endif
 #define __KERNEL_START		(__PAGE_OFFSET + __PHYSICAL_START)
 
+/*
+ * Under exec-shield we don't use the generic fixmap gate area.
+ * The vDSO ("gate area") has a normal vma found the normal ways.
+ */
+#define __HAVE_ARCH_GATE_AREA	1
 
 #define PAGE_OFFSET		((unsigned long)__PAGE_OFFSET)
 #define VMALLOC_RESERVE		((unsigned long)__VMALLOC_RESERVE)
-#define MAXMEM			(-__PAGE_OFFSET-__VMALLOC_RESERVE)
+#define MAXMEM			(__FIXADDR_TOP-__PAGE_OFFSET-__VMALLOC_RESERVE)
 #define __pa(x)			((unsigned long)(x)-PAGE_OFFSET)
 #define __va(x)			((void *)((unsigned long)(x)+PAGE_OFFSET))
 #define pfn_to_kaddr(pfn)      __va((pfn) << PAGE_SHIFT)
@@ -138,6 +145,8 @@ extern int page_is_ram(unsigned long pagenr);
 	(VM_READ | VM_WRITE | \
 	((current->personality & READ_IMPLIES_EXEC) ? VM_EXEC : 0 ) | \
 		 VM_MAYREAD | VM_MAYWRITE | VM_MAYEXEC)
+
+
 
 #endif /* __KERNEL__ */
 

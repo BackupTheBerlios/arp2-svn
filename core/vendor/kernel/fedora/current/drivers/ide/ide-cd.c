@@ -386,6 +386,12 @@ static int cdrom_log_sense(ide_drive_t *drive, struct request *rq,
 			 */
 			if (sense->asc == 0x3a || sense->asc == 0x04)
 				break;
+			/*
+			 * some drives spew this for an empty drive
+			 */
+			if (rq->cmd[0] == GPCMD_READ_CDVD_CAPACITY &&
+			    sense->asc == 0x30)
+				break;
 			log = 1;
 			break;
 		case ILLEGAL_REQUEST:

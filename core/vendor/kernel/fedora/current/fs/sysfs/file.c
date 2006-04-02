@@ -6,6 +6,8 @@
 #include <linux/fsnotify.h>
 #include <linux/kobject.h>
 #include <linux/namei.h>
+#include <linux/limits.h>
+
 #include <asm/uaccess.h>
 #include <asm/semaphore.h>
 
@@ -324,8 +326,14 @@ static int check_perm(struct inode * inode, struct file * file)
 	return error;
 }
 
+char last_sysfs_file[PATH_MAX];
+
 static int sysfs_open_file(struct inode * inode, struct file * filp)
 {
+	char *p = d_path(filp->f_dentry, sysfs_mount, last_sysfs_file,
+			sizeof(last_sysfs_file));
+	if (p)
+		memmove(last_sysfs_file, p, strlen(p) + 1);
 	return check_perm(inode,filp);
 }
 

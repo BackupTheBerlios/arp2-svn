@@ -1084,7 +1084,7 @@ static void __init prom_instantiate_rtas(void)
 
 	if (call_prom_ret("call-method", 3, 2, &entry,
 			  ADDR("instantiate-rtas"),
-			  rtas_inst, base) != 0
+			  rtas_inst, base) == PROM_ERROR
 	    || entry == 0) {
 		prom_printf(" failed\n");
 		return;
@@ -1503,7 +1503,8 @@ static int __init prom_find_machine_type(void)
 #ifdef CONFIG_PPC64
 			if (strstr(p, RELOC("Momentum,Maple")))
 				return PLATFORM_MAPLE;
-			if (strstr(p, RELOC("IBM,CPB")))
+			if (strstr(p, RELOC("IBM,CPB")) ||
+			    strstr(p, RELOC("CBEA")))
 				return PLATFORM_CELL;
 #endif
 			i += sl + 1;

@@ -555,6 +555,8 @@ out:
 	return error;
 }
 
+EXPORT_SYMBOL_GPL(sys_chdir);
+
 asmlinkage long sys_fchdir(unsigned int fd)
 {
 	struct file *file;
@@ -610,6 +612,8 @@ dput_and_out:
 out:
 	return error;
 }
+
+EXPORT_SYMBOL_GPL(sys_chroot);
 
 asmlinkage long sys_fchmod(unsigned int fd, mode_t mode)
 {
@@ -1088,7 +1092,6 @@ asmlinkage long sys_open(const char __user *filename, int flags, int mode)
 
 	return do_sys_open(AT_FDCWD, filename, flags, mode);
 }
-EXPORT_SYMBOL_GPL(sys_open);
 
 asmlinkage long sys_openat(int dfd, const char __user *filename, int flags,
 			   int mode)

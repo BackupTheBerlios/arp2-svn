@@ -1491,6 +1491,8 @@ void set_fs_root(struct fs_struct *fs, struct vfsmount *mnt,
 	}
 }
 
+EXPORT_SYMBOL_GPL(set_fs_root);
+
 /*
  * Replace the fs->{pwdmnt,pwd} with {mnt,dentry}. Put the old values.
  * It can block. Requires the big lock held.

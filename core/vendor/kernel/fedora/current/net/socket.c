@@ -68,6 +68,7 @@
 #include <linux/netdevice.h>
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
+#include <net/tux.h>
 #include <linux/wanrouter.h>
 #include <linux/if_bridge.h>
 #include <linux/if_frad.h>
@@ -123,7 +124,7 @@ static ssize_t sock_sendpage(struct file *file, struct page *page,
  *	in the operation structures but are done directly via the socketcall() multiplexor.
  */
 
-static struct file_operations socket_file_ops = {
+struct file_operations socket_file_ops = {
 	.owner =	THIS_MODULE,
 	.llseek =	no_llseek,
 	.aio_read =	sock_aio_read,
@@ -348,72 +349,6 @@ static struct dentry_operations sockfs_dentry_operations = {
 	.d_delete =	sockfs_delete_dentry,
 };
 
-/*
- *	Obtains the first available file descriptor and sets it up for use.
- *
- *	This function creates file structure and maps it to fd space
- *	of current process. On success it returns file descriptor
- *	and file struct implicitly stored in sock->file.
- *	Note that another thread may close file descriptor before we return
- *	from this function. We use the fact that now we do not refer
- *	to socket after mapping. If one day we will need it, this
- *	function will increment ref. count on file by 1.
- *
- *	In any case returned fd MAY BE not valid!
- *	This race condition is unavoidable
- *	with shared fd spaces, we cannot solve it inside kernel,
- *	but we take care of internal coherence yet.
- */
-
-int sock_map_fd(struct socket *sock)
-{
-	int fd;
-	struct qstr this;
-	char name[32];
-
-	/*
-	 *	Find a file descriptor suitable for return to the user. 
-	 */
-
-	fd = get_unused_fd();
-	if (fd >= 0) {
-		struct file *file = get_empty_filp();
-
-		if (!file) {
-			put_unused_fd(fd);
-			fd = -ENFILE;
-			goto out;
-		}
-
-		this.len = sprintf(name, "[%lu]", SOCK_INODE(sock)->i_ino);
-		this.name = name;
-		this.hash = SOCK_INODE(sock)->i_ino;
-
-		file->f_dentry = d_alloc(sock_mnt->mnt_sb->s_root, &this);
-		if (!file->f_dentry) {
-			put_filp(file);
-			put_unused_fd(fd);
-			fd = -ENOMEM;
-			goto out;
-		}
-		file->f_dentry->d_op = &sockfs_dentry_operations;
-		d_add(file->f_dentry, SOCK_INODE(sock));
-		file->f_vfsmnt = mntget(sock_mnt);
-		file->f_mapping = file->f_dentry->d_inode->i_mapping;
-
-		sock->file = file;
-		file->f_op = SOCK_INODE(sock)->i_fop = &socket_file_ops;
-		file->f_mode = FMODE_READ | FMODE_WRITE;
-		file->f_flags = O_RDWR;
-		file->f_pos = 0;
-		file->private_data = sock;
-		fd_install(fd, file);
-	}
-
-out:
-	return fd;
-}
-
 /**
  *	sockfd_lookup	- 	Go from a file number to its socket slot
  *	@fd: file handle
@@ -457,6 +392,83 @@ struct socket *sockfd_lookup(int fd, int *err)
 	return sock;
 }
 
+struct file * sock_map_file(struct socket *sock)
+{
+	struct file *file;
+	struct qstr this;
+	char name[32];
+
+	file = get_empty_filp();
+
+	if (!file)
+		return ERR_PTR(-ENFILE);
+
+	this.len = sprintf(name, "[%lu]", SOCK_INODE(sock)->i_ino);
+	this.name = name;
+	this.hash = SOCK_INODE(sock)->i_ino;
+
+	file->f_dentry = d_alloc(sock_mnt->mnt_sb->s_root, &this);
+	if (!file->f_dentry) {
+		put_filp(file);
+		return ERR_PTR(-ENOMEM);
+	}
+	file->f_dentry->d_op = &sockfs_dentry_operations;
+	d_add(file->f_dentry, SOCK_INODE(sock));
+	file->f_vfsmnt = mntget(sock_mnt);
+	file->f_mapping = file->f_dentry->d_inode->i_mapping;
+
+	if (sock->file)
+		BUG();
+	sock->file = file;
+	file->f_op = SOCK_INODE(sock)->i_fop = &socket_file_ops;
+	file->f_mode = FMODE_READ | FMODE_WRITE;
+	file->f_flags = O_RDWR;
+	file->f_pos = 0;
+	file->private_data = sock;
+
+	return file;
+}
+
+/*
+ *	Obtains the first available file descriptor and sets it up for use.
+ *
+ *	This function creates file structure and maps it to fd space
+ *	of current process. On success it returns file descriptor
+ *	and file struct implicitly stored in sock->file.
+ *	Note that another thread may close file descriptor before we return
+ *	from this function. We use the fact that now we do not refer
+ *	to socket after mapping. If one day we will need it, this
+ *	function will increment ref. count on file by 1.
+ *
+ *	In any case returned fd MAY BE not valid!
+ *	This race condition is unavoidable
+ *	with shared fd spaces, we cannot solve it inside kernel,
+ *	but we take care of internal coherence yet.
+ */
+
+int sock_map_fd(struct socket *sock)
+{
+	int fd;
+	struct file *file;
+
+	/*
+	 *	Find a file descriptor suitable for return to the user.
+	 */
+
+	fd = get_unused_fd();
+	if (fd < 0)
+		return fd;
+
+	file = sock_map_file(sock);
+	if (IS_ERR(file)) {
+		put_unused_fd(fd);
+		return PTR_ERR(file);
+	}
+	fd_install(fd, file);
+
+	return fd;
+}
+
 /**
  *	sock_alloc	-	allocate a socket
  *	
@@ -465,7 +477,7 @@ struct socket *sockfd_lookup(int fd, int *err)
  *	NULL is returned.
  */
 
-static struct socket *sock_alloc(void)
+struct socket *sock_alloc(void)
 {
 	struct inode * inode;
 	struct socket * sock;
@@ -484,6 +496,8 @@ static struct socket *sock_alloc(void)
 	put_cpu_var(sockets_in_use);
 	return sock;
 }
+
+EXPORT_SYMBOL_GPL(sock_alloc);
 
 /*
  *	In theory you can't get an open on this inode, but /proc provides
@@ -1044,6 +1058,8 @@ static int sock_fasync(int fd, struct file *filp, int on)
 	}
 
 out:
+	if (sock->sk != sk)
+		BUG();
 	release_sock(sock->sk);
 	return 0;
 }
@@ -2072,6 +2088,51 @@ static int __init sock_init(void)
 
 core_initcall(sock_init);	/* early initcall */
 
+int tux_Dprintk;
+int tux_TDprintk;
+
+struct module *tux_module = NULL;
+
+#ifdef CONFIG_TUX_MODULE
+
+asmlinkage long (*sys_tux_ptr) (unsigned int action, user_req_t *u_info) = NULL;
+spinlock_t tux_module_lock = SPIN_LOCK_UNLOCKED;
+
+asmlinkage long sys_tux (unsigned int action, user_req_t *u_info)
+{
+	int ret;
+
+	if (current->tux_info)
+		return sys_tux_ptr(action, u_info);
+
+	ret = -ENOSYS;
+	spin_lock(&tux_module_lock);
+	if (!tux_module)
+		goto out_unlock;
+	if (!try_module_get(tux_module))
+		goto out_unlock;
+	spin_unlock(&tux_module_lock);
+
+	if (!sys_tux_ptr)
+		TUX_BUG();
+	ret = sys_tux_ptr(action, u_info);
+
+	spin_lock(&tux_module_lock);
+	module_put(tux_module);
+out_unlock:
+	spin_unlock(&tux_module_lock);
+
+	return ret;
+}
+
+EXPORT_SYMBOL_GPL(tux_module);
+EXPORT_SYMBOL_GPL(tux_module_lock);
+EXPORT_SYMBOL_GPL(sys_tux_ptr);
+
+EXPORT_SYMBOL_GPL(tux_Dprintk);
+EXPORT_SYMBOL_GPL(tux_TDprintk);
+
+#endif
 #ifdef CONFIG_PROC_FS
 void socket_seq_show(struct seq_file *seq)
 {

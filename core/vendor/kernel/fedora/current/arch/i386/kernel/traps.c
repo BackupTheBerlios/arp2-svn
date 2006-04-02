@@ -28,6 +28,7 @@
 #include <linux/utsname.h>
 #include <linux/kprobes.h>
 #include <linux/kexec.h>
+#include <linux/nmi.h> 
 
 #ifdef CONFIG_EISA
 #include <linux/ioport.h>
@@ -95,6 +96,8 @@ static int kstack_depth_to_print = 24;
 struct notifier_block *i386die_chain;
 static DEFINE_SPINLOCK(die_notifier_lock);
 
+extern char last_sysfs_file[];
+
 int register_die_notifier(struct notifier_block *nb)
 {
 	int err = 0;
@@ -114,10 +117,17 @@ static inline int valid_stack_ptr(struct thread_info *tinfo, void *p)
 
 static void print_addr_and_symbol(unsigned long addr, char *log_lvl)
 {
-	printk(log_lvl);
+	static char space=0;
+
+	if (space == 0)
+		printk(log_lvl);
 	printk(" [<%08lx>] ", addr);
 	print_symbol("%s", addr);
-	printk("\n");
+	if (space == 0)
+		printk("    ");
+	else
+		printk("\n");
+	space = !space;
 }
 
 static inline unsigned long print_context_stack(struct thread_info *tinfo,
@@ -141,6 +151,18 @@ static inline unsigned long print_context_stack(struct thread_info *tinfo,
 #endif
 	return ebp;
 }
+
+void pause_for_two_minutes(void)
+{
+	int i, j;
+	for (i=120; i>0; i--) {
+		for (j=0; j<1000; j++)
+			udelay(1000);
+		touch_nmi_watchdog();
+		printk("Continuing in %d seconds. \r", i);
+	}
+	printk("\n");
+}	
 
 static void show_trace_log_lvl(struct task_struct *task,
 			       unsigned long *stack, char *log_lvl)
@@ -168,6 +190,7 @@ static void show_trace_log_lvl(struct task_struct *task,
 			break;
 		printk(log_lvl);
 		printk(" =======================\n");
+		//pause_for_two_minutes();
 	}
 }
 
@@ -281,7 +304,8 @@ void show_registers(struct pt_regs *regs)
 		}
 	}
 	printk("\n");
-}	
+	pause_for_two_minutes();
+}
 
 static void handle_BUG(struct pt_regs *regs)
 {
@@ -365,8 +389,12 @@ void die(const char * str, struct pt_regs * regs, long err)
 #endif
 		if (nl)
 			printk("\n");
+#ifdef CONFIG_SYSFS
+		printk(KERN_ALERT "last sysfs file: %s\n", last_sysfs_file);
+#endif
 	notify_die(DIE_OOPS, (char *)str, regs, err, 255, SIGSEGV);
 		show_registers(regs);
+		try_crashdump(regs);
   	} else
 		printk(KERN_EMERG "Recursive die() failure, output suppressed\n");
 
@@ -381,6 +409,8 @@ void die(const char * str, struct pt_regs * regs, long err)
 		panic("Fatal exception in interrupt");
 
 	if (panic_on_oops) {
+		if (netdump_func)
+			netdump_func = NULL;
 		printk(KERN_EMERG "Fatal exception: panic in 5 seconds\n");
 		ssleep(5);
 		panic("Fatal exception");
@@ -490,7 +520,82 @@ DO_ERROR(10, SIGSEGV, "invalid TSS", invalid_TSS)
 DO_ERROR(11, SIGBUS,  "segment not present", segment_not_present)
 DO_ERROR(12, SIGBUS,  "stack segment", stack_segment)
 DO_ERROR_INFO(17, SIGBUS, "alignment check", alignment_check, BUS_ADRALN, 0)
-DO_ERROR_INFO(32, SIGSEGV, "iret exception", iret_error, ILL_BADSTK, 0)
+
+
+/*
+ * lazy-check for CS validity on exec-shield binaries:
+ *
+ * the original non-exec stack patch was written by
+ * Solar Designer <solar at openwall.com>. Thanks!
+ */
+static int
+check_lazy_exec_limit(int cpu, struct pt_regs *regs, long error_code)
+{
+	struct desc_struct *desc1, *desc2;
+	struct vm_area_struct *vma;
+	unsigned long limit;
+
+	if (current->mm == NULL)
+		return 0;
+
+	limit = -1UL;
+	if (current->mm->context.exec_limit != -1UL) {
+		limit = PAGE_SIZE;
+		spin_lock(&current->mm->page_table_lock);
+		for (vma = current->mm->mmap; vma; vma = vma->vm_next)
+			if ((vma->vm_flags & VM_EXEC) && (vma->vm_end > limit))
+				limit = vma->vm_end;
+		spin_unlock(&current->mm->page_table_lock);
+		if (limit >= TASK_SIZE)
+			limit = -1UL;
+		current->mm->context.exec_limit = limit;
+	}
+	set_user_cs(&current->mm->context.user_cs, limit);
+
+	desc1 = &current->mm->context.user_cs;
+	desc2 = get_cpu_gdt_table(cpu) + GDT_ENTRY_DEFAULT_USER_CS;
+
+	if (desc1->a != desc2->a || desc1->b != desc2->b) {
+		/*
+		 * The CS was not in sync - reload it and retry the
+		 * instruction. If the instruction still faults then
+		 * we won't hit this branch next time around.
+		 */
+		if (print_fatal_signals >= 2) {
+			printk("#GPF fixup (%ld[seg:%lx]) at %08lx, CPU#%d.\n", error_code, error_code/8, regs->eip, smp_processor_id());
+			printk(" exec_limit: %08lx, user_cs: %08lx/%08lx, CPU_cs: %08lx/%08lx.\n", current->mm->context.exec_limit, desc1->a, desc1->b, desc2->a, desc2->b);
+		}
+		load_user_cs_desc(cpu, current->mm);
+		return 1;
+	}
+
+	return 0;
+}
+
+/*
+ * The fixup code for errors in iret jumps to here (iret_exc).  It loses
+ * the original trap number and error code.  The bogus trap 32 and error
+ * code 0 are what the vanilla kernel delivers via:
+ * DO_ERROR_INFO(32, SIGSEGV, "iret exception", iret_error, ILL_BADSTK, 0)
+ *
+ * In case of a general protection fault in the iret instruction, we
+ * need to check for a lazy CS update for exec-shield.
+ */
+fastcall void do_iret_error(struct pt_regs *regs, long error_code)
+{
+	int ok = check_lazy_exec_limit(get_cpu(), regs, error_code);
+	put_cpu();
+	if (!ok && notify_die(DIE_TRAP, "iret exception", regs,
+			      error_code, 32, SIGSEGV) != NOTIFY_STOP) {
+		siginfo_t info;
+		info.si_signo = SIGSEGV;
+		info.si_errno = 0;
+		info.si_code = ILL_BADSTK;
+		info.si_addr = 0;
+		do_trap(32, SIGSEGV, "iret exception", 0, regs, error_code,
+			&info);
+	}
+}
 
 fastcall void __kprobes do_general_protection(struct pt_regs * regs,
 					      long error_code)
@@ -498,6 +603,7 @@ fastcall void __kprobes do_general_protection(struct pt_regs * regs,
 	int cpu = get_cpu();
 	struct tss_struct *tss = &per_cpu(init_tss, cpu);
 	struct thread_struct *thread = &current->thread;
+	int ok;
 
 	/*
 	 * Perform the lazy TSS's I/O bitmap copy. If the TSS has an
@@ -524,7 +630,6 @@ fastcall void __kprobes do_general_protection(struct pt_regs * regs,
 		put_cpu();
 		return;
 	}
-	put_cpu();
 
 	current->thread.error_code = error_code;
 	current->thread.trap_no = 13;
@@ -535,17 +640,31 @@ fastcall void __kprobes do_general_protection(struct pt_regs * regs,
 	if (!user_mode(regs))
 		goto gp_in_kernel;
 
+	ok = check_lazy_exec_limit(cpu, regs, error_code);
+
+	put_cpu();
+
+	if (ok)
+		return;
+
+	if (print_fatal_signals) {
+		printk("#GPF(%ld[seg:%lx]) at %08lx, CPU#%d.\n", error_code, error_code/8, regs->eip, smp_processor_id());
+		printk(" exec_limit: %08lx, user_cs: %08lx/%08lx.\n", current->mm->context.exec_limit, current->mm->context.user_cs.a, current->mm->context.user_cs.b);
+	}
+
 	current->thread.error_code = error_code;
 	current->thread.trap_no = 13;
 	force_sig(SIGSEGV, current);
 	return;
 
 gp_in_vm86:
+	put_cpu();
 	local_irq_enable();
 	handle_vm86_fault((struct kernel_vm86_regs *) regs, error_code);
 	return;
 
 gp_in_kernel:
+	put_cpu();
 	if (!fixup_exception(regs)) {
 		if (notify_die(DIE_GPF, "general protection fault", regs,
 				error_code, 13, SIGSEGV) == NOTIFY_STOP)
@@ -567,18 +686,11 @@ static void mem_parity_error(unsigned char reason, struct pt_regs * regs)
 
 static void io_check_error(unsigned char reason, struct pt_regs * regs)
 {
-	unsigned long i;
-
 	printk(KERN_EMERG "NMI: IOCK error (debug interrupt?)\n");
 	show_registers(regs);
 
 	/* Re-enable the IOCK line, wait for a few seconds */
-	reason = (reason & 0xf) | 8;
-	outb(reason, 0x61);
-	i = 2000;
-	while (--i) udelay(1000);
-	reason &= ~8;
-	outb(reason, 0x61);
+	clear_io_check_error(reason);
 }
 
 static void unknown_nmi_error(unsigned char reason, struct pt_regs * regs)

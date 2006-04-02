@@ -165,7 +165,7 @@ static const struct ata_port_info pdc_port_info[] = {
 	/* board_2037x */
 	{
 		.sht		= &pdc_ata_sht,
-		.host_flags	= PDC_COMMON_FLAGS | ATA_FLAG_SATA,
+		.host_flags	= PDC_COMMON_FLAGS /* | ATA_FLAG_SATA */,	/* pata fix */
 		.pio_mask	= 0x1f, /* pio0-4 */
 		.mwdma_mask	= 0x07, /* mwdma0-2 */
 		.udma_mask	= 0x7f, /* udma0-6 ; FIXME */
@@ -322,15 +322,34 @@ static void pdc_reset_port(struct ata_port *ap)
 
 static void pdc_sata_phy_reset(struct ata_port *ap)
 {
-	pdc_reset_port(ap);
-	sata_phy_reset(ap);
+/*	pdc_reset_port(ap); */	/* pata fix */
+/*	sata_phy_reset(ap); */	/* pata fix */
+	/* if no sata flag, test for pata drive */	/* pata fix */
+	if (ap->flags & ATA_FLAG_SATA)	/* pata fix */
+	{				/* pata fix */
+		pdc_reset_port(ap);	/* pata fix */
+		sata_phy_reset(ap);	/* pata fix */
+	}				/* pata fix */
+	else				/* pata fix */
+		pdc_pata_phy_reset(ap);	/* pata fix */
 }
 
 static void pdc_pata_phy_reset(struct ata_port *ap)
 {
 	/* FIXME: add cable detect.  Don't assume 40-pin cable */
-	ap->cbl = ATA_CBL_PATA40;
-	ap->udma_mask &= ATA_UDMA_MASK_40C;
+/*	ap->cbl = ATA_CBL_PATA40; */			/* pata fix */
+/*	ap->udma_mask &= ATA_UDMA_MASK_40C; */		/* pata fix */
+	/* add cable detection code for pata drives */	/* pata fix */
+	u8 tmp;						/* pata fix */
+	void *mmio = (void *) ap->ioaddr.cmd_addr + PDC_CTLSTAT + 0x03;	/* pata fix */
+	tmp = readb(mmio);				/* pata fix */
+	if (tmp & 0x01)					/* pata fix */
+	{						/* pata fix */
+		ap->cbl = ATA_CBL_PATA40;		/* pata fix */
+		ap->udma_mask &= ATA_UDMA_MASK_40C;	/* pata fix */
+	}						/* pata fix */
+	else						/* pata fix */
+		ap->cbl = ATA_CBL_PATA80;		/* pata fix */
 
 	pdc_reset_port(ap);
 	ata_port_probe(ap);
@@ -646,6 +665,7 @@ static int pdc_ata_init_one (struct pci_dev *pdev, const struct pci_device_id *e
 	unsigned int board_idx = (unsigned int) ent->driver_data;
 	int pci_dev_busy = 0;
 	int rc;
+	u8 tmp;		/* pata fix */
 
 	if (!printed_version++)
 		dev_printk(KERN_DEBUG, &pdev->dev, "version " DRV_VERSION "\n");
@@ -705,6 +725,9 @@ static int pdc_ata_init_one (struct pci_dev *pdev, const struct pci_device_id *e
 	probe_ent->port[0].scr_addr = base + 0x400;
 	probe_ent->port[1].scr_addr = base + 0x500;
 
+	probe_ent->port_flags[0] = ATA_FLAG_SATA;	/* pata fix */
+	probe_ent->port_flags[1] = ATA_FLAG_SATA;	/* pata fix */
+	
 	/* notice 4-port boards */
 	switch (board_idx) {
 	case board_20319:
@@ -715,9 +738,23 @@ static int pdc_ata_init_one (struct pci_dev *pdev, const struct pci_device_id *e
 
 		probe_ent->port[2].scr_addr = base + 0x600;
 		probe_ent->port[3].scr_addr = base + 0x700;
+
+		probe_ent->port_flags[2] = ATA_FLAG_SATA;	/* pata fix */
+		probe_ent->port_flags[3] = ATA_FLAG_SATA;	/* pata fix */
 		break;
 	case board_2037x:
-		probe_ent->n_ports = 2;
+/*		probe_ent->n_ports = 2; */			/* pata fix */
+		/* Some boards have also PATA port */		/* pata fix */
+		tmp = readb(mmio_base + PDC_FLASH_CTL+1);	/* pata fix */
+		if (!(tmp & 0x80))				/* pata fix */
+		{						/* pata fix */
+			probe_ent->n_ports = 3;			/* pata fix */
+			pdc_ata_setup_port(&probe_ent->port[2], base + 0x300);	/* pata fix */
+			probe_ent->port_flags[2] = ATA_FLAG_SLAVE_POSS;		/* pata fix */
+			printk(KERN_INFO DRV_NAME " PATA port found\n");	/* pata fix */
+		}						/* pata fix */
+		else						/* pata fix */
+       			probe_ent->n_ports = 2;			/* pata fix */
 		break;
 	case board_20771:
 		probe_ent->n_ports = 2;
@@ -730,6 +767,9 @@ static int pdc_ata_init_one (struct pci_dev *pdev, const struct pci_device_id *e
 
 		probe_ent->port[2].scr_addr = base + 0x600;
 		probe_ent->port[3].scr_addr = base + 0x700;
+
+		probe_ent->port_flags[2] = ATA_FLAG_SATA;	/* pata fix */
+		probe_ent->port_flags[3] = ATA_FLAG_SATA;	/* pata fix */
 		break;
 	default:
 		BUG();

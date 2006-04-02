@@ -138,12 +138,12 @@ static inline int bad_range(struct zone *zone, struct page *page)
 static void bad_page(struct page *page)
 {
 	printk(KERN_EMERG "Bad page state in process '%s'\n"
-		KERN_EMERG "page:%p flags:0x%0*lx mapping:%p mapcount:%d count:%d\n"
+		KERN_EMERG "page:%p flags:0x%0*lx mapping:%p mapcount:%d count:%d (%s)\n"
 		KERN_EMERG "Trying to fix it up, but a reboot is needed\n"
 		KERN_EMERG "Backtrace:\n",
 		current->comm, page, (int)(2*sizeof(unsigned long)),
 		(unsigned long)page->flags, page->mapping,
-		page_mapcount(page), page_count(page));
+		page_mapcount(page), page_count(page), print_tainted());
 	dump_stack();
 	page->flags &= ~(1 << PG_lru	|
 			1 << PG_private |
@@ -418,7 +418,8 @@ static void __free_pages_ok(struct page *page, unsigned int order)
 	int i;
 	int reserved = 0;
 
-	arch_free_page(page, order);
+	if (arch_free_page(page, order))
+		return;
 	if (!PageHighMem(page))
 		mutex_debug_check_no_locks_freed(page_address(page),
 						 PAGE_SIZE<<order);
@@ -711,7 +712,8 @@ static void fastcall free_hot_cold_page(struct page *page, int cold)
 	struct per_cpu_pages *pcp;
 	unsigned long flags;
 
-	arch_free_page(page, 0);
+	if (arch_free_page(page, 0))
+		return;
 
 	if (PageAnon(page))
 		page->mapping = NULL;
@@ -728,6 +730,11 @@ static void fastcall free_hot_cold_page(struct page *page, int cold)
 	if (pcp->count >= pcp->high) {
 		free_pages_bulk(zone, pcp->batch, &pcp->list, 0);
 		pcp->count -= pcp->batch;
+	} else if (zone->all_unreclaimable) {
+		spin_lock(&zone->lock);
+		zone->all_unreclaimable = 0;
+		zone->pages_scanned = 0;
+		spin_unlock(&zone->lock);
 	}
 	local_irq_restore(flags);
 	put_cpu();

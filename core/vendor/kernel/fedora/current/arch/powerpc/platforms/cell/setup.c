@@ -126,6 +126,7 @@ static void __init cell_spuprop_present(struct device_node *spe,
 static void __init cell_spumem_init(int early)
 {
 	struct device_node *node;
+	return;
 	for (node = of_find_node_by_type(NULL, "spe");
 			node; node = of_find_node_by_type(node, "spe")) {
 		cell_spuprop_present(node, "local-store", early);

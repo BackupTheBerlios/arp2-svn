@@ -80,7 +80,7 @@ static noinline int is_prefetch(struct pt_regs *regs, unsigned long addr,
 	instr = (unsigned char *)convert_rip_to_linear(current, regs);
 	max_instr = instr + 15;
 
-	if (user_mode(regs) && instr >= (unsigned char *)TASK_SIZE)
+	if (user_mode(regs) && instr >= (unsigned char *)TASK_SIZE64)
 		return 0;
 
 	while (scan_more && instr < max_instr) { 
@@ -535,6 +535,7 @@ no_context:
 	__die("Oops", regs, error_code);
 	/* Executive summary in case the body of the oops scrolled away */
 	printk(KERN_EMERG "CR2: %016lx\n", address);
+	try_crashdump(regs);
 	oops_end(flags);
 	do_exit(SIGKILL);
 

@@ -263,6 +263,8 @@ extern void			tcp_shutdown (struct sock *sk, int how);
 
 extern int			tcp_v4_rcv(struct sk_buff *skb);
 
+extern struct sock *		tcp_v4_lookup_listener(u32 daddr, unsigned short hnum, int dif);
+
 extern int			tcp_v4_remember_stamp(struct sock *sk);
 
 extern int		    	tcp_v4_tw_remember_stamp(struct inet_timewait_sock *tw);
@@ -422,6 +424,7 @@ extern int  tcp_send_synack(struct sock *);
 extern void tcp_push_one(struct sock *, unsigned int mss_now);
 extern void tcp_send_ack(struct sock *sk);
 extern void tcp_send_delayed_ack(struct sock *sk);
+extern void cleanup_rbuf(struct sock *sk, int copied);
 
 /* tcp_input.c */
 extern void tcp_cwnd_application_limited(struct sock *sk);

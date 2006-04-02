@@ -3474,6 +3474,7 @@ static int tcp_prune_queue(struct sock *sk)
 	return -1;
 }
 
+EXPORT_SYMBOL_GPL(tcp_cwnd_application_limited);
 
 /* RFC2861, slow part. Adjust cwnd, after it was not full during one rto.
  * As additional protections, we do not touch cwnd in retransmission phases,

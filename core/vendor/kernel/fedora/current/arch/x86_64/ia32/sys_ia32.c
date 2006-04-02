@@ -1027,4 +1027,3 @@ static int __init ia32_init (void)
 __initcall(ia32_init);
 
 extern unsigned long ia32_sys_call_table[];
-EXPORT_SYMBOL(ia32_sys_call_table);

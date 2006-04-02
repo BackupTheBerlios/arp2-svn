@@ -25,7 +25,9 @@ int soft_cursor(struct fb_info *info, struct fb_cursor *cursor)
 	unsigned int buf_align = info->pixmap.buf_align - 1;
 	unsigned int i, size, dsize, s_pitch, d_pitch;
 	struct fb_image *image;
-	u8 *dst, *src;
+	u8 *dst;
+	static u8 *src=NULL;
+	static int allocsize=0;
 
 	if (info->state != FBINFO_STATE_RUNNING)
 		return 0;
@@ -33,9 +35,15 @@ int soft_cursor(struct fb_info *info, struct fb_cursor *cursor)
 	s_pitch = (cursor->image.width + 7) >> 3;
 	dsize = s_pitch * cursor->image.height;
 
-	src = kmalloc(dsize + sizeof(struct fb_image), GFP_ATOMIC);
-	if (!src)
-		return -ENOMEM;
+	if (dsize + sizeof(struct fb_image) != allocsize) {
+		if (src != NULL)
+			kfree(src);
+		allocsize = dsize + sizeof(struct fb_image);
+
+		src = kmalloc(allocsize, GFP_ATOMIC);
+		if (!src)
+			return -ENOMEM;
+	}
 
 	image = (struct fb_image *) (src + dsize);
 	*image = cursor->image;
@@ -63,7 +71,6 @@ int soft_cursor(struct fb_info *info, struct fb_cursor *cursor)
 	fb_pad_aligned_buffer(dst, d_pitch, src, s_pitch, image->height);
 	image->data = dst;
 	info->fbops->fb_imageblit(info, image);
-	kfree(src);
 	return 0;
 }
 

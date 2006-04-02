@@ -502,6 +502,8 @@ void __init setup_system(void)
 	DBG(" <- setup_system()\n");
 }
 
+EXPORT_SYMBOL_GPL(machine_halt);
+
 static int ppc64_panic_event(struct notifier_block *this,
                              unsigned long event, void *ptr)
 {

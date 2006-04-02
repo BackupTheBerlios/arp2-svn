@@ -120,6 +120,14 @@ static struct dmi_system_id __initdata reboot_dmi_table[] = {
 			DMI_MATCH(DMI_PRODUCT_NAME, "HP Compaq"),
 		},
 	},
+	{	/* HP laptops have weird reboot issues */
+		.callback = set_bios_reboot,
+		.ident = "HP Laptop",
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "Hewlett-Packard"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "HP Compaq"),
+		},
+	},
 	{ }
 };
 
@@ -350,9 +358,13 @@ void machine_restart(char * __unused)
 	machine_emergency_restart();
 }
 
+EXPORT_SYMBOL_GPL(machine_restart);
+
 void machine_halt(void)
 {
 }
+
+EXPORT_SYMBOL_GPL(machine_halt);
 
 void machine_power_off(void)
 {

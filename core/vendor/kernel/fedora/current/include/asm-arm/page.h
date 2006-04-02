@@ -177,6 +177,8 @@ extern pmd_t *top_pmd;
 #define ARCH_SLAB_MINALIGN 8
 #endif
 
+#define devmem_is_allowed(x) 1
+
 #endif /* __KERNEL__ */
 
 #include <asm-generic/page.h>

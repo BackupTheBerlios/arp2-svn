@@ -202,6 +202,8 @@ extern int page_is_ram(unsigned long pfn);
 
 #endif /* __ASSEMBLY__ */
 
+#define devmem_is_allowed(x) 1
+
 #endif /* __KERNEL__ */
 
 #endif /* _ASM_POWERPC_PAGE_H */

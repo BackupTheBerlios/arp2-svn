@@ -156,6 +156,7 @@ int die(const char *str, struct pt_regs *regs, long err)
 		printk("\n");
 	print_modules();
 	show_regs(regs);
+	try_crashdump(regs);
 	bust_spinlocks(0);
 
 	if (!crash_dump_start && kexec_should_crash(current)) {
@@ -178,6 +179,8 @@ int die(const char *str, struct pt_regs *regs, long err)
 
 	if (panic_on_oops) {
 #ifdef CONFIG_PPC64
+		if (netdump_func)
+			netdump_func = NULL;
 		printk(KERN_EMERG "Fatal exception: panic in 5 seconds\n");
 		ssleep(5);
 #endif

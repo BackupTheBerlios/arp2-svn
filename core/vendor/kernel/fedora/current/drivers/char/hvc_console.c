@@ -40,7 +40,7 @@
 #include <linux/spinlock.h>
 #include <linux/delay.h>
 #include <asm/uaccess.h>
-#include <asm/hvconsole.h>
+#include "hvc_console.h"
 
 #define HVC_MAJOR	229
 #define HVC_MINOR	0
@@ -61,11 +61,6 @@
  */
 #define HVC_ALLOC_TTY_ADAPTERS	8
 
-#define N_OUTBUF	16
-#define N_INBUF		16
-
-#define __ALIGNED__	__attribute__((__aligned__(8)))
-
 static struct tty_driver *hvc_driver;
 static struct task_struct *hvc_task;
 
@@ -75,22 +70,6 @@ static int hvc_kicked;
 #ifdef CONFIG_MAGIC_SYSRQ
 static int sysrq_pressed;
 #endif
-
-struct hvc_struct {
-	spinlock_t lock;
-	int index;
-	struct tty_struct *tty;
-	unsigned int count;
-	int do_wakeup;
-	char outbuf[N_OUTBUF] __ALIGNED__;
-	int n_outbuf;
-	uint32_t vtermno;
-	struct hv_ops *ops;
-	int irq_requested;
-	int irq;
-	struct list_head next;
-	struct kobject kobj; /* ref count & hvc_struct lifetime */
-};
 
 /* dynamic list of hvc_struct instances */
 static struct list_head hvc_structs = LIST_HEAD_INIT(hvc_structs);
@@ -136,7 +115,6 @@ struct hvc_struct *hvc_get_by_index(int index)
 	return hp;
 }
 
-
 /*
  * Initial console vtermnos for console API usage prior to full console
  * initialization.  Any vty adapter outside this range will not have usable
@@ -154,6 +132,7 @@ static uint32_t vtermnos[MAX_NR_HVC_CONSOLES] =
 
 void hvc_console_print(struct console *co, const char *b, unsigned count)
 {
+	/* This [16] should probably use a #define */
 	char c[16] __ALIGNED__;
 	unsigned i = 0, n = 0;
 	int r, donecr = 0, index = co->index;

@@ -111,6 +111,7 @@ static int save_highmem_zone(struct zone *zone)
 		kunmap_atomic(kaddr, KM_USER0);
 		highmem_copy = save;
 	}
+	printk("\n");
 	return 0;
 }
 
@@ -119,7 +120,7 @@ int save_highmem(void)
 	struct zone *zone;
 	int res = 0;
 
-	pr_debug("swsusp: Saving Highmem\n");
+	pr_debug("swsusp: Saving Highmem");
 	for_each_zone (zone) {
 		if (is_highmem(zone))
 			res = save_highmem_zone(zone);

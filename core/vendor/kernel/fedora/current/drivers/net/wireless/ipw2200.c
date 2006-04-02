@@ -55,7 +55,7 @@ static int associate = 1;
 static int auto_create = 1;
 static int led = 0;
 static int disable = 0;
-static int hwcrypto = 1;
+static int hwcrypto = 0;
 static const char ipw_modes[] = {
 	'a', 'b', 'g', '?'
 };
@@ -7058,8 +7058,7 @@ static int ipw_associate_network(struct ipw_priv *priv,
 		priv->assoc_request.auth_key = priv->ieee->sec.active_key;
 
 		if ((priv->capability & CAP_PRIVACY_ON) &&
-		    (priv->ieee->sec.level == SEC_LEVEL_1) &&
-		    !(priv->ieee->host_encrypt || priv->ieee->host_decrypt))
+		    (priv->ieee->sec.level == SEC_LEVEL_1))
 			ipw_send_wep_keys(priv, DCW_WEP_KEY_SEC_TYPE_WEP);
 	} else {
 		priv->assoc_request.auth_type = AUTH_OPEN;
@@ -8387,7 +8386,7 @@ static int ipw_wx_get_range(struct net_device *dev,
 
 	/* Set the Wireless Extension versions */
 	range->we_version_compiled = WIRELESS_EXT;
-	range->we_version_source = 16;
+	range->we_version_source = 18;
 
 	i = 0;
 	if (priv->ieee->mode & (IEEE_B | IEEE_G)) {
@@ -8418,6 +8417,9 @@ static int ipw_wx_get_range(struct net_device *dev,
 				IW_EVENT_CAPA_MASK(SIOCGIWTHRSPY) |
 				IW_EVENT_CAPA_MASK(SIOCGIWAP));
 	range->event_capa[1] = IW_EVENT_CAPA_K_1;
+
+	range->enc_capa = IW_ENC_CAPA_WPA | IW_ENC_CAPA_WPA2 |
+		IW_ENC_CAPA_CIPHER_TKIP | IW_ENC_CAPA_CIPHER_CCMP;
 
 	IPW_DEBUG_WX("GET Range\n");
 	return 0;
@@ -11282,7 +11284,7 @@ MODULE_PARM_DESC(mode, "network mode (0=BSS,1=IBSS)");
 #endif
 
 module_param(hwcrypto, int, 0444);
-MODULE_PARM_DESC(hwcrypto, "enable hardware crypto (default on)");
+MODULE_PARM_DESC(hwcrypto, "enable hardware crypto (default off)");
 
 module_param(cmdlog, int, 0444);
 MODULE_PARM_DESC(cmdlog,

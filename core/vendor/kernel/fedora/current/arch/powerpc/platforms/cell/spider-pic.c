@@ -84,10 +84,11 @@ static void __iomem *spider_get_irq_config(int irq)
 
 static void spider_enable_irq(unsigned int irq)
 {
+	int nodeid = (irq / IIC_NODE_STRIDE) * 0x10;
 	void __iomem *cfg = spider_get_irq_config(irq);
 	irq = spider_get_nr(irq);
 
-	out_be32(cfg, in_be32(cfg) | 0x3107000eu);
+	out_be32(cfg, in_be32(cfg) | 0x3107000eu | nodeid);
 	out_be32(cfg + 4, in_be32(cfg + 4) | 0x00020000u | irq);
 }
 
@@ -150,13 +151,21 @@ int spider_get_irq(unsigned long int_pending)
 void spider_init_IRQ(void)
 {
 	int node;
+#if 0
 	struct device_node *dn;
 	unsigned int *property;
+#endif
 	long spiderpic;
+	long pics[] = { 0x24000008000, 0x34000008000 };
 	int n;
 
+       if (__onsim()) {
+               return;
+       }
+
 /* FIXME: detect multiple PICs as soon as the device tree has them */
-	for (node = 0; node < 1; node++) {
+	for (node = 0; node < num_present_cpus()/2; node++) {
+#if 0
 		dn = of_find_node_by_path("/");
 		n = prom_n_addr_cells(dn);
 		property = (unsigned int *) get_property(dn,
@@ -166,11 +175,14 @@ void spider_init_IRQ(void)
 			continue;
 		for (spiderpic = 0; n > 0; --n)
 			spiderpic = (spiderpic << 32) + *property++;
+#endif
+		spiderpic = pics[node];
 		printk(KERN_DEBUG "SPIDER addr: %lx\n", spiderpic);
 		spider_pics[node] = __ioremap(spiderpic, 0x800, _PAGE_NO_CACHE);
 		for (n = 0; n < IIC_NUM_EXT; n++) {
 			int irq = n + IIC_EXT_OFFSET + node * IIC_NODE_STRIDE;
 			get_irq_desc(irq)->handler = &spider_pic;
+		}
 
  		/* do not mask any interrupts because of level */
  		out_be32(spider_pics[node] + TIR_MSK, 0x0);
@@ -184,8 +196,6 @@ void spider_init_IRQ(void)
  		
  		/* Enable the interrupt detection enable bit. Do this last! */
  		out_be32(spider_pics[node] + TIR_DEN,
-			in_be32(spider_pics[node] +TIR_DEN) | 0x1);
-
-		}
+			in_be32(spider_pics[node] + TIR_DEN) | 0x1);
 	}
 }

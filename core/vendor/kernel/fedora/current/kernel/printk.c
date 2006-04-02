@@ -23,6 +23,8 @@
 #include <linux/smp_lock.h>
 #include <linux/console.h>
 #include <linux/init.h>
+#include <linux/jiffies.h>
+#include <linux/nmi.h>
 #include <linux/module.h>
 #include <linux/interrupt.h>			/* For in_interrupt() */
 #include <linux/config.h>
@@ -201,6 +203,34 @@ out:
 
 __setup("log_buf_len=", log_buf_len_setup);
 
+#ifdef CONFIG_BOOT_DELAY
+
+extern unsigned int boot_delay; /* msecs to delay after each printk during bootup */
+extern long preset_lpj;
+extern unsigned long long printk_delay_msec;
+
+static void boot_delay_msec(int millisecs)
+{
+	unsigned long long k = printk_delay_msec * millisecs;
+	unsigned long timeout;
+
+	timeout = jiffies + msecs_to_jiffies(millisecs);
+	while (k) {
+		k--;
+		cpu_relax();
+		/*
+		 * use (volatile) jiffies to prevent
+		 * compiler reduction; loop termination via jiffies
+		 * is secondary and may or may not happen.
+		 */
+		if (time_after(jiffies, timeout))
+			break;
+		touch_nmi_watchdog();
+	}
+}
+
+#endif
+
 /*
  * Commands to do_syslog:
  *
@@ -354,6 +384,20 @@ out:
 asmlinkage long sys_syslog(int type, char __user *buf, int len)
 {
 	return do_syslog(type, buf, len);
+}
+
+/*
+ * Crashdump special routine. Don't print to global log_buf, just to the
+ * actual console device(s).
+ */
+static void crashdump_call_console_drivers(const char *buf, unsigned long len)
+{
+	struct console *con;
+
+	for (con = console_drivers; con; con = con->next) {
+		if ((con->flags & CON_ENABLED) && con->write)
+			con->write(con, buf, len);
+	}
 }
 
 /*
@@ -520,6 +564,11 @@ asmlinkage int printk(const char *fmt, ...)
 	r = vprintk(fmt, args);
 	va_end(args);
 
+#ifdef CONFIG_BOOT_DELAY
+	if (boot_delay && system_state == SYSTEM_BOOTING)
+		boot_delay_msec(boot_delay);
+#endif
+
 	return r;
 }
 
@@ -546,6 +595,12 @@ asmlinkage int vprintk(const char *fmt, va_list args)
 
 	/* Emit the output into the temporary buffer */
 	printed_len = vscnprintf(printk_buf, sizeof(printk_buf), fmt, args);
+
+	if (unlikely(crashdump_mode())) {
+		crashdump_call_console_drivers(printk_buf, printed_len);
+		spin_unlock_irqrestore(&logbuf_lock, flags);
+		goto out;
+	}
 
 	/*
 	 * Copy the output into log_buf.  If the caller didn't provide

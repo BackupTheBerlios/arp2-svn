@@ -107,6 +107,7 @@ struct dentry {
 	struct dentry_operations *d_op;
 	struct super_block *d_sb;	/* The root of the dentry tree */
 	void *d_fsdata;			/* fs-specific data */
+	void *d_extra_attributes;	/* TUX-specific data */
 #ifdef CONFIG_PROFILING
 	struct dcookie_struct *d_cookie; /* cookie, if any */
 #endif
@@ -217,6 +218,7 @@ extern void shrink_dcache_sb(struct super_block *);
 extern void shrink_dcache_parent(struct dentry *);
 extern void shrink_dcache_anon(struct hlist_head *);
 extern int d_invalidate(struct dentry *);
+extern void flush_dentry_attributes(void);
 
 /* only used at mount-time */
 extern struct dentry * d_alloc_root(struct inode *);
@@ -277,8 +279,12 @@ extern struct dentry * __d_lookup(struct dentry *, struct qstr *);
 /* validate "insecure" dentry pointer */
 extern int d_validate(struct dentry *, struct dentry *);
 
+char * __d_path( struct dentry *dentry, struct vfsmount *vfsmnt,
+		 struct dentry *root, struct vfsmount *rootmnt,
+		 char *buffer, int buflen);
+
 extern char * d_path(struct dentry *, struct vfsmount *, char *, int);
-  
+
 /* Allocation counts.. */
 
 /**

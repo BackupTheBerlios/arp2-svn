@@ -1186,19 +1186,23 @@ err:
 	goto out;
 }
 
-static int sel_make_dir(struct super_block *sb, struct dentry *dentry)
+static int sel_make_dir(struct inode *dir, struct dentry *dentry)
 {
 	int ret = 0;
 	struct inode *inode;
 
-	inode = sel_make_inode(sb, S_IFDIR | S_IRUGO | S_IXUGO);
+	inode = sel_make_inode(dir->i_sb, S_IFDIR | S_IRUGO | S_IXUGO);
 	if (!inode) {
 		ret = -ENOMEM;
 		goto out;
 	}
 	inode->i_op = &simple_dir_inode_operations;
 	inode->i_fop = &simple_dir_operations;
+	/* directory inodes start off with i_nlink == 2 (for "." entry) */
+	inode->i_nlink++;
 	d_add(dentry, inode);
+	/* bump link count on parent directory, too */
+	dir->i_nlink++;
 out:
 	return ret;
 }
@@ -1207,7 +1211,7 @@ static int sel_fill_super(struct super_block * sb, void * data, int silent)
 {
 	int ret;
 	struct dentry *dentry;
-	struct inode *inode;
+	struct inode *inode, *root_inode;
 	struct inode_security_struct *isec;
 
 	static struct tree_descr selinux_files[] = {
@@ -1239,6 +1243,8 @@ static int sel_fill_super(struct super_block * sb, void * data, int silent)
 		goto out;
 	inode->i_op = &simple_dir_inode_operations;
 	inode->i_fop = &simple_dir_operations;
+	/* directory inodes start off with i_nlink == 2 (for "." entry) */
+	inode->i_nlink++;
 	d_add(dentry, inode);
 	bool_dir = dentry;
 	ret = sel_make_bools();
@@ -1261,11 +1267,12 @@ static int sel_fill_super(struct super_block * sb, void * data, int silent)
 	d_add(dentry, inode);
 	selinux_null = dentry;
 
+	root_inode = sb->s_root->d_inode;
 	dentry = d_alloc_name(sb->s_root, "avc");
 	if (!dentry)
 		return -ENOMEM;
 
-	ret = sel_make_dir(sb, dentry);
+	ret = sel_make_dir(root_inode, dentry);
 	if (ret)
 		goto out;
 

@@ -4042,7 +4042,7 @@ static int __init cpia_init(void)
 	       "allowed, it is disabled by default now. Users should fix the "
 	       "applications in case they don't work without conversion "
 	       "reenabled by setting the 'colorspace_conv' module "
-	       "parameter to 1");
+	       "parameter to 1\n");
 
 #ifdef CONFIG_PROC_FS
 	proc_cpia_create();

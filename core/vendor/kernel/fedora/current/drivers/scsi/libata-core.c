@@ -78,7 +78,7 @@ static void __ata_qc_complete(struct ata_queued_cmd *qc);
 static unsigned int ata_unique_id = 1;
 static struct workqueue_struct *ata_wq;
 
-int atapi_enabled = 0;
+int atapi_enabled = 1;
 module_param(atapi_enabled, int, 0444);
 MODULE_PARM_DESC(atapi_enabled, "Enable discovery of ATAPI devices (0=off, 1=on)");
 
@@ -4431,6 +4431,7 @@ static void ata_host_init(struct ata_port *ap, struct Scsi_Host *host,
 	ap->mwdma_mask = ent->mwdma_mask;
 	ap->udma_mask = ent->udma_mask;
 	ap->flags |= ent->host_flags;
+	ap->flags |= ent->port_flags[port_no];	/* pata fix */
 	ap->ops = ent->port_ops;
 	ap->cbl = ATA_CBL_NONE;
 	ap->active_tag = ATA_TAG_POISON;

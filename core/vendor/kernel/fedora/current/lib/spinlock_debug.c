@@ -10,6 +10,18 @@
 #include <linux/spinlock.h>
 #include <linux/interrupt.h>
 #include <linux/delay.h>
+#include <linux/module.h>
+#include <asm/processor.h>
+
+int nopanic;
+static int __init nopanic_setup(char *str)
+{
+	nopanic = 1;
+	return 1;
+}
+EXPORT_SYMBOL_GPL(nopanic);
+__setup("dontpanic", nopanic_setup);
+
 
 static void spin_bug(spinlock_t *lock, const char *msg)
 {
@@ -19,9 +31,9 @@ static void spin_bug(spinlock_t *lock, const char *msg)
 	if (xchg(&print_once, 0)) {
 		if (lock->owner && lock->owner != SPINLOCK_OWNER_INIT)
 			owner = lock->owner;
-		printk(KERN_EMERG "BUG: spinlock %s on CPU#%d, %s/%d\n",
+		printk(KERN_EMERG "BUG: spinlock %s on CPU#%d, %s/%d (%s)\n",
 			msg, raw_smp_processor_id(),
-			current->comm, current->pid);
+		       current->comm, current->pid, print_tainted());
 		printk(KERN_EMERG " lock: %p, .magic: %08x, .owner: %s/%d, "
 				".owner_cpu: %d\n",
 			lock, lock->magic,
@@ -33,7 +45,10 @@ static void spin_bug(spinlock_t *lock, const char *msg)
 		/*
 		 * We cannot continue on SMP:
 		 */
-//		panic("bad locking");
+		if (nopanic)
+			printk("bad locking\n");
+		else
+			panic("bad locking");
 #endif
 	}
 }
@@ -74,15 +89,15 @@ static void __spin_lock_debug(spinlock_t *lock)
 		for (i = 0; i < loops_per_jiffy * HZ; i++) {
 			if (__raw_spin_trylock(&lock->raw_lock))
 				return;
-			__delay(1);
+			cpu_relax();
 		}
 		/* lockup suspected: */
 		if (print_once) {
 			print_once = 0;
 			printk(KERN_EMERG "BUG: spinlock lockup on CPU#%d, "
-					"%s/%d, %p\n",
+					"%s/%d, %p (%s)\n",
 				raw_smp_processor_id(), current->comm,
-				current->pid, lock);
+				current->pid, lock, print_tainted());
 			dump_stack();
 		}
 	}
@@ -122,9 +137,9 @@ static void rwlock_bug(rwlock_t *lock, const char *msg)
 	static long print_once = 1;
 
 	if (xchg(&print_once, 0)) {
-		printk(KERN_EMERG "BUG: rwlock %s on CPU#%d, %s/%d, %p\n",
+		printk(KERN_EMERG "BUG: rwlock %s on CPU#%d, %s/%d, %p (%s)\n",
 			msg, raw_smp_processor_id(), current->comm,
-			current->pid, lock);
+			current->pid, lock, print_tainted());
 		dump_stack();
 #ifdef CONFIG_SMP
 		/*
@@ -146,15 +161,15 @@ static void __read_lock_debug(rwlock_t *lock)
 		for (i = 0; i < loops_per_jiffy * HZ; i++) {
 			if (__raw_read_trylock(&lock->raw_lock))
 				return;
-			__delay(1);
+			cpu_relax();
 		}
 		/* lockup suspected: */
 		if (print_once) {
 			print_once = 0;
 			printk(KERN_EMERG "BUG: read-lock lockup on CPU#%d, "
-					"%s/%d, %p\n",
+					"%s/%d, %p (%s)\n",
 				raw_smp_processor_id(), current->comm,
-				current->pid, lock);
+				current->pid, lock, print_tainted());
 			dump_stack();
 		}
 	}
@@ -219,15 +234,15 @@ static void __write_lock_debug(rwlock_t *lock)
 		for (i = 0; i < loops_per_jiffy * HZ; i++) {
 			if (__raw_write_trylock(&lock->raw_lock))
 				return;
-			__delay(1);
+			cpu_relax();
 		}
 		/* lockup suspected: */
 		if (print_once) {
 			print_once = 0;
 			printk(KERN_EMERG "BUG: write-lock lockup on CPU#%d, "
-					"%s/%d, %p\n",
+					"%s/%d, %p (%s)\n",
 				raw_smp_processor_id(), current->comm,
-				current->pid, lock);
+				current->pid, lock, print_tainted());
 			dump_stack();
 		}
 	}

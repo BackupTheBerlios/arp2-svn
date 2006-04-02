@@ -79,6 +79,29 @@ extern int proc_unknown_nmi_panic(ctl_table *, int, struct file *,
 				  void __user *, size_t *, loff_t *);
 #endif
 
+extern unsigned int vdso_enabled, vdso_populate;
+
+int exec_shield = (1<<3) | (1<<1) | (1<<0);
+/* exec_shield is a bitmask:
+          0: off; vdso at STACK_TOP, 1 page below TASK_SIZE
+   (1<<0) 1: on [also on if !=0]
+   (1<<1) 2: noexecstack by default
+   (1<<2) 4: vdso just below .text of main (unless too low)
+   (1<<3) 8: vdso just below .text of PT_INTERP (unless too low)
+Yes, vdso placement is overloaded here; but exec_shield off
+is a strong incentive to place vdso at STACK_TOP, so the bit
+for vdso just below .text comes along for the ride.
+*/
+
+static int __init setup_exec_shield(char *str)
+{
+        get_option (&str, &exec_shield);
+
+        return 1;
+}
+
+__setup("exec-shield=", setup_exec_shield);
+
 /* this is needed for the proc_dointvec_minmax for [fs_]overflow UID and GID */
 static int maxolduid = 65535;
 static int minolduid;
@@ -283,6 +306,40 @@ static ctl_table kern_table[] = {
 		.mode		= 0644,
 		.proc_handler	= &proc_dointvec,
 	},
+	{
+		.ctl_name	= KERN_EXEC_SHIELD,
+		.procname	= "exec-shield",
+		.data		= &exec_shield,
+		.maxlen		= sizeof(int),
+		.mode		= 0644,
+		.proc_handler	= &proc_dointvec,
+	},
+	{
+		.ctl_name	= KERN_PRINT_FATAL,
+		.procname	= "print-fatal-signals",
+		.data		= &print_fatal_signals,
+		.maxlen		= sizeof(int),
+		.mode		= 0644,
+		.proc_handler	= &proc_dointvec,
+	},
+#ifdef __i386__
+	{
+		.ctl_name	= KERN_VDSO,
+		.procname	= "vdso",
+		.data		= &vdso_enabled,
+		.maxlen		= sizeof(int),
+		.mode		= 0644,
+		.proc_handler	= &proc_dointvec,
+	},
+	{
+		.ctl_name	= KERN_VDSO,
+		.procname	= "vdso_populate",
+		.data		= &vdso_populate,
+		.maxlen		= sizeof(int),
+		.mode		= 0644,
+		.proc_handler	= &proc_dointvec,
+	},
+#endif
 	{
 		.ctl_name	= KERN_CORE_USES_PID,
 		.procname	= "core_uses_pid",

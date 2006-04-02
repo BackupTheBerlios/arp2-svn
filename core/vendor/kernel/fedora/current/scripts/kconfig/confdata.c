@@ -153,7 +153,6 @@ int conf_read_simple(const char *name)
 				break;
 			} else if (!(sym->flags & SYMBOL_NEW)) {
 				conf_warning("trying to reassign symbol %s", sym->name);
-				break;
 			}
 			switch (sym->type) {
 			case S_BOOLEAN:
@@ -183,7 +182,6 @@ int conf_read_simple(const char *name)
 				break;
 			} else if (!(sym->flags & SYMBOL_NEW)) {
 				conf_warning("trying to reassign symbol %s", sym->name);
-				break;
 			}
 			switch (sym->type) {
 			case S_TRISTATE:
@@ -256,7 +254,7 @@ int conf_read_simple(const char *name)
 					cs->flags |= SYMBOL_NEW;
 				} else
 					cs->user.val = sym;
-				break;
+				//break;
 			}
 			cs->user.tri = E_OR(cs->user.tri, sym->user.tri);
 		}
