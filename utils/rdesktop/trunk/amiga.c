@@ -41,6 +41,7 @@
 # include <unistd.h>
 # include <time.h>
 # include <proto/bsdsocket.h>
+# include <ctype.h>
 #elif defined(__libnix__)
 #  include <libnix.h>
 #elif defined(__ixemul__)
@@ -140,6 +141,9 @@ static BOOL           amiga_clipping           = FALSE;
 struct DrawInfo      *amiga_DrInfo             = NULL;
 struct Image         *amiga_IconifyImage       = NULL;
 struct Gadget        *amiga_IconifyGadget      = NULL;
+#define BOOL int
+void rdpdr_add_fds(int *n, fd_set * rfds, fd_set * wfds, struct timeval *tv, BOOL * timeout);
+void rdpdr_check_fds(fd_set * rfds, fd_set * wfds, BOOL timed_out);
 #endif
 
 struct Glyph
@@ -166,6 +170,9 @@ amiga_req(char* prefix, char* txt)
     (STRPTR) "RDesktop",
     (STRPTR) "%s: %s",
     "OK"
+#ifdef __amigaos4__
+    ,NULL,NULL
+#endif
   };
   ULONG args[] = { (ULONG) prefix, (ULONG) txt };
     
@@ -1364,6 +1371,9 @@ ui_init(void)
       return False;
   }
 
+#ifdef __amigaos4__
+  amiga_is_os4 = TRUE;
+#else
   // Check for working minterm handling
 
   if( amiga_bpp > 8 )
@@ -1399,6 +1409,7 @@ ui_init(void)
   if (amiga_is_amithlon) {
     amiga_broken_cursor = TRUE;
   }
+#endif /* __amigaos4__ */
   
   g_width = g_width & ~3;
 
@@ -1903,7 +1914,7 @@ ui_select(int rdp_socket)
 		amiga_icon->do_Type = 0;
 
 		amiga_app_icon = AddAppIconA( 0, 0, g_title,
-					      amiga_wb_port, NULL, amiga_icon, NULL );
+					      amiga_wb_port, 0, amiga_icon, NULL );
 
 		if( amiga_app_icon != NULL )
 		{

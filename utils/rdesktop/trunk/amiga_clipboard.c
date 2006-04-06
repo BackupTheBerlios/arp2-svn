@@ -88,7 +88,7 @@ static BOOL amiga_clip_active_post() {
   return FALSE;
 }
 
-BOOL
+int
 amiga_clip_init(void) {
   amiga_clip_hooksignal = AllocSignal(-1);
   
@@ -126,7 +126,7 @@ amiga_clip_init(void) {
   return TRUE;
 }
 
-BOOL
+int
 amiga_clip_shutdown(void) {
   if (amiga_clip_active_post()) {
     static BOOL once = TRUE;

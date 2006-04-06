@@ -3,8 +3,8 @@
 
 #include <exec/ports.h>
 
-BOOL amiga_clip_init(void);
-BOOL amiga_clip_shutdown(void);
+int amiga_clip_init(void);
+int amiga_clip_shutdown(void);
 void amiga_clip_deinit(void);
 void amiga_clip_handle_signals();
 

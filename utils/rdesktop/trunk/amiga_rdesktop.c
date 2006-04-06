@@ -47,6 +47,7 @@
 # include <proto/amissl.h>
 # include <proto/amisslmaster.h>
 # include <libraries/amisslmaster.h>
+# include <signal.h>
 #endif
 
 #include <ctype.h>		/* isalpha */
@@ -122,6 +123,7 @@ struct AmiSSLMasterIFace    *IAmiSSLMaster        = NULL;
 struct KeymapIFace    *IKeymap        = NULL;
 struct LocaleIFace    *ILocale        = NULL;
 uint32 AmiSSL_initialized = FALSE;
+const char *__stdiowin="CON:64/48/800/200/RDesktop/AUTO/CLOSE/WAIT/INACTIVE";
 #else
 struct Library*        AslBase        = NULL;
 struct GfxBase*        GfxBase        = NULL;
@@ -465,6 +467,7 @@ main(int argc, char *argv[])
 #endif
 
 #ifdef __amigaos4__
+  signal(SIGINT, SIG_IGN);
 {
   struct Library *LibBase;
 
