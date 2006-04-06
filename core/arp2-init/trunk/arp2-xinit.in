@@ -1,0 +1,15 @@
+#!/bin/bash
+#
+# arp2-xinit: Start UAE/ARP2 once X is running
+
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+bindir=@bindir@
+sbindir=@sbindir@
+sysconfdir=@sysconfdir@
+datadir=@datadir@
+
+# Import configuration
+. ${sysconfdir}/arp2.conf
+
+xterm  -geometry  +1+1  -n  login  -display  :0

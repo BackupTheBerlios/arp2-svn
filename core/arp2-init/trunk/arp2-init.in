@@ -4,6 +4,16 @@
 #
 # Based on /etc/rc.sysinit from RedHat FC5.
 
+# Start until hwclock:		0.3 s
+# hwclock			1.0 s (max)
+# hwclock until udev		0.2 s
+# udev				4.8 s (loading kernel modules)
+# udev-stw			0.4 s (loading kernel modules)
+# udev-stw until arp2-config	0.7 s (fsck, mounting, filesystem cleanup)
+# X				4.6 s
+#
+# Total:			12.0 s
+
 prefix=@prefix@
 exec_prefix=@exec_prefix@
 bindir=@bindir@
@@ -38,8 +48,9 @@ echo -en "\e[2J\e[0;0f"
 cat ${sysconfdir}/${ISSUE}
 
 echo 
-echo -n "Press any key for config menu. Loading..."
+echo -n "Press 'c' for config menu. Loading..."
 
+{
 HOSTNAME=`/bin/hostname`
 HOSTTYPE=`uname -m`
 unamer=`uname -r`
@@ -206,6 +217,7 @@ if [ -z "$fastboot" ]; then
 	fi
 fi
 
+{
 # Unmount the initrd, if necessary
 if LC_ALL=C fgrep -q /initrd /proc/mounts && ! LC_ALL=C fgrep -q /initrd/loopfs /proc/mounts ; then
    umount /initrd
@@ -293,15 +305,20 @@ fi
 # let's dump the syslog ring somewhere so we can find it later
 dmesg -s 131072 > /var/log/dmesg
 
+kill -TERM `/sbin/pidof getkey` >/dev/null 2>&1
+} &
 
-if read -n 1 -t 1 -s; then
+/sbin/getkey c > /dev/null && config_me=yes
+wait
+
+if [ "x$config_me" == "xyes" ]; then
   ${sbindir}/arp2-config
   . ${sysconfdir}/arp2.conf
 fi
 
 echo -n "System ready. Starting virtual machine..."
 export XORGCONFIG=${sysconfdir}/${XCONFIG}
-xinit 2> /dev/null
+xinit 2> /dev/null ${sbindir}/arp2-xinit
 echo " Done."
 
 # Drop into a shell if requested
