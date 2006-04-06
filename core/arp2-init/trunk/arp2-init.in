@@ -2,7 +2,7 @@
 #
 # arp2-init: Start UAE/ARP2 in stand-alone mode
 #
-# Based on /etc/rc.sysinit from RedHat FC4.
+# Based on /etc/rc.sysinit from RedHat FC5.
 
 prefix=@prefix@
 exec_prefix=@exec_prefix@
@@ -11,12 +11,8 @@ sbindir=@sbindir@
 sysconfdir=@sysconfdir@
 datadir=@datadir@
 
-export PATH=/sbin:/bin:/usr/X11R6/bin:${bindir}
-
-strstr() {
-  [ "${1#*$2*}" = "$1" ] && return 1
-  return 0
-}
+#export PATH=/sbin:/bin:/usr/X11R6/bin:${bindir}
+export PATH=/sbin:/bin:/usr/bin:${bindir}
 
 # Import configuration
 . ${sysconfdir}/arp2.conf
@@ -24,30 +20,86 @@ strstr() {
 # Gimme a nice font!
 setfont ${datadir}/fonts/${FONT}
 
+CURSOR='\e[?81;240;145c'
+SCREEN='\e[0m\e[44m\e[34m\e[4m'
+
 # Turn on a brown/orange soft cursor, no blinking
-echo -en '\033[?81;240;145c'
+echo -en "$CURSOR"
 
 # White (grey+intensitivity) text on blue backround
-echo -en "\033[0m\033[44m\033[34m\033[4m"
+echo -en "$SCREEN"
 
 # Clear screen, goto 0,0
-echo -en '\e[2J\e[0;0f'
+echo -en "\e[2J\e[0;0f"
+
+# Make the prompt reset the colors
+#export PS1="${CURSOR}${SCREEN}\s> "
 
 cat ${sysconfdir}/${ISSUE}
 
 echo 
 echo -n "Press any key for config menu. Loading..."
 
+HOSTNAME=`/bin/hostname`
+HOSTTYPE=`uname -m`
+unamer=`uname -r`
 
-# Mount /proc and /sys (done here so volume labels can work with fsck)
-mount -n -t proc /proc /proc
-mount -n -t usbfs /proc/bus/usb /proc/bus/usb
-mount -n -t sysfs /sys /sys >/dev/null 2>&1
+if [ -f /etc/sysconfig/network ]; then
+    . /etc/sysconfig/network
+fi
+if [ -z "$HOSTNAME" -o "$HOSTNAME" = "(none)" ]; then
+    HOSTNAME=localhost
+fi
+
+if [ ! -e /proc/mounts ]; then 
+	mount -n -t proc /proc /proc
+	mount -n -t sysfs /sys /sys >/dev/null 2>&1
+fi
+if [ ! -d /proc/bus/usb ]; then
+	modprobe usbcore >/dev/null 2>&1 && mount -n -t usbfs /proc/bus/usb /proc/bus/usb
+else
+	mount -n -t usbfs /proc/bus/usb /proc/bus/usb
+fi
+
+echo -n "."
+
+. /etc/init.d/functions
+
+# Set the system clock.
+ARC=0
+SRM=0
+UTC=0
+
+if [ -f /etc/sysconfig/clock ]; then
+   . /etc/sysconfig/clock
+fi
+
+CLOCKDEF=""
+CLOCKFLAGS="$CLOCKFLAGS --hctosys"
+
+case "$UTC" in
+    yes|true)	CLOCKFLAGS="$CLOCKFLAGS --utc"
+		CLOCKDEF="$CLOCKDEF (utc)" ;;
+    no|false)	CLOCKFLAGS="$CLOCKFLAGS --localtime"
+		CLOCKDEF="$CLOCKDEF (localtime)" ;;
+esac
+case "$ARC" in
+    yes|true)	CLOCKFLAGS="$CLOCKFLAGS --arc"
+		CLOCKDEF="$CLOCKDEF (arc)" ;;
+esac
+case "$SRM" in
+    yes|true)	CLOCKFLAGS="$CLOCKFLAGS --srm"
+		CLOCKDEF="$CLOCKDEF (srm)" ;;
+esac
+
+/sbin/hwclock $CLOCKFLAGS
+
+echo -n "."
 
 # Fix console loglevel
 /bin/dmesg -n 3
 
-[ -x /sbin/start_udev ] && /sbin/start_udev > /dev/null
+echo -n "."
 
 # Only read this once.
 cmdline=$(cat /proc/cmdline)
@@ -56,95 +108,118 @@ cmdline=$(cat /proc/cmdline)
 if [ -f /proc/sys/kernel/modprobe ]; then
    if ! strstr "$cmdline" nomodules && [ -f /proc/modules ] ; then
        sysctl -w kernel.modprobe="/sbin/modprobe" >/dev/null 2>&1
-       sysctl -w kernel.hotplug="/sbin/udevsend" >/dev/null 2>&1
    else
        # We used to set this to NULL, but that causes 'failed to exec' messages"
        sysctl -w kernel.modprobe="/bin/true" >/dev/null 2>&1
-       sysctl -w kernel.hotplug="/bin/true" >/dev/null 2>&1
    fi
 fi
 
-ide=""
-scsi=""
-network=""
-audio=""
-other=""
-eval `kmodule | while read devtype mod ; do
-	case "$devtype" in
-		"IDE")	ide="$ide $mod"
-		   echo "ide=\"$ide"\";;
-		"SCSI") scsi="$scsi $mod"
-		   echo "scsi=\"$scsi"\";;
-		"NETWORK") network="$network $mod"
-		   echo "network=\"$network"\";;
-		"AUDIO") audio="$audio $mod"
-		   echo "audio=\"$audio"\";;
-		*) other="$other $mod"
-		   echo "other=\"$other"\";;
-	esac
-done`
+echo -n "."
 
-load_module () {
-	echo -n "."
-	LC_ALL=C fgrep -xq "$1" /etc/hotplug/blacklist 2>/dev/null || modprobe $1 >/dev/null 2>&1
-}
+touch /dev/.in_sysinit >/dev/null 2>&1
 
+killall nash-hotplug >/dev/null 2>&1
+/sbin/start_udev >/dev/null
 
-# IDE
-for module in $ide ; do
-	load_module $module
+echo -n "."
+
+# Load other user-defined modules
+for file in /etc/sysconfig/modules/*.modules ; do
+  [ -x $file ] && $file
+  echo -n "."
 done
 
-# SCSI
-for module in $scsi; do
-	load_module $module
-done
+mount -n /dev/pts >/dev/null 2>&1
 
-# Floppy
-if ! strstr "$cmdline" nofloppy; then
-	load_module floppy
-fi
+# Configure kernel parameters
+sysctl -e -p /etc/sysctl.conf >/dev/null 2>&1
 
-# Network
-for module in $network ; do
-	load_module $module
-done
+# Set the hostname.
+hostname ${HOSTNAME}
 
-# Sound (optional)
-if strstr "$cmdline" audio; then
-	for module in $audio; do
-		load_module $module
-	done
-fi
-
-# Everything else (duck and cover)
-for module in $other ; do
-	load_module $module
-done
-
-mount -n /dev/pts
-
-# Set the system clock.
-/sbin/hwclock --hctosys --utc
-
-# Initialiaze ACPI bits
+# Initialize ACPI bits
 if [ -d /proc/acpi ]; then
-   for module in /lib/modules/$unamer/kernel/drivers/acpi/* ; do
-      insmod $module >/dev/null 2>&1
-   done
+    for module in /lib/modules/$unamer/kernel/drivers/acpi/* ; do
+        module=${module##*/}
+        module=${module%.ko}
+        modprobe $module >/dev/null 2>&1
+        echo -n "."
+    done
 fi
 
-##if LC_ALL=C fgrep -q /initrd /proc/mounts && ! LC_ALL=C fgrep -q /initrd/loopfs /proc/mounts ; then
-##   echo "*** Unmounting /initrd"
-##   umount /initrd
-##   /sbin/blockdev --flushbufs /dev/ram0 >/dev/null 2>&1
-##fi
+# TODO: Add RAID startup code here?
+
+echo " Done."
+
+
+if [ -f /fastboot ] || strstr "$cmdline" fastboot ; then
+	fastboot=yes
+fi
+
+if [ -f /fsckoptions ]; then
+	fsckoptions=`cat /fsckoptions`
+fi
+
+if [ -f /forcefsck ] || strstr "$cmdline" forcefsck ; then
+	fsckoptions="-f $fsckoptions"
+elif [ -f /.autofsck ]; then
+	[ -f /etc/sysconfig/autofsck ] && . /etc/sysconfig/autofsck
+	if [ "$AUTOFSCK_DEF_CHECK" = "yes" ]; then
+		AUTOFSCK_OPT="$AUTOFSCK_OPT -f"
+	fi
+	fsckoptions="$AUTOFSCK_OPT $fsckoptions"
+fi
+
+fsckoptions="-V $fsckoptions"
+
+if [ -z "$fastboot" ]; then
+	echo "Checking filesystems"
+	fsck -T -t noopts=_netdev -A -a $fsckoptions
+	rc=$?
+	
+	if [ "$rc" -eq "0" ]; then
+		echo
+	elif [ "$rc" -eq "1" ]; then
+		echo
+	elif [ "$rc" -eq "2" -o "$rc" -eq "3" ]; then 
+		echo $"Unmounting file systems"
+		umount -a
+		mount -n -o remount,ro /
+		echo $"Automatic reboot in progress."
+		reboot -f
+        fi
+	
+        # A return of 4 or higher means there were serious problems.
+	if [ $rc -gt 1 ]; then
+		echo
+		echo $"*** An error occurred during the file system check."
+		echo $"*** Dropping you to a shell; the system will reboot"
+		echo $"*** when you leave the shell."
+
+		sulogin
+
+		echo $"Unmounting file systems"
+		umount -a
+		mount -n -o remount,ro /
+		echo $"Automatic reboot in progress."
+		reboot -f
+	fi
+fi
+
+# Unmount the initrd, if necessary
+if LC_ALL=C fgrep -q /initrd /proc/mounts && ! LC_ALL=C fgrep -q /initrd/loopfs /proc/mounts ; then
+   umount /initrd
+   /sbin/blockdev --flushbufs /dev/ram0 >/dev/null 2>&1
+fi
 
 # Remount the root filesystem read-write.
 mount -n -o remount,rw /
 
 # Clear mtab
 (> /etc/mtab) &> /dev/null
+
+# Remove stale backups
+rm -f /etc/mtab~ /etc/mtab~~
 
 # Enter mounted filesystems into /etc/mtab
 mount -f /
@@ -157,17 +232,67 @@ mount -f /proc/bus/usb >/dev/null 2>&1
 # mounted).
 mount -a -t nonfs,nfs4,smbfs,ncpfs,cifs,gfs -O no_netdev
 
+# Initialize pseudo-random number generator
+if [ -f "/var/lib/random-seed" ]; then
+	cat /var/lib/random-seed > /dev/urandom
+else
+	touch /var/lib/random-seed
+fi
+chmod 600 /var/lib/random-seed
+dd if=/dev/urandom of=/var/lib/random-seed count=1 bs=512 2>/dev/null
+
+# Clean out /.
+rm -f /fastboot /fsckoptions /forcefsck /.autofsck /halt /poweroff &> /dev/null
+
+# Clean up utmp/wtmp
+> /var/run/utmp
+touch /var/log/wtmp
+chgrp utmp /var/run/utmp /var/log/wtmp
+chmod 0664 /var/run/utmp /var/log/wtmp
+
+# Clean up various /tmp bits
+rm -f /tmp/.X*-lock /tmp/.lock.* /tmp/.gdm_socket /tmp/.s.PGSQL.*
+rm -rf /tmp/.X*-unix /tmp/.ICE-unix /tmp/.font-unix /tmp/hsperfdata_* \
+       /tmp/kde-* /tmp/ksocket-* /tmp/mc-* /tmp/mcop-* /tmp/orbit-*  \
+       /tmp/scrollkeeper-*  /tmp/ssh-* \
+       /dev/.in_sysinit
+
+# Make ICE directory
+mkdir -m 1777 -p /tmp/.ICE-unix >/dev/null 2>&1
+chown root:root /tmp/.ICE-unix
+
 # Start up swapping.
 swapon -a -e
 
 # Set up binfmt_misc
-##/bin/mount -t binfmt_misc none /proc/sys/fs/binfmt_misc > /dev/null 2>&1
+/bin/mount -t binfmt_misc none /proc/sys/fs/binfmt_misc > /dev/null 2>&1
+
+# Initialize the serial ports.
+if [ -f /etc/rc.serial ]; then
+	. /etc/rc.serial
+fi
+
+# If they asked for ide-scsi, load it
+if strstr "$cmdline" ide-scsi ; then
+	modprobe ide-cd >/dev/null 2>&1
+	modprobe ide-scsi >/dev/null 2>&1
+fi
+
+# Boot time profiles. Yes, this should be somewhere else.
+if [ -x /usr/sbin/system-config-network-cmd ]; then
+  if strstr "$cmdline" netprofile= ; then
+    for arg in $cmdline ; do
+        if [ "${arg##netprofile=}" != "${arg}" ]; then
+	    /usr/sbin/system-config-network-cmd --profile ${arg##netprofile=}
+        fi
+    done
+  fi
+fi
 
 # Now that we have all of our basic modules loaded and the kernel going,
 # let's dump the syslog ring somewhere so we can find it later
-##dmesg -s 131072 > /var/log/dmesg
+dmesg -s 131072 > /var/log/dmesg
 
-echo " Done."
 
 if read -n 1 -t 1 -s; then
   ${sbindir}/arp2-config
@@ -180,11 +305,19 @@ xinit 2> /dev/null
 echo " Done."
 
 # Drop into a shell if requested
-if strstr "$cmdline" shell; then
+if strstr "$cmdline" shell ; then
 	bash
 fi
 
+
+
+# Save random seed
+touch /var/lib/random-seed
+chmod 600 /var/lib/random-seed
+dd if=/dev/urandom of=/var/lib/random-seed count=1 bs=512 2>/dev/null
+
 echo -n "Unmounting filesystems..."
+swapoff -a
 umount -a
 mount -n -o remount,ro /
 echo " Done."
