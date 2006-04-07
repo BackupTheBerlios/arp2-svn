@@ -3,7 +3,16 @@
 # arp2-init: Start UAE/ARP2 in stand-alone mode
 #
 # Based on /etc/rc.sysinit from RedHat FC5.
-
+#
+# Notable missing features compared to FC5 startup:
+# * No SE-Linux
+# * No RAID/LVM
+# * No quotas
+# * No read-only root fs
+# * No network profiles.
+#
+# Boot time analysis:
+#
 # Start until hwclock:		0.3 s
 # hwclock			1.0 s (max)
 # hwclock until udev		0.2 s
@@ -13,6 +22,7 @@
 # X				4.6 s
 #
 # Total:			12.0 s
+#
 
 prefix=@prefix@
 exec_prefix=@exec_prefix@
@@ -50,7 +60,6 @@ cat ${sysconfdir}/${ISSUE}
 echo 
 echo -n "Press 'c' for config menu. Loading..."
 
-{
 HOSTNAME=`/bin/hostname`
 HOSTTYPE=`uname -m`
 unamer=`uname -r`
@@ -108,7 +117,9 @@ esac
 echo -n "."
 
 # Fix console loglevel
-/bin/dmesg -n 3
+if [ -n "$LOGLEVEL" ]; then
+        /bin/dmesg -n $LOGLEVEL
+fi
 
 echo -n "."
 
@@ -256,6 +267,9 @@ dd if=/dev/urandom of=/var/lib/random-seed count=1 bs=512 2>/dev/null
 # Clean out /.
 rm -f /fastboot /fsckoptions /forcefsck /.autofsck /halt /poweroff &> /dev/null
 
+# Reset pam_console permissions
+[ -x /sbin/pam_console_apply ] && /sbin/pam_console_apply -r
+
 # Clean up utmp/wtmp
 > /var/run/utmp
 touch /var/log/wtmp
@@ -311,7 +325,7 @@ kill -TERM `/sbin/pidof getkey` >/dev/null 2>&1
 /sbin/getkey c > /dev/null && config_me=yes
 wait
 
-if [ "x$config_me" == "xyes" ]; then
+if [ "x$config_me" == "xyes" ] ; then
   ${sbindir}/arp2-config
   . ${sysconfdir}/arp2.conf
 fi
@@ -319,6 +333,7 @@ fi
 echo -n "System ready. Starting virtual machine..."
 export XORGCONFIG=${sysconfdir}/${XCONFIG}
 xinit 2> /dev/null ${sbindir}/arp2-xinit
+chvt 1
 echo " Done."
 
 # Drop into a shell if requested
