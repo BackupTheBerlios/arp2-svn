@@ -72,7 +72,7 @@ wave_out_open(void)
   {
     amiga_audio_signal = ahi_mp->mp_SigBit;
 
-    ahi_iorequest = CreateIORequest( ahi_mp, sizeof( struct AHIRequest ) );
+    ahi_iorequest = (struct AHIRequest *)CreateIORequest( ahi_mp, sizeof( struct AHIRequest ) );
 
     if( ahi_iorequest != NULL )
     {
@@ -139,15 +139,29 @@ wave_out_close(Bool abort)
     ahi_io_data[ 1 ] = NULL;
   }
 
+  if ( ahi_iocopy != NULL )
+  {
+    FreeVec( ahi_iocopy );
+    ahi_iocopy = NULL;
+  }
+
   if( ahi_device == 0 )
   {
     CloseDevice( (struct IORequest*) ahi_iorequest );
+    ahi_device = -1;
   }
 
-  DeleteIORequest( (struct IORequest*) ahi_iorequest );
-  FreeVec( ahi_iocopy );
-  amiga_audio_signal = -1;
-  DeleteMsgPort( ahi_mp );
+  if ( ahi_iorequest != NULL )
+  {
+    DeleteIORequest( (struct IORequest*) ahi_iorequest );
+    ahi_iorequest = NULL;
+  }
+
+  if (amiga_audio_signal != -1)
+  {
+    DeleteMsgPort( ahi_mp );
+    amiga_audio_signal = -1;
+  }
 }
 
 Bool
