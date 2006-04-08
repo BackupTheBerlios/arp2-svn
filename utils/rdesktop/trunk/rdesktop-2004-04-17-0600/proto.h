@@ -1,3 +1,5 @@
+struct timeval;
+
 /* bitmap.c */
 BOOL bitmap_decompress(unsigned char *output, int width, int height, unsigned char *input, int size,
 		       int Bpp);
@@ -100,8 +102,11 @@ void rdpdr_send_available(void);
 void rdpdr_send_completion(uint32 device, uint32 id, uint32 status, uint32 result, uint8 * buffer,
 			   uint32 length);
 BOOL rdpdr_init();
+void rdpdr_add_fds(int *n, fd_set * rfds, fd_set * wfds, struct timeval *tv, BOOL * timeout);
+void rdpdr_check_fds(fd_set * rfds, fd_set * wfds, BOOL timed_out);
 int get_device_index(HANDLE handle);
 BOOL rdpdr_abort_io(uint32 fd, uint32 major, NTSTATUS status);
+
 /* rdpsnd.c */
 STREAM rdpsnd_init_packet(uint16 type, uint16 size);
 void rdpsnd_send(STREAM s);
