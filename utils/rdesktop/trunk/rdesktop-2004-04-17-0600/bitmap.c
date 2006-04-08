@@ -31,7 +31,7 @@
 #include "rdesktop.h"
 
 #define CVAL(p)   (*(p++))
-#define CVAL2(p)   (*(((uint16*)p)++)) /* for 16 bit */
+#define CVAL2(p, v) { v = (*((uint16*)p)); p += 2; }
 
 #define UNROLL8(exp) { exp exp exp exp exp exp exp exp }
 
@@ -330,13 +330,13 @@ bitmap_decompress2(uint8 * output, int width, int height, uint8 * input, int siz
 					insertmix = True;
 				break;
 			case 8:	/* Bicolour */
-				memcpy(&colour1,&CVAL2(input),2);
+				CVAL2(input, colour1);
 			case 3:	/* Colour */
-				memcpy(&colour2,&CVAL2(input),2);
+				CVAL2(input, colour2);
 				break;
 			case 6:	/* SetMix/Mix */
 			case 7:	/* SetMix/FillOrMix */
-				memcpy(&mix,&CVAL2(input),2);
+				CVAL2(input, mix);
 				opcode -= 5;
 				break;
 			case 9:	/* FillOrMix_1 */
@@ -424,7 +424,7 @@ bitmap_decompress2(uint8 * output, int width, int height, uint8 * input, int siz
 					REPEAT(line[x] = colour2)
 					break;
 				case 4:	/* Copy */
-					REPEAT(memcpy(&line[x],&CVAL2(input),2))
+					REPEAT(CVAL2(input, line[x]))
 					break;
 				case 8:	/* Bicolour */
 					REPEAT
