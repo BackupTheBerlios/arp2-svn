@@ -5,6 +5,18 @@
 
 	* Made Joergs no-more-requesters code active for all targets.
 
+2006-04-08  Joerg Strohmayer <nospam@gmx.de>
+	* Added "connection bar" in fullscreem mode (AmigaOS4 and high-/
+	  truecolor-screens only).
+
+	* AmigaOS4: Added an option to the error requesters to disable
+	  them and switch to console error output.
+
+	* AmigaOS4: Disabled C library <ctrl><c> handling.
+
+	* Added checks in wave_out_close() to prevent closing
+	  ahi.device, it's IORequest and MsgPort twice.
+
 2006-03-07  Joerg Strohmayer <nospam@gmx.de>
         * Changed AmigaOS4 SSL code from AmiSSL v1 to v3.
 
