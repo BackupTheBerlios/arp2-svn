@@ -35,6 +35,7 @@
 #define Bool int
 
 #include <sys/time.h>
+#include <ctype.h>
 #include <errno.h>
 #include <stdlib.h>
 
@@ -43,7 +44,6 @@
 # include <time.h>
 # include <proto/bsdsocket.h>
 # include <proto/dos.h>
-# include <ctype.h>
 #elif defined(__libnix__)
 #  include <libnix.h>
 #elif defined(__ixemul__)
@@ -151,9 +151,6 @@ struct Image         *amiga_IconifyImage       = NULL;
 struct Gadget        *amiga_IconifyGadget      = NULL;
 struct Image         *amiga_DepthImage         = NULL;
 struct Gadget        *amiga_DepthGadget        = NULL;
-#define BOOL int
-void rdpdr_add_fds(int *n, fd_set * rfds, fd_set * wfds, struct timeval *tv, BOOL * timeout);
-void rdpdr_check_fds(fd_set * rfds, fd_set * wfds, BOOL timed_out);
 #endif
 
 struct Glyph
@@ -181,15 +178,13 @@ amiga_req(char* prefix, char* txt)
     0,
     (STRPTR) "RDesktop",
     (STRPTR) "%s: %s",
-#ifndef __amigaos4__
-    "OK"
-#else
-    "OK|No more requesters"
+    "OK|No more requesters",
+#ifdef __amigaos4__
     ,NULL,NULL
 #endif
   };
   ULONG args[] = { (ULONG) prefix, (ULONG) txt };
-#ifdef __amigaos4__
+
   static int requesters_disabled = FALSE;
     
   if (requesters_disabled)
@@ -202,9 +197,6 @@ amiga_req(char* prefix, char* txt)
         requesters_disabled = TRUE;
      }
   }
-#else
-  EasyRequestArgs( amiga_window, &es, NULL, args );
-#endif
 }
 
 
@@ -249,8 +241,8 @@ static struct BitMap*
 amiga_get_tmp_bitmap( int width, int height )
 {
   if( amiga_tmp_bitmap == NULL ||
-      GetBitMapAttr( amiga_tmp_bitmap, BMA_WIDTH ) < width ||
-      GetBitMapAttr( amiga_tmp_bitmap, BMA_HEIGHT ) < height )
+      (int) GetBitMapAttr( amiga_tmp_bitmap, BMA_WIDTH ) < width ||
+      (int) GetBitMapAttr( amiga_tmp_bitmap, BMA_HEIGHT ) < height )
   {
     WaitBlit();
     FreeBitMap( amiga_tmp_bitmap );
@@ -1522,24 +1514,47 @@ ui_create_window(void)
 
   if( g_fullscreen )
   {
-    amiga_screen = OpenScreenTags( NULL,
-                                   SA_Width,       g_width,
-                                   SA_Height,      g_height,
-                                   SA_Depth,       amiga_bpp,
-                                   SA_Title,       (ULONG) g_title,
-                                   SA_ShowTitle,   FALSE,
-                                   SA_Quiet,       TRUE,
-                                   SA_Type,        CUSTOMSCREEN,
-                                   SA_DisplayID,   amiga_screen_id,
-                                   SA_Interleaved, TRUE,
-                                   SA_AutoScroll,  TRUE,
-                                   SA_MinimizeISG, TRUE,
-                                   SA_SharePens,   TRUE,
+    struct TagItem const screen_tags[] =
+      {
+	{ SA_Width,       g_width		},
+	{ SA_Height,      g_height		},
+	{ SA_Depth,       amiga_bpp		},
+	{ SA_Title,       (ULONG) g_title	},
+	{ SA_ShowTitle,   FALSE			},
+	{ SA_Quiet,       TRUE			},
+	{ SA_Type,        CUSTOMSCREEN		},
+	{ SA_DisplayID,   amiga_screen_id	},
+	{ SA_Interleaved, TRUE			},
+	{ SA_AutoScroll,  TRUE			},
+	{ SA_MinimizeISG, TRUE			},
+	{ SA_SharePens,   TRUE			},
 #ifdef __amigaos4__
-                                   SA_LikeWorkbench, amiga_bpp > 8 ? TRUE : FALSE,
-                                   SA_OffScreenDragging, amiga_bpp > 8 ? TRUE : FALSE,
+	{ SA_LikeWorkbench, amiga_bpp > 8 ? TRUE : FALSE,	},
+	{ SA_OffScreenDragging, amiga_bpp > 8 ? TRUE : FALSE,	},
 #endif
-                                   TAG_DONE );
+	{ TAG_DONE,       0 			},
+      };
+
+    struct TagItem const window_tags[] = 
+      {
+	{ WA_Left,           0				},
+	{ WA_Top,            0				},
+	{ WA_Width,          amiga_screen->Width	},
+	{ WA_Height,         amiga_screen->Height	},
+	{ WA_CustomScreen,   (ULONG) amiga_screen	},
+	{ WA_Borderless,     TRUE			},
+#ifdef __amigaos4__
+	{ WA_SmartRefresh,   TRUE			},
+	{ WA_WindowName,     (ULONG) g_title		},
+#else
+	{ WA_NoCareRefresh,  TRUE			},
+	{ WA_SimpleRefresh,  TRUE			},
+	{ WA_Backdrop,       TRUE			},
+#endif
+	{ TAG_MORE,          (ULONG) common_window_tags },
+      };
+
+    amiga_screen = OpenScreenTagList( NULL, screen_tags );
 
     if( amiga_screen == NULL )
     {
@@ -1547,24 +1562,7 @@ ui_create_window(void)
       return False;
     }
 
-    amiga_window = OpenWindowTags( NULL,
-                                   WA_Left,           0,
-                                   WA_Top,            0,
-                                   WA_Width,          amiga_screen->Width,
-                                   WA_Height,         amiga_screen->Height,
-                                   WA_CustomScreen,   (ULONG) amiga_screen,
-#ifndef __amigaos4__
-                                   WA_Backdrop,       TRUE,
-#endif
-                                   WA_Borderless,     TRUE,
-#ifdef __amigaos4__
-                                   WA_SmartRefresh,   TRUE,
-                                   WA_WindowName,     (ULONG) g_title,
-#else
-                                   WA_NoCareRefresh,  TRUE,
-                                   WA_SimpleRefresh,  TRUE,
-#endif
-                                   TAG_MORE,          (ULONG) common_window_tags );
+    amiga_window = OpenWindowTagList( NULL, window_tags );
 
 #ifdef __amigaos4__
     if (amiga_bpp > 8)
