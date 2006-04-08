@@ -2,7 +2,7 @@
 
 srcdir		= @srcdir@
 rdesktop_srcdir	= $(srcdir)/rdesktop-2004-04-17-0600
-
+abs_builddir	= @abs_builddir@
 
 CC		= @CC@
 CPPFLAGS	= @CPPFLAGS@ -I. -I$(rdesktop_srcdir) -DENABLE_AMIGA -DWITH_OPENSSL -DWITH_RDPSND
@@ -39,9 +39,9 @@ $(RDESKTOP): 	$(OBJECTS)
 	$(CC) $(LDFLAGS) $^ $(LDLIBS) $(OUTPUT_OPTION)
 
 lha:		$(RDESKTOP)
-	$(LHA) $(LHA_CREATE) $(RDESKTOP).lha $(RDESKTOP) $(RDESKTOP).readme \
-	       COPYING ChangeLog
-	find * -name '*.info' -exec $(LHA) $(LHA_ADD) $(RDESKTOP).lha "{}" \;
+	$(LHA) $(LHA_CREATE) $(RDESKTOP).lha $(RDESKTOP) $(RDESKTOP).readme 
+	cd $(srcdir) && $(LHA) $(LHA_ADD) $(abs_builddir)/$(RDESKTOP).lha COPYING ChangeLog
+	cd $(srcdir) && find * -name '*.info' -exec $(LHA) $(LHA_ADD) $(abs_builddir)/$(RDESKTOP).lha "{}" \;
 
 %.d:		%.c
 	$(CC) $(CPPFLAGS) -M $< $(OUTPUT_OPTION)
