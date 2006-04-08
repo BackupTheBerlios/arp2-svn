@@ -1535,25 +1535,6 @@ ui_create_window(void)
 	{ TAG_DONE,       0 			},
       };
 
-    struct TagItem const window_tags[] = 
-      {
-	{ WA_Left,           0				},
-	{ WA_Top,            0				},
-	{ WA_Width,          amiga_screen->Width	},
-	{ WA_Height,         amiga_screen->Height	},
-	{ WA_CustomScreen,   (ULONG) amiga_screen	},
-	{ WA_Borderless,     TRUE			},
-#ifdef __amigaos4__
-	{ WA_SmartRefresh,   TRUE			},
-	{ WA_WindowName,     (ULONG) g_title		},
-#else
-	{ WA_NoCareRefresh,  TRUE			},
-	{ WA_SimpleRefresh,  TRUE			},
-	{ WA_Backdrop,       TRUE			},
-#endif
-	{ TAG_MORE,          (ULONG) common_window_tags },
-      };
-
     amiga_screen = OpenScreenTagList( NULL, screen_tags );
 
     if( amiga_screen == NULL )
@@ -1561,8 +1542,37 @@ ui_create_window(void)
       error( "ui_create_window: Unable to open screen.\n" );
       return False;
     }
+    else 
+    {
+      struct TagItem const window_tags[] = 
+	{
+	  { WA_Left,           0			},
+	  { WA_Top,            0			},
+	  { WA_Width,          amiga_screen->Width	},
+	  { WA_Height,         amiga_screen->Height	},
+	  { WA_CustomScreen,   (ULONG) amiga_screen	},
+	  { WA_Borderless,     TRUE			},
+#ifdef __amigaos4__
+	  { WA_SmartRefresh,   TRUE			},
+	  { WA_WindowName,     (ULONG) g_title		},
+#else
+	  { WA_NoCareRefresh,  TRUE			},
+	  { WA_SimpleRefresh,  TRUE			},
+	  { WA_Backdrop,       TRUE			},
+#endif
+	  { TAG_MORE,          (ULONG) common_window_tags },
+	};
 
-    amiga_window = OpenWindowTagList( NULL, window_tags );
+      amiga_window = OpenWindowTagList( NULL, window_tags );
+
+      if( amiga_window == NULL )
+      {
+	error( "ui_create_window: Unable to open window on screen.\n" );
+	CloseScreen( amiga_screen );
+	return False;
+      }
+    }
+
 
 #ifdef __amigaos4__
     if (amiga_bpp > 8)
