@@ -113,9 +113,9 @@ const char version[] = "$VER: RDesktop 1.3.1cvs-"
 #endif
 #endif
                               " (8.4.2006)"
-                              "©2005-2006 Joerg Strohmayer; "
-                              "©2001-2005 Martin Blom; "
-                              "©1999-2004 Matthew Chapman et al.";
+                              "(C) 2005-2006 Joerg Strohmayer; "
+                              "(C) 2001-2006 Martin Blom; "
+                              "(C) 1999-2004 Matthew Chapman et al.";
 
 #ifdef __amigaos4__
 struct LayersIFace    *ILayers        = NULL;
