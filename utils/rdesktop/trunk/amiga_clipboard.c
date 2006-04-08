@@ -248,7 +248,7 @@ void ui_clip_handle_data(uint8 * data, uint32 length)
 	  int len;
 	  int i;
 
-	  for (i = 0, len = 0; i < length && data[i] != 0; ++i) {
+	  for (i = 0, len = 0; (uint32) i < length && data[i] != 0; ++i) {
 	    if (data[i] != '\r') {
 	      data[len] = data[i];
 	      ++len;

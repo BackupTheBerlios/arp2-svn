@@ -322,7 +322,7 @@ wave_out_play(void)
     {
       uint8 swap;
       
-      for (i = 0; i < out->end - out->p; i += 2)
+      for (i = 0; (ssize_t) i < out->end - out->p; i += 2)
       {
 	swap = *(out->p + i);
 	*(out->p + i) = *(out->p + i + 1);

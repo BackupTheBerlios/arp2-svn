@@ -264,7 +264,7 @@ cache_destroy (void)
   HCURSOR*   cursor;
 
   for( i = 0, bitmap = (HBITMAP*) g_bmpcache;
-       i < sizeof( g_bmpcache ) / sizeof( HBITMAP );
+       (size_t) i < sizeof( g_bmpcache ) / sizeof( HBITMAP );
        ++i, ++bitmap )
   {
     if( *bitmap != NULL )
@@ -274,7 +274,7 @@ cache_destroy (void)
   }
 
   for( i = 0, font = (FONTGLYPH*) g_fontcache;
-       i < sizeof( g_fontcache ) / sizeof( FONTGLYPH );
+       (size_t) i < sizeof( g_fontcache ) / sizeof( FONTGLYPH );
        ++i, ++font )
   {
     if( font->pixmap != NULL )
@@ -284,7 +284,7 @@ cache_destroy (void)
   }
 
   for( i = 0, text = (DATABLOB*) g_textcache;
-       i < sizeof( g_textcache ) / sizeof( DATABLOB );
+       (size_t) i < sizeof( g_textcache ) / sizeof( DATABLOB );
        ++i, ++text )
   {
     if( text->data != NULL )
@@ -294,7 +294,7 @@ cache_destroy (void)
   }
 
   for( i = 0, cursor = (HCURSOR*) g_cursorcache;
-       i < sizeof( g_cursorcache ) / sizeof( HCURSOR );
+       (size_t) i < sizeof( g_cursorcache ) / sizeof( HCURSOR );
        ++i, ++cursor )
   {
     if( *cursor != NULL )
