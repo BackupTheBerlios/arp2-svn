@@ -5,7 +5,7 @@ rdesktop_srcdir	= $(srcdir)/rdesktop-2004-04-17-0600
 
 
 CC		= @CC@
-CPPFLAGS	= @CPPFLAGS@ -I$(rdesktop_srcdir) -DENABLE_AMIGA -DWITH_OPENSSL -DWITH_RDPSND
+CPPFLAGS	= @CPPFLAGS@ -I. -I$(rdesktop_srcdir) -DENABLE_AMIGA -DWITH_OPENSSL -DWITH_RDPSND
 CFLAGS		= @CFLAGS@
 LDFLAGS		= @LDFLAGS@
 LDLIBS		= @LIBS@
