@@ -26,6 +26,7 @@
 # include <intuition/gadgetclass.h>
 # include <intuition/imageclass.h>
 # define ETI_Iconify 1000
+# define ETI_Depth   1001
 #endif
 
 #include "rdesktop.h"
@@ -41,6 +42,7 @@
 # include <unistd.h>
 # include <time.h>
 # include <proto/bsdsocket.h>
+# include <proto/dos.h>
 # include <ctype.h>
 #elif defined(__libnix__)
 #  include <libnix.h>
@@ -129,6 +131,12 @@ static ULONG          amiga_bpp                = 8;
 static struct Screen* amiga_screen             = NULL;
 static UBYTE*         amiga_backup             = NULL;
 static struct Window* amiga_window             = NULL;
+#ifdef __amigaos4__
+static struct Window* amiga_window2            = NULL;
+static struct TimeRequest *amiga_timerreq      = NULL;
+static struct MsgPort *amiga_timerport         = NULL;
+static uint32 amiga_timerdevice_opened         = FALSE;
+#endif
 static struct Region* amiga_old_region         = NULL;
 static ULONG          amiga_cursor_colors[ 3 * 3 ];
 static LONG           amiga_pens[ 256 ];
@@ -141,6 +149,8 @@ static BOOL           amiga_clipping           = FALSE;
 struct DrawInfo      *amiga_DrInfo             = NULL;
 struct Image         *amiga_IconifyImage       = NULL;
 struct Gadget        *amiga_IconifyGadget      = NULL;
+struct Image         *amiga_DepthImage         = NULL;
+struct Gadget        *amiga_DepthGadget        = NULL;
 #define BOOL int
 void rdpdr_add_fds(int *n, fd_set * rfds, fd_set * wfds, struct timeval *tv, BOOL * timeout);
 void rdpdr_check_fds(fd_set * rfds, fd_set * wfds, BOOL timed_out);
@@ -159,7 +169,9 @@ struct Cursor
     Object*       Pointer;
 };
 
+#ifndef __amigaos4__
 void __chkabort(void) {}
+#endif
 
 void
 amiga_req(char* prefix, char* txt)
@@ -169,14 +181,30 @@ amiga_req(char* prefix, char* txt)
     0,
     (STRPTR) "RDesktop",
     (STRPTR) "%s: %s",
+#ifndef __amigaos4__
     "OK"
-#ifdef __amigaos4__
+#else
+    "OK|No more requesters"
     ,NULL,NULL
 #endif
   };
   ULONG args[] = { (ULONG) prefix, (ULONG) txt };
+#ifdef __amigaos4__
+  static int requesters_disabled = FALSE;
     
+  if (requesters_disabled)
+  {
+     fprintf(stderr, "%s: %s\n", prefix, txt);
+  } else {
+     LONG result = EasyRequestArgs( amiga_window, &es, NULL, args );
+     if (0 == result)
+     {
+        requesters_disabled = TRUE;
+     }
+  }
+#else
   EasyRequestArgs( amiga_window, &es, NULL, args );
+#endif
 }
 
 
@@ -577,6 +605,7 @@ amiga_blt_rastport( struct RastPort *srcRP, LONG xSrc, LONG ySrc,
   
   // Use BltBitMapRastPort when possible
     
+#ifndef __amigaos4__
   if( g_fullscreen )
   {
     WorkingBltBitMapRastPort( srcRP->BitMap, xSrc, ySrc,
@@ -585,6 +614,7 @@ amiga_blt_rastport( struct RastPort *srcRP, LONG xSrc, LONG ySrc,
 			      minterm );
   }
   else
+#endif
   {
     if( ! amiga_clipping )
     {
@@ -1505,6 +1535,10 @@ ui_create_window(void)
                                    SA_AutoScroll,  TRUE,
                                    SA_MinimizeISG, TRUE,
                                    SA_SharePens,   TRUE,
+#ifdef __amigaos4__
+                                   SA_LikeWorkbench, amiga_bpp > 8 ? TRUE : FALSE,
+                                   SA_OffScreenDragging, amiga_bpp > 8 ? TRUE : FALSE,
+#endif
                                    TAG_DONE );
 
     if( amiga_screen == NULL )
@@ -1519,11 +1553,106 @@ ui_create_window(void)
                                    WA_Width,          amiga_screen->Width,
                                    WA_Height,         amiga_screen->Height,
                                    WA_CustomScreen,   (ULONG) amiga_screen,
+#ifndef __amigaos4__
                                    WA_Backdrop,       TRUE,
+#endif
                                    WA_Borderless,     TRUE,
+#ifdef __amigaos4__
+                                   WA_SmartRefresh,   TRUE,
+                                   WA_WindowName,     (ULONG) g_title,
+#else
                                    WA_NoCareRefresh,  TRUE,
                                    WA_SimpleRefresh,  TRUE,
+#endif
                                    TAG_MORE,          (ULONG) common_window_tags );
+
+#ifdef __amigaos4__
+    if (amiga_bpp > 8)
+    {
+       amiga_timerport = CreateMsgPort();
+       if (amiga_timerport)
+       {
+          amiga_timerreq = (struct TimeRequest *)CreateIORequest(amiga_timerport, sizeof(struct TimeRequest));
+          if (amiga_timerreq)
+          {
+             if (0 == OpenDevice("timer.device", UNIT_VBLANK, &amiga_timerreq->Request, 0))
+             {
+                amiga_timerdevice_opened = TRUE;
+
+                amiga_window2 = OpenWindowTags( NULL,
+                                                WA_Left,           amiga_screen->Width / 4,
+                                                WA_Top,            0,
+                                                WA_Width,          amiga_screen->Width / 2,
+                                                WA_Height,         amiga_screen->BarHeight + 1,
+                                                WA_CustomScreen,   (ULONG) amiga_screen,
+                                                WA_SmartRefresh,   TRUE,
+                                                WA_Title,          (ULONG) g_title,
+                                                WA_Activate,       FALSE,
+                                                WA_CloseGadget,    TRUE,
+                                                WA_ToolBox,        TRUE,
+                                                WA_StayTop,        TRUE,
+                                                TAG_MORE,          (ULONG) common_window_tags );
+
+                amiga_timerreq->Time.Seconds       = 5;
+                amiga_timerreq->Time.Microseconds  = 0;
+                amiga_timerreq->Request.io_Command = TR_ADDREQUEST;
+                SendIO(&amiga_timerreq->Request);
+             }
+          }
+       }
+    }
+
+    if (amiga_window2 && amiga_icon)
+    {
+       uint32 size = (amiga_window2->WScreen->Flags & SCREENHIRES ? SYSISIZE_MEDRES : SYSISIZE_LOWRES);
+       uint32 height = amiga_window2->WScreen->Font->ta_YSize + amiga_window2->WScreen->WBorTop + 1;
+
+       amiga_DrInfo = GetScreenDrawInfo(amiga_window2->WScreen);
+
+       amiga_DepthImage = (struct Image *)NewObject( NULL, "sysiclass",
+                                                     SYSIA_Size, size,
+                                                     SYSIA_DrawInfo, amiga_DrInfo,
+                                                     SYSIA_Which, DEPTHIMAGE,
+                                                     IA_Height, height,
+                                                     TAG_DONE );
+
+       amiga_IconifyImage = (struct Image *)NewObject( NULL, "sysiclass",
+                                                       SYSIA_Size, size,
+                                                       SYSIA_DrawInfo, amiga_DrInfo,
+                                                       SYSIA_Which, ICONIFYIMAGE,
+                                                       IA_Height, height,
+                                                       TAG_DONE );
+       if (amiga_IconifyImage && amiga_DepthImage)
+       {
+          amiga_IconifyGadget = (struct Gadget *)NewObject( NULL, "buttongclass",
+                                                            GA_Image, amiga_IconifyImage,
+                                                            GA_TopBorder, TRUE,
+                                                            GA_Titlebar, TRUE,
+                                                            GA_RelRight, (- amiga_IconifyImage->Width + 2) - (amiga_DepthImage->Width - 1),
+                                                            GA_Top, 0,
+                                                            GA_ID, ETI_Iconify,
+                                                            GA_RelVerify, TRUE,
+                                                            TAG_DONE );
+
+          amiga_DepthGadget = (struct Gadget *)NewObject( NULL, "buttongclass",
+                                                          GA_Image, amiga_DepthImage,
+                                                          GA_TopBorder, TRUE,
+                                                          GA_Titlebar, TRUE,
+                                                          GA_RelRight, - (amiga_DepthImage->Width - 1),
+                                                          GA_Top, 0,
+                                                          GA_ID, ETI_Depth,
+                                                          GA_RelVerify, TRUE,
+                                                          TAG_DONE );
+       }
+
+       if (amiga_IconifyGadget)
+       {
+          AddGList(amiga_window2, amiga_DepthGadget, 0, 1, NULL);
+          AddGList(amiga_window2, amiga_IconifyGadget, 0, 1, NULL);
+          RefreshGList(amiga_IconifyGadget, amiga_window2, NULL, 2);
+       }
+    }
+#endif
   }
   else
   {
@@ -1618,8 +1747,8 @@ ui_create_window(void)
 
        if (amiga_IconifyGadget)
        {
-          AddGList( amiga_window, amiga_IconifyGadget, 0, 1, NULL);
-          RefreshGList( amiga_IconifyGadget, amiga_window, NULL, 1);
+          AddGList(amiga_window, amiga_IconifyGadget, 0, 1, NULL);
+          RefreshGList(amiga_IconifyGadget, amiga_window, NULL, 1);
        }
     }
 #endif
@@ -1657,15 +1786,36 @@ ui_destroy_window()
 
    if (amiga_IconifyGadget)
    {
-      RemoveGadget(amiga_window, amiga_IconifyGadget);
+      if (amiga_window2)
+      {
+         RemoveGadget(amiga_window2, amiga_IconifyGadget);
+      } else {
+         RemoveGadget(amiga_window, amiga_IconifyGadget);
+      }
       DisposeObject((Object *)amiga_IconifyGadget);
       amiga_IconifyGadget = NULL;
+   }
+
+   if (amiga_DepthGadget)
+   {
+      if (amiga_window2)
+      {
+         RemoveGadget(amiga_window2, amiga_DepthGadget);
+      }
+      DisposeObject((Object *)amiga_DepthGadget);
+      amiga_DepthGadget = NULL;
    }
 
    if (amiga_IconifyImage)
    {
        DisposeObject((Object *)amiga_IconifyImage);
        amiga_IconifyImage = NULL;
+   }
+
+   if (amiga_DepthImage)
+   {
+       DisposeObject((Object *)amiga_DepthImage);
+       amiga_DepthImage = NULL;
    }
 #endif
 
@@ -1705,6 +1855,33 @@ ui_destroy_window()
     amiga_window = NULL;
   }
 
+#ifdef __amigaos4__
+  if( amiga_window2 != NULL )
+  {
+    CloseWindow( amiga_window2 );
+    amiga_window2 = NULL;
+  }
+
+  if (amiga_timerdevice_opened)
+  {
+     AbortIO(&amiga_timerreq->Request);
+     WaitIO(&amiga_timerreq->Request);
+     CloseDevice(&amiga_timerreq->Request);
+     amiga_timerdevice_opened = FALSE;
+  }
+
+  if (amiga_timerreq)
+  {
+     DeleteIORequest(&amiga_timerreq->Request);
+     amiga_timerreq = NULL;
+  }
+
+  if (amiga_timerport)
+  {
+     DeleteMsgPort(amiga_timerport);
+     amiga_timerport = NULL;
+  }  
+#endif
 
   if( amiga_screen != NULL )
   {
@@ -1760,6 +1937,16 @@ ui_select(int rdp_socket)
     {
       mask |= ( 1UL << amiga_window->UserPort->mp_SigBit );
     }
+#ifdef __amigaos4__
+    if( amiga_window2 != NULL )
+    {
+      mask |= ( 1UL << amiga_window2->UserPort->mp_SigBit );
+      if (amiga_timerdevice_opened)
+      {
+         mask |= (1 << amiga_timerport->mp_SigBit);
+      }
+    }
+#endif
     
 #ifdef WITH_RDPSND
     if( amiga_audio_signal != -1 )
@@ -1812,7 +1999,16 @@ ui_select(int rdp_socket)
 	      ShowWindow( amiga_window );
 #elif defined(__amigaos4__)
 	      ShowWindow( amiga_window, WINDOW_FRONTMOST );
+	      if (amiga_window2)
+	      {
+                 ShowWindow( amiga_window2, WINDOW_FRONTMOST );
+                 MoveScreen( amiga_screen, 0, -amiga_screen->Height);
+	      }
 	      ActivateWindow( amiga_window );
+	      if (amiga_screen)
+	      {
+	         ScreenToFront(amiga_screen);
+	      }
 #endif
 	    }
 	  }
@@ -1855,6 +2051,12 @@ ui_select(int rdp_socket)
 	      break;
 
             case IDCMP_ACTIVEWINDOW:
+#ifdef __amigaos4__
+              if (AWCODE_INTERIM == msg->Code)
+              {
+                 break;
+              }
+#endif
               // Make sure the cursor colors are correct
 
 //              GetRGB32( amiga_window->WScreen->ViewPort.ColorMap,
@@ -1874,6 +2076,12 @@ ui_select(int rdp_socket)
               break;
 
             case IDCMP_INACTIVEWINDOW:
+#ifdef __amigaos4__
+              if (AWCODE_INTERIM == msg->Code)
+              {
+                 break;
+              }
+#endif
               // Restore cursor colors
 
               SetRGB32( &amiga_window->WScreen->ViewPort, 16 + 1,
@@ -1922,7 +2130,6 @@ ui_select(int rdp_socket)
 		}
 	      }
 #endif
-		  
 	      break;
 	    }
             
@@ -2117,6 +2324,18 @@ ui_select(int rdp_socket)
 			      MOUSE_FLAG_MOVE,
                               msg->MouseX - amiga_window->BorderLeft,
                               msg->MouseY - amiga_window->BorderTop );
+#ifdef __amigaos4__
+              if (0 == msg->MouseY && amiga_window2->TopEdge == -amiga_window2->Height)
+              {
+                 int i;
+
+                 for (i = 0 ; i < amiga_window2->Height ; i++)
+                 {
+                    MoveWindow(amiga_window2, 0, 1);
+                    Delay(1);
+                 }
+              }
+#endif
 	      break;
             }
 
@@ -2128,6 +2347,104 @@ ui_select(int rdp_socket)
 	  ReplyMsg( (struct Message*) msg );
 	}
       }
+
+#ifdef __amigaos4__
+      if( amiga_window2 != NULL &&
+	  ( mask & ( 1UL << amiga_window2->UserPort->mp_SigBit ) ) )
+      {
+	struct IntuiMessage* msg;
+	struct InputEvent ie;
+	char   q_buffer[8];
+
+	ie.ie_Class = IECLASS_RAWKEY;
+	ie.ie_SubClass = 0;
+
+	while( ( msg = (struct IntuiMessage*) 
+		 GetMsg( amiga_window2->UserPort ) ) != NULL )
+	{
+	  uint32 ev_time;
+
+	  ev_time = time(NULL);
+
+	  amiga_last_qualifier = msg->Qualifier;
+
+	  switch( msg->Class )
+	  {
+	    case IDCMP_CLOSEWINDOW:
+	      quit = TRUE;
+	      break;
+
+	    case IDCMP_GADGETUP:
+	    {
+	      struct Gadget* g = (struct Gadget*) msg->IAddress;
+
+	      if( g->GadgetID == ETI_Iconify &&
+		  amiga_app_icon == NULL )
+	      {
+		amiga_icon->do_Type = 0;
+
+		amiga_app_icon = AddAppIconA( 0, 0, g_title,
+					      amiga_wb_port, 0, amiga_icon, NULL );
+
+		if( amiga_app_icon != NULL )
+		{
+		  HideWindow( amiga_window );
+		  HideWindow( amiga_window2 );
+		  MoveScreen( amiga_screen, 0, amiga_screen->Height);
+		}
+	      }
+
+	      if( g->GadgetID == ETI_Depth && amiga_screen)
+	      {
+	         ScreenToBack(amiga_screen);
+	      }
+	      break;
+	    }
+            
+	    case IDCMP_MOUSEMOVE:
+	    {
+	      break;
+            }
+          }
+
+	  ReplyMsg( (struct Message*) msg );
+	}
+      }
+
+      if( amiga_timerdevice_opened &&
+	  ( mask & ( 1UL << amiga_timerport->mp_SigBit ) ) )
+      {
+         struct Message *msg = GetMsg(amiga_timerport);
+
+         if (msg)
+         {
+            amiga_timerreq->Time.Seconds       = 5;
+            amiga_timerreq->Time.Microseconds  = 0;
+            amiga_timerreq->Request.io_Command = TR_ADDREQUEST;
+            SendIO(&amiga_timerreq->Request);
+
+            if (amiga_window->MouseY > amiga_window2->Height && amiga_window2->TopEdge == 0)
+            {
+               int i;
+
+               for (i = 0 ; i < amiga_window2->Height ; i++)
+               {
+                  MoveWindow(amiga_window2, 0, -1);
+                  Delay(1);
+               }
+            } else if (0 == amiga_window->MouseY && amiga_window2->TopEdge == -amiga_window2->Height)
+            {
+               int i;
+
+               for (i = 0 ; i < amiga_window2->Height ; i++)
+               {
+                  MoveWindow(amiga_window2, 0, 1);
+                  Delay(1);
+               }
+            }
+         }
+      }
+#endif
 
     if( res > 0 )
     {
