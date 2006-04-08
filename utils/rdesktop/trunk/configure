@@ -1443,6 +1443,14 @@ case $host in
   DESKTOP="Workbench"
   CPU="68020"
  ;;
+ powerpc-unknown-amigaos)
+  OS="AmigaOS 4"
+  OS_VERSION="AmigaOS 4"
+  OS_VERSION_AGA="AmigaOS 4"
+  OS_VERSION_GFX="AmigaOS 4 (P96)"
+  DESKTOP="Workbench"
+  CPU="PowerPC 603"
+ ;;
  powerpc-unknown-morphos)
   OS="MorphOS"
   OS_VERSION="MorphOS 0.4/1.4+"
