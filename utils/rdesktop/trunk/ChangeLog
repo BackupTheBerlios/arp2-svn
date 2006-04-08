@@ -1,5 +1,8 @@
 2006-04-08  Martin Blom  <martin@blom.org>
 
+	* Close the screen before exiting, if a window can't be created on
+	it (in fullscreen mode).
+
 	* Made Joergs no-more-requesters code active for all targets.
 
 2006-03-07  Joerg Strohmayer <nospam@gmx.de>
