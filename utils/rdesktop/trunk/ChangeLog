@@ -1,3 +1,7 @@
+2006-04-08  Martin Blom  <martin@blom.org>
+
+	* Made Joergs no-more-requesters code active for all targets.
+
 2006-03-07  Joerg Strohmayer <nospam@gmx.de>
         * Changed AmigaOS4 SSL code from AmiSSL v1 to v3.
 
