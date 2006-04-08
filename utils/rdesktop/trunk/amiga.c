@@ -2325,7 +2325,7 @@ ui_select(int rdp_socket)
                               msg->MouseX - amiga_window->BorderLeft,
                               msg->MouseY - amiga_window->BorderTop );
 #ifdef __amigaos4__
-              if (0 == msg->MouseY && amiga_window2->TopEdge == -amiga_window2->Height)
+              if (amiga_window2 && 0 == msg->MouseY && amiga_window2->TopEdge == -amiga_window2->Height)
               {
                  int i;
 
