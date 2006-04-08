@@ -140,6 +140,8 @@ gld${EMULATION_NAME}_set_symbols()
 	einfo ("%P%F: bfd_hash_table_init failed: %E\n");
  
       if (bfd_hash_lookup (link_info.keep_hash, "__amigappc__", true, true)
+	  == (struct bfd_hash_entry *) NULL ||
+	  bfd_hash_lookup (link_info.keep_hash, "__abox__", true, true)
 	  == (struct bfd_hash_entry *) NULL)
 	einfo ("%P%F: bfd_hash_lookup for insertion failed: %E\n");
 

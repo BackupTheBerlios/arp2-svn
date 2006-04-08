@@ -1,3 +1,8 @@
+2006-04-08  Martin Blom  <martin@blom.org>
+
+	* binutils/morphos-objcopy.c, binutils/objcopy.c,
+	ld/emultempl/morphos.em: Treat __abox__ exactly as __amigappc__.
+
 Tue May 11 13:39:56 1999  Fred Fish  <fnf@ninemoons.com>
 
 	* ltconfig (finish_eval): Backslash quote some double quotes

@@ -1753,6 +1753,7 @@ strip_main (argc, argv)
     print_version ("strip");
 
   add_specific_symbol("__amigappc__", &keep_specific_list);
+  add_specific_symbol("__abox__", &keep_specific_list);
 
   /* Default is to strip all symbols.  */
   if (strip_symbols == strip_undef
@@ -2084,6 +2085,7 @@ copy_main (argc, argv)
     print_version ("objcopy");
 
   add_specific_symbol("__amigappc__", &keep_specific_list);
+  add_specific_symbol("__abox__", &keep_specific_list);
 
   if (copy_byte >= interleave)
     {
