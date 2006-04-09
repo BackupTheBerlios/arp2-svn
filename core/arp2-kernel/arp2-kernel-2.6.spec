@@ -11,7 +11,7 @@ Summary: The Linux kernel (the core of the Linux system)
 %define sublevel 16
 %define kversion 2.6.%{sublevel}
 %define rpmversion 2.6.%{sublevel}
-%define release 0
+%define release 1
 %define signmodules 0
 %define make_target bzImage
 %define kernel_image x86
@@ -113,7 +113,8 @@ Source22: kernel-%{kversion}-i686-smp-arp2.config
 Source23: kernel-%{kversion}-x86_64-arp2.config
 
 Patch0: linux-2.6-fedora.patch
-#Patch1: linux-2.6-arp2.patch
+Patch1: linux-2.6-arp2.patch
+Patch2: linux-2.6-local.patch
 
 BuildRoot: %{_tmppath}/arp2-kernel-%{KVERREL}-root
 
@@ -210,7 +211,10 @@ cd linux-%{kversion}.%{_target_cpu}
 %patch0 -p0
 
 # ARP2 patch
-#%patch1 -p1
+%patch1 -p0
+
+# Local patch
+#%patch2 -p0
 
 cp %{SOURCE10} Documentation/
 
@@ -549,6 +553,9 @@ fi
 
 
 %changelog
+* Fri Apr  7 2006 Martin Blom <martin@blom.org> - 2.6.%{sublevel}-1
+- Added support for AROS/Amithlon subpartitions.
+
 * Mon Apr  3 2006 Martin Blom <martin@blom.org> - 2.6.%{sublevel}-0
 - Initial arp2-kernel spec file based on kernel-2.6.16-1.2080_FC5
 
