@@ -167,7 +167,8 @@ struct Cursor
     Object*       Pointer;
 };
 
-#ifndef __amigaos4__
+#ifdef __libnix__
+// We handle it ourselves
 void __chkabort(void) {}
 #endif
 
@@ -3393,9 +3394,9 @@ ui_draw_glyph(int mixmode,
 }
 
 void
-ui_draw_text (uint8 font, uint8 flags, int mixmode, int x, int y,
+ui_draw_text (uint8 font, uint8 flags, uint8 opcode, int mixmode, int x, int y,
 	      int clipx, int clipy, int clipcx, int clipcy, int boxx,
-	      int boxy, int boxcx, int boxcy, int bgcolour,
+	      int boxy, int boxcx, int boxcy, BRUSH * brush, int bgcolour,
 	      int fgcolour, uint8 * text, uint8 length)
 {
   FONTGLYPH* glyph;
@@ -3573,4 +3574,37 @@ ui_desktop_restore(uint32 offset, int x, int y, int cx, int cy)
                               x, y, cx, cy,
                               bytesperpixel != 1 );
   }
+}
+
+void
+ ui_resize_window(void)
+{
+}
+
+void
+ui_begin_update(void)
+{
+}
+
+void
+ui_end_update(void)
+{
+}
+
+void 
+ui_polygon(uint8 opcode, uint8 fillmode, POINT * point, int npoints,
+	   BRUSH * brush, int bgcolour, int fgcolour)
+{
+}
+
+void 
+ui_polyline(uint8 opcode, POINT * points, int npoints, PEN * pen)
+{
+}
+
+void 
+ui_ellipse(uint8 opcode, uint8 fillmode,
+	   int x, int y, int cx, int cy,
+	   BRUSH * brush, int bgcolour, int fgcolour)
+{
 }

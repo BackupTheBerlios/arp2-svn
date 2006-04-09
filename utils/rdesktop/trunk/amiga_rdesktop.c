@@ -54,6 +54,7 @@
 #include <stdarg.h>		/* va_list va_start va_end */
 #include <unistd.h>		/* read close getuid getgid getpid getppid gethostname */
 #include <pwd.h>		/* getpwuid */
+#include <sys/signal.h>		/* SIGINT */
 
 #include "country_codes.h"
 
@@ -65,12 +66,12 @@ extern struct DiskObject* amiga_icon;
 
 extern char g_title[64];
 extern char g_username[64];
-extern char hostname[16];
+extern char g_hostname[16];
 extern char keymapname[16];
-extern int keylayout;
+extern int g_keylayout;
 extern int g_width;
 extern int g_height;
-extern int tcp_port_rdp;
+extern int g_tcp_port_rdp;
 extern int g_server_bpp;
 extern int g_win_button_size;
 extern Bool g_bitmap_compression;
@@ -78,6 +79,7 @@ extern Bool g_sendmotion;
 extern Bool g_encryption;
 extern Bool packet_encryption;
 extern Bool g_desktop_save;
+extern Bool g_polygon_ellipse_orders;
 extern Bool g_fullscreen;
 extern Bool g_grab_keyboard;
 extern Bool g_hide_decorations;
@@ -98,11 +100,16 @@ extern RDPDR_DEVICE g_rdpdr_device[];
 extern uint32 g_num_devices;
 extern char *g_rdpdr_clientname;
 
+uint32 ext_disc_reason = 0;
+
+static void show_disconnect_reason(uint16 reason);
+
 #ifndef ForeachNode
 #define ForeachNode(list,node) for (node = ((struct List*) list)->lh_Head; node->ln_Succ != NULL; node = node->ln_Succ)
 #endif
 
-const char version[] = "$VER: RDesktop 1.3.1cvs-"
+
+const char version[] = "$VER: RDesktop 1.4.1-"
 #ifdef __MORPHOS__
                               "MorphOS"
 #else
@@ -246,7 +253,7 @@ parse_server_and_port(char *server)
   p = strchr(server, ':');
   if (p != NULL)
   {
-    tcp_port_rdp = strtol(p + 1, NULL, 10);
+    g_tcp_port_rdp = strtol(p + 1, NULL, 10);
     *p = 0;
   }
 }
@@ -262,6 +269,11 @@ static int startup = 0;
 static void
 cleanup(void)
 {
+  if (ext_disc_reason >= 2) 
+  {
+    show_disconnect_reason(ext_disc_reason);
+  }
+
   if( amiga_icon != NULL )
   {
     FreeDiskObject( amiga_icon );
@@ -274,6 +286,7 @@ cleanup(void)
   }
 
   if (startup & UI_CREATE_WINDOW) {
+    cache_save_state();
     cache_destroy();
     ui_destroy_window();
   }
@@ -374,7 +387,7 @@ main(int argc, char *argv[])
   char password[64];
   char shell[128];
   char directory[32];
-  Bool prompt_password, rdp_retval = False;
+  Bool prompt_password, deactivated;
   struct passwd *pw;
   uint32 flags;
   char *p;
@@ -387,7 +400,9 @@ main(int argc, char *argv[])
 
   atexit(cleanup);
 
+
 #ifdef __amigaos4__
+  // We handle it ourselves
   signal(SIGINT, SIG_IGN);
 {
   struct Library *LibBase;
@@ -581,28 +596,28 @@ main(int argc, char *argv[])
 
     for (cc = amiga_country_codes; cc->Country != NULL; ++cc) {
       if (strcmp(code, cc->Alpha3) == 0) {
-	keylayout = cc->WindowsLocaleCode;
+	g_keylayout = cc->WindowsLocaleCode;
 	goto got_it;
       }
     }
 
     for (cc = amiga_country_codes; cc->Country != NULL; ++cc) {
       if (strcmp(code, cc->DistinguishingSign) == 0) {
-	keylayout = cc->WindowsLocaleCode;
+	g_keylayout = cc->WindowsLocaleCode;
 	goto got_it;
       }
     }
 
     for (cc = amiga_country_codes; cc->Country != NULL; ++cc) {
       if (strcmp(code, cc->Alpha2) == 0) {
-	keylayout = cc->WindowsLocaleCode;
+	g_keylayout = cc->WindowsLocaleCode;
 	goto got_it;
       }
     }
 
     for (cc = amiga_country_codes; cc->Country != NULL; ++cc) {
       if (strcmp(code, cc->Extra) == 0) {
-	keylayout = cc->WindowsLocaleCode;
+	g_keylayout = cc->WindowsLocaleCode;
 	goto got_it;
       }
     }
@@ -787,7 +802,7 @@ got_it:
     STRNCPY(password, a_args.a_password, sizeof(password));
     flags |= RDP_LOGON_AUTO;
   }
-  if (a_args.a_client != NULL) STRNCPY(hostname, a_args.a_client, sizeof(hostname));
+  if (a_args.a_client != NULL) STRNCPY(g_hostname, a_args.a_client, sizeof(g_hostname));
 
   if (a_args.a_pubscreen != NULL)
   {
@@ -882,7 +897,7 @@ got_it:
   g_console_session = a_args.a_console;
   g_use_rdp5 = ! a_args.a_rdp4;
 
-  if (a_args.a_keymap != NULL) keylayout = *a_args.a_keymap;
+  if (a_args.a_keymap != NULL) g_keylayout = *a_args.a_keymap;
 
   if (server[0] == 0)
   {
@@ -906,6 +921,9 @@ got_it:
   FreeArgs( rdargs );
   free( wbargs );
 
+  // We don't support this at the moment
+  g_polygon_ellipse_orders = False;
+
 #define PRINTS( s ) //printf( "%s: %s\n", #s, s );
 #define PRINTI( i ) //printf( "%s: %d\n", #i, i );
 	
@@ -916,9 +934,9 @@ got_it:
  
   PRINTS(  g_title );
   PRINTS(  g_username );
-  PRINTS(  hostname );
+  PRINTS(  g_hostname );
   PRINTS(  keymapname );
-  PRINTI(  keylayout );
+  PRINTI(  g_keylayout );
   PRINTI(  g_width );
   PRINTI(  g_height );
   PRINTI(  tcp_port_rdp );
@@ -977,10 +995,13 @@ got_it:
   if (ui_create_window())
   {
     startup |= UI_CREATE_WINDOW;
-    rdp_retval = rdp_main_loop();
+    rdp_main_loop(&deactivated, &ext_disc_reason);
   }
-	
-  if (True == rdp_retval)
+
+  if (deactivated)
+    return RETURN_OK;
+  else if (ext_disc_reason == exDiscReasonAPIInitiatedDisconnect
+	   || ext_disc_reason == exDiscReasonAPIInitiatedLogoff)
     return RETURN_OK;
   else
     return RETURN_WARN;
@@ -1047,6 +1068,105 @@ unimpl(char *format, ...)
   va_end(ap);
 }
 
+static void
+show_disconnect_reason(uint16 reason)
+{
+	char *text;
+
+	switch (reason)
+	{
+		case exDiscReasonNoInfo:
+			text = "No information available";
+			break;
+
+		case exDiscReasonAPIInitiatedDisconnect:
+			text = "Server initiated disconnect";
+			break;
+
+		case exDiscReasonAPIInitiatedLogoff:
+			text = "Server initiated logoff";
+			break;
+
+		case exDiscReasonServerIdleTimeout:
+			text = "Server idle timeout reached";
+			break;
+
+		case exDiscReasonServerLogonTimeout:
+			text = "Server logon timeout reached";
+			break;
+
+		case exDiscReasonReplacedByOtherConnection:
+			text = "The session was replaced";
+			break;
+
+		case exDiscReasonOutOfMemory:
+			text = "The server is out of memory";
+			break;
+
+		case exDiscReasonServerDeniedConnection:
+			text = "The server denied the connection";
+			break;
+
+		case exDiscReasonServerDeniedConnectionFips:
+			text = "The server denied the connection for security reason";
+			break;
+
+		case exDiscReasonLicenseInternal:
+			text = "Internal licensing error";
+			break;
+
+		case exDiscReasonLicenseNoLicenseServer:
+			text = "No license server available";
+			break;
+
+		case exDiscReasonLicenseNoLicense:
+			text = "No valid license available";
+			break;
+
+		case exDiscReasonLicenseErrClientMsg:
+			text = "Invalid licensing message";
+			break;
+
+		case exDiscReasonLicenseHwidDoesntMatchLicense:
+			text = "Hardware id doesn't match software license";
+			break;
+
+		case exDiscReasonLicenseErrClientLicense:
+			text = "Client license error";
+			break;
+
+		case exDiscReasonLicenseCantFinishProtocol:
+			text = "Network error during licensing protocol";
+			break;
+
+		case exDiscReasonLicenseClientEndedProtocol:
+			text = "Licensing protocol was not completed";
+			break;
+
+		case exDiscReasonLicenseErrClientEncryption:
+			text = "Incorrect client license enryption";
+			break;
+
+		case exDiscReasonLicenseCantUpgradeLicense:
+			text = "Can't upgrade license";
+			break;
+
+		case exDiscReasonLicenseNoRemoteConnections:
+			text = "The server is not licensed to accept remote connections";
+			break;
+
+		default:
+			if (reason > 0x1000 && reason < 0x7fff)
+			{
+				text = "Internal protocol error";
+			}
+			else
+			{
+				text = "Unknown reason";
+			}
+	}
+	error("disconnect: %s.\n", text);
+}
 
 
 #ifdef __ixemul__
@@ -1066,3 +1186,4 @@ void __eprintf(const char *format,...) /* for asserts */
 }
 
 #endif
+

@@ -1,7 +1,7 @@
 # @configure_input@
 
 srcdir		= @srcdir@
-rdesktop_srcdir	= $(srcdir)/rdesktop-2004-04-17-0600
+rdesktop_srcdir	= $(srcdir)/rdesktop-RDESKTOP-1-4-1
 abs_builddir	= @abs_builddir@
 
 CC		= @CC@
@@ -21,7 +21,7 @@ RDESKTOP	= RDesktop
 OBJECTS		= amiga_rdesktop.o amiga.o amiga_clipboard.o rdpsnd_ahi.o \
 		  rdesktop.o tcp.o iso.o mcs.o secure.o licence.o rdp.o \
 		  orders.o bitmap.o cache.o rdp5.o channels.o rdpdr.o \
-		  printercache.o cliprdr.o rdpsnd.o country_codes.o \
+		  printercache.o mppc.o pstcache.o cliprdr.o rdpsnd.o country_codes.o \
 #		  serial.o printer.o parallel.o 
 #		  rdpsnd.o disk.o
 
