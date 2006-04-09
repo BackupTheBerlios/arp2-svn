@@ -1088,6 +1088,7 @@ _rdpdr_check_fds(fd_set * rfds, fd_set * wfds, BOOL timed_out)
 					}
 					break;
 				case IRP_MJ_DEVICE_CONTROL:
+#ifndef ENABLE_AMIGA
 					if (serial_get_event(iorq->fd, &result))
 					{
 						buffer = (uint8 *) xrealloc((void *) buffer, 0x14);
@@ -1102,6 +1103,7 @@ _rdpdr_check_fds(fd_set * rfds, fd_set * wfds, BOOL timed_out)
 						xfree(buffer);
 						iorq = rdpdr_remove_iorequest(prev, iorq);
 					}
+#endif
 
 					break;
 			}
@@ -1123,6 +1125,7 @@ _rdpdr_check_fds(fd_set * rfds, fd_set * wfds, BOOL timed_out)
 			{
 
 				case IRP_MJ_DIRECTORY_CONTROL:
+#ifndef ENABLE_AMIGA
 					if (g_rdpdr_device[iorq->device].device_type ==
 					    DEVICE_TYPE_DISK)
 					{
@@ -1142,6 +1145,7 @@ _rdpdr_check_fds(fd_set * rfds, fd_set * wfds, BOOL timed_out)
 							}
 						}
 					}
+#endif
 					break;
 
 
