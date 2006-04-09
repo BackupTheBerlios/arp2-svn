@@ -13,6 +13,7 @@ struct parsed_partitions {
 		sector_t from;
 		sector_t size;
 		int flags;
+		int id;
 	} parts[MAX_PART];
 	int next;
 	int limit;

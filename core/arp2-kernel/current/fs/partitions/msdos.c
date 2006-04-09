@@ -22,6 +22,7 @@
 #include <linux/config.h>
 
 #include "check.h"
+#include "amiga.h"
 #include "msdos.h"
 #include "efi.h"
 
@@ -132,6 +133,7 @@ parse_extended(struct parsed_partitions *state, struct block_device *bdev,
 			}
 
 			put_partition(state, state->next, next, size);
+			state->parts[state->next].id = SYS_IND(p);
 			if (SYS_IND(p) == LINUX_RAID_PARTITION)
 				state->parts[state->next].flags = 1;
 			loopct = 0;
@@ -363,6 +365,20 @@ parse_minix(struct parsed_partitions *state, struct block_device *bdev,
 #endif /* CONFIG_MINIX_SUBPARTITION */
 }
 
+/*
+ * AROS RDB subpartition support.
+ * Pavel Fedin <sonic_amiga@rambler.ru>
+ */
+static void
+parse_aros(struct parsed_partitions *state, struct block_device *bdev,
+		u32 offset, u32 size, int origin)
+{
+#ifdef CONFIG_AROS_SUBPARTITION
+	printk(" %s%d:", state->name, origin);
+	parse_amiga_partition(state, bdev, offset);
+#endif /* CONFIG_AROS_SUBPARTITION */
+}
+
 static struct {
 	unsigned char id;
 	void (*parse)(struct parsed_partitions *, struct block_device *,
@@ -375,6 +391,8 @@ static struct {
 	{UNIXWARE_PARTITION, parse_unixware},
 	{SOLARIS_X86_PARTITION, parse_solaris_x86},
 	{NEW_SOLARIS_X86_PARTITION, parse_solaris_x86},
+ 	{AROS_PARTITION, parse_aros},
+ 	{AMITHLON_PARTITION, parse_aros},
 	{0, NULL},
 };
  
@@ -384,7 +402,7 @@ int msdos_partition(struct parsed_partitions *state, struct block_device *bdev)
 	Sector sect;
 	unsigned char *data;
 	struct partition *p;
-	int slot;
+	int slot, max_slot;
 
 	data = read_dev_sector(bdev, 0, &sect);
 	if (!data)
@@ -442,6 +460,7 @@ int msdos_partition(struct parsed_partitions *state, struct block_device *bdev)
 			continue;
 		}
 		put_partition(state, slot, start, size);
+		state->parts[slot].id = SYS_IND(p);
 		if (SYS_IND(p) == LINUX_RAID_PARTITION)
 			state->parts[slot].flags = 1;
 		if (SYS_IND(p) == DM6_PARTITION)
@@ -453,12 +472,13 @@ int msdos_partition(struct parsed_partitions *state, struct block_device *bdev)
 	printk("\n");
 
 	/* second pass - output for each on a separate line */
-	p = (struct partition *) (0x1be + data);
-	for (slot = 1 ; slot <= 4 ; slot++, p++) {
-		unsigned char id = SYS_IND(p);
+	for (slot = 1, max_slot = state->next ; slot < max_slot ; slot++) {
+		unsigned char id = (unsigned char) state->parts[slot].id;
+		u32 start = state->parts[slot].from;
+		u32 size = state->parts[slot].size;
 		int n;
 
-		if (!NR_SECTS(p))
+		if (!size)
 			continue;
 
 		for (n = 0; subtypes[n].parse && id != subtypes[n].id; n++)
@@ -466,8 +486,7 @@ int msdos_partition(struct parsed_partitions *state, struct block_device *bdev)
 
 		if (!subtypes[n].parse)
 			continue;
-		subtypes[n].parse(state, bdev, START_SECT(p)*sector_size,
-						NR_SECTS(p)*sector_size, slot);
+		subtypes[n].parse(state, bdev, start, size, slot);
 	}
 	put_dev_sector(sect);
 	return 1;

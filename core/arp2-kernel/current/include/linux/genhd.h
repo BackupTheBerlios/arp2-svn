@@ -41,6 +41,8 @@ enum {
 	BSDI_PARTITION = 0xb7,		/* BSDI Partition ID */
 	MINIX_PARTITION = 0x81,		/* Minix Partition ID */
 	UNIXWARE_PARTITION = 0x63,	/* Same as GNU_HURD and SCO Unix */
+	AROS_PARTITION = 0x30,		/* AROS Partition ID */
+	AMITHLON_PARTITION = 0x76,	/* Amithlon Partition ID */
 };
 
 #ifndef __KERNEL__

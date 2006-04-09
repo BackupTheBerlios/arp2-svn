@@ -26,19 +26,25 @@ checksum_block(__be32 *m, int size)
 int
 amiga_partition(struct parsed_partitions *state, struct block_device *bdev)
 {
+	state->next = 1;
+	return parse_amiga_partition(state, bdev, 0);
+}
+
+int
+parse_amiga_partition(struct parsed_partitions *state, struct block_device *bdev, u32 offset)
+{
 	Sector sect;
 	unsigned char *data;
 	struct RigidDiskBlock *rdb;
 	struct PartitionBlock *pb;
 	int start_sect, nr_sects, blk, part, res = 0;
 	int blksize = 1;	/* Multiplier for disk block size */
-	int slot = 1;
 	char b[BDEVNAME_SIZE];
 
 	for (blk = 0; ; blk++, put_dev_sector(sect)) {
 		if (blk == RDB_ALLOCATION_LIMIT)
 			goto rdb_done;
-		data = read_dev_sector(bdev, blk, &sect);
+		data = read_dev_sector(bdev, blk+offset, &sect);
 		if (!data) {
 			if (warn_no_part)
 				printk("Dev %s: unable to read RDB block %d\n",
@@ -74,7 +80,7 @@ amiga_partition(struct parsed_partitions *state, struct block_device *bdev)
 	put_dev_sector(sect);
 	for (part = 1; blk>0 && part<=16; part++, put_dev_sector(sect)) {
 		blk *= blksize;	/* Read in terms partition table understands */
-		data = read_dev_sector(bdev, blk, &sect);
+		data = read_dev_sector(bdev, blk+offset, &sect);
 		if (!data) {
 			if (warn_no_part)
 				printk("Dev %s: unable to read partition block %d\n",
@@ -101,7 +107,7 @@ amiga_partition(struct parsed_partitions *state, struct block_device *bdev)
 			     be32_to_cpu(pb->pb_Environment[3]) *
 			     be32_to_cpu(pb->pb_Environment[5]) *
 			     blksize;
-		put_partition(state,slot++,start_sect,nr_sects);
+		put_partition(state,state->next++,start_sect+offset,nr_sects);
 		{
 			/* Be even more informative to aid mounting */
 			char dostype[4];

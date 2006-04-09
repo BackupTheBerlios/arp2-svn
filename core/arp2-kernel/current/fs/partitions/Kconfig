@@ -161,6 +161,15 @@ config UNIXWARE_DISKLABEL
 
 	  If you don't know what all this is about, say N.
 
+config AROS_SUBPARTITION
+	bool "AROS/Amithlon RDB subpartitions support"
+	depends on PARTITION_ADVANCED && MSDOS_PARTITION && AMIGA_PARTITION
+	---help---
+	  AROS on x86 architecture and Amithlon uses an Amiga RDB partition
+	  table inside an MSDOS partition (ID 0x30 for AROS and 0x76 for
+	  Amithlon).  Say Y here if you want to access such partitions under
+	  Linux.
+
 config LDM_PARTITION
 	bool "Windows Logical Disk Manager (Dynamic Disk) support"
 	depends on PARTITION_ADVANCED
