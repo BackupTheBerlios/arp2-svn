@@ -1,5 +1,8 @@
 /* config.h.in.  Generated from configure.ac by autoheader.  */
 
+/* Big endian machine? */
+#undef B_ENDIAN
+
 /* Define to 1 if you have the <devices/newmouse.h> header file. */
 #undef HAVE_DEVICES_NEWMOUSE_H
 
@@ -53,6 +56,9 @@
 
 /* Define to 1 if you have the <unistd.h> header file. */
 #undef HAVE_UNISTD_H
+
+/* Little endian machine? */
+#undef L_ENDIAN
 
 /* Define to the address where bug reports for this package should be sent. */
 #undef PACKAGE_BUGREPORT

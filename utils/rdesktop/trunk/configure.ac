@@ -79,6 +79,8 @@ AC_CHECK_HEADERS([newmouse.h devices/newmouse.h devices/rawkeycodes.h])
 			    
 # Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
+AC_C_BIGENDIAN([AC_DEFINE([B_ENDIAN], [], [Big endian machine?])], 
+               [AC_DEFINE([L_ENDIAN], [], [Little endian machine?])])
 AC_TYPE_SIZE_T
 AC_HEADER_TIME
 
