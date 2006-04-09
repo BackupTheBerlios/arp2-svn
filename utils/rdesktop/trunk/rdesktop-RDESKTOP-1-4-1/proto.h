@@ -1,3 +1,5 @@
+struct timeval;
+
 /* bitmap.c */
 BOOL bitmap_decompress(uint8 * output, int width, int height, uint8 * input, int size, int Bpp);
 /* cache.c */
@@ -15,6 +17,8 @@ void cache_put_desktop(uint32 offset, int cx, int cy, int scanline, int bytes_pe
 		       uint8 * data);
 HCURSOR cache_get_cursor(uint16 cache_idx);
 void cache_put_cursor(uint16 cache_idx, HCURSOR cursor);
+void cache_create (void);
+void cache_destroy (void);
 /* channels.c */
 VCHANNEL *channel_register(char *name, uint32 flags, void (*callback) (STREAM));
 STREAM channel_init(VCHANNEL * channel, uint32 length);
@@ -122,9 +126,10 @@ BOOL rdpdr_abort_io(uint32 fd, uint32 major, NTSTATUS status);
 /* rdpsnd.c */
 void rdpsnd_send_completion(uint16 tick, uint8 packet_index);
 BOOL rdpsnd_init(void);
+void rdpsnd_deinit(void);
 /* rdpsnd_oss.c */
 BOOL wave_out_open(void);
-void wave_out_close(void);
+void wave_out_close(BOOL abort);
 BOOL wave_out_format_supported(WAVEFORMATEX * pwfx);
 BOOL wave_out_set_format(WAVEFORMATEX * pwfx);
 void wave_out_volume(uint16 left, uint16 right);

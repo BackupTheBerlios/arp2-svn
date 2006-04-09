@@ -89,7 +89,7 @@ rdpsnd_process_negotiate(STREAM in)
 
 	if (wave_out_open())
 	{
-		wave_out_close();
+		wave_out_close(True);
 		device_available = True;
 	}
 
@@ -206,7 +206,7 @@ rdpsnd_process(STREAM s)
 			if (!wave_out_set_format(&formats[format]))
 			{
 				rdpsnd_send_completion(tick, packet_index);
-				wave_out_close();
+				wave_out_close(True);
 				device_open = False;
 				return;
 			}
@@ -232,7 +232,7 @@ rdpsnd_process(STREAM s)
 			awaiting_data_packet = True;
 			break;
 		case RDPSND_CLOSE:
-			wave_out_close();
+			wave_out_close(False);
 			device_open = False;
 			break;
 		case RDPSND_NEGOTIATE:
@@ -261,4 +261,14 @@ rdpsnd_init(void)
 		channel_register("rdpsnd", CHANNEL_OPTION_INITIALIZED | CHANNEL_OPTION_ENCRYPT_RDP,
 				 rdpsnd_process);
 	return (rdpsnd_channel != NULL);
+}
+
+void
+rdpsnd_deinit(void)
+{
+	if (device_open)
+	{
+		wave_out_close(True);
+		device_open = False;
+	}
 }

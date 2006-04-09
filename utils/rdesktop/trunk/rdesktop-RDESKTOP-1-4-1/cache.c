@@ -430,3 +430,67 @@ cache_put_cursor(uint16 cache_idx, HCURSOR cursor)
 		error("put cursor %d\n", cache_idx);
 	}
 }
+
+
+/* Initialize the cache */
+void
+cache_create (void)
+{
+  memset( g_bmpcache,    0, sizeof( g_bmpcache ) );
+  memset( g_fontcache,   0, sizeof( g_fontcache ) );
+  memset( g_textcache,   0, sizeof( g_textcache ) );
+  memset( g_deskcache,   0, sizeof( g_deskcache ) );
+  memset( g_cursorcache, 0, sizeof( g_cursorcache ) );
+}
+
+
+/* Free all cached objects */
+void
+cache_destroy (void)
+{
+  int i;  
+  HBITMAP*   bitmap;
+  FONTGLYPH* font;
+  DATABLOB*  text;
+  HCURSOR*   cursor;
+
+  for( i = 0, bitmap = (HBITMAP*) g_bmpcache;
+       (size_t) i < sizeof( g_bmpcache ) / sizeof( HBITMAP );
+       ++i, ++bitmap )
+  {
+    if( *bitmap != NULL )
+    {
+     	ui_destroy_bitmap( *bitmap );
+    }
+  }
+
+  for( i = 0, font = (FONTGLYPH*) g_fontcache;
+       (size_t) i < sizeof( g_fontcache ) / sizeof( FONTGLYPH );
+       ++i, ++font )
+  {
+    if( font->pixmap != NULL )
+    {
+      ui_destroy_glyph( font->pixmap );
+    }
+  }
+
+  for( i = 0, text = (DATABLOB*) g_textcache;
+       (size_t) i < sizeof( g_textcache ) / sizeof( DATABLOB );
+       ++i, ++text )
+  {
+    if( text->data != NULL )
+    {
+    	xfree( text->data );
+    }
+  }
+
+  for( i = 0, cursor = (HCURSOR*) g_cursorcache;
+       (size_t) i < sizeof( g_cursorcache ) / sizeof( HCURSOR );
+       ++i, ++cursor )
+  {
+    if( *cursor != NULL )
+    {
+    	ui_destroy_cursor( *cursor );
+    }
+  }
+}

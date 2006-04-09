@@ -77,7 +77,7 @@ wave_out_open(void)
 }
 
 void
-wave_out_close(void)
+wave_out_close(BOOL abort)
 {
 	/* Ack all remaining packets */
 	while (queue_lo != queue_hi)

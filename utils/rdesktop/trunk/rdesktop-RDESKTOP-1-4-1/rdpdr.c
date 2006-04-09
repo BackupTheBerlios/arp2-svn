@@ -40,6 +40,9 @@
 #include <time.h>
 #include <errno.h>
 #include "rdesktop.h"
+#ifdef __amigaos4__
+#include <sys/socket.h>
+#endif
 
 #define IRP_MJ_CREATE			0x00
 #define IRP_MJ_CLOSE			0x02
@@ -127,7 +130,9 @@ rdpdr_handle_ok(int device, int handle)
 				return False;
 			break;
 		case DEVICE_TYPE_DISK:
+#ifndef ENABLE_AMIGA
 			if (g_fileinfo[handle].device_id != device)
+#endif
 				return False;
 			break;
 	}
@@ -371,6 +376,7 @@ rdpdr_process_irp(STREAM s)
 
 	switch (g_rdpdr_device[device].device_type)
 	{
+#ifndef ENABLE_AMIGA
 		case DEVICE_TYPE_SERIAL:
 
 			fns = &serial_fns;
@@ -393,7 +399,7 @@ rdpdr_process_irp(STREAM s)
 			fns = &disk_fns;
 			rw_blocking = False;
 			break;
-
+#endif
 		case DEVICE_TYPE_SCARD:
 		default:
 

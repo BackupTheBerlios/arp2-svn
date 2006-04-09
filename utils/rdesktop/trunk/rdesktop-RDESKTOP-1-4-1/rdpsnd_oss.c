@@ -65,7 +65,7 @@ wave_out_open(void)
 }
 
 void
-wave_out_close(void)
+wave_out_close(BOOL abort)
 {
 	close(g_dsp_fd);
 }

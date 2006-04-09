@@ -27,6 +27,15 @@
 #include <arpa/inet.h>		/* inet_addr */
 #include <errno.h>		/* errno */
 #include "rdesktop.h"
+#ifdef __amigaos4__
+# include <proto/bsdsocket.h>
+# define close(sock) CloseSocket(sock)
+#endif
+
+#ifdef ENABLE_AMIGA
+typedef int socklen_t;
+#endif
+
 
 #ifndef INADDR_NONE
 #define INADDR_NONE ((unsigned long) -1)

@@ -18,19 +18,24 @@
    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
-typedef int BOOL;
-
 #ifndef True
 #define True  (1)
 #define False (0)
 #endif
 
+#ifdef __amigaos4__
+ #include <exec/types.h>
+ #include <sys/socket.h>
+#else
 typedef unsigned char uint8;
-typedef signed char sint8;
 typedef unsigned short uint16;
-typedef signed short sint16;
 typedef unsigned int uint32;
+#endif
+typedef signed char sint8;
+typedef signed short sint16;
 typedef signed int sint32;
+
+#define BOOL int
 
 typedef void *HBITMAP;
 typedef void *HGLYPH;

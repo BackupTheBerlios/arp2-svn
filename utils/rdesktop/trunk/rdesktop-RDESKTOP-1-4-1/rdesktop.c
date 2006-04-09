@@ -22,10 +22,14 @@
 #include <unistd.h>		/* read close getuid getgid getpid getppid gethostname */
 #include <fcntl.h>		/* open */
 #include <pwd.h>		/* getpwuid */
+#ifndef __amigaos4__
 #include <termios.h>		/* tcgetattr tcsetattr */
+#endif
 #include <sys/stat.h>		/* stat */
 #include <sys/time.h>		/* gettimeofday */
+#ifndef __amigaos4__
 #include <sys/times.h>		/* times */
+#endif
 #include <ctype.h>		/* toupper */
 #include <errno.h>
 #include "rdesktop.h"
@@ -46,6 +50,10 @@
 #endif
 
 #include <openssl/md5.h>
+
+#ifdef __amigaos4__
+# include <proto/usergroup.h>
+#endif
 
 char g_title[64] = "";
 char g_username[64];
@@ -108,6 +116,9 @@ void
 rdp2vnc_connect(char *server, uint32 flags, char *domain, char *password,
 		char *shell, char *directory);
 #endif
+
+#ifndef ENABLE_AMIGA
+
 /* Display usage information */
 static void
 usage(char *program)
@@ -813,6 +824,8 @@ main(int argc, char *argv[])
 
 }
 
+#endif // ENABLE_AMIGA
+
 #ifdef EGD_SOCKET
 /* Read 32 random bytes from PRNGD or EGD socket (based on OpenSSL RAND_egd) */
 static BOOL
@@ -856,11 +869,14 @@ void
 generate_random(uint8 * random)
 {
 	struct stat st;
+#ifndef __amigaos4__
 	struct tms tmsbuf;
+#endif
 	MD5_CTX md5;
 	uint32 *r;
 	int fd, n;
 
+#ifndef __amigos4__
 	/* If we have a kernel random device, try that first */
 	if (((fd = open("/dev/urandom", O_RDONLY)) != -1)
 	    || ((fd = open("/dev/random", O_RDONLY)) != -1))
@@ -870,6 +886,7 @@ generate_random(uint8 * random)
 		if (n == 32)
 			return;
 	}
+#endif
 
 #ifdef EGD_SOCKET
 	/* As a second preference use an EGD */
@@ -879,11 +896,21 @@ generate_random(uint8 * random)
 
 	/* Otherwise use whatever entropy we can gather - ideas welcome. */
 	r = (uint32 *) random;
+#ifdef __amigaos4__
+	r[0] = getpid();
+	r[1] = (getuid()) | (getgid() << 16);
+	r[2] = clock();
+#else
 	r[0] = (getpid()) | (getppid() << 16);
 	r[1] = (getuid()) | (getgid() << 16);
 	r[2] = times(&tmsbuf);	/* system uptime (clocks) */
+#endif
 	gettimeofday((struct timeval *) &r[3], NULL);	/* sec and usec */
+#if defined(ENABLE_AMIGA) && !defined(__ixemul__)
+	stat("T:", &st);
+#else
 	stat("/tmp", &st);
+#endif
 	r[5] = st.st_atime;
 	r[6] = st.st_mtime;
 	r[7] = st.st_ctime;
@@ -933,6 +960,8 @@ xfree(void *mem)
 	free(mem);
 }
 
+#ifndef ENABLE_AMIGA
+
 /* report an error */
 void
 error(char *format, ...)
@@ -971,6 +1000,8 @@ unimpl(char *format, ...)
 	vfprintf(stderr, format, ap);
 	va_end(ap);
 }
+
+#endif // ENABLE_AMIGA
 
 /* produce a hex dump */
 void
@@ -1126,12 +1157,18 @@ load_licence(unsigned char **data)
 	struct stat st;
 	int fd, length;
 
+#ifndef ENABLE_AMIGA
 	home = getenv("HOME");
 	if (home == NULL)
 		return -1;
 
 	path = (char *) xmalloc(strlen(home) + strlen(g_hostname) + sizeof("/.rdesktop/licence."));
 	sprintf(path, "%s/.rdesktop/licence.%s", home, g_hostname);
+#else
+	home = "ENVARC:";
+	path = (char *) xmalloc(strlen(home) + strlen(g_hostname) + sizeof("RDesktop/license."));
+	sprintf(path, "%sRDesktop/license.%s", home, g_hostname);
+#endif
 
 	fd = open(path, O_RDONLY);
 	if (fd == -1)
@@ -1153,6 +1190,7 @@ save_licence(unsigned char *data, int length)
 	char *home, *path, *tmppath;
 	int fd;
 
+#ifndef ENABLE_AMIGA
 	home = getenv("HOME");
 	if (home == NULL)
 		return;
@@ -1160,6 +1198,11 @@ save_licence(unsigned char *data, int length)
 	path = (char *) xmalloc(strlen(home) + strlen(g_hostname) + sizeof("/.rdesktop/licence."));
 
 	sprintf(path, "%s/.rdesktop", home);
+#else
+	home = "ENVARC:";
+	path = (char *) xmalloc(strlen(home) + strlen(g_hostname) + sizeof("RDesktop/license."));
+	sprintf(path, "%sRDesktop", home);
+#endif
 	if ((mkdir(path, 0700) == -1) && errno != EEXIST)
 	{
 		perror(path);
@@ -1168,7 +1211,11 @@ save_licence(unsigned char *data, int length)
 
 	/* write licence to licence.hostname.new, then atomically rename to licence.hostname */
 
+#ifndef ENABLE_AMIGA
 	sprintf(path, "%s/.rdesktop/licence.%s", home, g_hostname);
+#else
+	sprintf(path, "%sRDesktop/license.%s", home, g_hostname);
+#endif
 	tmppath = (char *) xmalloc(strlen(path) + sizeof(".new"));
 	strcpy(tmppath, path);
 	strcat(tmppath, ".new");
@@ -1203,12 +1250,17 @@ rd_pstcache_mkdir(void)
 	char *home;
 	char bmpcache_dir[256];
 
+#ifndef ENABLE_AMIGA
 	home = getenv("HOME");
 
 	if (home == NULL)
 		return False;
 
 	sprintf(bmpcache_dir, "%s/%s", home, ".rdesktop");
+#else
+	home = "ENVARC:";
+	sprintf(bmpcache_dir, "%s%s", home, "RDesktop");
+#endif
 
 	if ((mkdir(bmpcache_dir, S_IRWXU) == -1) && errno != EEXIST)
 	{
@@ -1216,7 +1268,11 @@ rd_pstcache_mkdir(void)
 		return False;
 	}
 
+#ifndef ENABLE_AMIGA
 	sprintf(bmpcache_dir, "%s/%s", home, ".rdesktop/cache");
+#else
+	sprintf(bmpcache_dir, "%s%s", home, "RDesktop/cache");
+#endif
 
 	if ((mkdir(bmpcache_dir, S_IRWXU) == -1) && errno != EEXIST)
 	{
@@ -1235,10 +1291,15 @@ rd_open_file(char *filename)
 	char fn[256];
 	int fd;
 
+#ifndef ENABLE_AMIGA
 	home = getenv("HOME");
 	if (home == NULL)
 		return -1;
 	sprintf(fn, "%s/.rdesktop/%s", home, filename);
+#else
+	home = "ENVARC:";
+	sprintf(fn, "%sRDesktop/%s", home, filename);
+#endif
 	fd = open(fn, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
 	if (fd == -1)
 		perror(fn);
@@ -1277,6 +1338,7 @@ rd_lseek_file(int fd, int offset)
 BOOL
 rd_lock_file(int fd, int start, int len)
 {
+#if !defined(ENABLE_AMIGA) || (defined(F_WRLCK) && defined(F_SETLK))
 	struct flock lock;
 
 	lock.l_type = F_WRLCK;
@@ -1286,4 +1348,7 @@ rd_lock_file(int fd, int start, int len)
 	if (fcntl(fd, F_SETLK, &lock) == -1)
 		return False;
 	return True;
+#else
+	return False;
+#endif
 }
