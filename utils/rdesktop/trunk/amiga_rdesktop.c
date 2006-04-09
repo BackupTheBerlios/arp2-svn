@@ -75,7 +75,6 @@ extern int g_server_bpp;
 extern int g_win_button_size;
 extern Bool g_bitmap_compression;
 extern Bool g_sendmotion;
-extern Bool g_orders;
 extern Bool g_encryption;
 extern Bool packet_encryption;
 extern Bool g_desktop_save;
@@ -112,20 +111,17 @@ const char version[] = "$VER: RDesktop 1.3.1cvs-"
                               "4"
 #endif
 #endif
-                              " (8.4.2006)"
+                              " (9.4.2006)"
                               "(C) 2005-2006 Joerg Strohmayer; "
                               "(C) 2001-2006 Martin Blom; "
                               "(C) 1999-2004 Matthew Chapman et al.";
 
 #ifdef __amigaos4__
-struct LayersIFace    *ILayers        = NULL;
 struct CyberGfxIFace  *ICyberGfx      = NULL;
-struct SocketIFace    *ISocket        = NULL;
 struct UserGroupIFace *IUserGroup     = NULL;
 struct AmiSSLIFace    *IAmiSSL        = NULL;
 struct AmiSSLMasterIFace    *IAmiSSLMaster        = NULL;
 struct KeymapIFace    *IKeymap        = NULL;
-struct LocaleIFace    *ILocale        = NULL;
 uint32 AmiSSL_initialized = FALSE;
 const char *__stdiowin="CON:64/48/800/200/RDesktop/AUTO/CLOSE/WAIT/INACTIVE";
 #else
@@ -138,23 +134,23 @@ struct LocaleBase*     LocaleBase     = NULL;
 struct IntuitionBase*  IntuitionBase  = NULL;
 struct UtilityBase*    UtilityBase    = NULL;
 struct Library*        WorkbenchBase  = NULL;
+struct Library*        LayersBase     = NULL;
 #endif
 struct Library*        CyberGfxBase   = NULL;
-struct Library*        LayersBase     = NULL;
 
 static const char template[] =
 "SERVER/A,USER/K,DOMAIN/K,PASSWORD/K,CLIENT/K,CONSOLE/S,FRENCH/S,"
 "NOENC=NOENCRYPTION/S,SHELL/K,DIR=DIRECTORY/K,LEFT/K/N,TOP/K/N,"
 "W=WIDTH/K/N,H=HEIGHT/K/N,D=DEPTH/K/N,PUBSCREEN/K,TITLE/K,"
 "FS=FULLSCREEN/S,SCREENMODE/K/N,AUDIO/K/N,REMOTEAUDIO/S,"
-"BITMAPSONLY/S,NOMOUSE/S,EXP=EXPERIENCE/K,RDP4/S,KEYMAP/K/N";
+"NOMOUSE/S,EXP=EXPERIENCE/K,RDP4/S,KEYMAP/K/N";
 
 static const char wbtemplate[] =
 "SERVER/A/K,USER/K,DOMAIN/K,PASSWORD/K,CLIENT/K,CONSOLE/S,FRENCH/S,"
 "NOENC=NOENCRYPTION/S,SHELL/K,DIR=DIRECTORY/K,LEFT/K/N,TOP/K/N,"
 "W=WIDTH/K/N,H=HEIGHT/K/N,D=DEPTH/K/N,PUBSCREEN/K,TITLE/K,"
 "FS=FULLSCREEN/S,SCREENMODE/K/N,AUDIO/K/N,REMOTEAUDIO/S,"
-"BITMAPSONLY/S,NOMOUSE/S,EXP=EXPERIENCE/K,RDP4/S,KEYMAP/K/N,IGNORE/F";
+"NOMOUSE/S,EXP=EXPERIENCE/K,RDP4/S,KEYMAP/K/N,IGNORE/F";
 
 static LONG  def_size  = 0;
 static LONG  def_depth = 0;
@@ -182,7 +178,6 @@ static struct
     ULONG* a_screenmode;
     ULONG* a_audio;
     ULONG  a_remoteaudio;
-    ULONG  a_bitmapsonly;
     ULONG  a_nomouse;
     STRPTR a_experience;
     ULONG  a_rdp4;
@@ -210,7 +205,6 @@ static struct
    FALSE,
    NULL,
    NULL,
-   FALSE,
    FALSE,
    FALSE,
    "56K",
@@ -311,14 +305,6 @@ cleanup(void)
     IAmiSSLMaster = NULL;
     CloseLibrary(LibBase);
   }
-  if (ISocket)
-  {
-    struct Library *LibBase = ((struct Interface *)ISocket)->Data.LibBase;
-
-    DropInterface((struct Interface *)ISocket);
-    ISocket = NULL;
-    CloseLibrary(LibBase);
-  }
   if (IUserGroup)
   {
     struct Library *LibBase = ((struct Interface *)IUserGroup)->Data.LibBase;
@@ -335,16 +321,6 @@ cleanup(void)
     IKeymap = NULL;
     CloseLibrary(LibBase);
   }
-
-  if (ILocale)
-  {
-    struct Library *LibBase = ((struct Interface *)ILocale)->Data.LibBase;
-
-    DropInterface((struct Interface *)ILocale);
-    ILocale = NULL;
-    CloseLibrary(LibBase);
-  }
-
   if (ICyberGfx)
   {
      DropInterface((struct Interface *)ICyberGfx);
@@ -375,15 +351,10 @@ cleanup(void)
 
   CloseLibrary( (struct Library*) LocaleBase );
   LocaleBase = NULL;
-#endif
-  
-#ifdef __amigaos4__
-  DropInterface((struct Interface *)ILayers);
-#endif
+
   CloseLibrary( LayersBase );
   LayersBase = NULL;
-
-#ifndef __amigaos4__
+  
   CloseLibrary( (struct Library*) UtilityBase );
   UtilityBase = NULL;
 
@@ -416,7 +387,70 @@ main(int argc, char *argv[])
 
   atexit(cleanup);
 
-#ifndef __amigaos4__
+#ifdef __amigaos4__
+  signal(SIGINT, SIG_IGN);
+{
+  struct Library *LibBase;
+
+  LibBase = OpenLibrary("keymap.library", 36);
+  if (NULL != LibBase)
+  {
+     IKeymap = (struct KeymapIFace *)GetInterface(LibBase, "main", 1, NULL);
+     if (!IKeymap) CloseLibrary(LibBase);
+  }
+  if( NULL == IKeymap)
+  {
+    error( "Unable to open '%s'.\n", "keymap.library" );
+    return RETURN_FAIL;
+  }
+
+  LibBase = OpenLibrary("usergroup.library", 0L);
+  if (LibBase)
+  {
+     IUserGroup = (struct UserGroupIFace *)GetInterface(LibBase, "main", 1, NULL);
+     if (!IUserGroup) CloseLibrary(LibBase);
+  }
+  if (!LibBase || !IUserGroup)
+  {
+     error( "Unable to open '%s'.\n", "usergroup.library" );
+     return RETURN_FAIL;
+  }
+
+  LibBase = OpenLibrary("amisslmaster.library", 1);
+  if (LibBase)
+  {
+     IAmiSSLMaster = (struct AmiSSLMasterIFace *)GetInterface(LibBase, "main", 1, NULL);
+     if (!IAmiSSLMaster) CloseLibrary(LibBase);
+     else
+     {
+        if (! InitAmiSSLMaster(AMISSL_CURRENT_VERSION, TRUE))
+        {
+        } else {
+           struct Library *AmiSSLBase = OpenAmiSSL();
+
+           IAmiSSL = (struct AmiSSLIFace *)GetInterface(AmiSSLBase, "main", 1, NULL);
+        }
+     }
+  }
+  if (!LibBase || !IAmiSSLMaster)
+  {
+     error( "Unable to open '%s'.\n", "amisslmaster.library" );
+     return RETURN_FAIL;
+  }
+
+  if (!InitAmiSSL(AmiSSL_ISocket, ISocket,
+                  AmiSSL_ErrNoPtr, &errno,
+                  TAG_DONE))
+  {
+     AmiSSL_initialized = TRUE;
+  } else {
+     error( "Unable to initialize AmiSSL\n" );
+     return RETURN_FAIL;
+  }
+
+  SetErrnoPtr(&errno, 4);
+}
+#else
   AslBase = OpenLibrary( AslName, 39 );
   
   if( AslBase == NULL )
@@ -468,106 +502,8 @@ main(int argc, char *argv[])
     error( "Unable to open '%s'.\n", "intuition.library" );
     return RETURN_FAIL;
   }
-#endif
-
-#ifdef __amigaos4__
-  signal(SIGINT, SIG_IGN);
-{
-  struct Library *LibBase;
-
-  LibBase = OpenLibrary("keymap.library", 36);
-  if (NULL != LibBase)
-  {
-     IKeymap = (struct KeymapIFace *)GetInterface(LibBase, "main", 1, NULL);
-     if (!IKeymap) CloseLibrary(LibBase);
-  }
-  if( NULL == IKeymap)
-  {
-    error( "Unable to open '%s'.\n", "keymap.library" );
-    return RETURN_FAIL;
-  }
-
-  LibBase = OpenLibrary("locale.library", 38);
-  if (NULL != LibBase)
-  {
-     ILocale = (struct LocaleIFace *)GetInterface(LibBase, "main", 1, NULL);
-     if (!ILocale) CloseLibrary(LibBase);
-  }
-  if( NULL == ILocale)
-  {
-    error( "Unable to open '%s'.\n", "locale.library" );
-    return RETURN_FAIL;
-  }
-
-  LibBase = OpenLibrary("bsdsocket.library", 3L);
-  if (NULL != LibBase)
-  {
-     ISocket = (struct SocketIFace *)GetInterface(LibBase, "main", 1, NULL);
-     if (!ISocket) CloseLibrary(LibBase);
-  }
-  if (!LibBase || !ISocket)
-  {
-     error( "Unable to open '%s'.\n", "bsdsocket.library" );
-     return RETURN_FAIL;
-  }
-
-  LibBase = OpenLibrary("usergroup.library", 0L);
-  if (LibBase)
-  {
-     IUserGroup = (struct UserGroupIFace *)GetInterface(LibBase, "main", 1, NULL);
-     if (!IUserGroup) CloseLibrary(LibBase);
-  }
-  if (!LibBase || !IUserGroup)
-  {
-     error( "Unable to open '%s'.\n", "usergroup.library" );
-     return RETURN_FAIL;
-  }
-
-  LibBase = OpenLibrary("amisslmaster.library", 1);
-  if (LibBase)
-  {
-     IAmiSSLMaster = (struct AmiSSLMasterIFace *)GetInterface(LibBase, "main", 1, NULL);
-     if (!IAmiSSLMaster) CloseLibrary(LibBase);
-     else
-     {
-        if (! InitAmiSSLMaster(AMISSL_CURRENT_VERSION, TRUE))
-        {
-        } else {
-           struct Library *AmiSSLBase = OpenAmiSSL();
-
-           IAmiSSL = (struct AmiSSLIFace *)GetInterface(AmiSSLBase, "main", 1, NULL);
-        }
-     }
-  }
-  if (!LibBase || !IAmiSSLMaster)
-  {
-     error( "Unable to open '%s'.\n", "amisslmaster.library" );
-     return RETURN_FAIL;
-  }
-
-  if (!InitAmiSSL(AmiSSL_ISocket, ISocket,
-                  AmiSSL_ErrNoPtr, &errno,
-                  TAG_DONE))
-  {
-     AmiSSL_initialized = TRUE;
-  } else {
-     error( "Unable to initialize AmiSSL\n" );
-     return RETURN_FAIL;
-  }
-
-  SetErrnoPtr(&errno, 4);
-}
-#endif
 
   LayersBase = OpenLibrary( "layers.library", 39 );
-#ifdef __amigaos4__
-  ILayers = (struct LayersIFace *)GetInterface(LayersBase, "main", 1, NULL);
-  if (!ILayers)
-  {
-     CloseLibrary(LayersBase);
-     LayersBase = NULL;
-  }
-#endif
   
   if( LayersBase == NULL )
   {
@@ -576,7 +512,6 @@ main(int argc, char *argv[])
   }
 
 
-#ifndef __amigaos4__
   UtilityBase = (struct UtilityBase*) OpenLibrary( "utility.library", 37 );
   
   if( UtilityBase == NULL )
@@ -592,7 +527,7 @@ main(int argc, char *argv[])
     error( "Unable to open '%s'.\n", "workbench.library" );
     return RETURN_FAIL;
   }
-#endif
+#endif /* __amigaos4__ */
   
   CyberGfxBase = OpenLibrary( "cybergraphics.library", 40 );
 #ifdef __amigaos4__
@@ -879,7 +814,6 @@ got_it:
   g_width           = *a_args.a_width;
   g_height          = *a_args.a_height;
 	
-  g_orders          = ! a_args.a_bitmapsonly;
   g_encryption      = ! a_args.a_french;
   packet_encryption = ! a_args.a_noenc;
   g_sendmotion      = ! a_args.a_nomouse;
@@ -992,7 +926,6 @@ got_it:
   PRINTI(  g_win_button_size );
   PRINTI(  g_bitmap_compression );
   PRINTI(  g_sendmotion );
-  PRINTI(  g_orders );
   PRINTI(  g_encryption );
   PRINTI(  packet_encryption );
   PRINTI(  g_desktop_save );

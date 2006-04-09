@@ -1,11 +1,18 @@
+2006-04-09  Jörg Strohmayer <nospam@gmx.de>
+	* Small AmigaOS4 bugfixes, no longer opens interfaces which can
+	  be opened by libauto.a, added some optimizations for high- and
+	  true-colour screens.
+
+	* Removed unsupported BITMAPSONLY argument/tooltype.
+
 2006-04-08  Martin Blom  <martin@blom.org>
 
 	* Close the screen before exiting, if a window can't be created on
 	it (in fullscreen mode).
 
-	* Made Joergs no-more-requesters code active for all targets.
+	* Made Jörgs no-more-requesters code active for all targets.
 
-2006-04-08  Joerg Strohmayer <nospam@gmx.de>
+2006-04-08  Jörg Strohmayer <nospam@gmx.de>
 	* Added "connection bar" in fullscreem mode (AmigaOS4 and high-/
 	  truecolor-screens only).
 
@@ -17,7 +24,7 @@
 	* Added checks in wave_out_close() to prevent closing
 	  ahi.device, it's IORequest and MsgPort twice.
 
-2006-03-07  Joerg Strohmayer <nospam@gmx.de>
+2006-03-07  Jörg Strohmayer <nospam@gmx.de>
         * Changed AmigaOS4 SSL code from AmiSSL v1 to v3.
 
         * Added MouseWheel support.

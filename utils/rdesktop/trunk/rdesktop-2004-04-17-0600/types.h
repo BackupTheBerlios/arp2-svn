@@ -25,6 +25,7 @@
 
 #ifdef __amigaos4__
    #include <exec/types.h>
+   #include <sys/socket.h>
 #else
 typedef unsigned char uint8;
 typedef unsigned short uint16;
