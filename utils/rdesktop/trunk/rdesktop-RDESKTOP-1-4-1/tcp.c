@@ -32,7 +32,7 @@
 # define close(sock) CloseSocket(sock)
 #endif
 
-#ifdef ENABLE_AMIGA
+#if defined(ENABLE_AMIGA) && !defined(__amigaos4__)
 typedef int socklen_t;
 #endif
 
