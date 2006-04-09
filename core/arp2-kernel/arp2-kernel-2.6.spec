@@ -207,7 +207,7 @@ cp -rl vanilla linux-%{kversion}.%{_target_cpu}
 cd linux-%{kversion}.%{_target_cpu}
 
 # Update to Fedora upstream.
-%patch0 -p1
+%patch0 -p0
 
 # ARP2 patch
 #%patch1 -p1
