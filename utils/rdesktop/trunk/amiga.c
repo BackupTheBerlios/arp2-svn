@@ -1657,89 +1657,85 @@ ui_create_window(void)
 #ifdef __amigaos4__
     if (amiga_bpp > 8)
     {
-       amiga_timerport = CreateMsgPort();
-       if (amiga_timerport)
-       {
-          amiga_timerreq = (struct TimeRequest *)CreateIORequest(amiga_timerport, sizeof(struct TimeRequest));
-          if (amiga_timerreq)
+      amiga_timerport = CreateMsgPort();
+      if (amiga_timerport)
+      {
+        amiga_timerreq = (struct TimeRequest *)CreateIORequest(amiga_timerport, sizeof(struct TimeRequest));
+        if (amiga_timerreq)
+        {
+          if (0 == OpenDevice("timer.device", UNIT_VBLANK, &amiga_timerreq->Request, 0))
           {
-             if (0 == OpenDevice("timer.device", UNIT_VBLANK, &amiga_timerreq->Request, 0))
-             {
-                amiga_timerdevice_opened = TRUE;
+            uint32 size = (amiga_window->WScreen->Flags & SCREENHIRES ? SYSISIZE_MEDRES : SYSISIZE_LOWRES);
+            uint32 height = amiga_window->WScreen->Font->ta_YSize + amiga_window->WScreen->WBorTop + 1;
 
-                amiga_window2 = OpenWindowTags( NULL,
-                                                WA_Left,           amiga_screen->Width / 4,
-                                                WA_Top,            0,
-                                                WA_Width,          amiga_screen->Width / 2,
-                                                WA_Height,         amiga_screen->BarHeight + 1,
-                                                WA_CustomScreen,   (ULONG) amiga_screen,
-                                                WA_SmartRefresh,   TRUE,
-                                                WA_Title,          (ULONG) g_title,
-                                                WA_Activate,       FALSE,
-                                                WA_CloseGadget,    TRUE,
-                                                WA_ToolBox,        TRUE,
-                                                WA_StayTop,        TRUE,
-                                                TAG_MORE,          (ULONG) common_window_tags );
+            amiga_timerdevice_opened = TRUE;
 
-                amiga_timerreq->Time.Seconds       = 5;
-                amiga_timerreq->Time.Microseconds  = 0;
-                amiga_timerreq->Request.io_Command = TR_ADDREQUEST;
-                SendIO(&amiga_timerreq->Request);
-             }
-          }
-       }
-    }
+            amiga_DrInfo = GetScreenDrawInfo(amiga_window->WScreen);
 
-    if (amiga_window2 && amiga_icon)
-    {
-       uint32 size = (amiga_window2->WScreen->Flags & SCREENHIRES ? SYSISIZE_MEDRES : SYSISIZE_LOWRES);
-       uint32 height = amiga_window2->WScreen->Font->ta_YSize + amiga_window2->WScreen->WBorTop + 1;
+            if (amiga_DrInfo)
+            {
+              if (amiga_icon)
+              {
+                amiga_IconifyImage = (struct Image *)NewObject( NULL, "sysiclass",
+                                                                SYSIA_Size, size,
+                                                                SYSIA_DrawInfo, amiga_DrInfo,
+                                                                SYSIA_Which, ICONIFYIMAGE,
+                                                                IA_Height, height,
+                                                                TAG_DONE );
+                if (amiga_IconifyImage)
+                {
+                  amiga_IconifyGadget = (struct Gadget *)NewObject( NULL, "buttongclass",
+                                                                    GA_Image, amiga_IconifyImage,
+                                                                    GA_Titlebar, TRUE,
+                                                                    GA_RelRight, 0,
+                                                                    GA_ID, ETI_Iconify,
+                                                                    GA_RelVerify, TRUE,
+                                                                    TAG_DONE );
+                }
+              }
 
-       amiga_DrInfo = GetScreenDrawInfo(amiga_window2->WScreen);
-
-       amiga_DepthImage = (struct Image *)NewObject( NULL, "sysiclass",
-                                                     SYSIA_Size, size,
-                                                     SYSIA_DrawInfo, amiga_DrInfo,
-                                                     SYSIA_Which, DEPTHIMAGE,
-                                                     IA_Height, height,
-                                                     TAG_DONE );
-
-       amiga_IconifyImage = (struct Image *)NewObject( NULL, "sysiclass",
-                                                       SYSIA_Size, size,
-                                                       SYSIA_DrawInfo, amiga_DrInfo,
-                                                       SYSIA_Which, ICONIFYIMAGE,
-                                                       IA_Height, height,
-                                                       TAG_DONE );
-       if (amiga_IconifyImage && amiga_DepthImage)
-       {
-          amiga_IconifyGadget = (struct Gadget *)NewObject( NULL, "buttongclass",
-                                                            GA_Image, amiga_IconifyImage,
-                                                            GA_TopBorder, TRUE,
-                                                            GA_Titlebar, TRUE,
-                                                            GA_RelRight, (- amiga_IconifyImage->Width + 2) - (amiga_DepthImage->Width - 1),
-                                                            GA_Top, 0,
-                                                            GA_ID, ETI_Iconify,
-                                                            GA_RelVerify, TRUE,
+              amiga_DepthImage = (struct Image *)NewObject( NULL, "sysiclass",
+                                                            SYSIA_Size, size,
+                                                            SYSIA_DrawInfo, amiga_DrInfo,
+                                                            SYSIA_Which, DEPTHIMAGE,
+                                                            IA_Height, height,
                                                             TAG_DONE );
 
-          amiga_DepthGadget = (struct Gadget *)NewObject( NULL, "buttongclass",
-                                                          GA_Image, amiga_DepthImage,
-                                                          GA_TopBorder, TRUE,
-                                                          GA_Titlebar, TRUE,
-                                                          GA_RelRight, - (amiga_DepthImage->Width - 1),
-                                                          GA_Top, 0,
-                                                          GA_ID, ETI_Depth,
-                                                          GA_RelVerify, TRUE,
-                                                          TAG_DONE );
-       }
+              if (amiga_DepthImage)
+              {
+                amiga_DepthGadget = (struct Gadget *)NewObject( NULL, "buttongclass",
+                                                                GA_Image, amiga_DepthImage,
+                                                                GA_Titlebar, TRUE,
+                                                                GA_RelRight, 0,
+                                                                GA_ID, ETI_Depth,
+                                                                GA_RelVerify, TRUE,
+                                                                GA_Next, amiga_IconifyGadget,
+                                                                TAG_DONE );
+              }
+            }
 
-       if (amiga_IconifyGadget && amiga_DepthGadget)
-       {
-          AddGList(amiga_window2, amiga_DepthGadget, 0, 1, NULL);
-          RefreshGList(amiga_DepthGadget, amiga_window2, NULL, 1);
-          AddGList(amiga_window2, amiga_IconifyGadget, 0, 1, NULL);
-          RefreshGList(amiga_IconifyGadget, amiga_window2, NULL, 1);
-       }
+            amiga_window2 = OpenWindowTags( NULL,
+                                            WA_Left,           amiga_screen->Width / 4,
+                                            WA_Top,            0,
+                                            WA_Width,          amiga_screen->Width / 2,
+                                            WA_Height,         height,
+                                            WA_CustomScreen,   (ULONG) amiga_screen,
+                                            WA_SmartRefresh,   TRUE,
+                                            WA_Title,          (ULONG) g_title,
+                                            WA_Activate,       FALSE,
+                                            WA_CloseGadget,    TRUE,
+                                            WA_ToolBox,        TRUE,
+                                            WA_StayTop,        TRUE,
+                                            WA_Gadgets,        amiga_DepthGadget,
+                                            TAG_MORE,          (ULONG) common_window_tags );
+
+            amiga_timerreq->Time.Seconds       = 5;
+            amiga_timerreq->Time.Microseconds  = 0;
+            amiga_timerreq->Request.io_Command = TR_ADDREQUEST;
+            SendIO(&amiga_timerreq->Request);
+          }
+        }
+      }
     }
 #endif
   }
@@ -2481,9 +2477,9 @@ ui_select(int rdp_socket)
 
 		if( amiga_app_icon != NULL )
 		{
+		  MoveScreen( amiga_screen, 0, amiga_screen->Height);
 		  HideWindow( amiga_window );
 		  HideWindow( amiga_window2 );
-		  MoveScreen( amiga_screen, 0, amiga_screen->Height);
 		}
 	      }
 

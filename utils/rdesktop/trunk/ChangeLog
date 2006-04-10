@@ -1,3 +1,7 @@
+2006-04-10  Jörg Strohmayer <nospam@gmx.de>
+
+	* Iconify now works even if there is no icon.
+
 2006-04-09  Martin Blom  <martin@blom.org>
 
 	* Released version 1.4.1 (09.04.2006).
@@ -5,6 +9,7 @@
 	* Updated to rdesktop 1.4.1 baseline sources.
 
 2006-04-09  Jörg Strohmayer <nospam@gmx.de>
+
 	* Small AmigaOS4 bugfixes, no longer opens interfaces which can
 	  be opened by libauto.a, added some optimizations for high- and
 	  true-colour screens.
