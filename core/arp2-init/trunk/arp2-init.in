@@ -23,6 +23,13 @@
 #
 # Total:			12.0 s
 #
+#
+# /tmp/arp2-bootlevel settings:
+#
+# 0				power off
+# 1				normal reboot
+# 2				kexec reboot (if possible)
+# 3				restart virtual machine
 
 prefix=@prefix@
 exec_prefix=@exec_prefix@
@@ -58,7 +65,7 @@ echo -en "\e[2J\e[0;0f"
 cat ${sysconfdir}/${ISSUE}
 
 echo 
-echo -n "Press 'c' for config menu. Loading..."
+echo -n "Press 'c' for config menu. Loading ..."
 
 HOSTNAME=`/bin/hostname`
 HOSTTYPE=`uname -m`
@@ -330,15 +337,23 @@ if [ "x$config_me" == "xyes" ] ; then
   . ${sysconfdir}/arp2.conf
 fi
 
-echo -n "System ready. Starting virtual machine..."
-export XORGCONFIG=${sysconfdir}/${XCONFIG}
-xinit 2> /dev/null ${sbindir}/arp2-xinit
-chvt 1
-echo " Done."
+while true; do 
+    echo 0 > /tmp/arp2-bootlevel
+    echo -n "System ready. Starting virtual machine ..."
+    export XORGCONFIG=${sysconfdir}/${XCONFIG}
+    xinit 2> /dev/null ${sbindir}/arp2-xinit
+    chvt 1
+    echo " Done."
+    bootlevel=$(cat /tmp/arp2-bootlevel 2> /dev/null)
+    if [ $bootlevel -lt 3 2> /dev/null ]; then
+	break;
+    fi;
+done
+rm -f /tmp/arp2-bootlevel
 
 # Drop into a shell if requested
 if strstr "$cmdline" shell ; then
-	bash
+    bash
 fi
 
 
@@ -348,10 +363,26 @@ touch /var/lib/random-seed
 chmod 600 /var/lib/random-seed
 dd if=/dev/urandom of=/var/lib/random-seed count=1 bs=512 2>/dev/null
 
-echo -n "Unmounting filesystems..."
+echo -n "Unmounting filesystems ..."
 swapoff -a
 umount -a
 mount -n -o remount,ro /
 echo " Done."
-echo -n "Rebooting..."
-reboot -f
+
+case "$bootlevel" in
+    0)
+	echo -n "Shutting down ..."
+	halt -f -i -d -p
+	;;
+    2)
+	if [ -f /sbin/kexec ]; then
+	    echo -n "Soft-rebooting ..."
+	    /sbin/kexec -l --initrd=/boot/initrd-${unamer}.img --command-line="$(cat /proc/cmdline)" /boot/vmlinuz-${unamer} >& /dev/null
+	    /sbin/kexec -e >& /dev/null
+	fi
+	;;
+esac
+
+# Reboot normally if we get here
+echo -n "Rebooting ..."
+reboot -f -i -d
