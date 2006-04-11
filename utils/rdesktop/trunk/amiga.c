@@ -26,7 +26,7 @@
 # include <intuition/gadgetclass.h>
 # include <intuition/imageclass.h>
 # define ETI_Iconify 1000
-# define ETI_Depth   1001
+# define ETI_Sticky  1001
 #endif
 
 #include "rdesktop.h"
@@ -112,9 +112,13 @@ struct DiskObject* amiga_icon = NULL;
 static struct MsgPort* amiga_wb_port  = NULL;
 static struct AppIcon* amiga_app_icon = NULL;
 
+#ifdef __amigaos4__
+#define amiga_is_os4 TRUE
+#else
 static BOOL           amiga_is_morphos         = FALSE;
 static BOOL           amiga_is_amithlon        = FALSE;
 static BOOL           amiga_is_os4             = FALSE;
+#endif
 
 static UWORD          amiga_last_qualifier     = 0;
 static BOOL           amiga_numlock            = TRUE;  // default state is on
@@ -132,13 +136,6 @@ static ULONG          amiga_bpp                = 8;
 static struct Screen* amiga_screen             = NULL;
 static UBYTE*         amiga_backup             = NULL;
 static struct Window* amiga_window             = NULL;
-#ifdef __amigaos4__
-static struct Window* amiga_window2            = NULL;
-static struct TimeRequest *amiga_timerreq      = NULL;
-static struct MsgPort *amiga_timerport         = NULL;
-static uint32 amiga_timerdevice_opened         = FALSE;
-#endif
-static struct Region* amiga_old_region         = NULL;
 static ULONG          amiga_cursor_colors[ 3 * 3 ];
 static LONG           amiga_pens[ 256 ];
 static APTR           amiga_tmp_buffer         = NULL;
@@ -147,11 +144,20 @@ static struct BitMap* amiga_tmp_bitmap         = NULL;
 static BOOL           amiga_clipping           = FALSE;
 
 #ifdef __amigaos4__
-struct DrawInfo      *amiga_DrInfo             = NULL;
-struct Image         *amiga_IconifyImage       = NULL;
-struct Gadget        *amiga_IconifyGadget      = NULL;
-struct Image         *amiga_DepthImage         = NULL;
-struct Gadget        *amiga_DepthGadget        = NULL;
+static struct Window* amiga_window2            = NULL;
+static struct TimeRequest *amiga_timerreq      = NULL;
+static struct MsgPort *amiga_timerport         = NULL;
+static uint32 amiga_timerdevice_opened         = FALSE;
+static struct DrawInfo *amiga_DrInfo           = NULL;
+static struct Image    *amiga_IconifyImage     = NULL;
+static struct Gadget   *amiga_IconifyGadget    = NULL;
+static struct Image    *amiga_DepthImage       = NULL;
+static struct Gadget   *amiga_DepthGadget      = NULL;
+static struct Image    *amiga_StickyImage      = NULL;
+static struct Gadget   *amiga_StickyGadget     = NULL;
+static struct Image    *amiga_DragImage        = NULL;
+static struct Gadget   *amiga_DragGadget       = NULL;
+static uint32 amiga_connection_bar_sticky      = FALSE;
 #endif
 
 struct Glyph
@@ -461,7 +467,7 @@ SoftClipBlit( struct RastPort *srcRP, LONG xSrc, LONG ySrc,
 	      struct RastPort *destRP, LONG xDest, LONG yDest,
 	      LONG xSize, LONG ySize, ULONG minterm )
 {
-  int x, y;
+  int x;
 
   ULONG bc = minterm & 0x80 ? 0xffffffff : 0;
   ULONG bC = minterm & 0x40 ? 0xffffffff : 0;
@@ -750,7 +756,6 @@ amiga_write_pixels( struct RastPort* rp,
       case 15:
       {
 	UBYTE* src = (UBYTE*) data;
-	ULONG* dst = argb_data;
 
 	for( yy = 0; yy < height; ++yy )
 	{
@@ -1473,9 +1478,7 @@ ui_init(void)
       return False;
   }
 
-#ifdef __amigaos4__
-  amiga_is_os4 = TRUE;
-#else
+#ifndef __amigaos4__
   // Check for working minterm handling
 
   if( amiga_bpp > 8 )
@@ -1668,37 +1671,22 @@ ui_create_window(void)
             uint32 size = (amiga_window->WScreen->Flags & SCREENHIRES ? SYSISIZE_MEDRES : SYSISIZE_LOWRES);
             uint32 height = amiga_window->WScreen->Font->ta_YSize + amiga_window->WScreen->WBorTop + 1;
 
-            amiga_timerdevice_opened = TRUE;
+            amiga_timerdevice_opened           = TRUE;
+            amiga_timerreq->Time.Seconds       = 5;
+            amiga_timerreq->Time.Microseconds  = 0;
+            amiga_timerreq->Request.io_Command = TR_ADDREQUEST;
+            SendIO(&amiga_timerreq->Request);
 
             amiga_DrInfo = GetScreenDrawInfo(amiga_window->WScreen);
 
             if (amiga_DrInfo)
             {
-              if (amiga_icon)
-              {
-                amiga_IconifyImage = (struct Image *)NewObject( NULL, "sysiclass",
-                                                                SYSIA_Size, size,
-                                                                SYSIA_DrawInfo, amiga_DrInfo,
-                                                                SYSIA_Which, ICONIFYIMAGE,
-                                                                IA_Height, height,
-                                                                TAG_DONE );
-                if (amiga_IconifyImage)
-                {
-                  amiga_IconifyGadget = (struct Gadget *)NewObject( NULL, "buttongclass",
-                                                                    GA_Image, amiga_IconifyImage,
-                                                                    GA_Titlebar, TRUE,
-                                                                    GA_RelRight, 0,
-                                                                    GA_ID, ETI_Iconify,
-                                                                    GA_RelVerify, TRUE,
-                                                                    TAG_DONE );
-                }
-              }
-
               amiga_DepthImage = (struct Image *)NewObject( NULL, "sysiclass",
                                                             SYSIA_Size, size,
                                                             SYSIA_DrawInfo, amiga_DrInfo,
                                                             SYSIA_Which, DEPTHIMAGE,
                                                             IA_Height, height,
+                                                            IA_InBorder, TRUE,
                                                             TAG_DONE );
 
               if (amiga_DepthImage)
@@ -1706,33 +1694,91 @@ ui_create_window(void)
                 amiga_DepthGadget = (struct Gadget *)NewObject( NULL, "buttongclass",
                                                                 GA_Image, amiga_DepthImage,
                                                                 GA_Titlebar, TRUE,
-                                                                GA_RelRight, 0,
-                                                                GA_ID, ETI_Depth,
+                                                                GA_SysGType, GTYP_SDEPTH,
                                                                 GA_RelVerify, TRUE,
-                                                                GA_Next, amiga_IconifyGadget,
                                                                 TAG_DONE );
+              }
+
+              amiga_IconifyImage = (struct Image *)NewObject( NULL, "sysiclass",
+                                                              SYSIA_Size, size,
+                                                              SYSIA_DrawInfo, amiga_DrInfo,
+                                                              SYSIA_Which, ICONIFYIMAGE,
+                                                              IA_Height, height,
+                                                              IA_InBorder, TRUE,
+                                                              TAG_DONE );
+              if (amiga_IconifyImage)
+              {
+                amiga_IconifyGadget = (struct Gadget *)NewObject( NULL, "buttongclass",
+                                                                  GA_Image, amiga_IconifyImage,
+                                                                  GA_Titlebar, TRUE,
+                                                                  GA_ID, ETI_Iconify,
+                                                                  GA_RelVerify, TRUE,
+                                                                  GA_Next, amiga_DepthGadget,
+                                                                  TAG_DONE );
+              }
+
+              amiga_DragImage = (struct Image *)NewObject( NULL, "sysiclass",
+                                                           SYSIA_Size, size,
+                                                           SYSIA_DrawInfo, amiga_DrInfo,
+                                                           SYSIA_Which, TBFRAMEIMAGE,
+                                                           SYSIA_Label, g_title,
+                                                           IA_Height, height,
+                                                           IA_InBorder, TRUE,
+                                                           TAG_DONE );
+
+              if (amiga_DragImage)
+              {
+                amiga_DragGadget = (struct Gadget *)NewObject( NULL, "buttongclass",
+                                                               GA_Image, amiga_DragImage,
+                                                               GA_Titlebar, TRUE,
+                                                               GA_SysGType, GTYP_SDRAGGING,
+                                                               GA_RelVerify, TRUE,
+                                                               GA_Next, amiga_IconifyGadget,
+                                                               TAG_DONE );
+              }
+
+              amiga_StickyImage = (struct Image *)NewObject( NULL, "sysiclass",
+                                                             SYSIA_Size, size,
+                                                             SYSIA_DrawInfo, amiga_DrInfo,
+                                                             SYSIA_Which, PADLOCKIMAGE,
+                                                             IA_Height, height,
+                                                             IA_InBorder, TRUE,
+                                                             TAG_DONE );
+
+              if (amiga_StickyImage)
+              {
+                amiga_StickyGadget = (struct Gadget *)NewObject( NULL, "buttongclass",
+                                                                 GA_Image, amiga_StickyImage,
+                                                                 GA_Titlebar, TRUE,
+                                                                 GA_ID, ETI_Sticky,
+                                                                 GA_RelVerify, TRUE,
+                                                                 GA_Next, amiga_DragGadget,
+                                                                 TAG_DONE );
               }
             }
 
-            amiga_window2 = OpenWindowTags( NULL,
-                                            WA_Left,           amiga_screen->Width / 4,
-                                            WA_Top,            0,
-                                            WA_Width,          amiga_screen->Width / 2,
-                                            WA_Height,         height,
-                                            WA_CustomScreen,   (ULONG) amiga_screen,
-                                            WA_SmartRefresh,   TRUE,
-                                            WA_Title,          (ULONG) g_title,
-                                            WA_Activate,       FALSE,
-                                            WA_CloseGadget,    TRUE,
-                                            WA_ToolBox,        TRUE,
-                                            WA_StayTop,        TRUE,
-                                            WA_Gadgets,        amiga_DepthGadget,
-                                            TAG_MORE,          (ULONG) common_window_tags );
+            if (amiga_IconifyGadget && amiga_DepthGadget && amiga_StickyGadget && amiga_DragGadget)
+            {
+              amiga_window2 = OpenWindowTags( NULL,
+                                              WA_Left,           amiga_screen->Width / 4,
+                                              WA_Top,            0,
+                                              WA_Width,          amiga_screen->Width / 2,
+                                              WA_Height,         height,
+                                              WA_CustomScreen,   (ULONG) amiga_screen,
+                                              WA_SmartRefresh,   TRUE,
+                                              WA_WindowName,     g_title,
+                                              WA_Activate,       FALSE,
+                                              WA_CloseGadget,    TRUE,
+                                              WA_ToolBox,        TRUE,
+                                              WA_StayTop,        TRUE,
+                                              WA_Gadgets,        amiga_StickyGadget,
+                                              TAG_MORE,          (ULONG) common_window_tags );
 
-            amiga_timerreq->Time.Seconds       = 5;
-            amiga_timerreq->Time.Microseconds  = 0;
-            amiga_timerreq->Request.io_Command = TR_ADDREQUEST;
-            SendIO(&amiga_timerreq->Request);
+              if (amiga_window2)
+              {
+                 ChangeWindowBox(amiga_window2, g_width / 2 - (amiga_DepthGadget->LeftEdge + amiga_DepthGadget->Width) / 2, 0, amiga_DepthGadget->LeftEdge + amiga_DepthGadget->Width, amiga_window2->Height);
+              }
+            }
           }
         }
       }
@@ -1776,7 +1822,7 @@ ui_create_window(void)
                                    WA_Zoom,           (ULONG) zoom,
                                    WA_SmartRefresh,   TRUE,
                                    TAG_MORE,          (ULONG) common_window_tags );
-  
+
     // We don't need it anymore
     UnlockPubScreen( NULL, amiga_pubscreen );
     amiga_pubscreen = 0;
@@ -1786,22 +1832,8 @@ ui_create_window(void)
     {
        uint32 size = (amiga_window->WScreen->Flags & SCREENHIRES ? SYSISIZE_MEDRES : SYSISIZE_LOWRES);
        uint32 height = amiga_window->WScreen->Font->ta_YSize + amiga_window->WScreen->WBorTop + 1;
-       struct Image *idepth, *izoom;
 
        amiga_DrInfo = GetScreenDrawInfo(amiga_window->WScreen);
-
-       idepth = (struct Image *)NewObject( NULL, "sysiclass",
-                                           SYSIA_Size, size,
-                                           SYSIA_DrawInfo, amiga_DrInfo,
-                                           SYSIA_Which, DEPTHIMAGE,
-                                           IA_Height, height,
-                                           TAG_DONE );
-       izoom = (struct Image *)NewObject( NULL, "sysiclass",
-                                          SYSIA_Size, size,
-                                          SYSIA_DrawInfo, amiga_DrInfo,
-                                          SYSIA_Which, ZOOMIMAGE,
-                                          IA_Height, height,
-                                          TAG_DONE );
 
        amiga_IconifyImage = (struct Image *)NewObject( NULL, "sysiclass",
                                                        SYSIA_Size, size,
@@ -1809,26 +1841,16 @@ ui_create_window(void)
                                                        SYSIA_Which, ICONIFYIMAGE,
                                                        IA_Height, height,
                                                        TAG_DONE );
-       if (amiga_IconifyImage && idepth && izoom)
+       if (amiga_IconifyImage)
        {
-          int32 relright;
-          relright  = - amiga_IconifyImage->Width + 2;
-          relright -= idepth->Width - 1;
-          relright -= izoom->Width - 1;
-
           amiga_IconifyGadget = (struct Gadget *)NewObject( NULL, "buttongclass",
                                                             GA_Image, amiga_IconifyImage,
-                                                            GA_TopBorder, TRUE,
                                                             GA_Titlebar, TRUE,
-                                                            GA_RelRight, relright,
-                                                            GA_Top, 0,
+                                                            GA_RelRight, 0,
                                                             GA_ID, ETI_Iconify,
                                                             GA_RelVerify, TRUE,
                                                             TAG_DONE );
        }
-
-       if (idepth) DisposeObject((Object *)idepth);
-       if (izoom)  DisposeObject((Object *)izoom);
 
        if (amiga_IconifyGadget)
        {
@@ -1891,6 +1913,26 @@ ui_destroy_window()
       amiga_DepthGadget = NULL;
    }
 
+   if (amiga_StickyGadget)
+   {
+      if (amiga_window2)
+      {
+         RemoveGadget(amiga_window2, amiga_StickyGadget);
+      }
+      DisposeObject((Object *)amiga_StickyGadget);
+      amiga_StickyGadget = NULL;
+   }
+
+   if (amiga_DragGadget)
+   {
+      if (amiga_window2)
+      {
+         RemoveGadget(amiga_window2, amiga_DragGadget);
+      }
+      DisposeObject((Object *)amiga_DragGadget);
+      amiga_DragGadget = NULL;
+   }
+
    if (amiga_IconifyImage)
    {
        DisposeObject((Object *)amiga_IconifyImage);
@@ -1901,6 +1943,18 @@ ui_destroy_window()
    {
        DisposeObject((Object *)amiga_DepthImage);
        amiga_DepthImage = NULL;
+   }
+
+   if (amiga_StickyImage)
+   {
+       DisposeObject((Object *)amiga_StickyImage);
+       amiga_StickyImage = NULL;
+   }
+
+   if (amiga_DragImage)
+   {
+       DisposeObject((Object *)amiga_DragImage);
+       amiga_DragImage = NULL;
    }
 #endif
 
@@ -2414,7 +2468,7 @@ ui_select(int rdp_socket)
                               msg->MouseX - amiga_window->BorderLeft,
                               msg->MouseY - amiga_window->BorderTop );
 #ifdef __amigaos4__
-              if (amiga_window2 && 0 == msg->MouseY && amiga_window2->TopEdge == -amiga_window2->Height)
+              if (amiga_window2 && 0 >= msg->MouseY && amiga_window2->TopEdge == -amiga_window2->Height)
               {
                  int i;
 
@@ -2442,21 +2496,10 @@ ui_select(int rdp_socket)
 	  ( mask & ( 1UL << amiga_window2->UserPort->mp_SigBit ) ) )
       {
 	struct IntuiMessage* msg;
-	struct InputEvent ie;
-	char   q_buffer[8];
-
-	ie.ie_Class = IECLASS_RAWKEY;
-	ie.ie_SubClass = 0;
 
 	while( ( msg = (struct IntuiMessage*) 
 		 GetMsg( amiga_window2->UserPort ) ) != NULL )
 	{
-	  uint32 ev_time;
-
-	  ev_time = time(NULL);
-
-	  amiga_last_qualifier = msg->Qualifier;
-
 	  switch( msg->Class )
 	  {
 	    case IDCMP_CLOSEWINDOW:
@@ -2483,17 +2526,27 @@ ui_select(int rdp_socket)
 		}
 	      }
 
-	      if( g->GadgetID == ETI_Depth && amiga_screen)
+	      if( g->GadgetID == ETI_Sticky )
 	      {
-	         ScreenToBack(amiga_screen);
+	        amiga_connection_bar_sticky = !amiga_connection_bar_sticky;
+	        if (amiga_window2->TopEdge == 0)
+	        {
+	          if (amiga_connection_bar_sticky)
+	          {
+	            DrawImageState(amiga_window2->RPort, amiga_StickyImage, amiga_StickyGadget->LeftEdge, amiga_StickyGadget->TopEdge, IDS_INACTIVESELECTED, amiga_DrInfo);
+	          } else {
+                    int i;
+
+                    for (i = 0 ; i < amiga_window2->Height ; i++)
+                    {
+                      MoveWindow(amiga_window2, 0, -1);
+                      Delay(1);
+                    }
+                  }
+                }
 	      }
 	      break;
 	    }
-            
-	    case IDCMP_MOUSEMOVE:
-	    {
-	      break;
-            }
           }
 
 	  ReplyMsg( (struct Message*) msg );
@@ -2503,35 +2556,38 @@ ui_select(int rdp_socket)
       if( amiga_timerdevice_opened &&
 	  ( mask & ( 1UL << amiga_timerport->mp_SigBit ) ) )
       {
-         struct Message *msg = GetMsg(amiga_timerport);
+        struct Message *msg = GetMsg(amiga_timerport);
 
-         if (msg)
-         {
-            amiga_timerreq->Time.Seconds       = 5;
-            amiga_timerreq->Time.Microseconds  = 0;
-            amiga_timerreq->Request.io_Command = TR_ADDREQUEST;
-            SendIO(&amiga_timerreq->Request);
+        if (msg)
+        {
+          amiga_timerreq->Time.Seconds       = 5;
+          amiga_timerreq->Time.Microseconds  = 0;
+          amiga_timerreq->Request.io_Command = TR_ADDREQUEST;
+          SendIO(&amiga_timerreq->Request);
 
+          if (!amiga_connection_bar_sticky)
+          {
             if (amiga_window->MouseY > amiga_window2->Height && amiga_window2->TopEdge == 0)
             {
-               int i;
+              int i;
 
-               for (i = 0 ; i < amiga_window2->Height ; i++)
-               {
-                  MoveWindow(amiga_window2, 0, -1);
-                  Delay(1);
-               }
-            } else if (0 == amiga_window->MouseY && amiga_window2->TopEdge == -amiga_window2->Height)
+              for (i = 0 ; i < amiga_window2->Height ; i++)
+              {
+                MoveWindow(amiga_window2, 0, -1);
+                Delay(1);
+              }
+            } else if (0 >= amiga_window->MouseY && amiga_window2->TopEdge == -amiga_window2->Height)
             {
-               int i;
+              int i;
 
-               for (i = 0 ; i < amiga_window2->Height ; i++)
-               {
-                  MoveWindow(amiga_window2, 0, 1);
-                  Delay(1);
-               }
+              for (i = 0 ; i < amiga_window2->Height ; i++)
+              {
+                MoveWindow(amiga_window2, 0, 1);
+                Delay(1);
+              }
             }
-         }
+          }
+        }
       }
 #endif
 

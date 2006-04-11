@@ -1,3 +1,7 @@
+2006-04-11  Jörg Strohmayer <nospam@gmx.de>
+
+	* Added sticky gadget and screen dragging to the connection bar.
+
 2006-04-10  Jörg Strohmayer <nospam@gmx.de>
 
 	* Iconify now works even if there is no icon.
