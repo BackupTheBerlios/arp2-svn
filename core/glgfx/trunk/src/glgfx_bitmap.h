@@ -51,7 +51,7 @@ enum glgfx_bitmap_blit_tag {
   glgfx_bitmap_blit_src_y,	/* Required */
   glgfx_bitmap_blit_src_width,	/* Default is same as destination width */
   glgfx_bitmap_blit_src_height,	/* Default is same as destination width */
-  glgfx_bitmap_blit_src_bitmap, /* Can also be NULL for a constant (1,1,1,1) bitmap!
+  glgfx_bitmap_blit_src_bitmap, /* Can also be NULL for a constant (1,1,1,1) bitmap.
 				 * Default is same as destination. */
 
   glgfx_bitmap_blit_mask_x,
@@ -68,7 +68,8 @@ enum glgfx_bitmap_blit_tag {
   glgfx_bitmap_blit_mod_y,	/* Default is 0 */
   glgfx_bitmap_blit_mod_width,	/* Default is mod_bitmap width */
   glgfx_bitmap_blit_mod_height,	/* Default is mod_bitmap height */
-  glgfx_bitmap_blit_mod_bitmap, /* Default is NULL, i.e. mod bitmap is disabled */
+  glgfx_bitmap_blit_mod_bitmap, /* Default is NULL, i.e. mod bitmap is disabled.
+				 * Must not be the same as destination! */
 
   /* MinTerms are currently ignored by the hardware for floating point
      bitmaps. Never specify anyting but 0xc0 (or leave unspecified) for such
