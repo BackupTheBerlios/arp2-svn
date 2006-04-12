@@ -9,8 +9,8 @@ Summary: The Linux kernel (the core of the Linux system)
 # Versions of various parts
 
 %define sublevel 16
-%define kversion 2.6.%{sublevel}
-%define rpmversion 2.6.%{sublevel}
+%define kversion 2.6.16
+%define rpmversion 2.6.16
 %define release 1
 %define signmodules 0
 %define make_target bzImage
@@ -26,7 +26,7 @@ Summary: The Linux kernel (the core of the Linux system)
 %ifarch noarch
 %define buildup 0
 %define buildsmp 0
-%define all_arch_configs $RPM_SOURCE_DIR/kernel-%{kversion}-*-arp2.config
+%define all_arch_configs $RPM_SOURCE_DIR/kernel-%{kversion}-*-arp2*.config
 %endif
 
 # Second, per-architecture exclusions (ifarch)
@@ -36,14 +36,14 @@ Summary: The Linux kernel (the core of the Linux system)
 %endif
 
 %ifarch %{all_x86}
-%define all_arch_configs $RPM_SOURCE_DIR/kernel-%{kversion}-i?86*-arp2.config
+%define all_arch_configs $RPM_SOURCE_DIR/kernel-%{kversion}-i?86*-arp2*.config
 %define image_install_path boot
 %define signmodules 0
 %endif
 
 %ifarch x86_64
 %define buildsmp 0
-%define all_arch_configs $RPM_SOURCE_DIR/kernel-%{kversion}-x86_64*-arp2.config
+%define all_arch_configs $RPM_SOURCE_DIR/kernel-%{kversion}-x86_64*-arp2*.config
 %define image_install_path boot
 %define signmodules 0
 %endif
@@ -74,16 +74,16 @@ Summary: The Linux kernel (the core of the Linux system)
 #
 %define kernel_prereq  fileutils, module-init-tools, initscripts >= 8.11.1-1, mkinitrd >= 4.2.21-1
 
-Name: arp2-kernel
+Name: kernel-arp2
 Group: System Environment/Kernel
 License: GPLv2
 Version: %{rpmversion}
 Release: %{release}
 ExclusiveArch: noarch %{all_x86} x86_64 ppc ppc64 ia64
 ExclusiveOS: Linux
-Provides: arp2-kernel = %{version}
-Provides: arp2-kernel-drm = 4.3.0
-Provides: arp2-kernel-%{_target_cpu} = %{rpmversion}-%{release}
+Provides: kernel-arp2 = %{version}
+Provides: kernel-arp2-drm = 4.3.0
+Provides: kernel-%{_target_cpu} = %{rpmversion}-%{release}arp2
 Prereq: %{kernel_prereq}
 Conflicts: %{kernel_dot_org_conflicts}
 Conflicts: %{package_conflicts}
@@ -116,10 +116,10 @@ Patch0: linux-2.6-fedora.patch
 Patch1: linux-2.6-arp2.patch
 Patch2: linux-2.6-local.patch
 
-BuildRoot: %{_tmppath}/arp2-kernel-%{KVERREL}-root
+BuildRoot: %{_tmppath}/kernel-%{KVERREL}-root
 
 
-%description 
+%description
 The kernel package contains the Linux kernel (vmlinuz), the core of any
 Linux operating system.  The kernel handles the basic functions
 of the operating system:  memory allocation, process allocation, device
@@ -129,7 +129,9 @@ input and output, etc.
 Summary: Development package for building kernel modules to match the kernel.
 Group: System Environment/Kernel
 AutoReqProv: no
-Provides: arp2-kernel-devel-%{_target_cpu} = %{rpmversion}-%{release}
+Provides: kernel-arp2-devel-%{_target_cpu} = %{rpmversion}-%{release}
+Provides: kernel-devel-%{_target_cpu} = %{rpmversion}-%{release}arp2
+Provides: kernel-devel = %{rpmversion}-%{release}arp2
 Prereq: /usr/bin/find
 
 %description devel
@@ -154,9 +156,9 @@ options that can be passed to Linux kernel modules at load time.
 Summary: The Linux kernel compiled for SMP machines.
 
 Group: System Environment/Kernel
-Provides: arp2-kernel = %{version}
-Provides: arp2-kernel-drm = 4.3.0
-Provides: arp2-kernel-%{_target_cpu} = %{rpmversion}-%{release}smp
+Provides: kernel-arp2 = %{version}
+Provides: kernel-arp2-drm = 4.3.0
+Provides: kernel-%{_target_cpu} = %{rpmversion}-%{release}arp2-smp
 Prereq: %{kernel_prereq}
 Conflicts: %{kernel_dot_org_conflicts}
 Conflicts: %{package_conflicts}
@@ -175,9 +177,9 @@ Install the kernel-smp package if your machine uses two or more CPUs.
 %package smp-devel
 Summary: Development package for building kernel modules to match the SMP kernel.
 Group: System Environment/Kernel
-Provides: arp2-kernel-smp-devel-%{_target_cpu} = %{rpmversion}-%{release}
-Provides: arp2-kernel-devel-%{_target_cpu} = %{rpmversion}-%{release}smp
-Provides: arp2-kernel-devel = %{rpmversion}-%{release}smp
+Provides: kernel-arp2-smp-devel-%{_target_cpu} = %{rpmversion}-%{release}
+Provides: kernel-devel-%{_target_cpu} = %{rpmversion}-%{release}arp2-smp
+Provides: kernel-devel = %{rpmversion}-%{release}arp2-smp
 AutoReqProv: no
 Prereq: /usr/sbin/hardlink, /usr/bin/find
 
@@ -188,7 +190,7 @@ against the SMP kernel package.
 
 
 %prep
-if [ ! -d arp2-kernel-%{kversion}/vanilla ]; then
+if [ ! -d kernel-arp2-%{kversion}/vanilla ]; then
   # Ok, first time we do a make prep.
   rm -f pax_global_header
 %setup -q -n %{name}-%{version} -c -a1
@@ -197,7 +199,7 @@ if [ ! -d arp2-kernel-%{kversion}/vanilla ]; then
   cp %{SOURCE2} .
 else
   # We already have a vanilla dir.
-  cd arp2-kernel-%{kversion}
+  cd kernel-arp2-%{kversion}
   if [ -d linux-%{kversion}.%{_target_cpu} ]; then
      mv linux-%{kversion}.%{_target_cpu} deleteme
      rm -rf deleteme &
@@ -439,7 +441,7 @@ BuildKernel %make_target %kernel_image arp2
 %endif
 
 %if %{buildsmp}
-BuildKernel %make_target %kernel_image smp-arp2
+BuildKernel %make_target %kernel_image arp2-smp
 %endif
 
 
@@ -486,12 +488,12 @@ fi
 
 %post smp
 [ ! -x /usr/sbin/module_upgrade ] || /usr/sbin/module_upgrade %{rpmversion}-%{release}smp
-/sbin/new-kernel-pkg --package kernel-smp-arp2 --kernel-args="init=/lib/arp2/sbin/arp2-init" --banner="ARP2 UAE" --mkinitrd --depmod --install %{KVERREL}smp-arp2
+/sbin/new-kernel-pkg --package kernel-arp2-smp --kernel-args="init=/lib/arp2/sbin/arp2-init" --banner="ARP2 UAE" --mkinitrd --depmod --install %{KVERREL}arp2-smp
 
 %post smp-devel
 [ -f /etc/sysconfig/kernel ] && . /etc/sysconfig/kernel
 if [ "$HARDLINK" != "no" -a -x /usr/sbin/hardlink ] ; then
-  pushd /usr/src/kernels/%{KVERREL}-smp-arp2-%{_target_cpu} > /dev/null
+  pushd /usr/src/kernels/%{KVERREL}-arp2-smp-%{_target_cpu} > /dev/null
   /usr/bin/find . -type f | while read f; do hardlink -c /usr/src/kernels/*FC*/$f $f ; done
   popd > /dev/null
 fi
@@ -504,7 +506,7 @@ fi
 
 %preun smp
 /sbin/modprobe loop 2> /dev/null > /dev/null  || :
-/sbin/new-kernel-pkg --rminitrd --rmmoddep --remove %{KVERREL}smp-arp2
+/sbin/new-kernel-pkg --rminitrd --rmmoddep --remove %{KVERREL}arp2-smp
 
 
 
@@ -535,28 +537,28 @@ fi
 %if %{buildsmp}
 %files smp
 %defattr(-,root,root)
-/%{image_install_path}/vmlinuz-%{KVERREL}smp-arp2
-/boot/System.map-%{KVERREL}smp-arp2
-/boot/config-%{KVERREL}smp-arp2
+/%{image_install_path}/vmlinuz-%{KVERREL}arp2-smp
+/boot/System.map-%{KVERREL}arp2-smp
+/boot/config-%{KVERREL}arp2-smp
 %dir /lib/modules/%{KVERREL}smp-arp2
-/lib/modules/%{KVERREL}smp-arp2/kernel
-/lib/modules/%{KVERREL}smp-arp2/build
-/lib/modules/%{KVERREL}smp-arp2/source
-/lib/modules/%{KVERREL}smp-arp2/extra
-/lib/modules/%{KVERREL}smp-arp2/updates
+/lib/modules/%{KVERREL}arp2-smp/kernel
+/lib/modules/%{KVERREL}arp2-smp/build
+/lib/modules/%{KVERREL}arp2-smp/source
+/lib/modules/%{KVERREL}arp2-smp/extra
+/lib/modules/%{KVERREL}arp2-smp/updates
 
 %files smp-devel
 %defattr(-,root,root)
-%verify(not mtime) /usr/src/kernels/%{KVERREL}-smp-arp2-%{_target_cpu}
-/usr/src/kernels/%{KVERREL}smp-arp2-%{_target_cpu}
+%verify(not mtime) /usr/src/kernels/%{KVERREL}-arp2-smp-%{_target_cpu}
+/usr/src/kernels/%{KVERREL}arp2-smp-%{_target_cpu}
 %endif
 
 
 %changelog
-* Fri Apr  7 2006 Martin Blom <martin@blom.org> - 2.6.%{sublevel}-1
+* Fri Apr  7 2006 Martin Blom <martin@blom.org> - 2.6.16-1
 - Added support for AROS/Amithlon subpartitions.
 
-* Mon Apr  3 2006 Martin Blom <martin@blom.org> - 2.6.%{sublevel}-0
+* Mon Apr  3 2006 Martin Blom <martin@blom.org> - 2.6.16-0
 - Initial arp2-kernel spec file based on kernel-2.6.16-1.2080_FC5
 
 * Tue Mar 26 2006 Dave Jones <davej@redhat.com>
