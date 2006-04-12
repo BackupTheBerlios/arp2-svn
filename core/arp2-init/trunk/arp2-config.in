@@ -17,14 +17,20 @@ export PATH=/sbin:/bin:/usr/X11R6/bin:${bindir}
 while [ "${REPLY}" != "q" ]; do
 
     case "${REPLY}" in
-	"ga") 
-	    GFX=ati
+	"ra") 
+	    RESOLUTION=
 	    ;;
-	"gn") 
-	    GFX=nvidia
+	"d16") 
+	    DEPTH=16
+	    ;;
+	"d24") 
+	    DEPTH=24
 	    ;;
 	1.0|1.1|1.2|1.2|1.3|2.0|3.0|3.1)
 	    KICKSTART=${REPLY}
+	    ;;
+	*)
+	    echo ${REPLY} | egrep -q '^[0-9]{3,}x[0-9]{3,}' && RESOLUTION=${REPLY}
 	    ;;
     esac
 
@@ -33,17 +39,18 @@ while [ "${REPLY}" != "q" ]; do
 
     echo "Current configuration:"
 #    echo "Font:          ${FONT}"
-    echo "OpenGL driver: ${GFX}"
+    echo "Resolution:    ${RESOLUTION:-Probed}"
+    echo "Depth:         ${DEPTH:-24}"
     echo "Kickstart:     ${KICKSTART}"
     echo
-    echo "                OpenGL driver   Kickstart version"
-    echo "q)  Quit        ga) ATI         1.0) Kickstart 1.0"
-    echo "                gn) NVIDIA      1.1) Kickstart 1.1"
-    echo "                                1.2) Kickstart 1.2"
-    echo "                                1.3) Kickstart 1.3"
-    echo "                                2.0) Kickstart 2.0"
-    echo "                                3.0) Kickstart 3.0"
-    echo "                                3.1) Kickstart 3.1"
+    echo "Display Depth   Resolution       Kickstart version"
+    echo "d16) HiColor    ra)      Auto    1.0) Kickstart 1.0"
+    echo "d24) TrueColor  NNNxNNN) Custom  1.1) Kickstart 1.1"
+    echo "                                 1.2) Kickstart 1.2"
+    echo "                                 1.3) Kickstart 1.3"
+    echo "                                 2.0) Kickstart 2.0"
+    echo "                                 3.0) Kickstart 3.0"
+    echo "q)  Quit                         3.1) Kickstart 3.1"
 
     echo -n "1> "
     read
@@ -51,10 +58,10 @@ done
 
 # Write configuration
 cat > ${sysconfdir}/arp2.conf <<EOF
-FONT=${FONT}
+FONT=${FONT:-topaz8dbl.psf}
 KICKSTART=${KICKSTART}
-GFX=ati
+RESOLUTION=${RESOLUTION}
+DEPTH=${DEPTH:-24}
 
 ISSUE=issue-${KICKSTART}
-XCONFIG=arp2-${GFX}-xorg.conf
 EOF
