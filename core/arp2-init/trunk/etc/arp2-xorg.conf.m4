@@ -1,6 +1,6 @@
 Section "ServerFlags"
-       Option		"DontVTSwitch"	"on"
-       Option		"DontZap"	"on"
+#       Option		"DontVTSwitch"	"on"
+#       Option		"DontZap"	"on"
        Option		"DontZoom"	"on"
 EndSection
 
@@ -55,9 +55,12 @@ ifelse(DRIVER,NVIDIA,
 	Driver		"nvidia"
 	VendorName	"NVIDIA"
 	BoardName	"NVIDIA Graphics Card"
+	Option		"NoLogo"
 )
 ifelse(DRIVER,ATI,
 	Driver		"fglrx"
+	VendorName	"ATI"
+	BoardName	"ATI Graphics Card"
 #	Option		"NoDDC"
 	Option		"no_accel"	"no"
 	Option		"no_dri"	"no"
@@ -73,16 +76,13 @@ Section "Screen"
 	Device     "Videocard0"
 	Monitor    "Monitor0"
 	DefaultDepth     DEPTH
+ifelse(RESOLUTION,,,
 	SubSection "Display"
 		Viewport   0 0
-		Depth     16
+		Depth     DEPTH
 		Modes    "RESOLUTION"
 	EndSubSection
-	SubSection "Display"
-		Viewport   0 0
-		Depth     24
-		Modes    "RESOLUTION"
-	EndSubSection
+)
 EndSection
 
 Section "DRI"
