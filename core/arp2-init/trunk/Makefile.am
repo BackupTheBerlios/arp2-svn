@@ -4,8 +4,9 @@ fontdir		= $(datadir)/fonts
 
 sbin_SCRIPTS	= arp2-config arp2-init arp2-xinit
 
-etc_DATA	= etc/arp2.conf.example \
-		  etc/arp2-ati-xorg.conf etc/arp2-nvidia-xorg.conf \
+etc_DATA	= etc/arp2.conf.default \
+		  etc/arp2-xorg.conf.m4 etc/arp2-xorg.monitor.default \
+		  etc/arp2-xorg.keyboard.default etc/arp2-xorg.mouse.default \
 		  etc/issue-1.0 etc/issue-1.1 etc/issue-1.2 etc/issue-1.3 \
 		  etc/issue-2.0 etc/issue-3.0 etc/issue-3.1
 

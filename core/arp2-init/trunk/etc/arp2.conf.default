@@ -2,3 +2,4 @@ FONT=topaz8dbl.psf
 ISSUE=issue-1.3
 DEPTH=24
 RESOLUTION=
+KICKSTART=3.1

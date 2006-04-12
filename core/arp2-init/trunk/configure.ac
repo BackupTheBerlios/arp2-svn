@@ -7,6 +7,7 @@ AC_CONFIG_AUX_DIR([aux])
 AM_INIT_AUTOMAKE([arp2-init], [0.1])
 
 # Checks for programs.
+AC_CHECK_PROGS(ED, nano pico emacs vi, AC_MSG_ERROR([No suitabled editor found!]))
 
 # Checks for libraries.
 
