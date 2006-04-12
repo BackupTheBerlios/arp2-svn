@@ -1,0 +1,3 @@
+Driver		"kbd"
+Option		"XkbModel" "pc105"
+Option		"XkbLayout" "us"

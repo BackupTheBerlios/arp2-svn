@@ -1,0 +1,6 @@
+Driver		"mouse"
+Option		"Protocol" "ExplorerPS/2"
+Option		"Device" "/dev/input/mice"
+Option		"ZAxisMapping" "4 5"
+Option		"Buttons" "7"
+#Option		"Emulate3Buttons" "no"

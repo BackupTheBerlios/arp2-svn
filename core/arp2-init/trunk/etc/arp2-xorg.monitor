@@ -1,0 +1,6 @@
+VendorName	"Monitor Vendor"
+ModelName	"Monitor Model"
+### Comment all HorizSync and VertSync values to use DDC:
+#HorizSync	31.5 - 67.0
+#VertRefresh	50.0 - 75.0
+Option		"dpms"
