@@ -14,8 +14,10 @@ EndSection
 Section "Files"
 ifelse(DRIVER,NVIDIA,
 	ModulePath   "/usr/lib64/xorg/modules/extensions/nvidia"
+	ModulePath   "/usr/lib/xorg/modules/extensions/nvidia"
 )
 	ModulePath   "/usr/lib64/xorg/modules"
+	ModulePath   "/usr/lib/xorg/modules"
 	RgbPath      "/usr/share/X11/rgb"
 	FontPath     "/usr/share/X11/fonts/misc/"
 #	FontPath     "unix/:7100"
