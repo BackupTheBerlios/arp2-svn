@@ -103,10 +103,12 @@ BuildConflicts: rhbuildsys(DiskFree) < 500Mb
 
 Source0: ftp://ftp.kernel.org/pub/linux/kernel/v2.6/linux-%{kversion}.tar.bz2
 Source1: xen-20060301.tar.bz2
-Source2: Config.mk
+#Source2: Config.mk
 
-Source10: COPYING.modules
-Source11: genkey
+# This is already in the FC patch
+#Source10: COPYING.modules
+# Don't sign
+#Source11: genkey
 
 Source21: kernel-%{kversion}-i686-arp2.config
 Source22: kernel-%{kversion}-i686-smp-arp2.config
@@ -194,9 +196,9 @@ if [ ! -d kernel-arp2-%{kversion}/vanilla ]; then
   # Ok, first time we do a make prep.
   rm -f pax_global_header
 %setup -q -n %{name}-%{version} -c -a1
-  cp %{SOURCE2} .
+#  cp %{SOURCE2} .
   mv linux-%{kversion} vanilla
-  cp %{SOURCE2} .
+#  cp %{SOURCE2} .
 else
   # We already have a vanilla dir.
   cd kernel-arp2-%{kversion}
@@ -218,7 +220,8 @@ cd linux-%{kversion}.%{_target_cpu}
 # Local patch
 #%patch2 -p0
 
-cp %{SOURCE10} Documentation/
+#This is already in the FC patch
+#cp %{SOURCE10} Documentation/
 
 rm -rf configs
 mkdir configs
@@ -253,10 +256,11 @@ find . -name "*.orig" -o -name "*~" -exec rm -f {} \; >/dev/null &
 # Create gpg keys for signing the modules
 #
 
-gpg --homedir . --batch --gen-key %{SOURCE11}  
-gpg --homedir . --export --keyring ./kernel.pub Red > extract.pub 
+# Don't sign
+#gpg --homedir . --batch --gen-key %{SOURCE11}  
+#gpg --homedir . --export --keyring ./kernel.pub Red > extract.pub 
 make linux-%{kversion}.%{_target_cpu}/scripts/bin2c
-linux-%{kversion}.%{_target_cpu}/scripts/bin2c ksign_def_public_key __initdata < extract.pub > linux-%{kversion}.%{_target_cpu}/crypto/signature/key.h
+#linux-%{kversion}.%{_target_cpu}/scripts/bin2c ksign_def_public_key __initdata < extract.pub > linux-%{kversion}.%{_target_cpu}/crypto/signature/key.h
 
 BuildKernel() {
     MakeTarget=$1
