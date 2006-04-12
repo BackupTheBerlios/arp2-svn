@@ -1,3 +1,13 @@
+2006-04-12  Jörg Strohmayer <nospam@gmx.de>
+
+	* Added a workaround for the def_drawer as iconify icon problem
+	  when started from a RDesktopGUI which was started from
+	  Workbench.
+
+	* "Connection bar" is now only shown/hidden when the mouse
+	  pointer is in-/outside of the connection bar window instead
+	  of the complete top of the screen.
+
 2006-04-11  Jörg Strohmayer <nospam@gmx.de>
 
 	* Added sticky gadget and screen dragging to the connection bar.

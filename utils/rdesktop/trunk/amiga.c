@@ -2468,7 +2468,11 @@ ui_select(int rdp_socket)
                               msg->MouseX - amiga_window->BorderLeft,
                               msg->MouseY - amiga_window->BorderTop );
 #ifdef __amigaos4__
-              if (amiga_window2 && 0 >= msg->MouseY && amiga_window2->TopEdge == -amiga_window2->Height)
+              if (amiga_window2
+               && amiga_window2->TopEdge == -amiga_window2->Height
+               && msg->MouseY <= 0
+               && msg->MouseX >= amiga_window2->LeftEdge
+               && msg->MouseX < amiga_window2->LeftEdge + amiga_window2->Width)
               {
                  int i;
 
@@ -2567,7 +2571,10 @@ ui_select(int rdp_socket)
 
           if (!amiga_connection_bar_sticky)
           {
-            if (amiga_window->MouseY > amiga_window2->Height && amiga_window2->TopEdge == 0)
+            if (amiga_window2->TopEdge == 0
+             && (amiga_window->MouseY > amiga_window2->Height
+              || amiga_window->MouseX < amiga_window2->LeftEdge
+              || amiga_window->MouseX >= amiga_window2->LeftEdge + amiga_window2->Width))
             {
               int i;
 
@@ -2576,7 +2583,10 @@ ui_select(int rdp_socket)
                 MoveWindow(amiga_window2, 0, -1);
                 Delay(1);
               }
-            } else if (0 >= amiga_window->MouseY && amiga_window2->TopEdge == -amiga_window2->Height)
+            } else if (amiga_window2->TopEdge == -amiga_window2->Height
+                    && amiga_window->MouseY <= 0
+                    && amiga_window->MouseX >= amiga_window2->LeftEdge
+                    && amiga_window->MouseX < amiga_window2->LeftEdge + amiga_window2->Width)
             {
               int i;
 

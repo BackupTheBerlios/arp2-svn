@@ -118,7 +118,7 @@ const char version[] = "$VER: RDesktop 1.4.1-"
                               "4"
 #endif
 #endif
-                              " (11.4.2006)"
+                              " (12.4.2006)"
                               "(C) 2005-2006 Joerg Strohmayer; "
                               "(C) 2001-2006 Martin Blom; "
                               "(C) 1999-2004 Matthew Chapman et al.";
@@ -757,7 +757,7 @@ got_it:
     char name[ 256 ];
     
     if( GetProgramName( name, sizeof( name ) ) ) {
-      amiga_icon = GetDiskObjectNew( name );
+      amiga_icon = GetDiskObjectNew( name[0] ? name : "RDesktop" );
     }
 
     CurrentDir( cd );
