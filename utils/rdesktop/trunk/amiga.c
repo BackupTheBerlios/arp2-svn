@@ -43,7 +43,6 @@
 # include <unistd.h>
 # include <time.h>
 # include <proto/bsdsocket.h>
-# include <graphics/rpattr.h>
 #elif defined(__libnix__)
 #  include <libnix.h>
 #elif defined(__ixemul__)
@@ -66,6 +65,7 @@
 #include <graphics/gfxmacros.h>
 #include <graphics/modeid.h>
 #include <graphics/rastport.h>
+#include <graphics/rpattr.h>
 #include <intuition/intuition.h>
 #include <intuition/pointerclass.h>
 #include <libraries/asl.h>
@@ -409,60 +409,53 @@ amiga_obtain_pen( ULONG color )
       return -1;
   }
 
+#if defined (__MORPHOS__) || defined (__amigaos4__)
+  return (r >> 8) | (g >> 16) | (b >> 24);
+#else
   return ObtainBestPen( amiga_window->WScreen->ViewPort.ColorMap,
 			r, g, b,
 			OBP_Precision, PRECISION_EXACT,
 			TAG_DONE );
-  
-  return ObtainPen( amiga_window->WScreen->ViewPort.ColorMap,
-		    -1, r, g, b, 0 );
+#endif
 }
-
-#ifdef __amigaos4__
-static LONG
-amiga_color2argb( ULONG color )
-{
-  ULONG r, g, b;
-
-  switch( g_server_bpp )
-  {
-    case 15:
-      r = (( color & 0x7c00 ) >> 10) << 3;
-      g = (( color & 0x03e0 ) >>  5) << 3;
-      b = (( color & 0x001f )      ) << 3;
-      break;
-
-    case 16:
-      r = (( color & 0xf800 ) >> 11) << 3;
-      g = (( color & 0x07e0 ) >>  5) << 2;
-      b = (( color & 0x001f )      ) << 3;
-      break;
-
-    case 24:
-      r = ( color & 0x0000ff );
-      g = ( color & 0x00ff00 );
-      b = ( color & 0xff0000 );
-      break;
-
-    default:
-      error( "amiga_color2argb: Illegal server bitplane depth.\n" );
-      return -1;
-  }
-
-  return (r << 16) | (g << 8) | b;
-}
-#endif /* __amigaos4__ */
 
 static void
 amiga_release_pen( LONG pen )
 {
-  if( g_server_bpp != 8 )
+#if !defined (__MORPHOS__) && !defined (__amigaos4__)
+  if( g_server_bpp != 8)
   {
     ReleasePen( amiga_window->WScreen->ViewPort.ColorMap, pen );
   }
+#endif
 }
 
-
+static void
+amiga_set_abpen_drmd( struct RastPort *rp, ULONG apen, ULONG bpen, ULONG mode ) {
+  if( amiga_bpp > 8 )
+  {
+#if defined (__MORPHOS__)
+    SetRPAttrs( rp, 
+		RPTAG_PenMode, FALSE, 
+		RPTAG_FgColor, apen, 
+		RPTAG_BgColor, bpen, 
+		RPTAG_DrMd,    mode, 
+		TAG_DONE );
+#elif defined (__amigaos4__)
+    SetRPAttrs( rp, 
+		RPTAG_APenColor, apen, 
+		RPTAG_APenColor, bpen, 
+		RPTAG_DrMd,      mode, 
+		TAG_DONE );
+#else
+    SetABPenDrMd( rp, apen, bpen, mode );
+#endif
+  }
+  else 
+  {
+    SetABPenDrMd( rp, apen, bpen, mode );
+  }
+}
 
 VOID
 SoftClipBlit( struct RastPort *srcRP, LONG xSrc, LONG ySrc,
@@ -538,47 +531,25 @@ WorkingClipBlit( struct RastPort *srcRP, LONG xSrc, LONG ySrc,
 
   if( minterm == 0 )
   {
-#ifdef __amigaos4__
-    if (amiga_bpp > 8)
-    {
-      SetRPAttrs( amiga_window->RPort, RPTAG_APenColor, 0x00000000, RPTAG_DrMd, JAM1, TAG_DONE );
-      RectFill( amiga_window->RPort,
-	        xDest, yDest,
-	        xDest + xSize - 1, yDest + ySize - 1 );
-    } else
-#endif
-    {
-      LONG pen = amiga_obtain_pen( 0x00000000 );
+    LONG pen = amiga_obtain_pen( 0x00000000 );
   
-      SetABPenDrMd( amiga_window->RPort, pen, 0, JAM1 );
-      RectFill( amiga_window->RPort,
-	        xDest, yDest,
-	        xDest + xSize - 1, yDest + ySize - 1 );
+    amiga_set_abpen_drmd( amiga_window->RPort, pen, 0, JAM1 );
+    RectFill( amiga_window->RPort,
+	      xDest, yDest,
+	      xDest + xSize - 1, yDest + ySize - 1 );
 
-      amiga_release_pen( pen );
-    }
+    amiga_release_pen( pen );
   }
   else if( minterm == 0xf0 )
   {
-#ifdef __amigaos4__
-    if (amiga_bpp > 8)
-    {
-      SetRPAttrs( amiga_window->RPort, RPTAG_APenColor, 0x00ffffff, RPTAG_DrMd, JAM1, TAG_DONE );
-      RectFill( amiga_window->RPort,
-	        xDest, yDest,
-	        xDest + xSize - 1, yDest + ySize - 1 );
-    } else
-#endif
-    {
-       LONG pen = amiga_obtain_pen( 0xffffffff );
+    LONG pen = amiga_obtain_pen( 0xffffffff );
   
-       SetABPenDrMd( amiga_window->RPort, pen, 0, JAM1 );
-       RectFill( amiga_window->RPort,
-	         xDest, yDest,
-	         xDest + xSize - 1, yDest + ySize - 1 );
+    amiga_set_abpen_drmd( amiga_window->RPort, pen, 0, JAM1 );
+    RectFill( amiga_window->RPort,
+	      xDest, yDest,
+	      xDest + xSize - 1, yDest + ySize - 1 );
 
-       amiga_release_pen( pen );
-    }
+    amiga_release_pen( pen );
   }
   else if( amiga_broken_blitter && minterm != 0xc0 )
   {
@@ -610,47 +581,25 @@ WorkingBltBitMapRastPort( struct BitMap *srcBitMap, LONG xSrc, LONG ySrc,
   
   if( minterm == 0 )
   {
-#ifdef __amigaos4__
-    if (amiga_bpp > 8)
-    {
-      SetRPAttrs( amiga_window->RPort, RPTAG_APenColor, 0x00000000, RPTAG_DrMd, JAM1, TAG_DONE );
-      RectFill( amiga_window->RPort,
-	        xDest, yDest,
-	        xDest + xSize - 1, yDest + ySize - 1 );
-    } else
-#endif
-    {
-      LONG pen = amiga_obtain_pen( 0x00000000 );
+    LONG pen = amiga_obtain_pen( 0x00000000 );
   
-      SetABPenDrMd( amiga_window->RPort, pen, 0, JAM1 );
-      RectFill( amiga_window->RPort,
-	        xDest, yDest,
-	        xDest + xSize - 1, yDest + ySize - 1 );
+    amiga_set_abpen_drmd( amiga_window->RPort, pen, 0, JAM1 );
+    RectFill( amiga_window->RPort,
+	      xDest, yDest,
+	      xDest + xSize - 1, yDest + ySize - 1 );
 
-      amiga_release_pen( pen );
-    }
+    amiga_release_pen( pen );
   }
   else if( minterm == 0xf0 )
   {
-#ifdef __amigaos4__
-    if (amiga_bpp > 8)
-    {
-      SetRPAttrs( amiga_window->RPort, RPTAG_APenColor, 0x00ffffff, RPTAG_DrMd, JAM1, TAG_DONE );
-      RectFill( amiga_window->RPort,
-	        xDest, yDest,
-	        xDest + xSize - 1, yDest + ySize - 1 );
-    } else
-#endif
-    {
-      LONG pen = amiga_obtain_pen( 0xffffffff );
-  
-      SetABPenDrMd( amiga_window->RPort, pen, 0, JAM1 );
-      RectFill( amiga_window->RPort,
-	        xDest, yDest,
-	        xDest + xSize - 1, yDest + ySize - 1 );
+    LONG pen = amiga_obtain_pen( 0xffffffff );
 
-      amiga_release_pen( pen );
-    }
+    amiga_set_abpen_drmd( amiga_window->RPort, pen, 0, JAM1 );
+    RectFill( amiga_window->RPort,
+	      xDest, yDest,
+	      xDest + xSize - 1, yDest + ySize - 1 );
+
+    amiga_release_pen( pen );
   }
   else if( amiga_broken_blitter && minterm != 0xc0 )
   {
@@ -3227,66 +3176,34 @@ ui_patblt(uint8 opcode,
     
       if( rp.BitMap != NULL )
       {
-#ifdef __amigaos4__
-        if (amiga_bpp > 8)
-        {
-          int h;
-          int v;
-	  uint32 bgargb = amiga_color2argb( bgcolour );
-	  uint32 fgargb = amiga_color2argb( fgcolour );
+	int h;
+	int v;
+	LONG bgpen = amiga_obtain_pen( bgcolour );
+	LONG fgpen = amiga_obtain_pen( fgcolour );
 
-          for( v = 0; v < cy; ++v )
-          {
-            UBYTE mask;
-        
-            mask = pattern[ ( v + brush->yorigin ) & 7 ];
-
-            for( h = 0; h < cx; ++h )
-            {
-              if( ( mask & ( 1 << ( ( h + brush->xorigin ) & 7 ) ) ) == 0 )
-              {
-		SetRPAttrs( &rp, RPTAG_APenColor, fgargb, TAG_DONE );
-              }
-              else
-              {
-		SetRPAttrs( &rp, RPTAG_APenColor, bgargb, TAG_DONE );
-              }
-    
-              WritePixel( &rp, h, v );
-            }
-          }
-        } else
-#endif
+	for( v = 0; v < cy; ++v )
 	{
-          int h;
-          int v;
-	  LONG bgpen = amiga_obtain_pen( bgcolour );
-	  LONG fgpen = amiga_obtain_pen( fgcolour );
-
-          for( v = 0; v < cy; ++v )
-          {
-            UBYTE mask;
+	  UBYTE mask;
         
-            mask = pattern[ ( v + brush->yorigin ) & 7 ];
+	  mask = pattern[ ( v + brush->yorigin ) & 7 ];
 
-            for( h = 0; h < cx; ++h )
-            {
-              if( ( mask & ( 1 << ( ( h + brush->xorigin ) & 7 ) ) ) == 0 )
-              {
-                SetAPen( &rp, fgpen );
-              }
-              else
-              {
-                SetAPen( &rp, bgpen );
-              }
+	  for( h = 0; h < cx; ++h )
+	  {
+	    if( ( mask & ( 1 << ( ( h + brush->xorigin ) & 7 ) ) ) == 0 )
+	    {
+	      amiga_set_abpen_drmd( &rp, fgpen, 0, JAM1 );
+	    }
+	    else
+	    {
+	      amiga_set_abpen_drmd( &rp, bgpen, 0, JAM1 );
+	    }
     
-              WritePixel( &rp, h, v );
-            }
-          }
-
-	  amiga_release_pen( bgpen );
-	  amiga_release_pen( fgpen );
+	    WritePixel( &rp, h, v );
+	  }
 	}
+
+	amiga_release_pen( bgpen );
+	amiga_release_pen( fgpen );
 
 	WorkingBltBitMapRastPort( rp.BitMap, 0, 0,
 				  amiga_window->RPort, x, y,
@@ -3374,6 +3291,8 @@ ui_line(uint8 opcode,
 	/* dest */ int startx, int starty, int endx, int endy,
 	/* pen */ PEN *pen)
 {
+  LONG amiga_pen = amiga_obtain_pen( pen->colour );
+
   startx += amiga_window->BorderLeft;
   starty += amiga_window->BorderTop;
 
@@ -3382,25 +3301,11 @@ ui_line(uint8 opcode,
 
   // TODO: Use opcode, style and width
 
-#ifdef __amigaos4__
-  if (amiga_bpp > 8)
-  {
-    uint32 argb = amiga_color2argb( pen->colour );
+  amiga_set_abpen_drmd( amiga_window->RPort, amiga_pen, 0, JAM1 );
+  Move( amiga_window->RPort, startx, starty );
+  Draw( amiga_window->RPort, endx, endy );
 
-    SetRPAttrs( amiga_window->RPort, RPTAG_APenColor, argb, RPTAG_DrMd, JAM1, TAG_DONE );
-    Move( amiga_window->RPort, startx, starty );
-    Draw( amiga_window->RPort, endx, endy );
-  } else
-#endif
-  {
-    LONG amiga_pen = amiga_obtain_pen( pen->colour );
-
-    SetABPenDrMd( amiga_window->RPort, amiga_pen, 0, JAM1 );
-    Move( amiga_window->RPort, startx, starty );
-    Draw( amiga_window->RPort, endx, endy );
-
-    amiga_release_pen( amiga_pen );
-  }
+  amiga_release_pen( amiga_pen );
 }
 
 void
@@ -3408,26 +3313,15 @@ ui_rect(
   /* dest */ int x, int y, int cx, int cy,
   /* brush */ int colour)
 {
+  LONG pen = amiga_obtain_pen( colour );
+
   x += amiga_window->BorderLeft;
   y += amiga_window->BorderTop;
-
-#ifdef __amigaos4__
-  if (amiga_bpp > 8)
-  {
-    uint32 argb = amiga_color2argb( colour );
-
-    SetRPAttrs( amiga_window->RPort, RPTAG_APenColor, argb, RPTAG_DrMd, JAM1, TAG_DONE );
-    RectFill( amiga_window->RPort, x, y, x + cx - 1, y + cy - 1 );
-  } else
-#endif
-  {
-    LONG pen = amiga_obtain_pen( colour );
   
-    SetABPenDrMd( amiga_window->RPort, pen, 0, JAM1 );
-    RectFill( amiga_window->RPort, x, y, x + cx - 1, y + cy - 1 );
+  amiga_set_abpen_drmd( amiga_window->RPort, pen, 0, JAM1 );
+  RectFill( amiga_window->RPort, x, y, x + cx - 1, y + cy - 1 );
 
-    amiga_release_pen( pen );
-  }
+  amiga_release_pen( pen );
 }
 
 void
@@ -3437,29 +3331,16 @@ ui_draw_glyph(int mixmode,
 	      int fgcolour)
 {
   struct Glyph* g = (struct Glyph*) glyph;
-#ifdef __amigaos4__
-  if (amiga_bpp > 8)
-  {
-    uint32 fgargb = amiga_color2argb( fgcolour );
-    uint32 bgargb = amiga_color2argb( bgcolour );
+  LONG bgpen = amiga_obtain_pen( bgcolour );
+  LONG fgpen = amiga_obtain_pen( fgcolour );
 
-    SetRPAttrs( amiga_window->RPort, RPTAG_APenColor, fgargb, RPTAG_BPenColor, bgargb, RPTAG_DrMd, mixmode == MIX_TRANSPARENT ? JAM1 : JAM2, TAG_DONE );
-    BltTemplate( g->Data + g->BytesPerRow * srcy, srcx, g->BytesPerRow,
-	         amiga_window->RPort, x, y, cx, cy );
-  } else
-#endif
-  {
-    LONG bgpen = amiga_obtain_pen( bgcolour );
-    LONG fgpen = amiga_obtain_pen( fgcolour );
-
-    SetABPenDrMd( amiga_window->RPort, fgpen, bgpen,
-		  mixmode == MIX_TRANSPARENT ? JAM1 : JAM2 );
-    BltTemplate( g->Data + g->BytesPerRow * srcy, srcx, g->BytesPerRow,
-	         amiga_window->RPort, x, y, cx, cy );
+  amiga_set_abpen_drmd( amiga_window->RPort, fgpen, bgpen,
+		mixmode == MIX_TRANSPARENT ? JAM1 : JAM2 );
+  BltTemplate( g->Data + g->BytesPerRow * srcy, srcx, g->BytesPerRow,
+	       amiga_window->RPort, x, y, cx, cy );
   
-    amiga_release_pen( bgpen );
-    amiga_release_pen( fgpen );
-  }
+  amiga_release_pen( bgpen );
+  amiga_release_pen( fgpen );
 }
 
 
@@ -3506,16 +3387,8 @@ ui_draw_text (uint8 font, uint8 flags, uint8 opcode, int mixmode, int x, int y,
   int i,j, xyoffset;
   DATABLOB* entry;
   LONG bgpen = 0;
-  ULONG bgargb = 0;
-#ifdef __amigaos4__
-  if (amiga_bpp > 8)
-  {
-    bgargb = amiga_color2argb( bgcolour );
-  } else
-#endif
-  {
-    bgpen = amiga_obtain_pen( bgcolour );
-  }
+
+  bgpen = amiga_obtain_pen( bgcolour );
 
   x += amiga_window->BorderLeft;
   y += amiga_window->BorderTop;
@@ -3534,15 +3407,7 @@ ui_draw_text (uint8 font, uint8 flags, uint8 opcode, int mixmode, int x, int y,
   clipx += amiga_window->BorderLeft;
   clipy += amiga_window->BorderTop;
 
-#ifdef __amigaos4__
-  if (amiga_bpp > 8)
-  {
-    SetRPAttrs( amiga_window->RPort, RPTAG_APenColor, bgargb, RPTAG_DrMd, JAM1, TAG_DONE );
-  } else
-#endif
-  {
-    SetABPenDrMd( amiga_window->RPort, bgpen, 0, JAM1 );
-  }
+  amiga_set_abpen_drmd( amiga_window->RPort, bgpen, 0, JAM1 );
 
   if (boxcx > 1)
   {
@@ -3555,12 +3420,7 @@ ui_draw_text (uint8 font, uint8 flags, uint8 opcode, int mixmode, int x, int y,
 	      clipx, clipy, clipx + clipcx - 1, clipy + clipcy - 1 );
   }
 
-#ifdef __amigaos4__
-  if (amiga_bpp <= 8)
-#endif
-  {
-    amiga_release_pen( bgpen );
-  }
+  amiga_release_pen( bgpen );
   
   /* Paint text, character by character */
   for (i = 0; i < length;)
