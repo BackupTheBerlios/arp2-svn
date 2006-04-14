@@ -182,6 +182,9 @@ if [ -d /proc/acpi ]; then
     done
 fi
 
+# Insert ATI/NVIDIA kernel modules if present
+modprobe nvidia fglrx >/dev/null 2>&1
+
 # TODO: Add RAID startup code here?
 
 echo " Done."
