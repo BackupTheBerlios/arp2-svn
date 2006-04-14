@@ -1243,6 +1243,7 @@ save_licence(unsigned char *data, int length)
 	xfree(path);
 }
 
+#ifndef ENABLE_AMIGA
 /* Create the bitmap cache directory */
 BOOL
 rd_pstcache_mkdir(void)
@@ -1352,3 +1353,4 @@ rd_lock_file(int fd, int start, int len)
 	return False;
 #endif
 }
+#endif

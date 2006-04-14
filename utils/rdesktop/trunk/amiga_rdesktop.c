@@ -90,6 +90,7 @@ extern Bool g_owncolmap;
 extern Bool g_ownbackstore;
 extern uint32 g_embed_wnd;
 extern uint32 g_rdp5_performanceflags;
+extern Bool g_bitmap_cache_persist_enable;
 
 #ifdef WITH_RDPSND
 extern Bool g_rdpsnd;
@@ -118,10 +119,10 @@ const char version[] = "$VER: RDesktop 1.4.1-"
                               "4"
 #endif
 #endif
-                              " (12.4.2006)"
+                              " (14.4.2006)"
                               "(C) 2005-2006 Joerg Strohmayer; "
                               "(C) 2001-2006 Martin Blom; "
-                              "(C) 1999-2004 Matthew Chapman et al.";
+                              "(C) 1999-2005 Matthew Chapman et al.";
 
 #ifdef __amigaos4__
 struct CyberGfxIFace  *ICyberGfx      = NULL;
@@ -150,14 +151,16 @@ static const char template[] =
 "NOENC=NOENCRYPTION/S,SHELL/K,DIR=DIRECTORY/K,LEFT/K/N,TOP/K/N,"
 "W=WIDTH/K/N,H=HEIGHT/K/N,D=DEPTH/K/N,PUBSCREEN/K,TITLE/K,"
 "FS=FULLSCREEN/S,SCREENMODE/K/N,AUDIO/K/N,REMOTEAUDIO/S,"
-"NOMOUSE/S,EXP=EXPERIENCE/K,RDP4/S,KEYMAP/K/N";
+"NOMOUSE/S,EXP=EXPERIENCE/K,RDP4/S,KEYMAP/K/N,PC=PERSISTENTCACHE/S,"
+"SM=SLOWMOUSE/S";
 
 static const char wbtemplate[] =
 "SERVER/A/K,USER/K,DOMAIN/K,PASSWORD/K,CLIENT/K,CONSOLE/S,FRENCH/S,"
 "NOENC=NOENCRYPTION/S,SHELL/K,DIR=DIRECTORY/K,LEFT/K/N,TOP/K/N,"
 "W=WIDTH/K/N,H=HEIGHT/K/N,D=DEPTH/K/N,PUBSCREEN/K,TITLE/K,"
 "FS=FULLSCREEN/S,SCREENMODE/K/N,AUDIO/K/N,REMOTEAUDIO/S,"
-"NOMOUSE/S,EXP=EXPERIENCE/K,RDP4/S,KEYMAP/K/N,IGNORE/F";
+"NOMOUSE/S,EXP=EXPERIENCE/K,RDP4/S,KEYMAP/K/N,PC=PERSISTENTCACHE/S,"
+"SM=SLOWMOUSE/S,IGNORE/F";
 
 static LONG  def_size  = 0;
 static LONG  def_depth = 0;
@@ -189,6 +192,8 @@ static struct
     STRPTR a_experience;
     ULONG  a_rdp4;
     ULONG* a_keymap;
+    ULONG  a_persist_cache;
+    ULONG  a_slowmouse;
     STRPTR a_ignore;
 } a_args =
 {
@@ -217,10 +222,13 @@ static struct
    "56K",
    FALSE,
    NULL,
+   FALSE,
+   FALSE,
    NULL
 };
 
 static struct WBStartup*  wb_msg = NULL;
+int a_slowmouse;
 
 static Bool
 read_password(char *password, int size)
@@ -286,9 +294,20 @@ cleanup(void)
   }
 
   if (startup & UI_CREATE_WINDOW) {
+    extern int g_pstcache_fd[8];
+    int i;
+
     cache_save_state();
     cache_destroy();
     ui_destroy_window();
+    for (i = 0 ; i < 8 ; i++)
+    {
+      if (g_pstcache_fd[i])
+      {
+        Close(g_pstcache_fd[i]);
+        g_pstcache_fd[i]=0;
+      }
+    }
   }
 
   if (startup & RDP_CONNECT) {  
@@ -898,6 +917,13 @@ got_it:
   g_use_rdp5 = ! a_args.a_rdp4;
 
   if (a_args.a_keymap != NULL) g_keylayout = *a_args.a_keymap;
+
+  g_bitmap_cache_persist_enable = a_args.a_persist_cache;
+  if (g_sendmotion && a_args.a_slowmouse)
+  {
+    a_slowmouse = True;
+    g_sendmotion = False;
+  }
 
   if (server[0] == 0)
   {

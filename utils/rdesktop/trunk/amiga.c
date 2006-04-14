@@ -98,6 +98,8 @@ extern Bool g_sendmotion;
 extern Bool g_fullscreen;
 extern char g_title[];
 extern int  g_server_bpp;
+extern Bool g_bitmap_cache_persist_enable;
+extern int  a_slowmouse;
 
 #ifdef WITH_RDPSND
 extern int amiga_audio_signal;
@@ -1590,7 +1592,7 @@ ui_create_window(void)
 #ifdef __amigaos4__
 			  IDCMP_EXTENDEDMOUSE |
 #endif
-			  (g_sendmotion ? IDCMP_MOUSEMOVE : 0)),
+			  (g_sendmotion ? IDCMP_MOUSEMOVE : (a_slowmouse ? IDCMP_INTUITICKS : 0))),
       TAG_DONE
     };
   
@@ -2485,6 +2487,45 @@ ui_select(int rdp_socket)
 #endif
 	      break;
             }
+
+	    case IDCMP_INTUITICKS:
+	    {
+	      static int ticks = 0;
+	      static int oldX = 10000000;
+	      static int oldY = 10000000;
+
+	      if (++ticks >= 10)
+	      {
+	        ticks = 0;
+	        if (oldX != msg->MouseX - amiga_window->BorderLeft
+	         || oldY != msg->MouseY - amiga_window->BorderLeft)
+	        {
+	          oldX = msg->MouseX - amiga_window->BorderLeft;
+	          oldY = msg->MouseY - amiga_window->BorderLeft;
+
+                  rdp_send_input( ev_time, RDP_INPUT_MOUSE, 
+			          MOUSE_FLAG_MOVE, oldX, oldY);
+                }
+	      }
+
+#ifdef __amigaos4__
+              if (amiga_window2
+               && amiga_window2->TopEdge == -amiga_window2->Height
+               && msg->MouseY <= 0
+               && msg->MouseX >= amiga_window2->LeftEdge
+               && msg->MouseX < amiga_window2->LeftEdge + amiga_window2->Width)
+              {
+                 int i;
+
+                 for (i = 0 ; i < amiga_window2->Height ; i++)
+                 {
+                    MoveWindow(amiga_window2, 0, 1);
+                    Delay(1);
+                 }
+              }
+#endif
+	    }
+	    break;
 
 	    default:
 	      error( "Unexpected IDCMP: %d\n", (int) msg->Class );
@@ -3669,4 +3710,159 @@ ui_ellipse(uint8 opcode, uint8 fillmode,
 	   int x, int y, int cx, int cy,
 	   BRUSH * brush, int bgcolour, int fgcolour)
 {
+}
+
+#include <fcntl.h>
+/* Create the bitmap cache directory */
+Bool
+rd_pstcache_mkdir(void)
+{
+  if ((mkdir("PROGDIR:cache", S_IRWXU) == -1) && errno != EEXIST)
+  {
+    perror("PROGDIR:cache");
+    return False;
+  }
+
+  return True;
+}
+
+#define MAX_CELL_SIZE		0x1000	/* pixels */
+extern int g_pstcache_Bpp;
+/* open a file in the .rdesktop directory */
+int
+rd_open_file(char *filename)
+{
+  if (!strncmp(filename, "cache/", 6))
+  {
+    char fn[256];
+    BPTR fd;
+
+    sprintf(fn, "PROGDIR:%s", filename);
+    fd = Open(fn, MODE_OLDFILE);
+    if (!fd)
+    {
+      fd = Open(fn, MODE_NEWFILE);
+      if (fd)
+      {
+        int idx;
+        void *tmp = calloc(1, g_pstcache_Bpp * MAX_CELL_SIZE + sizeof(CELLHEADER));
+
+        if (!tmp)
+        {
+          Close(fd);
+          DeleteFile(fn);
+          perror(fn);
+          return -1;
+        }
+
+        for (idx = 0; idx < BMPCACHE2_NUM_PSTCELLS; idx++) 
+        {
+          int len = Write(fd, tmp, g_pstcache_Bpp * MAX_CELL_SIZE + sizeof(CELLHEADER));
+
+          if (len != (int)(g_pstcache_Bpp * MAX_CELL_SIZE + sizeof(CELLHEADER)))
+          {
+            free(tmp);
+            Close(fd);
+            DeleteFile(fn);
+            return -1;
+          }
+        }
+
+        free(tmp);
+
+        idx = Seek(fd, 0, OFFSET_BEGINNING);
+        if (-1 == idx)
+        {
+          Close(fd);
+          DeleteFile(fn);
+          perror(fn);
+          return -1;
+        }
+      }
+    }
+
+    if (fd == 0)
+    {
+      perror(fn);
+      return -1;
+    }
+
+    return fd;
+  } else {
+    char *home;
+    char fn[256];
+    int fd;
+
+    home = "ENVARC:";
+    sprintf(fn, "%sRDesktop/%s", home, filename);
+    fd = open(fn, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
+    if (fd == -1)
+      perror(fn);
+    return fd;
+  }
+}
+
+/* close file */
+void
+rd_close_file(int fd)
+{
+  if (fd > 0x400)
+  {
+    Close(fd);
+  } else {
+    close(fd);
+  }
+}
+
+/* read from file*/
+int
+rd_read_file(int fd, void *ptr, int len)
+{
+  if (fd > 0x400)
+  {
+    return Read(fd, ptr, len);
+  } else {
+    return read(fd, ptr, len);
+  }
+}
+
+/* write to file */
+int
+rd_write_file(int fd, void *ptr, int len)
+{
+  if (fd > 0x400)
+  {
+    return Write(fd, ptr, len);
+  } else {
+    return write(fd, ptr, len);
+  }
+}
+
+/* move file pointer */
+int
+rd_lseek_file(int fd, int offset)
+{
+  if (fd > 0x400)
+  {
+    return Seek(fd, offset, OFFSET_BEGINNING);
+  } else {
+    return lseek(fd, offset, SEEK_SET);
+  }
+}
+
+/* do a write lock on a file */
+Bool
+rd_lock_file(int fd, int start, int len)
+{
+  if (fd > 0x400)
+  {
+    int32 success = ChangeMode(CHANGE_FH, fd, EXCLUSIVE_LOCK);
+    if (0 == success)
+    {
+      return False;
+    }
+    return True;
+  } else {
+    return False;
+  }
 }

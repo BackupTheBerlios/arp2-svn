@@ -1,3 +1,12 @@
+2006-04-14  Jörg Strohmayer <nospam@gmx.de>
+
+	* Made the persistent cache work on AmigaOS and added
+          PERSISTENTCACHE argument/tooltype.
+
+	* Added SLOWMOUSE argument/tooltype, like NOMOUSE it reduces
+	  the traffic sent to the server a lot, but unlike NOMOUSE it
+	  still sends some mouse movements.
+
 2006-04-12  Jörg Strohmayer <nospam@gmx.de>
 
 	* Added a workaround for the def_drawer as iconify icon problem

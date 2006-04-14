@@ -449,18 +449,31 @@ void
 cache_destroy (void)
 {
   int i;  
+  struct bmpcache_entry **bmc_entry;
   HBITMAP*   bitmap;
   FONTGLYPH* font;
   DATABLOB*  text;
   HCURSOR*   cursor;
 
-  for( i = 0, bitmap = (HBITMAP*) g_bmpcache;
-       (size_t) i < sizeof( g_bmpcache ) / sizeof( HBITMAP );
+  for( i = 0, bitmap = (HBITMAP) g_volatile_bc;
+       (size_t) i < sizeof( g_volatile_bc ) / sizeof( HBITMAP );
        ++i, ++bitmap )
   {
     if( *bitmap != NULL )
     {
      	ui_destroy_bitmap( *bitmap );
+     	*bitmap = NULL;
+    }
+  }
+
+  for( i = 0, bmc_entry = (struct bmpcache_entry **) g_bmpcache;
+       (size_t) i < sizeof( g_bmpcache ) / sizeof( struct bmpcache_entry ** );
+       ++i, ++bitmap )
+  {
+    if( *bmc_entry && (*bmc_entry)->bitmap != NULL )
+    {
+     	ui_destroy_bitmap( (*bmc_entry)->bitmap );
+     	(*bmc_entry)->bitmap = NULL;
     }
   }
 
@@ -471,6 +484,7 @@ cache_destroy (void)
     if( font->pixmap != NULL )
     {
       ui_destroy_glyph( font->pixmap );
+      font->pixmap = NULL;
     }
   }
 
@@ -481,6 +495,7 @@ cache_destroy (void)
     if( text->data != NULL )
     {
     	xfree( text->data );
+    	text->data = NULL;
     }
   }
 
@@ -491,6 +506,7 @@ cache_destroy (void)
     if( *cursor != NULL )
     {
     	ui_destroy_cursor( *cursor );
+    	*cursor = NULL;
     }
   }
 }
