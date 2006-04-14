@@ -151,16 +151,16 @@ static const char template[] =
 "NOENC=NOENCRYPTION/S,SHELL/K,DIR=DIRECTORY/K,LEFT/K/N,TOP/K/N,"
 "W=WIDTH/K/N,H=HEIGHT/K/N,D=DEPTH/K/N,PUBSCREEN/K,TITLE/K,"
 "FS=FULLSCREEN/S,SCREENMODE/K/N,AUDIO/K/N,REMOTEAUDIO/S,"
-"NOMOUSE/S,EXP=EXPERIENCE/K,RDP4/S,KEYMAP/K/N,PC=PERSISTENTCACHE/S,"
-"SM=SLOWMOUSE/S";
+"NOMOUSE/S,EXP=EXPERIENCE/K,RDP4/S,KEYMAP/K/N,RDPC=RDPCOMPRESSION/S,"
+"PC=PERSISTENTCACHE/S,SM=SLOWMOUSE/S";
 
 static const char wbtemplate[] =
 "SERVER/A/K,USER/K,DOMAIN/K,PASSWORD/K,CLIENT/K,CONSOLE/S,FRENCH/S,"
 "NOENC=NOENCRYPTION/S,SHELL/K,DIR=DIRECTORY/K,LEFT/K/N,TOP/K/N,"
 "W=WIDTH/K/N,H=HEIGHT/K/N,D=DEPTH/K/N,PUBSCREEN/K,TITLE/K,"
 "FS=FULLSCREEN/S,SCREENMODE/K/N,AUDIO/K/N,REMOTEAUDIO/S,"
-"NOMOUSE/S,EXP=EXPERIENCE/K,RDP4/S,KEYMAP/K/N,PC=PERSISTENTCACHE/S,"
-"SM=SLOWMOUSE/S,IGNORE/F";
+"NOMOUSE/S,EXP=EXPERIENCE/K,RDP4/S,KEYMAP/K/N,RDPC=RDPCOMPRESSION/S,"
+"PC=PERSISTENTCACHE/S,SM=SLOWMOUSE/S,IGNORE/F";
 
 static LONG  def_size  = 0;
 static LONG  def_depth = 0;
@@ -192,6 +192,7 @@ static struct
     STRPTR a_experience;
     ULONG  a_rdp4;
     ULONG* a_keymap;
+    ULONG  a_rdp_compression;
     ULONG  a_persist_cache;
     ULONG  a_slowmouse;
     STRPTR a_ignore;
@@ -222,6 +223,7 @@ static struct
    "56K",
    FALSE,
    NULL,
+   FALSE,
    FALSE,
    FALSE,
    NULL
@@ -917,6 +919,8 @@ got_it:
   g_use_rdp5 = ! a_args.a_rdp4;
 
   if (a_args.a_keymap != NULL) g_keylayout = *a_args.a_keymap;
+
+  if (a_args.a_rdp_compression) flags |= (RDP_LOGON_COMPRESSION | RDP_LOGON_COMPRESSION2);
 
   g_bitmap_cache_persist_enable = a_args.a_persist_cache;
   if (g_sendmotion && a_args.a_slowmouse)
