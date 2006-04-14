@@ -12,4 +12,5 @@ datadir=@datadir@
 # Import configuration
 . ${sysconfdir}/arp2.conf
 
+echo "2" > /tmp/arp2-bootlevel
 xterm  -geometry  +1+1  -n  login  -display  :0
