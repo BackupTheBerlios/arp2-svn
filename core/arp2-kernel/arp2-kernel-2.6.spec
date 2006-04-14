@@ -492,7 +492,7 @@ fi
 
 %post smp
 [ ! -x /usr/sbin/module_upgrade ] || /usr/sbin/module_upgrade %{rpmversion}-%{release}smp
-/sbin/new-kernel-pkg --package kernel-arp2-smp --kernel-args="init=/lib/arp2/sbin/arp2-init quiet" --banner="ARP2 UAE (SMP)" --mkinitrd --depmod --install %{KVERREL}arp2-smp
+/sbin/new-kernel-pkg --package kernel-arp2-smp --kernel-args="init=/lib/arp2/sbin/arp2-init quiet" --banner="ARP2 UAE" --mkinitrd --depmod --install %{KVERREL}arp2-smp
 
 %post smp-devel
 [ -f /etc/sysconfig/kernel ] && . /etc/sysconfig/kernel
