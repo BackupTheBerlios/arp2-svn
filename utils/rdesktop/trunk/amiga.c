@@ -43,7 +43,6 @@
 # include <unistd.h>
 # include <time.h>
 # include <proto/bsdsocket.h>
-# include <proto/dos.h>
 # include <graphics/rpattr.h>
 #elif defined(__libnix__)
 #  include <libnix.h>
@@ -75,6 +74,7 @@
 #endif
 #include <workbench/workbench.h>
 #include <proto/asl.h>
+#include <proto/dos.h>
 #include <proto/cybergraphics.h>
 #include <proto/exec.h>
 #undef GetOutlinePen // I get an annoying warning if this is defined
@@ -3713,6 +3713,8 @@ ui_ellipse(uint8 opcode, uint8 fillmode,
 }
 
 #include <fcntl.h>
+#include <sys/stat.h> // get S_IRWXU etc
+
 /* Create the bitmap cache directory */
 Bool
 rd_pstcache_mkdir(void)
@@ -3856,7 +3858,7 @@ rd_lock_file(int fd, int start, int len)
 {
   if (fd > 0x400)
   {
-    int32 success = ChangeMode(CHANGE_FH, fd, EXCLUSIVE_LOCK);
+    int success = ChangeMode(CHANGE_FH, fd, EXCLUSIVE_LOCK);
     if (0 == success)
     {
       return False;
