@@ -26,6 +26,7 @@
 #
 # /tmp/arp2-bootlevel settings:
 #
+# -1				halt
 # 0				power off
 # 1				normal reboot
 # 2				kexec reboot (if possible)
@@ -42,6 +43,11 @@ datadir=@datadir@
 export PATH=/sbin:/bin:/usr/bin:${bindir}
 
 # Import configuration
+FONT=topaz8dbl.psf
+KICKSTART=3.1
+RESOLUTION=
+DEPTH=24
+ISSUE=issue-3.1
 . ${sysconfdir}/arp2.conf
 
 # Gimme a nice font!
@@ -179,16 +185,18 @@ fi
 # TODO: Add RAID startup code here?
 
 echo " Done."
+echo
 
 # Detect ATI/NVIDIA graphics card
 grep -q "^fglrx .*Live" /proc/modules && DRIVER=ATI
 grep -q "^nvidia .*Live" /proc/modules && DRIVER=NVIDIA
 
 if [ -z "${DRIVER}" ]; then
-  echo "WARNING: No supported graphics card detected!"
+  echo "*** WARNING: No supported graphics card detected!"
 else
   echo "${DRIVER} graphics card detected."
 fi
+echo
 
 if [ -f /fastboot ] || strstr "$cmdline" fastboot ; then
 	fastboot=yes
@@ -352,7 +360,7 @@ fi
 
 while true; do
     # Default is fast reboot, if possible
-    echo 2 > /tmp/arp2-bootlevel
+    echo -1 > /tmp/arp2-bootlevel
     echo -n "System ready. Starting virtual machine ..."
     export XORGCONFIG=/tmp/arp2-xorg.conf
     m4 -DDEPTH=${DEPTH} -DRESOLUTION=${RESOLUTION} -DDRIVER=${DRIVER} \
@@ -360,19 +368,33 @@ while true; do
 	< ${sysconfdir}/arp2-xorg.conf.m4 > ${XORGCONFIG}
     xinit 2> /dev/null ${sbindir}/arp2-xinit
     chvt 1
-    echo " Done."
     bootlevel=$(cat /tmp/arp2-bootlevel 2> /dev/null)
-    if [ $bootlevel -lt 3 2> /dev/null ]; then
+    [ "$bootlevel" -ge "-1" -a "$bootlevel" -le "3" 2> /dev/null ] || bootlevel=-1
+
+    if [ $bootlevel -lt 0 ]; then
+	echo " Error!"
+    else
+	echo " Done."
+    fi
+    if [ $bootlevel -lt 3 ]; then
 	break;
     fi;
 done
 rm -f /tmp/arp2-bootlevel
 
-# Drop into a shell if requested
-if strstr "$cmdline" shell ; then
-    bash
-fi
+if [ $bootlevel -eq -1 ]; then
+    echo "*** There was a problem starting X or the virtual machine."
+    echo "*** Please check /var/log/Xorg.0.log for more information."
+    echo "*** Dropping you to a shell; the system will reboot"
+    echo "*** when you leave the shell."
 
+    sulogin
+else
+    # Drop into a shell if requested
+    if strstr "$cmdline" shell ; then
+	sulogin
+    fi
+fi
 
 
 # Save random seed
@@ -387,13 +409,18 @@ mount -n -o remount,ro /
 echo " Done."
 
 case "$bootlevel" in
+    -1)
+	echo -n "Halting ... "
+	halt -f -i -d
+	reboot -f -i -d # I have no idea what to execute here, really ...
+	;;
     0)
-	echo -n "Shutting down ..."
+	echo -n "Shutting down ... "
 	halt -f -i -d -p
 	;;
     2)
 	if [ -f /sbin/kexec ]; then
-	    echo -n "Soft-rebooting ..."
+	    echo -n "Soft-rebooting ... "
 	    /sbin/kexec -l --initrd=/boot/initrd-${unamer}.img --command-line="$(cat /proc/cmdline)" /boot/vmlinuz-${unamer} >& /dev/null
 	    /sbin/kexec -e >& /dev/null
 	fi
@@ -401,5 +428,5 @@ case "$bootlevel" in
 esac
 
 # Reboot normally if we get here
-echo -n "Rebooting ..."
+echo -n "Rebooting ... "
 reboot -f -i -d

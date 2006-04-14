@@ -273,7 +273,7 @@ PACKAGE_VERSION='0.1'
 PACKAGE_STRING='arp2-init 0.1'
 PACKAGE_BUGREPORT='martin@blom.org'
 
-ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir guidedir htmldir psdir dvidir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS INSTALL_PROGRAM INSTALL_SCRIPT INSTALL_DATA CYGPATH_W PACKAGE VERSION ACLOCAL AUTOCONF AUTOMAKE AUTOHEADER MAKEINFO install_sh STRIP ac_ct_STRIP INSTALL_STRIP_PROGRAM mkdir_p AWK SET_MAKE am__leading_dot AMTAR am__tar am__untar ED LIBOBJS LTLIBOBJS'
+ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS INSTALL_PROGRAM INSTALL_SCRIPT INSTALL_DATA CYGPATH_W PACKAGE VERSION ACLOCAL AUTOCONF AUTOMAKE AUTOHEADER MAKEINFO install_sh STRIP ac_ct_STRIP INSTALL_STRIP_PROGRAM mkdir_p AWK SET_MAKE am__leading_dot AMTAR am__tar am__untar ED LIBOBJS LTLIBOBJS'
 ac_subst_files=''
 
 # Initialize some variables set by options.
@@ -312,10 +312,6 @@ libdir='${exec_prefix}/lib'
 includedir='${prefix}/include'
 oldincludedir='/usr/include'
 infodir='${prefix}/info'
-guidedir='${prefix}/guidedir'
-htmldir='${prefix}/htmldir'
-psdir='${prefix}/psdir'
-dvidir='${prefix}/dvidir'
 mandir='${prefix}/man'
 
 ac_prev=
@@ -418,26 +414,6 @@ do
     ac_prev=infodir ;;
   -infodir=* | --infodir=* | --infodi=* | --infod=* | --info=* | --inf=*)
     infodir=$ac_optarg ;;
-
-  -guidedir | --guidedir | --guidedi | --guided | --guide | --gui)
-    ac_prev=guidedir ;;
-  -guidedir=* | --guidedir=* | --guidedi=* | --guided=* | --guide=* |--gui=*)
-    guidedir="$ac_optarg" ;;
-
-  -htmldir | --htmldir | --htmldi | --htmld | --html | --htm)
-    ac_prev=htmldir ;;
-  -htmldir=* | --htmldir=* | --htmldi=* | --htmld=* | --html=* |--htm=*)
-    htmldir="$ac_optarg" ;;
-
-  -psdir | --psdir | --psdi | --psd | --ps)
-    ac_prev=psdir ;;
-  -psdir=* | --psdir=* | --psdi=* | --psd=* | --ps=*)
-    psdir="$ac_optarg" ;;
-
-  -dvidir | --dvidir | --dvidi | --dvid | --dvi | --dv)
-    ac_prev=dvidir ;;
-  -dvidir=* | --dvidir=* | --dvidi=* | --dvid=* | --dvi=* |--dv=*)
-    dvidir="$ac_optarg" ;;
 
   -libdir | --libdir | --libdi | --libd)
     ac_prev=libdir ;;
@@ -656,8 +632,7 @@ done
 
 # Be sure to have absolute paths.
 for ac_var in bindir sbindir libexecdir datadir sysconfdir sharedstatedir \
-              localstatedir libdir includedir oldincludedir infodir guidedir \
-	      htmldir psdir dvidir mandir
+	      localstatedir libdir includedir oldincludedir infodir mandir
 do
   eval ac_val=$`echo $ac_var`
   case $ac_val in
@@ -795,10 +770,6 @@ Fine tuning of the installation directories:
   --includedir=DIR       C header files [PREFIX/include]
   --oldincludedir=DIR    C header files for non-gcc [/usr/include]
   --infodir=DIR          info documentation [PREFIX/info]
-  --guidedir=DIR         Amigaguide documentation in DIR [PREFIX/guide]
-  --htmldir=DIR          HTML documentation in DIR [PREFIX/html]
-  --psdir=DIR            postscript documentation in DIR [PREFIX/ps]
-  --dvidir=DIR           TeX dvi documentation in DIR [PREFIX/dvi]
   --mandir=DIR           man documentation [PREFIX/man]
 _ACEOF
 
@@ -2385,10 +2356,6 @@ s,@libdir@,$libdir,;t t
 s,@includedir@,$includedir,;t t
 s,@oldincludedir@,$oldincludedir,;t t
 s,@infodir@,$infodir,;t t
-s,@guidedir@,$guidedir,;t t
-s,@htmldir@,$htmldir,;t t
-s,@psdir@,$psdir,;t t
-s,@dvidir@,$dvidir,;t t
 s,@mandir@,$mandir,;t t
 s,@build_alias@,$build_alias,;t t
 s,@host_alias@,$host_alias,;t t
