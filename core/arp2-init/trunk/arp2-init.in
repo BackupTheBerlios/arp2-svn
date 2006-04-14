@@ -221,7 +221,6 @@ fi
 fsckoptions="-V $fsckoptions"
 
 if [ -z "$fastboot" ]; then
-	echo "Checking filesystems"
 	fsck -T -t noopts=_netdev -A -a $fsckoptions
 	rc=$?
 	
