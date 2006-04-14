@@ -12,7 +12,7 @@ LOCAL_PATCH		= linux-2.6-local.patch
 
 PATCHES			= $(FC_PATCH) $(ARP2_PATCH) $(LOCAL_PATCH) 
 SPEC			= arp2-kernel-2.6.spec
-CONFIGS			= $(wildcard *arp2.config)
+CONFIGS			= $(wildcard *arp2*.config)
 
 all:
 	@echo "Use \"$(MAKE) patch\" to create patches from the SVK repository at"

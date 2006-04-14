@@ -36,14 +36,14 @@ Summary: The Linux kernel (the core of the Linux system)
 %endif
 
 %ifarch %{all_x86}
-%define all_arch_configs $RPM_SOURCE_DIR/kernel-%{kversion}-i?86*-arp2*.config
+%define all_arch_configs $RPM_SOURCE_DIR/kernel-%{kversion}-i?86-arp2*.config
 %define image_install_path boot
 %define signmodules 0
 %endif
 
 %ifarch x86_64
 %define buildsmp 0
-%define all_arch_configs $RPM_SOURCE_DIR/kernel-%{kversion}-x86_64*-arp2*.config
+%define all_arch_configs $RPM_SOURCE_DIR/kernel-%{kversion}-x86_64-arp2*.config
 %define image_install_path boot
 %define signmodules 0
 %endif
@@ -111,7 +111,7 @@ Source1: xen-20060301.tar.bz2
 #Source11: genkey
 
 Source21: kernel-%{kversion}-i686-arp2.config
-Source22: kernel-%{kversion}-i686-smp-arp2.config
+Source22: kernel-%{kversion}-i686-arp2-smp.config
 Source23: kernel-%{kversion}-x86_64-arp2.config
 
 Patch0: linux-2.6-fedora.patch
@@ -486,7 +486,7 @@ exit 0
 [ -f /etc/sysconfig/kernel ] && . /etc/sysconfig/kernel
 if [ "$HARDLINK" != "no" -a -x /usr/sbin/hardlink ] ; then
   pushd /usr/src/kernels/%{KVERREL}-arp2-%{_target_cpu} > /dev/null
-  /usr/bin/find . -type f | while read f; do hardlink -c /usr/src/kernels/*FC*/$f $f ; done
+  /usr/bin/find . -type f | while read f; do hardlink -c /usr/src/kernels/*{arp2,FC}*/$f $f ; done
   popd > /dev/null
 fi
 
@@ -498,7 +498,7 @@ fi
 [ -f /etc/sysconfig/kernel ] && . /etc/sysconfig/kernel
 if [ "$HARDLINK" != "no" -a -x /usr/sbin/hardlink ] ; then
   pushd /usr/src/kernels/%{KVERREL}-arp2-smp-%{_target_cpu} > /dev/null
-  /usr/bin/find . -type f | while read f; do hardlink -c /usr/src/kernels/*FC*/$f $f ; done
+  /usr/bin/find . -type f | while read f; do hardlink -c /usr/src/kernels/*{arp2,FC}*/$f $f ; done
   popd > /dev/null
 fi
 
@@ -544,7 +544,7 @@ fi
 /%{image_install_path}/vmlinuz-%{KVERREL}arp2-smp
 /boot/System.map-%{KVERREL}arp2-smp
 /boot/config-%{KVERREL}arp2-smp
-%dir /lib/modules/%{KVERREL}smp-arp2
+%dir /lib/modules/%{KVERREL}arp2-smp
 /lib/modules/%{KVERREL}arp2-smp/kernel
 /lib/modules/%{KVERREL}arp2-smp/build
 /lib/modules/%{KVERREL}arp2-smp/source
