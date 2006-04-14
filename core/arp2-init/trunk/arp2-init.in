@@ -182,8 +182,10 @@ if [ -d /proc/acpi ]; then
     done
 fi
 
-# Insert ATI/NVIDIA kernel modules if present
-modprobe nvidia fglrx >/dev/null 2>&1
+# Insert ATI kernel modules if present, since it won't insert itself
+# Note that the NVIDIA driver must be used below if found.
+# TODO: Fix the ATI driver so it inserts itself based on PCI IDs!
+modprobe fglrx >/dev/null 2>&1
 
 # TODO: Add RAID startup code here?
 
