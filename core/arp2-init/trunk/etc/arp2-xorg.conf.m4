@@ -51,6 +51,7 @@ EndSection
 
 Section "Device"
 	Identifier  "Videocard0"
+`#' DRIVER graphics card detected by arp2-init.
 ifelse(DRIVER,NVIDIA,
 	Driver		"nvidia"
 	VendorName	"NVIDIA"

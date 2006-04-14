@@ -188,14 +188,11 @@ echo " Done."
 echo
 
 # Detect ATI/NVIDIA graphics card
+DRIVER="*** WARNING: No supported"
 grep -q "^fglrx .*Live" /proc/modules && DRIVER=ATI
 grep -q "^nvidia .*Live" /proc/modules && DRIVER=NVIDIA
 
-if [ -z "${DRIVER}" ]; then
-  echo "*** WARNING: No supported graphics card detected!"
-else
-  echo "${DRIVER} graphics card detected."
-fi
+echo "${DRIVER} graphics card detected."
 echo
 
 if [ -f /fastboot ] || strstr "$cmdline" fastboot ; then
@@ -363,7 +360,7 @@ while true; do
     echo -1 > /tmp/arp2-bootlevel
     echo -n "System ready. Starting virtual machine ..."
     export XORGCONFIG=/tmp/arp2-xorg.conf
-    m4 -DDEPTH=${DEPTH} -DRESOLUTION=${RESOLUTION} -DDRIVER=${DRIVER} \
+    m4 -DDEPTH="${DEPTH}" -DRESOLUTION="${RESOLUTION}" -DDRIVER="${DRIVER}" \
 	-I ${sysconfdir} \
 	< ${sysconfdir}/arp2-xorg.conf.m4 > ${XORGCONFIG}
     xinit 2> /dev/null ${sbindir}/arp2-xinit
@@ -387,7 +384,7 @@ if [ $bootlevel -eq -1 ]; then
     echo "*** Please check /var/log/Xorg.0.log for more information."
     echo "*** Dropping you to a shell; the system will reboot"
     echo "*** when you leave the shell."
-
+    bootlevel=1
     sulogin
 else
     # Drop into a shell if requested
