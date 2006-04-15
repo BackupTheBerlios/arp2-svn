@@ -2151,6 +2151,21 @@ ui_destroy_window()
               amiga_cursor_colors[ 7 ],
               amiga_cursor_colors[ 8 ] );
 
+#ifdef __amigaos4__
+   if (amiga_IconifyGadget)
+   {
+     RemoveGadget(amiga_window, amiga_IconifyGadget);
+     DisposeObject((Object *)amiga_IconifyGadget);
+     amiga_IconifyGadget = NULL;
+   }
+
+   if (amiga_IconifyImage)
+   {
+     DisposeObject((Object *)amiga_IconifyImage);
+     amiga_IconifyImage = NULL;
+   }
+#endif
+
     CloseWindow( amiga_window );
     amiga_window = NULL;
   }
