@@ -1,5 +1,5 @@
 
-* Add support for line, triangle and rectangle drawing.
+* Add support for dot, line, triangle, rectangle and polygon drawing.
 
 * Add YUV bitmap support. (http://www.fourcc.org/yuv.php#UYVY,
 http://libquicktime.sourceforge.net/doc/apiref/group__color.html)

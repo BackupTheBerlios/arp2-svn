@@ -22,7 +22,7 @@ anything else than NVIDIA's and possibly ATI's cards.
 The following OpenGL extensions are required:
 
  * OpenGL version 2.0 or later
- * GL_(ARB|EXT)_texture_rectangle
+ * GL_ARB_texture_rectangle or, as a fall-back, NPOT 2D textures
  * GL_ARB_window_pos
  * GL_EXT_framebuffer_object
  * GL_NV_blend_square (or some blend modes will be missing)
