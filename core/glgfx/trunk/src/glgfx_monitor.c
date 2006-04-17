@@ -76,13 +76,12 @@ static bool check_extensions(struct glgfx_monitor* monitor) {
   }
 
   // Check for texture_rectangle extension
-  if (g_hash_table_lookup(monitor->gl_extensions, "GL_ARB_texture_rectangle") != NULL ||
-      g_hash_table_lookup(monitor->gl_extensions, "GL_EXT_texture_rectangle") != NULL) {
-    monitor->have_GL_texture_rectangle = true;
+  if (g_hash_table_lookup(monitor->gl_extensions, "GL_ARB_texture_rectangle") != NULL) {
+    monitor->have_GL_ARB_texture_rectangle = true;
   }
   else {
-    BUG("Required extension GL_{ARB,EXT}_texture_rectangle missing from display %s!\n",
-	monitor->name);
+    BUG("Warning: GL_ARB_texture_rectangle not supported; "
+	"will use NPOT 2D workaround.\n");
   }
 
   // Check for video_sync
@@ -102,6 +101,7 @@ static bool check_extensions(struct glgfx_monitor* monitor) {
     BUG("Warning: GL_ARB_pixel_buffer_object not supported; will emulate.\n");
   }
 
+  // Check for blend_square
   if (g_hash_table_lookup(monitor->gl_extensions, "GL_NV_blend_square") != NULL) {
     monitor->have_GL_NV_blend_square = true;
   }
@@ -111,8 +111,7 @@ static bool check_extensions(struct glgfx_monitor* monitor) {
   }
 
   // Return true if all required extensions are present
-  return (monitor->have_GL_EXT_framebuffer_object && 
-	  monitor->have_GL_texture_rectangle);
+  return (monitor->have_GL_EXT_framebuffer_object);
 }
 
 
@@ -641,7 +640,7 @@ struct glgfx_context* glgfx_monitor_createcontext(struct glgfx_monitor* monitor)
 	// Init all extensions we might use, if we haven't done so already
 	glgfx_glext_init();
 
-	if (!glgfx_shader_init()) {
+	if (!glgfx_shader_init(monitor)) {
 	  BUG("Unable to initialize shaders!\n");
 	  glgfx_context_destroy(context);
 	  context = NULL;

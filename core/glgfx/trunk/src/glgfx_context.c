@@ -229,7 +229,7 @@ bool glgfx_context_bindfbo(struct glgfx_context* context,
   // Make sure the bitmap is attached to buffer 0
   if (context->fbo_bitmap != bitmap) {
     glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT,
-                              GL_TEXTURE_RECTANGLE_ARB, bitmap->texture, 0);
+                              bitmap->texture_target, bitmap->texture, 0);
     check = true;
   }
 
@@ -311,7 +311,7 @@ GLenum glgfx_context_bindtex(struct glgfx_context* context,
     glActiveTexture(GL_TEXTURE1 + channel * TEXUNITS_PER_CHANNEL);
 
     if (context->tex_bitmap[channel] != bitmap) {
-      /* glBindTexture(GL_TEXTURE_RECTANGLE_ARB, bitmap->secondary_texture); */
+      /* glBindTexture(bitmap->texture_target, bitmap->secondary_texture); */
       GLGFX_CHECKERROR();
     }
   }
@@ -319,7 +319,7 @@ GLenum glgfx_context_bindtex(struct glgfx_context* context,
   glActiveTexture(GL_TEXTURE0 + channel * TEXUNITS_PER_CHANNEL);
 
   if (context->tex_bitmap[channel] != bitmap) {
-    glBindTexture(GL_TEXTURE_RECTANGLE_ARB, bitmap->texture);
+    glBindTexture(bitmap->texture_target, bitmap->texture);
     GLGFX_CHECKERROR();
     context->tex_bitmap[channel] = bitmap;
   }
@@ -334,13 +334,15 @@ bool glgfx_context_unbindtex(struct glgfx_context* context, int channel) {
     return false;
   }
 
-  glActiveTexture(GL_TEXTURE1 + channel * TEXUNITS_PER_CHANNEL);
-  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, 0);
+  if (context->tex_bitmap[channel] != NULL) {
+    glActiveTexture(GL_TEXTURE1 + channel * TEXUNITS_PER_CHANNEL);
+    glBindTexture(context->tex_bitmap[channel]->texture_target, 0);
 
-  glActiveTexture(GL_TEXTURE0 + channel * TEXUNITS_PER_CHANNEL);
-  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, 0);
+    glActiveTexture(GL_TEXTURE0 + channel * TEXUNITS_PER_CHANNEL);
+    glBindTexture(context->tex_bitmap[channel]->texture_target, 0);
 
-  context->tex_bitmap[channel] = NULL;
+    context->tex_bitmap[channel] = NULL;
+  }
 
   return true;
 }
@@ -354,59 +356,17 @@ bool glgfx_context_bindprogram(struct glgfx_context* context,
   }
 
   // Defaults
-  enum glgfx_pixel_format src0 = glgfx_pixel_format_a8r8g8b8;
-  enum glgfx_pixel_format src1 = glgfx_pixel_format_a8r8g8b8;
   enum glgfx_pixel_format dst  = context->monitor->format;
-
-  if (context->tex_bitmap[0] != NULL) {
-    src0 = context->tex_bitmap[0]->format;
-  }
-
-  if (context->tex_bitmap[1] != NULL) {
-    src1 = context->tex_bitmap[1]->format;
-  }
 
   if (context->fbo_bitmap != NULL) {
     dst = context->fbo_bitmap->format;
   }
 
-  GLuint program = glgfx_shader_getprogram(src0, src1, dst, shader);
+  context->program = glgfx_shader_load(context->tex_bitmap[0],
+				       context->tex_bitmap[1],
+				       dst, shader);
 
-  if (program == 0) {
-    return false;
-  }
-
-  glUseProgram(program);
-
-  if (context->tex_bitmap[0] != NULL) {
-    if (shader->tex0a >= 0) {
-      glUniform1i(shader->tex0a, 0);
-      GLGFX_CHECKERROR();
-    }
-
-    if (shader->tex0b >= 0) {
-      glUniform1i(shader->tex0b, 1);
-      GLGFX_CHECKERROR();
-    }
-  }
-
-  if (context->tex_bitmap[1] != NULL) {
-    if (shader->tex1a >= 0) {
-      glUniform1i(shader->tex1a, 2);
-      GLGFX_CHECKERROR();
-    }
-
-    if (shader->tex1b >= 0) {
-      glUniform1i(shader->tex1b, 3);
-      GLGFX_CHECKERROR();
-    }
-  }
-
-  GLGFX_CHECKERROR();
-
-  context->program = program;
-
-  return true;
+  return context->program != 0;
 }
 
 

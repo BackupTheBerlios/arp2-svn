@@ -69,7 +69,7 @@ struct glgfx_monitor {
     bool                    have_GL_ARB_pixel_buffer_object;
     bool                    have_GL_EXT_framebuffer_object;
     bool                    have_GL_NV_blend_square;
-    bool                    have_GL_texture_rectangle;
+    bool                    have_GL_ARB_texture_rectangle;
     bool                    miss_pixel_ops;
 
     timer_t                 vsync_timer;
@@ -99,6 +99,7 @@ struct glgfx_bitmap {
     int                     bits;
     enum glgfx_pixel_format format;
     GLuint                  texture;
+    GLuint                  texture_target;
     union {
       GLuint                  pbo;
       uint8_t*                buffer;
@@ -169,25 +170,7 @@ struct pixel_info {
 extern struct pixel_info const formats[glgfx_pixel_format_max];
 
 
-enum shader_function_read {
-  shader_function_read_rgba,
-  shader_function_read_max
-};
-
-enum shader_function_write {
-  shader_function_write_rgba,
-  shader_function_write_max
-};
-
-
-struct shader {
-    GLuint* programs;
-    GLint   tex0a, tex0b;
-    GLint   tex1a, tex1b;
-    int channels;
-    char const* vertex;
-    char const* fragment;
-};
+struct shader;
 
 extern struct shader color_blitter;
 
@@ -201,12 +184,12 @@ extern struct shader modulated_texture_blitter;
 #define GLGFX_CHECKERROR() glgfx_checkerror(__PRETTY_FUNCTION__, __FILE__, __LINE__);
 void glgfx_checkerror(char const* func, char const* file, int line);
 
-bool glgfx_shader_init();
+bool glgfx_shader_init(struct glgfx_monitor* monitor);
 void glgfx_shader_cleanup();
-GLuint glgfx_shader_getprogram(enum glgfx_pixel_format src0, 
-			       enum glgfx_pixel_format src1,
-			       enum glgfx_pixel_format dst,
-			       struct shader* shader);
+GLuint glgfx_shader_load(struct glgfx_bitmap* src_bm0, 
+			 struct glgfx_bitmap* src_bm1,
+			 enum glgfx_pixel_format dst,
+			 struct shader* shader);
 
 bool glgfx_monitor_waittof(struct glgfx_monitor* monitor);
 bool glgfx_monitor_swapbuffers(struct glgfx_monitor* monitor);

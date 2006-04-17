@@ -9,60 +9,95 @@
 #include "glgfx_glext.h"
 #include "glgfx_intern.h"
 
+
+enum shader_function_read {
+  shader_function_read_rgba,
+  shader_function_read_max
+};
+
+enum shader_function_write {
+  shader_function_write_rgba,
+  shader_function_write_max
+};
+
+
+struct shader {
+    GLuint* programs;
+    GLint   tex0a, tex0b;
+    GLint   tex1a, tex1b;
+    GLint   tex_scale0, tex_scale1;
+    int channels;
+    char const* vertex;
+    char const* fragment;
+};
+
+
 struct shader color_blitter = {
   .channels = 1,
 
+  .vertex =
+  "void main() {\n"
+  "  gl_Position = positionTransform();\n"
+  "}\n",
+
   .fragment = 
-  "void main() {"
-  "   writePixel0(gl_Color);"
-  "}"
+  "void main() {\n"
+  "   writePixel0(gl_Color);\n"
+  "}\n"
 };
 
 
 struct shader raw_texture_blitter = {
-/*   .vertex =  */
-/*   "void main() {" */
-/*   "  gl_Position = gl_Vertex;" // No transformation */
-/*   "}", */
-
   .channels = 0,
 
+  .vertex =
+  "void main() {\n"
+  "  gl_TexCoord[0] = textureTransform0(gl_MultiTexCoord0);\n"
+  "  gl_Position = positionTransform();\n"
+  "}\n",
+
   .fragment = 
-  "uniform samplerRect tex0a, tex0b;"
-  ""
-  "void main() {"
-  "   gl_FragColor = textureRect(tex0a, gl_TexCoord[0].xy);"
-  "}"
+  "uniform SAMPLER tex0a, tex0b;\n"
+  "\n"
+  "void main() {\n"
+  "   gl_FragColor = TEXTURE(tex0a, gl_TexCoord[0].xy);\n"
+  "}\n"
 };
 
 
 struct shader plain_texture_blitter = {
   .channels = 2,
 
+  .vertex =
+  "void main() {\n"
+  "  gl_TexCoord[0] = textureTransform0(gl_MultiTexCoord0);\n"
+  "  gl_Position = positionTransform();\n"
+  "}\n",
+
   .fragment = 
-  "void main() {"
-  "   writePixel0(readPixel0(gl_TexCoord[0].xy));"
-  "}"
+  "void main() {\n"
+  "   writePixel0(readPixel0(gl_TexCoord[0].xy));\n"
+  "}\n"
 };
 
 struct shader color_texture_blitter = {
   .channels = 2,
 
   .vertex = 
-  "varying vec4 color;" // gl_FrontColor is clamped!
-  ""
-  "void main() {"
-  "  color = gl_Color;"
-  "  gl_TexCoord[0] = gl_MultiTexCoord0;"
-  "  gl_Position = ftransform();"
-  "}",
+  "varying vec4 color;\n" // gl_FrontColor is clamped!
+  "\n"
+  "void main() {\n"
+  "  color = gl_Color;\n"
+  "  gl_TexCoord[0] = textureTransform0(gl_MultiTexCoord0);\n"
+  "  gl_Position = positionTransform();\n"
+  "}\n",
 
   .fragment = 
-  "varying vec4 color;"
-  ""
-  "void main() {"
-  "   writePixel0(color * readPixel0(gl_TexCoord[0].xy));"
-  "}"
+  "varying vec4 color;\n"
+  "\n"
+  "void main() {\n"
+  "   writePixel0(color * readPixel0(gl_TexCoord[0].xy));\n"
+  "}\n"
 };
 
 
@@ -70,31 +105,31 @@ struct shader modulated_texture_blitter = {
   .channels = 3,
 
   .vertex = 
-  "varying vec4 color;" // gl_FrontColor is clamped!
-  ""
-  "void main() {"
-  "  color = gl_Color;"
-  "  gl_TexCoord[0] = gl_MultiTexCoord0;"
-  "  gl_TexCoord[2] = gl_MultiTexCoord2;"
-  "  gl_Position = ftransform();"
-  "}",
+  "varying vec4 color;\n" // gl_FrontColor is clamped!
+  "\n"
+  "void main() {\n"
+  "  color = gl_Color;\n"
+  "  gl_TexCoord[0] = textureTransform0(gl_MultiTexCoord0);\n"
+  "  gl_TexCoord[2] = textureTransform1(gl_MultiTexCoord2);\n"
+  "  gl_Position = positionTransform();\n"
+  "}\n",
 
   .fragment = 
-  "varying vec4 color;"
-  ""
-  "void main() {"
-  "   writePixel0(color *"
-  "               readPixel0(gl_TexCoord[0].xy) *"
-  "               readPixel1(gl_TexCoord[2].xy));"
-  "}"
+  "varying vec4 color;\n"
+  "\n"
+  "void main() {\n"
+  "   writePixel0(color *\n"
+  "               readPixel0(gl_TexCoord[0].xy) *\n"
+  "               readPixel1(gl_TexCoord[2].xy));\n"
+  "}\n"
 };
 
 static char const* read_shader_source[shader_function_read_max] = {
-  "uniform samplerRect tex%da, tex%db;"
-  ""
-  "vec4 readPixel%d(vec2 pos) {"
-  "  return textureRect(tex%da, pos);"
-  "}"
+  "uniform SAMPLER tex%da, tex%db;\n"
+  "\n"
+  "vec4 readPixel%d(vec2 pos) {\n"
+  "  return TEXTURE(tex%da, pos);\n"
+  "}\n"
 };
 
 static GLuint read0_shader_objects[shader_function_read_max];
@@ -117,9 +152,9 @@ static int read_shader_funcs[glgfx_pixel_format_max] = {
 
 
 static char const* write_shader_source[shader_function_write_max] = {
-  "void writePixel0(vec4 color) {"
-  "  gl_FragColor = color;" // gl_FragData[0] is not supported on NV3x
-  "}",
+  "void writePixel0(vec4 color) {\n"
+  "  gl_FragColor = color;\n" // gl_FragData[0] is not supported on NV3x
+  "}\n",
 };
 
 static GLuint write_shader_objects[shader_function_write_max];
@@ -164,18 +199,28 @@ static void bug_infolog(GLuint obj) {
 }
 
 
-static GLuint compile_fragment_shader(char const* main_src) {
+static GLuint compile_fragment_shader(char const* main_src, 
+				      struct glgfx_monitor* monitor) {
+  char texture_rectangle[128];
   char const* source[] = {
     "void writePixel0(vec4 rgba);\n"
     "vec4 readPixel0(vec2 pos);\n"
-    "vec4 readPixel1(vec2 pos);\n"
-    "\n",
+    "vec4 readPixel1(vec2 pos);\n",
+    texture_rectangle,
     main_src
   };
 
+  snprintf(texture_rectangle, sizeof (texture_rectangle),
+	   "#define HAVE_GL_ARB_TEXTURE_RECTANGLE %d\n"
+	   "#define SAMPLER %s\n"
+	   "#define TEXTURE %s\n",
+	   monitor->have_GL_ARB_texture_rectangle,
+	   monitor->have_GL_ARB_texture_rectangle ? "samplerRect" : "sampler2D",
+	   monitor->have_GL_ARB_texture_rectangle ? "textureRect" : "texture2D");
+
   GLuint fragment = glCreateShader(GL_FRAGMENT_SHADER);
 
-  glShaderSource(fragment, 2, source, NULL);
+  glShaderSource(fragment, sizeof (source) / sizeof (source[0]), source, NULL);
   glCompileShader(fragment);
   GLGFX_CHECKERROR();
 
@@ -192,7 +237,7 @@ static GLuint compile_fragment_shader(char const* main_src) {
 }
 
 
-static GLuint link(struct shader* shader, 
+static GLuint link(struct shader* shader, struct glgfx_monitor* monitor,
 		   GLuint vertex, GLuint fragment, 
 		   GLuint src0, GLuint src1, GLuint dst) {
   GLuint program = glCreateProgram(); 
@@ -253,10 +298,21 @@ static GLuint link(struct shader* shader,
     shader->tex1a = shader->tex1b = -2;
   }
 
-  printf("shader %p: %d %d %d %d\n", 
+  if (!monitor->have_GL_ARB_texture_rectangle) {
+    shader->tex_scale0 = glGetUniformLocation(program, "texScale0");
+    shader->tex_scale1 = glGetUniformLocation(program, "texScale1");
+  }
+  else {
+    shader->tex_scale0 = -2;
+    shader->tex_scale1 = -2;
+  }
+
+
+  printf("shader %p: %d %d %d %d (scale at %d %d)\n", 
 	 shader,
 	 shader->tex0a, shader->tex0b,
-	 shader->tex1a, shader->tex1b);
+	 shader->tex1a, shader->tex1b,
+	 shader->tex_scale0, shader->tex_scale1);
   GLGFX_CHECKERROR();
 
   return program;
@@ -264,7 +320,7 @@ static GLuint link(struct shader* shader,
 
 
 
-static bool init_table(struct shader* shader) {
+static bool init_table(struct shader* shader, struct glgfx_monitor* monitor) {
   switch (shader->channels) {
     case 0:
       shader->programs = malloc(sizeof (*shader->programs));
@@ -302,13 +358,54 @@ static bool init_table(struct shader* shader) {
   GLuint vertex   = 0;
 
   if (shader->fragment != NULL) {
-    fragment = compile_fragment_shader(shader->fragment);
+    fragment = compile_fragment_shader(shader->fragment, monitor);
   }
 
   if (shader->vertex != NULL) {
+    char texture_rectangle[64];
+    char const* source[] = {
+      // Define HAVE_GL_ARB_TEXTURE_RECTANGLE
+      texture_rectangle,
+
+      // Standard projection transform
+      "vec4 positionTransform() {\n"
+      "  return ftransform();\n"
+      "}\n",
+
+      // Texture coordinate transform
+      "#if HAVE_GL_ARB_TEXTURE_RECTANGLE\n"
+
+      "vec4 textureTransform0(vec4 tc) {\n"
+      "  return tc;\n"
+      "}\n"
+      "vec4 textureTransform0(vec4 tc) {\n"
+      "  return tc;\n"
+      "}\n"
+
+      "#else\n"
+
+      "uniform vec4 texScale0, texScale1;\n"
+      "\n"
+      "vec4 textureTransform0(vec4 tc) {\n"
+      "  return tc * texScale0;"
+      "}\n"
+      "vec4 textureTransform1(vec4 tc) {\n"
+      "  return tc * texScale1;"
+      "}\n"
+
+      "#endif\n",
+
+      // Main source file
+      shader->vertex
+    };
+
+    snprintf(texture_rectangle, sizeof (texture_rectangle),
+	     "#define HAVE_GL_ARB_TEXTURE_RECTANGLE %d\n", 
+	     monitor->have_GL_ARB_texture_rectangle);
+
     vertex = glCreateShader(GL_VERTEX_SHADER);
 
-    glShaderSource(vertex, 1, &shader->vertex, NULL);
+    glShaderSource(vertex, sizeof (source) / sizeof (source[0]), source, NULL);
     glCompileShader(vertex);
     GLGFX_CHECKERROR();
 
@@ -326,7 +423,7 @@ static bool init_table(struct shader* shader) {
 
   switch (shader->channels) {
     case 0:
-      shader->programs[0] = link(shader, vertex, fragment, 0, 0, 0);
+      shader->programs[0] = link(shader, monitor, vertex, fragment, 0, 0, 0);
 
       if (shader->programs[0] == 0) {
 	return false;
@@ -337,7 +434,7 @@ static bool init_table(struct shader* shader) {
       int d;
 
       for (d = 0; d < shader_function_write_max; ++d) {
-	shader->programs[d] = link(shader, vertex, fragment, 
+	shader->programs[d] = link(shader, monitor, vertex, fragment, 
 				   0, 
 				   0, 
 				   write_shader_objects[d]);
@@ -357,7 +454,7 @@ static bool init_table(struct shader* shader) {
 		     d);
 
 	  shader->programs[idx] = 
-	    link(shader, vertex, fragment, 
+	    link(shader, monitor, vertex, fragment, 
 		 read0_shader_objects[s], 
 		 0, 
 		 write_shader_objects[d]);
@@ -381,7 +478,7 @@ static bool init_table(struct shader* shader) {
 		       d);
 
 	    shader->programs[idx] = 
-	      link(shader, vertex, fragment, 
+	      link(shader, monitor, vertex, fragment, 
 		   read0_shader_objects[s1], 
 		   read1_shader_objects[s2], 
 		   write_shader_objects[d]);
@@ -407,7 +504,7 @@ static void destroy_table(struct shader* shader) {
 }
 
 
-bool glgfx_shader_init() {
+bool glgfx_shader_init(struct glgfx_monitor* monitor) {
   int i;
   static bool initialized = false;
 
@@ -419,7 +516,7 @@ bool glgfx_shader_init() {
 
   for (i = 0; i < shader_function_read_max; ++i) {
     snprintf(main_src, sizeof (main_src), read_shader_source[i], 0, 0, 0, 0);
-    read0_shader_objects[i] = compile_fragment_shader(main_src);
+    read0_shader_objects[i] = compile_fragment_shader(main_src, monitor);
 
     if (read0_shader_objects[i] == 0) {
       return false;
@@ -428,7 +525,7 @@ bool glgfx_shader_init() {
 
   for (i = 0; i < shader_function_read_max; ++i) {
     snprintf(main_src, sizeof (main_src), read_shader_source[i], 1, 1, 1, 1);
-    read1_shader_objects[i] = compile_fragment_shader(main_src);
+    read1_shader_objects[i] = compile_fragment_shader(main_src, monitor);
 
     if (read1_shader_objects[i] == 0) {
       return false;
@@ -436,18 +533,18 @@ bool glgfx_shader_init() {
   }
 
   for (i = 0; i < shader_function_write_max; ++i) {
-    write_shader_objects[i] = compile_fragment_shader(write_shader_source[i]);
+    write_shader_objects[i] = compile_fragment_shader(write_shader_source[i], monitor);
 
     if (write_shader_objects[i] == 0) {
       return false;
     }
   }
 
-  initialized = (init_table(&raw_texture_blitter) &&
-		 init_table(&color_blitter) &&
-		 init_table(&plain_texture_blitter) &&
-		 init_table(&color_texture_blitter) &&
-		 init_table(&modulated_texture_blitter));
+  initialized = (init_table(&raw_texture_blitter, monitor) &&
+		 init_table(&color_blitter, monitor) &&
+		 init_table(&plain_texture_blitter, monitor) &&
+		 init_table(&color_texture_blitter, monitor) &&
+		 init_table(&modulated_texture_blitter, monitor));
 
   return initialized;
 }
@@ -462,10 +559,21 @@ void glgfx_shader_cleanup() {
 }
 
 
-GLuint glgfx_shader_getprogram(enum glgfx_pixel_format src0, 
-			       enum glgfx_pixel_format src1,
-			       enum glgfx_pixel_format dst,
-			       struct shader* shader) {
+GLuint glgfx_shader_load(struct glgfx_bitmap* src_bm0,
+			 struct glgfx_bitmap* src_bm1,
+			 enum glgfx_pixel_format dst,
+			 struct shader* shader) {
+  enum glgfx_pixel_format src0 = glgfx_pixel_format_a8r8g8b8;
+  enum glgfx_pixel_format src1 = glgfx_pixel_format_a8r8g8b8;
+
+  if (src_bm0 != NULL) {
+    src0 = src_bm0->format;
+  }
+
+  if (src_bm1 != NULL) {
+    src1 = src_bm1->format;
+  }
+
   int s0 = read_shader_funcs[src0];
   int s1 = read_shader_funcs[src1];
   int d = write_shader_funcs[dst];
@@ -482,5 +590,47 @@ GLuint glgfx_shader_getprogram(enum glgfx_pixel_format src0,
 	     s0 * shader_function_write_max +
 	     d);
 
+  if (shader->programs[idx] != 0) {
+    glUseProgram(shader->programs[idx]);
+
+    if (src_bm0 != NULL) {
+      if (shader->tex0a >= 0) {
+	glUniform1i(shader->tex0a, 0);
+	GLGFX_CHECKERROR();
+      }
+
+      if (shader->tex0b >= 0) {
+	glUniform1i(shader->tex0b, 1);
+	GLGFX_CHECKERROR();
+      }
+
+      if (!src_bm0->monitor->have_GL_ARB_texture_rectangle) {
+	glUniform4f(shader->tex_scale0, 
+		    1.0f / src_bm0->width, 1.0f / src_bm0->height, 1, 1);
+	GLGFX_CHECKERROR();
+      }
+    }
+
+    if (src_bm1 != NULL) {
+      if (shader->tex1a >= 0) {
+	glUniform1i(shader->tex1a, 2);
+	GLGFX_CHECKERROR();
+      }
+
+      if (shader->tex1b >= 0) {
+	glUniform1i(shader->tex1b, 3);
+	GLGFX_CHECKERROR();
+      }
+
+      if (!src_bm1->monitor->have_GL_ARB_texture_rectangle) {
+	glUniform4f(shader->tex_scale1, 
+		    1.0f / src_bm1->width, 1.0f / src_bm1->height, 1, 1);
+	GLGFX_CHECKERROR();
+      }
+    }
+
+    GLGFX_CHECKERROR();
+  }
+  
   return shader->programs[idx];
 }

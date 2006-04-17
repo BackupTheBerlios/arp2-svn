@@ -10,11 +10,6 @@
 #include "glgfx_glext.h"
 #include "glgfx_intern.h"
 
-#ifndef GL_PIXEL_PACK_BUFFER_ARB
-# define GL_PIXEL_PACK_BUFFER_ARB GL_PIXEL_PACK_BUFFER_EXT
-# define GL_PIXEL_UNPACK_BUFFER_ARB GL_PIXEL_UNPACK_BUFFER_EXT
-#endif
-
 static enum glgfx_pixel_format select_format(int bits,
 					     struct glgfx_bitmap* friend,
 					     enum glgfx_pixel_format format) {
@@ -119,9 +114,16 @@ struct glgfx_bitmap* glgfx_bitmap_create_a(struct glgfx_tagitem const* tags) {
   glGenTextures(1, &bitmap->texture);
   GLGFX_CHECKERROR();
 
+  if (context->monitor->have_GL_ARB_texture_rectangle) {
+    bitmap->texture_target = GL_TEXTURE_RECTANGLE_ARB;
+  }
+  else {
+    bitmap->texture_target = GL_TEXTURE_2D;
+  }
+
   glgfx_context_bindtex(context, 0, bitmap);
 
-  glTexImage2D(GL_TEXTURE_RECTANGLE_ARB, 0,
+  glTexImage2D(bitmap->texture_target, 0,
 	       formats[bitmap->format].internal_format,
 	       width, height, 0,
 	       formats[bitmap->format].format,
@@ -138,18 +140,18 @@ struct glgfx_bitmap* glgfx_bitmap_create_a(struct glgfx_tagitem const* tags) {
 
   GLGFX_CHECKERROR();
 
-  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+  glTexParameteri(bitmap->texture_target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+  glTexParameteri(bitmap->texture_target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
 
   if (bitmap->format == glgfx_pixel_format_r32g32b32a32f) {
     // Currently, there's no hardware support for FP32 filtering.
     // TODO: Detect support for it run-time?
-    glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(bitmap->texture_target, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(bitmap->texture_target, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
   }
   else {
-    glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(bitmap->texture_target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(bitmap->texture_target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
   }
 
   GLGFX_CHECKERROR();
@@ -385,7 +387,7 @@ bool glgfx_bitmap_unlock_a(struct glgfx_bitmap* bitmap,
 	glgfx_context_bindtex(context, 0, bitmap);
 
 	glPixelStorei(GL_UNPACK_ROW_LENGTH, bitmap->width);
-	glTexSubImage2D(GL_TEXTURE_RECTANGLE_ARB, 0,
+	glTexSubImage2D(bitmap->texture_target, 0,
 			x, y, width, height,
 			formats[bitmap->format].format,
 			formats[bitmap->format].type,
@@ -410,7 +412,7 @@ bool glgfx_bitmap_unlock_a(struct glgfx_bitmap* bitmap,
 	
 	glPixelStorei(GL_UNPACK_ROW_LENGTH, bitmap->width);
 	GLGFX_CHECKERROR();
-	glTexSubImage2D(GL_TEXTURE_RECTANGLE_ARB, 0,
+	glTexSubImage2D(bitmap->texture_target, 0,
 			x, y, width, height,
 			formats[bitmap->format].format,
 			formats[bitmap->format].type,
@@ -509,7 +511,7 @@ bool glgfx_bitmap_write_a(struct glgfx_bitmap* bitmap,
   glgfx_context_bindtex(context, 0, bitmap);
    
   glPixelStorei(GL_UNPACK_ROW_LENGTH, bytes_per_row / formats[format].size);
-  glTexSubImage2D(GL_TEXTURE_RECTANGLE_ARB, 0,
+  glTexSubImage2D(bitmap->texture_target, 0,
 		  x, y, width, height,
 		  formats[format].format,
 		  formats[format].type,
