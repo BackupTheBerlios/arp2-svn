@@ -364,7 +364,7 @@ bool glgfx_context_bindprogram(struct glgfx_context* context,
 
   context->program = glgfx_shader_load(context->tex_bitmap[0],
 				       context->tex_bitmap[1],
-				       dst, shader);
+				       dst, shader, context->monitor);
 
   return context->program != 0;
 }

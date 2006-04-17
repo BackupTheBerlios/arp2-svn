@@ -93,7 +93,7 @@ struct glgfx_view {
 
 
 struct glgfx_bitmap {
-    struct glgfx_monitor*   monitor;
+//    struct glgfx_monitor*   monitor;
     int                     width;
     int                     height;
     int                     bits;
@@ -189,7 +189,8 @@ void glgfx_shader_cleanup();
 GLuint glgfx_shader_load(struct glgfx_bitmap* src_bm0, 
 			 struct glgfx_bitmap* src_bm1,
 			 enum glgfx_pixel_format dst,
-			 struct shader* shader);
+			 struct shader* shader,
+			 struct glgfx_monitor* monitor);
 
 bool glgfx_monitor_waittof(struct glgfx_monitor* monitor);
 bool glgfx_monitor_swapbuffers(struct glgfx_monitor* monitor);

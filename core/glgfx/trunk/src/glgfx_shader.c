@@ -378,7 +378,7 @@ static bool init_table(struct shader* shader, struct glgfx_monitor* monitor) {
       "vec4 textureTransform0(vec4 tc) {\n"
       "  return tc;\n"
       "}\n"
-      "vec4 textureTransform0(vec4 tc) {\n"
+      "vec4 textureTransform1(vec4 tc) {\n"
       "  return tc;\n"
       "}\n"
 
@@ -562,7 +562,8 @@ void glgfx_shader_cleanup() {
 GLuint glgfx_shader_load(struct glgfx_bitmap* src_bm0,
 			 struct glgfx_bitmap* src_bm1,
 			 enum glgfx_pixel_format dst,
-			 struct shader* shader) {
+			 struct shader* shader,
+			 struct glgfx_monitor* monitor) {
   enum glgfx_pixel_format src0 = glgfx_pixel_format_a8r8g8b8;
   enum glgfx_pixel_format src1 = glgfx_pixel_format_a8r8g8b8;
 
@@ -604,7 +605,7 @@ GLuint glgfx_shader_load(struct glgfx_bitmap* src_bm0,
 	GLGFX_CHECKERROR();
       }
 
-      if (!src_bm0->monitor->have_GL_ARB_texture_rectangle) {
+      if (!monitor->have_GL_ARB_texture_rectangle) {
 	glUniform4f(shader->tex_scale0, 
 		    1.0f / src_bm0->width, 1.0f / src_bm0->height, 1, 1);
 	GLGFX_CHECKERROR();
@@ -622,7 +623,7 @@ GLuint glgfx_shader_load(struct glgfx_bitmap* src_bm0,
 	GLGFX_CHECKERROR();
       }
 
-      if (!src_bm1->monitor->have_GL_ARB_texture_rectangle) {
+      if (!monitor->have_GL_ARB_texture_rectangle) {
 	glUniform4f(shader->tex_scale1, 
 		    1.0f / src_bm1->width, 1.0f / src_bm1->height, 1, 1);
 	GLGFX_CHECKERROR();
