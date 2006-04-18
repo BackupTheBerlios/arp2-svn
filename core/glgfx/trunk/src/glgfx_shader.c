@@ -36,14 +36,21 @@ struct shader color_blitter = {
   .channels = 1,
 
   .vertex =
+  "varying vec4 color;\n" // gl_FrontColor is clamped!
+  "\n"
   "void main() {\n"
+  "  color = gl_Color;\n"
+  "  gl_FrontColor = gl_Color;\n" // FIXME: NVIDIA driver bug?
   "  gl_Position = positionTransform();\n"
   "}\n",
 
-  .fragment = 
-  "void main() {\n"
-  "   writePixel0(gl_Color);\n"
-  "}\n"
+  .fragment =
+  "varying vec4 color;\n"
+  "\n"
+  "void main() {"
+  "   writePixel0(gl_Color);" // FIXME: NVIDIA driver bug?
+  "}",
+
 };
 
 
