@@ -271,9 +271,13 @@ void* glgfx_bitmap_lock_a(struct glgfx_bitmap* bitmap, bool read, bool write,
 
   bitmap->locked = true;
 
+  // I have no idea why, but on some GeForces, this needs to be done
+  // even if we're only writing. Driver 1.0.8756 bug?
+  glgfx_context_bindfbo(context, bitmap);
+
   if (read) {
     // Bind FBO and attach texture
-    glgfx_context_bindfbo(context, bitmap);
+// always done    glgfx_context_bindfbo(context, bitmap); 
 
     if (context->monitor->have_GL_ARB_pixel_buffer_object) {
       glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, bitmap->pbo);
@@ -384,6 +388,18 @@ bool glgfx_bitmap_unlock_a(struct glgfx_bitmap* bitmap,
       if (width != 0 && height != 0 &&
 	  (bitmap->locked_access == GL_READ_WRITE ||
 	   bitmap->locked_access == GL_WRITE_ONLY)) {
+#if 0
+	glgfx_context_bindfbo(context, bitmap);
+
+	glPixelStorei(GL_UNPACK_ROW_LENGTH, bitmap->width);
+	glWindowPos2i(x, y);
+	glDrawPixels(width, height, 
+		     formats[bitmap->format].format,
+		     formats[bitmap->format].type,
+		     (void*) (x * formats[bitmap->format].size +
+			      y * bitmap->pbo_bytes_per_row));
+	GLGFX_CHECKERROR();
+#else
 	glgfx_context_bindtex(context, 0, bitmap);
 
 	glPixelStorei(GL_UNPACK_ROW_LENGTH, bitmap->width);
@@ -397,6 +413,7 @@ bool glgfx_bitmap_unlock_a(struct glgfx_bitmap* bitmap,
 	glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
 
 	glgfx_context_unbindtex(context, 0);
+#endif
       }
 
       glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, 0);
