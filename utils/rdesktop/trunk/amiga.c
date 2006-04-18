@@ -452,7 +452,7 @@ amiga_set_abpen_drmd( struct RastPort *rp, ULONG apen, ULONG bpen, ULONG mode ) 
 #elif defined (__amigaos4__)
     SetRPAttrs( rp, 
 		RPTAG_APenColor, apen, 
-		RPTAG_APenColor, bpen, 
+		RPTAG_BPenColor, bpen, 
 		RPTAG_DrMd,      mode, 
 		TAG_DONE );
 #else
@@ -539,7 +539,7 @@ WorkingClipBlit( struct RastPort *srcRP, LONG xSrc, LONG ySrc,
 
   if( minterm == 0 )
   {
-    LONG pen = amiga_obtain_pen( 0x00000000 );
+    LONG pen = g_server_bpp == 8 ? 16 + 1 : amiga_obtain_pen( 0x00000000 ); // Use black color of the mouse pointer for 8 bpp
   
     amiga_set_abpen_drmd( amiga_window->RPort, pen, 0, JAM1 );
     RectFill( amiga_window->RPort,
@@ -550,7 +550,7 @@ WorkingClipBlit( struct RastPort *srcRP, LONG xSrc, LONG ySrc,
   }
   else if( minterm == 0xf0 )
   {
-    LONG pen = amiga_obtain_pen( 0xffffffff );
+    LONG pen = g_server_bpp == 8 ? 16 + 3 : amiga_obtain_pen( 0xffffffff ); // Use white color of the mouse pointer for 8 bpp
   
     amiga_set_abpen_drmd( amiga_window->RPort, pen, 0, JAM1 );
     RectFill( amiga_window->RPort,
@@ -589,7 +589,7 @@ WorkingBltBitMapRastPort( struct BitMap *srcBitMap, LONG xSrc, LONG ySrc,
   
   if( minterm == 0 )
   {
-    LONG pen = amiga_obtain_pen( 0x00000000 );
+    LONG pen = g_server_bpp == 8 ? 16 + 1 : amiga_obtain_pen( 0x00000000 ); // Use black color of the mouse pointer for 8 bpp
   
     amiga_set_abpen_drmd( amiga_window->RPort, pen, 0, JAM1 );
     RectFill( amiga_window->RPort,
@@ -600,7 +600,7 @@ WorkingBltBitMapRastPort( struct BitMap *srcBitMap, LONG xSrc, LONG ySrc,
   }
   else if( minterm == 0xf0 )
   {
-    LONG pen = amiga_obtain_pen( 0xffffffff );
+    LONG pen = g_server_bpp == 8 ? 16 + 3 : amiga_obtain_pen( 0xffffffff ); // Use white color of the mouse pointer for 8 bpp
 
     amiga_set_abpen_drmd( amiga_window->RPort, pen, 0, JAM1 );
     RectFill( amiga_window->RPort,
@@ -2627,10 +2627,10 @@ ui_select(int rdp_socket)
 	      {
 	        ticks = 0;
 	        if (oldX != msg->MouseX - amiga_window->BorderLeft
-	         || oldY != msg->MouseY - amiga_window->BorderLeft)
+	         || oldY != msg->MouseY - amiga_window->BorderTop)
 	        {
 	          oldX = msg->MouseX - amiga_window->BorderLeft;
-	          oldY = msg->MouseY - amiga_window->BorderLeft;
+	          oldY = msg->MouseY - amiga_window->BorderTop;
 
                   rdp_send_input( ev_time, RDP_INPUT_MOUSE, 
 			          MOUSE_FLAG_MOVE, oldX, oldY);
