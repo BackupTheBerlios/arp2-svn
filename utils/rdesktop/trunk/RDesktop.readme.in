@@ -13,14 +13,15 @@ Format:         RDESKTOP [USER=<name>] [DOMAIN=<domain>] [PASSWORD=<pwd>|-]
                 [TITLE=<title>] [FS|FULLSCREEN] [SCREENMODE=<modenum>]
                 [AUDIO=<unit>] [REMOTEAUDIO] [BITMAPSONLY] [NOMOUSE]
                 [EXP|EXPERIENCE=28K8|56K|DSL|LAN] [RDP4] [KEYMAP=<num>]
-                [RDPC|RDPCOMPRESSION] [SERVER] <server>
+                [RDPC|RDPCOMPRESSION] [PC|PERSISTENTCACHE] [SM|SLOWMOUSE]
+                [SERVER] <server>
 
 Template:       SERVER/A,USER/K,DOMAIN/K,PASSWORD/K,CLIENT/K,CONSOLE/S,FRENCH/S,
                 NOENC=NOENCRYPTION/S,SHELL/K,DIR=DIRECTORY/K,LEFT/K/N,TOP/K/N,
                 W=WIDTH/K/N,H=HEIGHT/K/N,D=DEPTH/K/N,PUBSCREEN/K,TITLE/K,
                 FS=FULLSCREEN/S,SCREENMODE/K/N,AUDIO/K/N,REMOTEAUDIO/S,
                 BITMAPSONLY/S,NOMOUSE/S,EXP=EXPERIENCE/K,RDP4/S,KEYMAP/K/N,
-                RDPC=RDPCOMPRESSION/S"
+                RDPC=RDPCOMPRESSION/S,PC=PERSISTENTCACHE/S,SM=SLOWMOUSE/S"
 
 Purpose:        To connect to a Windows NT Terminal Server
 
@@ -126,8 +127,9 @@ Finally, there are a couple of arguments that influence what is sent
 over the network. Use BITMAPSONLY to ask the server to send all
 graphics as bitmaps instead of high-level drawing operations. NOMOUSE
 makes RDESKTOP not send any mouse movements to the server in order to
-save bandwidth. The EXPERIENCE argument, which can be 28K8, 56K, DSL
-or LAN, disables certain behaviours. The default is 56K.
+save bandwidth, SLOWMOUSE sends only very few mouse movements. The
+EXPERIENCE argument, which can be 28K8, 56K, DSL or LAN, disables
+certain behaviours. The default is 56K.
 
   * LAN disables nothing
   * DSL disables the desktop wallpaper
@@ -137,6 +139,10 @@ or LAN, disables certain behaviours. The default is 56K.
 
 The RDP4 switch disables the RDP v5 protocol. RDPCOMPRESSION enables
 network packet compression in order to use less network bandwidth.
+
+The PERSISTENTCACHE switch enables persistent caching of bitmaps, the
+cache files are stored in PROGDIR:cache and are about 20 MB for 16 bpp
+and 10 MB for 8 bpp.
 
 (When running from @DESKTOP@, the special ixemul tooltype WINDOW may or
 may not be interpreted as a window string for the console window.)
