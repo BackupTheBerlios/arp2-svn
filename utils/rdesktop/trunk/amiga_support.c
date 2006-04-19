@@ -135,9 +135,9 @@ amiga_req(char* prefix, char* txt)
 
 
 void
-amiga_remap_pens( UBYTE* from, UBYTE* to, size_t length )
+amiga_remap_pens( UBYTE* from, UBYTE* to, ULONG length )
 {
-  size_t i;
+  ULONG i;
 
   for( i = 0; i < length; ++i )
   {
@@ -611,7 +611,7 @@ amiga_blt_rastport( struct RastPort *srcRP, LONG xSrc, LONG ySrc,
 void
 amiga_write_pixels( struct RastPort* rp,
 		    int x, int y, int width, int height,
-		    uint8* data, int data_width )
+		    UBYTE* data, int data_width )
 {
   if( g_server_bpp == 8 )
   {
