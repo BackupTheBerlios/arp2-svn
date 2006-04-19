@@ -1,3 +1,7 @@
+2006-04-19  Martin Blom  <martin@blom.org>
+
+	* Merged the connection bar code back to mos/classic.
+
 2006-04-14  Martin Blom  <martin@blom.org>
 
 	* MorphOS: Don't allocate temporary pens when rendering to
