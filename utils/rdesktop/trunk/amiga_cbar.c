@@ -29,26 +29,37 @@
 #include <devices/timer.h>
 #include <intuition/imageclass.h>
 #include <intuition/gadgetclass.h>
+#ifdef __MORPHOS__
+# include <intuition/extensions.h>
+#endif
+
+#include <proto/dos.h>
 #include <proto/exec.h>
 #include <proto/intuition.h>
+#include <proto/wb.h>
 
 #define GADID_ICONIFY   2000
 #define GADID_STICKY    2001
 #define GADID_ZOOM      2002
 
 extern char g_title[];
+extern int  g_width;
 
-extern BOOL             amiga_quit;
-extern BOOL             amiga_is_os4;
-extern ULONG            amiga_bpp;
-extern struct Screen*   amiga_screen;
-extern struct Window*   amiga_window;
-extern struct DrawInfo* amiga_draw_info;
+extern BOOL                amiga_quit;
+extern BOOL                amiga_is_os4;
+extern ULONG               amiga_bpp;
+extern struct Screen*      amiga_screen;
+extern struct Window*      amiga_window;
+extern struct DrawInfo*    amiga_draw_info;
+extern struct DiskObject*  amiga_icon;
+extern struct AppIcon*     amiga_app_icon;
+extern struct MsgPort*     amiga_wb_port;
 
 static struct Window*      amiga_window2          = NULL;
 static struct timerequest* amiga_timerreq         = NULL;
 static struct MsgPort*     amiga_timerport        = NULL;
 
+static int              amiga_cbar_height         = 0;
 static BOOL             amiga_timerdevice_opened  = FALSE;
 static BOOL             amiga_cbar_sticky         = FALSE;
 BOOL                    amiga_cbar_visible        = TRUE;
@@ -135,9 +146,9 @@ amiga_cbar_open(struct TagItem const* common_window_tags)
 							    TAG_MORE, (ULONG) common_image_tags );
 
 
-	  amiga_cbar_zoom_image = (struct Image *)NewObject( NULL, "sysiclass",
-							   SYSIA_Which, ZOOMIMAGE,
-							   TAG_MORE, (ULONG) common_image_tags );
+/* 	  amiga_cbar_zoom_image = (struct Image *)NewObject( NULL, "sysiclass", */
+/* 							   SYSIA_Which, ZOOMIMAGE, */
+/* 							   TAG_MORE, (ULONG) common_image_tags ); */
 
 #ifdef ICONIFYIMAGE
 	  amiga_cbar_iconify_image = (struct Image *)NewObject( NULL, "sysiclass",
@@ -179,22 +190,23 @@ amiga_cbar_open(struct TagItem const* common_window_tags)
 	    }
 	  }
 
-	  if (amiga_cbar_zoom_image)
-	  {
-	    pos -= amiga_cbar_zoom_image->Width;
+/* 	  if (amiga_cbar_zoom_image) */
+/* 	  { */
+/* 	    pos -= amiga_cbar_zoom_image->Width; */
 
-	    amiga_cbar_zoom_gadget = (struct Gadget *)NewObject( NULL, "buttongclass",
-							       GA_Image, (ULONG) amiga_cbar_zoom_image,
-							       GA_ID, GADID_ZOOM,
-							       amiga_is_os4 ? TAG_IGNORE : GA_RelRight, pos,
-							       GA_Next, (ULONG) prev,
-							       TAG_MORE, (ULONG) common_gadget_tags );
-	    if (amiga_cbar_zoom_gadget) {
-	      ++cnt;
-	      prev = amiga_cbar_zoom_gadget;
-	    }
-	  }
+/* 	    amiga_cbar_zoom_gadget = (struct Gadget *)NewObject( NULL, "buttongclass", */
+/* 							       GA_Image, (ULONG) amiga_cbar_zoom_image, */
+/* 							       GA_ID, GADID_ZOOM, */
+/* 							       amiga_is_os4 ? TAG_IGNORE : GA_RelRight, pos, */
+/* 							       GA_Next, (ULONG) prev, */
+/* 							       TAG_MORE, (ULONG) common_gadget_tags ); */
+/* 	    if (amiga_cbar_zoom_gadget) { */
+/* 	      ++cnt; */
+/* 	      prev = amiga_cbar_zoom_gadget; */
+/* 	    } */
+/* 	  } */
 
+#ifdef __amigaos4__
 	  if (amiga_cbar_iconify_image)
 	  {
 	    pos -= amiga_cbar_iconify_image->Width;
@@ -210,7 +222,7 @@ amiga_cbar_open(struct TagItem const* common_window_tags)
 	      prev = amiga_cbar_iconify_gadget;
 	    }
 	  }
-
+#endif
 
 	  if (amiga_cbar_drag_image)
 	  {
@@ -266,13 +278,13 @@ amiga_cbar_open(struct TagItem const* common_window_tags)
 					    WA_Gadgets,        (ULONG) prev,
 					    WA_IDCMP,          (IDCMP_CLOSEWINDOW |
 								IDCMP_GADGETUP |
-								IDCMP_ACTIVEWINDOW |
 								IDCMP_SIZEVERIFY),
 					    TAG_MORE,          (ULONG) extra_tags);
 
 
 	    if (amiga_window2)
 	    {
+	      amiga_cbar_height = amiga_window2->Height;
 #ifdef __amigaos4__
 	      ChangeWindowBox(amiga_window2, g_width / 2 - (amiga_cbar_depth_gadget->LeftEdge + amiga_cbar_depth_gadget->Width) / 2, 0, amiga_cbar_depth_gadget->LeftEdge + amiga_cbar_depth_gadget->Width, amiga_window2->Height);
 #else
@@ -384,20 +396,26 @@ amiga_cbar_show(void)
 {
   if (amiga_window2 != NULL)
   {
-    amiga_cbar_visible = TRUE;
-
-#if defined (__amigaos4__)
     int i;
 
-    for (i = 0 ; i < amiga_window2->Height ; i++)
-    {
-      MoveWindow(amiga_window2, 0, 1);
-      Delay(1);
-    }
-#elif defined (__MORPHOS__)
+    amiga_cbar_visible = TRUE;
+
+#if defined (__MORPHOS__)
     ShowWindow( amiga_window2 );
     ActivateWindow( amiga_window );
 #endif
+
+    for (i = 0 ; i < amiga_cbar_height ; i++)
+    {
+#if defined (__amigaos4__)
+      MoveWindow(amiga_window2, 0, 1);
+#else
+      ChangeWindowBox(amiga_window2, 
+		      amiga_window2->LeftEdge, amiga_window2->TopEdge, 
+		      amiga_window2->Width, i);
+#endif
+      Delay(1);
+    }
   }
 }
 
@@ -407,15 +425,20 @@ amiga_cbar_hide(void)
 {
   if (amiga_window2 != NULL) 
   {
-#if defined (__amigaos4__)
     int i;
 
-    for (i = 0 ; i < amiga_window2->Height ; i++)
+    for (i = amiga_window2->Height - 1; i >= 0; i--)
     {
+#if defined (__amigaos4__)
       MoveWindow(amiga_window2, 0, -1);
+#else
+      ChangeWindowBox(amiga_window2, 
+		      amiga_window2->LeftEdge, amiga_window2->TopEdge, 
+		      amiga_window2->Width, i);
+#endif
       Delay(1);
     }
-#elif defined (__MORPHOS__)
+#if defined (__MORPHOS__)
     HideWindow( amiga_window2 );
 #endif
   }
@@ -451,7 +474,7 @@ amiga_cbar_handle_events(ULONG mask)
 	case IDCMP_CLOSEWINDOW:
 	  amiga_quit = TRUE;
 	  break;
-
+	 
 	case IDCMP_GADGETUP:
 	{
 	  struct Gadget* g = (struct Gadget*) msg->IAddress;

@@ -106,6 +106,8 @@ extern int  a_slowmouse;
 extern int amiga_audio_signal;
 #endif
 
+extern struct Window* amiga_window2;
+
 int    amiga_left           = 0;
 int    amiga_top            = 0;
 STRPTR amiga_pubscreen_name = NULL;
