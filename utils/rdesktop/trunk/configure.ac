@@ -1,5 +1,5 @@
 # Process this file with autoconf to produce a configure script.
-AC_INIT(amiga_rdesktop, 1.4.1-2006-04-09-amiga, martin@blom.org)
+AC_INIT(amiga_rdesktop, 1.4.1-2006-04-19-amiga, martin@blom.org)
 AC_CONFIG_SRCDIR([amiga_rdesktop.c])
 AC_CONFIG_HEADER([config.h])
 

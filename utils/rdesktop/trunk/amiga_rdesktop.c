@@ -119,7 +119,7 @@ const char version[] = "$VER: RDesktop 1.4.1-"
                               "4"
 #endif
 #endif
-                              " (14.4.2006)"
+                              " (19.4.2006)"
                               "(C) 2005-2006 Joerg Strohmayer; "
                               "(C) 2001-2006 Martin Blom; "
                               "(C) 1999-2005 Matthew Chapman et al.";
