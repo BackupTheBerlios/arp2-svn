@@ -41,7 +41,7 @@ extern int  g_height;
 extern Bool g_fullscreen;
 extern int  g_server_bpp;
 
-static BOOL           amiga_is_os4;
+extern BOOL           amiga_is_os4;
 extern BOOL           amiga_broken_blitter;
 extern ULONG          amiga_bpp;
 extern UBYTE*         amiga_backup;
