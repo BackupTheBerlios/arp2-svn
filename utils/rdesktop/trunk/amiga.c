@@ -114,49 +114,49 @@ STRPTR amiga_pubscreen_name = NULL;
 ULONG  amiga_screen_id      = DEFAULT_MONITOR_ID;
 struct DiskObject* amiga_icon = NULL;
 
-static struct MsgPort* amiga_wb_port  = NULL;
-static struct AppIcon* amiga_app_icon = NULL;
+struct MsgPort* amiga_wb_port  = NULL;
+struct AppIcon* amiga_app_icon = NULL;
 
-static BOOL           amiga_quit              = FALSE;
+BOOL           amiga_quit              = FALSE;
 
 #ifdef __amigaos4__
-#define amiga_is_os4 TRUE
+BOOL           amiga_is_os4             = TRUE;
 #else
-static BOOL           amiga_is_morphos         = FALSE;
-static BOOL           amiga_is_amithlon        = FALSE;
-static BOOL           amiga_is_os4             = FALSE;
+BOOL           amiga_is_morphos         = FALSE;
+BOOL           amiga_is_amithlon        = FALSE;
+BOOL           amiga_is_os4             = FALSE;
 #endif
 
-static UWORD          amiga_last_qualifier     = 0;
-static BOOL           amiga_numlock            = TRUE;  // default state is on
-static BOOL           amiga_scrolllock         = FALSE; // default state is off
-static BOOL           amiga_capslock           = 0xbad; // -> sync on first key
+UWORD          amiga_last_qualifier     = 0;
+BOOL           amiga_numlock            = TRUE;  // default state is on
+BOOL           amiga_scrolllock         = FALSE; // default state is off
+BOOL           amiga_capslock           = 0xbad; // -> sync on first key
 
-static HCURSOR        amiga_last_cursor        = NULL;
-static HCURSOR        amiga_null_cursor        = NULL;
+HCURSOR        amiga_last_cursor        = NULL;
+HCURSOR        amiga_null_cursor        = NULL;
 
-static BOOL           amiga_broken_cursor      = FALSE;
-static BOOL           amiga_broken_blitter     = FALSE;
+BOOL           amiga_broken_cursor      = FALSE;
+BOOL           amiga_broken_blitter     = FALSE;
 
-static struct Screen* amiga_pubscreen          = NULL;
-static ULONG          amiga_bpp                = 8;
-static struct Screen* amiga_screen             = NULL;
-static UBYTE*         amiga_backup             = NULL;
-static struct Window* amiga_window             = NULL;
-static ULONG          amiga_cursor_colors[ 3 * 3 ];
-static LONG           amiga_pens[ 256 ];
-static APTR           amiga_tmp_buffer         = NULL;
-static ULONG          amiga_tmp_buffer_length  = 0;
-static struct BitMap* amiga_tmp_bitmap         = NULL;
-static BOOL           amiga_clipping           = FALSE;
+struct Screen* amiga_pubscreen          = NULL;
+ULONG          amiga_bpp                = 8;
+struct Screen* amiga_screen             = NULL;
+UBYTE*         amiga_backup             = NULL;
+struct Window* amiga_window             = NULL;
+ULONG          amiga_cursor_colors[ 3 * 3 ];
+LONG           amiga_pens[ 256 ];
+APTR           amiga_tmp_buffer         = NULL;
+ULONG          amiga_tmp_buffer_length  = 0;
+struct BitMap* amiga_tmp_bitmap         = NULL;
+BOOL           amiga_clipping           = FALSE;
 
 /* For the connection bar */
-static struct Window* amiga_window2            = NULL;
-static struct timerequest *amiga_timerreq      = NULL;
-static struct MsgPort *amiga_timerport         = NULL;
-static uint32 amiga_timerdevice_opened         = FALSE;
-static BOOL amiga_connection_bar_sticky        = FALSE;
-static BOOL amiga_connection_bar_visible       = TRUE;
+struct Window* amiga_window2            = NULL;
+struct timerequest *amiga_timerreq      = NULL;
+struct MsgPort *amiga_timerport         = NULL;
+uint32 amiga_timerdevice_opened         = FALSE;
+BOOL amiga_connection_bar_sticky        = FALSE;
+BOOL amiga_connection_bar_visible       = TRUE;
 
 static struct DrawInfo *amiga_draw_info        = NULL;
 
@@ -195,581 +195,194 @@ struct Cursor
 void __chkabort(void) {}
 #endif
 
-void
-amiga_req(char* prefix, char* txt)
+void amiga_req(char* prefix, char* txt);
+void amiga_remap_pens( UBYTE* from, UBYTE* to, size_t length );
+APTR amiga_get_tmp_buffer( ULONG length );
+struct BitMap* amiga_get_tmp_bitmap( int width, int height );
+LONG RemappedWriteChunkyPixels(struct RastPort *rp,LONG xstart,LONG ystart,
+			       LONG xstop,LONG ystop,UBYTE *array,
+			       LONG bytesperrow);
+LONG SafeWriteChunkyPixels(struct RastPort *rp,LONG xstart,LONG ystart,
+			   LONG xstop,LONG ystop,UBYTE *array,
+			   LONG bytesperrow);
+LONG amiga_obtain_pen( ULONG color );
+void amiga_release_pen( LONG pen );
+void amiga_set_abpen_drmd( struct RastPort *rp, ULONG apen, ULONG bpen, ULONG mode );
+VOID SoftClipBlit( struct RastPort *srcRP, LONG xSrc, LONG ySrc,
+		   struct RastPort *destRP, LONG xDest, LONG yDest,
+		   LONG xSize, LONG ySize, ULONG minterm );
+VOID SoftBltBitMapRastPort( struct BitMap *srcBitMap, LONG xSrc, LONG ySrc,
+			    struct RastPort *destRP, LONG xDest, LONG yDest,
+			    LONG xSize, LONG ySize,
+			    ULONG minterm );
+VOID WorkingClipBlit( struct RastPort *srcRP, LONG xSrc, LONG ySrc,
+		      struct RastPort *destRP, LONG xDest, LONG yDest,
+		      LONG xSize, LONG ySize,
+		      ULONG minterm );
+VOID WorkingBltBitMapRastPort( struct BitMap *srcBitMap, LONG xSrc, LONG ySrc,
+			       struct RastPort *destRP, LONG xDest, LONG yDest,
+			       LONG xSize, LONG ySize,
+			       ULONG minterm );
+VOID amiga_blt_rastport( struct RastPort *srcRP, LONG xSrc, LONG ySrc,
+			 struct RastPort *destRP, LONG xDest, LONG yDest,
+			 LONG xSize, LONG ySize,
+			 ULONG minterm );
+void amiga_write_pixels( struct RastPort* rp,
+			 int x, int y, int width, int height,
+			 uint8* data, int data_width );
+void amiga_read_video_memory( void* buffer, int xmod,
+			      int x, int y, int cx, int cy,
+			      BOOL truecolor );
+void amiga_write_video_memory( void* buffer, int xmod,
+			       int x, int y, int cx, int cy,
+			       BOOL truecolor );
+void amiga_backup_window( void );
+void amiga_restore_window( void );
+int amiga_translate_key( int code, ULONG qualifier, BOOL* numlock );
+
+
+
+static BOOL
+amiga_connection_bar_open(struct TagItem const* common_window_tags)
 {
-  struct EasyStruct es =  {
-    sizeof (struct EasyStruct),
-    0,
-    (STRPTR) "RDesktop",
-    (STRPTR) "%s: %s",
-    "OK|No more requesters",
+  if (!amiga_is_os4 || amiga_bpp > 8)
+  {
+    amiga_timerport = CreateMsgPort();
+    if (amiga_timerport)
+    {
+      amiga_timerreq = (struct timerequest *)CreateIORequest(amiga_timerport, sizeof(struct timerequest));
+      if (amiga_timerreq)
+      {
+	if (0 == OpenDevice("timer.device", UNIT_VBLANK, &amiga_timerreq->tr_node, 0))
+	{
+	  uint32 size = (amiga_window->WScreen->Flags & SCREENHIRES ? SYSISIZE_MEDRES : SYSISIZE_LOWRES);
+	  uint32 height = amiga_window->WScreen->Font->ta_YSize + amiga_window->WScreen->WBorTop + 1;
+
+	  int pos = 0;
+	  int cnt = 0;
+	  struct Gadget* prev = NULL;
+
+	  struct TagItem const common_image_tags[] = 
+	    {
+	      { SYSIA_Size,     size                    },
+	      { SYSIA_DrawInfo, (ULONG) amiga_draw_info },
+	      { IA_Height,      height                  },
+#if defined (__amigaos4__)
+	      {IA_InBorder,    TRUE                     },
+#endif
+	      {TAG_DONE,       0                        }
+	    };
+
+	  struct TagItem const common_gadget_tags[] = 
+	    {
+	      { GA_RelVerify, TRUE              },
+	      { GA_TopBorder, TRUE              },
+#if defined (__amigaos4__)
+	      { GA_Titlebar,  TRUE              },
+#endif
+	      {TAG_DONE,      0                 }
+	    };
+
+	  amiga_timerdevice_opened           = TRUE;
+	  amiga_timerreq->tr_time.tv_secs    = 5;
+	  amiga_timerreq->tr_time.tv_micro   = 0;
+	  amiga_timerreq->tr_node.io_Command = TR_ADDREQUEST;
+	  SendIO(&amiga_timerreq->tr_node);
+
+	  // Create connection bar images for the titlebar gadgets
+	  amiga_cb_depth_image = (struct Image *)NewObject( NULL, "sysiclass",
+							    SYSIA_Which, DEPTHIMAGE,
+							    TAG_MORE, (ULONG) common_image_tags );
+
+
+	  amiga_cb_zoom_image = (struct Image *)NewObject( NULL, "sysiclass",
+							   SYSIA_Which, ZOOMIMAGE,
+							   TAG_MORE, (ULONG) common_image_tags );
+
+#ifdef ICONIFYIMAGE
+	  amiga_cb_iconify_image = (struct Image *)NewObject( NULL, "sysiclass",
+							      SYSIA_Which, ICONIFYIMAGE,
+							      TAG_MORE, (ULONG) common_image_tags );
+#endif
+
 #ifdef __amigaos4__
-    NULL,NULL
+	  amiga_cb_drag_image = (struct Image *)NewObject( NULL, "sysiclass",
+							   SYSIA_Which, TBFRAMEIMAGE,
+							   SYSIA_Label, g_title,
+							   TAG_MORE, (ULONG) common_image_tags );
 #endif
-  };
-  ULONG args[] = { (ULONG) prefix, (ULONG) txt };
 
-  static int requesters_disabled = FALSE;
-    
-  if (requesters_disabled)
-  {
-     fprintf(stderr, "%s: %s\n", prefix, txt);
-  } else {
-     LONG result = EasyRequestArgs( amiga_window, &es, NULL, args );
-     if (0 == result)
-     {
-        requesters_disabled = TRUE;
-     }
-  }
-}
-
-
-static void
-amiga_remap_pens( UBYTE* from, UBYTE* to, size_t length )
-{
-  size_t i;
-
-  for( i = 0; i < length; ++i )
-  {
-    *to = amiga_pens[ *from ];
-    ++from;
-    ++to;
-  }
-}
-
-
-static APTR
-amiga_get_tmp_buffer( ULONG length )
-{
-  if( length > amiga_tmp_buffer_length )
-  {
-    FreeVec( amiga_tmp_buffer );
-    amiga_tmp_buffer = AllocVec( length, MEMF_ANY );
-
-    if( amiga_tmp_buffer == NULL )
-    {
-      error( "amiga_get_tmp_buffer: Unable to allocate %d bytes.\n", length );
-      amiga_tmp_buffer_length = 0;
-    }
-    else
-    {
-      amiga_tmp_buffer_length = length;
-    }
-  }
-
-  return amiga_tmp_buffer;
-}
-
-
-static struct BitMap*
-amiga_get_tmp_bitmap( int width, int height )
-{
-  if( amiga_tmp_bitmap == NULL ||
-      (int) GetBitMapAttr( amiga_tmp_bitmap, BMA_WIDTH ) < width ||
-      (int) GetBitMapAttr( amiga_tmp_bitmap, BMA_HEIGHT ) < height )
-  {
-    WaitBlit();
-    FreeBitMap( amiga_tmp_bitmap );
-
-    amiga_tmp_bitmap = AllocBitMap( width, height, amiga_bpp,
-				    BMF_MINPLANES,
-				    amiga_window->RPort->BitMap );
-
-    if( amiga_tmp_bitmap == NULL )
-    {
-      error( "amiga_get_tmp_bitmap: Unable to allocate a %dx%d bitmap.\n",
-	     width, height );
-    }
-  }
-
-  return amiga_tmp_bitmap;
-}
-
-
-LONG
-RemappedWriteChunkyPixels(struct RastPort *rp,LONG xstart,LONG ystart,
-			  LONG xstop,LONG ystop,UBYTE *array,LONG bytesperrow)
-{
-  struct RastPort temprp;
-  UBYTE *temparray;
-  LONG width,height;
-  LONG modulo;
-  LONG y;
-  LONG pixelswritten;
-
-  pixelswritten = 0;
-  width = xstop - xstart + 1;
-  height = ystop - ystart + 1;
-
-  if(width > 0 && height > 0)
-  {
-    modulo = (width + 15) & ~15;
-
-    temparray = amiga_get_tmp_buffer( modulo * height );
-
-    if( temparray != NULL )
-    {
-      InitRastPort(&temprp);
-
-      temprp.BitMap = AllocBitMap( width, 1, amiga_bpp,
-				   BMF_MINPLANES, rp->BitMap );
-
-      if( temprp.BitMap != NULL)
-      {
-	if(modulo == bytesperrow)
-	  amiga_remap_pens(array,temparray,modulo * height);
-	else
-	{
-	  for(y = 0 ; y < height ; y++)
-	    amiga_remap_pens(&array[bytesperrow * y],&temparray[modulo * y],width);
-	}
-
-	pixelswritten = WritePixelArray8(rp,xstart,ystart,
-					 xstop,ystop,
-					 temparray,&temprp);
-
-	WaitBlit();
-	FreeBitMap(temprp.BitMap);
-      }
-    }
-  }
-
-  return(pixelswritten);
-}
-
-
-LONG
-SafeWriteChunkyPixels(struct RastPort *rp,LONG xstart,LONG ystart,
-		      LONG xstop,LONG ystop,UBYTE *array,LONG bytesperrow)
-{
-  struct RastPort temprp;
-  UBYTE *temparray;
-  LONG width,height;
-  LONG modulo;
-  LONG y;
-  LONG pixelswritten;
-
-  pixelswritten = 0;
-  width = xstop - xstart + 1;
-  height = ystop - ystart + 1;
-
-  if(width > 0 && height > 0)
-  {
-    modulo = (width + 15) & ~15;
-
-    temparray = amiga_get_tmp_buffer( modulo * height );
-
-    if( temparray != NULL )
-    {
-      InitRastPort(&temprp);
-
-      temprp.BitMap = AllocBitMap( width, 1, amiga_bpp,
-				   BMF_MINPLANES, rp->BitMap );
-
-      if( temprp.BitMap != NULL)
-      {
-	if(modulo == bytesperrow)
-	  CopyMem(array,temparray,modulo * height);
-	else
-	{
-	  for(y = 0 ; y < height ; y++)
-	    CopyMem(&array[bytesperrow * y],&temparray[modulo * y],width);
-	}
-
-	pixelswritten = WritePixelArray8(rp,xstart,ystart,
-					 xstop,ystop,
-					 temparray,&temprp);
-
-	WaitBlit();
-	FreeBitMap(temprp.BitMap);
-      }
-    }
-  }
-
-  return(pixelswritten);
-}
-
-
-static LONG
-amiga_obtain_pen( ULONG color )
-{
-  ULONG r, g, b;
-
-  switch( g_server_bpp )
-  {
-    case 8:
-      return amiga_pens[ color ];
-
-    case 15:
-      r = ( color & 0x7c00 ) << 17;
-      g = ( color & 0x03e0 ) << 22;
-      b = ( color & 0x001f ) << 27;
-      break;
-
-    case 16:
-      r = ( color & 0xf800 ) << 16;
-      g = ( color & 0x07e0 ) << 21;
-      b = ( color & 0x001f ) << 27;
-      break;
-
-    case 24:
-      r = ( color & 0x0000ff ) << 24;
-      g = ( color & 0x00ff00 ) << 16;
-      b = ( color & 0xff0000 ) << 8;
-      break;
-
-    default:
-      error( "amiga_obtain_pen: Illegal server bitplane depth.\n" );
-      return -1;
-  }
-
-#if defined (__MORPHOS__) || defined (__amigaos4__)
-  return (r >> 8) | (g >> 16) | (b >> 24);
-#else
-  return ObtainBestPen( amiga_window->WScreen->ViewPort.ColorMap,
-			r, g, b,
-			OBP_Precision, PRECISION_EXACT,
-			TAG_DONE );
+#if defined(PADLOCKIMAGE)
+	  amiga_cb_sticky_image = (struct Image *)NewObject( NULL, "sysiclass",
+							     SYSIA_Which, PADLOCKIMAGE,
+							     TAG_MORE, (ULONG) common_image_tags );
+#elif defined(LOCKIMAGE)
+	  amiga_cb_sticky_image = (struct Image *)NewObject( NULL, "sysiclass",
+							     SYSIA_Which, LOCKIMAGE,
+							     TAG_MORE, (ULONG) common_image_tags );
 #endif
-}
 
-static void
-amiga_release_pen( LONG pen )
-{
-#if !defined (__MORPHOS__) && !defined (__amigaos4__)
-  if( g_server_bpp != 8)
-  {
-    ReleasePen( amiga_window->WScreen->ViewPort.ColorMap, pen );
-  }
-#endif
-}
-
-static void
-amiga_set_abpen_drmd( struct RastPort *rp, ULONG apen, ULONG bpen, ULONG mode ) {
-  if( amiga_bpp > 8 )
-  {
-#if defined (__MORPHOS__)
-    SetRPAttrs( rp, 
-		RPTAG_PenMode, FALSE, 
-		RPTAG_FgColor, apen, 
-		RPTAG_BgColor, bpen, 
-		RPTAG_DrMd,    mode, 
-		TAG_DONE );
-#elif defined (__amigaos4__)
-    SetRPAttrs( rp, 
-		RPTAG_APenColor, apen, 
-		RPTAG_BPenColor, bpen, 
-		RPTAG_DrMd,      mode, 
-		TAG_DONE );
-#else
-    SetABPenDrMd( rp, apen, bpen, mode );
-#endif
-  }
-  else 
-  {
-    SetABPenDrMd( rp, apen, bpen, mode );
-  }
-}
-
-VOID
-SoftClipBlit( struct RastPort *srcRP, LONG xSrc, LONG ySrc,
-	      struct RastPort *destRP, LONG xDest, LONG yDest,
-	      LONG xSize, LONG ySize, ULONG minterm )
-{
-  int x;
-
-  ULONG bc = minterm & 0x80 ? 0xffffffff : 0;
-  ULONG bC = minterm & 0x40 ? 0xffffffff : 0;
-  ULONG Bc = minterm & 0x20 ? 0xffffffff : 0;
-  ULONG BC = minterm & 0x10 ? 0xffffffff : 0;
-  
-  ULONG* src;
-  ULONG* dst;
-
-  src = amiga_get_tmp_buffer( sizeof( ULONG ) * xSize * ySize * 2 );
-
-  if( src == NULL )
-  {
-    return;
-  }
-
-  dst = src + xSize * ySize;
-  
-  ReadPixelArray( src, 0, 0, sizeof( ULONG ) * xSize,
-		  srcRP, xSrc, ySrc, xSize, ySize, RECTFMT_ARGB );
-
-  ReadPixelArray( dst, 0, 0, sizeof( ULONG ) * xSize,
-		  destRP, xDest, yDest, xSize, ySize, RECTFMT_ARGB );
-
-  for( x = 0; x < xSize * ySize; ++x )
-  {
-    ULONG b = src[ x ];
-    ULONG c = dst[ x ];
-      
-    ULONG d = ( ( bc & ( b & c ) ) |
-		( bC & ( b & ~c ) ) |
-		( Bc & ( ~b & c ) ) |
-		( BC & ( ~b & ~c ) ) );
-
-    dst[ x ] = d;
-  }
-
-  WritePixelArray( dst, 0, 0, sizeof( ULONG ) * xSize,
-		   destRP, xDest, yDest, xSize, ySize, RECTFMT_ARGB );
-}
-
-
-VOID
-SoftBltBitMapRastPort( struct BitMap *srcBitMap, LONG xSrc, LONG ySrc,
-		       struct RastPort *destRP, LONG xDest, LONG yDest,
-		       LONG xSize, LONG ySize,
-		       ULONG minterm )
-{
-  struct RastPort rp;
-
-  InitRastPort( &rp );
-  rp.BitMap = srcBitMap;
-
-  SoftClipBlit( &rp, xSrc, ySrc, destRP, xDest, yDest, xSize, ySize, minterm );
-}
-
-
-VOID
-WorkingClipBlit( struct RastPort *srcRP, LONG xSrc, LONG ySrc,
-		 struct RastPort *destRP, LONG xDest, LONG yDest,
-		 LONG xSize, LONG ySize,
-		 ULONG minterm )
-{
-  // Neither Picasso96 nor CyberGraphX handle minterm 0x00 and 0xff
-  // correctly, so use RectFill() for those instead. :-(
-
-  if( minterm == 0 )
-  {
-    LONG pen = g_server_bpp == 8 ? 16 + 1 : amiga_obtain_pen( 0x00000000 ); // Use black color of the mouse pointer for 8 bpp
-  
-    amiga_set_abpen_drmd( amiga_window->RPort, pen, 0, JAM1 );
-    RectFill( amiga_window->RPort,
-	      xDest, yDest,
-	      xDest + xSize - 1, yDest + ySize - 1 );
-
-    amiga_release_pen( pen );
-  }
-  else if( minterm == 0xf0 )
-  {
-    LONG pen = g_server_bpp == 8 ? 16 + 3 : amiga_obtain_pen( 0xffffffff ); // Use white color of the mouse pointer for 8 bpp
-  
-    amiga_set_abpen_drmd( amiga_window->RPort, pen, 0, JAM1 );
-    RectFill( amiga_window->RPort,
-	      xDest, yDest,
-	      xDest + xSize - 1, yDest + ySize - 1 );
-
-    amiga_release_pen( pen );
-  }
-  else if( amiga_broken_blitter && minterm != 0xc0 )
-  {
-    // MinTerms do not work with CyberGraphX
-
-    SoftClipBlit( srcRP, xSrc, ySrc,
-		  destRP, xDest, yDest,
-		  xSize, ySize,
-		  minterm );
-  }
-  else
-  {
-    ClipBlit( srcRP, xSrc, ySrc,
-	      destRP, xDest, yDest,
-	      xSize, ySize,
-	      minterm );
-  }
-}
-
-
-VOID
-WorkingBltBitMapRastPort( struct BitMap *srcBitMap, LONG xSrc, LONG ySrc,
-			  struct RastPort *destRP, LONG xDest, LONG yDest,
-			  LONG xSize, LONG ySize,
-			  ULONG minterm )
-{
-  // Neither Picasso96 nor CyberGraphX handle minterm 0x00 and 0xff
-  // correctly, so use RectFill() for those instead. :-(
-  
-  if( minterm == 0 )
-  {
-    LONG pen = g_server_bpp == 8 ? 16 + 1 : amiga_obtain_pen( 0x00000000 ); // Use black color of the mouse pointer for 8 bpp
-  
-    amiga_set_abpen_drmd( amiga_window->RPort, pen, 0, JAM1 );
-    RectFill( amiga_window->RPort,
-	      xDest, yDest,
-	      xDest + xSize - 1, yDest + ySize - 1 );
-
-    amiga_release_pen( pen );
-  }
-  else if( minterm == 0xf0 )
-  {
-    LONG pen = g_server_bpp == 8 ? 16 + 3 : amiga_obtain_pen( 0xffffffff ); // Use white color of the mouse pointer for 8 bpp
-
-    amiga_set_abpen_drmd( amiga_window->RPort, pen, 0, JAM1 );
-    RectFill( amiga_window->RPort,
-	      xDest, yDest,
-	      xDest + xSize - 1, yDest + ySize - 1 );
-
-    amiga_release_pen( pen );
-  }
-  else if( amiga_broken_blitter && minterm != 0xc0 )
-  {
-    // MinTerms do not work with CyberGraphX
- 
-    SoftBltBitMapRastPort( srcBitMap, xSrc, ySrc,
-			   destRP, xDest, yDest,
-			   xSize, ySize,
-			   minterm );
-  }
-  else
-  {
-    BltBitMapRastPort( srcBitMap, xSrc, ySrc,
-		       destRP, xDest, yDest,
-		       xSize, ySize,
-		       minterm );
-  }
-}
-
-
-VOID
-amiga_blt_rastport( struct RastPort *srcRP, LONG xSrc, LONG ySrc,
-		    struct RastPort *destRP, LONG xDest, LONG yDest,
-		    LONG xSize, LONG ySize,
-		    ULONG minterm )
-{
-  // This function works like ClipBlit, with the exception that
-  // the installed clip region does not affect the source rastport.
-  //
-  // If you have a better idea, mail me!
-
-  
-  // Use BltBitMapRastPort when possible
-    
-  if( g_fullscreen && !amiga_connection_bar_visible )
-  {
-    WorkingBltBitMapRastPort( srcRP->BitMap, xSrc, ySrc,
-			      destRP, xDest, yDest,
-			      xSize, ySize,
-			      minterm );
-  }
-  else
-  {
-    if( ! amiga_clipping )
-    {
-      WorkingClipBlit( srcRP, xSrc, ySrc,
-		       destRP, xDest, yDest,
-		       xSize, ySize,
-		       minterm );
-    }
-    else
-    {
-      struct RastPort temprp;
-    
-      InitRastPort( &temprp );
-
-      temprp.BitMap = amiga_get_tmp_bitmap( xSize, ySize );
-
-      if( temprp.BitMap != NULL )
-      {
-	struct Region*  region;
-	  
-	region = InstallClipRegion( amiga_window->WLayer, NULL );
-
-	ClipBlit( srcRP, xSrc, ySrc,
-		  &temprp, 0, 0, xSize, ySize, 0xc0 );
-
-	InstallClipRegion( amiga_window->WLayer, region );
-    
-	WorkingBltBitMapRastPort( temprp.BitMap, 0, 0,
-				  destRP, xDest, yDest,
-				  xSize, ySize,
-				  minterm );
-      }
-    }
-  }
-}
-
-
-
-
-
-
-
-static void
-amiga_write_pixels( struct RastPort* rp,
-		    int x, int y, int width, int height,
-		    uint8* data, int data_width )
-{
-  if( g_server_bpp == 8 )
-  {
-    RemappedWriteChunkyPixels( rp, x, y, x + width - 1, y + height - 1,
-			       data, data_width );
-  }
-  else
-  {
-    ULONG* argb_data = amiga_get_tmp_buffer( width * height * 4 );
-    int xx, yy;
-    int i = 0;
-    
-    switch( g_server_bpp )
-    {
-      case 15:
-      {
-	UBYTE* src = (UBYTE*) data;
-
-	for( yy = 0; yy < height; ++yy )
-	{
-	  for( xx = 0; xx < width * 2; xx += 2 )
+	  // Now create the gadgets
+	  if (amiga_cb_depth_image)
 	  {
-	    UWORD color = ( src[ xx + 1 ] << 8 ) | src[ xx + 0 ];
-
-	    argb_data[ i++ ] = ( ( ( color & 0x7c00 ) << 9 ) |
-				 ( ( color & 0x03e0 ) << 6 ) |
-				 ( ( color & 0x001f ) << 3 ) );
+	    pos -= amiga_cb_depth_image->Width;
+	    
+	    amiga_cb_depth_gadget = (struct Gadget *)NewObject( NULL, "buttongclass",
+								GA_Image, (ULONG) amiga_cb_depth_image,
+								GA_SysGType, GTYP_SDEPTH,
+								amiga_is_os4 ? TAG_IGNORE : GA_RelRight, pos,
+								GA_Next, (ULONG) prev,
+								TAG_MORE, (ULONG) common_gadget_tags );
+	    if (amiga_cb_depth_gadget) {
+	      ++cnt;
+	      prev = amiga_cb_depth_gadget;
+	    }
 	  }
 
-	  src += data_width * 2;
-	}
-	
-	break;
-      }
- 
-      case 16:
-      {
-	UBYTE* src = (UBYTE*) data;
-
-	for( yy = 0; yy < height; ++yy )
-	{
-	  for( xx = 0; xx < width * 2; xx += 2 )
+	  if (amiga_cb_zoom_image)
 	  {
-	    UWORD color = ( src[ xx + 1 ] << 8 ) | src[ xx + 0 ];
+	    pos -= amiga_cb_zoom_image->Width;
 
-	    argb_data[ i++ ] = ( ( ( color & 0xf800 ) << 8 ) |
-				 ( ( color & 0x07e0 ) << 5 ) |
-				 ( ( color & 0x001f ) << 3 ) );
+	    amiga_cb_zoom_gadget = (struct Gadget *)NewObject( NULL, "buttongclass",
+							       GA_Image, (ULONG) amiga_cb_zoom_image,
+							       GA_ID, GADID_ZOOM,
+							       amiga_is_os4 ? TAG_IGNORE : GA_RelRight, pos,
+							       GA_Next, (ULONG) prev,
+							       TAG_MORE, (ULONG) common_gadget_tags );
+	    if (amiga_cb_zoom_gadget) {
+	      ++cnt;
+	      prev = amiga_cb_zoom_gadget;
+	    }
 	  }
 
-	  src += data_width * 2;
-	}
-	
-	break;
-      }
-
-      case 24:
-      {
-	UBYTE* src = (UBYTE*) data;
-
-	for( yy = 0; yy < height; ++yy )
-	{
-	  for( xx = 0; xx < width * 3; xx += 3 )
+	  if (amiga_cb_iconify_image)
 	  {
-	    argb_data[ i++ ] = ( ( src[ xx + 2] << 16 ) |
-				 ( src[ xx + 1 ] << 8 ) |
-				 src[ xx + 0 ] );
+	    pos -= amiga_cb_iconify_image->Width;
+
+	    amiga_cb_iconify_gadget = (struct Gadget *)NewObject( NULL, "buttongclass",
+								  GA_Image, (ULONG) amiga_cb_iconify_image,
+								  GA_ID, GADID_ICONIFY,
+								  amiga_is_os4 ? TAG_IGNORE : GA_RelRight, pos,
+								  GA_Next, (ULONG) prev,
+								  TAG_MORE, (ULONG) common_gadget_tags );
+	    if (amiga_cb_iconify_gadget) {
+	      ++cnt;
+	      prev = amiga_cb_iconify_gadget;
+	    }
+	  }
+
+
+	  if (amiga_cb_drag_image)
+	  {
+	    amiga_cb_drag_gadget = (struct Gadget *)NewObject( NULL, "buttongclass",
+							       GA_Image, (ULONG) amiga_cb_drag_image,
+							       GA_SysGType, GTYP_SDRAGGING,
+							       GA_Next, (ULONG) prev,
+							       TAG_MORE, (ULONG) common_gadget_tags );
+	    if (amiga_cb_drag_gadget) {
+	      ++cnt;
+	      prev = amiga_cb_drag_gadget;
+	    }
 	  }
 
 	  src += data_width * 3;
