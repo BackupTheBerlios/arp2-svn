@@ -21,10 +21,13 @@
 
 #include "config.h"
 
-#ifdef __amigaos4__
-# define ETI_Iconify 1000
-# define ETI_Sticky  1001
+#ifdef ETI_Iconify
+# define GADID_ICONIFY ETI_Iconify
+#else
+# define GADID_ICONIFY 1000
 #endif
+#define GADID_STICKY   1001
+#define GADID_ZOOM     1002
 
 #include "rdesktop.h"
 
@@ -155,19 +158,23 @@ static uint32 amiga_timerdevice_opened         = FALSE;
 static BOOL amiga_connection_bar_sticky        = FALSE;
 static BOOL amiga_connection_bar_visible       = TRUE;
 
-#ifdef __amigaos4__
-static struct Image    *amiga_IconifyImage     = NULL;
-static struct Gadget   *amiga_IconifyGadget    = NULL;
+static struct DrawInfo *amiga_draw_info        = NULL;
 
-static struct DrawInfo *amiga_DrInfo           = NULL;
-static struct Image    *amiga_CBIconifyImage   = NULL;
-static struct Gadget   *amiga_CBIconifyGadget  = NULL;
-static struct Image    *amiga_DepthImage       = NULL;
-static struct Gadget   *amiga_DepthGadget      = NULL;
-static struct Image    *amiga_StickyImage      = NULL;
-static struct Gadget   *amiga_StickyGadget     = NULL;
-static struct Image    *amiga_DragImage        = NULL;
-static struct Gadget   *amiga_DragGadget       = NULL;
+static struct Image    *amiga_cb_depth_image   = NULL;
+static struct Image    *amiga_cb_zoom_image    = NULL;
+static struct Image    *amiga_cb_iconify_image = NULL;
+static struct Image    *amiga_cb_drag_image    = NULL;
+static struct Image    *amiga_cb_sticky_image  = NULL;
+
+static struct Gadget   *amiga_cb_depth_gadget  = NULL;
+static struct Gadget   *amiga_cb_zoom_gadget   = NULL;
+static struct Gadget   *amiga_cb_iconify_gadget= NULL;
+static struct Gadget   *amiga_cb_drag_gadget   = NULL;
+static struct Gadget   *amiga_cb_sticky_gadget = NULL;
+
+#ifdef __amigaos4__
+static struct Image    *amiga_iconify_image     = NULL;
+static struct Gadget   *amiga_iconify_gadget    = NULL;
 #endif
 
 struct Glyph
@@ -1256,95 +1263,160 @@ amiga_connection_bar_open(struct TagItem const* common_window_tags)
 	  uint32 size = (amiga_window->WScreen->Flags & SCREENHIRES ? SYSISIZE_MEDRES : SYSISIZE_LOWRES);
 	  uint32 height = amiga_window->WScreen->Font->ta_YSize + amiga_window->WScreen->WBorTop + 1;
 
+	  int pos = 0;
+	  int cnt = 0;
+	  struct Gadget* prev = NULL;
+
+	  struct TagItem const common_image_tags[] = 
+	    {
+	      { SYSIA_Size,     size                    },
+	      { SYSIA_DrawInfo, (ULONG) amiga_draw_info },
+	      { IA_Height,      height                  },
+#if defined (__amigaos4__)
+	      {IA_InBorder,    TRUE                     },
+#endif
+	      {TAG_DONE,       0                        }
+	    };
+
+	  struct TagItem const common_gadget_tags[] = 
+	    {
+	      { GA_RelVerify, TRUE              },
+	      { GA_TopBorder, TRUE              },
+#if defined (__amigaos4__)
+	      { GA_Titlebar,  TRUE              },
+#endif
+	      {TAG_DONE,      0                 }
+	    };
+
 	  amiga_timerdevice_opened           = TRUE;
 	  amiga_timerreq->tr_time.tv_secs    = 5;
 	  amiga_timerreq->tr_time.tv_micro   = 0;
 	  amiga_timerreq->tr_node.io_Command = TR_ADDREQUEST;
 	  SendIO(&amiga_timerreq->tr_node);
 
-#if defined (__amigaos4__)
-	  amiga_DrInfo = GetScreenDrawInfo(amiga_window->WScreen);
+	  // Create connection bar images for the titlebar gadgets
+	  amiga_cb_depth_image = (struct Image *)NewObject( NULL, "sysiclass",
+							    SYSIA_Which, DEPTHIMAGE,
+							    TAG_MORE, (ULONG) common_image_tags );
 
-	  if (amiga_DrInfo)
-	  {
-	    amiga_DepthImage = (struct Image *)NewObject( NULL, "sysiclass",
-							  SYSIA_Size, size,
-							  SYSIA_DrawInfo, amiga_DrInfo,
-							  SYSIA_Which, DEPTHIMAGE,
-							  IA_Height, height,
-							  IA_InBorder, TRUE,
-							  TAG_DONE );
 
-	    if (amiga_DepthImage)
-	    {
-	      amiga_DepthGadget = (struct Gadget *)NewObject( NULL, "buttongclass",
-							      GA_Image, amiga_DepthImage,
-							      GA_Titlebar, TRUE,
-							      GA_SysGType, GTYP_SDEPTH,
-							      GA_RelVerify, TRUE,
-							      TAG_DONE );
-	    }
+	  amiga_cb_zoom_image = (struct Image *)NewObject( NULL, "sysiclass",
+							   SYSIA_Which, ZOOMIMAGE,
+							   TAG_MORE, (ULONG) common_image_tags );
 
-	    amiga_CBIconifyImage = (struct Image *)NewObject( NULL, "sysiclass",
-							      SYSIA_Size, size,
-							      SYSIA_DrawInfo, amiga_DrInfo,
+#ifdef ICONIFYIMAGE
+	  amiga_cb_iconify_image = (struct Image *)NewObject( NULL, "sysiclass",
 							      SYSIA_Which, ICONIFYIMAGE,
-							      IA_Height, height,
-							      IA_InBorder, TRUE,
-							      TAG_DONE );
-	    if (amiga_CBIconifyImage)
-	    {
-	      amiga_CBIconifyGadget = (struct Gadget *)NewObject( NULL, "buttongclass",
-								  GA_Image, amiga_CBIconifyImage,
-								  GA_Titlebar, TRUE,
-								  GA_ID, ETI_Iconify,
-								  GA_RelVerify, TRUE,
-								  GA_Next, amiga_DepthGadget,
-								  TAG_DONE );
-	    }
+							      TAG_MORE, (ULONG) common_image_tags );
+#endif
 
-	    amiga_DragImage = (struct Image *)NewObject( NULL, "sysiclass",
-							 SYSIA_Size, size,
-							 SYSIA_DrawInfo, amiga_DrInfo,
-							 SYSIA_Which, TBFRAMEIMAGE,
-							 SYSIA_Label, g_title,
-							 IA_Height, height,
-							 IA_InBorder, TRUE,
-							 TAG_DONE );
+#ifdef __amigaos4__
+	  amiga_cb_drag_image = (struct Image *)NewObject( NULL, "sysiclass",
+							   SYSIA_Which, TBFRAMEIMAGE,
+							   SYSIA_Label, g_title,
+							   TAG_MORE, (ULONG) common_image_tags );
+#endif
 
-	    if (amiga_DragImage)
-	    {
-	      amiga_DragGadget = (struct Gadget *)NewObject( NULL, "buttongclass",
-							     GA_Image, amiga_DragImage,
-							     GA_Titlebar, TRUE,
-							     GA_SysGType, GTYP_SDRAGGING,
-							     GA_RelVerify, TRUE,
-							     GA_Next, amiga_CBIconifyGadget,
-							     TAG_DONE );
-	    }
+#if defined(PADLOCKIMAGE)
+	  amiga_cb_sticky_image = (struct Image *)NewObject( NULL, "sysiclass",
+							     SYSIA_Which, PADLOCKIMAGE,
+							     TAG_MORE, (ULONG) common_image_tags );
+#elif defined(LOCKIMAGE)
+	  amiga_cb_sticky_image = (struct Image *)NewObject( NULL, "sysiclass",
+							     SYSIA_Which, LOCKIMAGE,
+							     TAG_MORE, (ULONG) common_image_tags );
+#endif
 
-	    amiga_StickyImage = (struct Image *)NewObject( NULL, "sysiclass",
-							   SYSIA_Size, size,
-							   SYSIA_DrawInfo, amiga_DrInfo,
-							   SYSIA_Which, PADLOCKIMAGE,
-							   IA_Height, height,
-							   IA_InBorder, TRUE,
-							   TAG_DONE );
-
-	    if (amiga_StickyImage)
-	    {
-	      amiga_StickyGadget = (struct Gadget *)NewObject( NULL, "buttongclass",
-							       GA_Image, amiga_StickyImage,
-							       GA_Titlebar, TRUE,
-							       GA_ID, ETI_Sticky,
-							       GA_RelVerify, TRUE,
-							       GA_Next, amiga_DragGadget,
-							       TAG_DONE );
+	  // Now create the gadgets
+	  if (amiga_cb_depth_image)
+	  {
+	    pos -= amiga_cb_depth_image->Width;
+	    
+	    amiga_cb_depth_gadget = (struct Gadget *)NewObject( NULL, "buttongclass",
+								GA_Image, (ULONG) amiga_cb_depth_image,
+								GA_SysGType, GTYP_SDEPTH,
+								amiga_is_os4 ? TAG_IGNORE : GA_RelRight, pos,
+								GA_Next, (ULONG) prev,
+								TAG_MORE, (ULONG) common_gadget_tags );
+	    if (amiga_cb_depth_gadget) {
+	      ++cnt;
+	      prev = amiga_cb_depth_gadget;
 	    }
 	  }
 
-	  if (amiga_CBIconifyGadget && amiga_DepthGadget && amiga_StickyGadget && amiga_DragGadget)
+	  if (amiga_cb_zoom_image)
 	  {
+	    pos -= amiga_cb_zoom_image->Width;
+
+	    amiga_cb_zoom_gadget = (struct Gadget *)NewObject( NULL, "buttongclass",
+							       GA_Image, (ULONG) amiga_cb_zoom_image,
+							       GA_ID, GADID_ZOOM,
+							       amiga_is_os4 ? TAG_IGNORE : GA_RelRight, pos,
+							       GA_Next, (ULONG) prev,
+							       TAG_MORE, (ULONG) common_gadget_tags );
+	    if (amiga_cb_zoom_gadget) {
+	      ++cnt;
+	      prev = amiga_cb_zoom_gadget;
+	    }
+	  }
+
+	  if (amiga_cb_iconify_image)
+	  {
+	    pos -= amiga_cb_iconify_image->Width;
+
+	    amiga_cb_iconify_gadget = (struct Gadget *)NewObject( NULL, "buttongclass",
+								  GA_Image, (ULONG) amiga_cb_iconify_image,
+								  GA_ID, GADID_ICONIFY,
+								  amiga_is_os4 ? TAG_IGNORE : GA_RelRight, pos,
+								  GA_Next, (ULONG) prev,
+								  TAG_MORE, (ULONG) common_gadget_tags );
+	    if (amiga_cb_iconify_gadget) {
+	      ++cnt;
+	      prev = amiga_cb_iconify_gadget;
+	    }
+	  }
+
+
+	  if (amiga_cb_drag_image)
+	  {
+	    amiga_cb_drag_gadget = (struct Gadget *)NewObject( NULL, "buttongclass",
+							       GA_Image, (ULONG) amiga_cb_drag_image,
+							       GA_SysGType, GTYP_SDRAGGING,
+							       GA_Next, (ULONG) prev,
+							       TAG_MORE, (ULONG) common_gadget_tags );
+	    if (amiga_cb_drag_gadget) {
+	      ++cnt;
+	      prev = amiga_cb_drag_gadget;
+	    }
+	  }
+
+	  if (amiga_cb_sticky_image)
+	  {
+	    pos -= amiga_cb_sticky_image->Width;
+
+	    amiga_cb_sticky_gadget = (struct Gadget *)NewObject( NULL, "buttongclass",
+								 GA_Image, (ULONG) amiga_cb_sticky_image,
+								 GA_ID, GADID_STICKY,
+								 amiga_is_os4 ? TAG_IGNORE : GA_RelRight, pos,
+								 GA_Next, (ULONG) prev,
+								 TAG_MORE, (ULONG) common_gadget_tags );
+	    if (amiga_cb_sticky_gadget) {
+	      ++cnt;
+	      prev = amiga_cb_sticky_gadget;
+	    }
+	  }
+
+	  if (prev)
+	  {
+	    struct TagItem const extra_tags[] = 
+	      {
+#if defined (__amigaos4__)
+		{ WA_ToolBox,  TRUE },
+		{ WA_StayTop,  TRUE },
+#endif
+		{TAG_DONE,     0    }
+	      };
+
 	    amiga_window2 = OpenWindowTags( NULL,
 					    WA_Left,           amiga_screen->Width / 4,
 					    WA_Top,            0,
@@ -1352,38 +1424,30 @@ amiga_connection_bar_open(struct TagItem const* common_window_tags)
 					    WA_Height,         height,
 					    WA_CustomScreen,   (ULONG) amiga_screen,
 					    WA_SmartRefresh,   TRUE,
-					    WA_WindowName,     g_title,
+					    WA_WindowName,     (ULONG) g_title,
+					    WA_Title,          (ULONG) g_title,
 					    WA_Activate,       FALSE,
 					    WA_CloseGadget,    TRUE,
-					    WA_ToolBox,        TRUE,
-					    WA_StayTop,        TRUE,
-					    WA_Gadgets,        amiga_StickyGadget,
-					    TAG_MORE,          (ULONG) common_window_tags );
+					    WA_Gadgets,        (ULONG) prev,
+					    WA_IDCMP,          (IDCMP_CLOSEWINDOW |
+								IDCMP_GADGETUP |
+								IDCMP_ACTIVEWINDOW |
+								IDCMP_SIZEVERIFY),
+					    TAG_MORE,          (ULONG) extra_tags);
+
 
 	    if (amiga_window2)
 	    {
-	      ChangeWindowBox(amiga_window2, g_width / 2 - (amiga_DepthGadget->LeftEdge + amiga_DepthGadget->Width) / 2, 0, amiga_DepthGadget->LeftEdge + amiga_DepthGadget->Width, amiga_window2->Height);
+#ifdef __amigaos4__
+	      ChangeWindowBox(amiga_window2, g_width / 2 - (amiga_cb_depth_gadget->LeftEdge + amiga_cb_depth_gadget->Width) / 2, 0, amiga_cb_depth_gadget->LeftEdge + amiga_cb_depth_gadget->Width, amiga_window2->Height);
+#else
+/*           RemoveGList(amiga_window2, prev, cnt); */
+/*           AddGList(amiga_window2, prev, 0, cnt, NULL); */
+/*           RefreshGList(prev, amiga_window2, NULL, -1); */
+#endif
 	      amiga_connection_bar_visible = TRUE;
 	    }
 	  }
-#else
-	  amiga_window2 = OpenWindowTags( NULL,
-					  WA_Left,           amiga_screen->Width / 4,
-					  WA_Top,            0,
-					  WA_Width,          amiga_screen->Width / 2,
-					  WA_Height,         height,
-					  WA_CustomScreen,   (ULONG) amiga_screen,
-					  WA_SmartRefresh,   TRUE,
-					  WA_Title,          (ULONG) g_title,
-					  WA_Activate,       FALSE,
-					  WA_CloseGadget,    TRUE,
-/* 					  WA_ToolBox,        TRUE, */
-/* 					  WA_StayTop,        TRUE, */
-/* 					  WA_Gadgets,        amiga_StickyGadget, */
-					  TAG_MORE,          (ULONG) common_window_tags );
-	  ActivateWindow( amiga_window );
-
-#endif
 	}
       }
     }
@@ -1395,78 +1459,70 @@ amiga_connection_bar_open(struct TagItem const* common_window_tags)
 static void
 amiga_connection_bar_close()
 {
-#ifdef __amigaos4__
-   if (amiga_DrInfo)
-   {
-      FreeScreenDrawInfo(amiga_window->WScreen, amiga_DrInfo);
-      amiga_DrInfo = NULL;
-   }
+  if (amiga_draw_info)
+  {
+    FreeScreenDrawInfo(amiga_window->WScreen, amiga_draw_info);
+    amiga_draw_info = NULL;
+  }
 
-   if (amiga_CBIconifyGadget)
-   {
-      if (amiga_window2)
-      {
-         RemoveGadget(amiga_window2, amiga_CBIconifyGadget);
-      }
-      DisposeObject((Object *)amiga_CBIconifyGadget);
-      amiga_CBIconifyGadget = NULL;
-   }
+  // Remove gadgets from window and free them
+  if (amiga_cb_depth_gadget)
+  {
+    if (amiga_window2)
+    {
+      RemoveGadget(amiga_window2, amiga_cb_depth_gadget);
+    }
+    DisposeObject((Object *)amiga_cb_depth_gadget);
+    amiga_cb_depth_gadget = NULL;
+  }
 
-   if (amiga_DepthGadget)
-   {
-      if (amiga_window2)
-      {
-         RemoveGadget(amiga_window2, amiga_DepthGadget);
-      }
-      DisposeObject((Object *)amiga_DepthGadget);
-      amiga_DepthGadget = NULL;
-   }
+  if (amiga_cb_iconify_gadget)
+  {
+    if (amiga_window2)
+    {
+      RemoveGadget(amiga_window2, amiga_cb_iconify_gadget);
+    }
+    DisposeObject((Object *)amiga_cb_iconify_gadget);
+    amiga_cb_iconify_gadget = NULL;
+  }
 
-   if (amiga_StickyGadget)
-   {
-      if (amiga_window2)
-      {
-         RemoveGadget(amiga_window2, amiga_StickyGadget);
-      }
-      DisposeObject((Object *)amiga_StickyGadget);
-      amiga_StickyGadget = NULL;
-   }
+  if (amiga_cb_sticky_gadget)
+  {
+    if (amiga_window2)
+    {
+      RemoveGadget(amiga_window2, amiga_cb_sticky_gadget);
+    }
+    DisposeObject((Object *)amiga_cb_sticky_gadget);
+    amiga_cb_sticky_gadget = NULL;
+  }
 
-   if (amiga_DragGadget)
-   {
-      if (amiga_window2)
-      {
-         RemoveGadget(amiga_window2, amiga_DragGadget);
-      }
-      DisposeObject((Object *)amiga_DragGadget);
-      amiga_DragGadget = NULL;
-   }
+  if (amiga_cb_drag_gadget)
+  {
+    if (amiga_window2)
+    {
+      RemoveGadget(amiga_window2, amiga_cb_drag_gadget);
+    }
+    DisposeObject((Object *)amiga_cb_drag_gadget);
+    amiga_cb_drag_gadget = NULL;
+  }
 
-   if (amiga_CBIconifyImage)
-   {
-       DisposeObject((Object *)amiga_CBIconifyImage);
-       amiga_CBIconifyImage = NULL;
-   }
+  // Dispose images
+  DisposeObject((Object *)amiga_cb_depth_image);
+  amiga_cb_depth_image = NULL;
 
-   if (amiga_DepthImage)
-   {
-       DisposeObject((Object *)amiga_DepthImage);
-       amiga_DepthImage = NULL;
-   }
+  DisposeObject((Object *)amiga_cb_zoom_image);
+  amiga_cb_zoom_image = NULL;
 
-   if (amiga_StickyImage)
-   {
-       DisposeObject((Object *)amiga_StickyImage);
-       amiga_StickyImage = NULL;
-   }
+  DisposeObject((Object *)amiga_cb_iconify_image);
+  amiga_cb_iconify_image = NULL;
 
-   if (amiga_DragImage)
-   {
-       DisposeObject((Object *)amiga_DragImage);
-       amiga_DragImage = NULL;
-   }
-#endif
+  DisposeObject((Object *)amiga_cb_sticky_image);
+  amiga_cb_sticky_image = NULL;
 
+  DisposeObject((Object *)amiga_cb_drag_image);
+  amiga_cb_drag_image = NULL;
+
+  // Close window and timer.device
   if( amiga_window2 != NULL )
   {
     CloseWindow( amiga_window2 );
@@ -1475,23 +1531,17 @@ amiga_connection_bar_close()
 
   if (amiga_timerdevice_opened)
   {
-     AbortIO(&amiga_timerreq->tr_node);
-     WaitIO(&amiga_timerreq->tr_node);
-     CloseDevice(&amiga_timerreq->tr_node);
-     amiga_timerdevice_opened = FALSE;
+    AbortIO(&amiga_timerreq->tr_node);
+    WaitIO(&amiga_timerreq->tr_node);
+    CloseDevice(&amiga_timerreq->tr_node);
+    amiga_timerdevice_opened = FALSE;
   }
 
-  if (amiga_timerreq)
-  {
-     DeleteIORequest(&amiga_timerreq->tr_node);
-     amiga_timerreq = NULL;
-  }
+  DeleteIORequest(&amiga_timerreq->tr_node);
+  amiga_timerreq = NULL;
 
-  if (amiga_timerport)
-  {
-     DeleteMsgPort(amiga_timerport);
-     amiga_timerport = NULL;
-  }  
+  DeleteMsgPort(amiga_timerport);
+  amiga_timerport = NULL;
 }
 
 static void
@@ -1572,7 +1622,7 @@ amiga_connection_bar_handle_events(ULONG mask)
 	  struct Gadget* g = (struct Gadget*) msg->IAddress;
 
 #ifdef __amigaos4__
-	  if( g->GadgetID == ETI_Iconify &&
+	  if( g->GadgetID == GADID_ICONIFY &&
 	      amiga_app_icon == NULL )
 	  {
 	    amiga_icon->do_Type = 0;
@@ -1587,21 +1637,21 @@ amiga_connection_bar_handle_events(ULONG mask)
 	      HideWindow( amiga_window2 );
 	    }
 	  }
+#endif
 
-	  if( g->GadgetID == ETI_Sticky )
+	  if( g->GadgetID == GADID_STICKY )
 	  {
 	    amiga_connection_bar_sticky = !amiga_connection_bar_sticky;
 	    if (amiga_connection_bar_visible)
 	    {
 	      if (amiga_connection_bar_sticky)
 	      {
-		DrawImageState(amiga_window2->RPort, amiga_StickyImage, amiga_StickyGadget->LeftEdge, amiga_StickyGadget->TopEdge, IDS_INACTIVESELECTED, amiga_DrInfo);
+		DrawImageState(amiga_window2->RPort, amiga_cb_sticky_image, amiga_cb_sticky_gadget->LeftEdge, amiga_cb_sticky_gadget->TopEdge, IDS_INACTIVESELECTED, amiga_draw_info);
 	      } else {
 		amiga_connection_bar_hide();
 	      }
 	    }
 	  }
-#endif
 	  break;
 	}
       }
@@ -1959,23 +2009,23 @@ ui_create_window(void)
   {
     struct TagItem const screen_tags[] =
       {
-	{ SA_Width,       g_width		},
-	{ SA_Height,      g_height		},
-	{ SA_Depth,       amiga_bpp		},
-	{ SA_Title,       (ULONG) g_title	},
-	{ SA_ShowTitle,   FALSE			},
-	{ SA_Quiet,       TRUE			},
-	{ SA_Type,        CUSTOMSCREEN		},
-	{ SA_DisplayID,   amiga_screen_id	},
-	{ SA_Interleaved, TRUE			},
-	{ SA_AutoScroll,  TRUE			},
-	{ SA_MinimizeISG, TRUE			},
-	{ SA_SharePens,   TRUE			},
+	{ SA_Width,		g_width			},
+	{ SA_Height,		g_height		},
+	{ SA_Depth,		amiga_bpp		},
+	{ SA_Title,		(ULONG) g_title		},
+	{ SA_ShowTitle,		FALSE			},
+	{ SA_Quiet,		TRUE			},
+	{ SA_Type,		CUSTOMSCREEN		},
+	{ SA_DisplayID,		amiga_screen_id		},
+	{ SA_Interleaved,	TRUE			},
+	{ SA_AutoScroll,	TRUE			},
+	{ SA_MinimizeISG,	TRUE			},
+	{ SA_SharePens,		TRUE			},
+	{ SA_LikeWorkbench,	amiga_bpp > 8		},
 #ifdef __amigaos4__
-	{ SA_LikeWorkbench, amiga_bpp > 8 ? TRUE : FALSE,	},
-	{ SA_OffScreenDragging, amiga_bpp > 8 ? TRUE : FALSE,	},
+	{ SA_OffScreenDragging, amiga_bpp > 8		},
 #endif
-	{ TAG_DONE,       0 			},
+	{ TAG_DONE,		0			},
       };
 
     amiga_screen = OpenScreenTagList( NULL, screen_tags );
@@ -1995,13 +2045,8 @@ ui_create_window(void)
 	  { WA_Height,         amiga_screen->Height	},
 	  { WA_CustomScreen,   (ULONG) amiga_screen	},
 	  { WA_Borderless,     TRUE			},
-/* #ifdef __amigaos4__ */
 	  { WA_SmartRefresh,   TRUE			},
 	  { WA_WindowName,     (ULONG) g_title		},
-/* #else */
-/* 	  { WA_NoCareRefresh,  TRUE			}, */
-/* 	  { WA_SimpleRefresh,  TRUE			}, */
-/* #endif */
 	  { WA_Backdrop,       TRUE			},
 	  { TAG_MORE,          (ULONG) common_window_tags },
 	};
@@ -2014,6 +2059,8 @@ ui_create_window(void)
 	CloseScreen( amiga_screen );
 	return False;
       }
+
+      amiga_draw_info = GetScreenDrawInfo(amiga_window->WScreen);
     }
 
     amiga_connection_bar_open((struct TagItem const *) common_window_tags);
@@ -2060,45 +2107,46 @@ ui_create_window(void)
     UnlockPubScreen( NULL, amiga_pubscreen );
     amiga_pubscreen = 0;
 
+    if( amiga_window == NULL )
+    {
+      error( "ui_create_window: Unable to open window.\n" );
+      return False;
+    }
+
+    amiga_draw_info = GetScreenDrawInfo(amiga_window->WScreen);
+
 #ifdef __amigaos4__
     if (amiga_window && amiga_icon)
     {
        uint32 size = (amiga_window->WScreen->Flags & SCREENHIRES ? SYSISIZE_MEDRES : SYSISIZE_LOWRES);
        uint32 height = amiga_window->WScreen->Font->ta_YSize + amiga_window->WScreen->WBorTop + 1;
 
-       amiga_DrInfo = GetScreenDrawInfo(amiga_window->WScreen);
-
-       amiga_IconifyImage = (struct Image *)NewObject( NULL, "sysiclass",
+       amiga_iconify_image = (struct Image *)NewObject( NULL, "sysiclass",
                                                        SYSIA_Size, size,
-                                                       SYSIA_DrawInfo, amiga_DrInfo,
+                                                       SYSIA_DrawInfo, amiga_draw_info,
                                                        SYSIA_Which, ICONIFYIMAGE,
                                                        IA_Height, height,
                                                        TAG_DONE );
-       if (amiga_IconifyImage)
+       if (amiga_iconify_image)
        {
-          amiga_IconifyGadget = (struct Gadget *)NewObject( NULL, "buttongclass",
-                                                            GA_Image, amiga_IconifyImage,
+          amiga_iconify_gadget = (struct Gadget *)NewObject( NULL, "buttongclass",
+                                                            GA_Image, amiga_iconify_image,
                                                             GA_Titlebar, TRUE,
                                                             GA_RelRight, 0,
-                                                            GA_ID, ETI_Iconify,
+                                                            GA_ID, GADID_ICONIFY,
                                                             GA_RelVerify, TRUE,
                                                             TAG_DONE );
        }
 
-       if (amiga_IconifyGadget)
+       if (amiga_iconify_gadget)
        {
-          AddGList(amiga_window, amiga_IconifyGadget, 0, 1, NULL);
-          RefreshGList(amiga_IconifyGadget, amiga_window, NULL, 1);
+          AddGList(amiga_window, amiga_iconify_gadget, 0, 1, NULL);
+          RefreshGList(amiga_iconify_gadget, amiga_window, NULL, 1);
        }
     }
 #endif
   }
 
-  if( amiga_window == NULL )
-  {
-    error( "ui_create_window: Unable to open window.\n" );
-    return False;
-  }
 
   GetRGB32( amiga_window->WScreen->ViewPort.ColorMap,
             16 + 1, 3, amiga_cursor_colors );
@@ -2152,17 +2200,17 @@ ui_destroy_window()
               amiga_cursor_colors[ 8 ] );
 
 #ifdef __amigaos4__
-   if (amiga_IconifyGadget)
+   if (amiga_iconify_gadget)
    {
-     RemoveGadget(amiga_window, amiga_IconifyGadget);
-     DisposeObject((Object *)amiga_IconifyGadget);
-     amiga_IconifyGadget = NULL;
+     RemoveGadget(amiga_window, amiga_iconify_gadget);
+     DisposeObject((Object *)amiga_iconify_gadget);
+     amiga_iconify_gadget = NULL;
    }
 
-   if (amiga_IconifyImage)
+   if (amiga_iconify_image)
    {
-     DisposeObject((Object *)amiga_IconifyImage);
-     amiga_IconifyImage = NULL;
+     DisposeObject((Object *)amiga_iconify_image);
+     amiga_iconify_image = NULL;
    }
 #endif
 
@@ -2405,7 +2453,7 @@ ui_select(int rdp_socket)
 	      struct Gadget* g = (struct Gadget*) msg->IAddress;
 
 #if defined(__MORPHOS__) || defined(__amigaos4__)
-	      if( g->GadgetID == ETI_Iconify &&
+	      if( g->GadgetID == GADID_ICONIFY &&
 		  amiga_app_icon == NULL )
 	      {
 		amiga_icon->do_Type = 0;
