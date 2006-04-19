@@ -26,64 +26,15 @@
 #undef BOOL
 #define Bool int
 
-/* #include <sys/time.h> */
-/* #include <ctype.h> */
-/* #include <errno.h> */
-/* #include <stdlib.h> */
-
-/* #if defined(__amigaos4__) */
-/* # include <unistd.h> */
-/* # include <time.h> */
-/* # include <proto/bsdsocket.h> */
-/* #elif defined(__libnix__) */
-/* #  include <libnix.h> */
-/* #elif defined(__ixemul__) */
-/* # include <ix.h> */
-/* #else */
-/* # error I need OS4, ixemul or libnix! */
-/* #endif */
-
 #include <cybergraphx/cybergraphics.h>
-/* #include <exec/execbase.h> */
 #include <exec/memory.h>
-/* #ifdef HAVE_DEVICES_NEWMOUSE_H */
-/* # include <devices/newmouse.h> */
-/* #endif */
-/* #ifdef HAVE_DEVICES_RAWKEYCODES_H */
-/* # include <devices/rawkeycodes.h> */
-/* #endif */
-/* #include <devices/timer.h> */
-/* #include <graphics/displayinfo.h> */
-/* #include <graphics/gfxbase.h> */
-/* #include <graphics/gfxmacros.h> */
-/* #include <graphics/modeid.h> */
-/* #include <graphics/rastport.h> */
 #include <graphics/rpattr.h>
 #include <intuition/intuition.h>
-/* #include <intuition/gadgetclass.h> */
-/* #include <intuition/imageclass.h> */
-/* #include <intuition/pointerclass.h> */
-/* #include <libraries/asl.h> */
-/* #ifdef HAVE_NEWMOUSE_H */
-/* # include <newmouse.h> */
-/* #endif */
-/* #include <workbench/workbench.h> */
-/* #include <proto/asl.h> */
-/* #include <proto/dos.h> */
 #include <proto/cybergraphics.h>
 #include <proto/exec.h>
-#undef GetOutlinePen // I get an annoying warning if this is defined
 #include <proto/graphics.h>
 #include <proto/intuition.h>
-/* #include <proto/keymap.h> */
 #include <proto/layers.h>
-/* #include <proto/wb.h> */
-
-/* #ifdef __MORPHOS__ */
-/* # include <intuition/extensions.h> */
-/* #endif */
-
-/* #include "amiga_clipboard.h" */
 
 extern int  g_width;
 extern int  g_height;
