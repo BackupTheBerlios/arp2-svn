@@ -21,13 +21,9 @@
 
 #include "config.h"
 
-#ifdef ETI_Iconify
-# define GADID_ICONIFY ETI_Iconify
-#else
-# define GADID_ICONIFY 1000
+#ifdef __amigaos4__
+# define ETI_Iconify 1000
 #endif
-#define GADID_STICKY   1001
-#define GADID_ZOOM     1002
 
 #include "rdesktop.h"
 
@@ -91,6 +87,7 @@
 # include <intuition/extensions.h>
 #endif
 
+#include "amiga_cbar.h"
 #include "amiga_clipboard.h"
 #include "amiga_support.h"
 
@@ -150,14 +147,6 @@ APTR           amiga_tmp_buffer         = NULL;
 ULONG          amiga_tmp_buffer_length  = 0;
 struct BitMap* amiga_tmp_bitmap         = NULL;
 BOOL           amiga_clipping           = FALSE;
-
-/* For the connection bar */
-struct Window* amiga_window2            = NULL;
-struct timerequest *amiga_timerreq      = NULL;
-struct MsgPort *amiga_timerport         = NULL;
-uint32 amiga_timerdevice_opened         = FALSE;
-BOOL amiga_connection_bar_sticky        = FALSE;
-BOOL amiga_connection_bar_visible       = TRUE;
 
 static struct DrawInfo *amiga_draw_info        = NULL;
 
@@ -1632,7 +1621,7 @@ ui_create_window(void)
       amiga_draw_info = GetScreenDrawInfo(amiga_window->WScreen);
     }
 
-    amiga_connection_bar_open((struct TagItem const *) common_window_tags);
+    amiga_cbar_open((struct TagItem const *) common_window_tags);
   }
   else
   {
@@ -1702,7 +1691,7 @@ ui_create_window(void)
                                                             GA_Image, amiga_iconify_image,
                                                             GA_Titlebar, TRUE,
                                                             GA_RelRight, 0,
-                                                            GA_ID, GADID_ICONIFY,
+                                                            GA_ID, ETI_Iconify,
                                                             GA_RelVerify, TRUE,
                                                             TAG_DONE );
        }
@@ -1734,7 +1723,7 @@ ui_destroy_window()
     amiga_app_icon = NULL;
   }
 
-  amiga_connection_bar_close();
+  amiga_cbar_close();
 
   if( amiga_backup != NULL )
   {
@@ -1845,14 +1834,7 @@ ui_select(int rdp_socket)
       mask |= ( 1UL << amiga_window->UserPort->mp_SigBit );
     }
 
-    if( amiga_window2 != NULL )
-    {
-      mask |= ( 1UL << amiga_window2->UserPort->mp_SigBit );
-      if (amiga_timerdevice_opened)
-      {
-         mask |= (1 << amiga_timerport->mp_SigBit);
-      }
-    }
+    mask |= amiga_cbar_get_signal_mask();
     
 #ifdef WITH_RDPSND
     if( amiga_audio_signal != -1 )
@@ -2022,7 +2004,7 @@ ui_select(int rdp_socket)
 	      struct Gadget* g = (struct Gadget*) msg->IAddress;
 
 #if defined(__MORPHOS__) || defined(__amigaos4__)
-	      if( g->GadgetID == GADID_ICONIFY &&
+	      if( g->GadgetID == ETI_Iconify &&
 		  amiga_app_icon == NULL )
 	      {
 		amiga_icon->do_Type = 0;
@@ -2230,7 +2212,7 @@ ui_select(int rdp_socket)
 			      MOUSE_FLAG_MOVE,
                               msg->MouseX - amiga_window->BorderLeft,
                               msg->MouseY - amiga_window->BorderTop );
-	      amiga_connection_bar_set_mouse( msg->MouseX, msg->MouseY );
+	      amiga_cbar_set_mouse( msg->MouseX, msg->MouseY );
 	      break;
             }
 
@@ -2254,7 +2236,7 @@ ui_select(int rdp_socket)
                 }
 	      }
 
-	      amiga_connection_bar_set_mouse( msg->MouseX, msg->MouseY );
+	      amiga_cbar_set_mouse( msg->MouseX, msg->MouseY );
 	    }
 	    break;
 
@@ -2267,7 +2249,7 @@ ui_select(int rdp_socket)
 	}
       }
 
-      amiga_connection_bar_handle_events(mask);
+      amiga_cbar_handle_events(mask);
 
       if( res > 0 )
       {

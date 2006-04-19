@@ -52,7 +52,7 @@ extern ULONG          amiga_tmp_buffer_length;
 extern struct BitMap* amiga_tmp_bitmap;
 extern BOOL           amiga_clipping;
 
-extern BOOL           amiga_connection_bar_visible;
+extern BOOL           amiga_cbar_visible;
 
 
 void
@@ -509,7 +509,7 @@ amiga_blt_rastport( struct RastPort *srcRP, LONG xSrc, LONG ySrc,
   
   // Use BltBitMapRastPort when possible
     
-  if( g_fullscreen && !amiga_connection_bar_visible )
+  if( g_fullscreen && !amiga_cbar_visible )
   {
     WorkingBltBitMapRastPort( srcRP->BitMap, xSrc, ySrc,
 			      destRP, xDest, yDest,
