@@ -34,6 +34,11 @@
 #include "radeon_drv.h"
 #include "r300_reg.h"
 
+int radeon_allow_r300;
+
+MODULE_PARM_DESC(allow_r300, "Allow DRI on Radeon R300 and later cards");
+module_param_named(allow_r300, radeon_allow_r300, int, 0444);
+
 #define RADEON_FIFO_DEBUG	0
 
 static int radeon_do_cleanup_cp(drm_device_t * dev);
@@ -2103,6 +2108,11 @@ int radeon_driver_load(struct drm_device *dev, unsigned long flags)
 {
 	drm_radeon_private_t *dev_priv;
 	int ret = 0;
+
+	if (!radeon_allow_r300 && (flags & CHIP_FAMILY_MASK) >= CHIP_R300) {
+		printk(KERN_NOTICE "Avoiding DRI on Radeon R300+. Use 'allow_r300=1' module option to override\n");
+		return DRM_ERR(ENXIO);
+	}
 
 	dev_priv = drm_alloc(sizeof(drm_radeon_private_t), DRM_MEM_DRIVER);
 	if (dev_priv == NULL)
