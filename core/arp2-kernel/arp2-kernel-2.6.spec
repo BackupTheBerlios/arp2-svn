@@ -11,7 +11,7 @@ Summary: The Linux kernel (the core of the Linux system)
 %define sublevel 16
 %define kversion 2.6.16
 %define rpmversion 2.6.16
-%define release 1
+%define release 2
 %define signmodules 0
 %define make_target bzImage
 %define kernel_image x86
@@ -559,6 +559,9 @@ fi
 
 
 %changelog
+* Thu Apr 20 2006 Martin Blom <martin@blom.org> - 2.6.16-2
+- Updated to Fedora's 2.6.16-1.2096_FC5 kernel.
+
 * Fri Apr  7 2006 Martin Blom <martin@blom.org> - 2.6.16-1
 - Added support for AROS/Amithlon subpartitions.
 
