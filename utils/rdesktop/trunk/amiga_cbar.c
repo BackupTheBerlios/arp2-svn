@@ -55,7 +55,7 @@ extern struct DiskObject*  amiga_icon;
 extern struct AppIcon*     amiga_app_icon;
 extern struct MsgPort*     amiga_wb_port;
 
-static struct Window*      amiga_window2          = NULL;
+struct Window*             amiga_window2          = NULL;
 static struct timerequest* amiga_timerreq         = NULL;
 static struct MsgPort*     amiga_timerport        = NULL;
 
