@@ -14,7 +14,7 @@
 #include <stdio.h>
 #include <sys/time.h>
 
-#define UPLOAD_MODE 1
+#define UPLOAD_MODE 0
 #define DATA_TYPE 1
 
 #if DATA_TYPE == 0
