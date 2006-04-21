@@ -22,8 +22,8 @@ Source10: kmodtool
 
 
 Name:           %{kmod_name}-kmod
-Version:        8.23.7
-Release:        5.%(echo %{kverrel} | tr - _)
+Version:        8.24.8
+Release:        1.%(echo %{kverrel} | tr - _)
 Summary:        ATI proprietary driver for ATI Radeon graphic cards, kernel part
 
 Group:		System Environment/Kernel
@@ -35,10 +35,6 @@ Source0:        http://www.leemhuis.info/files/fedorarpms/KMODFILES.lvn/fglrx-km
 Patch1:		ati-fglrx-makefile.diff
 Patch2:		ati-fglrx-makesh.diff
 Patch10:	ati-fglrx-via_int_agpgart.patch
-Patch20:	ati-fglrx-pm_legacy.patch
-Patch22:	ati-fglrx-accessok.patch
-Patch23:	fglrx-vma_info_fix.patch
-Patch24:	fglrx-modparmdesc.patch
 Patch25:	fglrx-x86_64-fixups.patch
 
 ExclusiveArch:  i586 i686 x86_64
@@ -75,10 +71,7 @@ for kvariant in %{kvariants} ; do
 %patch1 -b .patch1
 %patch2 -b .patch2
 %patch10 -p1 -b .patch10
-%patch22 -p1 -b .patch22
 %ifarch x86_64
-%patch23 -p1 -b .patch23
-%patch24 -p1 -b .patch24
 %patch25 -p1 -b .patch25
 %endif
     popd
@@ -115,5 +108,8 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
-* Fri Apr 14 2006 Martin Blom <martin@blom.org> 8.23.7-4.2.6.16_1
+* Fri Apr 21 2006 Martin Blom <martin@blom.org> - 8.24.8-1.2.6.16-1.2096.1
+- Updated from Livna's 2.24.8-1.2.6.16-1.2096_FC5
+
+* Fri Apr 14 2006 Martin Blom <martin@blom.org> - 8.23.7-4.2.6.16_1
 - Created from Livna's 8.23.7-4.2.6.16_1.2080_FC5 SRPM.
