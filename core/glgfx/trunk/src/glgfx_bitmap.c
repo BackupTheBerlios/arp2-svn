@@ -987,7 +987,8 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
 
 	glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
 
-	if (mask != NULL) {
+	if (mask != NULL && // FIXME: glBitmap() is totally broken on ATI
+	    !context->monitor->is_ati) { 
 	  // Clear area
 	  glColor4f(0, 0, 0, 0);
 	  glgfx_context_bindprogram(context, &color_blitter);

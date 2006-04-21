@@ -64,7 +64,8 @@ static bool check_extensions(struct glgfx_monitor* monitor) {
 
 
   // Ugly hack for ATI's driver. FIXME!
-  monitor->miss_pixel_ops = strstr((char*) glGetString(GL_VENDOR), "ATI ") != NULL;
+  monitor->is_ati = strstr((char*) glGetString(GL_VENDOR), "ATI ") != NULL;
+  monitor->miss_pixel_ops = monitor->is_ati;
 
   // Check for framebuffer_object support
   if (g_hash_table_lookup(monitor->gl_extensions, "GL_EXT_framebuffer_object") != NULL) {

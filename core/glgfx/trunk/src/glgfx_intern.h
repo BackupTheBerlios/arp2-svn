@@ -70,6 +70,7 @@ struct glgfx_monitor {
     bool                    have_GL_EXT_framebuffer_object;
     bool                    have_GL_NV_blend_square;
     bool                    have_GL_ARB_texture_rectangle;
+    bool                    is_ati;
     bool                    miss_pixel_ops;
 
     timer_t                 vsync_timer;
