@@ -273,7 +273,9 @@ void* glgfx_bitmap_lock_a(struct glgfx_bitmap* bitmap, bool read, bool write,
 
   // I have no idea why, but on some GeForces, this needs to be done
   // even if we're only writing. Driver 1.0.8756 bug?
-  glgfx_context_bindfbo(context, bitmap);
+  if (context->monitor->have_GL_ARB_pixel_buffer_object) {
+    glgfx_context_bindfbo(context, bitmap);
+  }
 
   if (read) {
     // Bind FBO and attach texture
