@@ -355,6 +355,13 @@ bool glgfx_context_bindprogram(struct glgfx_context* context,
     return false;
   }
 
+  if (context->fbo_bitmap != NULL &&
+      (context->fbo_bitmap || context->tex_bitmap[0] ||
+       context->fbo_bitmap || context->tex_bitmap[1])) {
+    BUG("glgfx_context_bindtex: Bitmap %p is currently bound to both FBO and TEX!\n", 
+	context->fbo_bitmap);
+  }
+
   // Defaults
   enum glgfx_pixel_format dst  = context->monitor->format;
 
