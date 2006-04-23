@@ -1,3 +1,8 @@
+2006-04-23  Martin Blom  <leviticus@elizabeth.datan.blom.org>
+
+	* Added hardware-assisted clipping to bitmap blits (lock/unlock
+	and write are not (yet?) affected.
+
 2006-04-22  Martin Blom  <leviticus@elizabeth.datan.blom.org>
 
 	* Nuked glgfx_bitmap_waitblit() and glgfx_bitmap_select().

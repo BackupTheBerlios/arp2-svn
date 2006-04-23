@@ -140,6 +140,14 @@ bool glgfx_bitmap_getattr(struct glgfx_bitmap* bm,
 bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap, struct glgfx_tagitem const* tags);
 
 
+struct glgfx_cliprect* glgfx_bitmap_addcliprect(struct glgfx_bitmap* bitmap,
+						int x, int y, int width, int height);
+bool glgfx_bitmap_remcliprect(struct glgfx_bitmap* bitmap,
+			      struct glgfx_cliprect* cliprect);
+
+int glgfx_bitmap_numcliprects(struct glgfx_bitmap* bitmap);
+
+
 
 #define glgfx_bitmap_create(tag1, ...)	\
   ({ intptr_t const _tags[] = { tag1, ## __VA_ARGS__ }; \

@@ -164,6 +164,14 @@ struct glgfx_bitmap* glgfx_bitmap_create_a(struct glgfx_tagitem const* tags) {
 }
 
 
+
+static void free_cliprect(gpointer data, gpointer userdata) {
+  (void) userdata;
+
+  free(data);
+}
+
+
 void glgfx_bitmap_destroy(struct glgfx_bitmap* bitmap) {
   struct glgfx_context* context = glgfx_context_getcurrent();
 
@@ -180,6 +188,7 @@ void glgfx_bitmap_destroy(struct glgfx_bitmap* bitmap) {
     free(bitmap->buffer);
   }
   glDeleteTextures(1, &bitmap->texture);
+  g_list_foreach(bitmap->cliprects, free_cliprect, NULL);
   free(bitmap);
   pthread_mutex_unlock(&glgfx_mutex);
 }
@@ -933,11 +942,38 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
     glReadBuffer(GL_COLOR_ATTACHMENT0_EXT);
     glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
     glWindowPos2i(dst_x, dst_y);
-    glCopyPixels(src_x, src_y, src_width, src_height, GL_COLOR);
+
+    GList* cr = g_list_first(bitmap->cliprects);
+
+    if (cr != NULL) {
+      glEnable(GL_SCISSOR_TEST);
+    }
+
+    do {
+      if (cr != NULL) {
+	struct glgfx_cliprect* cliprect = (struct glgfx_cliprect*) cr->data;
+
+	if (dst_x + dst_width < cliprect->x ||
+	    cliprect->x + cliprect->width < dst_x ||
+	    dst_y + dst_height < cliprect->y ||
+	    cliprect->y + cliprect->height < dst_y) {
+	  continue;
+	}
+
+	glScissor(cliprect->x, cliprect->y, cliprect->width, cliprect->height);
+      }
+
+      glCopyPixels(src_x, src_y, src_width, src_height, GL_COLOR);
+
+    } while (cr != NULL && (cr = g_list_next(cr)) != NULL);
+
+    if (g_list_first(bitmap->cliprects) != NULL) {
+      glDisable(GL_SCISSOR_TEST);
+    }
 
     if ((minterm & 0xf0) != 0xc0) {
       glDisable(GL_COLOR_LOGIC_OP);
-    }
+    }    
   }
   else {
     if (src_bitmap == dst_bitmap || mask != NULL) {
@@ -1114,8 +1150,8 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
 	GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA,
 	GL_DST_COLOR, GL_ONE_MINUS_DST_COLOR,
 	GL_DST_ALPHA, GL_ONE_MINUS_DST_ALPHA,
-/* 	GL_CONSTANT_COLOR, GL_ONE_MINUS_CONSTANT_COLOR, */
-/* 	GL_CONSTANT_ALPHA, GL_ONE_MINUS_CONSTANT_ALPHA, */
+	/* 	GL_CONSTANT_COLOR, GL_ONE_MINUS_CONSTANT_COLOR, */
+	/* 	GL_CONSTANT_ALPHA, GL_ONE_MINUS_CONSTANT_ALPHA, */
 	GL_SRC_ALPHA_SATURATE
       };
 
@@ -1125,47 +1161,74 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
 			  func[blend_func_src_alpha], func[blend_func_dst_alpha]);
     }
 
-    glBegin(GL_QUADS); {
-      glMultiTexCoord2i(src_unit,
-			src_x,
-			src_y);
-      glMultiTexCoord2i(mod_unit,
-			mod_x,
-			mod_y);
-      glVertex2i(dst_x,
-		 dst_bitmap->height - dst_y);
 
-      glMultiTexCoord2i(src_unit,
-			src_x + src_width, 
-			src_y);
-      glMultiTexCoord2i(mod_unit,
-			mod_x + mod_width, 
-			mod_y);
-      glVertex2i(dst_x + dst_width, 
-		 dst_bitmap->height - dst_y);
+    GList* cr = g_list_first(bitmap->cliprects);
 
-      glMultiTexCoord2i(src_unit,
-			src_x + src_width, 
-			src_y + src_height);
-      glMultiTexCoord2i(mod_unit,
-			mod_x + mod_width, 
-			mod_y + mod_height);
-      glVertex2i(dst_x + dst_width, 
-		 dst_bitmap->height - (dst_y + dst_height));
-
-      glMultiTexCoord2i(src_unit,
-			src_x,
-			src_y + src_height);
-      glMultiTexCoord2i(mod_unit,
-			mod_x,
-			mod_y + mod_height);
-      glVertex2i(dst_x,
-		 dst_bitmap->height - (dst_y + dst_height));
+    if (cr != NULL) {
+      glEnable(GL_SCISSOR_TEST);
     }
-    glEnd();
+
+    do {
+      if (cr != NULL) {
+	struct glgfx_cliprect* cliprect = (struct glgfx_cliprect*) cr->data;
+
+	if (dst_x + dst_width < cliprect->x ||
+	    cliprect->x + cliprect->width < dst_x ||
+	    dst_y + dst_height < cliprect->y ||
+	    cliprect->y + cliprect->height < dst_y) {
+	  continue;
+	}
+
+	glScissor(cliprect->x, cliprect->y, cliprect->width, cliprect->height);
+      }
+
+      glBegin(GL_QUADS); {
+	glMultiTexCoord2i(src_unit,
+			  src_x,
+			  src_y);
+	glMultiTexCoord2i(mod_unit,
+			  mod_x,
+			  mod_y);
+	glVertex2i(dst_x,
+		   dst_bitmap->height - dst_y);
+
+	glMultiTexCoord2i(src_unit,
+			  src_x + src_width, 
+			  src_y);
+	glMultiTexCoord2i(mod_unit,
+			  mod_x + mod_width, 
+			  mod_y);
+	glVertex2i(dst_x + dst_width, 
+		   dst_bitmap->height - dst_y);
+
+	glMultiTexCoord2i(src_unit,
+			  src_x + src_width, 
+			  src_y + src_height);
+	glMultiTexCoord2i(mod_unit,
+			  mod_x + mod_width, 
+			  mod_y + mod_height);
+	glVertex2i(dst_x + dst_width, 
+		   dst_bitmap->height - (dst_y + dst_height));
+
+	glMultiTexCoord2i(src_unit,
+			  src_x,
+			  src_y + src_height);
+	glMultiTexCoord2i(mod_unit,
+			  mod_x,
+			  mod_y + mod_height);
+	glVertex2i(dst_x,
+		   dst_bitmap->height - (dst_y + dst_height));
+      }
+      glEnd();
+
+    } while (cr != NULL && (cr = g_list_next(cr)) != NULL);
 
     if (blend_eq != glgfx_blend_equation_disabled) {
       glDisable(GL_BLEND);
+    }
+
+    if (g_list_first(bitmap->cliprects) != NULL) {
+      glDisable(GL_SCISSOR_TEST);
     }
 
     if ((minterm & 0xf0) != 0xc0) {
@@ -1183,4 +1246,68 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
   }
 
   return rc;
+}
+
+
+struct glgfx_cliprect* glgfx_bitmap_addcliprect(struct glgfx_bitmap* bitmap,
+						int x, int y, int width, int height) {
+  struct glgfx_cliprect* cliprect;
+  
+  if (bitmap == NULL || width < 0 || height < 0) {
+    errno = EINVAL;
+    return NULL;
+  }
+
+  cliprect = malloc(sizeof (*cliprect));
+
+  if (cliprect == NULL) {
+    errno = ENOMEM;
+    return NULL;
+  }
+
+  cliprect->x      = x;
+  cliprect->y      = y;
+  cliprect->width  = width;
+  cliprect->height = height;
+
+  pthread_mutex_lock(&glgfx_mutex);
+
+  bitmap->cliprects = g_list_append(bitmap->cliprects, cliprect);
+
+  pthread_mutex_unlock(&glgfx_mutex);
+  return cliprect;
+}
+
+
+bool glgfx_bitmap_remcliprect(struct glgfx_bitmap* bitmap,
+			      struct glgfx_cliprect* cliprect) {
+  if (bitmap == NULL || cliprect == NULL) {
+    errno = EINVAL;
+    return false;
+  }
+
+  pthread_mutex_lock(&glgfx_mutex);
+
+  bitmap->cliprects = g_list_remove(bitmap->cliprects, cliprect);
+  free(cliprect);
+
+  pthread_mutex_unlock(&glgfx_mutex);
+  return true;
+}
+
+
+int glgfx_bitmap_numcliprects(struct glgfx_bitmap* bitmap) {
+  int res;
+  
+  if (bitmap == NULL) {
+    errno = EINVAL;
+    return 0;
+  }
+
+  pthread_mutex_lock(&glgfx_mutex);
+
+  res = g_list_length(bitmap->cliprects);
+
+  pthread_mutex_unlock(&glgfx_mutex);
+  return res;
 }

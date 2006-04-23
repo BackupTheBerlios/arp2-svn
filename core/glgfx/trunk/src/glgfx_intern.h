@@ -93,6 +93,13 @@ struct glgfx_view {
 };
 
 
+struct glgfx_cliprect {
+  int x;
+  int y;
+  int width;
+  int height;
+};
+
 struct glgfx_bitmap {
 //    struct glgfx_monitor*   monitor;
     int                     width;
@@ -115,6 +122,8 @@ struct glgfx_bitmap {
     int                     locked_y;
     int                     locked_width;
     int                     locked_height;
+
+    GList*                  cliprects;
 
     bool                    has_changed;
 };

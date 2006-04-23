@@ -31,6 +31,12 @@ struct glgfx_monitor* monitor;
 int blit(struct glgfx_bitmap* bitmap, int w, int h) {
   uint32_t* buffer;
 
+  // Create a rectangular hole at (250,150)-(350,200)
+  glgfx_bitmap_addcliprect(bitmap, 0,   0,   w,       150);
+  glgfx_bitmap_addcliprect(bitmap, 0,   150, 250,     50);
+  glgfx_bitmap_addcliprect(bitmap, 350, 150, w - 350, 50);
+  glgfx_bitmap_addcliprect(bitmap, 0,   200, w,       h - 200);
+
   // Fill texture with data
 
   if ((buffer = glgfx_bitmap_lock(bitmap, false, true, glgfx_tag_end)) != NULL) {
