@@ -140,9 +140,6 @@ bool glgfx_bitmap_getattr(struct glgfx_bitmap* bm,
 bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap, struct glgfx_tagitem const* tags);
 
 
-bool glgfx_bitmap_select(struct glgfx_bitmap* bitmap);
-bool glgfx_bitmap_waitblit(struct glgfx_bitmap* bitmap);
-
 
 #define glgfx_bitmap_create(tag1, ...)	\
   ({ intptr_t const _tags[] = { tag1, ## __VA_ARGS__ }; \

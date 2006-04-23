@@ -1,3 +1,12 @@
+2006-04-22  Martin Blom  <leviticus@elizabeth.datan.blom.org>
+
+	* Nuked glgfx_bitmap_waitblit() and glgfx_bitmap_select().
+
+	* Now uses fragment programs for texturing and coloring. 
+
+	* Uses NPOT 2D textures if texture rectangles is not
+	supported. (ATI).
+
 2005-11-13  Martin Blom  <martin@blom.org>
 
 	* glgfx: Too much to list, but I'll try: Does not need PBOs,

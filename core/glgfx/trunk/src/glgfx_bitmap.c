@@ -606,31 +606,6 @@ bool glgfx_bitmap_getattr(struct glgfx_bitmap* bm,
 }
 
 
-bool glgfx_bitmap_select(struct glgfx_bitmap* bitmap) {
-  if (bitmap == NULL) {
-    return false;
-  }
-
-  // TODO: Set rendering buffer to the bitmap here
-  abort();
-  return false;
-}
-
-bool glgfx_bitmap_waitblit(struct glgfx_bitmap* bitmap) {
-  if (bitmap == NULL) {
-    return false;
-  }
-
-  pthread_mutex_lock(&glgfx_mutex);
-
-  glgfx_bitmap_select(bitmap);
-  glFinish();
-  
-  pthread_mutex_unlock(&glgfx_mutex);
-  return true;
-}
-
-
 bool glgfx_bitmap_haschanged(struct glgfx_bitmap* bitmap) {
   bool has_changed = bitmap->has_changed;
 
