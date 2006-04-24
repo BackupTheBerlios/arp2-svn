@@ -139,6 +139,7 @@ echo -n "."
 # Only read this once.
 cmdline=$(cat /proc/cmdline)
 
+TIMESTAMP="$TIMESTAMP `date +%s.%N`"
 # Initialize hardware
 if [ -f /proc/sys/kernel/modprobe ]; then
    if ! strstr "$cmdline" nomodules && [ -f /proc/modules ] ; then
@@ -154,7 +155,9 @@ echo -n "."
 touch /dev/.in_sysinit >/dev/null 2>&1
 
 killall nash-hotplug >/dev/null 2>&1
+TIMESTAMP="$TIMESTAMP `date +%s.%N`"
 /sbin/start_udev >/dev/null
+TIMESTAMP="$TIMESTAMP `date +%s.%N`"
 
 echo -n "."
 
@@ -186,6 +189,7 @@ fi
 # Note that the NVIDIA driver must be used below if found.
 # TODO: Fix the ATI driver so it inserts itself based on PCI IDs!
 modprobe fglrx >/dev/null 2>&1
+TIMESTAMP="$TIMESTAMP `date +%s.%N`"
 
 # TODO: Add RAID startup code here?
 
@@ -359,6 +363,7 @@ if [ "x$config_me" == "xyes" ] ||
   . ${sysconfdir}/arp2.conf
 fi
 
+echo $TIMESTAMP > /tmp/arp2-timestamp.`uname -r`
 while true; do
     # Default is fast reboot, if possible
     echo -1 > /tmp/arp2-bootlevel
