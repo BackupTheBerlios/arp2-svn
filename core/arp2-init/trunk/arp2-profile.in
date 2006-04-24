@@ -1,0 +1,16 @@
+#!/bin/bash
+#
+# arp2-profile: Execute arp2-init using strace, logging to the kernel
+# log.
+#
+# (This script will not work unless / and /usr refers to the same
+# partition.)
+
+
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+bindir=@bindir@
+sbindir=@sbindir@
+
+/bin/mount -n -t tmpfs none /mnt
+/usr/bin/strace -o /mnt/arp2-kmsg -e trace=file -ttt -f -F ${sbindir}/arp2-init

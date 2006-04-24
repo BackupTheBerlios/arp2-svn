@@ -38,10 +38,10 @@ POST_UNINSTALL = :
 subdir = .
 DIST_COMMON = README $(am__configure_deps) $(srcdir)/Makefile.am \
 	$(srcdir)/Makefile.in $(srcdir)/arp2-config.in \
-	$(srcdir)/arp2-init.in $(srcdir)/arp2-xinit.in \
-	$(top_srcdir)/configure AUTHORS COPYING ChangeLog INSTALL NEWS \
-	aux/config.guess aux/config.sub aux/install-sh aux/missing \
-	aux/mkinstalldirs
+	$(srcdir)/arp2-init.in $(srcdir)/arp2-profile.in \
+	$(srcdir)/arp2-xinit.in $(top_srcdir)/configure AUTHORS \
+	COPYING ChangeLog INSTALL NEWS aux/config.guess aux/config.sub \
+	aux/install-sh aux/missing aux/mkinstalldirs
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
@@ -49,7 +49,7 @@ am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 am__CONFIG_DISTCLEAN_FILES = config.status config.cache config.log \
  configure.lineno configure.status.lineno
 mkinstalldirs = $(SHELL) $(top_srcdir)/aux/mkinstalldirs
-CONFIG_CLEAN_FILES = arp2-config arp2-init arp2-xinit
+CONFIG_CLEAN_FILES = arp2-config arp2-init arp2-xinit arp2-profile
 am__installdirs = "$(DESTDIR)$(sbindir)" "$(DESTDIR)$(etcdir)" \
 	"$(DESTDIR)$(fontdir)"
 sbinSCRIPT_INSTALL = $(INSTALL_SCRIPT)
@@ -133,7 +133,7 @@ sysconfdir = @sysconfdir@
 target_alias = @target_alias@
 etcdir = $(sysconfdir)
 fontdir = $(datadir)/fonts
-sbin_SCRIPTS = arp2-config arp2-init arp2-xinit
+sbin_SCRIPTS = arp2-config arp2-init arp2-xinit arp2-profile
 etc_DATA = etc/arp2.conf.default \
 		  etc/arp2-xorg.conf.m4 etc/arp2-xorg.monitor.default \
 		  etc/arp2-xorg.keyboard.default etc/arp2-xorg.mouse.default \
@@ -187,6 +187,8 @@ arp2-config: $(top_builddir)/config.status $(srcdir)/arp2-config.in
 arp2-init: $(top_builddir)/config.status $(srcdir)/arp2-init.in
 	cd $(top_builddir) && $(SHELL) ./config.status $@
 arp2-xinit: $(top_builddir)/config.status $(srcdir)/arp2-xinit.in
+	cd $(top_builddir) && $(SHELL) ./config.status $@
+arp2-profile: $(top_builddir)/config.status $(srcdir)/arp2-profile.in
 	cd $(top_builddir) && $(SHELL) ./config.status $@
 install-sbinSCRIPTS: $(sbin_SCRIPTS)
 	@$(NORMAL_INSTALL)

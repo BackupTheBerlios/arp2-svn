@@ -17,5 +17,5 @@ AC_CHECK_PROGS(ED, nano pico emacs vi, AC_MSG_ERROR([No suitabled editor found!]
 
 # Checks for library functions.
 
-AC_CONFIG_FILES([Makefile arp2-config arp2-init arp2-xinit])
+AC_CONFIG_FILES([Makefile arp2-config arp2-init arp2-xinit arp2-profile])
 AC_OUTPUT

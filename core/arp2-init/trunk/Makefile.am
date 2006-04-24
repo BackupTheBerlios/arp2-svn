@@ -2,7 +2,7 @@
 etcdir		= $(sysconfdir)
 fontdir		= $(datadir)/fonts
 
-sbin_SCRIPTS	= arp2-config arp2-init arp2-xinit
+sbin_SCRIPTS	= arp2-config arp2-init arp2-xinit arp2-profile
 
 etc_DATA	= etc/arp2.conf.default \
 		  etc/arp2-xorg.conf.m4 etc/arp2-xorg.monitor.default \
