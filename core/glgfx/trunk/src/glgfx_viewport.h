@@ -72,7 +72,7 @@ bool glgfx_rasinfo_getattr(struct glgfx_rasinfo* rasinfo,
 
 #define glgfx_rasinfo_setattrs(rasinfo, tag1, ...) \
   ({ intptr_t const _tags[] = { tag1, ##__VA_ARGS__ }; \
-    glgfx_rasinfo_setattr_a((rasinfo),(struct glgfx_tagitem const*) (void*) _tags); })
+    glgfx_rasinfo_setattrs_a((rasinfo),(struct glgfx_tagitem const*) (void*) _tags); })
 
 
 #endif /* arp2_glgfx_glgfx_viewport_h */
