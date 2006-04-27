@@ -285,6 +285,7 @@ struct glgfx_monitor* glgfx_monitor_create_a(char const* display_name,
     GLX_GREEN_SIZE,    4,
     GLX_BLUE_SIZE,     4,
     GLX_DEPTH_SIZE,    16,
+    GLX_STENCIL_SIZE,  8,
     GLX_CONFIG_CAVEAT, GLX_NONE,
     None
   };
@@ -799,10 +800,15 @@ bool glgfx_monitor_render(struct glgfx_monitor* monitor) {
 
   if (has_changed) {
     glDrawBuffer(GL_BACK);
+
     glClearColor(0, 0, 0, 0);
     glClearDepth(1);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    glDisable(GL_BLEND);
+    glClearStencil(0);
+
+    glClear(GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glBlendEquation(GL_FUNC_ADD);
 
     pthread_mutex_lock(&glgfx_mutex);
 
@@ -815,16 +821,17 @@ bool glgfx_monitor_render(struct glgfx_monitor* monitor) {
     pthread_mutex_unlock(&glgfx_mutex);
   }
 
-//  glgfx_monitor_waittof(monitor);
+  glgfx_monitor_swapbuffers(monitor);
 
   if (has_changed) {
     if (late_sprites) {
+      glDrawBuffer(GL_FRONT);
+
       pthread_mutex_lock(&glgfx_mutex);
       glgfx_view_rendersprites(monitor->views->data);
       pthread_mutex_unlock(&glgfx_mutex);
     }
 
-    glgfx_monitor_swapbuffers(monitor);
   }
 
   return true;
