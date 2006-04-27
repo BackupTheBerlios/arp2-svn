@@ -56,6 +56,7 @@ bool glgfx_monitor_remview(struct glgfx_monitor* monitor,
 			   struct glgfx_view* view);
 
 
+bool glgfx_monitor_waittof(struct glgfx_monitor* monitor);
 bool glgfx_monitor_render(struct glgfx_monitor* monitor);
 
 #endif /* arp2_glgfx_glgfx_monitor_h */
