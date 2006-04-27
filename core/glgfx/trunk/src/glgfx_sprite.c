@@ -76,6 +76,8 @@ bool glgfx_sprite_setattrs_a(struct glgfx_sprite* sprite,
     }
   }
 
+  sprite->has_changed = true;
+
   bool rc = (sprite->width > 0 && 
 	     sprite->height > 0 && 
 	     sprite->bitmap != NULL);
