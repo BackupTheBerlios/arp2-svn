@@ -20,7 +20,8 @@ noinst_PROGRAMS		= \
 			tests/fpblit-test \
 			tests/blit-test \
 			tests/multithreaded \
-			tests/gltex
+			tests/gltex \
+			tests/window_techdemo/demo
 
 libglgfx_la_SOURCES	= \
 			src/glgfx.c \
@@ -44,3 +45,9 @@ tests_glgfx_test_LDADD	= libglgfx.la
 tests_fpblit_test_LDADD	= libglgfx.la
 tests_blit_test_LDADD	= libglgfx.la
 tests_multithreaded_LDADD = libglgfx.la
+
+# tests_window_techdemo_demo_HEADERS	= tests/window_techdemo/selected.c \
+# 					  tests/window_techdemo/unselected.c \
+# 					  tests/window_techdemo/pointer.c
+tests_window_techdemo_demo_LDADD	= libglgfx.la @GLIB_LIBS@
+tests_window_techdemo_demo_CFLAGS	= @GLIB_CFLAGS@
