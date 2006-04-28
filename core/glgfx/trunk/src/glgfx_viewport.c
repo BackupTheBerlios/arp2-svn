@@ -1,5 +1,6 @@
 
 #include "glgfx-config.h"
+#include <errno.h>
 #include <stdlib.h>
 #include <GL/gl.h>
 
@@ -16,6 +17,7 @@ struct glgfx_viewport* glgfx_viewport_create_a(struct glgfx_tagitem const* tags)
   viewport = calloc(1, sizeof (*viewport));
 
   if (viewport == NULL) {
+    errno = ENOMEM;
     return NULL;
   }
 
