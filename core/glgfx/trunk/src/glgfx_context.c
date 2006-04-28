@@ -349,7 +349,7 @@ bool glgfx_context_unbindtex(struct glgfx_context* context, int channel) {
 
 
 bool glgfx_context_bindprogram(struct glgfx_context* context,
-			       struct shader* shader) {
+			       struct glgfx_shader* shader) {
   if (context == NULL) {
     errno = EINVAL;
     return false;

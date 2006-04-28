@@ -29,6 +29,7 @@ extern pthread_mutex_t glgfx_mutex;
 extern int glgfx_signum;
 
 struct glgfx_bitmap;
+struct glgfx_shader;
 
 struct glgfx_context {
     struct glgfx_monitor*   monitor;
@@ -131,6 +132,7 @@ struct glgfx_bitmap {
 
 struct glgfx_rasinfo {
     struct glgfx_bitmap* bitmap;
+    struct glgfx_shader* shader;
     int                  xoffset;
     int                  yoffset;
     int                  width;
@@ -180,15 +182,13 @@ struct pixel_info {
 extern struct pixel_info const formats[glgfx_pixel_format_max];
 
 
-struct shader;
+extern struct glgfx_shader color_blitter;
 
-extern struct shader color_blitter;
+extern struct glgfx_shader raw_texture_blitter;
+extern struct glgfx_shader plain_texture_blitter;
+extern struct glgfx_shader color_texture_blitter;
 
-extern struct shader raw_texture_blitter;
-extern struct shader plain_texture_blitter;
-extern struct shader color_texture_blitter;
-
-extern struct shader modulated_texture_blitter;
+extern struct glgfx_shader modulated_texture_blitter;
 
 
 #define GLGFX_CHECKERROR() glgfx_checkerror(__PRETTY_FUNCTION__, __FILE__, __LINE__);
@@ -196,10 +196,15 @@ void glgfx_checkerror(char const* func, char const* file, int line);
 
 bool glgfx_shader_init(struct glgfx_monitor* monitor);
 void glgfx_shader_cleanup();
+struct glgfx_shader* glgfx_shader_create(int channels, 
+					 char const* vertex, 
+					 char const* fragment,
+					 struct glgfx_monitor* monitor);
+void glgfx_shader_destroy(struct glgfx_shader* shader);
 GLuint glgfx_shader_load(struct glgfx_bitmap* src_bm0, 
 			 struct glgfx_bitmap* src_bm1,
 			 enum glgfx_pixel_format dst,
-			 struct shader* shader,
+			 struct glgfx_shader* shader,
 			 struct glgfx_monitor* monitor);
 
 bool glgfx_monitor_waittof(struct glgfx_monitor* monitor);
@@ -220,7 +225,7 @@ GLenum glgfx_context_bindtex(struct glgfx_context* context,
 bool glgfx_context_unbindtex(struct glgfx_context* context, int channel);
 bool glgfx_context_bindfbo(struct glgfx_context* context, struct glgfx_bitmap* bitmap);
 bool glgfx_context_unbindfbo(struct glgfx_context* context);
-bool glgfx_context_bindprogram(struct glgfx_context* context, struct shader* shader);
+bool glgfx_context_bindprogram(struct glgfx_context* context, struct glgfx_shader* shader);
 bool glgfx_context_unbindprogram(struct glgfx_context* context);
 struct glgfx_bitmap* glgfx_context_gettempbitmap(struct glgfx_context* context,
 						 int min_width,

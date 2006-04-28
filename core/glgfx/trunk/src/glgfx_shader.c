@@ -1,5 +1,6 @@
 
 #include "glgfx-config.h"
+#include <errno.h>
 #include <glib.h>
 #include <stdlib.h>
 #include <GL/gl.h>
@@ -21,7 +22,7 @@ enum shader_function_write {
 };
 
 
-struct shader {
+struct glgfx_shader {
     GLuint* programs;
     GLint   tex0a, tex0b;
     GLint   tex1a, tex1b;
@@ -32,7 +33,7 @@ struct shader {
 };
 
 
-struct shader color_blitter = {
+struct glgfx_shader color_blitter = {
   .channels = 1,
 
   .vertex =
@@ -54,7 +55,7 @@ struct shader color_blitter = {
 };
 
 
-struct shader raw_texture_blitter = {
+struct glgfx_shader raw_texture_blitter = {
   .channels = 0,
 
   .vertex =
@@ -72,7 +73,7 @@ struct shader raw_texture_blitter = {
 };
 
 
-struct shader plain_texture_blitter = {
+struct glgfx_shader plain_texture_blitter = {
   .channels = 2,
 
   .vertex =
@@ -87,7 +88,7 @@ struct shader plain_texture_blitter = {
   "}\n"
 };
 
-struct shader color_texture_blitter = {
+struct glgfx_shader color_texture_blitter = {
   .channels = 2,
 
   .vertex = 
@@ -108,7 +109,7 @@ struct shader color_texture_blitter = {
 };
 
 
-struct shader modulated_texture_blitter = {
+struct glgfx_shader modulated_texture_blitter = {
   .channels = 3,
 
   .vertex = 
@@ -244,7 +245,7 @@ static GLuint compile_fragment_shader(char const* main_src,
 }
 
 
-static GLuint link(struct shader* shader, struct glgfx_monitor* monitor,
+static GLuint link(struct glgfx_shader* shader, struct glgfx_monitor* monitor,
 		   GLuint vertex, GLuint fragment, 
 		   GLuint src0, GLuint src1, GLuint dst) {
   GLuint program = glCreateProgram(); 
@@ -327,7 +328,7 @@ static GLuint link(struct shader* shader, struct glgfx_monitor* monitor,
 
 
 
-static bool init_table(struct shader* shader, struct glgfx_monitor* monitor) {
+static bool init_table(struct glgfx_shader* shader, struct glgfx_monitor* monitor) {
   switch (shader->channels) {
     case 0:
       shader->programs = malloc(sizeof (*shader->programs));
@@ -506,7 +507,7 @@ static bool init_table(struct shader* shader, struct glgfx_monitor* monitor) {
   return true;
 }
 
-static void destroy_table(struct shader* shader) {
+static void destroy_table(struct glgfx_shader* shader) {
   // TODO: Destroy table here
 }
 
@@ -557,6 +558,38 @@ bool glgfx_shader_init(struct glgfx_monitor* monitor) {
 }
 
 
+struct glgfx_shader* glgfx_shader_create(int channels, 
+					 char const* vertex, 
+					 char const* fragment,
+					 struct glgfx_monitor* monitor) {
+  struct glgfx_shader* shader;
+
+  shader = calloc(1, sizeof (*shader));
+
+  if (shader == NULL) {
+    errno = ENOMEM;
+    return NULL;
+  }
+
+  shader->channels = channels;
+  shader->vertex   = vertex;
+  shader->fragment = fragment;
+    
+  if (!init_table(shader, monitor)) {
+    glgfx_shader_destroy(shader);
+    errno = EINVAL;
+    return NULL;
+  }
+
+  return shader;
+}
+
+void glgfx_shader_destroy(struct glgfx_shader* shader) {
+  destroy_table(shader);
+  free(shader);
+}
+
+
 void glgfx_shader_cleanup() {
   destroy_table(&raw_texture_blitter);
   destroy_table(&color_blitter);
@@ -569,7 +602,7 @@ void glgfx_shader_cleanup() {
 GLuint glgfx_shader_load(struct glgfx_bitmap* src_bm0,
 			 struct glgfx_bitmap* src_bm1,
 			 enum glgfx_pixel_format dst,
-			 struct shader* shader,
+			 struct glgfx_shader* shader,
 			 struct glgfx_monitor* monitor) {
   enum glgfx_pixel_format src0 = glgfx_pixel_format_a8r8g8b8;
   enum glgfx_pixel_format src1 = glgfx_pixel_format_a8r8g8b8;
