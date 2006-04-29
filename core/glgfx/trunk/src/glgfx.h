@@ -36,6 +36,26 @@ int glgfx_getattrs_a(void* object,
     glgfx_getattrs_a((object), (fn), (struct glgfx_tagitem const*) (void*) _tags); })
 
 
+/*** Hook handling ***********************************************************/
+
+struct glgfx_hook;
+
+typedef unsigned long (*glgfx_hookfunc)(struct glgfx_hook* hook, 
+					void* object, 
+					void* message);
+
+struct glgfx_hook {
+    glgfx_hookfunc entry;
+    void*          data;
+};
+
+static inline unsigned long glgfx_callhook(struct glgfx_hook* hook, 
+					   void* object, 
+					   void* message) {
+  return hook->entry(hook, object, message);
+}
+
+
 /*** Half-float support ******************************************************/
 
 uint16_t glgfx_float2half(float f);
