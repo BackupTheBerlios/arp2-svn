@@ -783,7 +783,7 @@ bool glgfx_monitor_waittof(struct glgfx_monitor* monitor) {
 
 
 bool glgfx_monitor_render(struct glgfx_monitor* monitor) {
-  static const bool late_sprites = true;
+  static const bool late_sprites = false;
 
   if (monitor == NULL || monitor->views == NULL) {
     errno = EINVAL;
