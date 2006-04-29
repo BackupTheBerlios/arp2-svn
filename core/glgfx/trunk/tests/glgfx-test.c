@@ -69,7 +69,7 @@ int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) 
 #endif
 	for (y = 0; y < height; y+=1) {
 	  for (x = 0; x < width; x+=1) {
-	    data[x+y*width] = (255 << 24) | ((255*x/width) << 16) | ((255*y/height) << 8) | 0;
+	    data[x+y*width] = (128 << 24) | ((255*x/width) << 16) | ((255*y/height) << 8) | 0;
 //	    data[x+y*width] = 0x8ff8;
 	  }
 	}
@@ -167,6 +167,9 @@ int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) 
 
 	    mouse_x += dx;
 	    mouse_y += dy;
+	  }
+	  else if ((code & glgfx_input_typemask) == glgfx_input_mouse_button) {
+	    i += 1000;
 	  }
 	}
 
