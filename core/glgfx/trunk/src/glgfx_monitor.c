@@ -819,12 +819,14 @@ bool glgfx_monitor_render(struct glgfx_monitor* monitor) {
     }
 
     pthread_mutex_unlock(&glgfx_mutex);
+
   }
 
   glgfx_monitor_waittof(monitor);
-  glgfx_monitor_swapbuffers(monitor);
 
   if (has_changed) {
+    glgfx_monitor_swapbuffers(monitor);
+
     if (late_sprites) {
       glDrawBuffer(GL_FRONT);
 
