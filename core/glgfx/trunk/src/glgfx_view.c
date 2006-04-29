@@ -157,13 +157,13 @@ bool glgfx_view_haschanged(struct glgfx_view* view) {
 
 static void render_viewport(gpointer data, gpointer userdata) {
   struct glgfx_viewport* viewport = (struct glgfx_viewport*) data;
-  (void) userdata;
+  struct glgfx_hook* hook = (struct glgfx_hook*) userdata;
 
-  glgfx_viewport_render(viewport);
+  glgfx_viewport_render(viewport, hook);
 }
 
-bool glgfx_view_render(struct glgfx_view* view) {
-  g_list_foreach(view->viewports, render_viewport, NULL);
+bool glgfx_view_render(struct glgfx_view* view, struct glgfx_hook* mode_hook) {
+  g_list_foreach(view->viewports, render_viewport, mode_hook);
   return true;
 }
 

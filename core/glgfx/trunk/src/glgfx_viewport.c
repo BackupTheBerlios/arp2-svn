@@ -259,6 +259,19 @@ bool glgfx_rasinfo_setattrs_a(struct glgfx_rasinfo* rasinfo,
     }
   }
 
+  if (rasinfo->blend_eq_alpha == glgfx_blend_equation_unknown ||
+      rasinfo->blend_eq_alpha == glgfx_blend_equation_disabled) {
+    rasinfo->blend_eq_alpha = rasinfo->blend_eq;
+  }
+
+  if (rasinfo->blend_func_src_alpha == glgfx_blend_func_unknown) {
+    rasinfo->blend_func_src_alpha = rasinfo->blend_func_src;
+  }
+
+  if (rasinfo->blend_func_dst_alpha == glgfx_blend_func_unknown) {
+    rasinfo->blend_func_dst_alpha = rasinfo->blend_func_dst;
+  }
+
   rasinfo->has_changed = true;
 
   pthread_mutex_unlock(&glgfx_mutex);
@@ -369,6 +382,7 @@ bool glgfx_viewport_haschanged(struct glgfx_viewport* viewport) {
 struct render_params {
     struct glgfx_viewport* viewport;
     struct glgfx_context*  context;
+    struct glgfx_hook*     hook;
     float z;
     float dz;
 };
@@ -379,40 +393,10 @@ static void render(gpointer data, gpointer userdata) {
   struct glgfx_viewport* viewport = params->viewport;
   struct glgfx_context*  context  = params->context;
 
-  enum glgfx_blend_equation blend_eq_alpha = rasinfo->blend_eq_alpha;
-  enum glgfx_blend_func blend_func_src_alpha = rasinfo->blend_func_src_alpha;
-  enum glgfx_blend_func blend_func_dst_alpha = rasinfo->blend_func_dst_alpha;
-
   GLenum unit = glgfx_context_bindtex(context, 0, rasinfo->bitmap);
-//  glgfx_context_bindprogram(context, &plain_texture_blitter);
-  glgfx_context_bindprogram(context, &plain_texture_blitter);
 
-  if (blend_eq_alpha == glgfx_blend_equation_unknown ||
-      blend_eq_alpha == glgfx_blend_equation_disabled) {
-    blend_eq_alpha = rasinfo->blend_eq;
-  }
-
-  if (blend_func_src_alpha == glgfx_blend_func_unknown) {
-    blend_func_src_alpha = rasinfo->blend_func_src;
-  }
-
-  if (blend_func_dst_alpha == glgfx_blend_func_unknown) {
-    blend_func_dst_alpha = rasinfo->blend_func_dst;
-  }
-
-  if (rasinfo->blend_eq != glgfx_blend_equation_disabled) {
-    // TODO: Don't change state if it's the same as the current state
-    glEnable(GL_BLEND);
-    glBlendEquationSeparate(glgfx_blend_equations[rasinfo->blend_eq], 
-			    glgfx_blend_equations[blend_eq_alpha]);
-    glBlendFuncSeparate(glgfx_blend_funcs[rasinfo->blend_func_src],
-			glgfx_blend_funcs[rasinfo->blend_func_dst],
-			glgfx_blend_funcs[blend_func_src_alpha],
-			glgfx_blend_funcs[blend_func_dst_alpha]);
-  }
-  else {
-    glDisable(GL_BLEND);
-  }
+  // Set up rendering mode and shaders
+  glgfx_callhook(params->hook, rasinfo, NULL);
 
   // Let the hardware worry about clipping to the viewport, if required.
   glBegin(GL_QUADS); {
@@ -452,13 +436,11 @@ static void render(gpointer data, gpointer userdata) {
   params->z += params->dz;
 }
 
-bool glgfx_viewport_render(struct glgfx_viewport* viewport) {
+bool glgfx_viewport_render(struct glgfx_viewport* viewport, struct glgfx_hook* mode_hook) {
   struct glgfx_context* context = glgfx_context_getcurrent();
 
-  glColor4f(1,1,1,1);
-
   struct render_params params = {
-    viewport, context, 0.0f, 0.0f
+    viewport, context, mode_hook, 0.0f, 0.0f
   };
 
   glEnable(GL_SCISSOR_TEST);

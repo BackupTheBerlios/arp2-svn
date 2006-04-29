@@ -226,9 +226,9 @@ bool glgfx_viewport_haschanged(struct glgfx_viewport* viewport);
 bool glgfx_sprite_haschanged(struct glgfx_sprite* sprite);
 bool glgfx_bitmap_haschanged(struct glgfx_bitmap* bitmap);
 
-bool glgfx_view_render(struct glgfx_view* view);
+bool glgfx_view_render(struct glgfx_view* view, struct glgfx_hook* mode_hook);
 bool glgfx_view_rendersprites(struct glgfx_view* view);
-bool glgfx_viewport_render(struct glgfx_viewport* viewport);
+bool glgfx_viewport_render(struct glgfx_viewport* viewport, struct glgfx_hook* mode_hook);
 bool glgfx_sprite_render(struct glgfx_sprite* sprite);
 
 GLenum glgfx_context_bindtex(struct glgfx_context* context, 

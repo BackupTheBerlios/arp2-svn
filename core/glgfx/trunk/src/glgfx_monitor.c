@@ -782,6 +782,27 @@ bool glgfx_monitor_waittof(struct glgfx_monitor* monitor) {
 }
 
 
+static unsigned long render_func(struct glgfx_hook* hook, void* object, void* message) {
+  struct glgfx_context* context = (struct glgfx_context*) hook->data;
+  struct glgfx_rasinfo* rasinfo = (struct glgfx_rasinfo*) object;
+
+  glgfx_context_bindprogram(context, &plain_texture_blitter);
+
+  if (rasinfo->blend_eq != glgfx_blend_equation_disabled) {
+    // TODO: Don't change state if it's the same as the current state
+    glEnable(GL_BLEND);
+    glBlendEquationSeparate(glgfx_blend_equations[rasinfo->blend_eq], 
+			    glgfx_blend_equations[rasinfo->blend_eq_alpha]);
+    glBlendFuncSeparate(glgfx_blend_funcs[rasinfo->blend_func_src],
+			glgfx_blend_funcs[rasinfo->blend_func_dst],
+			glgfx_blend_funcs[rasinfo->blend_func_src_alpha],
+			glgfx_blend_funcs[rasinfo->blend_func_dst_alpha]);
+  }
+  else {
+    glDisable(GL_BLEND);
+  }
+}
+
 bool glgfx_monitor_render(struct glgfx_monitor* monitor) {
   static const bool late_sprites = false;
 
@@ -799,22 +820,27 @@ bool glgfx_monitor_render(struct glgfx_monitor* monitor) {
   pthread_mutex_unlock(&glgfx_mutex);
 
   if (has_changed) {
+    struct glgfx_context* context = glgfx_context_getcurrent();
+    struct glgfx_hook render_hook = { render_func, context };
+
     glDrawBuffer(GL_BACK);
 
     glClearColor(0, 0, 0, 0);
-    glClearDepth(1);
+    glClearDepth(0);
     glClearStencil(0);
 
+    glEnable(GL_BLEND); // NVIDIA bug? Needs to be enabled here
     glClear(GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     pthread_mutex_lock(&glgfx_mutex);
 
-    glgfx_view_render(monitor->views->data);
+    glgfx_view_render(monitor->views->data, &render_hook);
 
     // Sprites are always transparent
     glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    glBlendEquation(GL_FUNC_ADD);
+    glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
+    glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA,
+			GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     if (!late_sprites) {
       glgfx_view_rendersprites(monitor->views->data);
@@ -837,7 +863,7 @@ bool glgfx_monitor_render(struct glgfx_monitor* monitor) {
       pthread_mutex_unlock(&glgfx_mutex);
     }
 
-//    glDisable(GL_BLEND);
+    glDisable(GL_BLEND);
   }
 
   return true;
