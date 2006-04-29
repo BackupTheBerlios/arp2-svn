@@ -876,11 +876,11 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
   }
 
   if (src_x < 0 || src_y < 0 || src_width <= 0 || src_height <= 0 ||
-      dst_x < 0 || dst_y < 0 || dst_width <= 0 || dst_height <= 0 ||
+      /* dst_x < 0 || dst_y < 0 || */ dst_width <= 0 || dst_height <= 0 ||
       (src_bitmap != NULL && src_x + src_width > src_bitmap->width) || 
-      dst_x + dst_width > dst_bitmap->width || 
+      /* dst_x + dst_width > dst_bitmap->width ||  */
       (src_bitmap != NULL && src_y + src_height > src_bitmap->height) ||
-      dst_y + dst_height > dst_bitmap->height ||
+      /* dst_y + dst_height > dst_bitmap->height || */
       (minterm & ~0xff) != 0) {
     errno = EINVAL;
     return false;
