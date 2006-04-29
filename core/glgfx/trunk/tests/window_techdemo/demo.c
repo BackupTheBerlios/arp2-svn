@@ -100,7 +100,6 @@ int main(int argc, char** argv) {
 	  glgfx_viewport_addbitmap(vp, background,
 				   glgfx_tag_end);
 
-
 	// Add "windows"
 	struct glgfx_rasinfo* ri_unselected2 =
 	  glgfx_viewport_addbitmap(vp, unselected,
@@ -159,6 +158,9 @@ int main(int argc, char** argv) {
 				glgfx_bitmap_blit_src_bitmap, (uintptr_t) tile,
 				glgfx_bitmap_blit_src_x,      0, 
 				glgfx_bitmap_blit_src_y,      0, 
+				// "Destroy" alpha channels so we can
+				// verify that non-blended rasports work too
+				glgfx_bitmap_blit_mod_a,      0x4000, 
 				glgfx_tag_end);
 	    }
 	  }
@@ -208,7 +210,6 @@ int main(int argc, char** argv) {
 	  while (!quit) {
 	    enum glgfx_input_code code;
 
-//	    glgfx_monitor_waittof(monitor);
 	    glgfx_monitor_render(monitor);
 
 	    while ((code = glgfx_input_getcode()) != glgfx_input_none) {
