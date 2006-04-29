@@ -1137,28 +1137,13 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
     }
 
     if (blend_eq != glgfx_blend_equation_disabled) {
-      static GLenum const eq[glgfx_blend_equation_max] = {
-	0, 0,
-	GL_FUNC_ADD, GL_FUNC_SUBTRACT, GL_FUNC_REVERSE_SUBTRACT,
-	GL_MIN, GL_MAX
-      };
-
-      static GLenum const func[glgfx_blend_func_max] = {
-	0,
-	GL_ZERO, GL_ONE, 
-	GL_SRC_COLOR, GL_ONE_MINUS_SRC_COLOR,
-	GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA,
-	GL_DST_COLOR, GL_ONE_MINUS_DST_COLOR,
-	GL_DST_ALPHA, GL_ONE_MINUS_DST_ALPHA,
-	/* 	GL_CONSTANT_COLOR, GL_ONE_MINUS_CONSTANT_COLOR, */
-	/* 	GL_CONSTANT_ALPHA, GL_ONE_MINUS_CONSTANT_ALPHA, */
-	GL_SRC_ALPHA_SATURATE
-      };
-
       glEnable(GL_BLEND);
-      glBlendEquationSeparate(eq[blend_eq], eq[blend_eq_alpha]);
-      glBlendFuncSeparate(func[blend_func_src], func[blend_func_dst],
-			  func[blend_func_src_alpha], func[blend_func_dst_alpha]);
+      glBlendEquationSeparate(glgfx_blend_equations[blend_eq], 
+			      glgfx_blend_equations[blend_eq_alpha]);
+      glBlendFuncSeparate(glgfx_blend_funcs[blend_func_src], 
+			  glgfx_blend_funcs[blend_func_dst],
+			  glgfx_blend_funcs[blend_func_src_alpha], 
+			  glgfx_blend_funcs[blend_func_dst_alpha]);
     }
 
 

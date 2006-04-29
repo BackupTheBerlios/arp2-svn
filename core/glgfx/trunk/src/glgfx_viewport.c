@@ -149,18 +149,26 @@ struct glgfx_rasinfo* glgfx_viewport_addbitmap_a(struct glgfx_viewport* viewport
     return NULL;
   }
 
-  pthread_mutex_lock(&glgfx_mutex);
+  rasinfo->blend_eq             = glgfx_blend_equation_disabled;
+  rasinfo->blend_eq_alpha       = glgfx_blend_equation_unknown;
+  rasinfo->blend_func_src       = glgfx_blend_func_srcalpha;
+  rasinfo->blend_func_src_alpha = glgfx_blend_func_unknown;
+  rasinfo->blend_func_dst       = glgfx_blend_func_srcalpha_inv;
+  rasinfo->blend_func_dst_alpha = glgfx_blend_func_unknown;
 
   struct glgfx_tagitem bm_tags[] = {
     { glgfx_rasinfo_attr_bitmap, (intptr_t) bitmap },
-    { glgfx_tag_more,            (intptr_t) tags }
+    { glgfx_rasinfo_attr_width,  bitmap->width     },
+    { glgfx_rasinfo_attr_height, bitmap->height    },
+    { glgfx_tag_more,            (intptr_t) tags   }
   };
 
   if (!glgfx_rasinfo_setattrs_a(rasinfo, bm_tags)) {
     free(rasinfo);
-    pthread_mutex_unlock(&glgfx_mutex);
     return NULL;
   }
+
+  pthread_mutex_lock(&glgfx_mutex);
   
   viewport->rasinfos = g_list_append(viewport->rasinfos, rasinfo);
 
@@ -220,6 +228,30 @@ bool glgfx_rasinfo_setattrs_a(struct glgfx_rasinfo* rasinfo,
 	rasinfo->bitmap = (struct glgfx_bitmap*) tag->data;
 	break;
 
+      case glgfx_rasinfo_attr_blend_equation:
+	rasinfo->blend_eq = tag->data;
+	break;
+	
+      case glgfx_rasinfo_attr_blend_equation_alpha:
+	rasinfo->blend_eq_alpha = tag->data;
+	break;
+
+      case glgfx_rasinfo_attr_blend_srcfunc:
+	rasinfo->blend_func_src = tag->data;
+	break;
+
+      case glgfx_rasinfo_attr_blend_srcfunc_alpha:
+	rasinfo->blend_func_src_alpha = tag->data;
+	break;
+
+      case glgfx_rasinfo_attr_blend_dstfunc:
+	rasinfo->blend_func_dst = tag->data;
+	break;
+
+      case glgfx_rasinfo_attr_blend_dstfunc_alpha:
+	rasinfo->blend_func_dst_alpha = tag->data;
+	break;
+
       case glgfx_rasinfo_attr_unknown:
       case glgfx_rasinfo_attr_max:
 	/* Make compiler happy */
@@ -235,8 +267,8 @@ bool glgfx_rasinfo_setattrs_a(struct glgfx_rasinfo* rasinfo,
 
 
 bool glgfx_rasinfo_getattr(struct glgfx_rasinfo* rasinfo,
-			    enum glgfx_rasinfo_attr attr,
-			    intptr_t* storage) {
+			   enum glgfx_rasinfo_attr attr,
+			   intptr_t* storage) {
   if (rasinfo == NULL || storage == NULL ) {
     return false;
   }
@@ -260,6 +292,30 @@ bool glgfx_rasinfo_getattr(struct glgfx_rasinfo* rasinfo,
 
     case glgfx_rasinfo_attr_bitmap:
       *storage = (intptr_t) rasinfo->bitmap;
+      break;
+
+    case glgfx_rasinfo_attr_blend_equation:
+      *storage = (intptr_t) rasinfo->blend_eq;
+      break;
+	
+    case glgfx_rasinfo_attr_blend_equation_alpha:
+      *storage = (intptr_t) rasinfo->blend_eq_alpha;
+      break;
+
+    case glgfx_rasinfo_attr_blend_srcfunc:
+      *storage = (intptr_t) rasinfo->blend_func_src;
+      break;
+
+    case glgfx_rasinfo_attr_blend_srcfunc_alpha:
+      *storage = (intptr_t) rasinfo->blend_func_src_alpha;
+      break;
+
+    case glgfx_rasinfo_attr_blend_dstfunc:
+      *storage = (intptr_t) rasinfo->blend_func_dst;
+      break;
+
+    case glgfx_rasinfo_attr_blend_dstfunc_alpha:
+      *storage = (intptr_t) rasinfo->blend_func_dst_alpha;
       break;
 
     default:
@@ -313,6 +369,8 @@ bool glgfx_viewport_haschanged(struct glgfx_viewport* viewport) {
 struct render_params {
     struct glgfx_viewport* viewport;
     struct glgfx_context*  context;
+    float z;
+    float dz;
 };
 
 static void render(gpointer data, gpointer userdata) {
@@ -321,37 +379,77 @@ static void render(gpointer data, gpointer userdata) {
   struct glgfx_viewport* viewport = params->viewport;
   struct glgfx_context*  context  = params->context;
 
+  enum glgfx_blend_equation blend_eq_alpha = rasinfo->blend_eq_alpha;
+  enum glgfx_blend_func blend_func_src_alpha = rasinfo->blend_func_src_alpha;
+  enum glgfx_blend_func blend_func_dst_alpha = rasinfo->blend_func_dst_alpha;
+
   GLenum unit = glgfx_context_bindtex(context, 0, rasinfo->bitmap);
+//  glgfx_context_bindprogram(context, &plain_texture_blitter);
   glgfx_context_bindprogram(context, &plain_texture_blitter);
 
+  if (blend_eq_alpha == glgfx_blend_equation_unknown ||
+      blend_eq_alpha == glgfx_blend_equation_disabled) {
+    blend_eq_alpha = rasinfo->blend_eq;
+  }
+
+  if (blend_func_src_alpha == glgfx_blend_func_unknown) {
+    blend_func_src_alpha = rasinfo->blend_func_src;
+  }
+
+  if (blend_func_dst_alpha == glgfx_blend_func_unknown) {
+    blend_func_dst_alpha = rasinfo->blend_func_dst;
+  }
+
+  if (rasinfo->blend_eq != glgfx_blend_equation_disabled) {
+    // TODO: Don't change state if it's the same as the current state
+    glEnable(GL_BLEND);
+    glBlendEquationSeparate(glgfx_blend_equations[rasinfo->blend_eq], 
+			    glgfx_blend_equations[blend_eq_alpha]);
+    glBlendFuncSeparate(glgfx_blend_funcs[rasinfo->blend_func_src],
+			glgfx_blend_funcs[rasinfo->blend_func_dst],
+			glgfx_blend_funcs[blend_func_src_alpha],
+			glgfx_blend_funcs[blend_func_dst_alpha]);
+  }
+  else {
+    glDisable(GL_BLEND);
+  }
+
+  // Let the hardware worry about clipping to the viewport, if required.
   glBegin(GL_QUADS); {
-    glMultiTexCoord2i(unit,
-		      rasinfo->xoffset,
-		      rasinfo->yoffset);
-    glVertex3f(viewport->xoffset,
-	       viewport->yoffset, 0);
+    glMultiTexCoord2i(unit, 
+		      0, 
+		      0);
+    glVertex3f(viewport->xoffset + -rasinfo->xoffset, 
+	       viewport->yoffset + -rasinfo->yoffset, 
+	       params->z);
 
     glMultiTexCoord2i(unit,
-		      rasinfo->xoffset + rasinfo->width,
-		      rasinfo->yoffset);
-    glVertex3f(viewport->xoffset + viewport->width,
-	       viewport->yoffset, 0);
+		      rasinfo->bitmap->width,
+		      0);
+    glVertex3f(viewport->xoffset + -rasinfo->xoffset + rasinfo->width,
+	       viewport->yoffset + -rasinfo->yoffset,
+	       params->z);
 
     glMultiTexCoord2i(unit,
-		      rasinfo->xoffset + rasinfo->width,
-		      rasinfo->yoffset + rasinfo->height);
-    glVertex3f(viewport->xoffset + viewport->width,
-	       viewport->yoffset + viewport->height, 0);
+		      rasinfo->bitmap->width,
+		      rasinfo->bitmap->height);
+    glVertex3f(viewport->xoffset + -rasinfo->xoffset + rasinfo->width,
+	       viewport->yoffset + -rasinfo->yoffset + rasinfo->height,
+	       params->z);
 
     glMultiTexCoord2i(unit,
-		      rasinfo->xoffset,
-		      rasinfo->yoffset + rasinfo->height);
-    glVertex3f(viewport->xoffset,
-	       viewport->yoffset + viewport->height, 0);
+		      0,
+		      rasinfo->bitmap->height);
+    glVertex3f(viewport->xoffset + -rasinfo->xoffset,
+	       viewport->yoffset + -rasinfo->yoffset + rasinfo->height,
+	       params->z);
   }
   glEnd();
 
   GLGFX_CHECKERROR();
+
+  // Update Z
+  params->z += params->dz;
 }
 
 bool glgfx_viewport_render(struct glgfx_viewport* viewport) {
@@ -360,9 +458,18 @@ bool glgfx_viewport_render(struct glgfx_viewport* viewport) {
   glColor4f(1,1,1,1);
 
   struct render_params params = {
-    viewport, context
+    viewport, context, 0.0f, 0.0f
   };
 
+  glEnable(GL_SCISSOR_TEST);
+  glScissor(viewport->xoffset, 
+	    context->monitor->mode.vdisplay - viewport->yoffset - viewport->height,
+	    viewport->width, 
+	    viewport->height);
+
   g_list_foreach(viewport->rasinfos, render, &params);
+
+  glDisable(GL_SCISSOR_TEST);
+
   return true;
 }

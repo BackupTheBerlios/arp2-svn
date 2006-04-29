@@ -42,6 +42,44 @@ uint16_t glgfx_float2half(float f);
 float glgfx_half2float(uint16_t h);
 
 
+/*** Blending  ***************************************************************/
+
+enum glgfx_blend_equation {
+  glgfx_blend_equation_unknown = 0,		// MUST start at 0!
+
+  glgfx_blend_equation_disabled,
+  glgfx_blend_equation_func_add,
+  glgfx_blend_equation_func_subtract,
+  glgfx_blend_equation_func_subtract_rev,
+  glgfx_blend_equation_component_min,
+  glgfx_blend_equation_component_max,
+
+  glgfx_blend_equation_max,
+} __attribute__((mode(__pointer__)));
+
+
+enum glgfx_blend_func {
+  glgfx_blend_func_unknown = 0,			// MUST start at 0!
+
+  glgfx_blend_func_zero,
+  glgfx_blend_func_one,
+  glgfx_blend_func_srccolor,
+  glgfx_blend_func_srccolor_inv,
+  glgfx_blend_func_srcalpha,
+  glgfx_blend_func_srcalpha_inv,
+  glgfx_blend_func_dstcolor,
+  glgfx_blend_func_dstcolor_inv,
+  glgfx_blend_func_dstalpha,
+  glgfx_blend_func_dstalpha_inv,
+/*   glgfx_blend_func_constant_color, */
+/*   glgfx_blend_func_one_minus_constant_color, */
+/*   glgfx_blend_func_constant_alpha, */
+/*   glgfx_blend_func_one_minus_constant_alpha, */
+  glgfx_blend_func_srcalpha_sat,
+
+  glgfx_blend_func_max
+} __attribute__((mode(__pointer__)));
+
 /*** System setup ************************************************************/
 
 enum glgfx_init_tag {

@@ -84,8 +84,8 @@ int main(int argc, char** argv) {
       }
       else {
 	struct glgfx_sprite* sp = glgfx_sprite_create(
-	  glgfx_sprite_attr_width,  sprite_pointer.width,
-	  glgfx_sprite_attr_height, sprite_pointer.height,
+	  glgfx_sprite_attr_width,  sprite_pointer.width*2,
+	  glgfx_sprite_attr_height, sprite_pointer.height*2,
 	  glgfx_sprite_attr_bitmap, (intptr_t) pointer,
 	  glgfx_tag_end);
 
@@ -98,8 +98,6 @@ int main(int argc, char** argv) {
 	// Add background
 	struct glgfx_rasinfo* ri_background =
 	  glgfx_viewport_addbitmap(vp, background,
-				   glgfx_rasinfo_attr_width,  width,
-				   glgfx_rasinfo_attr_height, height,
 				   glgfx_tag_end);
 
 
@@ -108,24 +106,22 @@ int main(int argc, char** argv) {
 	  glgfx_viewport_addbitmap(vp, unselected,
 				   glgfx_rasinfo_attr_x,      -500,
 				   glgfx_rasinfo_attr_y,      -120,
-				   glgfx_rasinfo_attr_width,  width,
-				   glgfx_rasinfo_attr_height, height,
+				   glgfx_rasinfo_attr_blend_equation, glgfx_blend_equation_func_add,
 				   glgfx_tag_end);
 
 	struct glgfx_rasinfo* ri_selected =
 	  glgfx_viewport_addbitmap(vp, selected,
 				   glgfx_rasinfo_attr_x,      -400,
 				   glgfx_rasinfo_attr_y,      -100,
-				   glgfx_rasinfo_attr_width,  width,
-				   glgfx_rasinfo_attr_height, height,
+				   glgfx_rasinfo_attr_blend_equation, glgfx_blend_equation_func_add,
 				   glgfx_tag_end);
 
 	struct glgfx_rasinfo* ri_unselected1 =
 	  glgfx_viewport_addbitmap(vp, unselected,
 				   glgfx_rasinfo_attr_x,      -450,
 				   glgfx_rasinfo_attr_y,      -110,
-				   glgfx_rasinfo_attr_width,  width,
-				   glgfx_rasinfo_attr_height, height,
+				   glgfx_rasinfo_attr_height, window_unselected.height * 2,
+				   glgfx_rasinfo_attr_blend_equation, glgfx_blend_equation_func_add,
 				   glgfx_tag_end);
 
 

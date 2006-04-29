@@ -28,6 +28,9 @@
 extern pthread_mutex_t glgfx_mutex;
 extern int glgfx_signum;
 
+extern GLenum const glgfx_blend_equations[glgfx_blend_equation_max];
+extern GLenum const glgfx_blend_funcs[glgfx_blend_func_max];
+
 struct glgfx_bitmap;
 struct glgfx_shader;
 
@@ -137,7 +140,15 @@ struct glgfx_rasinfo {
     int                  yoffset;
     int                  width;
     int                  height;
+
     bool                 has_changed;
+
+    enum glgfx_blend_equation blend_eq;
+    enum glgfx_blend_equation blend_eq_alpha;
+    enum glgfx_blend_func     blend_func_src;
+    enum glgfx_blend_func     blend_func_src_alpha;
+    enum glgfx_blend_func     blend_func_dst;
+    enum glgfx_blend_func     blend_func_dst_alpha;
 };
 
 

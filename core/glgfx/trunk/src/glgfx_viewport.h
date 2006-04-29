@@ -27,6 +27,13 @@ enum glgfx_rasinfo_attr {
   glgfx_rasinfo_attr_y,
   glgfx_rasinfo_attr_bitmap,
   
+  glgfx_rasinfo_attr_blend_equation,
+  glgfx_rasinfo_attr_blend_equation_alpha,
+  glgfx_rasinfo_attr_blend_srcfunc,
+  glgfx_rasinfo_attr_blend_srcfunc_alpha,
+  glgfx_rasinfo_attr_blend_dstfunc,
+  glgfx_rasinfo_attr_blend_dstfunc_alpha,
+
   glgfx_rasinfo_attr_max
 } __attribute__((mode(__pointer__)));
 

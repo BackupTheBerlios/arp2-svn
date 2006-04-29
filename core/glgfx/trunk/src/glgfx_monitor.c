@@ -806,13 +806,15 @@ bool glgfx_monitor_render(struct glgfx_monitor* monitor) {
     glClearStencil(0);
 
     glClear(GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    glBlendEquation(GL_FUNC_ADD);
 
     pthread_mutex_lock(&glgfx_mutex);
 
     glgfx_view_render(monitor->views->data);
+
+    // Sprites are always transparent
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glBlendEquation(GL_FUNC_ADD);
 
     if (!late_sprites) {
       glgfx_view_rendersprites(monitor->views->data);
@@ -835,6 +837,7 @@ bool glgfx_monitor_render(struct glgfx_monitor* monitor) {
       pthread_mutex_unlock(&glgfx_mutex);
     }
 
+//    glDisable(GL_BLEND);
   }
 
   return true;

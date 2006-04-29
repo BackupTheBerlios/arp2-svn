@@ -508,3 +508,25 @@ uint16_t glgfx_float2half(float f) {
     return s | (e << 10) | (m >> 13);
   }
 }
+
+
+
+GLenum const glgfx_blend_equations[glgfx_blend_equation_max] = {
+  0, 0,
+  GL_FUNC_ADD, GL_FUNC_SUBTRACT, GL_FUNC_REVERSE_SUBTRACT,
+  GL_MIN, GL_MAX
+};
+
+
+GLenum const glgfx_blend_funcs[glgfx_blend_func_max] = {
+  0,
+  GL_ZERO, GL_ONE, 
+  GL_SRC_COLOR, GL_ONE_MINUS_SRC_COLOR,
+  GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA,
+  GL_DST_COLOR, GL_ONE_MINUS_DST_COLOR,
+  GL_DST_ALPHA, GL_ONE_MINUS_DST_ALPHA,
+  /* 	GL_CONSTANT_COLOR, GL_ONE_MINUS_CONSTANT_COLOR, */
+  /* 	GL_CONSTANT_ALPHA, GL_ONE_MINUS_CONSTANT_ALPHA, */
+  GL_SRC_ALPHA_SATURATE
+};
+

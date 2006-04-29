@@ -302,7 +302,7 @@ int main(int argc, char** argv) {
 	struct glgfx_rasinfo* ri2 =
 	  glgfx_viewport_addbitmap(vp2, bitmap,
 				   glgfx_rasinfo_attr_width,  width,
-				   glgfx_rasinfo_attr_height, height / 3,
+				   glgfx_rasinfo_attr_height, height / 3 * 2,
 				   glgfx_tag_end);
 
 	struct glgfx_view* v = glgfx_view_create();
