@@ -355,6 +355,33 @@ int glgfx_viewport_numbitmaps(struct glgfx_viewport* viewport) {
 }
 
 
+bool glgfx_viewport_orderbitmap(struct glgfx_viewport* viewport,
+				struct glgfx_rasinfo* rasinfo,
+				struct glgfx_rasinfo* in_front_of) {
+  bool res = true;
+
+  if (viewport == NULL || rasinfo == NULL) {
+    return false;
+  }
+
+  pthread_mutex_lock(&glgfx_mutex);
+
+  viewport->rasinfos = g_list_remove(viewport->rasinfos, rasinfo);
+
+  if (in_front_of == (struct glgfx_rasinfo*) -1) {
+    viewport->rasinfos = g_list_prepend(viewport->rasinfos, rasinfo);
+  }
+  else {
+    GList* sib = g_list_find(viewport->rasinfos, in_front_of);
+
+    viewport->rasinfos = g_list_insert_before(viewport->rasinfos, sib, rasinfo);
+  }
+
+  pthread_mutex_unlock(&glgfx_mutex);
+  return res;
+}
+
+
 static void check(gpointer data, gpointer userdata) {
   struct glgfx_rasinfo* rasinfo = (struct glgfx_rasinfo*) data;
   bool* has_changed_ptr = (bool*) userdata;

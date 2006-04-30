@@ -56,6 +56,9 @@ bool glgfx_viewport_rembitmap(struct glgfx_viewport* viewport,
 
 int glgfx_viewport_numbitmaps(struct glgfx_viewport* viewport);
 
+bool glgfx_viewport_orderbitmap(struct glgfx_viewport* viewport,
+				struct glgfx_rasinfo* rasinfo,
+				struct glgfx_rasinfo* in_front_of);
 
 bool glgfx_rasinfo_setattrs_a(struct glgfx_rasinfo* rasinfo,
 			      struct glgfx_tagitem const* tags);
