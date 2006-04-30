@@ -168,6 +168,14 @@ struct glgfx_monitor* glgfx_monitor_create_a(char const* display_name,
     return NULL;
   }
 
+  monitor->views = g_queue_new();
+
+  if (monitor->views == NULL) {
+    glgfx_monitor_destroy(monitor);
+    errno = ENOMEM;
+    return NULL;
+  }
+
   monitor->fullscreen = true;
   pthread_cond_init(&monitor->vsync_cond, NULL);
 
@@ -458,6 +466,8 @@ void glgfx_monitor_destroy(struct glgfx_monitor* monitor) {
 
   pthread_mutex_lock(&glgfx_mutex);
 
+  g_queue_free(monitor->views);
+
   D(BUG("Destroying monitor %p (%s)\n", monitor, monitor->name));
 
   if (monitor->fb_config != NULL) {
@@ -708,7 +718,7 @@ bool glgfx_monitor_addview(struct glgfx_monitor* monitor,
   }
 
   pthread_mutex_lock(&glgfx_mutex);
-  monitor->views = g_list_append(monitor->views, view);
+  g_queue_push_head(monitor->views, view);
   pthread_mutex_unlock(&glgfx_mutex);
 
   return true;
@@ -718,14 +728,14 @@ bool glgfx_monitor_addview(struct glgfx_monitor* monitor,
 bool glgfx_monitor_loadview(struct glgfx_monitor* monitor,
 			    struct glgfx_view* view) {
   if (monitor == NULL || view == NULL || 
-      g_list_find(monitor->views, view) == NULL) {
+      g_queue_find(monitor->views, view) == NULL) {
     errno = EINVAL;
     return false;
   }
 
   pthread_mutex_lock(&glgfx_mutex);
-  monitor->views = g_list_remove(monitor->views, view);
-  monitor->views = g_list_prepend(monitor->views, view);
+  g_queue_remove(monitor->views, view);
+  g_queue_push_head(monitor->views, view);
   pthread_mutex_unlock(&glgfx_mutex);
 
   return true;
@@ -736,13 +746,13 @@ bool glgfx_monitor_remview(struct glgfx_monitor* monitor,
 			   struct glgfx_view* view) {
 
   if (monitor == NULL || view == NULL ||
-      g_list_find(monitor->views, view) == NULL) {
+      g_queue_find(monitor->views, view) == NULL) {
     errno = EINVAL;
     return false;
   }
 
   pthread_mutex_lock(&glgfx_mutex);
-  monitor->views = g_list_remove(monitor->views, view);
+  g_queue_remove(monitor->views, view);
   pthread_mutex_unlock(&glgfx_mutex);
   return true;
 }
@@ -806,7 +816,7 @@ static unsigned long render_func(struct glgfx_hook* hook, void* object, void* me
 bool glgfx_monitor_render(struct glgfx_monitor* monitor) {
   static const bool late_sprites = false;
 
-  if (monitor == NULL || monitor->views == NULL) {
+  if (monitor == NULL || g_queue_is_empty(monitor->views)) {
     errno = EINVAL;
     return false;
   }
@@ -815,7 +825,7 @@ bool glgfx_monitor_render(struct glgfx_monitor* monitor) {
 
   pthread_mutex_lock(&glgfx_mutex);
 
-  bool has_changed = glgfx_view_haschanged(monitor->views->data);
+  bool has_changed = glgfx_view_haschanged(monitor->views->head->data);
 
   pthread_mutex_unlock(&glgfx_mutex);
 
@@ -834,7 +844,7 @@ bool glgfx_monitor_render(struct glgfx_monitor* monitor) {
 
     pthread_mutex_lock(&glgfx_mutex);
 
-    glgfx_view_render(monitor->views->data, &render_hook);
+    glgfx_view_render(monitor->views->head->data, &render_hook, true);
 
     // Sprites are always transparent
     glEnable(GL_BLEND);
@@ -843,7 +853,7 @@ bool glgfx_monitor_render(struct glgfx_monitor* monitor) {
 			GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     if (!late_sprites) {
-      glgfx_view_rendersprites(monitor->views->data);
+      glgfx_view_rendersprites(monitor->views->head->data);
     }
 
     pthread_mutex_unlock(&glgfx_mutex);
@@ -859,7 +869,7 @@ bool glgfx_monitor_render(struct glgfx_monitor* monitor) {
       glDrawBuffer(GL_FRONT);
 
       pthread_mutex_lock(&glgfx_mutex);
-      glgfx_view_rendersprites(monitor->views->data);
+      glgfx_view_rendersprites(monitor->views->head->data);
       pthread_mutex_unlock(&glgfx_mutex);
     }
 

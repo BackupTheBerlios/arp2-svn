@@ -87,13 +87,13 @@ struct glgfx_monitor {
     int                     dotclock;
     XF86VidModeMonitor      monitor_info;
 
-    GList*                  views;
+    GQueue*                 views;
 };
 
 struct glgfx_view {
-    GList* viewports;
-    GList* sprites;
-    bool   has_changed;
+    GQueue* viewports;
+    GQueue* sprites;
+    bool    has_changed;
 };
 
 
@@ -153,12 +153,12 @@ struct glgfx_rasinfo {
 
 
 struct glgfx_viewport {
-    int    width;
-    int    height;
-    int    xoffset;
-    int    yoffset;
-    GList* rasinfos;
-    bool   has_changed;
+    int     width;
+    int     height;
+    int     xoffset;
+    int     yoffset;
+    GQueue* rasinfos;
+    bool    has_changed;
 };
 
 
@@ -226,9 +226,11 @@ bool glgfx_viewport_haschanged(struct glgfx_viewport* viewport);
 bool glgfx_sprite_haschanged(struct glgfx_sprite* sprite);
 bool glgfx_bitmap_haschanged(struct glgfx_bitmap* bitmap);
 
-bool glgfx_view_render(struct glgfx_view* view, struct glgfx_hook* mode_hook);
+bool glgfx_view_render(struct glgfx_view* view, struct glgfx_hook* mode_hook, bool front_to_back);
 bool glgfx_view_rendersprites(struct glgfx_view* view);
-bool glgfx_viewport_render(struct glgfx_viewport* viewport, struct glgfx_hook* mode_hook);
+bool glgfx_viewport_render(struct glgfx_viewport* viewport, 
+			   struct glgfx_hook* mode_hook,
+			   bool front_to_back);
 bool glgfx_sprite_render(struct glgfx_sprite* sprite);
 
 GLenum glgfx_context_bindtex(struct glgfx_context* context, 

@@ -21,6 +21,13 @@ struct glgfx_viewport* glgfx_viewport_create_a(struct glgfx_tagitem const* tags)
     return NULL;
   }
 
+  viewport->rasinfos = g_queue_new();
+
+  if (viewport->rasinfos == NULL) {
+    glgfx_viewport_destroy(viewport);
+    return NULL;
+  }
+
   if (!glgfx_viewport_setattrs_a(viewport, tags)) {
     glgfx_viewport_destroy(viewport);
     return NULL;
@@ -46,8 +53,8 @@ void glgfx_viewport_destroy(struct glgfx_viewport* viewport) {
   
   pthread_mutex_lock(&glgfx_mutex);
 
-  g_list_foreach(viewport->rasinfos, free_rasinfo, NULL);
-  g_list_free(viewport->rasinfos);
+  g_queue_foreach(viewport->rasinfos, free_rasinfo, NULL);
+  g_queue_free(viewport->rasinfos);
   free(viewport);
 
   pthread_mutex_unlock(&glgfx_mutex);
@@ -170,7 +177,7 @@ struct glgfx_rasinfo* glgfx_viewport_addbitmap_a(struct glgfx_viewport* viewport
 
   pthread_mutex_lock(&glgfx_mutex);
   
-  viewport->rasinfos = g_list_append(viewport->rasinfos, rasinfo);
+  g_queue_push_head(viewport->rasinfos, rasinfo);
 
   viewport->has_changed = true;
 
@@ -187,7 +194,7 @@ bool glgfx_viewport_rembitmap(struct glgfx_viewport* viewport,
 
   pthread_mutex_lock(&glgfx_mutex);
 
-  viewport->rasinfos = g_list_remove(viewport->rasinfos, rasinfo);
+  g_queue_remove(viewport->rasinfos, rasinfo);
   free(rasinfo);
 
   viewport->has_changed = true;
@@ -348,7 +355,7 @@ int glgfx_viewport_numbitmaps(struct glgfx_viewport* viewport) {
 
   pthread_mutex_lock(&glgfx_mutex);
 
-  res = g_list_length(viewport->rasinfos);
+  res = g_queue_get_length(viewport->rasinfos);
 
   pthread_mutex_unlock(&glgfx_mutex);
   return res;
@@ -366,15 +373,15 @@ bool glgfx_viewport_orderbitmap(struct glgfx_viewport* viewport,
 
   pthread_mutex_lock(&glgfx_mutex);
 
-  viewport->rasinfos = g_list_remove(viewport->rasinfos, rasinfo);
+  g_queue_remove(viewport->rasinfos, rasinfo);
 
   if (in_front_of == (struct glgfx_rasinfo*) -1) {
-    viewport->rasinfos = g_list_prepend(viewport->rasinfos, rasinfo);
+    g_queue_push_head(viewport->rasinfos, rasinfo);
   }
   else {
-    GList* sib = g_list_find(viewport->rasinfos, in_front_of);
+    GList* sib = g_queue_find(viewport->rasinfos, in_front_of);
 
-    viewport->rasinfos = g_list_insert_before(viewport->rasinfos, sib, rasinfo);
+    g_queue_insert_before(viewport->rasinfos, sib, rasinfo);
   }
 
   pthread_mutex_unlock(&glgfx_mutex);
@@ -400,7 +407,7 @@ bool glgfx_viewport_haschanged(struct glgfx_viewport* viewport) {
 
   // Always call glgfx_bitmap_haschanged, since we want to reset its
   // has_changed flag.
-  g_list_foreach(viewport->rasinfos, check, &has_changed);
+  g_queue_foreach(viewport->rasinfos, check, &has_changed);
 
   return has_changed;
 }
@@ -414,9 +421,7 @@ struct render_params {
     float dz;
 };
 
-static void render(gpointer data, gpointer userdata) {
-  struct glgfx_rasinfo* rasinfo = (struct glgfx_rasinfo*) data;
-  struct render_params* params = (struct render_params*) userdata;
+static void render(struct glgfx_rasinfo* rasinfo, struct render_params* params) {
   struct glgfx_viewport* viewport = params->viewport;
   struct glgfx_context*  context  = params->context;
 
@@ -463,7 +468,9 @@ static void render(gpointer data, gpointer userdata) {
   params->z += params->dz;
 }
 
-bool glgfx_viewport_render(struct glgfx_viewport* viewport, struct glgfx_hook* mode_hook) {
+bool glgfx_viewport_render(struct glgfx_viewport* viewport, 
+			   struct glgfx_hook* mode_hook,
+			   bool front_to_back) {
   struct glgfx_context* context = glgfx_context_getcurrent();
 
   struct render_params params = {
@@ -476,7 +483,20 @@ bool glgfx_viewport_render(struct glgfx_viewport* viewport, struct glgfx_hook* m
 	    viewport->width, 
 	    viewport->height);
 
-  g_list_foreach(viewport->rasinfos, render, &params);
+  GList* node;
+
+  if (front_to_back) {
+    for (node = g_queue_peek_head_link(viewport->rasinfos);
+	 node != NULL; node = node->next) {
+      render(node->data, &params);
+    }
+  }
+  else {
+    for (node = g_queue_peek_tail_link(viewport->rasinfos);
+	 node != NULL; node = node->prev) {
+      render(node->data, &params);
+    }
+  }
 
   glDisable(GL_SCISSOR_TEST);
 

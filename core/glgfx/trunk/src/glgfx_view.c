@@ -1,5 +1,6 @@
 
 #include "glgfx-config.h"
+#include <errno.h>
 #include <stdlib.h>
 #include <glib.h>
 #include <GL/gl.h>
@@ -15,6 +16,16 @@ struct glgfx_view* glgfx_view_create(void) {
   view = calloc(1, sizeof (*view));
 
   if (view == NULL) {
+    errno = ENOMEM;
+    return NULL;
+  }
+
+  view->viewports = g_queue_new();
+  view->sprites   = g_queue_new();
+
+  if (view->viewports == NULL || view->sprites == NULL) {
+    glgfx_view_destroy(view);
+    errno = ENOMEM;
     return NULL;
   }
 
@@ -31,7 +42,8 @@ void glgfx_view_destroy(struct glgfx_view* view) {
 
   pthread_mutex_lock(&glgfx_mutex);
 
-  g_list_free(view->viewports);
+  g_queue_free(view->viewports);
+  g_queue_free(view->sprites);
   free(view);
 
   pthread_mutex_unlock(&glgfx_mutex);
@@ -44,7 +56,7 @@ bool glgfx_view_addviewport(struct glgfx_view* view,
   }
 
   pthread_mutex_lock(&glgfx_mutex);
-  view->viewports = g_list_append(view->viewports, viewport);
+  g_queue_push_head(view->viewports, viewport);
   view->has_changed = true;
   pthread_mutex_unlock(&glgfx_mutex);
 
@@ -58,7 +70,7 @@ bool glgfx_view_remviewport(struct glgfx_view* view,
   }
 
   pthread_mutex_lock(&glgfx_mutex);
-  view->viewports = g_list_remove(view->viewports, viewport);
+  g_queue_remove(view->viewports, viewport);
   view->has_changed = true;
   pthread_mutex_unlock(&glgfx_mutex);
   return true;
@@ -73,7 +85,7 @@ int glgfx_view_numviewports(struct glgfx_view* view) {
 
   pthread_mutex_lock(&glgfx_mutex);
 
-  res = g_list_length(view->viewports);
+  res = g_queue_get_length(view->viewports);
 
   pthread_mutex_unlock(&glgfx_mutex);
   return res;
@@ -87,7 +99,7 @@ bool glgfx_view_addsprite(struct glgfx_view* view,
   }
 
   pthread_mutex_lock(&glgfx_mutex);
-  view->sprites = g_list_append(view->sprites, sprite);
+  g_queue_push_head(view->sprites, sprite);
   view->has_changed = true;
   pthread_mutex_unlock(&glgfx_mutex);
 
@@ -101,7 +113,7 @@ bool glgfx_view_remsprite(struct glgfx_view* view,
   }
 
   pthread_mutex_lock(&glgfx_mutex);
-  view->sprites = g_list_remove(view->sprites, sprite);
+  g_queue_remove(view->sprites, sprite);
   view->has_changed = true;
   pthread_mutex_unlock(&glgfx_mutex);
   return true;
@@ -116,7 +128,7 @@ int glgfx_view_numsprites(struct glgfx_view* view) {
 
   pthread_mutex_lock(&glgfx_mutex);
 
-  res = g_list_length(view->sprites);
+  g_queue_get_length(view->sprites);
 
   pthread_mutex_unlock(&glgfx_mutex);
   return res;
@@ -148,34 +160,40 @@ bool glgfx_view_haschanged(struct glgfx_view* view) {
 
   // Always call glgfx_viewport/sprite_haschanged, since we want to
   // reset their has_changed flags.
-  g_list_foreach(view->viewports, check_viewport, &has_changed);
-  g_list_foreach(view->sprites, check_sprite, &has_changed);
+  g_queue_foreach(view->viewports, check_viewport, &has_changed);
+  g_queue_foreach(view->sprites, check_sprite, &has_changed);
 
   return has_changed;
 }
 
 
-static void render_viewport(gpointer data, gpointer userdata) {
-  struct glgfx_viewport* viewport = (struct glgfx_viewport*) data;
-  struct glgfx_hook* hook = (struct glgfx_hook*) userdata;
+bool glgfx_view_render(struct glgfx_view* view, struct glgfx_hook* mode_hook, bool front_to_back) {
+  GList* node;
 
-  glgfx_viewport_render(viewport, hook);
-}
-
-bool glgfx_view_render(struct glgfx_view* view, struct glgfx_hook* mode_hook) {
-  g_list_foreach(view->viewports, render_viewport, mode_hook);
+  if (front_to_back) {
+    for (node = g_queue_peek_head_link(view->viewports);
+	 node != NULL; node = node->next) {
+      glgfx_viewport_render(node->data, mode_hook, front_to_back);
+    }
+  }
+  else {
+    for (node = g_queue_peek_tail_link(view->viewports);
+	 node != NULL; node = node->prev) {
+      glgfx_viewport_render(node->data, mode_hook, front_to_back);
+    }
+  }
   return true;
 }
 
 
-static void render_sprites(gpointer data, gpointer userdata) {
-  struct glgfx_sprite* sprite = (struct glgfx_sprite*) data;
-  (void) userdata;
-
-  glgfx_sprite_render(sprite);
-}
-
 bool glgfx_view_rendersprites(struct glgfx_view* view) {
-  g_list_foreach(view->sprites, render_sprites, NULL);
+  GList* node;
+
+  // Sprites are always rendered back-to-front
+  for (node = g_queue_peek_tail_link(view->sprites);
+       node != NULL; node = node->prev) {
+    glgfx_sprite_render(node->data);
+  }
+
   return true;
 }
