@@ -216,6 +216,9 @@ int main(int argc, char** argv) {
 	      if ((code & glgfx_input_typemask) == glgfx_input_mouse_xyz) {
 		int8_t dx = ((code & glgfx_input_valuemask) >> 0) & 0xff;
 		int8_t dy = ((code & glgfx_input_valuemask) >> 8) & 0xff;
+		
+		int old_mouse_x = mouse_x;
+		int old_mouse_y = mouse_y;
 
 		mouse_x += dx;
 		mouse_y += dy;
@@ -226,8 +229,8 @@ int main(int argc, char** argv) {
 		if (mouse_y >= height) mouse_y = height -1;
 
 		if (drag) {
-		  win_x -= dx;
-		  win_y -= dy;
+		  win_x -= mouse_x - old_mouse_x;
+		  win_y -= mouse_y - old_mouse_y;
 		  
 		  glgfx_rasinfo_setattrs(ri_selected,
 					 glgfx_rasinfo_attr_x, win_x,
