@@ -413,59 +413,51 @@ bool glgfx_viewport_haschanged(struct glgfx_viewport* viewport) {
 }
 
 
-struct render_params {
-    struct glgfx_viewport* viewport;
-    struct glgfx_context*  context;
-    struct glgfx_hook*     hook;
-    float z;
-    float dz;
+struct render_data {
+    GLenum tex_unit;
 };
 
-static void render(struct glgfx_rasinfo* rasinfo, struct render_params* params) {
-  struct glgfx_viewport* viewport = params->viewport;
-  struct glgfx_context*  context  = params->context;
-
-  GLenum unit = glgfx_context_bindtex(context, 0, rasinfo->bitmap);
-
-  // Set up rendering mode and shaders
-  glgfx_callhook(params->hook, rasinfo, NULL);
+static unsigned long render(struct glgfx_hook* hook,
+			    struct glgfx_rasinfo* rasinfo, 
+			    struct glgfx_viewport_rendermsg* msg) {
+  struct render_data*    data     = hook->data;
+  struct glgfx_viewport* viewport = msg->viewport;;
 
   // Let the hardware worry about clipping to the viewport, if required.
   glBegin(GL_QUADS); {
-    glMultiTexCoord2i(unit, 
+    glMultiTexCoord2i(data->tex_unit, 
 		      0, 
 		      0);
     glVertex3f(viewport->xoffset + -rasinfo->xoffset, 
 	       viewport->yoffset + -rasinfo->yoffset, 
-	       params->z);
+	       msg->z);
 
-    glMultiTexCoord2i(unit,
+    glMultiTexCoord2i(data->tex_unit,
 		      rasinfo->bitmap->width,
 		      0);
     glVertex3f(viewport->xoffset + -rasinfo->xoffset + rasinfo->width,
 	       viewport->yoffset + -rasinfo->yoffset,
-	       params->z);
+	       msg->z);
 
-    glMultiTexCoord2i(unit,
+    glMultiTexCoord2i(data->tex_unit,
 		      rasinfo->bitmap->width,
 		      rasinfo->bitmap->height);
     glVertex3f(viewport->xoffset + -rasinfo->xoffset + rasinfo->width,
 	       viewport->yoffset + -rasinfo->yoffset + rasinfo->height,
-	       params->z);
+	       msg->z);
 
-    glMultiTexCoord2i(unit,
+    glMultiTexCoord2i(data->tex_unit,
 		      0,
 		      rasinfo->bitmap->height);
     glVertex3f(viewport->xoffset + -rasinfo->xoffset,
 	       viewport->yoffset + -rasinfo->yoffset + rasinfo->height,
-	       params->z);
+	       msg->z);
   }
   glEnd();
 
   GLGFX_CHECKERROR();
 
-  // Update Z
-  params->z += params->dz;
+  return 0;
 }
 
 bool glgfx_viewport_render(struct glgfx_viewport* viewport, 
@@ -473,9 +465,18 @@ bool glgfx_viewport_render(struct glgfx_viewport* viewport,
 			   bool front_to_back) {
   struct glgfx_context* context = glgfx_context_getcurrent();
 
-  struct render_params params = {
-    viewport, context, mode_hook, 0.0f, 0.0f
+  struct render_data render_data = {
+    -1
   };
+
+  struct glgfx_hook geometry_hook = {
+    (glgfx_hookfunc) render, &render_data
+  };
+
+  struct glgfx_viewport_rendermsg msg = {
+    viewport, &geometry_hook, front_to_back ? 1.0f : 0.0f
+  };
+
 
   glEnable(GL_SCISSOR_TEST);
   glScissor(viewport->xoffset, 
@@ -484,18 +485,21 @@ bool glgfx_viewport_render(struct glgfx_viewport* viewport,
 	    viewport->height);
 
   GList* node;
+  float  dz = ((front_to_back ? -1 : 1) * 1.0f / 
+	       g_queue_get_length(viewport->rasinfos));
+  
+  for (node = front_to_back ? 
+	 g_queue_peek_head_link(viewport->rasinfos) :
+	 g_queue_peek_tail_link(viewport->rasinfos);
+       node != NULL; 
+       node = front_to_back ? node->next : node->prev) {
+    struct glgfx_rasinfo* rasinfo = node->data;
 
-  if (front_to_back) {
-    for (node = g_queue_peek_head_link(viewport->rasinfos);
-	 node != NULL; node = node->next) {
-      render(node->data, &params);
-    }
-  }
-  else {
-    for (node = g_queue_peek_tail_link(viewport->rasinfos);
-	 node != NULL; node = node->prev) {
-      render(node->data, &params);
-    }
+    // Set up rendering mode and shaders (calls geometry_hook too)
+    render_data.tex_unit = glgfx_context_bindtex(context, 0, rasinfo->bitmap);
+    glgfx_callhook(mode_hook, rasinfo, &msg);
+
+    msg.z += dz;
   }
 
   glDisable(GL_SCISSOR_TEST);

@@ -33,6 +33,47 @@ struct glgfx_shader {
 };
 
 
+/*** Render shaders **********************************************************/
+
+struct glgfx_shader stencil_renderer = {
+  .channels = 2,
+
+  .vertex =
+  "void main() {\n"
+  "  gl_TexCoord[0] = textureTransform0(gl_MultiTexCoord0);\n"
+  "  gl_Position = positionTransform();\n"
+  "}\n",
+
+  .fragment = 
+  "void main() {\n"
+  "  if(readPixel0(gl_TexCoord[0].xy).a == 1.0) {;\n"
+  "    discard;\n"
+  "  }\n"
+  "  writePixel0(readPixel0(gl_TexCoord[0].xy));\n"
+  "}\n"
+};
+
+
+struct glgfx_shader depth_renderer = {
+  .channels = 2,
+
+  .vertex =
+  "void main() {\n"
+  "  gl_TexCoord[0] = textureTransform0(gl_MultiTexCoord0);\n"
+  "  gl_Position = positionTransform();\n"
+  "}\n",
+
+  .fragment = 
+  "void main() {\n"
+  "  if(readPixel0(gl_TexCoord[0].xy).a != 1.0) {;\n"
+  "    discard;\n"
+  "  }\n"
+  "}\n"
+};
+
+
+/*** Blitter shaders *********************************************************/
+
 struct glgfx_shader color_blitter = {
   .channels = 1,
 
@@ -552,7 +593,11 @@ bool glgfx_shader_init(struct glgfx_monitor* monitor) {
 		 init_table(&color_blitter, monitor) &&
 		 init_table(&plain_texture_blitter, monitor) &&
 		 init_table(&color_texture_blitter, monitor) &&
-		 init_table(&modulated_texture_blitter, monitor));
+		 init_table(&modulated_texture_blitter, monitor) &&
+
+		 init_table(&stencil_renderer, monitor) &&
+		 init_table(&depth_renderer, monitor)
+    );
 
   return initialized;
 }
@@ -596,6 +641,9 @@ void glgfx_shader_cleanup() {
   destroy_table(&plain_texture_blitter);
   destroy_table(&color_texture_blitter);
   destroy_table(&modulated_texture_blitter);
+
+  destroy_table(&stencil_renderer);
+  destroy_table(&depth_renderer);
 }
 
 

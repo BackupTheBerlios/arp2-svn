@@ -162,6 +162,12 @@ struct glgfx_viewport {
 };
 
 
+struct glgfx_viewport_rendermsg {
+    struct glgfx_viewport* viewport;
+    struct glgfx_hook*     geometry_hook;
+    float z;
+};
+
 struct glgfx_sprite {
     struct glgfx_bitmap* bitmap;
     int                  x;
@@ -200,6 +206,9 @@ extern struct glgfx_shader plain_texture_blitter;
 extern struct glgfx_shader color_texture_blitter;
 
 extern struct glgfx_shader modulated_texture_blitter;
+
+extern struct glgfx_shader stencil_renderer;
+extern struct glgfx_shader depth_renderer;
 
 
 #define GLGFX_CHECKERROR() glgfx_checkerror(__PRETTY_FUNCTION__, __FILE__, __LINE__);

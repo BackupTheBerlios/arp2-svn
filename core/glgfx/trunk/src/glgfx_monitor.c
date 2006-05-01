@@ -791,10 +791,22 @@ bool glgfx_monitor_waittof(struct glgfx_monitor* monitor) {
   }
 }
 
-
-static unsigned long render_func(struct glgfx_hook* hook, void* object, void* message) {
+static unsigned long stencil_func(struct glgfx_hook* hook, 
+				  struct glgfx_rasinfo* rasinfo, 
+				  struct glgfx_viewport_rendermsg* msg) {
   struct glgfx_context* context = (struct glgfx_context*) hook->data;
-  struct glgfx_rasinfo* rasinfo = (struct glgfx_rasinfo*) object;
+
+  glgfx_context_bindprogram(context, &stencil_renderer);
+  glgfx_callhook(msg->geometry_hook, rasinfo, msg);
+
+  return 0;
+}
+
+
+static unsigned long render_func(struct glgfx_hook* hook, 
+				 struct glgfx_rasinfo* rasinfo, 
+				 struct glgfx_viewport_rendermsg* msg) {
+  struct glgfx_context* context = (struct glgfx_context*) hook->data;
 
   glgfx_context_bindprogram(context, &plain_texture_blitter);
 
@@ -811,6 +823,10 @@ static unsigned long render_func(struct glgfx_hook* hook, void* object, void* me
   else {
     glDisable(GL_BLEND);
   }
+
+  glgfx_callhook(msg->geometry_hook, rasinfo, msg);
+
+  return 0;
 }
 
 bool glgfx_monitor_render(struct glgfx_monitor* monitor) {
@@ -831,21 +847,61 @@ bool glgfx_monitor_render(struct glgfx_monitor* monitor) {
 
   if (has_changed) {
     struct glgfx_context* context = glgfx_context_getcurrent();
-    struct glgfx_hook render_hook = { render_func, context };
+    struct glgfx_hook stencil_hook = { (glgfx_hookfunc) stencil_func, context };
+    struct glgfx_hook depth_hook   = { (glgfx_hookfunc) stencil_func, context };
+    struct glgfx_hook render_hook  = { (glgfx_hookfunc) render_func,  context };
 
     glDrawBuffer(GL_BACK);
 
+    glStencilMask(~0);
     glClearColor(0, 0, 0, 0);
     glClearDepth(0);
-    glClearStencil(0);
+    glClearStencil(128);
 
     glEnable(GL_BLEND); // NVIDIA bug? Needs to be enabled here
+    glEnable(GL_STENCIL_TEST);
     glClear(GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     pthread_mutex_lock(&glgfx_mutex);
 
-    glgfx_view_render(monitor->views->head->data, &render_hook, true);
+    glDisable(GL_BLEND);
+    glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
 
+    glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+    glStencilFunc(GL_ALWAYS, 10, ~0);
+
+    glBegin(GL_QUADS); {
+      glVertex3f(0, 0, 0);
+      glVertex3f(monitor->mode.hdisplay, 0, 0);
+      glVertex3f(monitor->mode.hdisplay, monitor->mode.vdisplay, 0);
+      glVertex3f(0, monitor->mode.vdisplay, 0);
+    }
+    glEnd();
+
+    glStencilOp(GL_KEEP, GL_KEEP, GL_INCR);
+    glBegin(GL_QUADS); {
+      glVertex3f(100, 100, 0);
+      glVertex3f(200, 100, 0);
+      glVertex3f(200, 300, 0);
+      glVertex3f(100, 300, 0);
+    }
+    glEnd();
+    glBegin(GL_QUADS); {
+      glVertex3f(110, 110, 0);
+      glVertex3f(210, 110, 0);
+      glVertex3f(210, 310, 0);
+      glVertex3f(110, 310, 0);
+    }
+    glEnd();
+    
+//    glgfx_view_render(monitor->views->head->data, &stencil_hook, false);
+
+    glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    glStencilFunc(GL_GEQUAL, 13, ~0);
+    glgfx_view_render(monitor->views->head->data, &render_hook, false);
+    glDisable(GL_STENCIL_TEST);
+    
     // Sprites are always transparent
     glEnable(GL_BLEND);
     glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
