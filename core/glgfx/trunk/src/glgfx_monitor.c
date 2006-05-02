@@ -856,7 +856,7 @@ bool glgfx_monitor_render(struct glgfx_monitor* monitor) {
     glStencilMask(~0);
     glClearColor(0, 0, 0, 0);
     glClearDepth(0);
-    glClearStencil(128);
+    glClearStencil(0);
 
     glEnable(GL_BLEND); // NVIDIA bug? Needs to be enabled here
     glEnable(GL_STENCIL_TEST);
@@ -867,18 +867,9 @@ bool glgfx_monitor_render(struct glgfx_monitor* monitor) {
     glDisable(GL_BLEND);
     glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
 
-    glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
-    glStencilFunc(GL_ALWAYS, 10, ~0);
-
-    glBegin(GL_QUADS); {
-      glVertex3f(0, 0, 0);
-      glVertex3f(monitor->mode.hdisplay, 0, 0);
-      glVertex3f(monitor->mode.hdisplay, monitor->mode.vdisplay, 0);
-      glVertex3f(0, monitor->mode.vdisplay, 0);
-    }
-    glEnd();
-
+    glStencilFunc(GL_ALWAYS, 0, ~0);
     glStencilOp(GL_KEEP, GL_KEEP, GL_INCR);
+
     glBegin(GL_QUADS); {
       glVertex3f(100, 100, 0);
       glVertex3f(200, 100, 0);
@@ -894,11 +885,13 @@ bool glgfx_monitor_render(struct glgfx_monitor* monitor) {
     }
     glEnd();
     
-//    glgfx_view_render(monitor->views->head->data, &stencil_hook, false);
+
+    // Increase stencil where alpha != 1.0
+    glgfx_view_render(monitor->views->head->data, &stencil_hook, false);
 
     glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-    glStencilFunc(GL_GEQUAL, 13, ~0);
+    glStencilFunc(GL_LESS, 1, ~0);
     glgfx_view_render(monitor->views->head->data, &render_hook, false);
     glDisable(GL_STENCIL_TEST);
     
