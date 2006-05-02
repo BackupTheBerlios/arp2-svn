@@ -68,6 +68,7 @@ struct glgfx_shader depth_renderer = {
   "  if(readPixel0(gl_TexCoord[0].xy).a != 1.0) {;\n"
   "    discard;\n"
   "  }\n"
+  "  writePixel0(readPixel0(gl_TexCoord[0].xy));\n"
   "}\n"
 };
 
