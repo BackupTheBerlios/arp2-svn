@@ -465,6 +465,10 @@ bool glgfx_viewport_render(struct glgfx_viewport* viewport,
 			   bool front_to_back) {
   struct glgfx_context* context = glgfx_context_getcurrent();
 
+  GList* node;
+  float  dz = ((front_to_back ? 1 : -1) * 1.0f / 
+	       g_queue_get_length(viewport->rasinfos));
+
   struct render_data render_data = {
     -1
   };
@@ -474,7 +478,7 @@ bool glgfx_viewport_render(struct glgfx_viewport* viewport,
   };
 
   struct glgfx_viewport_rendermsg msg = {
-    viewport, &geometry_hook, front_to_back ? 1.0f : 0.0f
+    viewport, &geometry_hook, front_to_back ? 0.0f : 1.0f + dz
   };
 
 
@@ -483,10 +487,6 @@ bool glgfx_viewport_render(struct glgfx_viewport* viewport,
 	    context->monitor->mode.vdisplay - viewport->yoffset - viewport->height,
 	    viewport->width, 
 	    viewport->height);
-
-  GList* node;
-  float  dz = ((front_to_back ? -1 : 1) * 1.0f / 
-	       g_queue_get_length(viewport->rasinfos));
   
   for (node = front_to_back ? 
 	 g_queue_peek_head_link(viewport->rasinfos) :
@@ -499,6 +499,7 @@ bool glgfx_viewport_render(struct glgfx_viewport* viewport,
     render_data.tex_unit = glgfx_context_bindtex(context, 0, rasinfo->bitmap);
     glgfx_callhook(mode_hook, rasinfo, &msg);
 
+//    printf("w=%d h=%d z=%f\n", rasinfo->width, rasinfo->height, msg.z);
     msg.z += dz;
   }
 

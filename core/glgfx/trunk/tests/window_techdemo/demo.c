@@ -165,7 +165,6 @@ int main(int argc, char** argv) {
 	    }
 	  }
 
-
 	  // Load windows
 	  glgfx_bitmap_write(selected,
 			     glgfx_bitmap_copy_width,   window_selected.width,

@@ -791,13 +791,37 @@ bool glgfx_monitor_waittof(struct glgfx_monitor* monitor) {
   }
 }
 
+static unsigned long depth_func(struct glgfx_hook* hook, 
+				struct glgfx_rasinfo* rasinfo, 
+				struct glgfx_viewport_rendermsg* msg) {
+  struct glgfx_context* context = (struct glgfx_context*) hook->data;
+
+  if (rasinfo->blend_eq == glgfx_blend_equation_disabled &&
+      rasinfo->blend_eq_alpha == glgfx_blend_equation_disabled) {
+    // No magic required (even alpha != 1.0 are rendered opaque)
+    glgfx_context_bindprogram(context, &plain_texture_blitter);
+  }
+  else {
+    // Render only fully opaque pixels
+    glgfx_context_bindprogram(context, &depth_renderer);
+  }
+  
+  glgfx_callhook(msg->geometry_hook, rasinfo, msg);
+
+  return 0;
+}
+
 static unsigned long stencil_func(struct glgfx_hook* hook, 
 				  struct glgfx_rasinfo* rasinfo, 
 				  struct glgfx_viewport_rendermsg* msg) {
   struct glgfx_context* context = (struct glgfx_context*) hook->data;
 
-  glgfx_context_bindprogram(context, &stencil_renderer);
-  glgfx_callhook(msg->geometry_hook, rasinfo, msg);
+  if (rasinfo->blend_eq != glgfx_blend_equation_disabled &&
+      rasinfo->blend_eq_alpha != glgfx_blend_equation_disabled) {
+    // Only render transparent rasinfo's
+    glgfx_context_bindprogram(context, &stencil_renderer);
+    glgfx_callhook(msg->geometry_hook, rasinfo, msg);
+  }
 
   return 0;
 }
@@ -810,21 +834,47 @@ static unsigned long render_func(struct glgfx_hook* hook,
 
   glgfx_context_bindprogram(context, &plain_texture_blitter);
 
+/*   if (rasinfo->blend_eq != glgfx_blend_equation_disabled) { */
+/*     // TODO: Don't change state if it's the same as the current state */
+/*     glEnable(GL_BLEND); */
+/*     glBlendEquationSeparate(glgfx_blend_equations[rasinfo->blend_eq],  */
+/* 			    glgfx_blend_equations[rasinfo->blend_eq_alpha]); */
+/*     glBlendFuncSeparate(glgfx_blend_funcs[rasinfo->blend_func_src], */
+/* 			glgfx_blend_funcs[rasinfo->blend_func_dst], */
+/* 			glgfx_blend_funcs[rasinfo->blend_func_src_alpha], */
+/* 			glgfx_blend_funcs[rasinfo->blend_func_dst_alpha]); */
+/*   } */
+/*   else { */
+/*     glDisable(GL_BLEND); */
+/*   } */
+
+  glDisable(GL_BLEND);
+  glEnable(GL_STENCIL_TEST);
+  glStencilFunc(GL_NOTEQUAL, 0, ~0);
+  glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+
+  glColor4f(0,1,0,1);
+//  glgfx_context_bindprogram(context, &blur_renderer);
+  glgfx_context_bindprogram(context, &color_blitter);
+  glgfx_callhook(msg->geometry_hook, rasinfo, msg);
+
   if (rasinfo->blend_eq != glgfx_blend_equation_disabled) {
     // TODO: Don't change state if it's the same as the current state
     glEnable(GL_BLEND);
-    glBlendEquationSeparate(glgfx_blend_equations[rasinfo->blend_eq], 
+    glBlendEquationSeparate(glgfx_blend_equations[rasinfo->blend_eq],
 			    glgfx_blend_equations[rasinfo->blend_eq_alpha]);
     glBlendFuncSeparate(glgfx_blend_funcs[rasinfo->blend_func_src],
 			glgfx_blend_funcs[rasinfo->blend_func_dst],
 			glgfx_blend_funcs[rasinfo->blend_func_src_alpha],
 			glgfx_blend_funcs[rasinfo->blend_func_dst_alpha]);
   }
-  else {
-    glDisable(GL_BLEND);
-  }
 
-  glgfx_callhook(msg->geometry_hook, rasinfo, msg);
+/* /\*   glDisable(GL_STENCIL_TEST); *\/ */
+/*   glgfx_context_bindprogram(context, &plain_texture_blitter); */
+/* /\*   glStencilFunc(GL_ALWAYS, 0, ~0); *\/ */
+/* /\*   glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);  *\/ */
+/*   glStencilOp(GL_KEEP, GL_KEEP, GL_DECR); */
+/*   glgfx_callhook(msg->geometry_hook, rasinfo, msg); */
 
   return 0;
 }
@@ -848,51 +898,69 @@ bool glgfx_monitor_render(struct glgfx_monitor* monitor) {
   if (has_changed) {
     struct glgfx_context* context = glgfx_context_getcurrent();
     struct glgfx_hook stencil_hook = { (glgfx_hookfunc) stencil_func, context };
-    struct glgfx_hook depth_hook   = { (glgfx_hookfunc) stencil_func, context };
+    struct glgfx_hook depth_hook   = { (glgfx_hookfunc) depth_func,   context };
     struct glgfx_hook render_hook  = { (glgfx_hookfunc) render_func,  context };
 
     glDrawBuffer(GL_BACK);
-
+    glDepthRange(1, 0); // i don't get it but whatever ...
     glStencilMask(~0);
     glClearColor(0, 0, 0, 0);
-    glClearDepth(0);
+    glClearDepth(1);
     glClearStencil(0);
-
-    glEnable(GL_BLEND); // NVIDIA bug? Needs to be enabled here
-    glEnable(GL_STENCIL_TEST);
+//    glEnable(GL_BLEND); // NVIDIA bug? Needs to be enabled here
+//    glEnable(GL_STENCIL_TEST);
     glClear(GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     pthread_mutex_lock(&glgfx_mutex);
 
+    // Draw opaque pixels front-to-back, updating depth buffer
     glDisable(GL_BLEND);
-    glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+    glEnable(GL_DEPTH_TEST);
+//    glDepthFunc(GL_LEQUAL);
+    glDepthFunc(GL_LESS);
+    glgfx_view_render(monitor->views->head->data, &depth_hook, true);
 
+    // Render transparent pixels back-to-front, respecting depth buffer
+    // and incrementing the stencil buffer every time a pixel is (re-) drawn.
+    glEnable(GL_STENCIL_TEST);
+    glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
     glStencilFunc(GL_ALWAYS, 0, ~0);
     glStencilOp(GL_KEEP, GL_KEEP, GL_INCR);
-
-    glBegin(GL_QUADS); {
-      glVertex3f(100, 100, 0);
-      glVertex3f(200, 100, 0);
-      glVertex3f(200, 300, 0);
-      glVertex3f(100, 300, 0);
-    }
-    glEnd();
-    glBegin(GL_QUADS); {
-      glVertex3f(110, 110, 0);
-      glVertex3f(210, 110, 0);
-      glVertex3f(210, 310, 0);
-      glVertex3f(110, 310, 0);
-    }
-    glEnd();
-    
-
-    // Increase stencil where alpha != 1.0
     glgfx_view_render(monitor->views->head->data, &stencil_hook, false);
 
-    glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-    glStencilFunc(GL_LESS, 1, ~0);
+
+    // Reset depth where stencil != 0
+    glDepthFunc(GL_ALWAYS);
+    glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+    glStencilFunc(GL_NOTEQUAL, 0, ~0);
+
+    glgfx_context_bindprogram(context, &color_blitter);
+    glBegin(GL_QUADS); {
+      glVertex3f(0,    0,    1);
+      glVertex3f(1280, 0,    1);
+      glVertex3f(1280, 1024, 1);
+      glVertex3f(0,    1024, 1);
+    }
+    glEnd();
+
+/*     glColor4f(1,0,0,0); */
+/*     glgfx_context_bindprogram(context, &color_blitter); */
+/*     glBegin(GL_QUADS); { */
+/*       glVertex3f(0,    0,    1); */
+/*       glVertex3f(1280, 0,    1); */
+/*       glVertex3f(1280, 1024, 1); */
+/*       glVertex3f(0,    1024, 1); */
+/*     } */
+/*     glEnd(); */
+    
+//    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+
+    glDepthFunc(GL_LEQUAL);
+//    glStencilFunc(GL_LESS, 0, ~0);
+
     glgfx_view_render(monitor->views->head->data, &render_hook, false);
+
     glDisable(GL_STENCIL_TEST);
     
     // Sprites are always transparent

@@ -209,6 +209,7 @@ extern struct glgfx_shader modulated_texture_blitter;
 
 extern struct glgfx_shader stencil_renderer;
 extern struct glgfx_shader depth_renderer;
+extern struct glgfx_shader blur_renderer;
 
 
 #define GLGFX_CHECKERROR() glgfx_checkerror(__PRETTY_FUNCTION__, __FILE__, __LINE__);

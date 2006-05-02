@@ -46,10 +46,14 @@ struct glgfx_shader stencil_renderer = {
 
   .fragment = 
   "void main() {\n"
-  "  if(readPixel0(gl_TexCoord[0].xy).a == 1.0) {;\n"
+  "  vec4 color = readPixel0(gl_TexCoord[0].xy);\n"
+  "\n"
+  "  if(color.a == 1.0) {;\n"
   "    discard;\n"
   "  }\n"
-  "  writePixel0(readPixel0(gl_TexCoord[0].xy));\n"
+  "  else {\n"
+  "    writePixel0(color);\n" // NVIDIA's driver insists on result being written
+  "  }\n"
   "}\n"
 };
 
@@ -65,10 +69,36 @@ struct glgfx_shader depth_renderer = {
 
   .fragment = 
   "void main() {\n"
-  "  if(readPixel0(gl_TexCoord[0].xy).a != 1.0) {;\n"
+  "  vec4 color = readPixel0(gl_TexCoord[0].xy);\n"
+  "\n"
+  "  if(color.a == 1.0) {;\n"
+  "    writePixel0(color);\n"
+  "  }\n"
+  "  else {\n"
   "    discard;\n"
   "  }\n"
-  "  writePixel0(readPixel0(gl_TexCoord[0].xy));\n"
+  "}\n"
+};
+
+
+struct glgfx_shader blur_renderer = {
+  .channels = 2,
+
+  .vertex =
+  "void main() {\n"
+  "  gl_TexCoord[0] = textureTransform0(gl_MultiTexCoord0);\n"
+  "  gl_Position = positionTransform();\n"
+  "}\n",
+
+  .fragment = 
+  "void main() {\n"
+  "  vec4 color1 = readPixel0(gl_TexCoord[0].xy + vec2(-1, -1));\n"
+  "  vec4 color2 = readPixel0(gl_TexCoord[0].xy + vec2(-1,  1));\n"
+  "  vec4 color3 = readPixel0(gl_TexCoord[0].xy + vec2( 1,  1));\n"
+  "  vec4 color4 = readPixel0(gl_TexCoord[0].xy + vec2( 1, -1));\n"
+  "  vec4 color5 = readPixel0(gl_TexCoord[0].xy + vec2( 0,  0));\n"
+  "\n"
+  "  writePixel0((color1 + color2 + color3 + color4 + color5) * 0.2);\n"
   "}\n"
 };
 
@@ -597,7 +627,8 @@ bool glgfx_shader_init(struct glgfx_monitor* monitor) {
 		 init_table(&modulated_texture_blitter, monitor) &&
 
 		 init_table(&stencil_renderer, monitor) &&
-		 init_table(&depth_renderer, monitor)
+		 init_table(&depth_renderer, monitor) &&
+		 init_table(&blur_renderer, monitor)
     );
 
   return initialized;
@@ -645,6 +676,7 @@ void glgfx_shader_cleanup() {
 
   destroy_table(&stencil_renderer);
   destroy_table(&depth_renderer);
+  destroy_table(&blur_renderer);
 }
 
 
