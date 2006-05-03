@@ -816,12 +816,8 @@ static unsigned long stencil_func(struct glgfx_hook* hook,
 				  struct glgfx_viewport_rendermsg* msg) {
   struct glgfx_context* context = (struct glgfx_context*) hook->data;
 
-  if (rasinfo->blend_eq != glgfx_blend_equation_disabled &&
-      rasinfo->blend_eq_alpha != glgfx_blend_equation_disabled) {
-    // Only render transparent rasinfo's
-    glgfx_context_bindprogram(context, &stencil_renderer);
-    glgfx_callhook(msg->geometry_hook, rasinfo, msg);
-  }
+  glgfx_context_unbindprogram(context);
+  glgfx_callhook(msg->geometry_hook, rasinfo, msg);
 
   return 0;
 }
@@ -901,46 +897,66 @@ bool glgfx_monitor_render(struct glgfx_monitor* monitor) {
     struct glgfx_hook blur_hook    = { (glgfx_hookfunc) blur_func,    context };
     struct glgfx_hook render_hook  = { (glgfx_hookfunc) render_func,  context };
 
+
     glDrawBuffer(GL_BACK);
+
+    glEnable(GL_BLEND);   // NVIDIA bug? Needs to be enabled here
+
+    glDepthMask(GL_TRUE); // NVIDIA bug? Needs to be enabled here
+    glDepthFunc(GL_LESS);
     glDepthRange(1, 0); // i don't get it but whatever ...
-    glStencilMask(~0);
-    glClearColor(0, 0, 0, 0);
     glClearDepth(1);
+
+    glStencilMask(~0);
     glClearStencil(0);
-    glEnable(GL_BLEND); // NVIDIA bug? Needs to be enabled here
-//    glEnable(GL_STENCIL_TEST);
+
+    glClearColor(0, 0, 0, 0);
+
     glClear(GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     pthread_mutex_lock(&glgfx_mutex);
-    glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
 
-    // "Draw" opaque pixels front-to-back, only updating depth buffer
+    // Pre-passes do not touch the framebuffer, only depth and stencil
+    glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
     glDisable(GL_BLEND);
+
+    // "Draw" opaque pixels front-to-back, only updating depth buffer.
+    // The shader will 'discard' all fragments that are not fully
+    // opaque. For pixels that are not discarded, the stencil buffer
+    // will be set to one and the Z-buffer to the depth.
     glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_LEQUAL);
+    glEnable(GL_STENCIL_TEST);
+    glStencilFunc(GL_ALWAYS, 1, ~0);
+    glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+
     glgfx_view_render(monitor->views->head->data, &depth_hook, true);
 
-    // "Render" transparent pixels back-to-front, respecting depth
-    // buffer (so we don't render on areas where transparent pixels
-    // are hidden behind opaque pixels), to the stencil buffer,
-    // incrementing it every time a pixel is (re-) drawn.
+
+    // "Render" visible transparent pixels back-to-front to the
+    // stencil buffer.  The depth buffer is left as-is.
+    //
+    // Opaque pixels or transparent pixels below opaque pixels will
+    // not be drawn, since they will be z-rejected
+    // (glDepthFunc(GL_LESS)).
+    //
+    // Transparent pixels with no opaque pixels below will not be
+    // drawn either, since stencil must be != 0
+    // (glStencilFunc(GL_NOTEQUAL, 0, ...)).
+    //
+    // For each pixel that passes all tests, increment stencil by one.
     glDepthMask(GL_FALSE);
-    glEnable(GL_STENCIL_TEST);
-    glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
-    glStencilFunc(GL_ALWAYS, 0, ~0);
+    glStencilFunc(GL_NOTEQUAL, 0, ~0);
     glStencilOp(GL_KEEP, GL_KEEP, GL_INCR);
     glgfx_view_render(monitor->views->head->data, &stencil_hook, false);
 
+    // Enable framebuffer rendering
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
 #if 0
-
-//    glDisable(GL_BLEND);
-    // Reset depth where stencil != 0
-    glDepthFunc(GL_ALWAYS);
+    glStencilFunc(GL_LESS, 2, ~0);
     glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
-    glStencilFunc(GL_NOTEQUAL, 0, ~0);
 
+    glDisable(GL_DEPTH_TEST);
     glgfx_context_bindprogram(context, &color_blitter);
     glColor4f(1,0,0,0);
     glBegin(GL_QUADS); {
@@ -950,66 +966,27 @@ bool glgfx_monitor_render(struct glgfx_monitor* monitor) {
       glVertex3f(0,    1024, 0.9);
     }
     glEnd();
-   
-    glStencilFunc(GL_ALWAYS, 0, ~0);
-
-/*     static float z = 1.1; */
-/*     glDepthFunc(GL_LEQUAL); */
-/*     glColor4f(1,1,0,0); */
-/*     glBegin(GL_QUADS); { */
-/*       glVertex3f(0,    0,    z); */
-/*       glVertex3f(1280, 0,    z); */
-/*       glVertex3f(1280, 1024, z); */
-/*       glVertex3f(0,    1024, z); */
-/*     } */
-/*     glEnd(); */
     
-/*     if (z > 0.01) { */
-/*       z -= 0.01; */
-/*     } */
-
-#endif
-    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-
-/*     glDepthFunc(GL_LEQUAL); */
-/* //    glStencilFunc(GL_LESS, 0, ~0); */
-
-    glDepthMask(GL_TRUE);
-    glEnable(GL_BLEND);
-
-    glStencilFunc(GL_NOTEQUAL, 0, ~0);
-    glStencilOp(GL_KEEP, GL_KEEP, GL_DECR);
-//    glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+#else
+    // Render blurred areas back-to-front. The stencil buffer holds
+    // the number of blurred layes per pixel minus one. We render if
+    // stencil > 1, and decrement the stencil buffer for every layer
+    // drawn.  
+    //
+    // This also completes the Z-buffer, which will now be fully
+    // filled, even in transparent areas.
     glDepthFunc(GL_LEQUAL);
-
+    glDepthMask(GL_TRUE);
+    glStencilFunc(GL_LESS, 1, ~0);
+    glStencilOp(GL_KEEP, GL_KEEP, GL_DECR);
     glgfx_view_render(monitor->views->head->data, &blur_hook, false);
 
-//    glDisable(GL_STENCIL_TEST);
-//    glDisable(GL_DEPTH_TEST);
-//    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-//    glEnable(GL_DEPTH_TEST);
-//    glDepthFunc(GL_EQUAL);
-
-/*     glgfx_context_bindprogram(context, &color_blitter); */
-/*     glBegin(GL_QUADS); { */
-/*       glVertex3f(0,    0,    1); */
-/*       glVertex3f(1280, 0,    1); */
-/*       glVertex3f(1280, 1024, 1); */
-/*       glVertex3f(0,    1024, 1); */
-/*     } */
-/*     glEnd(); */
-
-/*     glDisable(GL_STENCIL_TEST); */
-/*     glDepthFunc(GL_LEQUAL); */
-
+    // Finally, disable the stencil test and draw the real image over
+    // the background and blurred areas, back-to-front. (Only top-most
+    // pixels will be drawn because of the Z-buffer.)
     glDisable(GL_STENCIL_TEST);
-    glDepthFunc(GL_LEQUAL);
     glgfx_view_render(monitor->views->head->data, &render_hook, false);
-    
-    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-    glDisable(GL_STENCIL_TEST);
-    glDisable(GL_DEPTH_TEST);
-
+#endif
     // Sprites are always transparent
     glEnable(GL_BLEND);
     glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
