@@ -93,10 +93,10 @@ struct glgfx_shader blur_renderer = {
 
   .fragment = 
   "void main() {\n"
-  "  vec4 color1 = readPixel0(gl_TexCoord[0].xy + vec2(-1, -1));\n"
-  "  vec4 color2 = readPixel0(gl_TexCoord[0].xy + vec2(-1,  1));\n"
-  "  vec4 color3 = readPixel0(gl_TexCoord[0].xy + vec2( 1,  1));\n"
-  "  vec4 color4 = readPixel0(gl_TexCoord[0].xy + vec2( 1, -1));\n"
+  "  vec4 color1 = readPixel0(gl_TexCoord[0].xy + vec2(-1,  0));\n"
+  "  vec4 color2 = readPixel0(gl_TexCoord[0].xy + vec2( 1,  0));\n"
+  "  vec4 color3 = readPixel0(gl_TexCoord[0].xy + vec2( 0, -1));\n"
+  "  vec4 color4 = readPixel0(gl_TexCoord[0].xy + vec2( 0,  1));\n"
   "  vec4 color5 = readPixel0(gl_TexCoord[0].xy + vec2( 0,  0));\n"
   "\n"
   "  writePixel0((color1 + color2 + color3 + color4 + color5) * 0.2);\n"

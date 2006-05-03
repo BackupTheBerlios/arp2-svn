@@ -846,11 +846,8 @@ static unsigned long blur_func(struct glgfx_hook* hook,
     glDisable(GL_BLEND);
   }
 
-  glStencilFunc(GL_NOTEQUAL, 0, ~0);
-  glStencilOp(GL_KEEP, GL_KEEP, GL_DECR);
-
   glgfx_context_bindprogram(context, &blur_renderer);
-
+  msg->z -= 0.01;
   glgfx_callhook(msg->geometry_hook, rasinfo, msg);
 
   return 0;
@@ -933,7 +930,7 @@ bool glgfx_monitor_render(struct glgfx_monitor* monitor) {
     glStencilOp(GL_KEEP, GL_KEEP, GL_INCR);
     glgfx_view_render(monitor->views->head->data, &stencil_hook, false);
 
-//    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
 #if 0
 
@@ -976,7 +973,14 @@ bool glgfx_monitor_render(struct glgfx_monitor* monitor) {
 /*     glDepthFunc(GL_LEQUAL); */
 /* //    glStencilFunc(GL_LESS, 0, ~0); */
 
-/*     glgfx_view_render(monitor->views->head->data, &blur_hook, false); */
+    glEnable(GL_BLEND);
+
+    glStencilFunc(GL_NOTEQUAL, 0, ~0);
+    glStencilOp(GL_KEEP, GL_KEEP, GL_DECR);
+//    glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+    glDepthFunc(GL_ALWAYS);
+
+    glgfx_view_render(monitor->views->head->data, &blur_hook, false);
 
 //    glDisable(GL_STENCIL_TEST);
 //    glDisable(GL_DEPTH_TEST);
@@ -996,12 +1000,9 @@ bool glgfx_monitor_render(struct glgfx_monitor* monitor) {
 /*     glDisable(GL_STENCIL_TEST); */
 /*     glDepthFunc(GL_LEQUAL); */
 
-    glEnable(GL_BLEND);
     glDisable(GL_STENCIL_TEST);
     glDepthFunc(GL_LEQUAL);
-    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
     glgfx_view_render(monitor->views->head->data, &render_hook, false);
-    
     
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
     glDisable(GL_STENCIL_TEST);
