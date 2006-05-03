@@ -904,7 +904,7 @@ bool glgfx_monitor_render(struct glgfx_monitor* monitor) {
     glDrawBuffer(GL_BACK);
     glDepthRange(1, 0); // i don't get it but whatever ...
     glStencilMask(~0);
-    glClearColor(1, 0, 1, 1);
+    glClearColor(0, 0, 0, 0);
     glClearDepth(1);
     glClearStencil(0);
     glEnable(GL_BLEND); // NVIDIA bug? Needs to be enabled here

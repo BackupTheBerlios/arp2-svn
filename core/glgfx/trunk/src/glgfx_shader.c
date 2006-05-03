@@ -91,15 +91,42 @@ struct glgfx_shader blur_renderer = {
   "  gl_Position = positionTransform();\n"
   "}\n",
 
+#if 0
   .fragment = 
   "void main() {\n"
   "  vec4 color1 = readPixel0(gl_TexCoord[0].xy + vec2(-0.67, -0.67));\n"
   "  vec4 color2 = readPixel0(gl_TexCoord[0].xy + vec2(-0.67, +0.33));\n"
   "  vec4 color3 = readPixel0(gl_TexCoord[0].xy + vec2(+0.33, -0.67));\n"
   "  vec4 color4 = readPixel0(gl_TexCoord[0].xy + vec2(+0.33, +0.33));\n"
-  "\n"
-  "  writePixel0((color1 + color2 + color3 + color4) * 0.25);\n"
+  "  vec4 color = (color1 + color2 + color3 + color4) * 0.25;\n"
+  "  writePixel0(color);\n"
   "}\n"
+#elif 1
+  .fragment = 
+  "void main() {\n"
+  "  vec4 color0 = readPixel0(gl_TexCoord[0].xy);\n"
+  "  vec4 color1 = readPixel0(gl_TexCoord[0].xy + vec2(-1.5, -1.5));\n"
+  "  vec4 color2 = readPixel0(gl_TexCoord[0].xy + vec2(-1.5, +1.5));\n"
+  "  vec4 color3 = readPixel0(gl_TexCoord[0].xy + vec2(+1.5, -1.5));\n"
+  "  vec4 color4 = readPixel0(gl_TexCoord[0].xy + vec2(+1.5, +1.5));\n"
+  "\n"
+  "  vec4 color = (2*color0 + color1 + color2 + color3 + color4) * 0.16666;\n"
+//  "  writePixel0(vec4(color.rgb, color0.a));\n"
+  "  writePixel0(color);\n"
+  "}\n"
+#else
+  .fragment = 
+  "void main() {\n"
+  "  vec4 color1 = readPixel0(gl_TexCoord[0].xy + vec2(-1.5, -1.5));\n"
+  "  vec4 color2 = readPixel0(gl_TexCoord[0].xy + vec2(-1.5, +0.5));\n"
+  "  vec4 color3 = readPixel0(gl_TexCoord[0].xy + vec2(+0.5, -1.5));\n"
+  "  vec4 color4 = readPixel0(gl_TexCoord[0].xy + vec2(+0.5, +0.5));\n"
+  "\n"
+  "  vec4 color = (color1 + color2 + color3 + color4) * 0.25;\n"
+//  "  writePixel0(vec4(color.rgb, color0.a));\n"
+  "  writePixel0(color);\n"
+  "}\n"
+#endif
 };
 
 
