@@ -85,47 +85,26 @@ struct glgfx_shader blur_renderer = {
   .channels = 2,
 
   .vertex =
+  "varying vec4 offsets;\n"
+  "\n"
   "void main() {\n"
-  "  gl_TexCoord[0] = textureTransform0(vec4(gl_MultiTexCoord0.xy, 1, 1));\n"
+  "  offsets = textureTransform0(vec4(+1.0, +1.0, -1.0, -1.0));\n"
+  "  gl_TexCoord[0] = textureTransform0(gl_MultiTexCoord0);\n"
   "  gl_Position = positionTransform();\n"
   "}\n",
 
-#if 0
   .fragment = 
-  "void main() {\n"
-  "  vec4 color1 = readPixel0(gl_TexCoord[0].xy + vec2(-0.67, -0.67));\n"
-  "  vec4 color2 = readPixel0(gl_TexCoord[0].xy + vec2(-0.67, +0.33));\n"
-  "  vec4 color3 = readPixel0(gl_TexCoord[0].xy + vec2(+0.33, -0.67));\n"
-  "  vec4 color4 = readPixel0(gl_TexCoord[0].xy + vec2(+0.33, +0.33));\n"
-  "  vec4 color = (color1 + color2 + color3 + color4) * 0.25;\n"
-  "  writePixel0(color);\n"
-  "}\n"
-#elif 1
-  .fragment = 
-  "void main() {\n"
-  "  vec4 color0 = readPixel0(gl_TexCoord[0].xy);\n"
-  "  vec4 color1 = readPixel0(gl_TexCoord[0].xy + vec2(-gl_TexCoord[0].z, -gl_TexCoord[0].w));\n"
-  "  vec4 color2 = readPixel0(gl_TexCoord[0].xy + vec2(-gl_TexCoord[0].z, +gl_TexCoord[0].w));\n"
-  "  vec4 color3 = readPixel0(gl_TexCoord[0].xy + vec2(+gl_TexCoord[0].z, -gl_TexCoord[0].w));\n"
-  "  vec4 color4 = readPixel0(gl_TexCoord[0].xy + vec2(+gl_TexCoord[0].z, +gl_TexCoord[0].w));\n"
+  "varying vec4 offsets;\n"
   "\n"
-  "  vec4 color = (2.0*color0 + color1 + color2 + color3 + color4) * 0.16666;\n"
-//  "  writePixel0(vec4(color.rgb, color0.a));\n"
-  "  writePixel0(color);\n"
-  "}\n"
-#else
-  .fragment = 
   "void main() {\n"
-  "  vec4 color1 = readPixel0(gl_TexCoord[0].xy + vec2(-1.5, -1.5));\n"
-  "  vec4 color2 = readPixel0(gl_TexCoord[0].xy + vec2(-1.5, +0.5));\n"
-  "  vec4 color3 = readPixel0(gl_TexCoord[0].xy + vec2(+0.5, -1.5));\n"
-  "  vec4 color4 = readPixel0(gl_TexCoord[0].xy + vec2(+0.5, +0.5));\n"
+  "  vec4 color  = 2.0 * readPixel0(gl_TexCoord[0].xy);\n"
+  "  color += readPixel0(gl_TexCoord[0].xy + offsets.zw);\n"
+  "  color += readPixel0(gl_TexCoord[0].xy + offsets.zy);\n"
+  "  color += readPixel0(gl_TexCoord[0].xy + offsets.xw);\n"
+  "  color += readPixel0(gl_TexCoord[0].xy + offsets.xy);\n"
   "\n"
-  "  vec4 color = (color1 + color2 + color3 + color4) * 0.25;\n"
-//  "  writePixel0(vec4(color.rgb, color0.a));\n"
-  "  writePixel0(color);\n"
+  "  writePixel0(color * 0.16666);\n"
   "}\n"
-#endif
 };
 
 
