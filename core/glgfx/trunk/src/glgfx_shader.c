@@ -52,7 +52,6 @@ struct glgfx_shader stencil_renderer = {
   "    discard;\n"
   "  }\n"
   "  else {\n"
-  "    color.a = 0;\n"
   "    writePixel0(color);\n" // NVIDIA's driver insists on result being written
   "  }\n"
   "}\n"
@@ -87,7 +86,7 @@ struct glgfx_shader blur_renderer = {
 
   .vertex =
   "void main() {\n"
-  "  gl_TexCoord[0] = textureTransform0(gl_MultiTexCoord0);\n"
+  "  gl_TexCoord[0] = textureTransform0(vec4(gl_MultiTexCoord0.xy, 1, 1));\n"
   "  gl_Position = positionTransform();\n"
   "}\n",
 
@@ -105,12 +104,12 @@ struct glgfx_shader blur_renderer = {
   .fragment = 
   "void main() {\n"
   "  vec4 color0 = readPixel0(gl_TexCoord[0].xy);\n"
-  "  vec4 color1 = readPixel0(gl_TexCoord[0].xy + vec2(-1.5, -1.5));\n"
-  "  vec4 color2 = readPixel0(gl_TexCoord[0].xy + vec2(-1.5, +1.5));\n"
-  "  vec4 color3 = readPixel0(gl_TexCoord[0].xy + vec2(+1.5, -1.5));\n"
-  "  vec4 color4 = readPixel0(gl_TexCoord[0].xy + vec2(+1.5, +1.5));\n"
+  "  vec4 color1 = readPixel0(gl_TexCoord[0].xy + vec2(-gl_TexCoord[0].z, -gl_TexCoord[0].w));\n"
+  "  vec4 color2 = readPixel0(gl_TexCoord[0].xy + vec2(-gl_TexCoord[0].z, +gl_TexCoord[0].w));\n"
+  "  vec4 color3 = readPixel0(gl_TexCoord[0].xy + vec2(+gl_TexCoord[0].z, -gl_TexCoord[0].w));\n"
+  "  vec4 color4 = readPixel0(gl_TexCoord[0].xy + vec2(+gl_TexCoord[0].z, +gl_TexCoord[0].w));\n"
   "\n"
-  "  vec4 color = (2*color0 + color1 + color2 + color3 + color4) * 0.16666;\n"
+  "  vec4 color = (2.0*color0 + color1 + color2 + color3 + color4) * 0.16666;\n"
 //  "  writePixel0(vec4(color.rgb, color0.a));\n"
   "  writePixel0(color);\n"
   "}\n"
@@ -755,7 +754,8 @@ GLuint glgfx_shader_load(struct glgfx_bitmap* src_bm0,
 
       if (!monitor->have_GL_ARB_texture_rectangle) {
 	glUniform4f(shader->tex_scale0, 
-		    1.0f / src_bm0->width, 1.0f / src_bm0->height, 1, 1);
+		    1.0f / src_bm0->width, 1.0f / src_bm0->height, 
+		    1.0f / src_bm0->width, 1.0f / src_bm0->height);
 	GLGFX_CHECKERROR();
       }
     }
