@@ -980,7 +980,7 @@ bool glgfx_monitor_render(struct glgfx_monitor* monitor) {
 //    glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
     glDepthFunc(GL_ALWAYS);
 
-    glgfx_view_render(monitor->views->head->data, &blur_hook, false);
+    glgfx_view_render(monitor->views->head->data, &blur_hook, true);
 
 //    glDisable(GL_STENCIL_TEST);
 //    glDisable(GL_DEPTH_TEST);
