@@ -924,6 +924,7 @@ bool glgfx_monitor_render(struct glgfx_monitor* monitor) {
     // buffer (so we don't render on areas where transparent pixels
     // are hidden behind opaque pixels), to the stencil buffer,
     // incrementing it every time a pixel is (re-) drawn.
+    glDepthMask(GL_FALSE);
     glEnable(GL_STENCIL_TEST);
     glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
     glStencilFunc(GL_ALWAYS, 0, ~0);
@@ -973,14 +974,15 @@ bool glgfx_monitor_render(struct glgfx_monitor* monitor) {
 /*     glDepthFunc(GL_LEQUAL); */
 /* //    glStencilFunc(GL_LESS, 0, ~0); */
 
+    glDepthMask(GL_TRUE);
     glEnable(GL_BLEND);
 
     glStencilFunc(GL_NOTEQUAL, 0, ~0);
     glStencilOp(GL_KEEP, GL_KEEP, GL_DECR);
 //    glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
-    glDepthFunc(GL_ALWAYS);
+    glDepthFunc(GL_LEQUAL);
 
-    glgfx_view_render(monitor->views->head->data, &blur_hook, true);
+    glgfx_view_render(monitor->views->head->data, &blur_hook, false);
 
 //    glDisable(GL_STENCIL_TEST);
 //    glDisable(GL_DEPTH_TEST);
