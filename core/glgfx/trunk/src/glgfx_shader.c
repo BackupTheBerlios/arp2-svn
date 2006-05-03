@@ -52,6 +52,7 @@ struct glgfx_shader stencil_renderer = {
   "    discard;\n"
   "  }\n"
   "  else {\n"
+  "    color.a = 0;\n"
   "    writePixel0(color);\n" // NVIDIA's driver insists on result being written
   "  }\n"
   "}\n"

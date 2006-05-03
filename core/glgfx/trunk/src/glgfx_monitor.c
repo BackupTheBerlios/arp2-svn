@@ -907,7 +907,7 @@ bool glgfx_monitor_render(struct glgfx_monitor* monitor) {
     glDrawBuffer(GL_BACK);
     glDepthRange(1, 0); // i don't get it but whatever ...
     glStencilMask(~0);
-    glClearColor(1, 1, 1, 1);
+    glClearColor(1, 0, 1, 1);
     glClearDepth(1);
     glClearStencil(0);
     glEnable(GL_BLEND); // NVIDIA bug? Needs to be enabled here
@@ -935,6 +935,8 @@ bool glgfx_monitor_render(struct glgfx_monitor* monitor) {
 
 //    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
+#if 0
+
 //    glDisable(GL_BLEND);
     // Reset depth where stencil != 0
     glDepthFunc(GL_ALWAYS);
@@ -950,7 +952,6 @@ bool glgfx_monitor_render(struct glgfx_monitor* monitor) {
       glVertex3f(0,    1024, 0.9);
     }
     glEnd();
-#if 0
    
     glStencilFunc(GL_ALWAYS, 0, ~0);
 
@@ -994,9 +995,11 @@ bool glgfx_monitor_render(struct glgfx_monitor* monitor) {
 
 /*     glDisable(GL_STENCIL_TEST); */
 /*     glDepthFunc(GL_LEQUAL); */
+
     glEnable(GL_BLEND);
-    glDisable(GL_DEPTH_TEST);
     glDisable(GL_STENCIL_TEST);
+    glDepthFunc(GL_LEQUAL);
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
     glgfx_view_render(monitor->views->head->data, &render_hook, false);
     
     
