@@ -75,6 +75,7 @@ struct glgfx_monitor {
     bool                    have_GL_NV_blend_square;
     bool                    have_GL_ARB_texture_rectangle;
     bool                    is_ati;
+    bool                    is_geforce_fx;
     bool                    miss_pixel_ops;
 
     timer_t                 vsync_timer;
