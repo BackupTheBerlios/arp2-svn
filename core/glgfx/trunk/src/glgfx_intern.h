@@ -83,6 +83,10 @@ struct glgfx_monitor {
     bool                    vsync_timer_valid;
     pthread_cond_t          vsync_cond;
 
+    struct timeval	    fps_time;
+    double		    fps_mean;
+    int			    fps_counter;
+
     enum glgfx_pixel_format format;
     XF86VidModeModeLine     mode;
     int                     dotclock;

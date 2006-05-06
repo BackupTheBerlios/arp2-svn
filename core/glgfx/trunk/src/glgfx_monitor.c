@@ -889,6 +889,22 @@ bool glgfx_monitor_render(struct glgfx_monitor* monitor) {
 
   pthread_mutex_lock(&glgfx_mutex);
 
+  if (monitor->fps_counter == 0) {
+    struct timeval start = monitor->fps_time;
+    gettimeofday(&monitor->fps_time, NULL);
+
+    if (start.tv_sec != 0 && start.tv_usec != 0) {
+      double time = ((monitor->fps_time.tv_sec + monitor->fps_time.tv_usec * 1e-6) -
+		     (start.tv_sec + start.tv_usec * 1e-6));
+    
+      monitor->fps_mean = 100 / time;
+      printf("%f frames/second\n", monitor->fps_mean);
+    }
+  }
+  
+  monitor->fps_counter = (monitor->fps_counter + 1) % 100;
+  
+
   bool has_changed = glgfx_view_haschanged(monitor->views->head->data);
 
   pthread_mutex_unlock(&glgfx_mutex);
