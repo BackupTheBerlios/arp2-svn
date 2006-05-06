@@ -88,8 +88,8 @@ struct glgfx_shader blur_renderer = {
   "varying vec4 offsets;\n"
   "\n"
   "void main() {\n"
-  "  offsets = textureTransform0(vec4(+1.0, +1.0, -1.0, -1.0));\n"
-  "  gl_TexCoord[0] = textureTransform0(gl_MultiTexCoord0);\n"
+  "  offsets = textureTransform0(vec4(+1.4, +1.4, -1.4, -1.4));\n"
+  "  gl_TexCoord[0] = textureTransform0(gl_MultiTexCoord0 - 2.0);\n"
   "  gl_Position = positionTransform();\n"
   "}\n",
 
@@ -97,13 +97,13 @@ struct glgfx_shader blur_renderer = {
   "varying vec4 offsets;\n"
   "\n"
   "void main() {\n"
-  "  vec4 color  = 2.0 * readPixel0(gl_TexCoord[0].xy);\n"
+  "  vec4 color  = 1.5 * readPixel0(gl_TexCoord[0].xy);\n"
   "  color += readPixel0(gl_TexCoord[0].xy + offsets.zw);\n"
   "  color += readPixel0(gl_TexCoord[0].xy + offsets.zy);\n"
   "  color += readPixel0(gl_TexCoord[0].xy + offsets.xw);\n"
   "  color += readPixel0(gl_TexCoord[0].xy + offsets.xy);\n"
   "\n"
-  "  writePixel0(color * 0.16666);\n"
+  "  writePixel0(color * (1.0 / 5.5));\n"
   "}\n"
 };
 
