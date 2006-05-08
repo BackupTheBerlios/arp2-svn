@@ -140,8 +140,8 @@ struct glgfx_bitmap* glgfx_bitmap_create_a(struct glgfx_tagitem const* tags) {
 
   GLGFX_CHECKERROR();
 
-  glTexParameteri(bitmap->texture_target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-  glTexParameteri(bitmap->texture_target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+  glTexParameteri(bitmap->texture_target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(bitmap->texture_target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
   if (bitmap->format == glgfx_pixel_format_r32g32b32a32f) {
     // Currently, there's no hardware support for FP32 filtering.
