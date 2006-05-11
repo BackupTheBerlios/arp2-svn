@@ -916,21 +916,13 @@ bool glgfx_monitor_render(struct glgfx_monitor* monitor) {
     struct glgfx_hook blur_hook    = { (glgfx_hookfunc) blur_func,    context };
     struct glgfx_hook render_hook  = { (glgfx_hookfunc) render_func,  context };
 
-
+    // Clear complete drawing area
     glDrawBuffer(GL_BACK);
-
-    glEnable(GL_BLEND);   // NVIDIA bug? Needs to be enabled here
-
-    glDepthMask(GL_TRUE); // NVIDIA bug? Needs to be enabled here
-    glDepthFunc(GL_LESS);
-    glDepthRange(1, 0); // i don't get it but whatever ...
-    glClearDepth(1);
-
+    glClearColor(0, 0, 0, 0);
+    glDepthRange(1.0, 0.0); // i don't get it but whatever ...
+    glClearDepth(1.0);
     glStencilMask(~0);
     glClearStencil(0);
-
-    glClearColor(0, 0, 0, 0);
-
     glClear(GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     pthread_mutex_lock(&glgfx_mutex);
@@ -944,10 +936,11 @@ bool glgfx_monitor_render(struct glgfx_monitor* monitor) {
     // opaque. For pixels that are not discarded, the stencil buffer
     // will be set to one and the Z-buffer to the depth.
     glEnable(GL_DEPTH_TEST);
+    glDepthMask(GL_TRUE);
+    glDepthFunc(GL_LESS);
     glEnable(GL_STENCIL_TEST);
     glStencilFunc(GL_ALWAYS, 1, ~0);
     glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
-
     glgfx_view_render(monitor->views->head->data, &depth_hook, true);
 
 
