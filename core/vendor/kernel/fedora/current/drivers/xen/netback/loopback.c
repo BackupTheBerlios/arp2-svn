@@ -19,6 +19,30 @@
  * (to avoid confusing the Etherbridge).
  * 
  * Copyright (c) 2005 K A Fraser
+ * 
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License version 2
+ * as published by the Free Software Foundation; or, when distributed
+ * separately from the Linux kernel or incorporated into other
+ * software packages, subject to the following license:
+ * 
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this source file (the "Software"), to deal in the Software without
+ * restriction, including without limitation the rights to use, copy, modify,
+ * merge, publish, distribute, sublicense, and/or sell copies of the Software,
+ * and to permit persons to whom the Software is furnished to do so, subject to
+ * the following conditions:
+ * 
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+ * IN THE SOFTWARE.
  */
 
 #include <linux/config.h>
@@ -76,10 +100,10 @@ static int loopback_start_xmit(struct sk_buff *skb, struct net_device *dev)
 		/* Defer checksum calculation. */
 		skb->proto_csum_blank = 1;
 		/* Must be a local packet: assert its integrity. */
-		skb->proto_csum_valid = 1;
+		skb->proto_data_valid = 1;
 	}
 
-	skb->ip_summed = skb->proto_csum_valid ?
+	skb->ip_summed = skb->proto_data_valid ?
 		CHECKSUM_UNNECESSARY : CHECKSUM_NONE;
 
 	skb->pkt_type = PACKET_HOST; /* overridden by eth_type_trans() */
@@ -97,6 +121,12 @@ static struct net_device_stats *loopback_get_stats(struct net_device *dev)
 	return &np->stats;
 }
 
+static struct ethtool_ops network_ethtool_ops =
+{
+	.get_tx_csum = ethtool_op_get_tx_csum,
+	.set_tx_csum = ethtool_op_set_tx_csum,
+};
+
 static void loopback_construct(struct net_device *dev, struct net_device *lo)
 {
 	struct net_private *np = netdev_priv(dev);
@@ -110,7 +140,11 @@ static void loopback_construct(struct net_device *dev, struct net_device *lo)
 
 	dev->tx_queue_len    = 0;
 
-	dev->features        = NETIF_F_HIGHDMA | NETIF_F_LLTX;
+	dev->features        = (NETIF_F_HIGHDMA |
+				NETIF_F_LLTX |
+				NETIF_F_IP_CSUM);
+
+	SET_ETHTOOL_OPS(dev, &network_ethtool_ops);
 
 	/*
 	 * We do not set a jumbo MTU on the interface. Otherwise the network
@@ -122,12 +156,6 @@ static void loopback_construct(struct net_device *dev, struct net_device *lo)
 	 */
 	/*dev->mtu             = 16*1024;*/
 }
-
-static struct ethtool_ops network_ethtool_ops =
-{
-	.get_tx_csum = ethtool_op_get_tx_csum,
-	.set_tx_csum = ethtool_op_set_tx_csum,
-};
 
 static int __init make_loopback(int i)
 {
@@ -147,11 +175,6 @@ static int __init make_loopback(int i)
 
 	loopback_construct(dev1, dev2);
 	loopback_construct(dev2, dev1);
-
-	dev1->features |= NETIF_F_NO_CSUM;
-	dev2->features |= NETIF_F_IP_CSUM;
-
-	SET_ETHTOOL_OPS(dev2, &network_ethtool_ops);
 
 	/*
 	 * Initialise a dummy MAC address for the 'dummy backend' interface. We

@@ -4,9 +4,34 @@
  * Network-device interface management.
  * 
  * Copyright (c) 2004-2005, Keir Fraser
+ * 
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License version 2
+ * as published by the Free Software Foundation; or, when distributed
+ * separately from the Linux kernel or incorporated into other
+ * software packages, subject to the following license:
+ * 
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this source file (the "Software"), to deal in the Software without
+ * restriction, including without limitation the rights to use, copy, modify,
+ * merge, publish, distribute, sublicense, and/or sell copies of the Software,
+ * and to permit persons to whom the Software is furnished to do so, subject to
+ * the following conditions:
+ * 
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+ * IN THE SOFTWARE.
  */
 
 #include "common.h"
+#include <linux/ethtool.h>
 #include <linux/rtnetlink.h>
 
 static void __netif_up(netif_t *netif)
@@ -47,6 +72,12 @@ static int net_close(struct net_device *dev)
 	return 0;
 }
 
+static struct ethtool_ops network_ethtool_ops =
+{
+	.get_tx_csum = ethtool_op_get_tx_csum,
+	.set_tx_csum = ethtool_op_set_tx_csum,
+};
+
 netif_t *alloc_netif(domid_t domid, unsigned int handle, u8 be_mac[ETH_ALEN])
 {
 	int err = 0, i;
@@ -77,7 +108,9 @@ netif_t *alloc_netif(domid_t domid, unsigned int handle, u8 be_mac[ETH_ALEN])
 	dev->get_stats       = netif_be_get_stats;
 	dev->open            = net_open;
 	dev->stop            = net_close;
-	dev->features        = NETIF_F_NO_CSUM;
+	dev->features        = NETIF_F_IP_CSUM;
+
+	SET_ETHTOOL_OPS(dev, &network_ethtool_ops);
 
 	/* Disable queuing. */
 	dev->tx_queue_len = 0;
@@ -267,25 +300,6 @@ void free_netif(netif_t *netif)
 {
 	INIT_WORK(&netif->free_work, free_netif_callback, (void *)netif);
 	schedule_work(&netif->free_work);
-}
-
-void netif_creditlimit(netif_t *netif)
-{
-#if 0
-	/* Set the credit limit (reset remaining credit to new limit). */
-	netif->credit_bytes     = creditlimit->credit_bytes;
-	netif->remaining_credit = creditlimit->credit_bytes;
-	netif->credit_usec      = creditlimit->period_usec;
-
-	if (netif->status == CONNECTED) {
-		/*
-		 * Schedule work so that any packets waiting under previous
-		 * credit limit are dealt with (acts as a replenishment point).
-		 */
-		netif->credit_timeout.expires = jiffies;
-		netif_schedule_work(netif);
-	}
-#endif
 }
 
 void netif_disconnect(netif_t *netif)

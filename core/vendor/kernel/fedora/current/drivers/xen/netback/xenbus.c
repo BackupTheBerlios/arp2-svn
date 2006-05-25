@@ -76,14 +76,13 @@ static int netback_probe(struct xenbus_device *dev,
 			 const struct xenbus_device_id *id)
 {
 	int err;
-	struct backend_info *be = kmalloc(sizeof(struct backend_info),
+	struct backend_info *be = kzalloc(sizeof(struct backend_info),
 					  GFP_KERNEL);
 	if (!be) {
 		xenbus_dev_fatal(dev, -ENOMEM,
 				 "allocating backend structure");
 		return -ENOMEM;
 	}
-	memset(be, 0, sizeof(*be));
 
 	be->dev = dev;
 	dev->data = be;
@@ -93,7 +92,7 @@ static int netback_probe(struct xenbus_device *dev,
 	if (err)
 		goto fail;
 
-	err = xenbus_switch_state(dev, XBT_NULL, XenbusStateInitWait);
+	err = xenbus_switch_state(dev, XenbusStateInitWait);
 	if (err) {
 		goto fail;
 	}
@@ -210,11 +209,12 @@ static void frontend_changed(struct xenbus_device *dev,
 		break;
 
 	case XenbusStateClosing:
-		xenbus_switch_state(dev, XBT_NULL, XenbusStateClosing);
+		xenbus_switch_state(dev, XenbusStateClosing);
 		break;
 
 	case XenbusStateClosed:
-		kobject_uevent(&dev->dev.kobj, KOBJ_OFFLINE);
+		if (be->netif != NULL)
+			kobject_uevent(&dev->dev.kobj, KOBJ_OFFLINE);
 		device_unregister(&dev->dev);
 		break;
 
@@ -233,9 +233,44 @@ static void frontend_changed(struct xenbus_device *dev,
 
 static void maybe_connect(struct backend_info *be)
 {
-	if (be->netif != NULL && be->frontend_state == XenbusStateConnected) {
+	if (be->netif && (be->frontend_state == XenbusStateConnected))
 		connect(be);
-	}
+}
+
+static void xen_net_read_rate(struct xenbus_device *dev,
+			      unsigned long *bytes, unsigned long *usec)
+{
+	char *s, *e;
+	unsigned long b, u;
+	char *ratestr;
+
+	/* Default to unlimited bandwidth. */
+	*bytes = ~0UL;
+	*usec = 0;
+
+	ratestr = xenbus_read(XBT_NULL, dev->nodename, "rate", NULL);
+	if (IS_ERR(ratestr))
+		return;
+
+	s = ratestr;
+	b = simple_strtoul(s, &e, 10);
+	if ((s == e) || (*e != ','))
+		goto fail;
+
+	s = e + 1;
+	u = simple_strtoul(s, &e, 10);
+	if ((s == e) || (*e != '\0'))
+		goto fail;
+
+	*bytes = b;
+	*usec = u;
+
+	kfree(ratestr);
+	return;
+
+ fail:
+	WPRINTK("Failed to parse network rate limit. Traffic unlimited.\n");
+	kfree(ratestr);
 }
 
 
@@ -254,7 +289,11 @@ static void connect(struct backend_info *be)
 		return;
 	}
 
-	xenbus_switch_state(dev, XBT_NULL, XenbusStateConnected);
+	xen_net_read_rate(dev, &be->netif->credit_bytes,
+			  &be->netif->credit_usec);
+	be->netif->remaining_credit = be->netif->credit_bytes;
+
+	xenbus_switch_state(dev, XenbusStateConnected);
 }
 
 

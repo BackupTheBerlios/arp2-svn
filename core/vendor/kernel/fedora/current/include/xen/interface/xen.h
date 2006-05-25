@@ -9,22 +9,6 @@
 #ifndef __XEN_PUBLIC_XEN_H__
 #define __XEN_PUBLIC_XEN_H__
 
-#ifdef __XEN__
-#define DEFINE_GUEST_HANDLE(type) struct __guest_handle_ ## type { type *p; }
-#define GUEST_HANDLE(type)        struct __guest_handle_ ## type
-#else
-#define DEFINE_GUEST_HANDLE(type)
-#define GUEST_HANDLE(type)        type *
-#endif
-
-#ifndef __ASSEMBLY__
-/* Guest handle for unsigned long pointer. Define a name with no whitespace. */
-typedef unsigned long xen_ulong;
-DEFINE_GUEST_HANDLE(xen_ulong);
-/* Guest handle for arbitrary-type pointer (void *). */
-DEFINE_GUEST_HANDLE(void);
-#endif
-
 #if defined(__i386__)
 #include "arch-x86_32.h"
 #elif defined(__x86_64__)
@@ -53,7 +37,7 @@ DEFINE_GUEST_HANDLE(void);
 #define __HYPERVISOR_stack_switch          3
 #define __HYPERVISOR_set_callbacks         4
 #define __HYPERVISOR_fpu_taskswitch        5
-#define __HYPERVISOR_sched_op              6
+#define __HYPERVISOR_sched_op_compat       6 /* compat as of 0x00030101 */
 #define __HYPERVISOR_dom0_op               7
 #define __HYPERVISOR_set_debugreg          8
 #define __HYPERVISOR_get_debugreg          9
@@ -70,13 +54,12 @@ DEFINE_GUEST_HANDLE(void);
 #define __HYPERVISOR_vm_assist            21
 #define __HYPERVISOR_update_va_mapping_otherdomain 22
 #define __HYPERVISOR_iret                 23 /* x86 only */
-#define __HYPERVISOR_switch_vm86          23 /* x86/32 only (obsolete name) */
-#define __HYPERVISOR_switch_to_user       23 /* x86/64 only (obsolete name) */
 #define __HYPERVISOR_vcpu_op              24
 #define __HYPERVISOR_set_segment_base     25 /* x86/64 only */
 #define __HYPERVISOR_mmuext_op            26
 #define __HYPERVISOR_acm_op               27
 #define __HYPERVISOR_nmi_op               28
+#define __HYPERVISOR_sched_op             29
 
 /* 
  * VIRTUAL INTERRUPTS
@@ -178,7 +161,7 @@ DEFINE_GUEST_HANDLE(void);
 #define MMUEXT_NEW_USER_BASEPTR 15
 
 #ifndef __ASSEMBLY__
-struct mmuext_op {
+typedef struct mmuext_op {
     unsigned int cmd;
     union {
         /* [UN]PIN_TABLE, NEW_BASEPTR, NEW_USER_BASEPTR */
@@ -192,7 +175,8 @@ struct mmuext_op {
         /* TLB_FLUSH_MULTI, INVLPG_MULTI */
         void *vcpumask;
     } arg2;
-};
+} mmuext_op_t;
+DEFINE_GUEST_HANDLE(mmuext_op_t);
 #endif
 
 /* These are passed as 'flags' to update_va_mapping. They can be ORed. */
@@ -259,6 +243,7 @@ typedef struct mmu_update {
     uint64_t ptr;       /* Machine address of PTE. */
     uint64_t val;       /* New contents of PTE.    */
 } mmu_update_t;
+DEFINE_GUEST_HANDLE(mmu_update_t);
 
 /*
  * Send an array of these to HYPERVISOR_multicall().
@@ -268,6 +253,7 @@ typedef struct multicall_entry {
     unsigned long op, result;
     unsigned long args[6];
 } multicall_entry_t;
+DEFINE_GUEST_HANDLE(multicall_entry_t);
 
 /*
  * Event channel endpoints per domain:
@@ -396,8 +382,8 @@ typedef struct shared_info {
  *      a. relocated kernel image
  *      b. initial ram disk              [mod_start, mod_len]
  *      c. list of allocated page frames [mfn_list, nr_pages]
- *      d. bootstrap page tables         [pt_base, CR3 (x86)]
- *      e. start_info_t structure        [register ESI (x86)]
+ *      d. start_info_t structure        [register ESI (x86)]
+ *      e. bootstrap page tables         [pt_base, CR3 (x86)]
  *      f. bootstrap stack               [register ESP (x86)]
  *  5. Bootstrap elements are packed together, but each is 4kB-aligned.
  *  6. The initial ram disk may be omitted.
@@ -449,6 +435,8 @@ typedef uint8_t xen_domain_handle_t[16];
 #define mk_unsigned_long(x) x
 
 #endif /* !__ASSEMBLY__ */
+
+#include "xen-compat.h"
 
 #endif /* __XEN_PUBLIC_XEN_H__ */
 

@@ -91,6 +91,11 @@ EXPORT_SYMBOL(hypercall_page);
 /* Allows setting of maximum possible memory size  */
 unsigned long xen_override_max_pfn;
 
+static int xen_panic_event(struct notifier_block *, unsigned long, void *);
+static struct notifier_block xen_panic_block = {
+	xen_panic_event, NULL, 0 /* try to go last */
+};
+
 unsigned long *phys_to_machine_mapping;
 unsigned long *pfn_to_mfn_frame_list_list, *pfn_to_mfn_frame_list[512];
 
@@ -632,6 +637,9 @@ void __init setup_arch(char **cmdline_p)
 	unsigned long kernel_end;
 
 #ifdef CONFIG_XEN
+	/* Register a call for panic conditions. */
+	notifier_chain_register(&panic_notifier_list, &xen_panic_block);
+
  	ROOT_DEV = MKDEV(RAMDISK_MAJOR,0); 
 	kernel_end = 0;		/* dummy */
  	screen_info = SCREEN_INFO;
@@ -661,6 +669,13 @@ void __init setup_arch(char **cmdline_p)
 #endif
 
 	setup_xen_features();
+
+	if (xen_feature(XENFEAT_auto_translated_physmap) &&
+	    xen_start_info->shared_info < xen_start_info->nr_pages) {
+		HYPERVISOR_shared_info =
+			(shared_info_t *)__va(xen_start_info->shared_info);
+		memset(empty_zero_page, 0, sizeof(empty_zero_page));
+	}
 
 	HYPERVISOR_vm_assist(VMASST_CMD_enable,
 			     VMASST_TYPE_writable_pagetables);
@@ -980,6 +995,17 @@ void __init setup_arch(char **cmdline_p)
 #endif /* !CONFIG_XEN */
 }
 
+#ifdef CONFIG_XEN
+static int
+xen_panic_event(struct notifier_block *this, unsigned long event, void *ptr)
+{
+	HYPERVISOR_shutdown(SHUTDOWN_crash);
+	/* we're never actually going to get here... */
+	return NOTIFY_DONE;
+}
+#endif /* !CONFIG_XEN */
+
+
 static int __cpuinit get_model_name(struct cpuinfo_x86 *c)
 {
 	unsigned int *v;
@@ -1131,6 +1157,10 @@ static int __init init_amd(struct cpuinfo_x86 *c)
 	level = cpuid_eax(1);
 	if (c->x86 == 15 && ((level >= 0x0f48 && level < 0x0f50) || level >= 0x0f58))
 		set_bit(X86_FEATURE_REP_GOOD, &c->x86_capability);
+
+	/* Enable workaround for FXSAVE leak */
+	if (c->x86 >= 6)
+		set_bit(X86_FEATURE_FXSAVE_LEAK, &c->x86_capability);
 
 	r = get_model_name(c);
 	if (!r) { 

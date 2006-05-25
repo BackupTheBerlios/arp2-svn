@@ -5,8 +5,11 @@
  *
  * Copyright (C) 2005 XenSource Ltd
  * 
- * This file may be distributed separately from the Linux kernel, or
- * incorporated into other software packages, subject to the following license:
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License version 2
+ * as published by the Free Software Foundation; or, when distributed
+ * separately from the Linux kernel or incorporated into other
+ * software packages, subject to the following license:
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this source file (the "Software"), to deal in the Software without
@@ -39,7 +42,7 @@ extern char *kasprintf(const char *fmt, ...);
     pr_debug("xenbus_client (%s:%d) " fmt ".\n", __FUNCTION__, __LINE__, ##args)
 
 int xenbus_watch_path(struct xenbus_device *dev, const char *path,
-		      struct xenbus_watch *watch, 
+		      struct xenbus_watch *watch,
 		      void (*callback)(struct xenbus_watch *,
 				       const char **, unsigned int))
 {
@@ -58,11 +61,11 @@ int xenbus_watch_path(struct xenbus_device *dev, const char *path,
 
 	return err;
 }
-EXPORT_SYMBOL(xenbus_watch_path);
+EXPORT_SYMBOL_GPL(xenbus_watch_path);
 
 
 int xenbus_watch_path2(struct xenbus_device *dev, const char *path,
-		       const char *path2, struct xenbus_watch *watch, 
+		       const char *path2, struct xenbus_watch *watch,
 		       void (*callback)(struct xenbus_watch *,
 					const char **, unsigned int))
 {
@@ -74,17 +77,14 @@ int xenbus_watch_path2(struct xenbus_device *dev, const char *path,
 	}
 	err = xenbus_watch_path(dev, state, watch, callback);
 
-	if (err) {
+	if (err)
 		kfree(state);
-	}
 	return err;
 }
-EXPORT_SYMBOL(xenbus_watch_path2);
+EXPORT_SYMBOL_GPL(xenbus_watch_path2);
 
 
-int xenbus_switch_state(struct xenbus_device *dev,
-			xenbus_transaction_t xbt,
-			XenbusState state)
+int xenbus_switch_state(struct xenbus_device *dev, XenbusState state)
 {
 	/* We check whether the state is currently set to the given value, and
 	   if not, then the state is set.  We don't want to unconditionally
@@ -92,24 +92,37 @@ int xenbus_switch_state(struct xenbus_device *dev,
 	   unnecessarily.  Furthermore, if the node has gone, we don't write
 	   to it, as the device will be tearing down, and we don't want to
 	   resurrect that directory.
+
+	   Note that, because of this cached value of our state, this function
+	   will not work inside a Xenstore transaction (something it was
+	   trying to in the past) because dev->state would not get reset if
+	   the transaction was aborted.
+
 	 */
 
 	int current_state;
+	int err;
 
-	int err = xenbus_scanf(xbt, dev->nodename, "state", "%d",
-			       &current_state);
-	if ((err == 1 && (XenbusState)current_state == state) ||
-	    err == -ENOENT)
+	if (state == dev->state)
 		return 0;
 
-	err = xenbus_printf(xbt, dev->nodename, "state", "%d", state);
+	err = xenbus_scanf(XBT_NULL, dev->nodename, "state", "%d",
+			   &current_state);
+	if (err != 1)
+		return 0;
+
+	err = xenbus_printf(XBT_NULL, dev->nodename, "state", "%d", state);
 	if (err) {
-		xenbus_dev_fatal(dev, err, "writing new state");
+		if (state != XenbusStateClosing) /* Avoid looping */
+			xenbus_dev_fatal(dev, err, "writing new state");
 		return err;
 	}
+
+	dev->state = state;
+
 	return 0;
 }
-EXPORT_SYMBOL(xenbus_switch_state);
+EXPORT_SYMBOL_GPL(xenbus_switch_state);
 
 
 /**
@@ -138,7 +151,6 @@ void _dev_error(struct xenbus_device *dev, int err, const char *fmt,
 	ret = vsnprintf(printf_buffer+len, PRINTF_BUFFER_SIZE-len, fmt, ap);
 
 	BUG_ON(len + ret > PRINTF_BUFFER_SIZE-1);
-	dev->has_error = 1;
 
 	dev_err(&dev->dev, "%s\n", printf_buffer);
 
@@ -173,7 +185,7 @@ void xenbus_dev_error(struct xenbus_device *dev, int err, const char *fmt,
 	_dev_error(dev, err, fmt, ap);
 	va_end(ap);
 }
-EXPORT_SYMBOL(xenbus_dev_error);
+EXPORT_SYMBOL_GPL(xenbus_dev_error);
 
 
 void xenbus_dev_fatal(struct xenbus_device *dev, int err, const char *fmt,
@@ -184,10 +196,10 @@ void xenbus_dev_fatal(struct xenbus_device *dev, int err, const char *fmt,
 	va_start(ap, fmt);
 	_dev_error(dev, err, fmt, ap);
 	va_end(ap);
-	
-	xenbus_switch_state(dev, XBT_NULL, XenbusStateClosing);
+
+	xenbus_switch_state(dev, XenbusStateClosing);
 }
-EXPORT_SYMBOL(xenbus_dev_fatal);
+EXPORT_SYMBOL_GPL(xenbus_dev_fatal);
 
 
 int xenbus_grant_ring(struct xenbus_device *dev, unsigned long ring_mfn)
@@ -197,7 +209,7 @@ int xenbus_grant_ring(struct xenbus_device *dev, unsigned long ring_mfn)
 		xenbus_dev_fatal(dev, err, "granting access to ring page");
 	return err;
 }
-EXPORT_SYMBOL(xenbus_grant_ring);
+EXPORT_SYMBOL_GPL(xenbus_grant_ring);
 
 
 int xenbus_alloc_evtchn(struct xenbus_device *dev, int *port)
@@ -207,7 +219,6 @@ int xenbus_alloc_evtchn(struct xenbus_device *dev, int *port)
 		.u.alloc_unbound.dom = DOMID_SELF,
 		.u.alloc_unbound.remote_dom = dev->otherend_id
 	};
-
 	int err = HYPERVISOR_event_channel_op(&op);
 	if (err)
 		xenbus_dev_fatal(dev, err, "allocating event channel");
@@ -215,7 +226,7 @@ int xenbus_alloc_evtchn(struct xenbus_device *dev, int *port)
 		*port = op.u.alloc_unbound.port;
 	return err;
 }
-EXPORT_SYMBOL(xenbus_alloc_evtchn);
+EXPORT_SYMBOL_GPL(xenbus_alloc_evtchn);
 
 
 int xenbus_bind_evtchn(struct xenbus_device *dev, int remote_port, int *port)
@@ -225,7 +236,6 @@ int xenbus_bind_evtchn(struct xenbus_device *dev, int remote_port, int *port)
 		.u.bind_interdomain.remote_dom = dev->otherend_id,
 		.u.bind_interdomain.remote_port = remote_port,
 	};
-
 	int err = HYPERVISOR_event_channel_op(&op);
 	if (err)
 		xenbus_dev_fatal(dev, err,
@@ -235,7 +245,7 @@ int xenbus_bind_evtchn(struct xenbus_device *dev, int remote_port, int *port)
 		*port = op.u.bind_interdomain.local_port;
 	return err;
 }
-EXPORT_SYMBOL(xenbus_bind_evtchn);
+EXPORT_SYMBOL_GPL(xenbus_bind_evtchn);
 
 
 int xenbus_free_evtchn(struct xenbus_device *dev, int port)
@@ -251,145 +261,16 @@ int xenbus_free_evtchn(struct xenbus_device *dev, int port)
 }
 
 
-/* Based on Rusty Russell's skeleton driver's map_page */
-int xenbus_map_ring_valloc(struct xenbus_device *dev, int gnt_ref, void **vaddr)
-{
-	struct gnttab_map_grant_ref op = {
-		.flags = GNTMAP_host_map,
-		.ref   = gnt_ref,
-		.dom   = dev->otherend_id,
-	};
-	struct vm_struct *area;
-
-	*vaddr = NULL;
-
-	area = alloc_vm_area(PAGE_SIZE);
-	if (!area)
-		return -ENOMEM;
-
-	op.host_addr = (unsigned long)area->addr;
-
-	lock_vm_area(area);
-	BUG_ON(HYPERVISOR_grant_table_op(GNTTABOP_map_grant_ref, &op, 1));
-	unlock_vm_area(area);
-
-	if (op.status != GNTST_okay) {
-		free_vm_area(area);
-		xenbus_dev_fatal(dev, op.status,
-				 "mapping in shared page %d from domain %d",
-				 gnt_ref, dev->otherend_id);
-		return op.status;
-	}
-
-	/* Stuff the handle in an unused field */
-	area->phys_addr = (unsigned long)op.handle;
-
-	*vaddr = area->addr;
-	return 0;
-}
-EXPORT_SYMBOL(xenbus_map_ring_valloc);
-
-
-int xenbus_map_ring(struct xenbus_device *dev, int gnt_ref,
-		   grant_handle_t *handle, void *vaddr)
-{
-	struct gnttab_map_grant_ref op = {
-		.host_addr = (unsigned long)vaddr,
-		.flags     = GNTMAP_host_map,
-		.ref       = gnt_ref,
-		.dom       = dev->otherend_id,
-	};
-
-	BUG_ON(HYPERVISOR_grant_table_op(GNTTABOP_map_grant_ref, &op, 1));
-
-	if (op.status != GNTST_okay) {
-		xenbus_dev_fatal(dev, op.status,
-				 "mapping in shared page %d from domain %d",
-				 gnt_ref, dev->otherend_id);
-	} else
-		*handle = op.handle;
-
-	return op.status;
-}
-EXPORT_SYMBOL(xenbus_map_ring);
-
-
-/* Based on Rusty Russell's skeleton driver's unmap_page */
-int xenbus_unmap_ring_vfree(struct xenbus_device *dev, void *vaddr)
-{
-	struct vm_struct *area;
-	struct gnttab_unmap_grant_ref op = {
-		.host_addr = (unsigned long)vaddr,
-	};
-
-	/* It'd be nice if linux/vmalloc.h provided a find_vm_area(void *addr)
-	 * method so that we don't have to muck with vmalloc internals here.
-	 * We could force the user to hang on to their struct vm_struct from
-	 * xenbus_map_ring_valloc, but these 6 lines considerably simplify
-	 * this API.
-	 */
-	read_lock(&vmlist_lock);
-	for (area = vmlist; area != NULL; area = area->next) {
-		if (area->addr == vaddr)
-			break;
-	}
-	read_unlock(&vmlist_lock);
-
-	if (!area) {
-		xenbus_dev_error(dev, -ENOENT,
-				 "can't find mapped virtual address %p", vaddr);
-		return GNTST_bad_virt_addr;
-	}
-
-	op.handle = (grant_handle_t)area->phys_addr;
-
-	lock_vm_area(area);
-	BUG_ON(HYPERVISOR_grant_table_op(GNTTABOP_unmap_grant_ref, &op, 1));
-	unlock_vm_area(area);
-
-	if (op.status == GNTST_okay)
-		free_vm_area(area);
-	else
-		xenbus_dev_error(dev, op.status,
-				 "unmapping page at handle %d error %d",
-				 (int16_t)area->phys_addr, op.status);
-
-	return op.status;
-}
-EXPORT_SYMBOL(xenbus_unmap_ring_vfree);
-
-
-int xenbus_unmap_ring(struct xenbus_device *dev,
-		     grant_handle_t handle, void *vaddr)
-{
-	struct gnttab_unmap_grant_ref op = {
-		.host_addr = (unsigned long)vaddr,
-		.handle    = handle,
-	};
-
-	BUG_ON(HYPERVISOR_grant_table_op(GNTTABOP_unmap_grant_ref, &op, 1));
-
-	if (op.status != GNTST_okay)
-		xenbus_dev_error(dev, op.status,
-				 "unmapping page at handle %d error %d",
-				 handle, op.status);
-
-	return op.status;
-}
-EXPORT_SYMBOL(xenbus_unmap_ring);
-
-
 XenbusState xenbus_read_driver_state(const char *path)
 {
 	XenbusState result;
-
 	int err = xenbus_gather(XBT_NULL, path, "state", "%d", &result, NULL);
 	if (err)
 		result = XenbusStateClosed;
 
 	return result;
 }
-EXPORT_SYMBOL(xenbus_read_driver_state);
+EXPORT_SYMBOL_GPL(xenbus_read_driver_state);
 
 
 /*

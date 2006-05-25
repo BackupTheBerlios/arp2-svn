@@ -29,6 +29,10 @@ CHECKFLAGS      += -D__x86_64__ -m64
 
 CFLAGS += -march=k8 -mtune=nocona
 
+cppflags-$(CONFIG_XEN) += \
+	-D__XEN_INTERFACE_VERSION__=$(CONFIG_XEN_INTERFACE_VERSION)
+CPPFLAGS += $(cppflags-y)
+
 CFLAGS += -m64
 CFLAGS += -mno-red-zone
 CFLAGS += -mcmodel=kernel
@@ -69,7 +73,7 @@ boot := arch/x86_64/boot
 	fdimage fdimage144 fdimage288 archclean
 
 ifdef CONFIG_XEN
-CPPFLAGS := -D__KERNEL__ -Iinclude$(if $(KBUILD_SRC),2)/asm/mach-xen $(LINUXINCLUDE)
+CPPFLAGS := -Iinclude$(if $(KBUILD_SRC),2)/asm/mach-xen $(CPPFLAGS)
 head-y := arch/x86_64/kernel/head-xen.o arch/x86_64/kernel/head64-xen.o arch/x86_64/kernel/init_task.o
 LDFLAGS_vmlinux := -e _start
 boot := arch/i386/boot-xen

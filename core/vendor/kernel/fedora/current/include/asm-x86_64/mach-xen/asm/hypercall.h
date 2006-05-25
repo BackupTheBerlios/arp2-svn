@@ -9,8 +9,11 @@
  *   Benjamin Liu <benjamin.liu@intel.com>
  *   Jun Nakajima <jun.nakajima@intel.com>
  * 
- * This file may be distributed separately from the Linux kernel, or
- * incorporated into other software packages, subject to the following license:
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License version 2
+ * as published by the Free Software Foundation; or, when distributed
+ * separately from the Linux kernel or incorporated into other
+ * software packages, subject to the following license:
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this source file (the "Software"), to deal in the Software without
@@ -34,8 +37,9 @@
 #ifndef __HYPERCALL_H__
 #define __HYPERCALL_H__
 
-#include <xen/interface/xen.h>
-#include <xen/interface/sched.h>
+#ifndef __HYPERVISOR_H__
+# error "please don't include this file directly"
+#endif
 
 #define __STR(x) #x
 #define STR(x) __STR(x)
@@ -167,8 +171,15 @@ HYPERVISOR_fpu_taskswitch(
 }
 
 static inline int
-HYPERVISOR_sched_op(
+HYPERVISOR_sched_op_compat(
 	int cmd, unsigned long arg)
+{
+	return _hypercall2(int, sched_op_compat, cmd, arg);
+}
+
+static inline int
+HYPERVISOR_sched_op(
+	int cmd, void *arg)
 {
 	return _hypercall2(int, sched_op, cmd, arg);
 }
@@ -298,14 +309,23 @@ static inline int
 HYPERVISOR_suspend(
 	unsigned long srec)
 {
-	return _hypercall3(int, sched_op, SCHEDOP_shutdown,
-			   SHUTDOWN_suspend, srec);
+	struct sched_shutdown sched_shutdown = {
+		.reason = SHUTDOWN_suspend
+	};
+
+	int rc = _hypercall3(int, sched_op, SCHEDOP_shutdown,
+			     &sched_shutdown, srec);
+
+	if (rc == -ENOSYS)
+		rc = _hypercall3(int, sched_op_compat, SCHEDOP_shutdown,
+				 SHUTDOWN_suspend, srec);
+
+	return rc;
 }
 
 static inline int
 HYPERVISOR_nmi_op(
-	unsigned long op,
-	unsigned long arg)
+	unsigned long op, void *arg)
 {
 	return _hypercall2(int, nmi_op, op, arg);
 }

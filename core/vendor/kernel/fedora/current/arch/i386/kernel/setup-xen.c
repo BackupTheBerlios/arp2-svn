@@ -1633,9 +1633,9 @@ void __init setup_arch(char **cmdline_p)
 	physdev_op_t op;
 	unsigned long max_low_pfn;
 
-	/* Force a quick death if the kernel panics. */
+	/* Force a quick death if the kernel panics (not domain 0). */
 	extern int panic_timeout;
-	if (panic_timeout == 0)
+	if (!panic_timeout && !(xen_start_info->flags & SIF_INITDOMAIN))
 		panic_timeout = 1;
 
 	/* Register a call for panic conditions. */
@@ -1877,7 +1877,7 @@ void __init setup_arch(char **cmdline_p)
 static int
 xen_panic_event(struct notifier_block *this, unsigned long event, void *ptr)
 {
-	HYPERVISOR_sched_op(SCHEDOP_shutdown, SHUTDOWN_crash);
+	HYPERVISOR_shutdown(SHUTDOWN_crash);
 	/* we're never actually going to get here... */
 	return NOTIFY_DONE;
 }

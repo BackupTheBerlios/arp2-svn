@@ -41,7 +41,6 @@ struct backend_info
 };
 
 
-static void maybe_connect(struct backend_info *);
 static void connect(struct backend_info *);
 static int connect_ring(struct backend_info *);
 static void backend_changed(struct xenbus_watch *, const char **,
@@ -50,11 +49,30 @@ static void backend_changed(struct xenbus_watch *, const char **,
 
 void update_blkif_status(blkif_t *blkif)
 { 
-	if(blkif->irq && blkif->vbd.bdev) {
-		blkif->status = CONNECTED; 
-		(void)blkif_be_int(0, blkif, NULL); 
+	int err;
+
+	/* Not ready to connect? */
+	if (!blkif->irq || !blkif->vbd.bdev)
+		return;
+
+	/* Already connected? */
+	if (blkif->be->dev->state == XenbusStateConnected)
+		return;
+
+	/* Attempt to connect: exit if we fail to. */
+	connect(blkif->be);
+	if (blkif->be->dev->state != XenbusStateConnected)
+		return;
+
+	blkif->xenblkd = kthread_run(blkif_schedule, blkif,
+				     "xvd %d %02x:%02x",
+				     blkif->domid,
+				     blkif->be->major, blkif->be->minor);
+	if (IS_ERR(blkif->xenblkd)) {
+		err = PTR_ERR(blkif->xenblkd);
+		blkif->xenblkd = NULL;
+		xenbus_dev_error(blkif->be->dev, err, "start xenblkd");
 	}
-	maybe_connect(blkif->be); 
 }
 
 
@@ -116,15 +134,13 @@ static int blkback_probe(struct xenbus_device *dev,
 			 const struct xenbus_device_id *id)
 {
 	int err;
-	struct backend_info *be = kmalloc(sizeof(struct backend_info),
+	struct backend_info *be = kzalloc(sizeof(struct backend_info),
 					  GFP_KERNEL);
 	if (!be) {
 		xenbus_dev_fatal(dev, -ENOMEM,
 				 "allocating backend structure");
 		return -ENOMEM;
 	}
-	memset(be, 0, sizeof(*be));
-
 	be->dev = dev;
 	dev->data = be;
 
@@ -144,7 +160,7 @@ static int blkback_probe(struct xenbus_device *dev,
 	if (err)
 		goto fail;
 
-	err = xenbus_switch_state(dev, XBT_NULL, XenbusStateInitWait);
+	err = xenbus_switch_state(dev, XenbusStateInitWait);
 	if (err)
 		goto fail;
 
@@ -222,17 +238,6 @@ static void backend_changed(struct xenbus_watch *watch,
 			return;
 		}
 
-		be->blkif->xenblkd = kthread_run(blkif_schedule, be->blkif,
-						 "xvd %d %02x:%02x",
-						 be->blkif->domid,
-						 be->major, be->minor);
-		if (IS_ERR(be->blkif->xenblkd)) {
-			err = PTR_ERR(be->blkif->xenblkd);
-			be->blkif->xenblkd = NULL;
-			xenbus_dev_error(dev, err, "start xenblkd");
-			return;
-		}
-
 		device_create_file(&dev->dev, &dev_attr_physical_device);
 		device_create_file(&dev->dev, &dev_attr_mode);
 
@@ -255,19 +260,24 @@ static void frontend_changed(struct xenbus_device *dev,
 
 	switch (frontend_state) {
 	case XenbusStateInitialising:
-	case XenbusStateConnected:
 		break;
 
 	case XenbusStateInitialised:
+	case XenbusStateConnected:
+		/* Ensure we connect even when two watches fire in 
+		   close successsion and we miss the intermediate value 
+		   of frontend_state. */
+		if (dev->state == XenbusStateConnected)
+			break;
+
 		err = connect_ring(be);
-		if (err) {
-			return;
-		}
-		update_blkif_status(be->blkif); 
+		if (err)
+			break;
+		update_blkif_status(be->blkif);
 		break;
 
 	case XenbusStateClosing:
-		xenbus_switch_state(dev, XBT_NULL, XenbusStateClosing);
+		xenbus_switch_state(dev, XenbusStateClosing);
 		break;
 
 	case XenbusStateClosed:
@@ -285,14 +295,6 @@ static void frontend_changed(struct xenbus_device *dev,
 
 
 /* ** Connection ** */
-
-
-static void maybe_connect(struct backend_info *be)
-{
-	if ((be->major != 0 || be->minor != 0) &&
-	    be->blkif->status == CONNECTED)
-		connect(be);
-}
 
 
 /**
@@ -340,15 +342,17 @@ again:
 		goto abort;
 	}
 
-	err = xenbus_switch_state(dev, xbt, XenbusStateConnected);
-	if (err)
-		goto abort;
-
 	err = xenbus_transaction_end(xbt, 0);
 	if (err == -EAGAIN)
 		goto again;
 	if (err)
 		xenbus_dev_fatal(dev, err, "ending transaction");
+
+	err = xenbus_switch_state(dev, XenbusStateConnected);
+	if (err)
+		xenbus_dev_fatal(dev, err, "switching to Connected state",
+				 dev->nodename);
+
 	return;
  abort:
 	xenbus_transaction_end(xbt, 1);

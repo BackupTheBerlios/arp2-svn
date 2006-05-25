@@ -5,8 +5,11 @@
  * 
  * Copyright (c) 2002-2004, K A Fraser.
  * 
- * This file may be distributed separately from the Linux kernel, or
- * incorporated into other software packages, subject to the following license:
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License version 2
+ * as published by the Free Software Foundation; or, when distributed
+ * separately from the Linux kernel or incorporated into other
+ * software packages, subject to the following license:
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this source file (the "Software"), to deal in the Software without
@@ -85,8 +88,7 @@ static int __init xencons_setup(char *str)
 	else if (!strncmp(str, "off", 3))
 		xc_mode = XC_OFF;
 
-	switch ( xc_mode )
-	{
+	switch (xc_mode) {
 	case XC_SERIAL:
 		n = simple_strtol(str+4, &q, 10);
 		if (q > (str + 4))
@@ -227,7 +229,7 @@ asmlinkage int xprintk(const char *fmt, ...)
 	va_list args;
 	int printk_len;
 	static char printk_buf[1024];
-    
+
 	/* Emit the output into the temporary buffer */
 	va_start(args, fmt);
 	printk_len = vsnprintf(printk_buf, sizeof(printk_buf), fmt, args);
@@ -485,7 +487,7 @@ static void xencons_flush_chars(struct tty_struct *tty)
 
 	spin_lock_irqsave(&xencons_lock, flags);
 	__xencons_tx_flush();
-	spin_unlock_irqrestore(&xencons_lock, flags);    
+	spin_unlock_irqrestore(&xencons_lock, flags);
 }
 
 static void xencons_wait_until_sent(struct tty_struct *tty, int timeout)
@@ -495,17 +497,15 @@ static void xencons_wait_until_sent(struct tty_struct *tty, int timeout)
 	if (TTY_INDEX(tty) != 0)
 		return;
 
-	while (DRV(tty->driver)->chars_in_buffer(tty))
-	{
+	while (DRV(tty->driver)->chars_in_buffer(tty)) {
 		set_current_state(TASK_INTERRUPTIBLE);
 		schedule_timeout(1);
 		if (signal_pending(current))
 			break;
-		if ( (timeout != 0) &&
-		     time_after(jiffies, orig_jiffies + timeout) )
+		if (timeout && time_after(jiffies, orig_jiffies + timeout))
 			break;
 	}
-    
+
 	set_current_state(TASK_RUNNING);
 }
 
@@ -521,7 +521,7 @@ static int xencons_open(struct tty_struct *tty, struct file *filp)
 	if (xencons_tty == NULL)
 		xencons_tty = tty;
 	__xencons_tx_flush();
-	spin_unlock_irqrestore(&xencons_lock, flags);    
+	spin_unlock_irqrestore(&xencons_lock, flags);
 
 	return 0;
 }
@@ -543,7 +543,7 @@ static void xencons_close(struct tty_struct *tty, struct file *filp)
 		tty->closing = 0;
 		spin_lock_irqsave(&xencons_lock, flags);
 		xencons_tty = NULL;
-		spin_unlock_irqrestore(&xencons_lock, flags);    
+		spin_unlock_irqrestore(&xencons_lock, flags);
 	}
 }
 
@@ -574,7 +574,7 @@ static int __init xencons_init(void)
 
 	xencons_ring_init();
 
-	xencons_driver = alloc_tty_driver((xc_mode == XC_SERIAL) ? 
+	xencons_driver = alloc_tty_driver((xc_mode == XC_SERIAL) ?
 					  1 : MAX_NR_CONSOLES);
 	if (xencons_driver == NULL)
 		return -ENOMEM;
@@ -584,15 +584,14 @@ static int __init xencons_init(void)
 	DRV(xencons_driver)->type            = TTY_DRIVER_TYPE_SERIAL;
 	DRV(xencons_driver)->subtype         = SERIAL_TYPE_NORMAL;
 	DRV(xencons_driver)->init_termios    = tty_std_termios;
-	DRV(xencons_driver)->flags           = 
+	DRV(xencons_driver)->flags           =
 		TTY_DRIVER_REAL_RAW |
 		TTY_DRIVER_RESET_TERMIOS |
 		TTY_DRIVER_NO_DEVFS;
 	DRV(xencons_driver)->termios         = xencons_termios;
 	DRV(xencons_driver)->termios_locked  = xencons_termios_locked;
 
-	if (xc_mode == XC_SERIAL)
-	{
+	if (xc_mode == XC_SERIAL) {
 		DRV(xencons_driver)->name        = "ttyS";
 		DRV(xencons_driver)->minor_start = 64 + xc_num;
 		DRV(xencons_driver)->name_base   = 0 + xc_num;
@@ -630,11 +629,13 @@ static int __init xencons_init(void)
 	printk("Xen virtual console successfully installed as %s%d\n",
 	       DRV(xencons_driver)->name,
 	       DRV(xencons_driver)->name_base );
-    
+
 	return 0;
 }
 
 module_init(xencons_init);
+
+MODULE_LICENSE("Dual BSD/GPL");
 
 /*
  * Local variables:

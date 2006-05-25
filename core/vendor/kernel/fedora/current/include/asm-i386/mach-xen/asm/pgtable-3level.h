@@ -107,6 +107,26 @@ static inline void pud_clear (pud_t * pud) { }
 #define pmd_offset(pud, address) ((pmd_t *) pud_page(*(pud)) + \
 			pmd_index(address))
 
+/*
+ * For PTEs and PDEs, we must clear the P-bit first when clearing a page table
+ * entry, so clear the bottom half first and enforce ordering with a compiler
+ * barrier.
+ */
+static inline void pte_clear(struct mm_struct *mm, unsigned long addr, pte_t *ptep)
+{
+	ptep->pte_low = 0;
+	smp_wmb();
+	ptep->pte_high = 0;
+}
+
+static inline void pmd_clear(pmd_t *pmd)
+{
+	u32 *tmp = (u32 *)pmd;
+	*tmp = 0;
+	smp_wmb();
+	*(tmp + 1) = 0;
+}
+
 static inline pte_t ptep_get_and_clear(struct mm_struct *mm, unsigned long addr, pte_t *ptep)
 {
 	pte_t res;
@@ -131,8 +151,8 @@ static inline int pte_none(pte_t pte)
 	return !pte.pte_low && !pte.pte_high;
 }
 
-#define pte_mfn(_pte) ( ((_pte).pte_low >> PAGE_SHIFT) |\
-		        (((_pte).pte_high & 0xfff) << (32-PAGE_SHIFT)) )
+#define pte_mfn(_pte) (((_pte).pte_low >> PAGE_SHIFT) |\
+		       (((_pte).pte_high & 0xfff) << (32-PAGE_SHIFT)))
 #define pte_pfn(_pte) mfn_to_local_pfn(pte_mfn(_pte))
 
 extern unsigned long long __supported_pte_mask;

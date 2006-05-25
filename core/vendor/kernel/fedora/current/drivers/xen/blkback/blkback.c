@@ -9,6 +9,30 @@
  * 
  * Copyright (c) 2003-2004, Keir Fraser & Steve Hand
  * Copyright (c) 2005, Christopher Clark
+ * 
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License version 2
+ * as published by the Free Software Foundation; or, when distributed
+ * separately from the Linux kernel or incorporated into other
+ * software packages, subject to the following license:
+ * 
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this source file (the "Software"), to deal in the Software without
+ * restriction, including without limitation the rights to use, copy, modify,
+ * merge, publish, distribute, sublicense, and/or sell copies of the Software,
+ * and to permit persons to whom the Software is furnished to do so, subject to
+ * the following conditions:
+ * 
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+ * IN THE SOFTWARE.
  */
 
 #include <linux/spinlock.h>
@@ -191,49 +215,23 @@ static void print_stats(blkif_t *blkif)
 
 int blkif_schedule(void *arg)
 {
-	blkif_t          *blkif = arg;
+	blkif_t *blkif = arg;
 
 	blkif_get(blkif);
+
 	if (debug_lvl)
 		printk(KERN_DEBUG "%s: started\n", current->comm);
-	for (;;) {
-		if (kthread_should_stop()) {
-			/* asked to quit? */
-			if (!atomic_read(&blkif->io_pending))
-				break;
-			if (debug_lvl)
-				printk(KERN_DEBUG "%s: I/O pending, "
-				       "delaying exit\n", current->comm);
-		}
 
-		if (!atomic_read(&blkif->io_pending)) {
-			/* Wait for work to do. */
-			wait_event_interruptible(
-				blkif->wq,
-				(atomic_read(&blkif->io_pending) ||
-				 kthread_should_stop()));
-		} else if (list_empty(&pending_free)) {
-			/* Wait for pending_req becoming available. */
-			wait_event_interruptible(
-				pending_free_wq,
-				!list_empty(&pending_free));
-		}
+	while (!kthread_should_stop()) {
+		wait_event_interruptible(
+			blkif->wq,
+			atomic_read(&blkif->io_pending) ||
+			kthread_should_stop());
+		wait_event_interruptible(
+			pending_free_wq,
+			!list_empty(&pending_free) ||
+			kthread_should_stop());
 
-		if (blkif->status != CONNECTED) {
-			/* make sure we are connected */
-			if (debug_lvl)
-				printk(KERN_DEBUG "%s: not connected "
-				       "(%d pending)\n",
-				       current->comm,
-				       atomic_read(&blkif->io_pending));
-			wait_event_interruptible(
-				blkif->wq,
-				(blkif->status == CONNECTED ||
-				 kthread_should_stop()));
-			continue;
-		}
-
-		/* Schedule I/O */
 		atomic_set(&blkif->io_pending, 0);
 		if (do_block_io_op(blkif))
 			atomic_inc(&blkif->io_pending);
@@ -247,8 +245,10 @@ int blkif_schedule(void *arg)
 		print_stats(blkif);
 	if (debug_lvl)
 		printk(KERN_DEBUG "%s: exiting\n", current->comm);
+
 	blkif->xenblkd = NULL;
 	blkif_put(blkif);
+
 	return 0;
 }
 

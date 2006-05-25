@@ -5,8 +5,11 @@
  *
  * Copyright (C) 2005 Rusty Russell, IBM Corporation
  * 
- * This file may be distributed separately from the Linux kernel, or
- * incorporated into other software packages, subject to the following license:
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License version 2
+ * as published by the Free Software Foundation; or, when distributed
+ * separately from the Linux kernel or incorporated into other
+ * software packages, subject to the following license:
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this source file (the "Software"), to deal in the Software without
@@ -38,8 +41,8 @@
 
 static int xenbus_irq;
 
-extern void xenbus_probe(void *); 
-extern int xenstored_ready; 
+extern void xenbus_probe(void *);
+extern int xenstored_ready;
 static DECLARE_WORK(probe_work, xenbus_probe, NULL);
 
 DECLARE_WAIT_QUEUE_HEAD(xb_waitq);
@@ -52,9 +55,9 @@ static inline struct xenstore_domain_interface *xenstore_domain_interface(void)
 static irqreturn_t wake_waiting(int irq, void *unused, struct pt_regs *regs)
 {
 	if (unlikely(xenstored_ready == 0)) {
-		xenstored_ready = 1; 
-		schedule_work(&probe_work); 
-	} 
+		xenstored_ready = 1;
+		schedule_work(&probe_work);
+	}
 
 	wake_up(&xb_waitq);
 	return IRQ_HANDLED;
@@ -89,21 +92,27 @@ int xb_write(const void *data, unsigned len)
 {
 	struct xenstore_domain_interface *intf = xenstore_domain_interface();
 	XENSTORE_RING_IDX cons, prod;
+	int rc;
 
 	while (len != 0) {
 		void *dst;
 		unsigned int avail;
 
-		wait_event_interruptible(xb_waitq,
-					 (intf->req_prod - intf->req_cons) !=
-					 XENSTORE_RING_SIZE);
+		rc = wait_event_interruptible(
+			xb_waitq,
+			(intf->req_prod - intf->req_cons) !=
+			XENSTORE_RING_SIZE);
+		if (rc < 0)
+			return rc;
 
 		/* Read indexes, then verify. */
 		cons = intf->req_cons;
 		prod = intf->req_prod;
 		mb();
-		if (!check_indexes(cons, prod))
+		if (!check_indexes(cons, prod)) {
+			intf->req_cons = intf->req_prod = 0;
 			return -EIO;
+		}
 
 		dst = get_output_chunk(cons, prod, intf->req, &avail);
 		if (avail == 0)
@@ -130,20 +139,26 @@ int xb_read(void *data, unsigned len)
 {
 	struct xenstore_domain_interface *intf = xenstore_domain_interface();
 	XENSTORE_RING_IDX cons, prod;
+	int rc;
 
 	while (len != 0) {
 		unsigned int avail;
 		const char *src;
 
-		wait_event_interruptible(xb_waitq,
-					 intf->rsp_cons != intf->rsp_prod);
+		rc = wait_event_interruptible(
+			xb_waitq,
+			intf->rsp_cons != intf->rsp_prod);
+		if (rc < 0)
+			return rc;
 
 		/* Read indexes, then verify. */
 		cons = intf->rsp_cons;
 		prod = intf->rsp_prod;
 		mb();
-		if (!check_indexes(cons, prod))
+		if (!check_indexes(cons, prod)) {
+			intf->rsp_cons = intf->rsp_prod = 0;
 			return -EIO;
+		}
 
 		src = get_input_chunk(cons, prod, intf->rsp, &avail);
 		if (avail == 0)

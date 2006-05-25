@@ -2,9 +2,6 @@
 # Makefile for the ia32 kernel emulation subsystem.
 #
 
-# Avoid gcc -m64 -m32 ... foo.S
-AFLAGS := $(filter-out -m64, $(AFLAGS))
-
 obj-$(CONFIG_IA32_EMULATION) := ia32entry.o sys_ia32.o ia32_signal.o tls32.o \
 	ia32_binfmt.o fpu32.o ptrace32.o syscall32.o syscall32_syscall.o \
 	mmap32.o
@@ -31,16 +28,13 @@ $(obj)/vsyscall-sysenter.so $(obj)/vsyscall-syscall.so: \
 $(obj)/vsyscall-%.so: $(src)/vsyscall.lds $(obj)/vsyscall-%.o FORCE
 	$(call if_changed,syscall)
 
-AFLAGS_vsyscall-sysenter.o = -m32 -Iarch/i386/kernel
-AFLAGS_vsyscall-syscall.o = -m32 -Iarch/i386/kernel
-AFLAGS_syscall32_syscall.o += -m64
-AFLAGS_ia32entry.o += -m64
+AFLAGS_vsyscall-sysenter.o = -m32 -Wa,-32 -Iarch/i386/kernel
+AFLAGS_vsyscall-syscall.o = -m32 -Wa,-32 -Iarch/i386/kernel
 
 ifdef CONFIG_XEN
-AFLAGS_vsyscall-int80.o = -m32 -Iarch/i386/kernel
+AFLAGS_vsyscall-int80.o = -m32 -Wa,-32 -Iarch/i386/kernel
 CFLAGS_syscall32-xen.o += -DUSE_INT80
-AFLAGS_syscall32_syscall-xen.o += -m64 -DUSE_INT80
-AFLAGS_ia32entry-xen.o += -m64
+AFLAGS_syscall32_syscall-xen.o += -DUSE_INT80
 
 $(obj)/syscall32_syscall-xen.o: \
 	$(foreach F,int80 sysenter syscall,$(obj)/vsyscall-$F.so)
@@ -51,4 +45,3 @@ include $(srctree)/scripts/Makefile.xen
 
 obj-y := $(call cherrypickxen, $(obj-y))
 endif
-
