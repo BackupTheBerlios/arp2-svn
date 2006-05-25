@@ -307,14 +307,14 @@ void pgd_ctor(void *pgd, kmem_cache_t *cache, unsigned long unused)
 			BUG_ON(rc);
 		}
 		if (HAVE_SHARED_KERNEL_PMD)
-			memcpy((pgd_t *)pgd + USER_PTRS_PER_PGD,
-			       swapper_pg_dir + USER_PTRS_PER_PGD,
-			       (PTRS_PER_PGD - USER_PTRS_PER_PGD) * sizeof(pgd_t));
+			clone_pgd_range((pgd_t *)pgd + USER_PTRS_PER_PGD,
+					swapper_pg_dir + USER_PTRS_PER_PGD,
+					KERNEL_PGD_PTRS);
 	} else {
 		spin_lock_irqsave(&pgd_lock, flags);
-		memcpy((pgd_t *)pgd + USER_PTRS_PER_PGD,
-		       swapper_pg_dir + USER_PTRS_PER_PGD,
-		       (PTRS_PER_PGD - USER_PTRS_PER_PGD) * sizeof(pgd_t));
+		clone_pgd_range((pgd_t *)pgd + USER_PTRS_PER_PGD,
+				swapper_pg_dir + USER_PTRS_PER_PGD,
+				KERNEL_PGD_PTRS);
 		memset(pgd, 0, USER_PTRS_PER_PGD*sizeof(pgd_t));
 		pgd_list_add(pgd);
 		spin_unlock_irqrestore(&pgd_lock, flags);
@@ -361,7 +361,7 @@ pgd_t *pgd_alloc(struct mm_struct *mm)
 			pmd_t *pmd = kmem_cache_alloc(pmd_cache, GFP_KERNEL);
 			if (!pmd)
 				goto out_oom;
-			set_pgd(&pgd[USER_PTRS_PER_PGD], __pgd(1 + __pa(pmd)));
+			set_pgd(&pgd[i], __pgd(1 + __pa(pmd)));
 		}
 
 		spin_lock_irqsave(&pgd_lock, flags);
@@ -588,6 +588,8 @@ static void pgd_test_and_unpin(pgd_t *pgd)
 
 void mm_pin(struct mm_struct *mm)
 {
+	if (xen_feature(XENFEAT_writable_page_tables))
+	    return;
 	spin_lock(&mm->page_table_lock);
 	__pgd_pin(mm->pgd);
 	spin_unlock(&mm->page_table_lock);
@@ -595,6 +597,8 @@ void mm_pin(struct mm_struct *mm)
 
 void mm_unpin(struct mm_struct *mm)
 {
+	if (xen_feature(XENFEAT_writable_page_tables))
+	    return;
 	spin_lock(&mm->page_table_lock);
 	__pgd_unpin(mm->pgd);
 	spin_unlock(&mm->page_table_lock);
@@ -603,6 +607,8 @@ void mm_unpin(struct mm_struct *mm)
 void mm_pin_all(void)
 {
 	struct page *page;
+	if (xen_feature(XENFEAT_writable_page_tables))
+	    return;
 	for (page = pgd_list; page; page = (struct page *)page->index) {
 		if (!test_bit(PG_pinned, &page->flags))
 			__pgd_pin((pgd_t *)page_address(page));

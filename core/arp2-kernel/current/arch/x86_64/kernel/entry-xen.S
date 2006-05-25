@@ -221,6 +221,10 @@ rff_trace:
  *
  * XXX	if we had a free scratch register we could save the RSP into the stack frame
  *      and report it properly in ps. Unfortunately we haven't.
+ *
+ * When user can change the frames always force IRET. That is because
+ * it deals with uncanonical addresses better. SYSRET has trouble
+ * with them due to bugs in both AMD and Intel CPUs.
  */ 			 		
 
 ENTRY(system_call)
@@ -289,7 +293,10 @@ sysret_signal:
 	xorl %esi,%esi # oldset -> arg2
 	call ptregscall_common
 1:	movl $_TIF_NEED_RESCHED,%edi
-	jmp sysret_check
+	/* Use IRET because user could have changed frame. This
+	   works because ptregscall_common has called FIXUP_TOP_OF_STACK. */
+	cli
+	jmp int_with_check
 	
 badsys:
 	movq $-ENOSYS,RAX-ARGOFFSET(%rsp)
@@ -315,7 +322,8 @@ tracesys:
 	call syscall_trace_leave
 	RESTORE_TOP_OF_STACK %rbx
 	RESTORE_REST
-	jmp ret_from_sys_call
+	/* Use IRET because user could have changed frame */
+	jmp int_ret_from_sys_call
 	CFI_ENDPROC
 		
 /* 
@@ -449,25 +457,9 @@ ENTRY(stub_execve)
 	CFI_ADJUST_CFA_OFFSET -8
 	CFI_REGISTER rip, r11
 	SAVE_REST
-	movq %r11, %r15
-	CFI_REGISTER rip, r15
 	FIXUP_TOP_OF_STACK %r11
 	call sys_execve
-	GET_THREAD_INFO(%rcx)
-	bt $TIF_IA32,threadinfo_flags(%rcx)
-	CFI_REMEMBER_STATE
-	jc exec_32bit
 	RESTORE_TOP_OF_STACK %r11
-	movq %r15, %r11
-	CFI_REGISTER rip, r11
-	RESTORE_REST
-	pushq %r11
-	CFI_ADJUST_CFA_OFFSET 8
-	CFI_REL_OFFSET rip, 0
-	ret
-
-exec_32bit:
-	CFI_RESTORE_STATE
 	movq %rax,RAX(%rsp)
 	RESTORE_REST
 	jmp int_ret_from_sys_call
@@ -520,13 +512,13 @@ retint_check:
 	CFI_REMEMBER_STATE
 	jnz  retint_careful
 retint_restore_args:
-        movb EVENT_MASK-REST_SKIP(%rsp), %al
-        notb %al			# %al == ~saved_mask
-        XEN_GET_VCPU_INFO(%rsi)
-        andb evtchn_upcall_mask(%rsi),%al
-	andb $1,%al			# %al == mask & ~saved_mask
-	jnz restore_all_enable_events	# != 0 => reenable event delivery      
-        XEN_PUT_VCPU_INFO(%rsi)
+	movl EFLAGS-REST_SKIP(%rsp), %eax
+	shr $9, %eax			# EAX[0] == IRET_EFLAGS.IF
+	XEN_GET_VCPU_INFO(%rsi)
+	andb evtchn_upcall_mask(%rsi),%al
+	andb $1,%al			# EAX[0] == IRET_EFLAGS.IF & event_mask
+	jnz restore_all_enable_events	#        != 0 => enable event delivery
+	XEN_PUT_VCPU_INFO(%rsi)
 		
 	RESTORE_ARGS 0,8,0
 	HYPERVISOR_IRET 0
@@ -584,7 +576,7 @@ retint_kernel:
  */		
 	.macro apicinterrupt num,func
 	INTR_FRAME
-	pushq $\num-256
+	pushq $~(\num)
 	CFI_ADJUST_CFA_OFFSET 8
 	interrupt \func
 	jmp error_entry
@@ -803,12 +795,11 @@ ENTRY(hypervisor_callback)
 # So, on entry to the handler we detect whether we interrupted an
 # existing activation in its critical region -- if so, we pop the current
 # activation and restart the handler using the previous one.
-ENTRY(do_hypervisor_callback)   # do_hyperviosr_callback(struct *pt_regs)
+ENTRY(do_hypervisor_callback)   # do_hypervisor_callback(struct *pt_regs)
 # Since we don't modify %rdi, evtchn_do_upall(struct *pt_regs) will
 # see the correct pointer to the pt_regs
 	movq %rdi, %rsp            # we don't return, adjust the stack frame
-11:	movb $0, EVENT_MASK(%rdi)
-	movq %gs:pda_irqstackptr,%rax
+11:	movq %gs:pda_irqstackptr,%rax
 	incl %gs:pda_irqcount
 	cmovzq %rax,%rsp
 	pushq %rdi
@@ -818,7 +809,7 @@ ENTRY(do_hypervisor_callback)   # do_hyperviosr_callback(struct *pt_regs)
 	jmp  error_exit
 
 #ifdef CONFIG_X86_LOCAL_APIC
-ENTRY(nmi)
+KPROBE_ENTRY(nmi)
 	zeroentry do_nmi_callback
 ENTRY(do_nmi_callback)
         addq $8, %rsp
@@ -828,6 +819,7 @@ ENTRY(do_nmi_callback)
         XEN_BLOCK_EVENTS(%rsi)
         GET_THREAD_INFO(%rcx)
         jmp  retint_restore_args
+	.previous .text
 #endif
 
         ALIGN
@@ -852,35 +844,44 @@ ecrit:  /**** END OF CRITICAL REGION ****/
 # When the kernel is interrupted in the critical section, the kernel 
 # will do IRET in that case, and everything will be restored at that point, 
 # i.e. it just resumes from the next instruction interrupted with the same context. 
-	
+
 # Hypervisor uses this for application faults while it executes.
+# We get here for two reasons:
+#  1. Fault while reloading DS, ES, FS or GS
+#  2. Fault while executing IRET
+# Category 1 we do not need to fix up as Xen has already reloaded all segment
+# registers that could be reloaded and zeroed the others.
+# Category 2 we fix up by killing the current process. We cannot use the
+# normal Linux return path in this case because if we use the IRET hypercall
+# to pop the stack frame we end up in an infinite loop of failsafe callbacks.
+# We distinguish between categories by comparing each saved segment register
+# with its current contents: any discrepancy means we in category 1.
 ENTRY(failsafe_callback)
-	addq $0x10,%rsp /* skip rcx and r11 */	
-1:	mov  (%rsp),%ds
-2:	mov  8(%rsp),%es
-3:	mov  16(%rsp),%fs
-4:	mov  24(%rsp),%gs
-	addq $0x20,%rsp /* skip the above selectors */		
+	movw %ds,%cx
+	cmpw %cx,0x10(%rsp)
+	jne 1f
+	movw %es,%cx
+	cmpw %cx,0x18(%rsp)
+	jne 1f
+	movw %fs,%cx
+	cmpw %cx,0x20(%rsp)
+	jne 1f
+	movw %gs,%cx
+	cmpw %cx,0x28(%rsp)
+	jne 1f
+	/* All segments match their saved values => Category 2 (Bad IRET). */
+	movq (%rsp),%rcx
+	movq 8(%rsp),%r11
+	addq $0x30,%rsp
+	movq $-9999,%rdi	/* better code? */
+	jmp do_exit			
+1:	/* Segment mismatch => Category 1 (Bad segment). Retry the IRET. */
+	movq (%rsp),%rcx
+	movq 8(%rsp),%r11
+	addq $0x30,%rsp
+	pushq $0
 	SAVE_ALL
-	jmp  error_exit
-.section .fixup,"ax";	\
-6:	movq $0,(%rsp);	\
-	jmp 1b;		\
-7:	movq $0,8(%rsp);	\
-	jmp 2b;		\
-8:	movq $0,16(%rsp);	\
-	jmp 3b;		\
-9:	movq $0,24(%rsp);	\
-	jmp 4b;		\
-.previous;		\
-.section __ex_table,"a";\
-	.align 16;	\
-	.quad 1b,6b;	\
-	.quad 2b,7b;	\
-	.quad 3b,8b;	\
-	.quad 4b,9b;	\
-.previous
- 
+	jmp error_exit
 #if 0	      
         .section __ex_table,"a"
         .align 8

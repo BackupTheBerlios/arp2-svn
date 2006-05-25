@@ -28,18 +28,21 @@ typedef struct dom0_getmemlist {
     /* IN variables. */
     domid_t       domain;
     unsigned long max_pfns;
-    void         *buffer;
+    GUEST_HANDLE(ulong) buffer;
     /* OUT variables. */
     unsigned long num_pfns;
 } dom0_getmemlist_t;
+DEFINE_GUEST_HANDLE(dom0_getmemlist_t);
 
 #define DOM0_SCHEDCTL          6
  /* struct sched_ctl_cmd is from sched-ctl.h   */
 typedef struct sched_ctl_cmd dom0_schedctl_t;
+DEFINE_GUEST_HANDLE(dom0_schedctl_t);
 
 #define DOM0_ADJUSTDOM         7
 /* struct sched_adjdom_cmd is from sched-ctl.h */
 typedef struct sched_adjdom_cmd dom0_adjustdom_t;
+DEFINE_GUEST_HANDLE(dom0_adjustdom_t);
 
 #define DOM0_CREATEDOMAIN      8
 typedef struct dom0_createdomain {
@@ -50,24 +53,28 @@ typedef struct dom0_createdomain {
     /* Identifier for new domain (auto-allocate if zero is specified). */
     domid_t domain;
 } dom0_createdomain_t;
+DEFINE_GUEST_HANDLE(dom0_createdomain_t);
 
 #define DOM0_DESTROYDOMAIN     9
 typedef struct dom0_destroydomain {
     /* IN variables. */
     domid_t domain;
 } dom0_destroydomain_t;
+DEFINE_GUEST_HANDLE(dom0_destroydomain_t);
 
 #define DOM0_PAUSEDOMAIN      10
 typedef struct dom0_pausedomain {
     /* IN parameters. */
     domid_t domain;
 } dom0_pausedomain_t;
+DEFINE_GUEST_HANDLE(dom0_pausedomain_t);
 
 #define DOM0_UNPAUSEDOMAIN    11
 typedef struct dom0_unpausedomain {
     /* IN parameters. */
     domid_t domain;
 } dom0_unpausedomain_t;
+DEFINE_GUEST_HANDLE(dom0_unpausedomain_t);
 
 #define DOM0_GETDOMAININFO    12
 typedef struct dom0_getdomaininfo {
@@ -93,6 +100,7 @@ typedef struct dom0_getdomaininfo {
     uint32_t ssidref;
     xen_domain_handle_t handle;
 } dom0_getdomaininfo_t;
+DEFINE_GUEST_HANDLE(dom0_getdomaininfo_t);
 
 #define DOM0_SETVCPUCONTEXT   13
 typedef struct dom0_setvcpucontext {
@@ -100,8 +108,9 @@ typedef struct dom0_setvcpucontext {
     domid_t               domain;
     uint32_t              vcpu;
     /* IN/OUT parameters */
-    vcpu_guest_context_t *ctxt;
+    GUEST_HANDLE(vcpu_guest_context_t) ctxt;
 } dom0_setvcpucontext_t;
+DEFINE_GUEST_HANDLE(dom0_setvcpucontext_t);
 
 #define DOM0_MSR              15
 typedef struct dom0_msr {
@@ -115,6 +124,7 @@ typedef struct dom0_msr {
     uint32_t out1;
     uint32_t out2;
 } dom0_msr_t;
+DEFINE_GUEST_HANDLE(dom0_msr_t);
 
 /*
  * Set clock such that it would read <secs,nsecs> after 00:00:00 UTC,
@@ -127,17 +137,19 @@ typedef struct dom0_settime {
     uint32_t nsecs;
     uint64_t system_time;
 } dom0_settime_t;
+DEFINE_GUEST_HANDLE(dom0_settime_t);
 
 #define DOM0_GETPAGEFRAMEINFO 18
+#define LTAB_SHIFT 28
 #define NOTAB 0         /* normal page */
-#define L1TAB (1<<28)
-#define L2TAB (2<<28)
-#define L3TAB (3<<28)
-#define L4TAB (4<<28)
+#define L1TAB (1<<LTAB_SHIFT)
+#define L2TAB (2<<LTAB_SHIFT)
+#define L3TAB (3<<LTAB_SHIFT)
+#define L4TAB (4<<LTAB_SHIFT)
 #define LPINTAB  (1<<31)
-#define XTAB  (0xf<<28) /* invalid page */
+#define XTAB  (0xf<<LTAB_SHIFT) /* invalid page */
 #define LTAB_MASK XTAB
-#define LTABTYPE_MASK (0x7<<28)
+#define LTABTYPE_MASK (0x7<<LTAB_SHIFT)
 
 typedef struct dom0_getpageframeinfo {
     /* IN variables. */
@@ -147,6 +159,7 @@ typedef struct dom0_getpageframeinfo {
     /* Is the page PINNED to a type? */
     uint32_t type;         /* see above type defs */
 } dom0_getpageframeinfo_t;
+DEFINE_GUEST_HANDLE(dom0_getpageframeinfo_t);
 
 /*
  * Read console content from Xen buffer ring.
@@ -154,13 +167,14 @@ typedef struct dom0_getpageframeinfo {
 #define DOM0_READCONSOLE      19
 typedef struct dom0_readconsole {
     /* IN variables. */
-    uint32_t clear;        /* Non-zero -> clear after reading. */
+    uint32_t clear;            /* Non-zero -> clear after reading. */
     /* IN/OUT variables. */
-    char    *buffer;       /* In: Buffer start; Out: Used buffer start */
-    uint32_t count;        /* In: Buffer size;  Out: Used buffer size  */
+    GUEST_HANDLE(char) buffer; /* In: Buffer start; Out: Used buffer start */
+    uint32_t count;            /* In: Buffer size;  Out: Used buffer size  */
 } dom0_readconsole_t;
+DEFINE_GUEST_HANDLE(dom0_readconsole_t);
 
-/* 
+/*
  * Set which physical cpus a vcpu can execute on.
  */
 #define DOM0_SETVCPUAFFINITY  20
@@ -170,6 +184,7 @@ typedef struct dom0_setvcpuaffinity {
     uint32_t  vcpu;
     cpumap_t  cpumap;
 } dom0_setvcpuaffinity_t;
+DEFINE_GUEST_HANDLE(dom0_setvcpuaffinity_t);
 
 /* Get trace buffers machine base address */
 #define DOM0_TBUFCONTROL       21
@@ -189,6 +204,7 @@ typedef struct dom0_tbufcontrol {
     unsigned long buffer_mfn;
     uint32_t size;
 } dom0_tbufcontrol_t;
+DEFINE_GUEST_HANDLE(dom0_tbufcontrol_t);
 
 /*
  * Get physical information about the host machine
@@ -204,6 +220,7 @@ typedef struct dom0_physinfo {
     unsigned long free_pages;
     uint32_t hw_cap[8];
 } dom0_physinfo_t;
+DEFINE_GUEST_HANDLE(dom0_physinfo_t);
 
 /*
  * Get the ID of the current scheduler.
@@ -213,8 +230,9 @@ typedef struct dom0_sched_id {
     /* OUT variable */
     uint32_t sched_id;
 } dom0_sched_id_t;
+DEFINE_GUEST_HANDLE(dom0_sched_id_t);
 
-/* 
+/*
  * Control shadow pagetables operation
  */
 #define DOM0_SHADOW_CONTROL  25
@@ -231,20 +249,22 @@ typedef struct dom0_sched_id {
 typedef struct dom0_shadow_control_stats {
     uint32_t fault_count;
     uint32_t dirty_count;
-    uint32_t dirty_net_count;     
-    uint32_t dirty_block_count;     
+    uint32_t dirty_net_count;
+    uint32_t dirty_block_count;
 } dom0_shadow_control_stats_t;
+DEFINE_GUEST_HANDLE(dom0_shadow_control_stats_t);
 
 typedef struct dom0_shadow_control {
     /* IN variables. */
     domid_t        domain;
     uint32_t       op;
-    unsigned long *dirty_bitmap; /* pointer to locked buffer */
+    GUEST_HANDLE(ulong) dirty_bitmap;
     /* IN/OUT variables. */
     unsigned long  pages;        /* size of buffer, updated with actual size */
     /* OUT variables. */
     dom0_shadow_control_stats_t stats;
 } dom0_shadow_control_t;
+DEFINE_GUEST_HANDLE(dom0_shadow_control_t);
 
 #define DOM0_SETDOMAINMAXMEM   28
 typedef struct dom0_setdomainmaxmem {
@@ -252,6 +272,7 @@ typedef struct dom0_setdomainmaxmem {
     domid_t       domain;
     unsigned long max_memkb;
 } dom0_setdomainmaxmem_t;
+DEFINE_GUEST_HANDLE(dom0_setdomainmaxmem_t);
 
 #define DOM0_GETPAGEFRAMEINFO2 29   /* batched interface */
 typedef struct dom0_getpageframeinfo2 {
@@ -259,8 +280,9 @@ typedef struct dom0_getpageframeinfo2 {
     domid_t        domain;
     unsigned long  num;
     /* IN/OUT variables. */
-    unsigned long *array;
+    GUEST_HANDLE(ulong) array;
 } dom0_getpageframeinfo2_t;
+DEFINE_GUEST_HANDLE(dom0_getpageframeinfo2_t);
 
 /*
  * Request memory range (@mfn, @mfn+@nr_mfns-1) to have type @type.
@@ -279,6 +301,7 @@ typedef struct dom0_add_memtype {
     uint32_t      handle;
     uint32_t      reg;
 } dom0_add_memtype_t;
+DEFINE_GUEST_HANDLE(dom0_add_memtype_t);
 
 /*
  * Tear down an existing memory-range type. If @handle is remembered then it
@@ -293,6 +316,7 @@ typedef struct dom0_del_memtype {
     uint32_t handle;
     uint32_t reg;
 } dom0_del_memtype_t;
+DEFINE_GUEST_HANDLE(dom0_del_memtype_t);
 
 /* Read current type of an MTRR (x86-specific). */
 #define DOM0_READ_MEMTYPE        33
@@ -304,6 +328,7 @@ typedef struct dom0_read_memtype {
     unsigned long nr_mfns;
     uint32_t type;
 } dom0_read_memtype_t;
+DEFINE_GUEST_HANDLE(dom0_read_memtype_t);
 
 /* Interface for controlling Xen software performance counters. */
 #define DOM0_PERFCCONTROL        34
@@ -315,20 +340,23 @@ typedef struct dom0_perfc_desc {
     uint32_t     nr_vals;              /* number of values for this counter */
     uint32_t     vals[64];             /* array of values */
 } dom0_perfc_desc_t;
+DEFINE_GUEST_HANDLE(dom0_perfc_desc_t);
 typedef struct dom0_perfccontrol {
     /* IN variables. */
     uint32_t       op;                /*  DOM0_PERFCCONTROL_OP_??? */
     /* OUT variables. */
     uint32_t       nr_counters;       /*  number of counters */
-    dom0_perfc_desc_t *desc;          /*  counter information (or NULL) */
+    GUEST_HANDLE(dom0_perfc_desc_t) desc; /*  counter information (or NULL) */
 } dom0_perfccontrol_t;
+DEFINE_GUEST_HANDLE(dom0_perfccontrol_t);
 
 #define DOM0_MICROCODE           35
 typedef struct dom0_microcode {
     /* IN variables. */
-    void    *data;                    /* Pointer to microcode data */
+    GUEST_HANDLE(void) data;          /* Pointer to microcode data */
     uint32_t length;                  /* Length of microcode data. */
 } dom0_microcode_t;
+DEFINE_GUEST_HANDLE(dom0_microcode_t);
 
 #define DOM0_IOPORT_PERMISSION   36
 typedef struct dom0_ioport_permission {
@@ -337,6 +365,7 @@ typedef struct dom0_ioport_permission {
     uint32_t nr_ports;                /* size of port range */
     uint8_t  allow_access;            /* allow or deny access to range? */
 } dom0_ioport_permission_t;
+DEFINE_GUEST_HANDLE(dom0_ioport_permission_t);
 
 #define DOM0_GETVCPUCONTEXT      37
 typedef struct dom0_getvcpucontext {
@@ -344,8 +373,9 @@ typedef struct dom0_getvcpucontext {
     domid_t  domain;                  /* domain to be affected */
     uint32_t vcpu;                    /* vcpu # */
     /* OUT variables. */
-    vcpu_guest_context_t *ctxt;
+    GUEST_HANDLE(vcpu_guest_context_t) ctxt;
 } dom0_getvcpucontext_t;
+DEFINE_GUEST_HANDLE(dom0_getvcpucontext_t);
 
 #define DOM0_GETVCPUINFO         43
 typedef struct dom0_getvcpuinfo {
@@ -360,54 +390,65 @@ typedef struct dom0_getvcpuinfo {
     uint32_t cpu;                     /* current mapping   */
     cpumap_t cpumap;                  /* allowable mapping */
 } dom0_getvcpuinfo_t;
+DEFINE_GUEST_HANDLE(dom0_getvcpuinfo_t);
 
 #define DOM0_GETDOMAININFOLIST   38
 typedef struct dom0_getdomaininfolist {
     /* IN variables. */
     domid_t               first_domain;
     uint32_t              max_domains;
-    dom0_getdomaininfo_t *buffer;
+    GUEST_HANDLE(dom0_getdomaininfo_t) buffer;
     /* OUT variables. */
     uint32_t              num_domains;
 } dom0_getdomaininfolist_t;
+DEFINE_GUEST_HANDLE(dom0_getdomaininfolist_t);
 
-#define DOM0_PLATFORM_QUIRK      39  
-#define QUIRK_NOIRQBALANCING  1
+#define DOM0_PLATFORM_QUIRK      39
+#define QUIRK_NOIRQBALANCING      1 /* Do not restrict IO-APIC RTE targets */
+#define QUIRK_IOAPIC_BAD_REGSEL   2 /* IO-APIC REGSEL forgets its value    */
+#define QUIRK_IOAPIC_GOOD_REGSEL  3 /* IO-APIC REGSEL behaves properly     */
 typedef struct dom0_platform_quirk {
     /* IN variables. */
     uint32_t quirk_id;
 } dom0_platform_quirk_t;
+DEFINE_GUEST_HANDLE(dom0_platform_quirk_t);
 
 #define DOM0_PHYSICAL_MEMORY_MAP 40
+typedef struct dom0_memory_map_entry {
+    uint64_t start, end;
+    uint32_t flags; /* reserved */
+    uint8_t  is_ram;
+} dom0_memory_map_entry_t;
+DEFINE_GUEST_HANDLE(dom0_memory_map_entry_t);
 typedef struct dom0_physical_memory_map {
     /* IN variables. */
     uint32_t max_map_entries;
     /* OUT variables. */
     uint32_t nr_map_entries;
-    struct dom0_memory_map_entry {
-        uint64_t start, end;
-        uint32_t flags; /* reserved */
-        uint8_t  is_ram;
-    } *memory_map;
+    GUEST_HANDLE(dom0_memory_map_entry_t) memory_map;
 } dom0_physical_memory_map_t;
+DEFINE_GUEST_HANDLE(dom0_physical_memory_map_t);
 
 #define DOM0_MAX_VCPUS 41
 typedef struct dom0_max_vcpus {
     domid_t  domain;        /* domain to be affected */
     uint32_t max;           /* maximum number of vcpus */
 } dom0_max_vcpus_t;
+DEFINE_GUEST_HANDLE(dom0_max_vcpus_t);
 
 #define DOM0_SETDOMAINHANDLE 44
 typedef struct dom0_setdomainhandle {
     domid_t domain;
     xen_domain_handle_t handle;
 } dom0_setdomainhandle_t;
+DEFINE_GUEST_HANDLE(dom0_setdomainhandle_t);
 
 #define DOM0_SETDEBUGGING 45
 typedef struct dom0_setdebugging {
     domid_t domain;
     uint8_t enable;
 } dom0_setdebugging_t;
+DEFINE_GUEST_HANDLE(dom0_setdebugging_t);
 
 #define DOM0_IRQ_PERMISSION 46
 typedef struct dom0_irq_permission {
@@ -415,6 +456,7 @@ typedef struct dom0_irq_permission {
     uint8_t pirq;
     uint8_t allow_access;    /* flag to specify enable/disable of IRQ access */
 } dom0_irq_permission_t;
+DEFINE_GUEST_HANDLE(dom0_irq_permission_t);
 
 #define DOM0_IOMEM_PERMISSION 47
 typedef struct dom0_iomem_permission {
@@ -423,13 +465,15 @@ typedef struct dom0_iomem_permission {
     unsigned long nr_mfns;    /* number of pages in range (>0) */
     uint8_t allow_access;     /* allow (!0) or deny (0) access to range? */
 } dom0_iomem_permission_t;
- 
+DEFINE_GUEST_HANDLE(dom0_iomem_permission_t);
+
 #define DOM0_HYPERCALL_INIT   48
 typedef struct dom0_hypercall_init {
     domid_t  domain;          /* domain to be affected */
     unsigned long mfn;        /* machine frame to be initialised */
 } dom0_hypercall_init_t;
- 
+DEFINE_GUEST_HANDLE(dom0_hypercall_init_t);
+
 typedef struct dom0_op {
     uint32_t cmd;
     uint32_t interface_version; /* DOM0_INTERFACE_VERSION */
@@ -466,14 +510,15 @@ typedef struct dom0_op {
         struct dom0_platform_quirk    platform_quirk;
         struct dom0_physical_memory_map physical_memory_map;
         struct dom0_max_vcpus         max_vcpus;
-        struct dom0_setdomainhandle   setdomainhandle;        
+        struct dom0_setdomainhandle   setdomainhandle;
         struct dom0_setdebugging      setdebugging;
         struct dom0_irq_permission    irq_permission;
         struct dom0_iomem_permission  iomem_permission;
         struct dom0_hypercall_init    hypercall_init;
-        uint8_t                  pad[128];
+        uint8_t                       pad[128];
     } u;
 } dom0_op_t;
+DEFINE_GUEST_HANDLE(dom0_op_t);
 
 #endif /* __XEN_PUBLIC_DOM0_OPS_H__ */
 

@@ -61,8 +61,8 @@ static inline unsigned int xen_io_apic_read(unsigned int apic, unsigned int reg)
 	int ret;
 
 	op.cmd = PHYSDEVOP_APIC_READ;
-	op.u.apic_op.apic = mp_ioapics[apic].mpc_apicid;
-	op.u.apic_op.offset = reg;
+	op.u.apic_op.apic_physbase = mp_ioapics[apic].mpc_apicaddr;
+	op.u.apic_op.reg = reg;
 	ret = HYPERVISOR_physdev_op(&op);
 	if (ret)
 		return ret;
@@ -74,8 +74,8 @@ static inline void xen_io_apic_write(unsigned int apic, unsigned int reg, unsign
 	physdev_op_t op;
 
 	op.cmd = PHYSDEVOP_APIC_WRITE;
-	op.u.apic_op.apic = mp_ioapics[apic].mpc_apicid;
-	op.u.apic_op.offset = reg;
+	op.u.apic_op.apic_physbase = mp_ioapics[apic].mpc_apicaddr;
+	op.u.apic_op.reg = reg;
 	op.u.apic_op.value = value;
 	HYPERVISOR_physdev_op(&op);
 }
@@ -92,6 +92,8 @@ atomic_t irq_mis_count;
 static struct { int pin, apic; } ioapic_i8259 = { -1, -1 };
 
 static DEFINE_SPINLOCK(ioapic_lock);
+
+int timer_over_8254 __initdata = 1;
 
 /*
  *	Is the SiS APIC rmw bug present ?
@@ -2329,7 +2331,8 @@ static inline void check_timer(void)
 	apic_write_around(APIC_LVT0, APIC_LVT_MASKED | APIC_DM_EXTINT);
 	init_8259A(1);
 	timer_ack = 1;
-	enable_8259A_irq(0);
+	if (timer_over_8254 > 0)
+		enable_8259A_irq(0);
 
 	pin1  = find_isa_irq_pin(0, mp_INT);
 	apic1 = find_isa_irq_apic(0, mp_INT);
@@ -2459,6 +2462,20 @@ void __init setup_IO_APIC(void)
 		print_IO_APIC();
 }
 
+static int __init setup_disable_8254_timer(char *s)
+{
+	timer_over_8254 = -1;
+	return 1;
+}
+static int __init setup_enable_8254_timer(char *s)
+{
+	timer_over_8254 = 2;
+	return 1;
+}
+
+__setup("disable_8254_timer", setup_disable_8254_timer);
+__setup("enable_8254_timer", setup_enable_8254_timer);
+
 /*
  *	Called after all the initialization is done. If we didnt find any
  *	APIC bugs then we can allow the modify fast path
@@ -2468,6 +2485,12 @@ static int __init io_apic_bug_finalize(void)
 {
 	if(sis_apic_bug == -1)
 		sis_apic_bug = 0;
+	if (xen_start_info->flags & SIF_INITDOMAIN) {
+		dom0_op_t op = { .cmd = DOM0_PLATFORM_QUIRK };
+		op.u.platform_quirk.quirk_id = sis_apic_bug ?
+			QUIRK_IOAPIC_BAD_REGSEL : QUIRK_IOAPIC_GOOD_REGSEL;
+		HYPERVISOR_dom0_op(&op);
+	}
 	return 0;
 }
 

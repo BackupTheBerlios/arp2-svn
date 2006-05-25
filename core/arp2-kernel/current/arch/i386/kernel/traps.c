@@ -152,10 +152,12 @@ static inline unsigned long print_context_stack(struct thread_info *tinfo,
 	return ebp;
 }
 
+static int oopsdelay = 120;
+
 void pause_for_two_minutes(void)
 {
 	int i, j;
-	for (i=120; i>0; i--) {
+	for (i=oopsdelay; i>0; i--) {
 		for (j=0; j<1000; j++)
 			udelay(1000);
 		touch_nmi_watchdog();
@@ -163,6 +165,13 @@ void pause_for_two_minutes(void)
 	}
 	printk("\n");
 }	
+
+static int __init oopsdelay_setup(char *s)
+{
+	oopsdelay = simple_strtoul(s, NULL, 0);
+	return 1;
+}
+__setup("oopsdelay=", oopsdelay_setup);
 
 static void show_trace_log_lvl(struct task_struct *task,
 			       unsigned long *stack, char *log_lvl)

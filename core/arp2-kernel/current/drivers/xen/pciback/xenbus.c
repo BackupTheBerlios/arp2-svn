@@ -12,11 +12,11 @@
 
 #define INVALID_EVTCHN_IRQ  (-1)
 
-struct pciback_device *alloc_pdev(struct xenbus_device *xdev)
+static struct pciback_device *alloc_pdev(struct xenbus_device *xdev)
 {
 	struct pciback_device *pdev;
 
-	pdev = kmalloc(sizeof(struct pciback_device), GFP_KERNEL);
+	pdev = kzalloc(sizeof(struct pciback_device), GFP_KERNEL);
 	if (pdev == NULL)
 		goto out;
 	dev_dbg(&xdev->dev, "allocated pdev @ 0x%p\n", pdev);
@@ -26,6 +26,7 @@ struct pciback_device *alloc_pdev(struct xenbus_device *xdev)
 
 	spin_lock_init(&pdev->dev_lock);
 
+	pdev->sh_area = NULL;
 	pdev->sh_info = NULL;
 	pdev->evtchn_irq = INVALID_EVTCHN_IRQ;
 	pdev->be_watching = 0;
@@ -38,7 +39,7 @@ struct pciback_device *alloc_pdev(struct xenbus_device *xdev)
 	return pdev;
 }
 
-void free_pdev(struct pciback_device *pdev)
+static void free_pdev(struct pciback_device *pdev)
 {
 	if (pdev->be_watching)
 		unregister_xenbus_watch(&pdev->be_watch);
@@ -48,7 +49,7 @@ void free_pdev(struct pciback_device *pdev)
 		unbind_from_irqhandler(pdev->evtchn_irq, pdev);
 
 	if (pdev->sh_info)
-		xenbus_unmap_ring_vfree(pdev->xdev, pdev->sh_info);
+		xenbus_unmap_ring_vfree(pdev->xdev, pdev->sh_area);
 
 	pciback_release_devices(pdev);
 
@@ -63,15 +64,19 @@ static int pciback_do_attach(struct pciback_device *pdev, int gnt_ref,
 {
 	int err = 0;
 	int evtchn;
+	struct vm_struct *area;
+
 	dev_dbg(&pdev->xdev->dev,
 		"Attaching to frontend resources - gnt_ref=%d evtchn=%d\n",
 		gnt_ref, remote_evtchn);
 
-	err =
-	    xenbus_map_ring_valloc(pdev->xdev, gnt_ref,
-				   (void **)&pdev->sh_info);
-	if (err)
+	area = xenbus_map_ring_valloc(pdev->xdev, gnt_ref);
+	if (IS_ERR(area)) {
+		err = PTR_ERR(area);
 		goto out;
+	}
+	pdev->sh_area = area;
+	pdev->sh_info = area->addr;
 
 	err = xenbus_bind_evtchn(pdev->xdev, remote_evtchn, &evtchn);
 	if (err)
@@ -137,7 +142,7 @@ static int pciback_attach(struct pciback_device *pdev)
 
 	dev_dbg(&pdev->xdev->dev, "Connecting...\n");
 
-	err = xenbus_switch_state(pdev->xdev, XBT_NULL, XenbusStateConnected);
+	err = xenbus_switch_state(pdev->xdev, XenbusStateConnected);
 	if (err)
 		xenbus_dev_fatal(pdev->xdev, err,
 				 "Error switching to connected state!");
@@ -165,7 +170,7 @@ static void pciback_frontend_changed(struct xenbus_device *xdev,
 		break;
 
 	case XenbusStateClosing:
-		xenbus_switch_state(xdev, XBT_NULL, XenbusStateClosing);
+		xenbus_switch_state(xdev, XenbusStateClosing);
 		break;
 
 	case XenbusStateClosed:
@@ -247,7 +252,7 @@ static int pciback_export_device(struct pciback_device *pdev,
 	dev_dbg(&pdev->xdev->dev, "exporting dom %x bus %x slot %x func %x\n",
 		domain, bus, slot, func);
 
-	dev = pcistub_get_pci_dev_by_slot(domain, bus, slot, func);
+	dev = pcistub_get_pci_dev_by_slot(pdev, domain, bus, slot, func);
 	if (!dev) {
 		err = -EINVAL;
 		xenbus_dev_fatal(pdev->xdev, err,
@@ -341,7 +346,7 @@ static int pciback_setup_backend(struct pciback_device *pdev)
 		goto out;
 	}
 
-	err = xenbus_switch_state(pdev->xdev, XBT_NULL, XenbusStateInitialised);
+	err = xenbus_switch_state(pdev->xdev, XenbusStateInitialised);
 	if (err)
 		xenbus_dev_fatal(pdev->xdev, err,
 				 "Error switching to initialised state!");
@@ -386,7 +391,7 @@ static int pciback_xenbus_probe(struct xenbus_device *dev,
 	}
 
 	/* wait for xend to configure us */
-	err = xenbus_switch_state(dev, XBT_NULL, XenbusStateInitWait);
+	err = xenbus_switch_state(dev, XenbusStateInitWait);
 	if (err)
 		goto out;
 
@@ -430,10 +435,12 @@ static struct xenbus_driver xenbus_pciback_driver = {
 	.otherend_changed 	= pciback_frontend_changed,
 };
 
-static __init int pciback_xenbus_register(void)
+int __init pciback_xenbus_register(void)
 {
 	return xenbus_register_backend(&xenbus_pciback_driver);
 }
 
-/* Must only initialize our xenbus driver after the pcistub driver */
-device_initcall(pciback_xenbus_register);
+void __exit pciback_xenbus_unregister(void)
+{
+	xenbus_unregister_driver(&xenbus_pciback_driver);
+}

@@ -1220,6 +1220,41 @@ int __skb_linearize(struct sk_buff *skb, gfp_t gfp_mask)
 	}						\
 }
 
+#ifdef CONFIG_XEN
+inline int skb_checksum_setup(struct sk_buff *skb)
+{
+	if (skb->proto_csum_blank) {
+		if (skb->protocol != htons(ETH_P_IP))
+			goto out;
+		skb->h.raw = (unsigned char *)skb->nh.iph + 4*skb->nh.iph->ihl;
+		if (skb->h.raw >= skb->tail)
+			goto out;
+		switch (skb->nh.iph->protocol) {
+		case IPPROTO_TCP:
+			skb->csum = offsetof(struct tcphdr, check);
+			break;
+		case IPPROTO_UDP:
+			skb->csum = offsetof(struct udphdr, check);
+			break;
+		default:
+			if (net_ratelimit())
+				printk(KERN_ERR "Attempting to checksum a non-"
+				       "TCP/UDP packet, dropping a protocol"
+				       " %d packet", skb->nh.iph->protocol);
+			goto out;
+		}
+		if ((skb->h.raw + skb->csum + 2) > skb->tail)
+			goto out;
+		skb->ip_summed = CHECKSUM_HW;
+		skb->proto_csum_blank = 0;
+	}
+	return 0;
+out:
+	return -EPROTO;
+}
+#endif
+
+
 /**
  *	dev_queue_xmit - transmit a buffer
  *	@skb: buffer to transmit
@@ -1266,37 +1301,13 @@ int dev_queue_xmit(struct sk_buff *skb)
 	    __skb_linearize(skb, GFP_ATOMIC))
 		goto out_kfree_skb;
 
+ 	/* If a checksum-deferred packet is forwarded to a device that needs a
+ 	 * checksum, correct the pointers and force checksumming.
+ 	 */
 #ifdef CONFIG_XEN
-	/* If a checksum-deferred packet is forwarded to a device that needs a
-	 * checksum, correct the pointers and force checksumming.
-	 */
-	if (skb->proto_csum_blank) {
-		if (skb->protocol != htons(ETH_P_IP))
-			goto out_kfree_skb;
-		skb->h.raw = (unsigned char *)skb->nh.iph + 4*skb->nh.iph->ihl;
-		if (skb->h.raw >= skb->tail)
-			goto out_kfree_skb;
-		switch (skb->nh.iph->protocol) {
-		case IPPROTO_TCP:
-			skb->csum = offsetof(struct tcphdr, check);
-			break;
-		case IPPROTO_UDP:
-			skb->csum = offsetof(struct udphdr, check);
-			break;
-		default:
-			if (net_ratelimit())
-				printk(KERN_ERR "Attempting to checksum a non-"
-				       "TCP/UDP packet, dropping a protocol"
-				       " %d packet", skb->nh.iph->protocol);
-			rc = -EPROTO;
-			goto out_kfree_skb;
-		}
-		if ((skb->h.raw + skb->csum + 2) > skb->tail)
-			goto out_kfree_skb;
-		skb->ip_summed = CHECKSUM_HW;
-	}
+ 	if(skb_checksum_setup(skb))
+ 		goto out_kfree_skb;
 #endif
-
 	/* If packet is not checksummed and device does not support
 	 * checksumming for this protocol, complete checksumming here.
 	 */
@@ -1649,12 +1660,12 @@ int netif_receive_skb(struct sk_buff *skb)
 #ifdef CONFIG_XEN
 	switch (skb->ip_summed) {
 	case CHECKSUM_UNNECESSARY:
-		skb->proto_csum_valid = 1;
+		skb->proto_data_valid = 1;
 		break;
 	case CHECKSUM_HW:
 		/* XXX Implement me. */
 	default:
-		skb->proto_csum_valid = 0;
+		skb->proto_data_valid = 0;
 		break;
 	}
 #endif
@@ -2982,11 +2993,11 @@ void netdev_run_todo(void)
 
 		switch(dev->reg_state) {
 		case NETREG_REGISTERING:
+			dev->reg_state = NETREG_REGISTERED;
 			err = netdev_register_sysfs(dev);
 			if (err)
 				printk(KERN_ERR "%s: failed sysfs registration (%d)\n",
 				       dev->name, err);
-			dev->reg_state = NETREG_REGISTERED;
 			break;
 
 		case NETREG_UNREGISTERING:

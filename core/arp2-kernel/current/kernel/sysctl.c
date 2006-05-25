@@ -81,7 +81,7 @@ extern int proc_unknown_nmi_panic(ctl_table *, int, struct file *,
 
 extern unsigned int vdso_enabled, vdso_populate;
 
-int exec_shield = (1<<3) | (1<<1) | (1<<0);
+int exec_shield = (1<<3) | (1<<0);
 /* exec_shield is a bitmask:
           0: off; vdso at STACK_TOP, 1 page below TASK_SIZE
    (1<<0) 1: on [also on if !=0]

@@ -34,6 +34,7 @@
 #define IOREQ_TYPE_AND          2
 #define IOREQ_TYPE_OR           3
 #define IOREQ_TYPE_XOR          4
+#define IOREQ_TYPE_XCHG         5
 
 /*
  * VMExit dispatcher should cooperate with instruction decoder to
@@ -71,8 +72,8 @@ typedef struct {
 typedef struct {
     ioreq_t         vp_ioreq;
     /* Event channel port */
-    unsigned long   vp_eport;   /* VMX vcpu uses this to notify DM */
-    unsigned long   dm_eport;   /* DM uses this to notify VMX vcpu */
+    unsigned int    vp_eport;   /* VMX vcpu uses this to notify DM */
+    unsigned int    dm_eport;   /* DM uses this to notify VMX vcpu */
 } vcpu_iodata_t;
 
 typedef struct {
