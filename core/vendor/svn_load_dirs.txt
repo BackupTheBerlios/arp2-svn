@@ -13,3 +13,7 @@ make mrproper
 rm -rf configs
 find . -name '*.orig' -exec rm {} \;
 svn_load_dirs.pl -t linux-2.6.16-1.2096_FC5 svn+ssh://svn.berlios.de/svnroot/repos/arp2/core/vendor/kernel/fedora current .
+
+cd <checkout>/arp2-kernel/current
+svk smerge -C //mirror/arp2/core/vendor/kernel/fedora/current/ or
+svk smerge -C -b XXXX //mirror/arp2/core/vendor/kernel/fedora/current/
