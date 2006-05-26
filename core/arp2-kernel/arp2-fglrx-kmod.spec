@@ -10,7 +10,7 @@ Source10: kmodtool
 %define kverrel %(%{kmodtool} verrel %{?kversion} 2>/dev/null)
 
 %define upvar "arp2"
-%ifarch i686 ppc
+%ifarch i586 i686 ppc
 %define smpvar arp2-smp
 %endif
 %ifarch i686 x86_64
@@ -22,7 +22,7 @@ Source10: kmodtool
 
 
 Name:           %{kmod_name}-kmod
-Version:        8.24.8
+Version:        8.25.18
 Release:        1.%(echo %{kverrel} | tr - _)
 Summary:        ATI proprietary driver for ATI Radeon graphic cards, kernel part
 
@@ -30,12 +30,11 @@ Group:		System Environment/Kernel
 License:        Distributable
 URL:            http://www.ati.com/support/drivers/linux/radeon-linux.html
 
-Source0:        http://www.leemhuis.info/files/fedorarpms/KMODFILES.lvn/fglrx-kmod-data-%{version}.tar.bz2
+Source0:        fglrx-kmod-data-%{version}.tar.bz2
 
 Patch1:		ati-fglrx-makefile.diff
 Patch2:		ati-fglrx-makesh.diff
 Patch10:	ati-fglrx-via_int_agpgart.patch
-Patch25:	fglrx-x86_64-fixups.patch
 
 ExclusiveArch:  i586 i686 x86_64
 BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
@@ -71,9 +70,6 @@ for kvariant in %{kvariants} ; do
 %patch1 -b .patch1
 %patch2 -b .patch2
 %patch10 -p1 -b .patch10
-%ifarch x86_64
-%patch25 -p1 -b .patch25
-%endif
     popd
     popd
 done
@@ -108,6 +104,9 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Thu May 25 2006 Martin Blom <martin@blom.org> - 8.25.18-1.2.6.16-1.2096.1
+- Updated from Livna's 8.25.18-1.2.6.16_1.2122_FC5 SRPM.
+
 * Fri Apr 21 2006 Martin Blom <martin@blom.org> - 8.24.8-1.2.6.16-1.2096.1
 - Updated from Livna's 2.24.8-1.2.6.16-1.2096_FC5
 

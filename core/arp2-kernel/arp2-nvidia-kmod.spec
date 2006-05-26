@@ -10,7 +10,7 @@ Source10: kmodtool
 %define kverrel %(%{kmodtool} verrel %{?kversion} 2>/dev/null)
 
 %define upvar "arp2"
-%ifarch i686
+%ifarch i586 i686
 %define smpvar arp2-smp
 %endif
 %ifarch i686 x86_64
@@ -22,7 +22,7 @@ Source10: kmodtool
 
 
 Name:       %{kmod_name}-kmod
-Version:    1.0.8756
+Version:    1.0.8762
 Release:    1.%(echo %{kverrel} | tr - _)
 Summary:    Nvidia Display Driver kernel-module
 
@@ -31,9 +31,9 @@ Group:      System Environment/Kernel
 URL:        http://www.nvidia.com/
 
 #Source is created from these files:
-# ftp://download.nvidia.com/XFree86/Linux-x86/1.0-8756/NVIDIA-Linux-x86-1.0-8756-pkg0.run
-# ftp://download.nvidia.com/XFree86/Linux-x86_64/1.0-8756/NVIDIA-Linux-x86_64-1.0-8756-pkg2.run
-Source0:	nvidia-glx-kmod-data-1.0.8178.tar.bz2	
+# ftp://download.nvidia.com/XFree86/Linux-x86/1.0-8762/NVIDIA-Linux-x86-1.0-8762-pkg0.run
+# ftp://download.nvidia.com/XFree86/Linux-x86_64/1.0-8762/NVIDIA-Linux-x86_64-1.0-8762-pkg2.run
+Source0:	nvidia-glx-kmod-data-%{version}.tar.bz2	
 BuildRoot:	%{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 ExclusiveArch:	i586 i686 x86_64
 
@@ -83,5 +83,8 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Thu May 25 2006 Martin Blom <martin@blom.org> - 1.0.8762-1
+- Updated to Livna's 1.0.8762-1.2.6.16_1.2122_FC5 SRPM
+
 * Mon Apr 10 2006 Martin Blom <martin@blom.org> - 1.0.8756-1
 - Created from Livna's 1.0.8756-1.2.6.16_1.2080_FC5 SRPM.
