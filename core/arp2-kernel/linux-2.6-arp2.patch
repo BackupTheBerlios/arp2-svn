@@ -1,7 +1,7 @@
 === include/linux/genhd.h
 ==================================================================
---- include/linux/genhd.h	(/mirror/arp2/core/vendor/kernel/fedora/current)	(revision 2490)
-+++ include/linux/genhd.h	(/mirror/arp2/core/arp2-kernel/current)	(revision 2490)
+--- include/linux/genhd.h	(/mirror/arp2/core/vendor/kernel/fedora/current)	(revision 2636)
++++ include/linux/genhd.h	(/mirror/arp2/core/arp2-kernel/current)	(revision 2636)
 @@ -41,6 +41,8 @@
  	BSDI_PARTITION = 0xb7,		/* BSDI Partition ID */
  	MINIX_PARTITION = 0x81,		/* Minix Partition ID */
@@ -13,8 +13,8 @@
  #ifndef __KERNEL__
 === fs/partitions/Kconfig
 ==================================================================
---- fs/partitions/Kconfig	(/mirror/arp2/core/vendor/kernel/fedora/current)	(revision 2490)
-+++ fs/partitions/Kconfig	(/mirror/arp2/core/arp2-kernel/current)	(revision 2490)
+--- fs/partitions/Kconfig	(/mirror/arp2/core/vendor/kernel/fedora/current)	(revision 2636)
++++ fs/partitions/Kconfig	(/mirror/arp2/core/arp2-kernel/current)	(revision 2636)
 @@ -161,6 +161,15 @@
  
  	  If you don't know what all this is about, say N.
@@ -33,8 +33,8 @@
  	depends on PARTITION_ADVANCED
 === fs/partitions/amiga.c
 ==================================================================
---- fs/partitions/amiga.c	(/mirror/arp2/core/vendor/kernel/fedora/current)	(revision 2490)
-+++ fs/partitions/amiga.c	(/mirror/arp2/core/arp2-kernel/current)	(revision 2490)
+--- fs/partitions/amiga.c	(/mirror/arp2/core/vendor/kernel/fedora/current)	(revision 2636)
++++ fs/partitions/amiga.c	(/mirror/arp2/core/arp2-kernel/current)	(revision 2636)
 @@ -26,19 +26,25 @@
  int
  amiga_partition(struct parsed_partitions *state, struct block_device *bdev)
@@ -83,8 +83,8 @@
  			char dostype[4];
 === fs/partitions/amiga.h
 ==================================================================
---- fs/partitions/amiga.h	(/mirror/arp2/core/vendor/kernel/fedora/current)	(revision 2490)
-+++ fs/partitions/amiga.h	(/mirror/arp2/core/arp2-kernel/current)	(revision 2490)
+--- fs/partitions/amiga.h	(/mirror/arp2/core/vendor/kernel/fedora/current)	(revision 2636)
++++ fs/partitions/amiga.h	(/mirror/arp2/core/arp2-kernel/current)	(revision 2636)
 @@ -3,4 +3,5 @@
   */
  
@@ -93,8 +93,8 @@
  
 === fs/partitions/check.h
 ==================================================================
---- fs/partitions/check.h	(/mirror/arp2/core/vendor/kernel/fedora/current)	(revision 2490)
-+++ fs/partitions/check.h	(/mirror/arp2/core/arp2-kernel/current)	(revision 2490)
+--- fs/partitions/check.h	(/mirror/arp2/core/vendor/kernel/fedora/current)	(revision 2636)
++++ fs/partitions/check.h	(/mirror/arp2/core/arp2-kernel/current)	(revision 2636)
 @@ -13,6 +13,7 @@
  		sector_t from;
  		sector_t size;
@@ -105,8 +105,8 @@
  	int limit;
 === fs/partitions/msdos.c
 ==================================================================
---- fs/partitions/msdos.c	(/mirror/arp2/core/vendor/kernel/fedora/current)	(revision 2490)
-+++ fs/partitions/msdos.c	(/mirror/arp2/core/arp2-kernel/current)	(revision 2490)
+--- fs/partitions/msdos.c	(/mirror/arp2/core/vendor/kernel/fedora/current)	(revision 2636)
++++ fs/partitions/msdos.c	(/mirror/arp2/core/arp2-kernel/current)	(revision 2636)
 @@ -22,6 +22,7 @@
  #include <linux/config.h>
  
@@ -198,3 +198,9 @@
  	}
  	put_dev_sector(sect);
  	return 1;
+
+Property changes on: 
+___________________________________________________________________
+Name: svk:merge
+ +4f48108a-62f3-0310-b161-d5a2fa85e521:/core/vendor/kernel/fedora/current:2306
+

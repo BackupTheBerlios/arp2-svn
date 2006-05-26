@@ -4,7 +4,7 @@ Source10: kmodtool
 # end stuff to be ...
 
 # hardcode for now:
-%{!?kversion: %define kversion 2.6.16-1.2096.1}
+%{!?kversion: %define kversion 2.6.16-1.2122.1}
 
 %define kmod_name fglrx
 %define kverrel %(%{kmodtool} verrel %{?kversion} 2>/dev/null)

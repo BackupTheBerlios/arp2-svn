@@ -1,4 +1,4 @@
-Summary: The Linux kernel (the core of the Linux system)
+Summary: The Linux kernel (the core of the Linux operating system)
 
 # What parts do we want to build?  We must build at least one kernel.
 # These are the kernels that are built IF the architecture allows it.
@@ -11,7 +11,7 @@ Summary: The Linux kernel (the core of the Linux system)
 %define sublevel 16
 %define kversion 2.6.16
 %define rpmversion 2.6.16
-%define release 1.2096.1
+%define release 1.2122.1
 %define signmodules 0
 %define make_target bzImage
 %define kernel_image x86
@@ -102,7 +102,7 @@ BuildConflicts: rhbuildsys(DiskFree) < 500Mb
 
 
 Source0: ftp://ftp.kernel.org/pub/linux/kernel/v2.6/linux-%{kversion}.tar.bz2
-Source1: xen-20060301.tar.bz2
+Source1: xen-20060510.tar.bz2
 #Source2: Config.mk
 
 # This is already in the FC patch
@@ -356,7 +356,7 @@ BuildKernel() {
     rm -f $RPM_BUILD_ROOT/lib/modules/$KernelVer/build/scripts/*/*.o
     mkdir -p $RPM_BUILD_ROOT/lib/modules/$KernelVer/build/include
     cd include
-    cp -a acpi config linux math-emu media net pcmcia rxrpc scsi sound video asm asm-generic $RPM_BUILD_ROOT/lib/modules/$KernelVer/build/include
+    cp -a acpi config keys linux math-emu media mtd net pcmcia rdma rxrpc scsi sound video asm asm-generic $RPM_BUILD_ROOT/lib/modules/$KernelVer/build/include
     cp -a `readlink asm` $RPM_BUILD_ROOT/lib/modules/$KernelVer/build/include
     if [ "$Arch" = "x86_64" ]; then
       cp -a asm-i386 $RPM_BUILD_ROOT/lib/modules/$KernelVer/build/include
@@ -559,6 +559,9 @@ fi
 
 
 %changelog
+* Thu May 25 2006 Martin Blom <martin@blom.org> - 2.6.16-1.2122.1
+- Updated to Fedora's 2.6.16-1.2122_FC5 kernel.
+
 * Thu Apr 20 2006 Martin Blom <martin@blom.org> - 2.6.16-1.2096
 - Updated to Fedora's 2.6.16-1.2096_FC5 kernel.
 - Added 2096 to kernel release number to indicate FC base kernel.
