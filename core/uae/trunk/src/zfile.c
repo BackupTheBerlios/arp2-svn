@@ -668,7 +668,7 @@ size_t zfile_fread  (void *b, size_t l1, size_t l2, struct zfile *z)
     return fread (b, l1, l2, z->f);
 }
 
-size_t zfile_fwrite  (void *b, size_t l1, size_t l2, struct zfile *z)
+size_t zfile_fwrite  (const void *b, size_t l1, size_t l2, struct zfile *z)
 {
     long len = l1 * l2;
     if (z->data) {
@@ -719,8 +719,10 @@ int zfile_zcompress (struct zfile *f, void *src, int size)
     z_stream zs;
     uae_u8 outbuf[4096];
 
+#ifdef WIN32
     if (!is_zlib)
 	return 0;
+#endif
     memset (&zs, 0, sizeof (zs));
     if (deflateInit (&zs, Z_DEFAULT_COMPRESSION) != Z_OK)
 	return 0;

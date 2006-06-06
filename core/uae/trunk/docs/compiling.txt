@@ -70,7 +70,7 @@ selecting what features are built into UAE. Here's a selection:
   companion bsdsocket.library like the above option (bsdsocket.library is
   created dynamically by the emulation), but this solution has portability
   problems. It currently only works on Unix-like x86, AMD64 and PPC
-  platforms. 
+  platforms.
 
 --with-caps
   Build with support for IPF (CAPS) images. This requires the IPF
@@ -93,14 +93,21 @@ to disable that feature.
 Compiling on MacOS X
 --------------------
 
-If you are not using the Fink then E-UAE must be compiled against the SDL
-framework. Rudimentary support for compiling against the SDL framework on
-Mac OS X has been newly added with this version of E-UAE. This assumes the
-SDL development files are installed in the /Library/Frameworks/ folder. You
-should call configure as follows (and include any other options you want):
+At the moment, only building against the SDL framework is supported.
+Configure with
 
 ./configure --with-sdl-gfx --with-sdl-sound
---with-sdl-prefix=`pwd`/src/od-macosx --without-x --with-cocoa-ui
+
+and any other options you fancy.
+
+If you are building on x86 OS X box, then the SDL test in the configure
+script currently fails. It should build okay if you disable the SDL test.
+That is, configure with:
+
+./configure --with-sdl-gfx --with-sdl-sound --disable-sdltest
+
+I've not test this myself, however, since I don't have OS X 10.4 or a
+MacIntel box.
 
 
 Building the SCSI emulation

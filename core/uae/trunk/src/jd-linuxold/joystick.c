@@ -8,7 +8,7 @@
   *
   * Copyright 1997 Bernd Schmidt
   * Copyright 1998 Krister Walfridsson
-  * Copyright 2003-2005 Richard Drummond
+  * Copyright 2003-2006 Richard Drummond
   * Copyright 2004 Nick Seow (Alternative Linux joystick device path)
   */
 
@@ -75,8 +75,10 @@ static void read_joy (unsigned int nr)
     int fd = nr == 0 ? js0 : js1;
     struct joy_range *r = nr == 0 ? &range0 : &range1;
 
-    if (nr >= nr_joysticks)
-	return;
+    if (currprefs.input_selected_setting == 0) {
+	if (jsem_isjoy (0, &currprefs) != (int)nr && jsem_isjoy (1, &currprefs) != (int)nr)
+	    return;
+    }
 
     len = read(fd, &buffer, sizeof(buffer));
     if (len != sizeof(buffer))

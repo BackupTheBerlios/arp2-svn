@@ -84,6 +84,16 @@ F12 + Left Shift + F2   Eject floppy image in drive 1
 F12 + Left Shift + F3   Eject floppy image in drive 2
 F12 + Left Shift + F4   Eject floppy image in drive 3
 
+F12 + F5                Open dialog to load emulator state file.
+F12 + Left Shift + F5   Open dialog to save emulator state file.
+
+F12 + Nampad 0                 Quick save emulator state.
+F12 + Right Shift + Numpad 0   Quick load emulator state.
+F12 + Numpad 1                 Quick save emulator state to slot 1.
+F12 + Right Shift + Numpad 1   Quick load emulator state from slot 1.
+F12 + Numpad 'n'               Quick save emulator state to slot 'n'.
+F12 + Right Shift + Numpad 'n' Quick load emulator state from slot 'n'.
+
 F12 + F                 Emulates freeze button of Action Replay cartridge
                         (if you have a cartridge ROM loaded).
 

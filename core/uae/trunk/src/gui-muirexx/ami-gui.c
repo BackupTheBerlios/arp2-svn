@@ -5,7 +5,7 @@
   * Calls AREXX interface.
   *
   * Copyright 1996 Bernd Schmidt, Samuel Devulder
-  * Copyright 2004 Richard Drummond
+  * Copyright 2004-2006 Richard Drummond
   */
 
 #include "sysconfig.h"
@@ -15,6 +15,7 @@
 #include "options.h"
 #include "gui.h"
 #include "disk.h"
+#include "savestate.h"
 
 #include <intuition/intuition.h>
 #include <libraries/asl.h>
@@ -36,17 +37,129 @@ extern void main_window_led (int led, int on);   /* ami-win.c */
 
 extern struct AslIFace *IAsl;
 
-static void do_disk_insert (int drive)
+/* File dialog types */
+#define FILEDIALOG_INSERT_DF0    0
+#define FILEDIALOG_INSERT_DF1    1
+#define FILEDIALOG_INSERT_DF2    2
+#define FILEDIALOG_INSERT_DF3    3
+#define FILEDIALOG_LOAD_STATE    4
+#define FILEDIALOG_SAVE_STATE    5
+#define FILEDIALOG_MAX           6
+
+#define FILEDIALOG_DRIVE(x) ((x)-FILEDIALOG_INSERT_DF0)
+
+/* For remembering last directory used in file requesters */
+
+static char *last_floppy_dir;
+static char *last_savestate_dir;
+
+static void free_last_floppy_dir (void)
+{
+    if (last_floppy_dir) {
+	free (last_floppy_dir);
+	last_floppy_dir = 0;
+    }
+}
+
+static void free_last_savestate_dir (void)
+{
+    if (last_savestate_dir) {
+	free (last_savestate_dir);
+	last_savestate_dir = 0;
+    }
+}
+
+static const char *get_last_floppy_dir (void)
+{
+    if (!last_floppy_dir) {
+	static int done = 0;
+	unsigned int len;
+
+	if (!done) {
+	    done = 1;
+	    atexit (free_last_floppy_dir);
+	}
+
+	len = strlen (currprefs.path_floppy);
+	last_floppy_dir = malloc (len + 1);
+	if (last_floppy_dir)
+	    strcpy (last_floppy_dir, currprefs.path_floppy);
+    }
+    return last_floppy_dir;
+}
+
+static const char *get_last_savestate_dir (void)
+{
+    if (!last_savestate_dir) {
+	static int done = 0;
+	unsigned int len;
+
+	if (!done) {
+	    done = 1;
+	    atexit (free_last_savestate_dir);
+	}
+
+	len = strlen (currprefs.path_savestate);
+	last_savestate_dir = malloc (len + 1);
+	if (last_savestate_dir)
+	    strcpy (last_savestate_dir, currprefs.path_savestate);
+    }
+    return last_savestate_dir;
+}
+
+static void set_last_floppy_dir (const char *path)
+{
+    if (last_floppy_dir) {
+	free (last_floppy_dir);
+	last_floppy_dir = 0;
+    }
+
+    if (path) {
+	unsigned int len = strlen (path);
+	if (len) {
+	    last_floppy_dir = malloc (len + 1);
+	    if (last_floppy_dir)
+		strcpy (last_floppy_dir, path);
+	}
+    }
+}
+
+static void set_last_savestate_dir (const char *path)
+{
+    if (last_savestate_dir) {
+	free (last_savestate_dir);
+	last_savestate_dir = 0;
+    }
+
+    if (path) {
+	unsigned int len = strlen (path);
+	if (len) {
+	    last_savestate_dir = malloc (len + 1);
+	    if (last_savestate_dir)
+		strcpy (last_savestate_dir, path);
+	}
+    }
+}
+
+static void do_file_dialog (unsigned int type)
 {
     struct FileRequester *FileRequest;
-    unsigned char	  buff[80];
-    unsigned char	  path[512];
-    static unsigned char *last_dir = 0;
-    struct Window        *win;
+    struct Window *win;
+
+    char buf[80];
+    char path[512];
+
+    const char *req_prompt;
+    const char *req_pattern = 0;
+    const char *req_lastdir;
+    int         req_do_save = FALSE;
 
 #ifdef __amigaos4__
     int release_asl = 0;
 #endif
+
+    if (type >= FILEDIALOG_MAX)
+	return;
 
     if (!AslBase) {
 	AslBase = OpenLibrary ("asl.library", 36);
@@ -81,35 +194,88 @@ static void do_disk_insert (int drive)
     if (win == (struct Window *)-1)
 	win = 0;
 
-    sprintf (buff, "Select image to insert in drive DF%d:", drive);
+    /*
+     * Prepare requester.
+     */
+    switch (type) {
+
+	default: /* to stop GCC complaining */
+	case FILEDIALOG_INSERT_DF0:
+	case FILEDIALOG_INSERT_DF1:
+	case FILEDIALOG_INSERT_DF2:
+	case FILEDIALOG_INSERT_DF3:
+	    sprintf (buf, "Select image to insert in drive DF%d:", FILEDIALOG_DRIVE(type));
+	    req_prompt = buf;
+	    req_pattern = "(#?.(ad(f|z)|dms|ipf|zip)#?|df?|?)";
+	    req_lastdir = get_last_floppy_dir ();
+	    break;
+
+	case FILEDIALOG_SAVE_STATE:
+	    req_prompt = "Select file to save emulator state to\n";
+	    req_pattern = "#?.uss";
+	    req_lastdir = get_last_savestate_dir ();
+	    req_do_save = TRUE;
+	    break;
+
+	case FILEDIALOG_LOAD_STATE:
+	    req_prompt = "Select saved state file to load";
+	    req_pattern = "#?.uss";
+	    req_lastdir = get_last_savestate_dir ();
+	    break;
+    }
+
+    /*
+     * Do the file request.
+     */
     if (AslRequestTags (FileRequest,
-			ASLFR_TitleText,      (ULONG) buff,
-			ASLFR_InitialDrawer,  (ULONG) last_dir,
-			ASLFR_InitialPattern, (ULONG) "(#?.(ad(f|z)|dms|ipf|zip)#?|df?|?)",
-			ASLFR_DoPatterns,     TRUE,
+			ASLFR_TitleText,      req_prompt,
+			ASLFR_InitialDrawer,  req_lastdir,
+			ASLFR_InitialPattern, req_pattern,
+			ASLFR_DoPatterns,     req_pattern != 0,
+			ASLFR_DoSaveMode,     req_do_save,
 			ASLFR_RejectIcons,    TRUE,
-			ASLFR_Window,         (ULONG) win,
+			ASLFR_Window,         win,
 			TAG_DONE)) {
 
-	/* Remember directory */
-	if (last_dir) {
-	    free (last_dir);
-	    last_dir = 0;
-	}
-	if (FileRequest->fr_Drawer && strlen (FileRequest->fr_Drawer))
-	    last_dir = malloc (strlen (FileRequest->fr_Drawer));
-	if (last_dir)
-	    strcpy (last_dir, FileRequest->fr_Drawer);
-
-	/* Construct file path to selected image */
+	/*
+	 * User selected a file.
+	 *
+	 * Construct file path to selected image.
+	 */
 	strcpy (path, FileRequest->fr_Drawer);
-	if (strlen(path) && !(path[strlen (path) - 1] == ':' || path[strlen (path) - 1] == '/'))
+	if (strlen (path) && !(path[strlen (path) - 1] == ':' || path[strlen (path) - 1] == '/'))
 	    strcat (path, "/");
 	strcat (path, FileRequest->fr_File);
 
-	/* Insert it */
-	strcpy (changed_prefs.df[drive], path);
+        /*
+	 * Process selected file.
+	 */
+	switch (type) {
+
+	    default: /* to stop GCC complaining */
+	    case FILEDIALOG_INSERT_DF0:
+	    case FILEDIALOG_INSERT_DF1:
+	    case FILEDIALOG_INSERT_DF2:
+	    case FILEDIALOG_INSERT_DF3:
+		set_last_savestate_dir (FileRequest->fr_Drawer);
+		strcpy (changed_prefs.df[FILEDIALOG_DRIVE(type)], path);
+		break;
+
+	    case FILEDIALOG_SAVE_STATE:
+		set_last_savestate_dir (FileRequest->fr_Drawer);
+		savestate_initsave (path, 1);
+		save_state (path, "Description");
+		break;
+
+	    case FILEDIALOG_LOAD_STATE:
+		set_last_savestate_dir (FileRequest->fr_Drawer);
+		savestate_initsave (path, 1);
+		savestate_state = STATE_DORESTORE;
+		write_log ("Restoring state from '%s'...\n", path);
+		break;
+	}
     }
+
     FreeAslRequest (FileRequest);
 
 #ifdef __amigaos4__
@@ -152,10 +318,8 @@ int gui_update (void)
 
 void gui_led (int led, int on)
 {
-//    main_window_led (led, on);
-
     if (have_rexx)
-        rexx_led (led, on);
+	rexx_led (led, on);
 }
 
 /****************************************************************************/
@@ -163,7 +327,7 @@ void gui_led (int led, int on)
 void gui_filename (int num, const char *name)
 {
     if (have_rexx)
-        rexx_filename (num, name);
+	rexx_filename (num, name);
 }
 
 /****************************************************************************/
@@ -171,7 +335,7 @@ void gui_filename (int num, const char *name)
 void gui_handle_events (void)
 {
     if (have_rexx)
-        rexx_handle_events();
+	rexx_handle_events();
 }
 
 /****************************************************************************/
@@ -237,8 +401,23 @@ void gui_unlock (void)
 
 void gui_display (int shortcut)
 {
-    if (shortcut >= 0 && shortcut < 4)
-	do_disk_insert (shortcut);
+    switch (shortcut) {
+
+	case 0:
+	case 1:
+	case 2:
+	case 3:
+	    do_file_dialog (FILEDIALOG_INSERT_DF0 + shortcut);
+	    break;
+	case 4:
+	    do_file_dialog (FILEDIALOG_LOAD_STATE);
+	    break;
+	case 5:
+	    do_file_dialog (FILEDIALOG_SAVE_STATE);
+	    break;
+	default:
+	    ;
+    }
 }
 
 /****************************************************************************/
@@ -261,9 +440,9 @@ void gui_message (const char *format,...)
 
     req.es_StructSize   = sizeof req;
     req.es_Flags        = 0;
-    req.es_Title        = PACKAGE_NAME " Information";
-    req.es_TextFormat   = msg;
-    req.es_GadgetFormat = "Okay";
+    req.es_Title        = (UBYTE *) PACKAGE_NAME " Information";
+    req.es_TextFormat   = (UBYTE *) msg;
+    req.es_GadgetFormat = (UBYTE *) "Okay";
     EasyRequest (win, &req, NULL, NULL);
 
     write_log (msg);

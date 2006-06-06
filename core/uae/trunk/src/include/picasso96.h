@@ -504,25 +504,26 @@ struct picasso96_state_struct
 
 extern void InitPicasso96 (void);
 
-extern uae_u32 picasso_SetDisplay (void);
-extern uae_u32 picasso_WaitVerticalSync (void);
-extern uae_u32 picasso_CalculateBytesPerRow (void);
-extern uae_u32 picasso_FillRect (void);
-extern uae_u32 picasso_BlitRect (void);
-extern uae_u32 picasso_InvertRect (void);
-extern uae_u32 picasso_SetPanning (void);
-extern uae_u32 picasso_SetGC (void);
-extern uae_u32 picasso_SetDAC (void);
-extern uae_u32 picasso_SetColorArray (void);
-extern uae_u32 picasso_SetSwitch (void);
-extern uae_u32 picasso_SetSwitch (void);
-extern uae_u32 picasso_FindCard (void);
-extern uae_u32 picasso_InitCard (void);
-extern uae_u32 picasso_BlitPlanar2Chunky (void);
-extern uae_u32 picasso_BlitPlanar2Direct (void);
-extern uae_u32 picasso_BlitTemplate (void);
-extern uae_u32 picasso_BlitPattern (void);
-extern uae_u32 picasso_BlitRectNoMaskComplete (void);
+struct regstruct;
+
+extern uae_u32 picasso_SetDisplay             (struct regstruct *regs) REGPARAM;
+extern uae_u32 picasso_WaitVerticalSync       (struct regstruct *regs) REGPARAM;
+extern uae_u32 picasso_CalculateBytesPerRow   (struct regstruct *regs) REGPARAM;
+extern uae_u32 picasso_FillRect               (struct regstruct *regs) REGPARAM;
+extern uae_u32 picasso_BlitRect               (struct regstruct *regs) REGPARAM;
+extern uae_u32 picasso_InvertRect             (struct regstruct *regs) REGPARAM;
+extern uae_u32 picasso_SetPanning             (struct regstruct *regs) REGPARAM;
+extern uae_u32 picasso_SetGC                  (struct regstruct *regs) REGPARAM;
+extern uae_u32 picasso_SetDAC                 (struct regstruct *regs) REGPARAM;
+extern uae_u32 picasso_SetColorArray          (struct regstruct *regs) REGPARAM;
+extern uae_u32 picasso_SetSwitch              (struct regstruct *regs) REGPARAM;
+extern uae_u32 picasso_FindCard               (struct regstruct *regs) REGPARAM;
+extern uae_u32 picasso_InitCard               (struct regstruct *regs) REGPARAM;
+extern uae_u32 picasso_BlitPlanar2Chunky      (struct regstruct *regs) REGPARAM;
+extern uae_u32 picasso_BlitPlanar2Direct      (struct regstruct *regs) REGPARAM;
+extern uae_u32 picasso_BlitTemplate           (struct regstruct *regs) REGPARAM;
+extern uae_u32 picasso_BlitPattern            (struct regstruct *regs) REGPARAM;
+extern uae_u32 picasso_BlitRectNoMaskComplete (struct regstruct *regs) REGPARAM;
 
 extern uae_u32 gfxmem_mask;
 extern uae_u8 *gfxmemory;

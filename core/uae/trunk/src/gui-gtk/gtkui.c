@@ -28,7 +28,9 @@
 #include "threaddep/thread.h"
 #include "gensound.h"
 #include "savestate.h"
-#include "compemu.h"
+#ifdef JIT
+# include "compemu.h"
+#endif
 #include "debug.h"
 #include "inputdevice.h"
 #include "xwin.h"
@@ -272,7 +274,8 @@ static void set_chipset_state (void)
 
 static void set_sound_state (void)
 {
-    int stereo = currprefs.stereo + currprefs.mixed_stereo;
+    int stereo = currprefs.sound_stereo + currprefs.sound_mixed_stereo;
+
     gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (sound_widget[currprefs.produce_sound]), 1);
     gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (sound_ch_widget[stereo]), 1);
     gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (sound_bits_widget[currprefs.sound_bits == 16]), 1);
@@ -670,10 +673,10 @@ static void p96size_changed (void)
 static void sound_changed (void)
 {
     changed_prefs.produce_sound = find_current_toggle (sound_widget, 4);
-    changed_prefs.stereo = find_current_toggle (sound_ch_widget, 3);
-    changed_prefs.mixed_stereo = 0;
-    if (changed_prefs.stereo == 2)
-	changed_prefs.mixed_stereo = changed_prefs.stereo = 1;
+    changed_prefs.sound_stereo = find_current_toggle (sound_ch_widget, 3);
+    changed_prefs.sound_mixed_stereo = 0;
+    if (changed_prefs.sound_stereo == 2)
+	changed_prefs.sound_mixed_stereo = changed_prefs.sound_stereo = 1;
     changed_prefs.sound_bits = (find_current_toggle (sound_bits_widget, 2) + 1) * 8;
 }
 
@@ -708,6 +711,7 @@ static void did_reset (void)
 	write_comm_pipe_int (&from_gui_pipe, 2, 1);
 }
 
+#ifdef DEBUGGER
 static void did_debug (void)
 {
     DEBUG_LOG ("Called\n");
@@ -715,6 +719,7 @@ static void did_debug (void)
     if (!quit_gui)
 	write_comm_pipe_int (&from_gui_pipe, 3, 1);
 }
+#endif
 
 static void did_quit (void)
 {
@@ -1891,7 +1896,9 @@ static void create_guidlg (void)
     gtk_widget_show (buttonbox);
     gtk_box_pack_start (GTK_BOX (hbox), buttonbox, TRUE, TRUE, 0);
     make_button ("Reset", buttonbox, did_reset);
+#ifdef DEBUGGER
     make_button ("Debug", buttonbox, did_debug);
+#endif
     make_button ("Quit", buttonbox, did_quit);
     make_button ("Save config", buttonbox, save_config);
     pause_uae_widget = make_buttons ("Pause", buttonbox, (void (*) (void))pause_uae, gtk_toggle_button_new_with_label);
@@ -2094,10 +2101,12 @@ void gui_handle_events (void)
 	        uae_reset (0);
 	        gui_set_paused( FALSE );
 		break;
+#ifdef DEBUGGER
 	    case 3:
 		activate_debugger ();
 	        gui_set_paused( FALSE );
 		break;
+#endif
 	    case 4:
 		uae_quit ();
 	        gui_set_paused( FALSE );

@@ -12,6 +12,12 @@ STATIC_INLINE void check_sound_buffers (void)
 
 #define PUT_SOUND_BYTE(b) do { ; } while (0)
 #define PUT_SOUND_WORD(b) do { ; } while (0)
+#define PUT_SOUND_BYTE_LEFT(b) PUT_SOUND_BYTE(b)
+#define PUT_SOUND_WORD_LEFT(b) PUT_SOUND_WORD(b)
+#define PUT_SOUND_BYTE_RIGHT(b) PUT_SOUND_BYTE(b)
+#define PUT_SOUND_WORD_RIGHT(b) PUT_SOUND_WORD(b)
+#define PUT_SOUND_WORD_MONO(b) PUT_SOUND_WORD_LEFT(b)
+
 #define SOUND16_BASE_VAL 0
 #define SOUND8_BASE_VAL 0
 

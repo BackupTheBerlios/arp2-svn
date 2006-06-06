@@ -246,8 +246,6 @@ STATIC_INLINE void m68k_setstopped (struct regstruct *regs, int stop)
 extern uae_u32 get_disp_ea_020 (struct regstruct *regs, uae_u32 base, uae_u32 dp) REGPARAM;
 extern uae_u32 get_disp_ea_000 (struct regstruct *regs, uae_u32 base, uae_u32 dp) REGPARAM;
 
-extern uae_s32 ShowEA (void *, uae_u16 opcode, int reg, amodes mode, wordsizes size, char *buf);
-
 /* Hack to stop conflict with AROS Exception function */
 #ifdef __AROS__
 # undef Exception
@@ -269,6 +267,8 @@ extern void m68k_dumpstate (void *, uaecptr *);
 extern void m68k_disasm (void *, uaecptr, uaecptr *, int);
 extern void sm68k_disasm(char *, char *, uaecptr addr, uaecptr *nextpc);
 extern void m68k_reset (void);
+extern int getDivu68kCycles(uae_u32 dividend, uae_u16 divisor);
+extern int getDivs68kCycles(uae_s32 dividend, uae_s16 divisor);
 
 extern void mmu_op       (uae_u32, struct regstruct *regs, uae_u16);
 
@@ -287,6 +287,13 @@ extern void exception2 (uaecptr addr, uaecptr fault);
 extern void cpureset (void);
 
 extern void fill_prefetch_slow (struct regstruct *regs);
+
+STATIC_INLINE int notinrom (void)
+{
+    if (munge24 (m68k_getpc (&regs)) < 0xe0000)
+        return 1;
+    return 0;
+}
 
 #define CPU_OP_NAME(a) op ## a
 

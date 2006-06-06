@@ -16,11 +16,11 @@
 #include "options.h"
 #include "uae.h"
 #include "memory.h"
+#include "custom.h"
+#include "newcpu.h"
 #include "autoconf.h"
 #include "xwin.h"
 #include "picasso96.h"
-#include "custom.h"
-#include "newcpu.h"
 #include "savestate.h"
 #include "zfile.h"
 #include "catweasel.h"
@@ -1073,7 +1073,9 @@ static void expamem_init_gfxcard (void)
 }
 #endif
 
-static long fast_filepos, z3_filepos, p96_filepos;
+#ifdef SAVESTATE
+static size_t fast_filepos, z3_filepos, p96_filepos;
+#endif
 
 static void allocate_expamem (void)
 {
@@ -1141,6 +1143,7 @@ static void allocate_expamem (void)
     z3fastmem_bank.baseaddr = z3fastmem ? z3fastmem : MAPPED_MALLOC_FAILED;
     fastmem_bank.baseaddr = fastmemory ? fastmemory : MAPPED_MALLOC_FAILED;
 
+#ifdef SAVESTATE
     if (savestate_state == STATE_RESTORE) {
 	if (allocated_fastmem > 0) {
 	    restore_ram (fast_filepos, fastmemory);
@@ -1160,6 +1163,7 @@ static void allocate_expamem (void)
 	}
 #endif
     }
+#endif /* SAVESTATE */
 }
 
 extern int cdtv_enabled;
@@ -1285,45 +1289,48 @@ void expansion_cleanup (void)
 #endif
 }
 
+
+#ifdef SAVESTATE
+
 /* State save/restore code.  */
 
-uae_u8 *save_fram (int *len)
+uae_u8 *save_fram (uae_u32 *len)
 {
     *len = allocated_fastmem;
     return fastmemory;
 }
 
-uae_u8 *save_zram (int *len)
+uae_u8 *save_zram (uae_u32 *len)
 {
     *len = allocated_z3fastmem;
     return z3fastmem;
 }
 
-uae_u8 *save_pram (int *len)
+uae_u8 *save_pram (uae_u32 *len)
 {
     *len = allocated_gfxmem;
     return gfxmemory;
 }
 
-void restore_fram (int len, long filepos)
+void restore_fram (uae_u32 len, size_t filepos)
 {
     fast_filepos = filepos;
     changed_prefs.fastmem_size = len;
 }
 
-void restore_zram (int len, long filepos)
+void restore_zram (uae_u32 len, size_t filepos)
 {
     z3_filepos = filepos;
     changed_prefs.z3fastmem_size = len;
 }
 
-void restore_pram (int len, long filepos)
+void restore_pram (uae_u32 len, size_t filepos)
 {
     p96_filepos = filepos;
     changed_prefs.gfxmem_size = len;
 }
 
-uae_u8 *save_expansion (int *len, uae_u8 *dstptr)
+uae_u8 *save_expansion (uae_u32 *len, uae_u8 *dstptr)
 {
     static uae_u8 t[20];
     uae_u8 *dst = t, *dstbak = t;
@@ -1336,10 +1343,12 @@ uae_u8 *save_expansion (int *len, uae_u8 *dstptr)
     return dstbak;
 }
 
-uae_u8 *restore_expansion (uae_u8 *src)
+const uae_u8 *restore_expansion (const uae_u8 *src)
 {
     fastmem_start = restore_u32 ();
     z3fastmem_start = restore_u32 ();
     gfxmem_start = restore_u32 ();
     return src;
 }
+
+#endif /* SAVESTATE */

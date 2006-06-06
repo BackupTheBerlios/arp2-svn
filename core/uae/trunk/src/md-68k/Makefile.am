@@ -4,5 +4,5 @@ noinst_LIBRARIES = libmachdep.a
 
 libmachdep_a_SOURCES = support.c
 
-noinst_HEADERS = machdep.h exectasks.h m68k.h m68kops.h maccess.h rpt.h
+noinst_HEADERS = machdep.h m68k.h m68kops.h maccess.h rpt.h
 dist_noinst_SCRIPTS = cpuopti

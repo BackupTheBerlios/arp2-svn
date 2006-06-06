@@ -164,6 +164,35 @@ STATIC_INLINE uae_u32 get_byte(uaecptr addr)
     addr &= MEMORY_RANGE_MASK;
     return byteget(addr);
 }
+/*
+ * Read a host pointer from addr
+ */
+#if SIZEOF_VOID_P == 4
+# define get_pointer(addr) ((void *)get_long(addr))
+#else
+# if SIZEOF_VOID_P == 8
+STATIC_INLINE void *get_pointer (uaecptr addr)
+{
+    const unsigned int n = SIZEOF_VOID_P / 4;
+    union {
+	void    *ptr;
+	uae_u32  longs[SIZEOF_VOID_P / 4];
+    } p;
+    unsigned int i;
+
+    for (i = 0; i < n; i++) {
+#ifdef WORDS_BIGENDIAN
+	p.longs[i]     = get_long (addr + i * 4);
+#else
+	p.longs[n - 1 - i] = get_long (addr + i * 4);
+#endif
+    }
+    return p.ptr;
+}
+# else
+#  error "Unknown or unsupported pointer size."
+# endif
+#endif
 STATIC_INLINE void put_long(uaecptr addr, uae_u32 l)
 {
     addr &= MEMORY_RANGE_MASK;
@@ -179,7 +208,34 @@ STATIC_INLINE void put_byte(uaecptr addr, uae_u32 b)
     addr &= MEMORY_RANGE_MASK;
     byteput(addr, b);
 }
+/*
+ * Store host pointer v at addr
+ */
+#if SIZEOF_VOID_P == 4
+# define put_pointer(addr, p) (put_long((addr), (uae_u32)(p)))
+#else
+# if SIZEOF_VOID_P == 8
+STATIC_INLINE void put_pointer (uaecptr addr, void *v)
+{
+    const unsigned int n = SIZEOF_VOID_P / 4;
+    union {
+	void    *ptr;
+	uae_u32  longs[SIZEOF_VOID_P / 4];
+    } p;
+    unsigned int i;
 
+    p.ptr = v;
+
+    for (i = 0; i < n; i++) {
+#ifdef WORDS_BIGENDIAN
+	put_long (addr + i * 4, p.longs[i]);
+#else
+	put_long (addr + i * 4, p.longs[n - 1 - i]);
+#endif
+    }
+}
+# endif
+#endif
 STATIC_INLINE uae_u8 *get_real_address(uaecptr addr)
 {
     addr &= MEMORY_RANGE_MASK;

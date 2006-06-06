@@ -1,3 +1,4 @@
+
  /*
   * UAE - The Un*x Amiga Emulator
   *
@@ -294,8 +295,8 @@ static void pfield_init_linetoscr (void)
     real_playfield_start = playfield_start;
 #ifdef AGA
     if (brdsprt && dip_for_drawing->nr_sprites) {
-        int min = visible_right_border, max = visible_left_border, i;
-        for (i = 0; i < dip_for_drawing->nr_sprites; i++) {
+	int min = visible_right_border, max = visible_left_border, i;
+	for (i = 0; i < dip_for_drawing->nr_sprites; i++) {
 	    int x;
 	    x = curr_sprite_entries[dip_for_drawing->first_sprite_entry + i].pos;
 	    if (x < min) min = x;
@@ -306,11 +307,11 @@ static void pfield_init_linetoscr (void)
 	max += (DIW_DDF_OFFSET - DISPLAY_LEFT_SHIFT) << (2 - lores_shift);
 	if (min < playfield_start)
 	    playfield_start = min;
-        if (playfield_start < visible_left_border)
+	if (playfield_start < visible_left_border)
 	    playfield_start = visible_left_border;
 	if (max > playfield_end)
 	    playfield_end = max;
-        if (playfield_end > visible_right_border)
+	if (playfield_end > visible_right_border)
 	    playfield_end = visible_right_border;
     }
 #endif
@@ -340,139 +341,55 @@ static void pfield_init_linetoscr (void)
     }
 }
 
-/* If C++ compilers didn't suck, we'd use templates.  */
-
-#define TYPE uae_u8
-#define LNAME linetoscr_8
-#define SRC_INC 1
-#define HDOUBLE 0
-#define AGAC 0
-#include "linetoscr.c"
-#define LNAME linetoscr_8_stretch1
-#define SRC_INC 1
-#define HDOUBLE 1
-#define AGAC 0
-#include "linetoscr.c"
-#define LNAME linetoscr_8_shrink1
-#define SRC_INC 2
-#define HDOUBLE 0
-#define AGAC 0
-#include "linetoscr.c"
-
-#ifdef AGA
-#define LNAME linetoscr_8_aga
-#define SRC_INC 1
-#define HDOUBLE 0
-#define AGAC 1
-#include "linetoscr.c"
-#define LNAME linetoscr_8_stretch1_aga
-#define SRC_INC 1
-#define HDOUBLE 1
-#define AGAC 1
-#include "linetoscr.c"
-#define LNAME linetoscr_8_shrink1_aga
-#define SRC_INC 2
-#define HDOUBLE 0
-#define AGAC 1
-#include "linetoscr.c"
-#endif
-
-#undef TYPE
-
-#define TYPE uae_u16
-#define LNAME linetoscr_16
-#define SRC_INC 1
-#define HDOUBLE 0
-#define AGAC 0
-#include "linetoscr.c"
-#define LNAME linetoscr_16_stretch1
-#define SRC_INC 1
-#define HDOUBLE 1
-#define AGAC 0
-#include "linetoscr.c"
-#define LNAME linetoscr_16_shrink1
-#define SRC_INC 2
-#define HDOUBLE 0
-#define AGAC 0
-#include "linetoscr.c"
-
-#ifdef AGA
-#define LNAME linetoscr_16_aga
-#define SRC_INC 1
-#define HDOUBLE 0
-#define AGAC 1
-#include "linetoscr.c"
-#define LNAME linetoscr_16_stretch1_aga
-#define SRC_INC 1
-#define HDOUBLE 1
-#define AGAC 1
-#include "linetoscr.c"
-#define LNAME linetoscr_16_shrink1_aga
-#define SRC_INC 2
-#define HDOUBLE 0
-#define AGAC 1
-#include "linetoscr.c"
-#endif
-
-#undef TYPE
-
-#define TYPE uae_u32
-#define LNAME linetoscr_32
-#define SRC_INC 1
-#define HDOUBLE 0
-#define AGAC 0
-#include "linetoscr.c"
-#define LNAME linetoscr_32_stretch1
-#define SRC_INC 1
-#define HDOUBLE 1
-#define AGAC 0
-#include "linetoscr.c"
-#define LNAME linetoscr_32_shrink1
-#define SRC_INC 2
-#define HDOUBLE 0
-#define AGAC 0
-#include "linetoscr.c"
-
-#ifdef AGA
-#define LNAME linetoscr_32_aga
-#define SRC_INC 1
-#define HDOUBLE 0
-#define AGAC 1
-#include "linetoscr.c"
-#define LNAME linetoscr_32_stretch1_aga
-#define SRC_INC 1
-#define HDOUBLE 1
-#define AGAC 1
-#include "linetoscr.c"
-#define LNAME linetoscr_32_shrink1_aga
-#define SRC_INC 2
-#define HDOUBLE 0
-#define AGAC 1
-#include "linetoscr.c"
-#endif
-
-#undef TYPE
-
-static void fill_line_8 (uae_u8 *buf, int start, int stop)
+static void fill_line_8 (uae_u8 *buf, unsigned int start, unsigned int stop)
 {
     uae_u8 *b = (uae_u8 *)buf;
-    int i;
+    unsigned int i;
+    unsigned int rem = 0;
     xcolnr col = brdblank ? 0 : colors_for_drawing.acolors[0];
-    for (i = start; i < stop; i++)
-	b[i] = (uae_u8)col;
+    while (((long)&b[start]) & 3) {
+	b[start++] = (uae_u8)col;
+	if (start == stop)
+	   return;
+    }
+    if (((long)&b[stop]) & 3) {
+	rem = ((long)&b[stop]) & 3;
+	stop -= rem;
+    }
+    for (i = start; i < stop; i += 4) {
+	uae_u32 *b2 = (uae_u32 *)&b[i];
+	*b2 = col;
+    }
+    while (rem--)
+	b[stop++] = (uae_u8) col;
 }
-static void fill_line_16 (uae_u8 *buf, int start, int stop)
+
+static void fill_line_16 (uae_u8 *buf, unsigned int start, unsigned int stop)
 {
     uae_u16 *b = (uae_u16 *)buf;
-    int i;
+    unsigned int i;
+    unsigned int rem = 0;
     xcolnr col = brdblank ? 0 : colors_for_drawing.acolors[0];
-    for (i = start; i < stop; i++)
-	b[i] = (uae_u16)col;
+    if (((long)&b[start]) & 1)
+	b[start++] = (uae_u16) col;
+    if (start >= stop)
+	return;
+    if (((long)&b[stop]) & 1) {
+	rem++;
+	stop--;
+    }
+    for (i = start; i < stop; i += 2) {
+	uae_u32 *b2 = (uae_u32 *)&b[i];
+	*b2 = col;
+    }
+    if (rem)
+	b[stop] = (uae_u16)col;
 }
-static void fill_line_32 (uae_u8 *buf, int start, int stop)
+
+static void fill_line_32 (uae_u8 *buf, unsigned int start, unsigned int stop)
 {
     uae_u32 *b = (uae_u32 *)buf;
-    int i;
+    unsigned int i;
     xcolnr col = brdblank ? 0 : colors_for_drawing.acolors[0];
     for (i = start; i < stop; i++)
 	b[i] = col;
@@ -500,8 +417,6 @@ STATIC_INLINE void fill_line (void)
 #else
     val = colors_for_drawing.acolors[0];
 #endif
-    if (gfxvidinfo.pixbytes == 2)
-        val |= val << 16;
     for (; nints > 0; nints -= 8, start += 8) {
 	*start = val;
 	*(start+1) = val;
@@ -531,13 +446,13 @@ STATIC_INLINE void fill_line (void)
     }
 }
 
-static int linetoscr_double_offset;
+#include "linetoscr.c"
 
 static void pfield_do_linetoscr (int start, int stop)
 {
 #ifdef AGA
     if (currprefs.chipset_mask & CSMASK_AGA) {
-        if (res_shift == 0)
+	if (res_shift == 0)
 	    switch (gfxvidinfo.pixbytes) {
 	    case 1: src_pixel = linetoscr_8_aga (src_pixel, start, stop); break;
 	    case 2: src_pixel = linetoscr_16_aga (src_pixel, start, stop); break;
@@ -557,7 +472,7 @@ static void pfield_do_linetoscr (int start, int stop)
 	    }
     } else {
 #endif
-        if (res_shift == 0)
+	if (res_shift == 0)
 	    switch (gfxvidinfo.pixbytes) {
 	    case 1: src_pixel = linetoscr_8 (src_pixel, start, stop); break;
 	    case 2: src_pixel = linetoscr_16 (src_pixel, start, stop); break;
@@ -588,19 +503,6 @@ static void pfield_do_fill_line (int start, int stop)
     case 4: fill_line_32 (xlinebuffer, start, stop); break;
     }
 }
-
-#if 0
-static void pfield_do_linetoscr_full (int double_line)
-{
-    uae_u8 *oldxlb = xlinebuffer;
-    int old_src_pixel = src_pixel;
-
-    pfield_do_linetoscr (playfield_start, playfield_end);
-    xlinebuffer = oldxlb + linetoscr_double_offset;
-    src_pixel = old_src_pixel;
-    pfield_do_linetoscr (playfield_start, playfield_end);
-}
-#endif
 
 static void dummy_worker (int start, int stop)
 {
@@ -643,7 +545,7 @@ static void init_ham_decoding (void)
 	    }
 	} else if (bplplanecnt == 6) { /* AGA mode HAM6 */
 	    while (unpainted_amiga-- > 0) {
-    		int pv = pixdata.apixels[ham_decode_pixel++];
+		int pv = pixdata.apixels[ham_decode_pixel++];
 		switch (pv & 0x30) {
 		case 0x00: ham_lastcolor = colors_for_drawing.color_regs_aga[pv]; break;
 		case 0x10: ham_lastcolor &= 0xFFFF00; ham_lastcolor |= (pv & 0xF) << 4; break;
@@ -654,7 +556,7 @@ static void init_ham_decoding (void)
 	}
 #endif
     } else {
-        if (bplplanecnt == 6) { /* OCS/ECS mode HAM6 */
+	if (bplplanecnt == 6) { /* OCS/ECS mode HAM6 */
 	    while (unpainted_amiga-- > 0) {
 		int pv = pixdata.apixels[ham_decode_pixel++];
 		switch (pv & 0x30) {
@@ -711,9 +613,9 @@ static void decode_ham (int pix, int stoppos)
 	}
 #endif
     } else {
-        if (bplplanecnt == 6) { /* OCS/ECS mode HAM6 */
+	if (bplplanecnt == 6) { /* OCS/ECS mode HAM6 */
 	    while (todraw_amiga-- > 0) {
-    		int pv = pixdata.apixels[ham_decode_pixel];
+		int pv = pixdata.apixels[ham_decode_pixel];
 		switch (pv & 0x30) {
 		case 0x00: ham_lastcolor = colors_for_drawing.color_regs_ecs[pv]; break;
 		case 0x10: ham_lastcolor &= 0xFF0; ham_lastcolor |= (pv & 0xF); break;
@@ -822,7 +724,7 @@ STATIC_INLINE void draw_sprites_1 (struct sprite_entry *e, int ham, int dualpf,
 	    v >>= offs * 2;
 	    v &= 15;
 #if SPRITE_DEBUG > 0
-	    v |= 1 | 4;
+	    v ^= 8;
 #endif
 
 	    if (has_attach && (stbuf[pos] & (3 << offs))) {
@@ -1269,7 +1171,7 @@ static void adjust_drawing_colors (int ctable, int need_full)
 	    color_match_type = color_match_full;
 	} else {
 	    memcpy (colors_for_drawing.acolors, curr_color_tables[ctable].acolors,
-	        sizeof colors_for_drawing.acolors);
+		sizeof colors_for_drawing.acolors);
 	    color_match_type = color_match_acolors;
 	}
 	drawing_color_matches = ctable;
@@ -1277,6 +1179,69 @@ static void adjust_drawing_colors (int ctable, int need_full)
 	color_reg_cpy (&colors_for_drawing, &curr_color_tables[ctable]);
 	color_match_type = color_match_full;
     }
+}
+
+/* We only save hardware registers during the hardware frame. Now, when
+ * drawing the frame, we expand the data into a slightly more useful
+ * form. */
+static void pfield_expand_dp_bplcon (void)
+{
+    bplres = dp_for_drawing->bplres;
+    bplplanecnt = dp_for_drawing->nr_planes;
+    bplham = dp_for_drawing->ham_seen;
+
+    if (bplres > 0)
+	can_use_lores = 0;
+    if (currprefs.chipset_mask & CSMASK_AGA) {
+	/* The KILLEHB bit exists in ECS, but is apparently meant for Genlock
+	 * stuff, and it's set by some demos (e.g. Andromeda Seven Seas) */
+	bplehb = ((dp_for_drawing->bplcon0 & 0x7010) == 0x6000 && !(dp_for_drawing->bplcon2 & 0x200));
+    } else {
+	bplehb = (dp_for_drawing->bplcon0 & 0xFC00) == 0x6000;
+    }
+    plf1pri = dp_for_drawing->bplcon2 & 7;
+    plf2pri = (dp_for_drawing->bplcon2 >> 3) & 7;
+    plf_sprite_mask = 0xFFFF0000 << (4 * plf2pri);
+    plf_sprite_mask |= (0xFFFF << (4 * plf1pri)) & 0xFFFF;
+    bpldualpf = (dp_for_drawing->bplcon0 & 0x400) == 0x400;
+    bpldualpfpri = (dp_for_drawing->bplcon2 & 0x40) == 0x40;
+#ifdef AGA
+    bpldualpf2of = (dp_for_drawing->bplcon3 >> 10) & 7;
+    sbasecol[0] = ((dp_for_drawing->bplcon4 >> 4) & 15) << 4;
+    sbasecol[1] = ((dp_for_drawing->bplcon4 >> 0) & 15) << 4;
+
+    brdsprt = (currprefs.chipset_mask & CSMASK_AGA) && (dp_for_drawing->bplcon0 & 1) && (dp_for_drawing->bplcon3 & 0x02);
+    /* FIXME: we must update top and bottom borders when BRDBLANK changes */
+    brdblank = (currprefs.chipset_mask & CSMASK_ECS_DENISE) && (dp_for_drawing->bplcon0 & 1) && (dp_for_drawing->bplcon3 & 0x20);
+    if (brdblank)
+	brdsprt = 0;
+#endif
+}
+static void pfield_expand_dp_bplcon2 (int regno, int v)
+{
+    regno -= 0x1000;
+    switch (regno)
+    {
+        case 0x100:
+        dp_for_drawing->bplcon0 = v;
+        dp_for_drawing->bplres = GET_RES(v);
+        dp_for_drawing->nr_planes = GET_PLANES(v);
+	dp_for_drawing->ham_seen = !! (v & 0x800);
+        break;
+        case 0x104:
+        dp_for_drawing->bplcon2 = v;
+        break;
+#ifdef AGA
+	case 0x106:
+        dp_for_drawing->bplcon3 = v;
+        break;
+        case 0x108:
+        dp_for_drawing->bplcon4 = v;
+        break;
+#endif
+    }
+    pfield_expand_dp_bplcon ();
+    res_shift = lores_shift - bplres;
 }
 
 STATIC_INLINE void do_color_changes (line_draw_func worker_border, line_draw_func worker_pfield)
@@ -1318,9 +1283,9 @@ STATIC_INLINE void do_color_changes (line_draw_func worker_border, line_draw_fun
 	    lastpos = nextpos_in_range;
 	}
 	if (i != dip_for_drawing->last_color_change) {
-	    if (regno == -1)
-		bplham = value;
-	    else {
+	    if (regno >= 0x1000) {
+		pfield_expand_dp_bplcon2 (regno, value);
+	    } else {
 		color_reg_set (&colors_for_drawing, regno, value);
 		colors_for_drawing.acolors[regno] = getxcolor (value);
 	    }
@@ -1330,41 +1295,29 @@ STATIC_INLINE void do_color_changes (line_draw_func worker_border, line_draw_fun
     }
 }
 
-/* We only save hardware registers during the hardware frame. Now, when
- * drawing the frame, we expand the data into a slightly more useful
- * form. */
-static void pfield_expand_dp_bplcon (void)
+/* move color changes in horizontal cycles 0 to HBLANK_OFFSET to previous line
+ * cycles 0 to HBLANK_OFFSET must be visible in right border
+ */
+static void mungedip (int lineno)
 {
-    bplres = dp_for_drawing->bplres;
-    bplplanecnt = dp_for_drawing->nr_planes;
-    bplham = dp_for_drawing->ham_at_start;
-
-    if (bplres > 0)
-	can_use_lores = 0;
-    if (currprefs.chipset_mask & CSMASK_AGA) {
-	/* The KILLEHB bit exists in ECS, but is apparently meant for Genlock
-	 * stuff, and it's set by some demos (e.g. Andromeda Seven Seas) */
-	bplehb = ((dp_for_drawing->bplcon0 & 0x7010) == 0x6000 && !(dp_for_drawing->bplcon2 & 0x200));
-    } else {
-	bplehb = (dp_for_drawing->bplcon0 & 0xFC00) == 0x6000;
+    int i = dip_for_drawing->last_color_change;
+    struct draw_info *dip_for_drawing_next = curr_drawinfo + (lineno + 1);
+    if (dip_for_drawing_next->first_color_change == 0)
+	dip_for_drawing_next = curr_drawinfo + (lineno + 2);
+    while (i < dip_for_drawing_next->last_color_change) {
+	int regno = curr_color_changes[i].regno;
+	int hpos = curr_color_changes[i].linepos;
+	if (regno < 0)
+	    break;
+	if (hpos >= HBLANK_OFFSET)
+	    break;
+	curr_color_changes[i].linepos += maxhpos + 2;
+	dip_for_drawing->last_color_change++;
+	dip_for_drawing->nr_color_changes++;
+	dip_for_drawing_next->first_color_change++;
+	dip_for_drawing_next->nr_color_changes--;
+	i++;
     }
-    plf1pri = dp_for_drawing->bplcon2 & 7;
-    plf2pri = (dp_for_drawing->bplcon2 >> 3) & 7;
-    plf_sprite_mask = 0xFFFF0000 << (4 * plf2pri);
-    plf_sprite_mask |= (0xFFFF << (4 * plf1pri)) & 0xFFFF;
-    bpldualpf = (dp_for_drawing->bplcon0 & 0x400) == 0x400;
-    bpldualpfpri = (dp_for_drawing->bplcon2 & 0x40) == 0x40;
-#ifdef AGA
-    bpldualpf2of = (dp_for_drawing->bplcon3 >> 10) & 7;
-    sbasecol[0] = ((dp_for_drawing->bplcon4 >> 4) & 15) << 4;
-    sbasecol[1] = ((dp_for_drawing->bplcon4 >> 0) & 15) << 4;
-
-    brdsprt = (currprefs.chipset_mask & CSMASK_AGA) && (dp_for_drawing->bplcon0 & 1) && (dp_for_drawing->bplcon3 & 0x02);
-    /* FIXME: we must update top and bottom borders when BRDBLANK changes */
-    brdblank = (currprefs.chipset_mask & CSMASK_ECS_DENISE) && (dp_for_drawing->bplcon0 & 1) && (dp_for_drawing->bplcon3 & 0x20);
-    if (brdblank)
-	brdsprt = 0;
-#endif
 }
 
 enum double_how {
@@ -1382,6 +1335,7 @@ STATIC_INLINE void pfield_draw_line (int lineno, int gfx_ypos, int follow_ypos)
 
     dp_for_drawing = line_decisions + lineno;
     dip_for_drawing = curr_drawinfo + lineno;
+    mungedip (lineno);
     switch (linestate[lineno]) {
     case LINE_REMEMBERED_AS_PREVIOUS:
 	if (!warned)
@@ -1412,7 +1366,6 @@ STATIC_INLINE void pfield_draw_line (int lineno, int gfx_ypos, int follow_ypos)
     case LINE_DECIDED_DOUBLE:
 	if (follow_ypos != -1) {
 	    do_double = 1;
-	    linetoscr_double_offset = gfxvidinfo.rowbytes * (follow_ypos - gfx_ypos);
 	    linestate[lineno + 1] = LINE_DONE_AS_PREVIOUS;
 	}
 
@@ -1434,6 +1387,7 @@ STATIC_INLINE void pfield_draw_line (int lineno, int gfx_ypos, int follow_ypos)
     xlinebuffer -= linetoscr_x_adjust_bytes;
 
     if (border == 0) {
+
 	pfield_expand_dp_bplcon ();
 
 	if (bplres == RES_LORES && ! currprefs.gfx_lores)
@@ -1458,12 +1412,12 @@ STATIC_INLINE void pfield_draw_line (int lineno, int gfx_ypos, int follow_ypos)
 	    }
 	    bplham = dp_for_drawing->ham_at_start;
 	}
-        if (plf2pri > 5 && bplplanecnt == 5 && !(currprefs.chipset_mask & CSMASK_AGA))
+	if (plf2pri > 5 && bplplanecnt == 5 && !(currprefs.chipset_mask & CSMASK_AGA))
 	    weird_bitplane_fix ();
 
 	{
 	    if (dip_for_drawing->nr_sprites) {
-	        int i;
+		int i;
 #ifdef AGA
 		if (brdsprt)
 		    clear_bitplane_border_aga ();
@@ -1493,7 +1447,9 @@ STATIC_INLINE void pfield_draw_line (int lineno, int gfx_ypos, int follow_ypos)
 	}
 	if (currprefs.gfx_lores == 2)
 	    currprefs.gfx_lores = 0;
+
     } else if (border == 1) {
+
 	adjust_drawing_colors (dp_for_drawing->ctable, 0);
 
 	if (dip_for_drawing->nr_color_changes == 0) {
@@ -1530,12 +1486,15 @@ STATIC_INLINE void pfield_draw_line (int lineno, int gfx_ypos, int follow_ypos)
 	     * from linemem.  */
 	    do_flush_line (follow_ypos);
 	}
+
     } else {
+
 	xcolnr tmp = colors_for_drawing.acolors[0];
 	colors_for_drawing.acolors[0] = getxcolor (0);
 	fill_line ();
 	do_flush_line (gfx_ypos);
 	colors_for_drawing.acolors[0] = tmp;
+
     }
 }
 
@@ -1545,14 +1504,14 @@ static void center_image (void)
     int prev_y_adjust = thisframe_y_adjust;
 
     if (currprefs.gfx_xcenter) {
-        int w = gfxvidinfo.width;
+	int w = gfxvidinfo.width;
 
 	if (max_diwstop - min_diwstart < w && currprefs.gfx_xcenter == 2)
 	    /* Try to center. */
 	    visible_left_border = (max_diwstop - min_diwstart - w) / 2 + min_diwstart;
 	else
 	    visible_left_border = max_diwstop - w - (max_diwstop - min_diwstart - w) / 2;
-	visible_left_border &= ~1;
+	visible_left_border &= ~((1 << lores_shift) - 1);
 
 	/* Would the old value be good enough? If so, leave it as it is if we want to
 	 * be clever. */
@@ -1618,7 +1577,7 @@ static void init_drawing_frame (void)
     int i, maxline;
 
     if (can_use_lores > AUTO_LORES_FRAMES && 0) {
-        lores_factor = 1;
+	lores_factor = 1;
 	lores_shift = 0;
     } else {
 	can_use_lores++;
@@ -1688,7 +1647,9 @@ static int td_pos = (TD_RIGHT|TD_BOTTOM);
 
 #define NUMBERS_NUM 14
 
-static char *numbers = { /* ugly */
+#define TD_BORDER 0x333
+
+static char *numbers = { /* ugly  0123456789CHD% */
 "+++++++--++++-+++++++++++++++++-++++++++++++++++++++++++++++++++++++++++++++-++++++-++++----++---+"
 "+xxxxx+--+xx+-+xxxxx++xxxxx++x+-+x++xxxxx++xxxxx++xxxxx++xxxxx++xxxxx++xxxx+-+x++x+-+xxx++-+xx+-+x"
 "+x+++x+--++x+-+++++x++++++x++x+++x++x++++++x++++++++++x++x+++x++x+++x++x++++-+x++x+-+x++x+--+x++x+"
@@ -1700,7 +1661,7 @@ static char *numbers = { /* ugly */
 
 STATIC_INLINE void putpixel (int x, xcolnr c8)
 {
-    switch(gfxvidinfo.pixbytes)
+    switch (gfxvidinfo.pixbytes)
     {
     case 1:
 	xlinebuffer[x] = (uae_u8)c8;
@@ -1726,7 +1687,7 @@ STATIC_INLINE void putpixel (int x, xcolnr c8)
 static void write_tdnumber (int x, int y, int num)
 {
     int j;
-    char *numptr;
+    const char *numptr;
 
     numptr = numbers + num * TD_NUM_WIDTH + NUMBERS_NUM * TD_NUM_WIDTH * y;
     for (j = 0; j < TD_NUM_WIDTH; j++) {
@@ -1743,19 +1704,18 @@ static void draw_status_line (int line)
     int x_start, y, j, led;
 
     if (td_pos & TD_RIGHT)
-        x_start = gfxvidinfo.width - TD_PADX - NUM_LEDS * TD_WIDTH;
+	x_start = gfxvidinfo.width - TD_PADX - NUM_LEDS * TD_WIDTH;
     else
-        x_start = TD_PADX;
+	x_start = TD_PADX;
 
     y = line - (gfxvidinfo.height - TD_TOTAL_HEIGHT);
     xlinebuffer = gfxvidinfo.linemem;
     if (xlinebuffer == 0)
 	xlinebuffer = row_map[line];
 
-    memset (xlinebuffer, 0, gfxvidinfo.width * gfxvidinfo.pixbytes);
-
     for (led = 0; led < NUM_LEDS; led++) {
-	int side, pos, num1 = -1, num2 = -1, num3 = -1, num4 = -1, x, off_rgb, on_rgb, c, on = 0;
+	int side, pos, num1 = -1, num2 = -1, num3 = -1, num4 = -1;
+	int x, off_rgb, on_rgb, c, on = 0, am = 2;
 	if (led >= 1 && led <= 4) {
 	    int pled = led - 1;
 	    int track = gui_data.drive_track[pled];
@@ -1766,8 +1726,8 @@ static void draw_status_line (int line)
 		num1 = -1;
 		num2 = track / 10;
 		num3 = track % 10;
-	        on = gui_data.drive_motor[pled];
-	        if (gui_data.drive_writing[pled])
+		on = gui_data.drive_motor[pled];
+		if (gui_data.drive_writing[pled])
 		    on_rgb = 0xc00;
 	    }
 	    side = gui_data.drive_side;
@@ -1800,6 +1760,9 @@ static void draw_status_line (int line)
 	    num1 = fps / 100;
 	    num2 = (fps - num1 * 100) / 10;
 	    num3 = fps % 10;
+	    am = 3;
+	    if (num1 == 0)
+		am = 2;
 	} else if (led == 8) {
 	    int idle = (gui_data.idle + 5) / 10;
 	    pos = 0;
@@ -1809,32 +1772,35 @@ static void draw_status_line (int line)
 	    num2 = (idle - num1 * 100) / 10;
 	    num3 = idle % 10;
 	    num4 = 13;
-	} else {
-            pos = -1;
-	    on_rgb = off_rgb = 0;
+	    am = 4;
+	    if (num1 == 0)
+		am = 3;
 	}
 
-        if (pos >= 0) {
 	c = xcolors[on ? on_rgb : off_rgb];
+	if (y == 0 || y == TD_TOTAL_HEIGHT - 1)
+	    c = xcolors[TD_BORDER];
 
 	x = x_start + pos * TD_WIDTH;
+	putpixel (x - 1, xcolors[TD_BORDER]);
 	for (j = 0; j < TD_LED_WIDTH; j++)
 	    putpixel (x + j, c);
+	putpixel (x + j, xcolors[TD_BORDER]);
 
 	if (y >= TD_PADY && y - TD_PADY < TD_NUM_HEIGHT) {
 	    if (num3 >= 0) {
-		int tn = num1 > 0 ? 3 : 2;
-		int offs = (TD_LED_WIDTH - tn * TD_NUM_WIDTH) / 2;
+		x += (TD_LED_WIDTH - am * TD_NUM_WIDTH) / 2;
 		if (num1 > 0) {
-		    write_tdnumber (x + offs, y - TD_PADY, num1);
-		    offs += TD_NUM_WIDTH;
+		    write_tdnumber (x, y - TD_PADY, num1);
+		    x += TD_NUM_WIDTH;
 		}
-	        write_tdnumber (x + offs, y - TD_PADY, num2);
-		write_tdnumber (x + offs + TD_NUM_WIDTH, y - TD_PADY, num3);
+		write_tdnumber (x, y - TD_PADY, num2);
+		x += TD_NUM_WIDTH;
+		write_tdnumber (x, y - TD_PADY, num3);
+		x += TD_NUM_WIDTH;
 		if (num4 > 0)
-		    write_tdnumber (x + offs + 2 * TD_NUM_WIDTH, y - TD_PADY, num4);
+		    write_tdnumber (x, y - TD_PADY, num4);
 	    }
-	}
 	}
     }
 }
@@ -1865,7 +1831,7 @@ void finish_drawing_frame (void)
 	    break;
 
 	where = amiga2aspect_line_map[i1];
-	if (where >= gfxvidinfo.height - (currprefs.leds_on_screen ? TD_TOTAL_HEIGHT : 0))
+	if (where >= gfxvidinfo.height)
 	    break;
 	if (where == -1)
 	    continue;
@@ -1948,6 +1914,7 @@ void vsync_handle_redraw (int long_frame, int lof_changed)
 	 * done at other times.
 	 */
 
+#ifdef SAVESTATE
 	if (savestate_state == STATE_DORESTORE) {
 	    savestate_state = STATE_RESTORE;
 	    reset_drawing ();
@@ -1957,6 +1924,7 @@ void vsync_handle_redraw (int long_frame, int lof_changed)
 	    reset_drawing ();
 	    uae_reset (0);
 	}
+#endif
 
 	if (quit_program < 0) {
 	    quit_program = -quit_program;
@@ -1968,7 +1936,10 @@ void vsync_handle_redraw (int long_frame, int lof_changed)
 	    return;
 	}
 
+#ifdef SAVESTATE
 	savestate_capture (0);
+#endif
+
 	count_frame ();
 	check_picasso ();
 

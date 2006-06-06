@@ -4,4 +4,4 @@ noinst_LIBRARIES = libosdep.a
 
 libosdep_a_SOURCES = main.c memory.c
 
-noinst_HEADERS = exectasks.h memory.h hrtimer.h
+noinst_HEADERS = memory.h hrtimer.h

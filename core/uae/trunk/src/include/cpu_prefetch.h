@@ -13,16 +13,6 @@ STATIC_INLINE uae_u32 get_long_prefetch (struct regstruct *regs, int o)
 }
 
 #ifdef CPUEMU_6
-STATIC_INLINE uae_u32 mem_access_delay_word_read_cycles (uaecptr addr, int *cycles)
-{
-    if (addr < 0x200000 || (addr >= 0xc00000 && addr < 0xe00000)) {
-	return wait_cpu_cycle_read_cycles (addr, 1, cycles);
-    } else if (!(addr >= 0xa00000 && addr < 0xc00000)) {
-	do_cycles_ce (4 * CYCLE_UNIT / 2);
-	*cycles = 4;
-    }
-    return get_word (addr);
-}
 STATIC_INLINE uae_u32 mem_access_delay_word_read (uaecptr addr)
 {
     if (addr < 0x200000 || (addr >= 0xc00000 && addr < 0xe00000)) {
@@ -77,13 +67,6 @@ STATIC_INLINE uae_u32 get_word_ce_prefetch (struct regstruct *regs, int o)
     uae_u32 v = regs->irc;
     regs->irc = get_word_ce (m68k_getpc(regs) + o);
     return v;
-}
-
-STATIC_INLINE int get_word_ce_prefetch_cycles (struct regstruct *regs, int o)
-{
-    int cycles = 0;
-    regs->irc = mem_access_delay_word_read_cycles (m68k_getpc(regs) + o, &cycles);
-    return cycles;
 }
 
 STATIC_INLINE void put_word_ce (uaecptr addr, uae_u16 v)

@@ -1,6 +1,6 @@
 ACLOCAL_AMFLAGS = -I m4
 
-EXTRA_DIST = config.h m4 amiga docs debian CHANGES README
+EXTRA_DIST = config.h m4 amiga docs CHANGES README
 
 SUBDIRS = src
 

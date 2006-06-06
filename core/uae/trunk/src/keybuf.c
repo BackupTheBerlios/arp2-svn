@@ -115,7 +115,7 @@ void record_key (int kc)
 	case AK_LSH: fs = 1; fs_se[5] = b; break;
 	}
     }
-#ifdef ARCADIA   
+#ifdef ARCADIA
     if (fs_xa1 != 0) {
 	switch (k) {
 	case AK_NP8: fs = 1; fs_xa1[0] = b; break;
@@ -150,7 +150,7 @@ void record_key (int kc)
 	    kc ^= AK_RCTRL << 1;
 	    kc ^= AK_CTRL << 1;
 	}
-#ifdef ARCADIA       
+#ifdef ARCADIA
 	if (fs_xa1 || fs_xa2) {
 	    int k2 = k;
 	    if (k == AK_1)
@@ -178,7 +178,7 @@ void record_key (int kc)
 	    if (k != k2)
 		kc = (k2 << 1) | (b ? 0 : 1);
 	}
-#endif       
+#endif
     }
 
     keybuf[kpb_first] = kc;
@@ -188,10 +188,10 @@ void record_key (int kc)
 void joystick_setting_changed (void)
 {
     fs_np = fs_ck = fs_se = 0;
-#ifdef ARCADIA   
+#ifdef ARCADIA
     fs_xa1 = fs_xa2 = 0;
 #endif
-   
+
     if (JSEM_ISNUMPAD (0, &currprefs))
 	fs_np = fakestate[0];
     else if (JSEM_ISNUMPAD (1, &currprefs))
@@ -207,7 +207,7 @@ void joystick_setting_changed (void)
     else if (JSEM_ISSOMEWHEREELSE (1, &currprefs))
 	fs_se = fakestate[1];
 
-#ifdef ARCADIA   
+#ifdef ARCADIA
     if (JSEM_ISXARCADE1 (0, &currprefs))
 	fs_xa1 = fakestate[0];
     else if (JSEM_ISXARCADE1 (1, &currprefs))
@@ -227,7 +227,9 @@ void keybuf_init (void)
 }
 
 
-uae_u8 *save_keyboard (int *len)
+#ifdef SAVESTATE
+
+uae_u8 *save_keyboard (uae_u32 *len)
 {
     uae_u8 *dst, *t;
     dst = t = malloc (8);
@@ -237,9 +239,11 @@ uae_u8 *save_keyboard (int *len)
     return t;
 }
 
-uae_u8 *restore_keyboard (uae_u8 *src)
+const uae_u8 *restore_keyboard (const uae_u8 *src)
 {
     setcapslockstate (restore_u32 ());
     restore_u32 ();
     return src;
 }
+
+#endif /* SAVESTATE */

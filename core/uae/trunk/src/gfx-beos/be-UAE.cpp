@@ -202,7 +202,6 @@ int UAE::GraphicsInit()
 		currprefs.color_mode = 0;
     }
 
-	gfxvidinfo.can_double = 1;
 	gfxvidinfo.width      = currprefs.gfx_width_win;
 	gfxvidinfo.height     = currprefs.gfx_height_win;
 

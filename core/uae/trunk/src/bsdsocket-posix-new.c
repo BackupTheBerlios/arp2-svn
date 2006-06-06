@@ -31,7 +31,7 @@
 #include "custom.h"
 #include "newcpu.h"
 #include "autoconf.h"
-
+#include "traps.h"
 #include "threaddep/thread.h"
 #include "native2amiga.h"
 #include "bsdsocket.h"
@@ -56,11 +56,11 @@
 #define DEBUG_LOG(...) do ; while(0)
 #endif
 
-#define WAITSIGNAL	waitsig (sb)
-#define SETSIGNAL	addtosigqueue (sb,0)
+#define WAITSIGNAL	waitsig (context, sb)
+#define SETSIGNAL	addtosigqueue (sb, 0)
 
-#define SETERRNO	seterrno (sb,mapErrno (errno))
-#define SETHERRNO	setherrno (sb, h_errno)
+#define SETERRNO	bsdsocklib_seterrno (sb,mapErrno (errno))
+#define SETHERRNO	bsdsocklib_setherrno (sb, h_errno)
 
 
 /* BSD-systems don't seem to have MSG_NOSIGNAL..
@@ -564,13 +564,13 @@ static void copyHostent (const struct hostent *hostent, SB)
     addstr (&aptr, hostent->h_name);
 
     TRACE (("OK (%s)\n",hostent->h_name));
-    seterrno (sb,0);
+    bsdsocklib_seterrno (sb,0);
 }
 
 /*
  * Copy a protoent object from native space to Amiga space
  */
-static void copyProtoent (SB, const struct protoent *p)
+static void copyProtoent (TrapContext *context, SB, const struct protoent *p)
 {
     size_t size = 16;
     int numaliases = 0;
@@ -586,14 +586,14 @@ static void copyProtoent (SB, const struct protoent *p)
 	    size += strlen (p->p_aliases[numaliases++]) + 5;
 
     if (sb->protoent) {
-	uae_FreeMem (sb->protoent, sb->protoentsize);
+	uae_FreeMem (context, sb->protoent, sb->protoentsize);
     }
 
-    sb->protoent = uae_AllocMem (size, 0);
+    sb->protoent = uae_AllocMem (context, size, 0);
 
     if (!sb->protoent) {
 	write_log ("BSDSOCK: WARNING - copyProtoent() ran out of Amiga memory (couldn't allocate %d bytes)\n", size);
-	seterrno (sb, 12); // ENOMEM
+	bsdsocklib_seterrno (sb, 12); // ENOMEM
 	return;
     }
 
@@ -610,7 +610,7 @@ static void copyProtoent (SB, const struct protoent *p)
     put_long (sb->protoent + 12 + numaliases * 4, 0);
     put_long (sb->protoent, aptr);
     addstr (&aptr, p->p_name);
-    seterrno(sb, 0);
+    bsdsocklib_seterrno(sb, 0);
 }
 
 
@@ -892,7 +892,7 @@ static void *bsdlib_threadfunc (SB)
 
 		if (tmphostent) {
 		    copyHostent (tmphostent, sb);
-		    setherrno (sb, 0);
+		    bsdsocklib_setherrno (sb, 0);
 		} else
 		    SETHERRNO;
 
@@ -912,7 +912,7 @@ static void *bsdlib_threadfunc (SB)
 
 		if (tmphostent) {
 		    copyHostent (tmphostent, sb);
-		    setherrno (sb, 0);
+		    bsdsocklib_setherrno (sb, 0);
 		} else
 		    SETHERRNO;
 
@@ -928,12 +928,12 @@ static void *bsdlib_threadfunc (SB)
 
 
 
-void host_connect (SB, uae_u32 sd, uae_u32 name, uae_u32 namelen)
+void host_connect (TrapContext *context, SB, uae_u32 sd, uae_u32 name, uae_u32 namelen)
 {
     sb->s = getsock (sb, sd + 1);
     if (sb->s == -1) {
 	sb->resultval = -1;
-	seterrno (sb, 9); /* EBADF */
+	bsdsocklib_seterrno (sb, 9); /* EBADF */
 	return;
     }
     sb->a_addr    = name;
@@ -945,12 +945,12 @@ void host_connect (SB, uae_u32 sd, uae_u32 name, uae_u32 namelen)
     WAITSIGNAL;
 }
 
-void host_sendto (SB, uae_u32 sd, uae_u32 msg, uae_u32 len, uae_u32 flags, uae_u32 to, uae_u32 tolen)
+void host_sendto (TrapContext *context, SB, uae_u32 sd, uae_u32 msg, uae_u32 len, uae_u32 flags, uae_u32 to, uae_u32 tolen)
 {
     sb->s = getsock (sb, sd + 1);
     if (sb->s == -1) {
 	sb->resultval = -1;
-	seterrno (sb, 9); /* EBADF */
+	bsdsocklib_seterrno (sb, 9); /* EBADF */
 	return;
     }
     sb->buf    = get_real_address (msg);
@@ -965,7 +965,7 @@ void host_sendto (SB, uae_u32 sd, uae_u32 msg, uae_u32 len, uae_u32 flags, uae_u
     WAITSIGNAL;
 }
 
-void host_recvfrom (SB, uae_u32 sd, uae_u32 msg, uae_u32 len, uae_u32 flags, uae_u32 addr, uae_u32 addrlen)
+void host_recvfrom (TrapContext *context, SB, uae_u32 sd, uae_u32 msg, uae_u32 len, uae_u32 flags, uae_u32 addr, uae_u32 addrlen)
 {
     int s = getsock (sb, sd + 1);
 
@@ -974,7 +974,7 @@ void host_recvfrom (SB, uae_u32 sd, uae_u32 msg, uae_u32 len, uae_u32 flags, uae
 
     if (s == -1) {
 	sb->resultval = -1;
-	seterrno (sb, 9); /* EBADF */;
+	bsdsocklib_seterrno (sb, 9); /* EBADF */;
 	return;
     }
 
@@ -999,7 +999,7 @@ void host_setsockopt (SB, uae_u32 sd, uae_u32 level, uae_u32 optname, uae_u32 op
     void *buf;
     if (s == -1) {
 	sb->resultval = -1;
-	seterrno (sb, 9); /* EBADF */;
+	bsdsocklib_seterrno (sb, 9); /* EBADF */;
 	return;
     }
 
@@ -1075,7 +1075,7 @@ uae_u32 host_getpeername (SB, uae_u32 sd, uae_u32 name, uae_u32 namelen)
     return -1;
 }
 
-void host_gethostbynameaddr (SB, uae_u32 name, uae_u32 namelen, long addrtype)
+void host_gethostbynameaddr (TrapContext *context, SB, uae_u32 name, uae_u32 namelen, long addrtype)
 {
     sb->name      = name;
     sb->a_addrlen = namelen;
@@ -1090,16 +1090,16 @@ void host_gethostbynameaddr (SB, uae_u32 name, uae_u32 namelen, long addrtype)
     WAITSIGNAL;
 }
 
-void host_WaitSelect (SB, uae_u32 nfds, uae_u32 readfds, uae_u32 writefds, uae_u32 exceptfds,
+void host_WaitSelect (TrapContext *context, SB, uae_u32 nfds, uae_u32 readfds, uae_u32 writefds, uae_u32 exceptfds,
 		      uae_u32 timeout, uae_u32 sigmp)
 {
     uae_u32 wssigs = (sigmp) ? get_long (sigmp) : 0;
     uae_u32 sigs;
 
     if (wssigs) {
-	m68k_dreg (&regs, 0) = 0;
-	m68k_dreg (&regs, 1) = wssigs;
-	sigs = CallLib (get_long (4), -0x132) & wssigs;	// SetSignal()
+	m68k_dreg (&context->regs, 0) = 0;
+	m68k_dreg (&context->regs, 1) = wssigs;
+	sigs = CallLib (context, get_long (4), -0x132) & wssigs;	// SetSignal()
 	if (sigs) {
 	    DEBUG_LOG ("WaitSelect preempted by signals 0x%08x\n", sigs & wssigs);
 	    put_long (sigmp, sigs);
@@ -1108,15 +1108,15 @@ void host_WaitSelect (SB, uae_u32 nfds, uae_u32 readfds, uae_u32 writefds, uae_u
 	    if (writefds)  fd_zero (writefds, nfds);
 	    if (exceptfds) fd_zero (exceptfds, nfds);
 	    sb->resultval = 0;
-	    seterrno (sb, 0);
+	    bsdsocklib_seterrno (sb, 0);
 	    return;
 	}
     }
 
     if (nfds == 0) {
         /* No sockets - Just wait on signals */
-	m68k_dreg (&regs, 0) = wssigs;
-	sigs = CallLib (get_long (4), -0x13e);	// Wait()
+	m68k_dreg (&context->regs, 0) = wssigs;
+	sigs = CallLib (context, get_long (4), -0x13e);	// Wait()
 
 	if (sigmp)
 	put_long (sigmp, sigs & wssigs);
@@ -1138,8 +1138,8 @@ void host_WaitSelect (SB, uae_u32 nfds, uae_u32 readfds, uae_u32 writefds, uae_u
 
     uae_sem_post (&sb->sem);
 
-    m68k_dreg (&regs, 0) = (((uae_u32)1) << sb->signal) | sb->eintrsigs | wssigs;
-    sigs = CallLib (get_long (4), -0x13e); // Wait()
+    m68k_dreg (&context->regs, 0) = (((uae_u32)1) << sb->signal) | sb->eintrsigs | wssigs;
+    sigs = CallLib (context, get_long (4), -0x13e); // Wait()
 
     if (sigmp)
         put_long (sigmp, sigs & (sb->eintrsigs | wssigs));
@@ -1158,7 +1158,7 @@ void host_WaitSelect (SB, uae_u32 nfds, uae_u32 readfds, uae_u32 writefds, uae_u
 	if (writefds)  fd_zero (writefds, nfds);
 	if (exceptfds) fd_zero (exceptfds, nfds);
 
-	seterrno (sb, 0);
+	bsdsocklib_seterrno (sb, 0);
     } else if (sigs & sb->eintrsigs) {
 	/* Wait select was interrupted */
 	DEBUG_LOG ("WaitSelect: interrupted\n");
@@ -1169,19 +1169,19 @@ void host_WaitSelect (SB, uae_u32 nfds, uae_u32 readfds, uae_u32 writefds, uae_u
 	}
 
 	sb->resultval = -1;
-	seterrno (sb, mapErrno (EINTR));
+	bsdsocklib_seterrno (sb, mapErrno (EINTR));
     }
     clearsockabort(sb);
 }
 
 
 
-void host_accept (SB, uae_u32 sd, uae_u32 name, uae_u32 namelen)
+void host_accept (TrapContext *context, SB, uae_u32 sd, uae_u32 name, uae_u32 namelen)
 {
     sb->s = getsock (sb, sd + 1);
     if (sb->s == -1) {
 	sb->resultval = -1;
-	seterrno (sb, 9); /* EBADF */
+	bsdsocklib_seterrno (sb, 9); /* EBADF */
 	return;
     }
 
@@ -1231,7 +1231,7 @@ uae_u32 host_bind (SB, uae_u32 sd, uae_u32 name, uae_u32 namelen)
     s = getsock (sb, sd + 1);
     if (s == -1) {
 	sb->resultval = -1;
-	seterrno (sb, 9); /* EBADF */
+	bsdsocklib_seterrno (sb, 9); /* EBADF */
 	return -1;
     }
 
@@ -1256,7 +1256,7 @@ uae_u32 host_listen (SB, uae_u32 sd, uae_u32 backlog)
     s = getsock (sb, sd + 1);
 
     if (s == -1) {
-	seterrno (sb, 9);
+	bsdsocklib_seterrno (sb, 9);
 	return -1;
     }
 
@@ -1269,7 +1269,7 @@ uae_u32 host_listen (SB, uae_u32 sd, uae_u32 backlog)
     return success;
 }
 
-void host_getprotobyname (SB, uae_u32 name)
+void host_getprotobyname (TrapContext *context, SB, uae_u32 name)
 {
     struct protoent *p = getprotobyname ((char *)get_real_address (name));
 
@@ -1280,11 +1280,11 @@ void host_getprotobyname (SB, uae_u32 name)
 	return;
     }
 
-    copyProtoent(sb, p);
+    copyProtoent (context, sb, p);
     TRACE (("OK (%s, %d)\n", p->p_name, p->p_proto));
 }
 
-void host_getprotobynumber (SB, uae_u32 number)
+void host_getprotobynumber (TrapContext *context, SB, uae_u32 number)
 {
     struct protoent *p = getprotobynumber(number);
     DEBUG_LOG("getprotobynumber(%d)=%lx\n", number, p);
@@ -1294,11 +1294,11 @@ void host_getprotobynumber (SB, uae_u32 number)
 	return;
     }
 
-    copyProtoent(sb, p);
+    copyProtoent (context, sb, p);
     TRACE (("OK (%s, %d)\n", p->p_name, p->p_proto));
 }
 
-void host_getservbynameport (SB, uae_u32 name, uae_u32 proto, uae_u32 type)
+void host_getservbynameport (TrapContext *context, SB, uae_u32 name, uae_u32 proto, uae_u32 type)
 {
     struct servent *s = (type) ?
 	getservbyport (name, (char *)get_real_address (proto)) :
@@ -1331,14 +1331,14 @@ void host_getservbynameport (SB, uae_u32 name, uae_u32 proto, uae_u32 type)
 	    size += strlen (s->s_aliases[numaliases++]) + 5;
 
     if (sb->servent) {
-	uae_FreeMem (sb->servent, sb->serventsize);
+	uae_FreeMem (context, sb->servent, sb->serventsize);
     }
 
-    sb->servent = uae_AllocMem (size, 0);
+    sb->servent = uae_AllocMem (context, size, 0);
 
     if (!sb->servent) {
 	write_log ("BSDSOCK: WARNING - getservby%s() ran out of Amiga memory (couldn't allocate %d bytes)\n",type ? "port" : "name", size);
-	seterrno (sb, 12); // ENOMEM
+	bsdsocklib_seterrno (sb, 12); // ENOMEM
 	return;
     }
 
@@ -1359,10 +1359,10 @@ void host_getservbynameport (SB, uae_u32 name, uae_u32 proto, uae_u32 type)
     addstr (&aptr, s->s_proto);
 
     TRACE (("OK (%s, %d)\n", s->s_name, (unsigned short)htons (s->s_port)));
-    seterrno (sb,0);
+    bsdsocklib_seterrno (sb,0);
 }
 
-int host_sbinit (SB)
+int host_sbinit (TrapContext *context, SB)
 {
     if (pipe (sb->sockabort) < 0) {
 	return 0;
@@ -1380,7 +1380,7 @@ int host_sbinit (SB)
     }
 
     /* Alloc hostent buffer */
-    sb->hostent = uae_AllocMem (1024, 0);
+    sb->hostent = uae_AllocMem (context, 1024, 0);
     sb->hostentsize = 1024;
 
     /* @@@ The thread should be PTHREAD_CREATE_DETACHED */
@@ -1424,7 +1424,7 @@ void host_sbreset (void)
     /* TODO */
 }
 
-uae_u32 host_Inet_NtoA (SB, uae_u32 in)
+uae_u32 host_Inet_NtoA (TrapContext *context, SB, uae_u32 in)
 {
     char *addr;
     struct in_addr ina;
@@ -1435,7 +1435,7 @@ uae_u32 host_Inet_NtoA (SB, uae_u32 in)
     TRACE (("Inet_NtoA(%lx) -> ", in));
 
     if ((addr = inet_ntoa(ina)) != NULL) {
-	buf = m68k_areg (&regs, 6) + offsetof (struct UAEBSDBase, scratchbuf);
+	buf = m68k_areg (&context->regs, 6) + offsetof (struct UAEBSDBase, scratchbuf);
 	strncpyha (buf, addr, SCRATCHBUFSIZE);
 	TRACE (("%s\n", addr));
 	return buf;
@@ -1492,7 +1492,7 @@ int host_dup2socket (SB, int fd1, int fd2) {
 	if (fd2 != -1) {
 	    if ((unsigned int) (fd2) >= (unsigned int) sb->dtablesize) {
 		TRACE (("Bad file descriptor (%d)\n", fd2));
-		seterrno (sb, 9); /* EBADF */
+		bsdsocklib_seterrno (sb, 9); /* EBADF */
 	    }
 	    fd2++;
 	    s2 = getsock (sb, fd2);
@@ -1530,7 +1530,7 @@ uae_u32 host_getsockopt (SB, uae_u32 sd, uae_u32 level, uae_u32 optname,
     s = getsock (sb, sd + 1);
 
     if (s == -1) {
-	seterrno(sb, 9); /* EBADF */
+	bsdsocklib_seterrno(sb, 9); /* EBADF */
 	return -1;
     }
 
@@ -1571,7 +1571,7 @@ uae_u32 host_IoctlSocket (SB, uae_u32 sd, uae_u32 request, uae_u32 arg)
 
     if (sock == -1) {
 	sb->resultval = -1;
-	seterrno (sb, 9); /* EBADF */
+	bsdsocklib_seterrno (sb, 9); /* EBADF */
 	return -1;
     }
 
@@ -1620,7 +1620,7 @@ uae_u32 host_IoctlSocket (SB, uae_u32 sd, uae_u32 request, uae_u32 arg)
 
     } /* end switch */
 
-    seterrno (sb, EINVAL);
+    bsdsocklib_seterrno (sb, EINVAL);
     return -1;
 }
 
@@ -1630,7 +1630,7 @@ int host_CloseSocket (SB, int sd)
     int retval;
 
     if (s == -1) {
-	seterrno (sb, 9); /* EBADF */
+	bsdsocklib_seterrno (sb, 9); /* EBADF */
 	return -1;
     }
 

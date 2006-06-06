@@ -27,7 +27,9 @@ static RETSIGTYPE sigbrkhandler(...)
 static RETSIGTYPE sigbrkhandler (int foo)
 #endif
 {
-    activate_debugger();
+#ifdef DEBUGGER
+    activate_debugger ();
+#endif
 
 #if !defined(__unix) || defined(__NeXT__)
     setup_brkhandler ();

@@ -18,6 +18,7 @@
 #include "newcpu.h"
 #include "cpu_prefetch.h"
 #include "autoconf.h"
+#include "traps.h"
 #include "ersatz.h"
 #include "debug.h"
 #include "gui.h"
@@ -244,7 +245,7 @@ void check_prefs_changed_cpu (void)
 	|| currprefs.cpu_cycle_exact != changed_prefs.cpu_cycle_exact) {
 
 	if (!currprefs.cpu_compatible && changed_prefs.cpu_compatible)
-	    regs.ir = get_word (m68k_getpc (&regs)); /* non-prefetch to prefetch fix */
+	    fill_prefetch_slow (&regs);
 
 	currprefs.cpu_level = changed_prefs.cpu_level;
 	currprefs.cpu_compatible = changed_prefs.cpu_compatible;
@@ -364,13 +365,13 @@ void init_m68k (void)
 }
 
 struct regstruct regs;
-static long int m68kpc_offset;
+static uae_s32 m68kpc_offset;
 
 #define get_ibyte_1(regs, o) get_byte((regs)->pc + ((regs)->pc_p - (regs)->pc_oldp) + (o) + 1)
 #define get_iword_1(regs, o) get_word((regs)->pc + ((regs)->pc_p - (regs)->pc_oldp) + (o))
 #define get_ilong_1(regs, o) get_long((regs)->pc + ((regs)->pc_p - (regs)->pc_oldp) + (o))
 
-uae_s32 ShowEA (void *f, uae_u16 opcode, int reg, amodes mode, wordsizes size, char *buf)
+static uae_s32 ShowEA (void *f, uae_u16 opcode, int reg, amodes mode, wordsizes size, char *buf)
 {
     uae_u16 dp;
     uae_s8 disp8;
@@ -383,25 +384,24 @@ uae_s32 ShowEA (void *f, uae_u16 opcode, int reg, amodes mode, wordsizes size, c
 
     switch (mode){
      case Dreg:
-	sprintf (buffer,"D%d", reg);
+	sprintf (buffer, "D%d", reg);
 	break;
      case Areg:
-	sprintf (buffer,"A%d", reg);
+	sprintf (buffer, "A%d", reg);
 	break;
      case Aind:
-	sprintf (buffer,"(A%d)", reg);
+	sprintf (buffer, "(A%d)", reg);
 	break;
      case Aipi:
-	sprintf (buffer,"(A%d)+", reg);
+	sprintf (buffer, "(A%d)+", reg);
 	break;
      case Apdi:
-	sprintf (buffer,"-(A%d)", reg);
+	sprintf (buffer, "-(A%d)", reg);
 	break;
      case Ad16:
 	disp16 = get_iword_1 (&regs, m68kpc_offset); m68kpc_offset += 2;
 	addr = m68k_areg (&regs,reg) + (uae_s16)disp16;
-	sprintf (buffer,"(A%d,$%04x) == $%08lx", reg, disp16 & 0xffff,
-					(unsigned long)addr);
+	sprintf (buffer, "(A%d,$%04x) == $%08x", reg, disp16 & 0xffff, addr);
 	break;
      case Ad8r:
 	dp = get_iword_1 (&regs, m68kpc_offset); m68kpc_offset += 2;
@@ -415,7 +415,7 @@ uae_s32 ShowEA (void *f, uae_u16 opcode, int reg, amodes mode, wordsizes size, c
 	    uae_s32 outer = 0, disp = 0;
 	    uae_s32 base = m68k_areg (&regs,reg);
 	    char name[10];
-	    sprintf (name,"A%d, ",reg);
+	    sprintf (name, "A%d, ", reg);
 	    if (dp & 0x80) { base = 0; name[0] = 0; }
 	    if (dp & 0x40) dispreg = 0;
 	    if ((dp & 0x30) == 0x20) { disp = (uae_s32)(uae_s16)get_iword_1 (&regs, m68kpc_offset); m68kpc_offset += 2; }
@@ -430,24 +430,22 @@ uae_s32 ShowEA (void *f, uae_u16 opcode, int reg, amodes mode, wordsizes size, c
 	    if (dp & 4) base += dispreg;
 
 	    addr = base + outer;
-	    sprintf (buffer,"(%s%c%d.%c*%d+%ld)+%ld == $%08lx", name,
-		    dp & 0x8000 ? 'A' : 'D', (int)r, dp & 0x800 ? 'L' : 'W',
-		    1 << ((dp >> 9) & 3),
-		    disp,outer,
-		    (unsigned long)addr);
+	    sprintf (buffer, "(%s%c%d.%c*%d+%d)+%d == $%08x", name,
+		     dp & 0x8000 ? 'A' : 'D', r, dp & 0x800 ? 'L' : 'W',
+		     1 << ((dp >> 9) & 3),
+		     disp, outer, addr);
 	} else {
 	  addr = m68k_areg (&regs,reg) + (uae_s32)((uae_s8)disp8) + dispreg;
-	  sprintf (buffer,"(A%d, %c%d.%c*%d, $%02x) == $%08lx", reg,
-	       dp & 0x8000 ? 'A' : 'D', (int)r, dp & 0x800 ? 'L' : 'W',
-	       1 << ((dp >> 9) & 3), disp8,
-	       (unsigned long)addr);
+	  sprintf (buffer, "(A%d, %c%d.%c*%d, $%02x) == $%08x", reg,
+		   dp & 0x8000 ? 'A' : 'D', r, dp & 0x800 ? 'L' : 'W',
+		   1 << ((dp >> 9) & 3), disp8, addr);
 	}
 	break;
      case PC16:
 	addr = m68k_getpc (&regs) + m68kpc_offset;
 	disp16 = get_iword_1 (&regs, m68kpc_offset); m68kpc_offset += 2;
 	addr += (uae_s16)disp16;
-	sprintf (buffer,"(PC,$%04x) == $%08lx", disp16 & 0xffff,(unsigned long)addr);
+	sprintf (buffer, "(PC,$%04x) == $%08x", disp16 & 0xffff, addr);
 	break;
      case PC8r:
 	addr = m68k_getpc (&regs) + m68kpc_offset;
@@ -462,7 +460,7 @@ uae_s32 ShowEA (void *f, uae_u16 opcode, int reg, amodes mode, wordsizes size, c
 	    uae_s32 outer = 0,disp = 0;
 	    uae_s32 base = addr;
 	    char name[10];
-	    sprintf (name,"PC, ");
+	    sprintf (name, "PC, ");
 	    if (dp & 0x80) { base = 0; name[0] = 0; }
 	    if (dp & 0x40) dispreg = 0;
 	    if ((dp & 0x30) == 0x20) { disp = (uae_s32)(uae_s16)get_iword_1 (&regs, m68kpc_offset); m68kpc_offset += 2; }
@@ -477,38 +475,37 @@ uae_s32 ShowEA (void *f, uae_u16 opcode, int reg, amodes mode, wordsizes size, c
 	    if (dp & 4) base += dispreg;
 
 	    addr = base + outer;
-	    sprintf (buffer,"(%s%c%d.%c*%d+%ld)+%ld == $%08lx", name,
-		    dp & 0x8000 ? 'A' : 'D', (int)r, dp & 0x800 ? 'L' : 'W',
-		    1 << ((dp >> 9) & 3),
-		    disp,outer,
-		    (unsigned long)addr);
+	    sprintf (buffer, "(%s%c%d.%c*%d+%d)+%d == $%08x", name,
+		     dp & 0x8000 ? 'A' : 'D', r, dp & 0x800 ? 'L' : 'W',
+		     1 << ((dp >> 9) & 3),
+		     disp, outer, addr);
 	} else {
 	  addr += (uae_s32)((uae_s8)disp8) + dispreg;
-	  sprintf (buffer,"(PC, %c%d.%c*%d, $%02x) == $%08lx", dp & 0x8000 ? 'A' : 'D',
-		(int)r, dp & 0x800 ? 'L' : 'W',  1 << ((dp >> 9) & 3),
-		disp8, (unsigned long)addr);
+	  sprintf (buffer, "(PC, %c%d.%c*%d, $%02x) == $%08x", dp & 0x8000 ? 'A' : 'D',
+		   r, dp & 0x800 ? 'L' : 'W',  1 << ((dp >> 9) & 3),
+		   disp8, addr);
 	}
 	break;
      case absw:
-	sprintf (buffer,"$%08lx", (unsigned long)(uae_s32)(uae_s16)get_iword_1 (&regs, m68kpc_offset));
+	sprintf (buffer, "$%08x", (unsigned int)(uae_s32)(uae_s16)get_iword_1 (&regs, m68kpc_offset));
 	m68kpc_offset += 2;
 	break;
      case absl:
-	sprintf (buffer,"$%08lx", (unsigned long)get_ilong_1 (&regs, m68kpc_offset));
+	sprintf (buffer, "$%08x", (unsigned int)get_ilong_1 (&regs, m68kpc_offset));
 	m68kpc_offset += 4;
 	break;
      case imm:
 	switch (size){
 	 case sz_byte:
-	    sprintf (buffer,"#$%02x", (unsigned int)(get_iword_1 (&regs, m68kpc_offset) & 0xff));
+	    sprintf (buffer, "#$%02x", (unsigned int)(get_iword_1 (&regs, m68kpc_offset) & 0xff));
 	    m68kpc_offset += 2;
 	    break;
 	 case sz_word:
-	    sprintf (buffer,"#$%04x", (unsigned int)(get_iword_1 (&regs, m68kpc_offset) & 0xffff));
+	    sprintf (buffer, "#$%04x", (unsigned int)(get_iword_1 (&regs, m68kpc_offset) & 0xffff));
 	    m68kpc_offset += 2;
 	    break;
 	 case sz_long:
-	    sprintf (buffer,"#$%08lx", (unsigned long)(get_ilong_1 (&regs, m68kpc_offset)));
+	    sprintf (buffer, "#$%08x", (unsigned int)(get_ilong_1 (&regs, m68kpc_offset) & 0xffffffff));
 	    m68kpc_offset += 4;
 	    break;
 	 default:
@@ -518,22 +515,22 @@ uae_s32 ShowEA (void *f, uae_u16 opcode, int reg, amodes mode, wordsizes size, c
      case imm0:
 	offset = (uae_s32)(uae_s8)get_iword_1 (&regs, m68kpc_offset);
 	m68kpc_offset += 2;
-	sprintf (buffer,"#$%02x", (unsigned int)(offset & 0xff));
+	sprintf (buffer, "#$%02x", (unsigned int)(offset & 0xff));
 	break;
      case imm1:
 	offset = (uae_s32)(uae_s16)get_iword_1 (&regs, m68kpc_offset);
 	m68kpc_offset += 2;
 	buffer[0] = 0;
-        sprintf (buffer,"#$%04x", (unsigned int)(offset & 0xffff));
+        sprintf (buffer, "#$%04x", (unsigned int)(offset & 0xffff));
 	break;
      case imm2:
 	offset = (uae_s32)get_ilong_1 (&regs, m68kpc_offset);
 	m68kpc_offset += 4;
-	sprintf (buffer,"#$%08lx", (unsigned long)offset);
+	sprintf (buffer, "#$%08x", (unsigned int)offset);
 	break;
      case immi:
 	offset = (uae_s32)(uae_s8)(reg & 0xff);
-	sprintf (buffer,"#$%08lx", (unsigned long)offset);
+	sprintf (buffer, "#$%08x", (unsigned int)offset);
 	break;
      default:
 	break;
@@ -697,9 +694,11 @@ static void exception_trace (int nr)
 
 static void exception_debug (int nr)
 {
+#ifdef DEBUGGER
     if (!exception_debugging)
 	return;
-    console_out ("Exception %d, PC=%08.8X\n", nr, m68k_getpc (&regs));
+    console_out ("Exception %d, PC=%08x\n", nr, m68k_getpc (&regs));
+#endif
 }
 
 #ifdef CPUEMU_6
@@ -723,10 +722,10 @@ STATIC_INLINE void Exception_ce (int nr, struct regstruct *regs, uaecptr oldpc)
 	c = 6;
 	break;
 	case 4: /* illegal instruction */
-    	c = 6;
+	c = 6;
 	break;
 	case 5: /* divide by zero */
-    	c = 10;
+	c = 10;
 	break;
 	case 6: /* chk */
 	c = 12;
@@ -790,7 +789,7 @@ STATIC_INLINE void Exception_ce (int nr, struct regstruct *regs, uaecptr oldpc)
 	put_word_ce (m68k_areg (regs, 7) + 4,  last_fault_for_exception_3);
 	put_word_ce (m68k_areg (regs, 7) + 0,  mode);
 	put_word_ce (m68k_areg (regs, 7) + 2,  last_fault_for_exception_3 >> 16);
-	write_log ("Exception %d at %x -> %x!\n", nr, currpc, get_long (4 * nr));
+	write_log ("Exception %d at %08x -> %08x!\n", nr, currpc, get_long (4 * nr));
 	goto kludge_me_do;
     }
     m68k_areg (regs, 7) -= 6;
@@ -880,7 +879,7 @@ STATIC_INLINE void Exception_normal (int nr, struct regstruct *regs, uaecptr old
 		m68k_areg (regs, 7) -= 2;
 		put_word (m68k_areg (regs, 7), 0xb000 + nr * 4);
 	    }
-	    write_log ("Exception %d (%x) at %x -> %x!\n", nr, oldpc, currpc, get_long (regs->vbr + 4*nr));
+	    write_log ("Exception %d (%08x) at %08x -> %08x!\n", nr, oldpc, currpc, get_long (regs->vbr + 4*nr));
 	} else if (nr ==5 || nr == 6 || nr == 7 || nr == 9) {
 	    m68k_areg (regs, 7) -= 4;
 	    put_long (m68k_areg (regs, 7), oldpc);
@@ -912,7 +911,7 @@ STATIC_INLINE void Exception_normal (int nr, struct regstruct *regs, uaecptr old
 	put_word (m68k_areg (regs, 7) + 6,  last_op_for_exception_3);
 	put_word (m68k_areg (regs, 7) + 8,  regs->sr);
 	put_long (m68k_areg (regs, 7) + 10, last_addr_for_exception_3);
-        write_log ("Exception %d (%x) at %x -> %x!\n", nr, oldpc, currpc, get_long (regs->vbr + 4*nr));
+        write_log ("Exception %d (%08x) at %08x -> %08x!\n", nr, oldpc, currpc, get_long (regs->vbr + 4*nr));
 	goto kludge_me_do;
     }
     m68k_areg (regs, 7) -= 4;
@@ -938,8 +937,8 @@ void REGPARAM2 Exception (int nr, struct regstruct *regs, uaecptr oldpc)
 {
 #if 0
     if (1 || nr < 24)
-	write_log ("exception %d %08.8X %08.8X (%04.4X %04.4X)\n",
-	    nr, oldpc, m68k_getpc (&regs), intena, intreq);
+	write_log ("exception %2d %08x %08x (%04x %04x)\n",
+	    nr, oldpc, m68k_getpc (regs), intena, intreq);
 #endif
 #ifdef CPUEMU_6
     if (currprefs.cpu_cycle_exact && currprefs.cpu_level == 0)
@@ -953,7 +952,7 @@ STATIC_INLINE void do_interrupt (int nr, struct regstruct *regs)
 {
 #if 0
     if (nr == 4)
-	write_log ("irq %d at %x (%04.4X)\n", nr, m68k_getpc (&regs), intena & intreq);
+	write_log ("irq %2d at %08x (%04x)\n", nr, m68k_getpc (regs), intena & intreq);
 #endif
     regs->stopped = 0;
     unset_special (regs, SPCFLAG_STOP);
@@ -1000,7 +999,7 @@ static int movec_illg (int regno)
 
 int m68k_move2c (int regno, uae_u32 *regp)
 {
-    //write_log("move2c %04.4X <- %08.8X\n", regno, *regp);
+//    write_log ("move2c %04x <- %08x\n", regno, *regp);
     if (movec_illg (regno)) {
 	op_illg (0x4E7B, &regs);
 	return 0;
@@ -1051,7 +1050,7 @@ int m68k_move2c (int regno, uae_u32 *regp)
 
 int m68k_movec2 (int regno, uae_u32 *regp)
 {
-    //write_log("movec2 %04.4X\n", regno);
+//    write_log ("movec2 %04x ", regno);
     if (movec_illg (regno)) {
 	op_illg (0x4E7A, &regs);
 	return 0;
@@ -1082,7 +1081,7 @@ int m68k_movec2 (int regno, uae_u32 *regp)
 	    return 0;
 	}
     }
-    //write_log("-> %08.8X\n", *regp);
+//    write_log ("-> %08x\n", *regp);
     return 1;
 }
 
@@ -1340,14 +1339,13 @@ void m68k_mull (uae_u32 opcode, uae_u32 src, uae_u16 extra)
 
 #endif
 
-static char* ccnames[] =
-{ "T ","F ","HI","LS","CC","CS","NE","EQ",
-  "VC","VS","PL","MI","GE","LT","GT","LE" };
 
 void m68k_reset (void)
 {
     regs.kick_mask = 0x00F80000;
     regs.spcflags = 0;
+
+#ifdef SAVESTATE
     if (savestate_state == STATE_RESTORE || savestate_state == STATE_REWIND) {
         m68k_setpc (&regs, regs.pc);
 	/* MakeFromSR() must not swap stack pointer */
@@ -1360,6 +1358,7 @@ void m68k_reset (void)
 	    m68k_areg (&regs, 7) = regs.usp;
 	return;
     }
+#endif
 
     m68k_areg  (&regs, 7) = get_long (0x00f80000);
     m68k_setpc (&regs, get_long (0x00f80004));
@@ -1436,7 +1435,7 @@ unsigned long REGPARAM2 op_illg (uae_u32 opcode, struct regstruct *regs)
     if ((opcode & 0xF000) == 0xA000 && in_rtarea (pc)) {
 	/* Calltrap. */
 	m68k_incpc (regs, 2);
-	call_calltrap (opcode & 0xFFF);
+	m68k_handle_trap (opcode & 0xFFF, regs);
 	fill_prefetch_slow (regs);
 	return 4;
     }
@@ -1444,7 +1443,7 @@ unsigned long REGPARAM2 op_illg (uae_u32 opcode, struct regstruct *regs)
 
     if ((opcode & 0xF000) == 0xF000) {
 	if (warned < 20) {
- 	    write_log ("B-Trap %x at %x (%p)\n", opcode, m68k_getpc (regs) + m68kpc_offset, regs->pc_p);
+ 	    write_log ("B-Trap %04x at %08x (%p)\n", opcode, m68k_getpc (regs) + m68kpc_offset, regs->pc_p);
 	    warned++;
 	}
 	Exception (0xB, regs, 0);
@@ -1454,14 +1453,14 @@ unsigned long REGPARAM2 op_illg (uae_u32 opcode, struct regstruct *regs)
 #ifdef AUTOCONFIG
 	if (in_rtarea (pc)) {
 	    /* Calltrap. */
-	    call_calltrap (opcode & 0xFFF);
+	    m68k_handle_trap (opcode & 0xFFF, regs);
 	}
 #endif
 	Exception (0xA, regs, 0);
 	return 4;
     }
     if (warned < 20) {
-        write_log ("Illegal instruction: %04x at %08.8X -> %08.8X\n", opcode, pc, get_long (regs->vbr + 0x10));
+        write_log ("Illegal instruction: %04x at %08x -> %08x\n", opcode, pc, get_long (regs->vbr + 0x10));
         warned++;
     }
 
@@ -1476,10 +1475,10 @@ void mmu_op(uae_u32 opcode, struct regstruct *regs, uae_u16 extra)
     if ((opcode & 0xFE0) == 0x0500) {
 	/* PFLUSH */
 	mmusr = 0;
-	write_log ("PFLUSH @$%lx\n", m68k_getpc (regs));
+	write_log ("PFLUSH @ %08x\n", m68k_getpc (regs));
     } else if ((opcode & 0x0FD8) == 0x548) {
 	/* PTEST */
-	write_log ("PTEST @$%lx\n", m68k_getpc (regs));
+	write_log ("PTEST @ %08x\n", m68k_getpc (regs));
     } else
 	op_illg (opcode, regs);
 }
@@ -1543,7 +1542,7 @@ STATIC_INLINE int do_specialties (int cycles, struct regstruct *regs)
     if ((regs->spcflags & SPCFLAG_ACTION_REPLAY) && action_replay_flag != ACTION_REPLAY_INACTIVE )
     {
 	/*if(action_replay_flag == ACTION_REPLAY_ACTIVE && !is_ar_pc_in_rom())*/
-	/*	write_log("PC:%p\n",m68k_getpc (regs));*/
+	/*	write_log ("PC:%p\n", m68k_getpc (regs));*/
 
 	if(action_replay_flag == ACTION_REPLAY_ACTIVATE || action_replay_flag == ACTION_REPLAY_DORESET)
 	    action_replay_enter();
@@ -1554,7 +1553,7 @@ STATIC_INLINE int do_specialties (int cycles, struct regstruct *regs)
 	}
 	if (action_replay_flag == ACTION_REPLAY_WAIT_PC )
 	{
-	    /*write_log("Waiting for PC: %p, current PC= %p\n",wait_for_pc, m68k_getpc (regs));*/
+	    /*write_log ("Waiting for PC: %p, current PC= %p\n", wait_for_pc, m68k_getpc (regs));*/
 	    if (m68k_getpc (regs) == wait_for_pc)
 	    {
 		action_replay_flag = ACTION_REPLAY_ACTIVATE; /* Activate after next instruction. */
@@ -1572,7 +1571,7 @@ STATIC_INLINE int do_specialties (int cycles, struct regstruct *regs)
 #endif
 
     while ((regs->spcflags & SPCFLAG_BLTNASTY) && dmaen (DMA_BLITTER) && cycles > 0 && !currprefs.blitter_cycle_exact) {
-	int c = blitnasty();
+	unsigned int c = blitnasty ();
 	if (c > 0) {
 	    cycles -= c * CYCLE_UNIT * 2;
 	    if (cycles < CYCLE_UNIT)
@@ -1584,14 +1583,17 @@ STATIC_INLINE int do_specialties (int cycles, struct regstruct *regs)
 	    do_copper ();
     }
 
-    if (regs->spcflags & SPCFLAG_DOTRACE) {
+    if (regs->spcflags & SPCFLAG_DOTRACE)
 	Exception (9, regs, last_trace_ad);
+    if (regs->spcflags & SPCFLAG_TRAP) {
+	unset_special (regs, SPCFLAG_TRAP);
+	Exception (3, regs, 0);
     }
     while (regs->spcflags & SPCFLAG_STOP) {
 	do_cycles (4 * CYCLE_UNIT);
 	if (regs->spcflags & SPCFLAG_COPPER)
 	    do_copper ();
-	if (regs->spcflags & (SPCFLAG_INT | SPCFLAG_DOINT)){
+	if (regs->spcflags & (SPCFLAG_INT | SPCFLAG_DOINT)) {
 	    int intr = intlev ();
 #ifdef JIT
 	    if (currprefs.cachesize)
@@ -1924,10 +1926,13 @@ void m68k_go (int may_quit)
 	    if (quit_program == 1)
 		break;
 	    quit_program = 0;
+
+#ifdef SAVESTATE
 	    if (savestate_state == STATE_RESTORE)
 		restore_state (savestate_fname);
 	    else if (savestate_state == STATE_REWIND)
 		savestate_rewind ();
+#endif
 	    /* following three lines must not be reordered or
 	     * fastram state restore breaks
 	     */
@@ -1938,14 +1943,18 @@ void m68k_go (int may_quit)
 	        memset (chipmemory, 0, allocated_chipmem);
 		write_log ("chipmem cleared\n");
 	    }
+
 	    customreset ();
 	    m68k_reset ();
+
+#ifdef SAVESTATE
 	    /* We may have been restoring state, but we're done now.  */
 	    if (savestate_state == STATE_RESTORE || savestate_state == STATE_REWIND) {
-	        map_overlay (1);
-	        fill_prefetch_slow (&regs); /* compatibility with old state saves */
+		map_overlay (1);
+		fill_prefetch_slow (&regs); /* compatibility with old state saves */
 	    }
 	    savestate_restore_finish ();
+#endif
 	    fill_prefetch_slow (&regs);
 	    if (currprefs.produce_sound == 0)
 		eventtab[ev_audio].active = 0;
@@ -1955,8 +1964,10 @@ void m68k_go (int may_quit)
             m68k_setpc (&regs, regs.pc);
 	}
 
+#ifdef DEBUGGER
 	if (debugging)
 	    debug ();
+#endif
 	if (regs.panic) {
 	    regs.panic = 0;
 	    /* program jumped to non-existing memory and cpu was >= 68020 */
@@ -1991,6 +2002,12 @@ void m68k_go (int may_quit)
 }
 
 
+#if defined(DEBUGGER) || defined (ENFORCER)
+
+static const char * const ccnames[] =
+{ "T","F","HI","LS","CC","CS","NE","EQ",
+  "VC","VS","PL","MI","GE","LT","GT","LE" };
+
 void m68k_disasm (void *f, uaecptr addr, uaecptr *nextpc, int cnt)
 {
     uaecptr newpc = 0;
@@ -2012,7 +2029,7 @@ void m68k_disasm (void *f, uaecptr addr, uaecptr *nextpc, int cnt)
 	for (lookup = lookuptab;lookup->mnemo != dp->mnemo; lookup++)
 	    ;
 
-	f_out (f, "%08lx ", m68k_getpc (&regs) + m68kpc_offset);
+	f_out (f, "%08x ", m68k_getpc (&regs) + m68kpc_offset);
 	m68kpc_offset += 2;
 
 	strcpy (instrname, lookup->name);
@@ -2047,11 +2064,11 @@ void m68k_disasm (void *f, uaecptr addr, uaecptr *nextpc, int cnt)
 
 	if (ccpt != 0) {
 	    if (cctrue (&regs.ccrflags, dp->cc))
-		f_out (f, " == %08lx (TRUE)", newpc);
+		f_out (f, " == %08x (TRUE)", newpc);
 	    else
-		f_out (f, " == %08lx (FALSE)", newpc);
+		f_out (f, " == %08x (FALSE)", newpc);
 	} else if ((opcode & 0xff00) == 0x6100) /* BSR */
-	    f_out (f, " == %08lx", newpc);
+	    f_out (f, " == %08x", newpc);
 	f_out (f, "\n");
     }
     if (nextpc)
@@ -2062,7 +2079,7 @@ void m68k_disasm (void *f, uaecptr addr, uaecptr *nextpc, int cnt)
  Disasm the m68kcode at the given address into instrname
  and instrcode
 *************************************************************/
-void sm68k_disasm(char *instrname, char *instrcode, uaecptr addr, uaecptr *nextpc)
+void sm68k_disasm (char *instrname, char *instrcode, uaecptr addr, uaecptr *nextpc)
 {
     char *ccpt;
     uae_u32 opcode;
@@ -2112,7 +2129,7 @@ void sm68k_disasm(char *instrname, char *instrcode, uaecptr addr, uaecptr *nextp
 	int i;
 	for (i = 0; i < (m68kpc_offset - oldpc) / 2; i++)
 	{
-	    sprintf(instrcode,"%04x ",get_iword_1 (&regs, oldpc + i * 2));
+	    sprintf (instrcode, "%04x ", get_iword_1 (&regs, oldpc + i * 2));
 	    instrcode += strlen(instrcode);
 	}
     }
@@ -2131,17 +2148,17 @@ void m68k_dumpstate (void *f, uaecptr *nextpc)
 #endif
 
     for (i = 0; i < 8; i++){
-	f_out (f, "D%d: %08lx ", i, m68k_dreg (&regs, i));
+	f_out (f, "D%d: %08x ", i, m68k_dreg (&regs, i));
 	if ((i & 3) == 3) f_out (f, "\n");
     }
     for (i = 0; i < 8; i++){
-	f_out (f, "A%d: %08lx ", i, m68k_areg (&regs, i));
+	f_out (f, "A%d: %08x ", i, m68k_areg (&regs, i));
 	if ((i & 3) == 3) f_out (f, "\n");
     }
     if (regs.s == 0) regs.usp = m68k_areg (&regs, 7);
     if (regs.s && regs.m) regs.msp = m68k_areg (&regs, 7);
     if (regs.s && regs.m == 0) regs.isp = m68k_areg (&regs, 7);
-    f_out (f, "USP=%08lx ISP=%08lx MSP=%08lx VBR=%08lx\n",
+    f_out (f, "USP=%08x ISP=%08x MSP=%08x VBR=%08x\n",
 	     regs.usp,regs.isp,regs.msp,regs.vbr);
     f_out (f, "T=%d%d S=%d M=%d X=%d N=%d Z=%d V=%d C=%d IMASK=%d\n",
 	     regs.t1, regs.t0, regs.s, regs.m,
@@ -2175,43 +2192,53 @@ void m68k_dumpstate (void *f, uaecptr *nextpc)
 
     m68k_disasm (f, m68k_getpc (&regs), nextpc, 1);
     if (nextpc)
-	f_out (f, "next PC: %08lx\n", *nextpc);
+	f_out (f, "next PC: %08x\n", *nextpc);
 }
 
+#else
+
+void m68k_dumpstate (void *f, uaecptr *nextpc)
+{
+}
+
+#endif
+
+
+#ifdef SAVESTATE
 
 /* CPU save/restore code */
 
 #define CPUTYPE_EC 1
 #define CPUMODE_HALT 1
 
-uae_u8 *restore_cpu (uae_u8 *src)
+const uae_u8 *restore_cpu (const uae_u8 *src)
 {
-    int i,model,flags;
+    unsigned int i, model, flags;
     uae_u32 l;
 
-    model = restore_u32();
+    model = restore_u32 ();
     switch (model) {
-    case 68000:
-	changed_prefs.cpu_level = 0;
-	break;
-    case 68010:
-	changed_prefs.cpu_level = 1;
-	break;
-    case 68020:
-	changed_prefs.cpu_level = 2;
-	break;
-    case 68040:
-	changed_prefs.cpu_level = 4;
-	break;
-    case 68060:
-	changed_prefs.cpu_level = 6;
-	break;
-    default:
-	write_log ("Unknown cpu type %d\n", model);
-	break;
+	case 68000:
+	    changed_prefs.cpu_level = 0;
+	    break;
+	case 68010:
+	    changed_prefs.cpu_level = 1;
+	    break;
+	case 68020:
+	    changed_prefs.cpu_level = 2;
+	    break;
+	case 68040:
+	    changed_prefs.cpu_level = 4;
+	    break;
+	case 68060:
+	    changed_prefs.cpu_level = 6;
+	    break;
+	default:
+	    write_log ("Unknown cpu type %d\n", model);
+	    break;
     }
 
-    flags = restore_u32();
+    flags = restore_u32 ();
     changed_prefs.address_space_24 = 0;
     if (flags & CPUTYPE_EC)
 	changed_prefs.address_space_24 = 1;
@@ -2230,7 +2257,7 @@ uae_u8 *restore_cpu (uae_u8 *src)
     regs.usp = restore_u32 ();
     regs.isp = restore_u32 ();
     regs.sr = restore_u16 ();
-    l = restore_u32();
+    l = restore_u32 ();
     if (l & CPUMODE_HALT) {
 	regs.stopped = 1;
 	set_special (&regs, SPCFLAG_STOP);
@@ -2249,19 +2276,19 @@ uae_u8 *restore_cpu (uae_u8 *src)
 	if (changed_prefs.m68k_speed == 0)
 	    currprefs.m68k_speed = changed_prefs.m68k_speed = -1;
     }
-    write_log ("CPU %d%s%03d, PC=%08.8X\n",
+    write_log ("CPU %d%s%03d, PC=%08x\n",
 	       model / 1000, flags & 1 ? "EC" : "", model % 1000, regs.pc);
 
     init_m68k ();
     return src;
 }
 
-static int cpumodel[] = { 68000, 68010, 68020, 68020, 68040, 68060 };
+static const int cpumodel[] = { 68000, 68010, 68020, 68020, 68040, 68060 };
 
-uae_u8 *save_cpu (int *len, uae_u8 *dstptr)
+uae_u8 *save_cpu (uae_u32 *len, uae_u8 *dstptr)
 {
-    uae_u8 *dstbak,*dst;
-    int model,i;
+    uae_u8 *dstbak, *dst;
+    unsigned int model, i;
 
     if (dstptr)
 	dstbak = dst = dstptr;
@@ -2270,7 +2297,7 @@ uae_u8 *save_cpu (int *len, uae_u8 *dstptr)
     model = cpumodel[currprefs.cpu_level];
     save_u32 (model);					/* MODEL */
     save_u32 (currprefs.address_space_24 ? 1 : 0);	/* FLAGS */
-    for(i = 0;i < 15; i++) save_u32 (regs.regs[i]);	/* D0-D7 A0-A6 */
+    for (i = 0; i < 15; i++) save_u32 (regs.regs[i]);	/* D0-D7 A0-A6 */
     save_u32 (m68k_getpc (&regs));			/* PC */
     save_u16 (regs.irc);				/* prefetch */
     save_u16 (regs.ir);					/* instruction prefetch */
@@ -2279,12 +2306,12 @@ uae_u8 *save_cpu (int *len, uae_u8 *dstptr)
     save_u32 (regs.s ? regs.regs[15] : regs.isp);	/* ISP */
     save_u16 (regs.sr);				/* SR/CCR */
     save_u32 (regs.stopped ? CPUMODE_HALT : 0);	/* flags */
-    if(model >= 68010) {
+    if (model >= 68010) {
 	save_u32 (regs.dfc);				/* DFC */
 	save_u32 (regs.sfc);				/* SFC */
 	save_u32 (regs.vbr);				/* VBR */
     }
-    if(model >= 68020) {
+    if (model >= 68020) {
 	save_u32 (caar);				/* CAAR */
 	save_u32 (cacr);				/* CACR */
 	save_u32 (regs.msp);				/* MSP */
@@ -2292,6 +2319,9 @@ uae_u8 *save_cpu (int *len, uae_u8 *dstptr)
     *len = dst - dstbak;
     return dstbak;
 }
+
+#endif /* SAVESTATE */
+
 
 static void exception3f (uae_u32 opcode, uaecptr addr, uaecptr fault, int writeaccess, int instructionaccess)
 {
@@ -2349,3 +2379,146 @@ void cpureset (void)
 }
 
 
+/*
+
+ The routines below take dividend and divisor as parameters.
+ They return 0 if division by zero, or exact number of cycles otherwise.
+
+ The number of cycles returned assumes a register operand.
+ Effective address time must be added if memory operand.
+
+ For 68000 only (not 68010, 68012, 68020, etc).
+ Probably valid for 68008 after adding the extra prefetch cycle.
+
+
+ Best and worst cases are for register operand:
+ (Note the difference with the documented range.)
+
+
+ DIVU:
+
+ Overflow (always): 10 cycles.
+ Worst case: 136 cycles.
+ Best case: 76 cycles.
+
+
+ DIVS:
+
+ Absolute overflow: 16-18 cycles.
+ Signed overflow is not detected prematurely.
+
+ Worst case: 156 cycles.
+ Best case without signed overflow: 122 cycles.
+ Best case with signed overflow: 120 cycles
+
+
+ */
+
+
+//
+// DIVU
+// Unsigned division
+//
+
+STATIC_INLINE int getDivu68kCycles_2(uae_u32 dividend, uae_u16 divisor)
+{
+	int mcycles;
+	uae_u32 hdivisor;
+	int i;
+
+	if(divisor == 0)
+		return 0;
+
+	// Overflow
+	if((dividend >> 16) >= divisor)
+		return (mcycles = 5) * 2;
+
+	mcycles = 38;
+	hdivisor = divisor << 16;
+
+	for( i = 0; i < 15; i++)
+	{
+		uae_u32 temp;
+		temp = dividend;
+
+		dividend <<= 1;
+
+		// If carry from shift
+		if((uae_s32)temp < 0)
+		{
+			dividend -= hdivisor;
+		}
+		else
+		{
+			mcycles += 2;
+			if(dividend >= hdivisor)
+			{
+				dividend -= hdivisor;
+				mcycles--;
+			}
+		}
+	}
+	return mcycles * 2;
+}
+int getDivu68kCycles(uae_u32 dividend, uae_u16 divisor)
+{
+    int v = getDivu68kCycles_2(dividend, divisor) - 4;
+//    write_log ("U%d ", v);
+    return v;
+}
+
+//
+// DIVS
+// Signed division
+//
+
+STATIC_INLINE int getDivs68kCycles_2(uae_s32 dividend, uae_s16 divisor)
+{
+	int mcycles;
+	uae_u32 aquot;
+	int i;
+
+	if(divisor == 0)
+		return 0;
+
+	mcycles = 6;
+
+	if( dividend < 0)
+		mcycles++;
+
+	// Check for absolute overflow
+	if(((uae_u32)abs(dividend) >> 16) >= (uae_u16)abs(divisor))
+	{
+		return (mcycles + 2) * 2;
+	}
+
+	// Absolute quotient
+	aquot = (uae_u32) abs(dividend) / (uae_u16)abs(divisor);
+
+	mcycles += 55;
+
+	if(divisor >= 0)
+	{
+		if(dividend >= 0)
+			mcycles--;
+		else
+			mcycles++;
+	}
+
+	// Count 15 msbits in absolute of quotient
+
+	for( i = 0; i < 15; i++)
+	{
+		if((uae_s16)aquot >= 0)
+			mcycles++;
+		aquot <<= 1;
+	}
+
+	return mcycles * 2;
+}
+int getDivs68kCycles(uae_s32 dividend, uae_s16 divisor)
+{
+    int v = getDivs68kCycles_2(dividend, divisor) - 4;
+//    write_log ("S%d ", v);
+    return v;
+}

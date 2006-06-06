@@ -4,7 +4,7 @@
   * SDL graphics support
   *
   * Copyright 2001 Bernd Lachner (EMail: dev@lachner-net.de)
-  * Copyright 2003-2005 Richard Drummond
+  * Copyright 2003-2006 Richard Drummond
   *
   * Partialy based on the UAE X interface (xwin.c)
   *
@@ -44,8 +44,8 @@
 #define DEBUG_LOG(...) do ; while(0)
 #endif
 
-/* SDL variable for output surface */
-static SDL_Surface *prSDLScreen = NULL;
+static SDL_Surface *display;
+static SDL_Surface *screen;
 
 /* Standard P96 screen modes */
 #define MAX_SCREEN_MODES 12
@@ -87,7 +87,6 @@ static int fullscreen;
 static int mousegrab;
 
 static int is_hwsurface;
-static int hwsurface_is_profitable = 0;
 
 static int have_rawkeys;
 
@@ -179,33 +178,17 @@ static int init_colors (void)
     DEBUG_LOG ("Function: init_colors\n");
 
     if (bitdepth > 8) {
-	red_bits    = bitsInMask (prSDLScreen->format->Rmask);
-	green_bits  = bitsInMask (prSDLScreen->format->Gmask);
-	blue_bits   = bitsInMask (prSDLScreen->format->Bmask);
-	red_shift   = maskShift (prSDLScreen->format->Rmask);
-	green_shift = maskShift (prSDLScreen->format->Gmask);
-	blue_shift  = maskShift (prSDLScreen->format->Bmask);
+	red_bits    = bitsInMask (display->format->Rmask);
+	green_bits  = bitsInMask (display->format->Gmask);
+	blue_bits   = bitsInMask (display->format->Bmask);
+	red_shift   = maskShift (display->format->Rmask);
+	green_shift = maskShift (display->format->Gmask);
+	blue_shift  = maskShift (display->format->Bmask);
 
-	alloc_colors64k (red_bits, green_bits, blue_bits, red_shift, green_shift, blue_shift, 0, 0, 0);
+	alloc_colors64k (red_bits, green_bits, blue_bits, red_shift, green_shift, blue_shift, 0, 0, 0, 0);
     } else {
 	alloc_colors256 (get_color);
-	SDL_SetColors (prSDLScreen, arSDLColors, 0, 256);
-    }
-
-    switch (gfxvidinfo.pixbytes) {
-	case 2:
-	    for (i = 0; i < 4096; i++)
-		xcolors[i] = xcolors[i] * 0x00010001;
-	    gfxvidinfo.can_double = 1;
-	    break;
-	case 1:
-	    for (i = 0; i < 4096; i++)
-		xcolors[i] = xcolors[i] * 0x01010101;
-	    gfxvidinfo.can_double = 1;
-	    break;
-	default:
-	    gfxvidinfo.can_double = 0;
-	    break;
+	SDL_SetColors (screen, arSDLColors, 0, 256);
     }
 
     return 1;
@@ -363,10 +346,6 @@ static void sdl_flush_line (struct vidbuf_description *gfxinfo, int line_no)
 {
 }
 
-static void sdl_flush_screen (struct vidbuf_description *gfxinfo, int first_line, int last_line)
-{
-}
-
 
 /**
  ** Buffer methods for SDL surfaces that don't need locking
@@ -383,7 +362,7 @@ static void sdl_unlock_nolock (struct vidbuf_description *gfxinfo)
 
 STATIC_INLINE void sdl_flush_block_nolock (struct vidbuf_description *gfxinfo, int first_line, int last_line)
 {
-   SDL_UpdateRect (prSDLScreen, 0, first_line, current_width, last_line - first_line + 1);
+   SDL_UpdateRect (display, 0, first_line, current_width, last_line - first_line + 1);
 }
 
 
@@ -397,16 +376,16 @@ static int sdl_lock (struct vidbuf_description *gfxinfo)
 
     DEBUG_LOG ("Function: lock\n");
 
-    if (SDL_LockSurface (prSDLScreen) == 0) {
-	gfxinfo->bufmem   = prSDLScreen->pixels;
-	gfxinfo->rowbytes = prSDLScreen->pitch;
+    if (SDL_LockSurface (display) == 0) {
+	gfxinfo->bufmem   = display->pixels;
+	gfxinfo->rowbytes = display->pitch;
 
-	if (prSDLScreen->pixels != old_pixels) {
+	if (display->pixels != old_pixels) {
 	   /* If the address of the pixel data has
 	    * changed, recalculate the row maps
 	    */
 	    init_row_map ();
-	    old_pixels = prSDLScreen->pixels;
+	    old_pixels = display->pixels;
 	}
 	success = 1;
     }
@@ -417,28 +396,53 @@ static void sdl_unlock (struct vidbuf_description *gfxinfo)
 {
     DEBUG_LOG ("Function: unlock\n");
 
-    SDL_UnlockSurface (prSDLScreen);
+    SDL_UnlockSurface (display);
 }
 
 static void sdl_flush_block (struct vidbuf_description *gfxinfo, int first_line, int last_line)
 {
     DEBUG_LOG ("Function: flush_block %d %d\n", first_line, last_line);
 
-    SDL_UnlockSurface (prSDLScreen);
+    SDL_UnlockSurface (display);
 
     sdl_flush_block_nolock (gfxinfo, first_line, last_line);
 
-    SDL_LockSurface (prSDLScreen);
+    SDL_LockSurface (display);
 }
+
+
+
+static void sdl_flush_screen_dummy (struct vidbuf_description *gfxinfo, int first_line, int last_line)
+{
+}
+
+#include "hrtimer.h"
+
+static void sdl_flush_screen_flip (struct vidbuf_description *gfxinfo, int first_line, int last_line)
+{
+    frame_time_t start_time;
+    frame_time_t sleep_time;
+
+    SDL_BlitSurface (display,0,screen,0);
+
+    start_time = uae_gethrtime ();
+
+    SDL_Flip (screen);
+
+    sleep_time = uae_gethrtime () - start_time;
+    idletime += sleep_time;
+}
+
+
 
 static void sdl_flush_clear_screen (struct vidbuf_description *gfxinfo)
 {
     DEBUG_LOG ("Function: flush_clear_screen\n");
 
-    if (prSDLScreen) {
-	SDL_Rect rect = { 0, 0, prSDLScreen->w, prSDLScreen->h };
-	SDL_FillRect (prSDLScreen, &rect, SDL_MapRGB (prSDLScreen->format, 0,0,0));
-	SDL_UpdateRect (prSDLScreen, 0, 0, rect.w, rect.h);
+    if (display) {
+	SDL_Rect rect = { 0, 0, display->w, display->h };
+	SDL_FillRect (display, &rect, SDL_MapRGB (display->format, 0,0,0));
+	SDL_UpdateRect (display, 0, 0, rect.w, rect.h);
     }
 }
 
@@ -464,11 +468,6 @@ int graphics_setup (void)
 	/* Build list of screenmodes */
 	mode_count = find_screen_modes (info->vfmt, &screenmode[0], MAX_SDL_SCREENMODE);
 
-	hwsurface_is_profitable = (info->blit_fill);
-
-	if (hwsurface_is_profitable)
-	    write_log ("SDLGFX: HW surfaces are profitable for P96 emulation.\n");
-
 	result = 1;
     } else
 	write_log ("SDLGFX: initialization failed - %s\n", SDL_GetError());
@@ -484,24 +483,23 @@ static int graphics_subinit (void)
 
     if (bitdepth == 8)
 	uiSDLVidModFlags |= SDL_HWPALETTE;
-    if (fullscreen)
-	uiSDLVidModFlags |= SDL_FULLSCREEN;
-#ifdef PICASSO96
-   if (hwsurface_is_profitable && screen_is_picasso)
-	uiSDLVidModFlags |= SDL_HWSURFACE;
-#endif
+    if (fullscreen) {
+	uiSDLVidModFlags |= SDL_FULLSCREEN | SDL_HWSURFACE;
+        if(!screen_is_picasso && currprefs.gfx_vsync)
+	    uiSDLVidModFlags |= SDL_DOUBLEBUF;
+    }
 
     DEBUG_LOG ("Resolution: %d x %d x %d\n", current_width, current_height, bitdepth);
 
-    prSDLScreen = SDL_SetVideoMode (current_width, current_height, bitdepth, uiSDLVidModFlags);
+    screen = SDL_SetVideoMode (current_width, current_height, bitdepth, uiSDLVidModFlags);
 
-    if (prSDLScreen == NULL) {
+    if (screen == NULL) {
 	gui_message ("Unable to set video mode: %s\n", SDL_GetError ());
 	return 0;
     } else {
 	/* Just in case we didn't get exactly what we asked for . . . */
-	fullscreen   = ((prSDLScreen->flags & SDL_FULLSCREEN) == SDL_FULLSCREEN);
-	is_hwsurface = ((prSDLScreen->flags & SDL_HWSURFACE)  == SDL_HWSURFACE);
+	fullscreen   = ((screen->flags & SDL_FULLSCREEN) == SDL_FULLSCREEN);
+	is_hwsurface = ((screen->flags & SDL_HWSURFACE)  == SDL_HWSURFACE);
 
 	/* Are these values what we expected? */
 #	ifdef PICASSO96
@@ -510,12 +508,12 @@ static int graphics_subinit (void)
 	DEBUG_LOG ("Fullscreen?    : %d\n", fullscreen);
 	DEBUG_LOG ("Mouse grabbed? : %d\n", mousegrab);
 	DEBUG_LOG ("HW surface?    : %d\n", is_hwsurface);
-	DEBUG_LOG ("Must lock?     : %d\n", SDL_MUSTLOCK (prSDLScreen));
-	DEBUG_LOG ("Bytes per Pixel: %d\n", prSDLScreen->format->BytesPerPixel);
-	DEBUG_LOG ("Bytes per Line : %d\n", prSDLScreen->pitch);
+	DEBUG_LOG ("Must lock?     : %d\n", SDL_MUSTLOCK (screen));
+	DEBUG_LOG ("Bytes per Pixel: %d\n", screen->format->BytesPerPixel);
+	DEBUG_LOG ("Bytes per Line : %d\n", screen->pitch);
 
 	/* Set up buffer methods */
-	if (SDL_MUSTLOCK (prSDLScreen)) {
+	if (SDL_MUSTLOCK (screen)) {
 	    gfxvidinfo.lockscr     = sdl_lock;
 	    gfxvidinfo.unlockscr   = sdl_unlock;
 	    gfxvidinfo.flush_block = sdl_flush_block;
@@ -526,10 +524,22 @@ static int graphics_subinit (void)
 	}
         gfxvidinfo.flush_clear_screen = sdl_flush_clear_screen;
 
+
+        if(screen->flags & SDL_DOUBLEBUF) {
+	    display = SDL_CreateRGBSurface(SDL_HWSURFACE, screen->w, screen->h, screen->format->BitsPerPixel,
+					  screen->format->Rmask, screen->format->Gmask, screen->format->Bmask, 0);
+
+	    gfxvidinfo.flush_screen = sdl_flush_screen_flip;
+	} else {
+	    display = screen;
+
+	    gfxvidinfo.flush_screen = sdl_flush_screen_dummy;
+	}
+
 	/* Set UAE window title and icon name */
 	SDL_WM_SetCaption (PACKAGE_NAME, PACKAGE_NAME);
 
-        /* Mouse is now always grabbed when full-screen - to work around
+	/* Mouse is now always grabbed when full-screen - to work around
 	 * problems with full-screen mouse input in some SDL implementations */
 	if (fullscreen)
 	    SDL_WM_GrabInput (SDL_GRAB_ON);
@@ -537,7 +547,7 @@ static int graphics_subinit (void)
 	    SDL_WM_GrabInput (mousegrab ? SDL_GRAB_ON : SDL_GRAB_OFF);
 
 	/* Hide mouse cursor */
-	SDL_ShowCursor (SDL_DISABLE);
+	SDL_ShowCursor (currprefs.hide_cursor || fullscreen || mousegrab ? SDL_DISABLE : SDL_ENABLE);
 
         inputdevice_release_all_keys ();
         reset_hotkeys ();
@@ -547,19 +557,25 @@ static int graphics_subinit (void)
 #endif
 	    /* Initialize structure for Amiga video modes */
 	    if (is_hwsurface) {
-		gfxvidinfo.bufmem	= 0;
-		gfxvidinfo.emergmem	= malloc (prSDLScreen->pitch);
-	    } else {
-		gfxvidinfo.bufmem	= prSDLScreen->pixels;
-		gfxvidinfo.emergmem	= 0;
+		SDL_LockSurface (display);
+		gfxvidinfo.bufmem	 = 0;
+		gfxvidinfo.emergmem	 = malloc (display->pitch);
+		gfxvidinfo.maxblocklines = 0;
+		SDL_UnlockSurface (display);
+	    }
+
+	    if (!is_hwsurface) {
+		gfxvidinfo.bufmem	 = display->pixels;
+		gfxvidinfo.emergmem	 = 0;
+		gfxvidinfo.maxblocklines = gfxvidinfo.height;
 	    }
 	    gfxvidinfo.linemem		= 0;
-	    gfxvidinfo.pixbytes		= prSDLScreen->format->BytesPerPixel;
-	    bit_unit			= prSDLScreen->format->BytesPerPixel * 8;
-	    gfxvidinfo.rowbytes		= prSDLScreen->pitch;
-	    gfxvidinfo.maxblocklines	= 1000;
+	    gfxvidinfo.pixbytes		= display->format->BytesPerPixel;
+	    bit_unit			= display->format->BytesPerPixel * 8;
+	    gfxvidinfo.rowbytes		= display->pitch;
 
-	    SDL_SetColors (prSDLScreen, arSDLColors, 0, 256);
+
+	    SDL_SetColors (display, arSDLColors, 0, 256);
 
     	    reset_drawing ();
 
@@ -568,7 +584,7 @@ static int graphics_subinit (void)
 #ifdef PICASSO96
 	} else {
 	    /* Initialize structure for Picasso96 video modes */
-	    picasso_vidinfo.rowbytes	= prSDLScreen->pitch;
+	    picasso_vidinfo.rowbytes	= display->pitch;
 	    picasso_vidinfo.extra_mem	= 1;
 	    picasso_vidinfo.depth	= bitdepth;
 	    picasso_has_invalid_lines	= 0;
@@ -622,8 +638,11 @@ static void graphics_subshutdown (void)
 {
     DEBUG_LOG ("Function: graphics_subshutdown\n");
 
-    SDL_FreeSurface (prSDLScreen);
-    prSDLScreen = 0;
+    SDL_FreeSurface (display);
+    if (display != screen)
+	SDL_FreeSurface (screen);
+
+    display = screen = 0;
 
     if (gfxvidinfo.emergmem) {
 	free (gfxvidinfo.emergmem);
@@ -730,7 +749,7 @@ void handle_events (void)
 
 #ifdef PICASSO96
     if (screen_is_picasso && refresh_necessary) {
-	SDL_UpdateRect (prSDLScreen, 0, 0, picasso_vidinfo.width, picasso_vidinfo.height);
+	SDL_UpdateRect (screen, 0, 0, picasso_vidinfo.width, picasso_vidinfo.height);
 	refresh_necessary = 0;
 	memset (picasso_invalid_lines, 0, sizeof picasso_invalid_lines);
     } else if (screen_is_picasso && picasso_has_invalid_lines) {
@@ -746,7 +765,7 @@ void handle_events (void)
 	    } else {
 		if (strt == -1)
 		    continue;
-		SDL_UpdateRect (prSDLScreen, 0, strt, picasso_vidinfo.width, i - strt);
+		SDL_UpdateRect (screen, 0, strt, picasso_vidinfo.width, i - strt);
 		strt = -1;
 	    }
 	}
@@ -853,9 +872,6 @@ void DX_Invalidate (int first, int last)
     DEBUG_LOG ("Function: DX_Invalidate %i - %i\n", first, last);
 
     if (is_hwsurface)
-	/* Not necessary for hardware surfaces - except the current
-	 * SDL implementation for OS4 which has a skewed notion of
-	 * what constitutes a hardware surface. ;-) */
 	return;
 
     if (first > last)
@@ -906,7 +922,7 @@ void DX_SetPalette (int start, int count)
 	    p96Colors[i].g = picasso96_state.CLUT[i].Green;
 	    p96Colors[i].b = picasso96_state.CLUT[i].Blue;
 	}
-	SDL_SetColors (prSDLScreen, &p96Colors[start], start, count);
+	SDL_SetColors (screen, &p96Colors[start], start, count);
     }
 }
 
@@ -927,7 +943,7 @@ int DX_Fill (int dstx, int dsty, int width, int height, uae_u32 color, RGBFTYPE 
 
     DEBUG_LOG ("DX_Fill (x:%d y:%d w:%d h:%d color=%08x)\n", dstx, dsty, width, height, color);
 
-    if (SDL_FillRect (prSDLScreen, &rect, color) == 0) {
+    if (SDL_FillRect (screen, &rect, color) == 0) {
 	DX_Invalidate (dsty, dsty + height - 1);
 	result = 1;
     }
@@ -943,7 +959,7 @@ int DX_Blit (int srcx, int srcy, int dstx, int dsty, int width, int height, BLIT
     DEBUG_LOG ("DX_Blit (sx:%d sy:%d dx:%d dy:%d w:%d h:%d op:%d)\n",
 	       srcx, srcy, dstx, dsty, width, height, opcode);
 
-    if (opcode == BLIT_SRC && SDL_BlitSurface (prSDLScreen, &src_rect, prSDLScreen, &dest_rect) == 0) {
+    if (opcode == BLIT_SRC && SDL_BlitSurface (screen, &src_rect, screen, &dest_rect) == 0) {
         DX_Invalidate (dsty, dsty + height - 1);
 	result = 1;
     }
@@ -1077,18 +1093,18 @@ uae_u8 *gfx_lock_picasso (void)
 {
     DEBUG_LOG ("Function: gfx_lock_picasso\n");
 
-    if (SDL_MUSTLOCK (prSDLScreen))
-	SDL_LockSurface (prSDLScreen);
-    picasso_vidinfo.rowbytes = prSDLScreen->pitch;
-    return prSDLScreen->pixels;
+    if (SDL_MUSTLOCK (screen))
+	SDL_LockSurface (screen);
+    picasso_vidinfo.rowbytes = screen->pitch;
+    return screen->pixels;
 }
 
 void gfx_unlock_picasso (void)
 {
     DEBUG_LOG ("Function: gfx_unlock_picasso\n");
 
-    if (SDL_MUSTLOCK (prSDLScreen))
-	SDL_UnlockSurface (prSDLScreen);
+    if (SDL_MUSTLOCK (screen))
+	SDL_UnlockSurface (screen);
 }
 #endif /* PICASSO96 */
 
@@ -1115,12 +1131,16 @@ void toggle_mousegrab (void)
 {
     if (!fullscreen) {
 	if (SDL_WM_GrabInput (SDL_GRAB_QUERY) == SDL_GRAB_OFF) {
-	    SDL_WM_GrabInput (SDL_GRAB_ON);
-	    SDL_WarpMouse (0, 0);
-	    mousegrab = 1;
+	    if (SDL_WM_GrabInput (SDL_GRAB_ON) == SDL_GRAB_ON) {
+		SDL_WarpMouse (0, 0);
+		mousegrab = 1;
+		SDL_ShowCursor (SDL_DISABLE);
+	    }
 	} else {
-	    SDL_WM_GrabInput (SDL_GRAB_OFF);
-	    mousegrab = 0;
+	    if (SDL_WM_GrabInput (SDL_GRAB_OFF) == SDL_GRAB_OFF) {
+		mousegrab = 0;
+		SDL_ShowCursor (currprefs.hide_cursor ?  SDL_DISABLE : SDL_ENABLE);
+	    }
 	}
     }
 }

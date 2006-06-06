@@ -262,10 +262,10 @@ static void init_colors (void)
 
 	switch (gfxvidinfo.pixbytes) {
 	 case 4:
-	    alloc_colors64k (8, 8, 8, 16, 8, 0);
+	    alloc_colors64k (8, 8, 8, 16, 8, 0, 0, 0, 0, 0);
 	    break;
 	 case 2:
-	    alloc_colors64k (rw, gw, bw, gw+bw, bw, 0);
+	    alloc_colors64k (rw, gw, bw, gw+bw, bw, 0, 0, 0, 0, 0);
 	    break;
 	 case 1:
 	    alloc_colors256 (get_color);
@@ -273,21 +273,6 @@ static void init_colors (void)
 	 default:
 	    abort();
 	}
-    }
-    switch (gfxvidinfo.pixbytes) {
-     case 2:
-	for (i = 0; i < 4096; i++)
-	    xcolors[i] = xcolors[i] * 0x00010001;
-	gfxvidinfo.can_double = 1;
-	break;
-     case 1:
-	for (i = 0; i < 4096; i++)
-	    xcolors[i] = xcolors[i] * 0x01010101;
-	gfxvidinfo.can_double = 1;
-	break;
-     default:
-	gfxvidinfo.can_double = 0;
-	break;
     }
 }
 

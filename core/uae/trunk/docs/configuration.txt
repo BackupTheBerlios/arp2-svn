@@ -569,11 +569,11 @@ gfx_width_fullscreen=<n> (default=800)
 gfx_height_fullscreen=<n> (defaullt=600)
 
   Specify the dimensions of the E-UAE display for graphical ouptut from the
-  Amiga chipset. 
-  
+  Amiga chipset.
+
   Ideally, the gfx_*_windowed options should specify the dimensions when
-  E-UAE is running in a window on your desktop and the gfx_*_fullscreen 
-  options will apply when running full-screen. However, this is not supported 
+  E-UAE is running in a window on your desktop and the gfx_*_fullscreen
+  options will apply when running full-screen. However, this is not supported
   yet, and E-UAE will use the gfx_*_windowed dimensions in both windowed and
   full-screen modes.
 
@@ -586,12 +586,12 @@ gfx_height_fullscreen=<n> (defaullt=600)
   display of 360 by 284 pixels.
 
 
-gfx_width=<n> 
+gfx_width=<n>
 gfx_height=<n>
 
   These option are for backwards-compatibility and have been superceded by
   the gfx_*_windowed and gfx_*_fullscreen options above.
-  
+
 
 gfx_fullscreen_amiga=<bool> (default=false)
 
@@ -657,6 +657,13 @@ show_leds=<bool> (default=false)
 
   If true, show drive activity and power LEDs at the bottom right corner of
   the E-UAE display.
+
+
+hide_cursor=<bool> (default=true)
+
+  If this option is set to true and E-UAE is displaying in windowed mode,
+  then the host window manager's cursor is hidden; otherwise it is shown.
+  This option may not be implemented on all platforms yet.
 
 
 Sound options
@@ -820,10 +827,9 @@ x11.use_mitshm=<bool> (default=true)
   increase display refresh speed.
 
 
-x11.hide_cursor=<bool> (default=true)
+x11.hide_cursor=<bool>
 
-  If this option is set to true then the X cursor is hidden when it is
-  inside the E-UAE window; otherwise it is not.
+  Deprecated. This option has been replaced by hide_cursor=<bool>.
 
 
 SDL-specific options

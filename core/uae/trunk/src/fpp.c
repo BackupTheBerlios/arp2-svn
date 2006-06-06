@@ -1419,11 +1419,14 @@ void fpp_opp (uae_u32 opcode, struct regstruct *regs, uae_u16 extra)
 
 #endif
 
-uae_u8 *restore_fpu (uae_u8 *src)
-{
-    int model, i;
 
-    model = restore_u32();
+#ifdef SAVESTATE
+
+const uae_u8 *restore_fpu (const uae_u8 *src)
+{
+    unsigned int model, i;
+
+    model = restore_u32 ();
     restore_u32 ();
     if (currprefs.cpu_level == 2) {
 	currprefs.cpu_level++;
@@ -1442,25 +1445,24 @@ uae_u8 *restore_fpu (uae_u8 *src)
     return src;
 }
 
-uae_u8 *save_fpu (int *len, uae_u8 *dstptr)
+uae_u8 *save_fpu (uae_u32 *len, uae_u8 *dstptr)
 {
-    uae_u8 *dstbak,*dst;
-    int model,i;
+    uae_u8 *dstbak, *dst;
+    unsigned int model, i;
 
     *len = 0;
-    switch (currprefs.cpu_level)
-    {
+    switch (currprefs.cpu_level) {
 	case 3:
-	model = 68881;
-	break;
+	    model = 68881;
+	    break;
 	case 4:
-	model = 68040;
-	break;
+	    model = 68040;
+	    break;
 	case 6:
-	model = 68060;
-	break;
+	    model = 68060;
+	    break;
 	default:
-	return 0;
+	    return 0;
     }
     if (dstptr)
 	dstbak = dst = dstptr;
@@ -1481,3 +1483,5 @@ uae_u8 *save_fpu (int *len, uae_u8 *dstptr)
     *len = dst - dstbak;
     return dstbak;
 }
+
+#endif /* SAVESTATE */
