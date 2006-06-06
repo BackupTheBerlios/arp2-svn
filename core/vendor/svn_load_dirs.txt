@@ -1,8 +1,15 @@
 Template for importing vendor branches here:
 
+# E-UAE
 svn_load_dirs.pl -t e-uae-0.8.27 svn+ssh://svn.berlios.de/svnroot/repos/arp2/core/vendor/uae current .
 svn_load_dirs.pl -t e-uae-0.8.28 svn+ssh://svn.berlios.de/svnroot/repos/arp2/core/vendor/uae current .
+svn_load_dirs.pl -t e-uae-0.8.29-WIP2 svn+ssh://svn.berlios.de/svnroot/repos/arp2/core/vendor/uae current .
 
+cd <checkout of //mirror/arp2/core/uae/trunk> 
+svk smerge -C //mirror/arp2/core/vendor/uae/current/
+
+
+# The Linux kernel was imported with
 svn_load_dirs.pl -t linux-2.6.14 svn+ssh://svn.berlios.de/svnroot/repos/arp2/core/vendor/kernel/linux current .
 svn cp svn+ssh://svn.berlios.de/svnroot/repos/arp2/core/vendor/kernel/linux/current svn+ssh://svn.berlios.de/svnroot/repos/arp2/core/vendor/kernel/fedora/
 
