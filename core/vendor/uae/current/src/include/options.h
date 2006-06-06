@@ -36,7 +36,7 @@ struct strlist {
 struct uae_input_device {
     char    *name;
     uae_s16  eventid[MAX_INPUT_DEVICE_EVENTS][MAX_INPUT_SUB_EVENT];
-    char    *custom [MAX_INPUT_DEVICE_EVENTS][MAX_INPUT_SUB_EVENT];   
+    char    *custom [MAX_INPUT_DEVICE_EVENTS][MAX_INPUT_SUB_EVENT];
     uae_u16  flags  [MAX_INPUT_DEVICE_EVENTS][MAX_INPUT_SUB_EVENT];
     uae_s16  extra  [MAX_INPUT_DEVICE_EVENTS][MAX_INPUT_SIMULTANEOUS_KEYS];
     uae_u8   enabled;
@@ -56,32 +56,33 @@ struct uae_prefs {
     int config_version;
 
     int illegal_mem;
-    int no_xhair;
     int use_serial;
     int serial_demand;
     int serial_hwctsrts;
     int serial_direct;
     int parallel_demand;
-    int use_gfxlib;
     int socket_emu;
 
+#ifdef DEBUGGER
     int start_debugger;
+#endif
     int start_gui;
 
     KbdLang keyboard_lang;
     int test_drawing_speed;
 
     int produce_sound;
-    int stereo;
-    int mixed_stereo;
+    int sound_stereo;
+    int sound_stereo_separation;
+    int sound_mixed_stereo;
     int sound_bits;
     int sound_freq;
     int sound_maxbsiz;
     int sound_interpol;
     int sound_adjust;
-    int sound_filter;
     int sound_volume;
 
+#ifdef JIT
     int comptrustbyte;
     int comptrustword;
     int comptrustlong;
@@ -100,8 +101,8 @@ struct uae_prefs {
     int optcount[10];
 
     int avoid_cmov;
+#endif
 
-    int gfx_display;
     int gfx_framerate;
     int gfx_width_win, gfx_height_win;
     int gfx_width_fs, gfx_height_fs;
@@ -115,8 +116,8 @@ struct uae_prefs {
     int gfx_pfullscreen;
     int gfx_xcenter;
     int gfx_ycenter;
-    int gfx_hue, gfx_saturation, gfx_luminance, gfx_contrast, gfx_gamma;
 
+#ifdef GFXFILTER
     int gfx_filter;
     int gfx_filter_scanlines;
     int gfx_filter_scanlineratio;
@@ -124,11 +125,14 @@ struct uae_prefs {
     int gfx_filter_horiz_zoom, gfx_filter_vert_zoom;
     int gfx_filter_horiz_offset, gfx_filter_vert_offset;
     int gfx_filter_filtermode;
+#endif
+
     int color_mode;
 
     int immediate_blits;
     unsigned int chipset_mask;
     int ntscmode;
+    int genlock;
     int chipset_refreshrate;
     int collision_level;
     int leds_on_screen;
@@ -150,8 +154,9 @@ struct uae_prefs {
     char romextfile[256];
     char keyfile[256];
     char flashfile[256];
+#ifdef ACTION_REPLAY
     char cartfile[256];
-    char pci_devices[256];
+#endif
     char prtname[256];
     char sername[256];
 #ifndef WIN32
@@ -161,6 +166,9 @@ struct uae_prefs {
     char path_floppy[256];
     char path_hardfile[256];
     char path_rom[256];
+#ifdef SAVESTATE
+    char path_savestate[256];
+#endif
 
     int m68k_speed;
     int cpu_level;
@@ -185,16 +193,19 @@ struct uae_prefs {
 
     int nr_floppies;
     int dfxtype[4];
+#ifdef DRIVESOUND
     int dfxclick[4];
     char dfxclickexternal[4][256];
     int dfxclickvolume;
+#endif
+
+    int hide_cursor;				/* Whether to hide host WM cursor or not */
 
     /* Target specific options */
 #ifdef USE_X11_GFX
     int x11_use_low_bandwidth;
     int x11_use_mitshm;
     int x11_use_dgamode;
-    int x11_hide_cursor;
 #endif
 
 #ifdef USE_SVGALIB_GFX
@@ -237,8 +248,10 @@ struct uae_prefs {
     int  amiga_use_dither;
 #endif
 
+#ifdef SAVESTATE
     int statecapture;
     int statecapturerate, statecapturebuffersize;
+#endif
 
     /* input */
 

@@ -230,7 +230,7 @@ void UAEWindow::InitColors (color_space colorspace)
 	int redShift, greenShift, blueShift;
 
 	get_color_bitshifts (colorspace, &redBits, &greenBits, &blueBits, &redShift, &greenShift, &blueShift);
-	alloc_colors64k (redBits, greenBits, blueBits, redShift, greenShift, blueShift, 0, 0, 0);
+	alloc_colors64k (redBits, greenBits, blueBits, redShift, greenShift, blueShift, 0, 0, 0, 0);
     }
 }
 

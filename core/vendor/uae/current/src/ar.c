@@ -1595,42 +1595,47 @@ void action_replay_memory_reset(void)
     action_replay_checksum_info();
 }
 
-uae_u8 *save_action_replay (int *len, uae_u8 *dstptr)
+
+#ifdef SAVESTATE
+
+uae_u8 *save_action_replay (uae_u32 *len, uae_u8 *dstptr)
 {
-    uae_u8 *dstbak,*dst;
+    uae_u8 *dstbak, *dst;
 
     *len = 1;
     if (!armemory_ram || !armemory_rom || !armodel)
 	return 0;
-    *len = 1 + strlen(currprefs.cartfile) + 1 + arram_size + 256;
+    *len = 1 + strlen (currprefs.cartfile) + 1 + arram_size + 256;
     if (dstptr)
 	dstbak = dst = dstptr;
     else
-        dstbak = dst = malloc (*len);
+	dstbak = dst = malloc (*len);
     save_u8 (armodel);
-    strcpy (dst, currprefs.cartfile);
-    dst += strlen(dst) + 1;
+    strcpy ((char *) dst, currprefs.cartfile);
+    dst += strlen ((const char *) dst) + 1;
     memcpy (dst, armemory_ram, arram_size);
     return dstbak;
 }
 
-uae_u8 *restore_action_replay (uae_u8 *src)
+const uae_u8 *restore_action_replay (const uae_u8 *src)
 {
     action_replay_unload (1);
     armodel = restore_u8 ();
     if (!armodel)
 	return src;
-    strncpy (changed_prefs.cartfile, src, 255);
+    strncpy (changed_prefs.cartfile, (char *) src, 255);
     strcpy (currprefs.cartfile, changed_prefs.cartfile);
-    src += strlen(src) + 1;
+    src += strlen ((const char *) src) + 1;
     action_replay_load ();
     if (armemory_ram) {
 	memcpy (armemory_ram, src, arram_size);
 	memcpy (ar_custom, armemory_ram + 0xf000, 2 * 256);
-        src += arram_size;
+	src += arram_size;
     }
     src += 256;
     return src;
 }
+
+#endif /* SAVESTATE */
 
 #endif /* ACTION_REPLAY */

@@ -23,12 +23,18 @@
 #include "threaddep/thread.h"
 
 /*
- * CreateNewProc() on MorphOS needs to be told that code is PPC
+ * Handle CreateNewProc() differences between AmigaOS-like systems 
  */
 #ifdef __MORPHOS__
+/* CreateNewProc() on MorphOS needs to be told that code is PPC */
 # define myCreateNewProcTags(...) CreateNewProcTags(NP_CodeType, CODETYPE_PPC, __VA_ARGS__)
 #else
-# define myCreateNewProcTags CreateNewProcTags
+# ifdef __amigaos4__
+/* On OS4, we assert that the threads we create are our children */
+#  define myCreateNewProcTags(...) CreateNewProcTags(NP_Child, TRUE, __VA_ARGS__)
+# else
+#  define myCreateNewProcTags CreateNewProcTags
+# endif
 #endif
 
 /*

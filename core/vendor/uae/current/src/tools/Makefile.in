@@ -23,7 +23,7 @@ VPATH = @top_srcdir@
 
 INCLUDES=-I. -I@top_srcdir@/../include/ -I@top_srcdir@
 
-all: gencpu gencomp build68k genblitter
+all: gencpu gencomp build68k genblitter genlinetoscr
 
 install:
 
@@ -31,7 +31,7 @@ install:
 clean:
 	-rm -f *.o
 	-rm cpudefs.c
-	-rm -f gencpu gencomp genblitter build68k
+	-rm -f gencpu gencomp genblitter build68k genlinetoscr
 
 
 distclean: clean
@@ -47,6 +47,8 @@ gencpu: gencpu.o readcpu.o cpudefs.o missing.o writelog.o
 	$(CC) $(LDFLAGS) -o gencpu gencpu.o readcpu.o cpudefs.o missing.o writelog.o
 gencomp: gencomp.o readcpu.o cpudefs.o missing.o
 	$(CC) $(LDFLAGS) -o gencomp gencomp.o readcpu.o missing.o cpudefs.o writelog.o
+genlinetoscr: genlinetoscr.o
+	$(CC) $(LDFLAGS) -o genlinetoscr genlinetoscr.o
 
 custom.o: blit.h
 drawing.o: linetoscr.c

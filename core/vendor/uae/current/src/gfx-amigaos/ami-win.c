@@ -582,52 +582,46 @@ static int init_colors_cgx (const struct RastPort *rp)
 	case PIXFMT_RGB16PC:
 	    byte_swap = TRUE;
 	case PIXFMT_RGB16:
-	    redbits  = 5;  greenbits  = 6; bluebits  = 5;
-	    redshift = 11; greenshift = 5; blueshift = 0;
+	    redbits  = 5;  greenbits  = 6;  bluebits  = 5;
+	    redshift = 11; greenshift = 5;  blueshift = 0;
 	    break;
-	case PIXFMT_RGB24:
 	case PIXFMT_RGBA32:
 	    redbits  = 8;  greenbits  = 8;  bluebits  = 8;
 	    redshift = 24; greenshift = 16; blueshift = 8;
 	    break;
 	case PIXFMT_BGRA32:
-	    redbits  = 8; greenbits  = 8;  bluebits  = 8;
-	    redshift = 8; greenshift = 16; blueshift = 24;
+	    redbits  = 8;  greenbits  = 8;  bluebits  = 8;
+	    redshift = 8;  greenshift = 16; blueshift = 24;
 	    break;
-	case PIXFMT_BGR24:
-	    redbits  = 8; greenbits  = 8; bluebits  = 8;
-	    redshift = 0; greenshift = 8; blueshift = 16;
+	case PIXFMT_ARGB32:
+	    redbits  = 8;  greenbits  = 8;  bluebits  = 8;
+	    redshift = 16; greenshift = 8;  blueshift = 0;
 	    break;
 #else
 	case PIXFMT_RGB15:
 	    byte_swap = TRUE;
 	case PIXFMT_RGB15PC:
-	    redbits  = 5;  greenbits  = 5; bluebits  = 5;
-	    redshift = 10; greenshift = 0; blueshift = 0;
+	    redbits  = 5;  greenbits  = 5;  bluebits  = 5;
+	    redshift = 10; greenshift = 0;  blueshift = 0;
 	    break;
 	case PIXFMT_RGB16:
 	    byte_swap = TRUE;
 	case PIXFMT_RGB16PC:
-	    redbits  = 5;  greenbits  = 6; bluebits  = 5;
-	    redshift = 11; greenshift = 5; blueshift = 0;
+	    redbits  = 5;  greenbits  = 6;  bluebits  = 5;
+	    redshift = 11; greenshift = 5;  blueshift = 0;
 	    break;
-	case PIXFMT_BGR24:
 	case PIXFMT_BGRA32:
 	    redbits  = 8;  greenbits  = 8;  bluebits  = 8;
-	    redshift = 16; greenshift = 8; blueshift = 0;
+	    redshift = 16; greenshift = 8;  blueshift = 0;
 	    break;
 	case PIXFMT_ARGB32:
-	    redbits  = 8; greenbits  = 8;  bluebits  = 8;
-	    redshift = 8; greenshift = 16; blueshift = 24;
-	    break;
-	case PIXFMT_RGB24:
-	    redbits  = 8; greenbits  = 8; bluebits  = 8;
-	    redshift = 0; greenshift = 8; blueshift = 16;
+	    redbits  = 8;  greenbits  = 8;  bluebits  = 8;
+	    redshift = 8;  greenshift = 16; blueshift = 24;
 	    break;
 #endif
 	default:
-	    redbits  = 0; greenbits  = 0; bluebits  = 0;
-	    redshift = 0; greenshift = 0; blueshift = 0;
+	    redbits  = 0;  greenbits  = 0;  bluebits  = 0;
+	    redshift = 0;  greenshift = 0;  blueshift = 0;
 	    found = FALSE;
 	    break;
     }
@@ -635,23 +629,10 @@ static int init_colors_cgx (const struct RastPort *rp)
     if (found) {
 	alloc_colors64k (redbits,  greenbits,  bluebits,
 			 redshift, greenshift, blueshift,
-			 0, 0, 0);
+			 0, 0, 0, byte_swap);
 
 	write_log ("AMIGFX: Using a %d-bit true-colour display.\n",
 		   redbits + greenbits + bluebits);
-
-	if (byte_swap) {
-	    int i;
-	    for (i = 0; i < 4096; i++)
-		xcolors[i] = (xcolors[i] >> 8) | ((xcolors[i] & 255) << 8);
-#ifdef AGA
-	    for (i = 0; i < 256; i++) {
-		xredcolors[i]   = (xredcolors[i]   >> 8) | ((xredcolors[i]   & 255) << 8);
-		xgreencolors[i] = (xgreencolors[i] >> 8) | ((xgreencolors[i] & 255) << 8);
-		xbluecolors[i]  = (xbluecolors[i]  >> 8) | ((xbluecolors[i]  & 255) << 8);
-	    }
-#endif
-	}
     } else
 	write_log ("AMIGFX: Unsupported pixel format.\n");
 
@@ -662,8 +643,6 @@ static int init_colors_cgx (const struct RastPort *rp)
 static int init_colors (void)
 {
     int success = TRUE;
-
-    gfxvidinfo.can_double = 0;
 
     if (need_dither) {
 	/* first try color allocation */
@@ -726,8 +705,10 @@ static int init_colors (void)
 		int i;
 		for (i = 0; i < 32; ++i)
 		    get_color (tab[i] >> 8, (tab[i] >> 4) & 15, tab[i] & 15, xcolors);
-		for (i=0; i<4096; ++i)
-		    xcolors[i] = get_nearest_color (i >> 8, (i >> 4) & 15, i & 15);
+		for (i = 0; i < 4096; ++i) {
+		    uae_u32 val = get_nearest_color (i >> 8, (i >> 4) & 15, i & 15);
+		    xcolors[i] = val * 0x01010101;
+		}
 		write_log ("AMIGFX: Using 32 colours and half-brite\n");
 		break;
 	    } else if (is_ham) {
@@ -735,7 +716,7 @@ static int init_colors (void)
 		for (i = 0; i < 16; ++i)
 		    get_color (i, i, i, xcolors);
 		write_log ("AMIGFX: Using 12 bits pseudo-truecolor (HAM).\n");
-		alloc_colors64k (4, 4, 4, 10, 5, 0, 0, 0, 0);
+		alloc_colors64k (4, 4, 4, 10, 5, 0, 0, 0, 0, 0);
 		return init_ham ();
 	    }
 	    /* Fall through if !is_halfbrite && !is_ham */
@@ -757,9 +738,10 @@ static int init_colors (void)
 		}
 	    }
 	    write_log ("AMIGFX: Using %d colours.\n", maxcol);
-	    for (maxcol = 0; maxcol < 4096; ++maxcol)
-		xcolors[maxcol] = get_nearest_color (maxcol >> 8, (maxcol >> 4) & 15,
-						     maxcol&15);
+	    for (maxcol = 0; maxcol < 4096; ++maxcol) {
+		int val = get_nearest_color (maxcol >> 8, (maxcol >> 4) & 15, maxcol & 15);
+		xcolors[maxcol] = val * 0x01010101;
+	    }
 	    break;
 	}
 #ifdef USE_CYBERGFX
@@ -1659,21 +1641,6 @@ int graphics_init (void)
     if (!init_colors ()) {
 	write_log ("AMIGFX: Failed to init colors.\n");
 	return 0;
-    }
-    switch (gfxvidinfo.pixbytes) {
-	case 2:
-	    for (i = 0; i < 4096; i++)
-		xcolors[i] *= 0x00010001;
-	    gfxvidinfo.can_double = 1;
-	   break;
-	case 1:
-	    for (i = 0; i < 4096; i++)
-		xcolors[i] *= 0x01010101;
-	    gfxvidinfo.can_double = 1;
-	   break;
-	default:
-	    gfxvidinfo.can_double = 0;
-	    break;
     }
 
     if (!usepub)

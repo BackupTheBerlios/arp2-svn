@@ -24,7 +24,6 @@
 #include "config.h"
 #include "options.h"
 #include "keyboard.h"
-#include "inputdevice.h"
 #include "keybuf.h"
 #include "custom.h"
 #include "xwin.h"
@@ -32,6 +31,7 @@
 #include "memory.h"
 #include "events.h"
 #include "newcpu.h"
+#include "inputdevice.h"
 #include "uae.h"
 #include "picasso96.h"
 #include "catweasel.h"
@@ -525,7 +525,7 @@ int mousehack_alive (void)
     return ievent_alive > 0;
 }
 
-uae_u32 mousehack_helper (void)
+uae_u32 REGPARAM2 mousehack_helper (struct regstruct *regs)
 {
     int mousexpos, mouseypos;
 
@@ -542,7 +542,7 @@ uae_u32 mousehack_helper (void)
 	mousexpos = coord_native_to_amiga_x (lastmx);
     }
 
-    switch (m68k_dreg (&regs, 0)) {
+    switch (m68k_dreg (regs, 0)) {
     case 0:
 	return ievent_alive ? -1 : needmousehack ();
     case 1:
@@ -1103,8 +1103,10 @@ void inputdevice_handle_inputcode (void)
 	case AKS_INHIBITSCREEN:
 	toggle_inhibit_frame (IHF_SCROLLLOCK);
 	break;
+#ifdef SAVESTATE
 	case AKS_STATEREWIND:
-	savestate_dorewind(1);
+	savestate_dorewind (1);
+#endif
 	break;
 	case AKS_VOLDOWN:
 	sound_volume (-1);
@@ -1124,6 +1126,7 @@ void inputdevice_handle_inputcode (void)
 	case AKS_HARDRESET:
 	uae_reset (1);
 	break;
+#ifdef SAVESTATE
 	case AKS_STATESAVEQUICK:
 	case AKS_STATESAVEQUICK1:
 	case AKS_STATESAVEQUICK2:
@@ -1148,15 +1151,18 @@ void inputdevice_handle_inputcode (void)
 	case AKS_STATERESTOREQUICK9:
 	savestate_quick ((code - AKS_STATERESTOREQUICK) / 2, 0);
 	break;
+#endif
 	case AKS_TOGGLEFULLSCREEN:
 	toggle_fullscreen ();
 	break;
 	case AKS_TOGGLEMOUSEGRAB:
 	toggle_mousegrab ();
 	break;
+#ifdef DEBUGGER
 	case AKS_ENTERDEBUGGER:
 	activate_debugger ();
 	break;
+#endif
 	case AKS_STATESAVEDIALOG:
 	gui_display (5);
 	break;

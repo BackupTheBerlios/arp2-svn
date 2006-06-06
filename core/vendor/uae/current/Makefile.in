@@ -92,6 +92,8 @@ AUTOHEADER = @AUTOHEADER@
 AUTOMAKE = @AUTOMAKE@
 AWK = @AWK@
 BSDSOCKOBJS = @BSDSOCKOBJS@
+BUILD_MACOSX_BUNDLE_FALSE = @BUILD_MACOSX_BUNDLE_FALSE@
+BUILD_MACOSX_BUNDLE_TRUE = @BUILD_MACOSX_BUNDLE_TRUE@
 CC = @CC@
 CCAS = @CCAS@
 CCASFLAGS = @CCASFLAGS@
@@ -166,6 +168,8 @@ STRIP = @STRIP@
 TARGET = @TARGET@
 TARGET_BEOS_FALSE = @TARGET_BEOS_FALSE@
 TARGET_BEOS_TRUE = @TARGET_BEOS_TRUE@
+TARGET_BIGENDIAN_FALSE = @TARGET_BIGENDIAN_FALSE@
+TARGET_BIGENDIAN_TRUE = @TARGET_BIGENDIAN_TRUE@
 TARGET_WIN32_FALSE = @TARGET_WIN32_FALSE@
 TARGET_WIN32_TRUE = @TARGET_WIN32_TRUE@
 THREADDEP = @THREADDEP@
@@ -228,7 +232,7 @@ target_cpu = @target_cpu@
 target_os = @target_os@
 target_vendor = @target_vendor@
 ACLOCAL_AMFLAGS = -I m4
-EXTRA_DIST = config.h m4 amiga docs debian CHANGES README
+EXTRA_DIST = config.h m4 amiga docs CHANGES README
 SUBDIRS = src
 noinst_HEADERS = config.h
 dist_noinst_SCRIPTS = bootstrap.sh
@@ -405,7 +409,7 @@ distclean-tags:
 distdir: $(DISTFILES)
 	$(am__remove_distdir)
 	mkdir $(distdir)
-	$(mkdir_p) $(distdir)/m4 $(distdir)/src
+	$(mkdir_p) $(distdir)/m4 $(distdir)/src $(distdir)/src/od-macosx
 	@srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`; \
 	topsrcdirstrip=`echo "$(top_srcdir)" | sed 's|.|.|g'`; \
 	list='$(DISTFILES)'; for file in $$list; do \

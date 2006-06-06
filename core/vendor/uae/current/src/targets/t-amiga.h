@@ -4,16 +4,17 @@
   * Target specific stuff, AmigaOS version
   *
   * Copyright 1997 Bernd Schmidt
-  * Copyright 2003-2005 Richard Drummond
+  * Copyright 2003-2006 Richard Drummond
   */
 
 #define TARGET_AMIGAOS
 
 #define TARGET_NAME		"amiga"
 
-#define TARGET_ROM_PATH		"PROGDIR:roms/"
-#define TARGET_FLOPPY_PATH	"PROGDIR:floppies/"
-#define TARGET_HARDFILE_PATH	"PROGDIR:hardfiles/"
+#define TARGET_ROM_PATH		"PROGDIR:Roms/"
+#define TARGET_FLOPPY_PATH	"PROGDIR:Floppies/"
+#define TARGET_HARDFILE_PATH	"PROGDIR:HardFiles/"
+#define TARGET_SAVESTATE_PATH   "PROGDIR:SaveStates/"
 
 #define UNSUPPORTED_OPTION_l
 
@@ -38,6 +39,6 @@
 
 #define NO_MAIN_IN_MAIN_C
 
-#if defined __amigaos4__ || defined __morphos__  
+#if defined __amigaos4__ || defined __morphos__
 # define SLEEP_DONT_BUSY_WAIT
 #endif

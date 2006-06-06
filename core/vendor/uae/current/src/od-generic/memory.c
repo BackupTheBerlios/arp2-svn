@@ -14,6 +14,9 @@
 #ifdef JIT
 
 #include <sys/mman.h>
+#include <malloc.h>
+#include <stdlib.h>
+#include <unistd.h>
 
 /*
  * Allocate executable memory for JIT cache
@@ -22,7 +25,9 @@ void *cache_alloc (int size)
 {
    void *cache;
 
-   if ((cache = malloc (size)))
+   size = size < getpagesize() ? getpagesize() : size;
+
+   if ((cache = valloc (size)))
 	mprotect (cache, size, PROT_READ|PROT_WRITE|PROT_EXEC);
 
    return cache;

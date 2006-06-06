@@ -109,19 +109,24 @@ struct utimbuf
 };
 #endif
 
-#if defined(__GNUC__)
-# if defined(AMIGA) || (__GNUC__ - 1 > 1)
-/* GCC on the amiga and GCC 3.4 on x86 (although for
- * simplicity we just check for GCC 3.x) need that
- * __attribute((regparm)) must be defined in function
+/* When using the selective passing of parameters in registers (on x86 and
+ * 68k hosts with GCC) REGPARAM will be defined by configure to contain the
+ * necessary storage modifier to be used in a function declaration to specify
+ * that a function should pass parameters in registers (e.g.,
+ * __attribute__((regparam(n))) for GCC).
+ *
+ * For historic reasons, we have a separate REGPARAM2 macro for the modifier
+ * required to specify parameter passing in registers in the function's
+ * corresponding definition.
+ *
+ * However, the distinction between modifiers for declaration and definition is
+ * probably no longer necessary. We require both to be present now and with
+ * GCC at least the same modifier works for both. REGPARAM2 usage will probably
+ * be entirely replaced by REGPARAM eventually (unless somebody has a compiler
+ * that requires different modifiers for declaration and definition).
  */
-#  define REGPARAM2 REGPARAM
-# else /* not(AMIGA && GCC 3.x) */
-#  define REGPARAM2
-# endif
-#else
-/* not(GCC) */
-# define REGPARAM2
+#ifndef REGPARAM2
+# define REGPARAM2 REGPARAM
 #endif
 
 /* sam: some definitions so that SAS/C can compile UAE */
@@ -500,6 +505,13 @@ extern int gui_message_multibutton (int flags, const char *format,...);
 #endif
 #endif
 
+#ifndef NOINLINE
+#if __GNUC__ - 1 > 1
+#define NOINLINE __attribute__((noinline))
+#else
+#define NOINLINE
+#endif
+#endif
 
 /* Every Amiga hardware clock cycle takes this many "virtual" cycles.  This
    used to be hardcoded as 1, but using higher values allows us to time some
@@ -538,5 +550,28 @@ extern int gui_message_multibutton (int flags, const char *format,...);
 #  ifdef HAVE_STRICMP
 #   define strcasecmp stricmp
 #  endif
+# endif
+#endif
+
+/*
+ * Byte-swapping functions
+ */
+
+/* Try to use system bswap_16/bswap_32 functions. */
+#if defined HAVE_BSWAP_16 && defined HAVE_BSWAP_32
+# include <byteswap.h>
+#  ifdef HAVE_BYTESWAP_H
+#  include <byteswap.h>
+# endif
+#else
+/* Else, if using SDL, try SDL's endian functions. */
+# ifdef USE_SDL
+#  include <SDL_endian.h>
+#  define bswap_16(x) SDL_Swap16(x)
+#  define bswap_32(x) SDL_Swap32(x)
+# else
+/* Otherwise, we'll roll our own. */
+#  define bswap_16(x) (((x) >> 8) | (((x) & 0xFF) << 8))
+#  define bswap_32(x) (((x) << 24) | (((x) << 8) & 0x00FF0000) | (((x) >> 8) & 0x0000FF00) | ((x) >> 24))
 # endif
 #endif

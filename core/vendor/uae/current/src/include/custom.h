@@ -44,8 +44,6 @@ extern uae_u16 intena,intreq;
 //extern int current_hpos (void);
 extern unsigned int vpos;
 
-extern int find_copper_record (uaecptr, unsigned int *, unsigned int *);
-
 extern int n_frames;
 
 int is_bitplane_dma (unsigned int hpos);
@@ -66,6 +64,7 @@ STATIC_INLINE int dmaen (unsigned int dmamask)
 #define SPCFLAG_BLTNASTY 512
 #define SPCFLAG_EXEC 1024
 #define SPCFLAG_ACTION_REPLAY 2048
+#define SPCFLAG_TRAP 4096 /* enforcer-hack */
 #define SPCFLAG_MODE_CHANGE 8192
 #define SPCFLAG_END_COMPILE 16384
 

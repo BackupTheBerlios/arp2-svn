@@ -94,7 +94,7 @@ int init_sound (void)
     buf[t+2] = (v>>16) & 255;
     buf[t+3] = (v>>24) & 255;
 
-    t = 20; v = 0x00010001 + (currprefs.stereo ? 0x10000 : 0);
+    t = 20; v = 0x00010001 + (currprefs.sound_stereo ? 0x10000 : 0);
     buf[t] = v & 255;
     buf[t+1] = (v>>8) & 255;
     buf[t+2] = (v>>16) & 255;
@@ -106,13 +106,13 @@ int init_sound (void)
     buf[t+2] = (v>>16) & 255;
     buf[t+3] = (v>>24) & 255;
     t = 32; v = ((currprefs.sound_bits == 8 ? 1 : 2)
-		 * (currprefs.stereo ? 2 : 1)) + 65536*currprefs.sound_bits;
+		 * (currprefs.sound_stereo ? 2 : 1)) + 65536*currprefs.sound_bits;
     buf[t] = v & 255;
     buf[t+1] = (v>>8) & 255;
     buf[t+2] = (v>>16) & 255;
     buf[t+3] = (v>>24) & 255;
     t = 28; v = (currprefs.sound_freq * (currprefs.sound_bits == 8 ? 1 : 2)
-		 * (currprefs.stereo ? 2 : 1));
+		 * (currprefs.sound_stereo ? 2 : 1));
     buf[t] = v & 255;
     buf[t+1] = (v>>8) & 255;
     buf[t+2] = (v>>16) & 255;
@@ -123,10 +123,10 @@ int init_sound (void)
 
     if (currprefs.sound_bits == 16) {
 	init_sound_table16 ();
-	sample_handler = currprefs.stereo ? sample16s_handler : sample16_handler;
+	sample_handler = currprefs.sound_stereo ? sample16s_handler : sample16_handler;
     } else {
 	init_sound_table8 ();
-	sample_handler = currprefs.stereo ? sample8s_handler : sample8_handler;
+	sample_handler = currprefs.sound_stereo ? sample8s_handler : sample8_handler;
     }
     sound_available = 1;
     sndbufsize = 44100;

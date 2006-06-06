@@ -30,8 +30,8 @@
 #include "gui.h"
 #include "zfile.h"
 #include "autoconf.h"
+#include "traps.h"
 #include "osemu.h"
-#include "osdep/exectasks.h"
 #include "filesys.h"
 #include "picasso96.h"
 #include "bsdsocket.h"
@@ -185,6 +185,7 @@ static void fix_options (void)
 	currprefs.produce_sound = 0;
 	err = 1;
     }
+#ifdef JIT
     if (currprefs.comptrustbyte < 0 || currprefs.comptrustbyte > 3) {
 	write_log ("Bad value for comptrustbyte parameter: value must be within 0..2\n");
 	currprefs.comptrustbyte = 1;
@@ -230,7 +231,7 @@ static void fix_options (void)
 	currprefs.cachesize = 0;
 	err = 1;
     }
-
+#endif
     if (currprefs.cpu_level < 2 && currprefs.z3fastmem_size > 0) {
 	write_log ("Z3 fast memory can't be used with a 68000/68010 emulation. It\n"
 		 "requires a 68020 emulation. Turning off Z3 fast memory.\n");
@@ -540,7 +541,9 @@ void do_leave_program (void)
 #ifdef FILESYS
     filesys_cleanup ();
 #endif
+#ifdef SAVESTATE
     savestate_free ();
+#endif
     memory_cleanup ();
     cfgfile_addcfgparam (0);
 }
@@ -640,7 +643,9 @@ static void real_main2 (int argc, char **argv)
     fix_options ();
     changed_prefs = currprefs;
 
+#ifdef SAVESTATE
     savestate_init ();
+#endif
 #ifdef SCSIEMU
     scsidev_install ();
 #endif
@@ -679,9 +684,13 @@ static void real_main2 (int argc, char **argv)
 	gui_update ();
 
 	if (graphics_init ()) {
+
+#ifdef DEBUGGER
 	    setup_brkhandler ();
+
 	    if (currprefs.start_debugger && debuggable ())
 		activate_debugger ();
+#endif
 
 #ifdef WIN32
 #ifdef FILESYS

@@ -11,6 +11,7 @@
 #define TARGET_ROM_PATH         "~/"
 #define TARGET_FLOPPY_PATH      "~/"
 #define TARGET_HARDFILE_PATH    "~/"
+#define TARGET_SAVESTATE_PATH   "~/"
 
 #define OPTIONSFILENAME ".uaerc"
 

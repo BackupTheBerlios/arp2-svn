@@ -6718,7 +6718,7 @@ fi
           ac_config_files="$ac_config_files Makefile"
 
 
-                                                                                ac_config_links="$ac_config_links missing.c:../missing.c writelog.c:../writelog.c readcpu.c:../readcpu.c build68k.c:../build68k.c gencpu.c:../gencpu.c gencomp.c:../gencomp.c genblitter.c:../genblitter.c blitops.c:../blitops.c"
+                                                                                          ac_config_links="$ac_config_links missing.c:../missing.c writelog.c:../writelog.c readcpu.c:../readcpu.c build68k.c:../build68k.c gencpu.c:../gencpu.c gencomp.c:../gencomp.c genblitter.c:../genblitter.c blitops.c:../blitops.c genlinetoscr.c:../genlinetoscr.c"
 
 
 cat >confcache <<\_ACEOF
@@ -7258,6 +7258,7 @@ do
   "gencomp.c" ) CONFIG_LINKS="$CONFIG_LINKS gencomp.c:../gencomp.c" ;;
   "genblitter.c" ) CONFIG_LINKS="$CONFIG_LINKS genblitter.c:../genblitter.c" ;;
   "blitops.c" ) CONFIG_LINKS="$CONFIG_LINKS blitops.c:../blitops.c" ;;
+  "genlinetoscr.c" ) CONFIG_LINKS="$CONFIG_LINKS genlinetoscr.c:../genlinetoscr.c" ;;
   "sysconfig.h" ) CONFIG_HEADERS="$CONFIG_HEADERS sysconfig.h" ;;
   *) { { echo "$as_me:$LINENO: error: invalid argument: $ac_config_target" >&5
 echo "$as_me: error: invalid argument: $ac_config_target" >&2;}

@@ -50,4 +50,4 @@ extern void uae_set_thread_priority (int pri);
 /* Do nothing; thread exits if thread function returns.  */
 #define UAE_THREAD_EXIT do {} while (0)
 
-#define uae_wait_thread (id)
+#define uae_wait_thread(id)

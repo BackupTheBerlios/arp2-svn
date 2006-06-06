@@ -2,12 +2,14 @@
 #include "sysconfig.h"
 #include "sysdeps.h"
 
-static unsigned long crc_table[256];
+#include "crc32.h"
 
-static void make_crc_table ()
+static uae_u32 crc_table[256];
+
+static void make_crc_table (void)
 {
-    unsigned long c;
-    int n, k;
+    uae_u32 c;
+    unsigned int n, k;
     for (n = 0; n < 256; n++) {
 	c = (unsigned long)n;
 	for (k = 0; k < 8; k++)
@@ -16,7 +18,7 @@ static void make_crc_table ()
     }
 }
 
-uae_u32 get_crc32 (const uae_u8 *buf, int len)
+uae_u32 get_crc32 (const uae_u8 *buf, unsigned int len)
 {
     uae_u32 crc;
 

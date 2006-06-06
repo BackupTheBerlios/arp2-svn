@@ -89,7 +89,7 @@ int init_sound(void)
    use this instead of the line above...
 	int width = currprefs.sound_bits >= 12 ? AL_SAMPLE_16 : AL_SAMPLE_8;
 */
-	int channels = currprefs.stereo ? 2 : 1;
+	int channels = currprefs.sound_stereo ? 2 : 1;
 	int rate = currprefs.sound_freq;
 
 	if (currprefs.sound_maxbsiz < 128 || currprefs.sound_maxbsiz > 44100) {
@@ -119,14 +119,14 @@ int init_sound(void)
 	sndbufpt = sndbuffer;
 	if (width == AL_SAMPLE_16) {
 		sndblocksize = currprefs.sound_maxbsiz * channels * 2;
-		sample_handler = currprefs.stereo
+		sample_handler = currprefs.sound_stereo
 					? sample16s_handler
 					: sample16_handler;
 		to_frames_divisor = channels * 2;
 		init_sound_table16();
 	} else {
 		sndblocksize = currprefs.sound_maxbsiz * channels;
-		sample_handler = currprefs.stereo
+		sample_handler = currprefs.sound_stereo
 					? sample8s_handler
 					: sample8_handler;
 		to_frames_divisor = channels;

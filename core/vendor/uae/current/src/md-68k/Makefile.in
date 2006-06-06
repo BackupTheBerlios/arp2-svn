@@ -85,6 +85,8 @@ AUTOHEADER = @AUTOHEADER@
 AUTOMAKE = @AUTOMAKE@
 AWK = @AWK@
 BSDSOCKOBJS = @BSDSOCKOBJS@
+BUILD_MACOSX_BUNDLE_FALSE = @BUILD_MACOSX_BUNDLE_FALSE@
+BUILD_MACOSX_BUNDLE_TRUE = @BUILD_MACOSX_BUNDLE_TRUE@
 CC = @CC@
 CCAS = @CCAS@
 CCASFLAGS = @CCASFLAGS@
@@ -159,6 +161,8 @@ STRIP = @STRIP@
 TARGET = @TARGET@
 TARGET_BEOS_FALSE = @TARGET_BEOS_FALSE@
 TARGET_BEOS_TRUE = @TARGET_BEOS_TRUE@
+TARGET_BIGENDIAN_FALSE = @TARGET_BIGENDIAN_FALSE@
+TARGET_BIGENDIAN_TRUE = @TARGET_BIGENDIAN_TRUE@
 TARGET_WIN32_FALSE = @TARGET_WIN32_FALSE@
 TARGET_WIN32_TRUE = @TARGET_WIN32_TRUE@
 THREADDEP = @THREADDEP@
@@ -223,7 +227,7 @@ target_vendor = @target_vendor@
 INCLUDES = -I$(top_srcdir)/src/include -I$(top_builddir)/src -I$(top_srcdir)/src -I$(top_srcdir)
 noinst_LIBRARIES = libmachdep.a
 libmachdep_a_SOURCES = support.c
-noinst_HEADERS = machdep.h exectasks.h m68k.h m68kops.h maccess.h rpt.h
+noinst_HEADERS = machdep.h m68k.h m68kops.h maccess.h rpt.h
 dist_noinst_SCRIPTS = cpuopti
 all: all-am
 

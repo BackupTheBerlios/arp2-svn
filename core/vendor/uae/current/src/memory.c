@@ -21,6 +21,7 @@
 #include "autoconf.h"
 #include "savestate.h"
 #include "ar.h"
+#include "crc32.h"
 
 #ifdef USE_MAPPED_MEMORY
 #include <sys/mman.h>
@@ -49,9 +50,11 @@ uae_u32 allocated_gfxmem;
 uae_u32 allocated_z3fastmem;
 uae_u32 allocated_a3000mem;
 
-static long chip_filepos;
-static long bogo_filepos;
-static long rom_filepos;
+#ifdef SAVESTATE
+static size_t chip_filepos;
+static size_t bogo_filepos;
+static size_t rom_filepos;
+#endif
 
 addrbank *mem_banks[MEMORY_BANKS];
 
@@ -1492,11 +1495,13 @@ static void allocate_memory (void)
 	clearexec ();
     }
 #endif
+#ifdef SAVESTATE
     if (savestate_state == STATE_RESTORE) {
 	restore_ram (chip_filepos, chipmemory);
 	if (allocated_bogomem > 0)
     	    restore_ram (bogo_filepos, bogomemory);
     }
+#endif
     chipmem_bank.baseaddr = chipmemory;
 #if defined  AGA && CPUEMU_6
     chipmem_bank_ce2.baseaddr = chipmemory;
@@ -1780,50 +1785,51 @@ void map_banks (addrbank *bank, int start, int size, int realsize)
     }
 }
 
+#ifdef SAVESTATE
 
 /* memory save/restore code */
 
-uae_u8 *save_cram (int *len)
+uae_u8 *save_cram (uae_u32 *len)
 {
     *len = allocated_chipmem;
     return chipmemory;
 }
 
-uae_u8 *save_bram (int *len)
+uae_u8 *save_bram (uae_u32 *len)
 {
     *len = allocated_bogomem;
     return bogomemory;
 }
 
-void restore_cram (int len, long filepos)
+void restore_cram (uae_u32 len, size_t filepos)
 {
     chip_filepos = filepos;
     changed_prefs.chipmem_size = len;
 }
 
-void restore_bram (int len, long filepos)
+void restore_bram (uae_u32 len, size_t filepos)
 {
     bogo_filepos = filepos;
     changed_prefs.bogomem_size = len;
 }
 
-uae_u8 *restore_rom (uae_u8 *src)
+const uae_u8 *restore_rom (const uae_u8 *src)
 {
     restore_u32 ();
     restore_u32 ();
     restore_u32 ();
     restore_u32 ();
     restore_u32 ();
-    src += strlen (src) + 1;
+    src += strlen ((const char *) src) + 1;
     if (src[0]) {
-	if (zfile_exists (src))
-	    strncpy (changed_prefs.romfile , src, 255);
-        src+=strlen(src)+1;
+	if (zfile_exists ((const char *) src))
+	    strncpy (changed_prefs.romfile, (const char *) src, 255);
+        src += strlen ((const char *) src) + 1;
     }
     return src;
 }
 
-uae_u8 *save_rom (int first, int *len, uae_u8 *dstptr)
+uae_u8 *save_rom (int first, uae_u32 *len, uae_u8 *dstptr)
 {
     static int count;
     uae_u8 *dst, *dstbak;
@@ -1866,11 +1872,11 @@ uae_u8 *save_rom (int first, int *len, uae_u8 *dstptr)
     save_u32 (mem_size);
     save_u32 (mem_type);
     save_u32 (longget (mem_start + 12));	/* version+revision */
-    save_u32 (CRC32 (0, kickmemory, mem_size));
-    sprintf (dst, "Kickstart %d.%d", wordget (mem_start + 12), wordget (mem_start + 14));
-    dst += strlen (dst) + 1;
-    strcpy (dst, currprefs.romfile);/* rom image name */
-    dst += strlen(dst) + 1;
+    save_u32 (get_crc32 (kickmemory, mem_size));
+    sprintf ((char *) dst, "Kickstart %d.%d", wordget (mem_start + 12), wordget (mem_start + 14));
+    dst += strlen ((const char *) dst) + 1;
+    strcpy ((char *) dst, currprefs.romfile);/* rom image name */
+    dst += strlen ((const char *) dst) + 1;
     if (saverom) {
 	for (i = 0; i < mem_size; i++)
 	    *dst++ = byteget (mem_start + i);
@@ -1878,3 +1884,5 @@ uae_u8 *save_rom (int first, int *len, uae_u8 *dstptr)
     *len = dst - dstbak;
     return dstbak;
 }
+
+#endif /* SAVESTATE */

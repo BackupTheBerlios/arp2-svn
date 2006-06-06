@@ -74,7 +74,7 @@ int init_sound (void)
     media_raw_audio_format audioFormat;
 
     audioFormat.frame_rate    = currprefs.sound_freq;
-    audioFormat.channel_count = currprefs.stereo ? 2 : 1;
+    audioFormat.channel_count = currprefs.sound_stereo ? 2 : 1;
     audioFormat.format        = media_raw_audio_format::B_AUDIO_FLOAT;
     audioFormat.byte_order    = B_MEDIA_HOST_ENDIAN;
     audioFormat.buffer_size   = currprefs.sound_maxbsiz * sizeof(float);
@@ -98,11 +98,11 @@ int init_sound (void)
 
     if (currprefs.sound_bits == 8) {
 	sndbufsize = sizeof (uae_u8) * gSoundBufferSize;
-	sample_handler = currprefs.stereo ? sample8s_handler : sample8_handler;
+	sample_handler = currprefs.sound_stereo ? sample8s_handler : sample8_handler;
 	init_sound_table8 ();
     } else {
 	sndbufsize = sizeof (uae_u16) * gSoundBufferSize;
-	if (currprefs.stereo) {
+	if (currprefs.sound_stereo) {
 	    sample_handler = (currprefs.sound_interpol == 0 ? sample16s_handler
 			    : currprefs.sound_interpol == 1 ? sample16si_rh_handler
 							    : sample16si_crux_handler);

@@ -6,18 +6,19 @@ SUBDIRS = \
 	@OSDEP@ keymap dms caps
 
 DIST_SUBDIRS = \
-	md-generic md-68k md-i386-gcc md-i386-watcom md-ppc md-ppc-gcc md-amd64-gcc \
+	md-generic md-68k md-i386-gcc md-ppc md-ppc-gcc md-amd64-gcc \
 	gfx-amigaos gfx-beos gfx-x11 gfx-sdl gfx-curses gfx-svga \
 	sd-none sd-af sd-alsa sd-amigaos sd-beos sd-file sd-mme sd-sdl sd-sgi sd-solaris sd-uss \
 	jd-none jd-amigainput jd-amigaos jd-beos jd-linuxold jd-sdl \
 	gui-none gui-beos gui-cocoa gui-gtk gui-muirexx \
-	od-generic od-amiga od-beos od-linux od-macos od-macosx od-win32 \
+	od-generic od-amiga od-beos od-linux od-macosx od-win32 \
 	td-none td-amigaos td-beos td-posix td-sdl td-win32 \
 	keymap \
 	caps dms
 
 BUILT_SOURCES = \
 	blit.h blitfunc.h blitfunc.c blittable.c \
+	linetoscr.c \
 	cpudefs.c \
 	cpuemu_0.c cpuemu_5.c cpuemu_6.c \
 	cpustbl.c cputbl.h \
@@ -30,7 +31,8 @@ CLEANFILES = \
 	cpuemu_0.c cpuemu_5.c cpuemu_6.c \
 	cpustbl.c cputbl.h \
 	compemu.c \
-	compstbl.c comptbl.h
+	compstbl.c comptbl.h \
+	linetoscr.c
 
 DISTCLEANFILES = \
 	machdep osdep threaddep gfxdep sounddep joydep guidep \
@@ -39,6 +41,15 @@ DISTCLEANFILES = \
 bin_PROGRAMS  = \
 	uae readdisk
 
+if BUILD_MACOSX_BUNDLE
+bundle_contents = @PACKAGE_NAME@.app/Contents
+endif
+
+if TARGET_BIGENDIAN
+genlinetoscr_args = -b
+endif
+
+
 uae$(EXEEXT):	$(uae_OBJECTS) $(uae_DEPENDENCIES)
 		@rm -f uae$(EXEEXT)
 		$(LINK) $(uae_LDFLAGS) $(uae_OBJECTS) $(uae_LDADD) $(LIBS)
@@ -46,7 +57,11 @@ if TARGET_BEOS
 		xres -o $@ @UAE_RSRCFILE@
 		mimeset -f $@
 endif
-
+if BUILD_MACOSX_BUNDLE
+		mkdir -p $(bundle_contents)/MacOS
+		$(INSTALL_DATA) od-macosx/Info.plist $(bundle_contents)
+		$(INSTALL_PROGRAM) uae$(EXEEXT) $(bundle_contents)/MacOS/
+endif
 
 noinst_LIBRARIES = \
 	libcpuemu.a
@@ -83,11 +98,12 @@ noinst_HEADERS = \
 	include/readcpu.h	include/savestate.h	\
 	include/scsidev.h	include/serial.h	\
 	include/sleep.h		include/sysdeps.h	\
+	include/traps.h                                 \
 	include/tui.h		include/uae.h		\
 	include/uaeexe.h	include/unzip.h		\
 	include/xwin.h		include/zfile.h		\
-	targets/t-amiga.h	targets/t-beos.h	\
-	targets/t-macos.h	targets/t-unix.h
+	targets/t-amiga.h	targets/t-beos.h        \
+	targets/t-unix.h
 
 dist_noinst_SCRIPTS = \
 	filesys.sh install_libscg
@@ -98,21 +114,21 @@ EXTRA_DIST = \
 
 uae_SOURCES = \
 	main.c newcpu.c fpp.c memory.c events.c custom.c serial.c cia.c \
-	blitter.c autoconf.c ersatz.c keybuf.c expansion.c \
+	blitter.c autoconf.c traps.c ersatz.c keybuf.c expansion.c \
 	zfile.c cfgfile.c picasso96.c inputdevice.c \
 	gfxutil.c audio.c drawing.c \
-	native2amiga.c identify.c disk.c crc32.c savestate.c unzip.c \
+	native2amiga.c disk.c crc32.c savestate.c unzip.c \
 	uaeexe.c uaelib.c fdi2raw.c sleep.c hotkeys.c \
 	ar.c driveclick.c enforcer.c misc.c \
 	missing.c readcpu.c writelog.c
 
 EXTRA_uae_SOURCES = \
-	bsdsocket.c bsdsocket-posix.c bsdsocket-posix-new.c build68k.c catweasel.c cdrom.c \
+	bsdsocket.c bsdsocket-posix-new.c build68k.c catweasel.c cdrom.c \
 	compemu_fpp.c compemu_optimizer.c compemu_optimizer_x86.c \
 	compemu_raw_x86.c compemu_support.c \
-	debug.c filesys.c fsdb.c fsdb_unix.c fsusage.c genblitter.c \
-	gencpu.c gengenblitter.c gencomp.c hardfile.c \
-	hardfile_unix.c linetoscr.c scsi-none.c \
+	debug.c identify.c filesys.c fsdb.c fsdb_unix.c fsusage.c genblitter.c \
+	gencpu.c gengenblitter.c gencomp.c genlinetoscr.c hardfile.c \
+	hardfile_unix.c scsi-none.c \
 	scsiemul.c svgancui.c tui.c \
 	blkdev-libscg.c filesys_unix.c \
 	akiko.c ar.c blkdev.c blitops.c
@@ -207,6 +223,9 @@ blitfunc.h: 	tools/genblitter
 blittable.c: 	tools/genblitter blitfunc.h
 		./tools/genblitter t >blittable.c
 
+linetoscr.c:    tools/genlinetoscr
+		./tools/genlinetoscr $(genlinetoscr_args) >linetoscr.c
+
 tools/genblitter:
 	$(MAKE) -C tools genblitter
 tools/build68k:
@@ -215,6 +234,8 @@ tools/gencpu:
 	$(MAKE) -C tools gencpu
 tools/gencomp:
 	$(MAKE) -C tools gencomp
+tools/genlinetoscr:
+	$(MAKE) -C tools genlinetoscr
 
 cpudefs.c:	tools/build68k @top_srcdir@/src/table68k
 		./tools/build68k <@top_srcdir@/src/table68k >cpudefs.c

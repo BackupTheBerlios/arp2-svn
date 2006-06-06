@@ -544,7 +544,8 @@ static int init_colors (void)
 	switch (visualInfo.VI_CLASS) {
 	 case TrueColor:
 	    alloc_colors64k (red_bits, green_bits, blue_bits, red_shift,
-			     green_shift, blue_shift, 0, 0, 0);
+			     green_shift, blue_shift, 0, 0, 0,
+			     inverse_byte_order);
 
 	    XParseColor (display, cmap, "#000000", &black);
 	    if (! XAllocColor (display, cmap, &black))
@@ -564,37 +565,6 @@ static int init_colors (void)
 	    return 0;
 	}
     }
-    switch (gfxvidinfo.pixbytes) {
-     case 2:
-	for (i = 0; i < 4096; i++)
-	    xcolors[i] = xcolors[i] * 0x00010001;
-	gfxvidinfo.can_double = 1;
-	break;
-     case 1:
-	for (i = 0; i < 4096; i++)
-	    xcolors[i] = xcolors[i] * 0x01010101;
-	gfxvidinfo.can_double = 1;
-	break;
-     default:
-	gfxvidinfo.can_double = 0;
-	break;
-    }
-    if (inverse_byte_order)
-	switch (gfxvidinfo.pixbytes) {
-	 case 4:
-	    for(i = 0; i < 4096; i++)
-		xcolors[i] = ((((xcolors[i]>>0)&255) << 24)
-			      | (((xcolors[i]>>8)&255) << 16)
-			      | (((xcolors[i]>>16)&255) << 8)
-			      | (((xcolors[i]>>24)&255) << 0));
-	    break;
-	 case 2:
-	    for (i = 0; i < 4096; i++)
-		xcolors[i] = (xcolors[i]>>8) | ((xcolors[i]&255)<<8);
-	    break;
-	 default:
-	    break;
-	}
     return 1;
 }
 
@@ -890,7 +860,7 @@ static void graphics_subinit (void)
 #endif
 
     if (! dgamode) {
-	if (! currprefs.x11_hide_cursor)
+	if (!currprefs.hide_cursor)
 	    XDefineCursor (display, mywin, xhairCursor);
 	else
 	    XDefineCursor (display, mywin, blankCursor);
@@ -1138,7 +1108,7 @@ void handle_events (void)
 		int ty = ((XMotionEvent *)&event)->y;
 		setmousestate(0,0,tx,1);
 		setmousestate(0,1,ty,1);
-		if (! cursorOn && !currprefs.x11_hide_cursor) {
+		if (! cursorOn && !currprefs.hide_cursor) {
 		    XDefineCursor(display, mywin, xhairCursor);
 		    cursorOn = 1;
 		}
@@ -1166,6 +1136,7 @@ void handle_events (void)
 	    if (autorepeatoff)
 		XAutoRepeatOn (display);
 	    autorepeatoff = 0;
+	    inputdevice_release_all_keys ();
 	    break;
 	 case Expose:
 	    refresh_necessary = 1;
@@ -1215,10 +1186,10 @@ void handle_events (void)
 
     if (! dgamode) {
 	if (! screen_is_picasso && refresh_necessary) {
-	    DO_PUTIMAGE (ami_dinfo.ximg, 0, 0, 0, 0, currprefs.gfx_width_fs, currprefs.gfx_height_fs);
+	    DO_PUTIMAGE (ami_dinfo.ximg, 0, 0, 0, 0, current_width, current_height);
 	    refresh_necessary = 0;
 	}
-	if (cursorOn && !currprefs.x11_hide_cursor) {
+	if (cursorOn && !currprefs.hide_cursor) {
 	    struct timeval now;
 	    int diff;
 	    gettimeofday(&now, NULL);
@@ -1802,7 +1773,6 @@ void gfx_save_options (FILE *f, struct uae_prefs *p)
 {
     fprintf (f, "x11.low_bandwidth=%s\n", p->x11_use_low_bandwidth ? "true" : "false");
     fprintf (f, "x11.use_mitshm=%s\n",    p->x11_use_mitshm ? "true" : "false");
-    fprintf (f, "x11.hide_cursor=%s\n",   p->x11_hide_cursor ? "true" : "false");
     fprintf (f, "x11.map_raw_keys=%s\n",  p->map_raw_keys ? "true" : "false");
 }
 
@@ -1810,7 +1780,7 @@ int gfx_parse_option (struct uae_prefs *p, char *option, char *value)
 {
     return (cfgfile_yesno (option, value, "low_bandwidth", &p->x11_use_low_bandwidth)
 	 || cfgfile_yesno (option, value, "use_mitshm",    &p->x11_use_mitshm)
-	 || cfgfile_yesno (option, value, "hide_cursor",   &p->x11_hide_cursor)
+	 || cfgfile_yesno (option, value, "hide_cursor",   &p->hide_cursor) /* Compatibility. This was an X11-specific option. */
 	 || cfgfile_yesno (option, value, "map_raw_keys",  &p->map_raw_keys));
 }
 
@@ -1818,6 +1788,5 @@ void gfx_default_options (struct uae_prefs *p)
 {
     p->x11_use_low_bandwidth = 0;
     p->x11_use_mitshm        = 1;
-    p->x11_hide_cursor       = 1;
     p->map_raw_keys          = rawkeys_available;
 }

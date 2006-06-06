@@ -4,6 +4,6 @@ noinst_LIBRARIES = libosdep.a
 
 libosdep_a_SOURCES = main.c memory.c support.c ami-disk.c blkdev-amiga.c
 
-noinst_HEADERS = amiga-kludges.h exectasks.h memory.h hrtimer.h
+noinst_HEADERS = amiga-kludges.h memory.h hrtimer.h
 
 dist_noinst_SCRIPTS = scc

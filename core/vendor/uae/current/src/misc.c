@@ -16,10 +16,11 @@
 #include "events.h"
 #include "uae.h"
 #include "autoconf.h"
+#include "traps.h"
 #include "enforcer.h"
 #include "picasso96.h"
 
-static uae_u32 misc_demux (void)
+static uae_u32 REGPARAM2 misc_demux (TrapContext *context)
 {
 //use the extern int (6 #13)
 // d0 0=opensound      d1=unit d2=samplerate d3=blksize ret: sound frequency
@@ -54,7 +55,7 @@ static uae_u32 misc_demux (void)
 // d0=108 free swap array
 // d0=200 ahitweak               d1=offset for dsound position pointer
 
-    int opcode = m68k_dreg (&regs, 0);
+    int opcode = m68k_dreg (&context->regs, 0);
 
     switch (opcode) {
         int i, slen, t, todo, byte1, byte2;
@@ -72,8 +73,8 @@ static uae_u32 misc_demux (void)
 #ifdef AHI
 	case 0:
 	    cap_pos = 0;
-	    sound_freq_ahi = m68k_dreg (&regs, 2);
-	    amigablksize = m68k_dreg (&regs, 3);
+	    sound_freq_ahi = m68k_dreg (&context->regs, 2);
+	    amigablksize = m68k_dreg (&context->regs, 3);
 	    sound_freq_ahi = ahi_open_sound();
 	    uaevar.changenum--;
 	    return sound_freq_ahi;
@@ -82,7 +83,7 @@ static uae_u32 misc_demux (void)
 	    sound_freq_ahi = 0;
 	    return 0;
 	case 2:
-	    addr=(char *)m68k_areg (&regs, 0);
+	    addr=(char *)m68k_areg (&context->regs, 0);
 	    for (i = 0; i < (amigablksize*4); i += 4) {
 		ahisndbufpt[0] = get_long((unsigned int)addr + i);
 		ahisndbufpt+=1;
@@ -118,7 +119,7 @@ static uae_u32 misc_demux (void)
 	    } else {
 		cap_pos = 0;
 	    }
-	    addr= (char *) m68k_areg (&regs, 0);
+	    addr= (char *) m68k_areg (&context->regs, 0);
 	    sndbufrecpt= (unsigned int*) pos1;
 	    t = t / 4;
 	    for (i=0; i < t; i++) {
@@ -157,7 +158,7 @@ static uae_u32 misc_demux (void)
 		return 0;
 	    }
 	case 11:
-	    addr = (char *) m68k_areg (&regs, 0);
+	    addr = (char *) m68k_areg (&context->regs, 0);
 	    for (i=0; i < clipsize; i++) {
 		put_byte ((uae_u32) addr, clipdat[0]);
 		addr++;
@@ -166,7 +167,7 @@ static uae_u32 misc_demux (void)
 	    CloseClipboard ();
 	    return 0;
 	case 12:
-	    addr = (char *) m68k_areg (&regs, 0);
+	    addr = (char *) m68k_areg (&context->regs, 0);
 	    addr = (char *) get_real_address ((uae_u32)addr);
 	    i = OpenClipboard (0);
 	    EmptyClipboard ();
@@ -192,7 +193,7 @@ static uae_u32 misc_demux (void)
 	    extern int p96refresh_active;
 	    extern uae_u16 vtotal;
 	    extern unsigned int new_beamcon0;
-	    p96hack_vpos2 = 15625 / m68k_dreg (&regs, 1);
+	    p96hack_vpos2 = 15625 / m68k_dreg (&context->regs, 1);
 	    p96refresh_active = 1;
 	    if (!picasso_on)
 		return 0;
@@ -225,7 +226,7 @@ static uae_u32 misc_demux (void)
 	case 100: {	// open dll
 	    char *dllname;
 	    uae_u32 result;
-	    dllname = (char *) m68k_areg (&regs, 0);
+	    dllname = (char *) m68k_areg (&context->regs, 0);
 	    dllname = (char *) get_real_address ((uae_u32)dllname);
 	    result = (uae_u32) LoadLibrary (dllname);
 	    write_log ("%s windows dll/alib loaded at %d (0 mean failure)\n", dllname, result);
@@ -234,8 +235,8 @@ static uae_u32 misc_demux (void)
 	case 101: {	//get dll label
 	    HMODULE m;
 	    char *funcname;
-	    m = (HMODULE) m68k_dreg (&regs, 1);
-	    funcname = (char *) m68k_areg (&regs, 0);
+	    m = (HMODULE) m68k_dreg (&context->regs, 1);
+	    funcname = (char *) m68k_areg (&context->regs, 0);
 	    funcname = (char *) get_real_address ((uae_u32)funcname);
 	    return (uae_u32) GetProcAddress (m, funcname);
 	}
@@ -244,7 +245,7 @@ static uae_u32 misc_demux (void)
 
 	case 103: {	//close dll
 	    HMODULE libaddr;
-	    libaddr = (HMODULE) m68k_dreg (&regs, 1);
+	    libaddr = (HMODULE) m68k_dreg (&context->regs, 1);
 	    FreeLibrary (libaddr);
 	    return 0;
 	}
@@ -261,8 +262,8 @@ static uae_u32 misc_demux (void)
 			//a0 = start address
 			//d1 = number of 16bit vars
 			//returns address of new array
-	    src = m68k_areg (&regs, 0);
-	    num_vars = m68k_dreg (&regs, 1);
+	    src = m68k_areg (&context->regs, 0);
+	    num_vars = m68k_dreg (&context->regs, 1);
 
 	    if (bswap_buffer_size < num_vars * 2) {
 		bswap_buffer_size = (num_vars + 1024) * 2;
@@ -325,8 +326,8 @@ static uae_u32 misc_demux (void)
 			//a0 = start address
 			//d1 = number of 32bit vars
 			//returns address of new array
-	    src = m68k_areg (&regs, 0);
-	    num_vars = m68k_dreg (&regs, 1);
+	    src = m68k_areg (&context->regs, 0);
+	    num_vars = m68k_dreg (&context->regs, 1);
 	    if (bswap_buffer_size < num_vars * 4) {
 		bswap_buffer_size = (num_vars + 16384) * 4;
 		free (bswap_buffer);
@@ -380,7 +381,7 @@ static uae_u32 misc_demux (void)
 	    bswap_buffer = NULL;
 	    return 0;
 	case 200:
-	    ahitweak = m68k_dreg (&regs, 1);
+	    ahitweak = m68k_dreg (&context->regs, 1);
 	    return 1;
 #endif
 	default:

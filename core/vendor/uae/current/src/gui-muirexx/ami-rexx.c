@@ -56,6 +56,7 @@
 #include "uaeexe.h"
 #include "xwin.h"
 #include "drawing.h"
+#include "debug.h"
 
 #include <ctype.h>
 
@@ -84,7 +85,7 @@ enum {
 int  rexx_init (void);
 void rexx_exit (void);
 void rexx_led (int led, int on);
-void rexx_filename (unsigned int num, const unsigned char *name);
+void rexx_filename (unsigned int num, const char *name);
 void rexx_handle_events (void);
 
 /****************************************************************************/
@@ -106,16 +107,15 @@ static gui_rexx_s        gui_rexx[GUI_REXX_MAX];
 static char              RESULT[RESULT_LEN];
 static int               led_state[5];
 
-static int   ADDRESS    (const unsigned char *hostname, const unsigned char *cmd);
-static int   matchstr   (const unsigned char **line, const unsigned char *pat);
-static void  extractstr (const unsigned char **line, unsigned char *result, unsigned int len);
-static int   matchnum   (const unsigned char **line);
+static int   ADDRESS    (const char *hostname, const char *cmd);
+static int   matchstr   (const char **line, const char *pat);
+static void  extractstr (const char **line, char *result, unsigned int len);
+static int   matchnum   (const char **line);
 
 /****************************************************************************/
 
 extern int quit_program;                                 /* ami-gui.c */
 extern ULONG frame_num;                                  /* ami-win.c */
-extern void activate_debugger (void);                    /* debug.c */
 
 /****************************************************************************/
 
@@ -191,7 +191,7 @@ void rexx_exit (void)
 
 /****************************************************************************/
 
-static int EJECT (const unsigned char *line)
+static int EJECT (const char *line)
 {
     unsigned int drive = matchnum (&line);
     int result = RC_WARN;
@@ -209,14 +209,14 @@ static int EJECT (const unsigned char *line)
 
 /****************************************************************************/
 
-static int INSERT (const unsigned char *line)
+static int INSERT (const char *line)
 {
     unsigned int drive = matchnum (&line);
     int result = RC_WARN;
 
     if (drive < 4) {
 	if (currprefs.dfxtype[drive] >= 0) {
-	    unsigned char buff[256];
+	    char buff[256];
 	    extractstr (&line, buff, 256);
 	    strcpy (changed_prefs.df[drive], buff);
 	    result = RC_OK;
@@ -236,9 +236,9 @@ static void QUIT (void)
 
 /****************************************************************************/
 
-static int QUERY (const unsigned char *line)
+static int QUERY (const char *line)
 {
-    const unsigned char *res = NULL;
+    const char *res = NULL;
 
     if      (matchstr (&line, "LED_POW"))      res = led_state[0] ? "1" : "0";
     else if (matchstr (&line, "LED_DF0"))      res = led_state[1] ? "1" : "0";
@@ -274,7 +274,7 @@ static int QUERY (const unsigned char *line)
 
 /****************************************************************************/
 
-static int FEEDBACK (const unsigned char *line)
+static int FEEDBACK (const char *line)
 {
     gui_rexx_s *gui = NULL;
 
@@ -307,7 +307,7 @@ static int FEEDBACK (const unsigned char *line)
 
 /****************************************************************************/
 
-static int GET_VERSION (const unsigned char *line)
+static int GET_VERSION (const char *line)
 {
     if (matchstr (&line, "STRING")) {
 	sprintf (RESULT,
@@ -325,7 +325,7 @@ static int GET_VERSION (const unsigned char *line)
 
 /****************************************************************************/
 
-static int FRAMERATE (const unsigned char *line)
+static int FRAMERATE (const char *line)
 {
     int num;
     num = matchnum (&line);
@@ -340,7 +340,7 @@ static int FRAMERATE (const unsigned char *line)
 
 /****************************************************************************/
 
-static int FAKEJOYSTICK (const unsigned char *line)
+static int FAKEJOYSTICK (const char *line)
 {
 /*    if     (matchstr(&line,"ON"))     changed_prefs.fake_joystick = 2;
     else if(matchstr(&line,"OFF"))    changed_prefs.fake_joystick = 0;
@@ -354,7 +354,7 @@ static int FAKEJOYSTICK (const unsigned char *line)
 
 /****************************************************************************/
 
-static int DISPLAY (const unsigned char *line)
+static int DISPLAY (const char *line)
 {
     if      (matchstr (&line, "ON"))     clear_inhibit_frame (IHF_SCROLLLOCK);
     else if (matchstr (&line, "OFF"))    set_inhibit_frame (IHF_SCROLLLOCK);
@@ -365,7 +365,7 @@ static int DISPLAY (const unsigned char *line)
 
 /****************************************************************************/
 
-static int SOUND (const unsigned char *line)
+static int SOUND (const char *line)
 {
     if (!sound_available) {
 	sprintf (RESULT, "Sound not available!");
@@ -388,7 +388,19 @@ static int SOUND (const unsigned char *line)
 
 /****************************************************************************/
 
-static int UAEEXE (const unsigned char *line)
+static int DEBUG (void)
+{
+#ifdef DEBUGGER
+    activate_debugger ();
+    return RC_OK;
+#else
+    return RC_ERROR;
+#endif
+}
+
+/****************************************************************************/
+
+static int UAEEXE (const char *line)
 {
     if (uaeexe (line)) {
 	sprintf (RESULT, "Remote CLI failed!");
@@ -399,7 +411,7 @@ static int UAEEXE (const unsigned char *line)
 
 /****************************************************************************/
 
-static int process_cmd (const unsigned char *line)
+static int process_cmd (const char *line)
 {
     RESULT[0] = '\0';
     if      (matchstr (&line, "EJECT"))        return EJECT (line);
@@ -409,7 +421,7 @@ static int process_cmd (const unsigned char *line)
     else if (matchstr (&line, "VERSION"))      return GET_VERSION (line);
     else if (matchstr (&line, "BYE"))          QUIT ();
     else if (matchstr (&line, "QUIT"))         QUIT ();
-    else if (matchstr (&line, "DEBUG"))        activate_debugger ();
+    else if (matchstr (&line, "DEBUG"))        return DEBUG ();
     else if (matchstr (&line, "RESET"))        m68k_reset ();
     else if (matchstr (&line, "DISPLAY"))      return DISPLAY (line);
     else if (matchstr (&line, "FRAMERATE"))    return FRAMERATE( line);
@@ -469,7 +481,7 @@ void rexx_led (int led, int on)
 
 /****************************************************************************/
 
-void rexx_filename (unsigned int num, const unsigned char *filename)
+void rexx_filename (unsigned int num, const char *filename)
 {
     gui_rexx_s *gui = NULL;
 
@@ -488,7 +500,7 @@ void rexx_filename (unsigned int num, const unsigned char *filename)
 /****************************************************************************/
 /* send a message to an AREXX port.
  */
-static int ADDRESS (const unsigned char *hostname, const unsigned char *cmd)
+static int ADDRESS (const char *hostname, const char *cmd)
 {
     struct MsgPort *RexxPort,
 		   *ReplyPort;
@@ -528,10 +540,10 @@ static int ADDRESS (const unsigned char *hostname, const unsigned char *cmd)
 /****************************************************************************/
 /* argument parsing routines
  */
-static int matchstr (const unsigned char **line, const unsigned char *pat)
+static int matchstr (const char **line, const char *pat)
 {
-    const unsigned char *s = *line;
-    unsigned char match = 0;
+    const char *s = *line;
+    char match = 0;
 
     while (isspace (*s))
 	++s;
@@ -552,10 +564,10 @@ static int matchstr (const unsigned char **line, const unsigned char *pat)
 
 /****************************************************************************/
 
-static void extractstr (const unsigned char **line, unsigned char *result, unsigned int len)
+static void extractstr (const char **line, char *result, unsigned int len)
 {
-    const unsigned char *s = *line;
-    unsigned char match = 0;
+    const char *s = *line;
+    char match = 0;
 
     while (isspace(*s))
 	++s;
@@ -584,10 +596,10 @@ static void extractstr (const unsigned char **line, unsigned char *result, unsig
 
 /****************************************************************************/
 
-static int matchnum (const unsigned char **line)
+static int matchnum (const char **line)
 {
-    const unsigned char *s = *line;
-    unsigned char match = 0;
+    const char *s = *line;
+    char match = 0;
     int sign = 1, num = 0;
 
     while (isspace (*s))

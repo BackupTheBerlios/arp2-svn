@@ -47,10 +47,3 @@ STATIC_INLINE int uae_wait_thread (uae_thread_id thread)
 
 /* Do nothing; thread exits if thread function returns.  */
 #define UAE_THREAD_EXIT do {} while (0)
-
-/* Warning! This is broken. It doesn't actually return a uae_thread_id */
-#warning SDL uae_thread_self() is broken
-STATIC_INLINE uae_thread_id uae_thread_self (void)
-{
-   return (uae_thread_id) SDL_ThreadID ();
-}

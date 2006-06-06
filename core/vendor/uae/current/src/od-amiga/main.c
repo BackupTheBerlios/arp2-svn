@@ -105,7 +105,9 @@ int main (int argc, char *argv[])
  */
 static RETSIGTYPE sigbrkhandler(int foo)
 {
+#ifdef DEBUGGER
     activate_debugger ();
+#endif
 }
 
 void setup_brkhandler (void)

@@ -107,7 +107,7 @@ static int enforcer_decode_hunk_and_offset (char *buf, uae_u32 pc)
 	uae_u8 *native_string = amiga2native (string, 100);
 
 	if (native_string) {
-	    if (!strcmp (native_string, "SegTracker"))
+	    if (!strcmp ((char *) native_string, "SegTracker"))
 		break;
 	}
 	node = amiga_node_next (node);
@@ -137,12 +137,12 @@ static int enforcer_decode_hunk_and_offset (char *buf, uae_u32 pc)
 
 		if (pc >= address && pc < address + size) {
 		    uae_u32 name, offset;
-		    uae_u8 *native_name;
+		    char *native_name;
 
 		    offset = pc - address - 4;
 		    name = get_long (node + 8); /* ln_Name */
 		    if (name) {
-			native_name = amiga2native (name, 100);
+			native_name = (char *) amiga2native (name, 100);
 			if (!native_name)
 			    native_name = "Unknown";
 		    } else
@@ -170,7 +170,7 @@ static void enforcer_display_hit (const char *addressmode, uae_u32 pc, uaecptr a
     uae_u32 sysbase;
     uae_u32 this_task;
     uae_u32 task_name;
-    uae_u8 *native_task_name;
+    char *native_task_name;
     int i, j;
     static char buf[256], instrcode[256];
     static char lines[INSTRUCTIONLINES/2][256];
@@ -188,7 +188,7 @@ static void enforcer_display_hit (const char *addressmode, uae_u32 pc, uaecptr a
 	return;
 
     task_name = get_long (this_task + 10); /* ln_Name */
-    native_task_name = amiga2native (task_name, 100);
+    native_task_name = (char *) amiga2native (task_name, 100);
 
     strcpy (enforcer_buf_ptr, "Enforcer Hit! Bad program\n");
     enforcer_buf_ptr += strlen (enforcer_buf_ptr);

@@ -482,17 +482,14 @@ int graphics_init (void)
     gfxvidinfo.bufmem = (uae_u8 *)calloc(gfxvidinfo.rowbytes, currprefs.gfx_height+1);
     gfxvidinfo.linemem = 0;
     gfxvidinfo.emergmem = 0;
-    gfxvidinfo.can_double = 0;
     switch (gfxvidinfo.pixbytes) {
      case 1:
 	for (i = 0; i < 4096; i++)
 	    xcolors[i] = xcolors[i] * 0x01010101;
-	gfxvidinfo.can_double = 1;
 	break;
      case 2:
 	for (i = 0; i < 4096; i++)
 	    xcolors[i] = xcolors[i] * 0x00010001;
-	gfxvidinfo.can_double = 1;
 	break;
     }
     if(!gfxvidinfo.bufmem) {
