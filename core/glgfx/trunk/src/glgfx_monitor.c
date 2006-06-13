@@ -230,11 +230,19 @@ struct glgfx_monitor* glgfx_monitor_create_a(char const* display_name,
   }
 
   int dummy;
+#ifdef USE_DGA2
+  if (!XDGAQueryExtension(monitor->display, &monitor->dga_base, &dummy)) {
+    BUG("The XDGA extension is missing from display %s!\n", display_name);
+    glgfx_monitor_destroy(monitor);
+    return NULL;
+  }
+#else
   if (!XF86DGAQueryExtension(monitor->display, &dummy, &dummy)) {
     BUG("The XF86DGA extension is missing from display %s!\n", display_name);
     glgfx_monitor_destroy(monitor);
     return NULL;
   }
+#endif
 
   if (!XF86VidModeQueryExtension(monitor->display, &dummy, &dummy)) {
     BUG("The XF86VidMode extension is missing from display %s!\n", display_name);

@@ -260,8 +260,25 @@ bool glgfx_input_acquire(struct glgfx_monitor* monitor) {
     XGrabPointer(monitor->display, rootwin, 1, 
 		 PointerMotionMask | ButtonPressMask | ButtonReleaseMask,
 		 GrabModeAsync, GrabModeAsync, None,  None, CurrentTime);
+#ifdef USE_DGA2
+    int num_modes = 0;
+    XDGAMode* modes = XDGAQueryModes(monitor->display, DefaultScreen(monitor->display),
+				     &num_modes);
+
+    if (modes != NULL && num_modes > 0) {
+      XDGADevice* dev = XDGASetMode(monitor->display, DefaultScreen(monitor->display), 
+				   modes[0].num);
+      XFree(dev);
+      XFree(modes);
+    }
+
+    XDGASelectInput(monitor->display, DefaultScreen(monitor->display),
+		    PointerMotionMask | ButtonPressMask | ButtonReleaseMask |
+		    KeyPressMask | KeyReleaseMask);
+#else
     XF86DGADirectVideo(monitor->display, DefaultScreen(monitor->display),
 		       XF86DGADirectMouse | XF86DGADirectKeyb);
+#endif
 
     monitors = g_list_append(monitors, monitor);
   }
@@ -286,7 +303,13 @@ bool glgfx_input_release(struct glgfx_monitor* monitor) {
 
   pthread_mutex_lock(&glgfx_mutex);
 
+#ifdef USE_DGA2
+  XDGASelectInput(monitor->display, DefaultScreen(monitor->display), 0);
+  XDGADevice* dev = XDGASetMode(monitor->display, DefaultScreen(monitor->display), 0);
+  XFree(dev);
+#else
   XF86DGADirectVideo(monitor->display, DefaultScreen(monitor->display), 0);
+#endif
   XUngrabPointer(monitor->display, CurrentTime);
   XUngrabKeyboard(monitor->display, CurrentTime);
 

@@ -25,6 +25,8 @@
 
 #include "glgfx_pixel.h"
 
+#undef USE_DGA2
+
 extern pthread_mutex_t glgfx_mutex;
 extern int glgfx_signum;
 
@@ -86,6 +88,10 @@ struct glgfx_monitor {
     struct timeval	    fps_time;
     double		    fps_mean;
     int			    fps_counter;
+
+#ifdef USE_DGA2
+    int                     dga_base;
+#endif
 
     enum glgfx_pixel_format format;
     XF86VidModeModeLine     mode;
