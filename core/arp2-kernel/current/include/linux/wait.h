@@ -115,7 +115,7 @@ static inline int waitqueue_active(wait_queue_head_t *q)
 
 extern void FASTCALL(add_wait_queue(wait_queue_head_t *q, wait_queue_t * wait));
 extern void FASTCALL(add_wait_queue_exclusive(wait_queue_head_t *q, wait_queue_t * wait));
-extern void FASTCALL(remove_wait_queue(wait_queue_head_t *q, wait_queue_t * wait));
+extern int FASTCALL(remove_wait_queue(wait_queue_head_t *q, wait_queue_t * wait));
 
 static inline void __add_wait_queue(wait_queue_head_t *head, wait_queue_t *new)
 {

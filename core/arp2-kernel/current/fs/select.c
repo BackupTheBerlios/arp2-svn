@@ -23,6 +23,7 @@
 #include <linux/file.h>
 #include <linux/fs.h>
 #include <linux/rcupdate.h>
+#include <linux/kallsyms.h>
 
 #include <asm/uaccess.h>
 
@@ -78,7 +79,8 @@ void poll_freewait(struct poll_wqueues *pwq)
 		entry = p->entry;
 		do {
 			entry--;
-			remove_wait_queue(entry->wait_address,&entry->wait);
+			if (remove_wait_queue(entry->wait_address,&entry->wait) < 0)
+				print_symbol("bad poll-entry for %s", (unsigned long) entry->filp->f_op->poll);
 			fput(entry->filp);
 		} while (entry > p->entries);
 		old = p;
