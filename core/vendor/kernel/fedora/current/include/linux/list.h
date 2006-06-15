@@ -52,6 +52,16 @@ static inline void __list_add(struct list_head *new,
 			      struct list_head *prev,
 			      struct list_head *next)
 {
+	if (next->prev != prev) {
+		printk("List corruption. next->prev should be %p, but was %p\n",
+				prev, next->prev);
+		BUG();
+	}
+	if (prev->next != next) {
+		printk("List corruption. prev->next should be %p, but was %p\n",
+				next, prev->next);
+		BUG();
+	}
 	next->prev = new;
 	new->next = next;
 	new->prev = prev;
@@ -164,8 +174,16 @@ static inline void __list_del(struct list_head * prev, struct list_head * next)
  */
 static inline void list_del(struct list_head *entry)
 {
-	BUG_ON(entry->prev->next != entry);
-	BUG_ON(entry->next->prev != entry);
+	if (entry->prev->next != entry) {
+		printk("List corruption. prev->next should be %p, but was %p\n",
+				entry, entry->prev->next);
+		BUG();
+	}
+	if (entry->next->prev != entry) {
+		printk("List corruption. next->prev should be %p, but was %p\n",
+				entry, entry->next->prev);
+		BUG();
+	}
 	__list_del(entry->prev, entry->next);
 	entry->next = LIST_POISON1;
 	entry->prev = LIST_POISON2;
