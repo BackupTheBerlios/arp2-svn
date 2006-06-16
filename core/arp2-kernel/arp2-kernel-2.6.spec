@@ -11,7 +11,7 @@ Summary: The Linux kernel (the core of the Linux operating system)
 %define sublevel 16
 %define kversion 2.6.16
 %define rpmversion 2.6.16
-%define release 1.2122.1
+%define release 1.2133.1
 %define signmodules 0
 %define make_target bzImage
 %define kernel_image x86
@@ -559,6 +559,9 @@ fi
 
 
 %changelog
+* Fri Jun 16 2006 Martin Blom <martin@blom.org> - 2.6.16-1.2133.1
+- Updated to Fedora's 2.6.16-1.2133_FC5 kernel.
+
 * Thu May 25 2006 Martin Blom <martin@blom.org> - 2.6.16-1.2122.1
 - Updated to Fedora's 2.6.16-1.2122_FC5 kernel.
 

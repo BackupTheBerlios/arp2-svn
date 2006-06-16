@@ -4,7 +4,7 @@ Source10: kmodtool
 # end stuff to be ...
 
 # hardcode for now:
-%{!?kversion: %define kversion 2.6.16-1.2122.1}
+%{!?kversion: %define kversion 2.6.16-1.2133.1}
 
 %define kmod_name fglrx
 %define kverrel %(%{kmodtool} verrel %{?kversion} 2>/dev/null)
@@ -104,7 +104,10 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
-* Thu May 25 2006 Martin Blom <martin@blom.org> - 8.25.18-1.2.6.16-1.2096.1
+* Fri Jun 16 2006 Martin Blom <martin@blom.org> - 8.25.18-1.2.6.16-1.2133.1
+- Updated for Fedora's 2.6.16-1.2133_FC5 kernel.
+
+* Thu May 25 2006 Martin Blom <martin@blom.org> - 8.25.18-1.2.6.16-1.2122.1
 - Updated from Livna's 8.25.18-1.2.6.16_1.2122_FC5 SRPM.
 
 * Fri Apr 21 2006 Martin Blom <martin@blom.org> - 8.24.8-1.2.6.16-1.2096.1

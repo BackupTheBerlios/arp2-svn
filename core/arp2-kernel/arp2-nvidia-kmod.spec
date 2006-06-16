@@ -4,7 +4,7 @@ Source10: kmodtool
 # end stuff to be ...
 
 # hardcode for now:
-%{!?kversion: %define kversion 2.6.16-1.2122.1}
+%{!?kversion: %define kversion 2.6.16-1.2133.1}
 
 %define kmod_name nvidia
 %define kverrel %(%{kmodtool} verrel %{?kversion} 2>/dev/null)
@@ -83,8 +83,11 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
-* Thu May 25 2006 Martin Blom <martin@blom.org> - 1.0.8762-1
+* Fri Jun 16 2006 Martin Blom <martin@blom.org> - 1.0.8762-1-1.2.6.16.2133
+- Updated for Fedora's 2.6.16-1.2133_FC5 kernel.
+
+* Thu May 25 2006 Martin Blom <martin@blom.org> - 1.0.8762-1-1.2.6.16.2122
 - Updated to Livna's 1.0.8762-1.2.6.16_1.2122_FC5 SRPM
 
-* Mon Apr 10 2006 Martin Blom <martin@blom.org> - 1.0.8756-1
+* Mon Apr 10 2006 Martin Blom <martin@blom.org> - 1.0.8756-1-1.2.6.16.2080
 - Created from Livna's 1.0.8756-1.2.6.16_1.2080_FC5 SRPM.
