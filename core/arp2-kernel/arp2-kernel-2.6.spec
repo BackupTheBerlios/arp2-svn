@@ -4,15 +4,16 @@ Summary: The Linux kernel (the core of the Linux operating system)
 # These are the kernels that are built IF the architecture allows it.
 
 %define buildup 1
-%define buildsmp 1
+%define buildsmp 0
 
 # Versions of various parts
 
-%define sublevel 16
-%define kversion 2.6.16
-%define rpmversion 2.6.16
-%define release 1.2133.1
+%define sublevel 17
+%define kversion 2.6.%{sublevel}
+%define rpmversion 2.6.%{sublevel}
+%define release 1.2139.1
 %define signmodules 0
+%define xen_version 20060610
 %define make_target bzImage
 %define kernel_image x86
 
@@ -21,19 +22,15 @@ Summary: The Linux kernel (the core of the Linux operating system)
 # groups of related archs
 %define all_x86 i586 i686
 
-# Override generic defaults with per-arch defaults 
+# Override generic defaults with per-arch defaults
 
 %ifarch noarch
+%define builddoc 1
 %define buildup 0
-%define buildsmp 0
 %define all_arch_configs $RPM_SOURCE_DIR/kernel-%{kversion}-*-arp2*.config
 %endif
 
 # Second, per-architecture exclusions (ifarch)
-
-%ifarch i586
-%define buildsmp 0
-%endif
 
 %ifarch %{all_x86}
 %define all_arch_configs $RPM_SOURCE_DIR/kernel-%{kversion}-i?86-arp2*.config
@@ -41,8 +38,11 @@ Summary: The Linux kernel (the core of the Linux operating system)
 %define signmodules 0
 %endif
 
+%ifarch i686
+%define buildsmp 1
+%endif
+
 %ifarch x86_64
-%define buildsmp 0
 %define all_arch_configs $RPM_SOURCE_DIR/kernel-%{kversion}-x86_64-arp2*.config
 %define image_install_path boot
 %define signmodules 0
@@ -59,10 +59,10 @@ Summary: The Linux kernel (the core of the Linux operating system)
 #
 %define kernel_dot_org_conflicts  ppp < 2.4.3-3, isdn4k-utils < 3.2-32, nfs-utils < 1.0.7-12, e2fsprogs < 1.37-4, util-linux < 2.12, jfsutils < 1.1.7-2, reiserfs-utils < 3.6.19-2, xfsprogs < 2.6.13-4, procps < 3.2.5-6.3, oprofile < 0.9.1-2
 
-# 
-# Then a series of requirements that are distribution specific, either 
-# because we add patches for something, or the older versions have 
-# problems with the newer kernel or lack certain things that make 
+#
+# Then a series of requirements that are distribution specific, either
+# because we add patches for something, or the older versions have
+# problems with the newer kernel or lack certain things that make
 # integration in the distro harder than needed.
 #
 %define package_conflicts kudzu < 1.2.5, initscripts < 7.23, udev < 063-6, iptables < 1.3.2-1, ipw2200-firmware < 2.4, selinux-policy-targeted < 1.25.3-14
@@ -90,7 +90,10 @@ Conflicts: %{package_conflicts}
 # We can't let RPM do the dependencies automatic because it'll then pick up
 # a correct but undesirable perl dependency from the module headers which
 # isn't required for the kernel proper to function
-AutoReqProv: no
+
+# KMP - We need this for the moment
+#AutoReqProv: no
+AutoReqProv: yes
 
 #
 # List the packages used during the kernel build
@@ -102,7 +105,7 @@ BuildConflicts: rhbuildsys(DiskFree) < 500Mb
 
 
 Source0: ftp://ftp.kernel.org/pub/linux/kernel/v2.6/linux-%{kversion}.tar.bz2
-Source1: xen-20060510.tar.bz2
+Source1: xen-%{xen_version}.tar.bz2
 #Source2: Config.mk
 
 # This is already in the FC patch
@@ -148,7 +151,7 @@ Group: Documentation
 %description doc
 This package contains documentation files from the kernel
 source. Various bits of information about the Linux kernel and the
-device drivers shipped with it are documented in these files. 
+device drivers shipped with it are documented in these files.
 
 You'll want to install this package if you need a reference to the
 options that can be passed to Linux kernel modules at load time.
@@ -183,26 +186,29 @@ Provides: kernel-arp2-smp-devel-%{_target_cpu} = %{rpmversion}-%{release}
 Provides: kernel-devel-%{_target_cpu} = %{rpmversion}-%{release}arp2-smp
 Provides: kernel-devel = %{rpmversion}-%{release}arp2-smp
 AutoReqProv: no
-Prereq: /usr/sbin/hardlink, /usr/bin/find
+Prereq: /usr/bin/find
 
 %description smp-devel
 This package provides kernel headers and makefiles sufficient to build modules
 against the SMP kernel package.
 
 
-
 %prep
+# First we unpack the kernel tarball.
+# If this isn't the first make prep, we use links to the existing clean tarball
+# which speeds things up quite a bit.
 if [ ! -d kernel-arp2-%{kversion}/vanilla ]; then
   # Ok, first time we do a make prep.
   rm -f pax_global_header
-%setup -q -n %{name}-%{version} -c -a1
-#  cp %{SOURCE2} .
+%setup -q -n %{name}-%{version} -c
   mv linux-%{kversion} vanilla
-#  cp %{SOURCE2} .
 else
   # We already have a vanilla dir.
   cd kernel-arp2-%{kversion}
   if [ -d linux-%{kversion}.%{_target_cpu} ]; then
+     # Just in case we ctrl-c'd a prep already
+     rm -rf deleteme
+     # Move away the stale away, and delete in background.
      mv linux-%{kversion}.%{_target_cpu} deleteme
      rm -rf deleteme &
   fi
@@ -231,12 +237,12 @@ cp -f %{all_arch_configs} .
 
 # now run oldconfig over all the config files
 for i in *.config
-do 
-  mv $i .config 
+do
+  mv $i .config
   Arch=`head -1 .config | cut -b 3-`
   make ARCH=$Arch nonint_oldconfig > /dev/null
   echo "# $Arch" > configs/$i
-  cat .config >> configs/$i 
+  cat .config >> configs/$i
 done
 
 # make sure the kernel has the sublevel we know it has. This looks weird
@@ -246,7 +252,9 @@ perl -p -i -e "s/^SUBLEVEL.*/SUBLEVEL = %{sublevel}/" Makefile
 perl -p -i -e "s/^EXTRAVERSION.*/EXTRAVERSION = -prep/" Makefile
 
 # get rid of unwanted files resulting from patch fuzz
-find . -name "*.orig" -o -name "*~" -exec rm -f {} \; >/dev/null &
+cd ..
+find . \( -name "*.orig" -o -name "*~" \) -exec rm -f {} \; >/dev/null
+
 
 ###
 ### build
@@ -257,8 +265,8 @@ find . -name "*.orig" -o -name "*~" -exec rm -f {} \; >/dev/null &
 #
 
 # Don't sign
-#gpg --homedir . --batch --gen-key %{SOURCE11}  
-#gpg --homedir . --export --keyring ./kernel.pub Red > extract.pub 
+#gpg --homedir . --batch --gen-key %{SOURCE11}
+#gpg --homedir . --export --keyring ./kernel.pub Red > extract.pub
 make linux-%{kversion}.%{_target_cpu}/scripts/bin2c
 #linux-%{kversion}.%{_target_cpu}/scripts/bin2c ksign_def_public_key __initdata < extract.pub > linux-%{kversion}.%{_target_cpu}/crypto/signature/key.h
 
@@ -320,13 +328,13 @@ BuildKernel() {
 
     mkdir -p $RPM_BUILD_ROOT/lib/modules/$KernelVer
     make -s ARCH=$Arch INSTALL_MOD_PATH=$RPM_BUILD_ROOT modules_install KERNELRELEASE=$KernelVer
- 
+
     # And save the headers/makefiles etc for building modules against
     #
     # This all looks scary, but the end result is supposed to be:
     # * all arch relevant include/ files
     # * all Makefile/Kconfig files
-    # * all script/ files 
+    # * all script/ files
 
     rm -f $RPM_BUILD_ROOT/lib/modules/$KernelVer/build
     rm -f $RPM_BUILD_ROOT/lib/modules/$KernelVer/source
@@ -337,7 +345,7 @@ BuildKernel() {
     mkdir -p $RPM_BUILD_ROOT/lib/modules/$KernelVer/updates
     # first copy everything
     cp --parents `find  -type f -name "Makefile*" -o -name "Kconfig*"` $RPM_BUILD_ROOT/lib/modules/$KernelVer/build 
-    cp Module.symvers $RPM_BUILD_ROOT/lib/modules/$KernelVer/build
+	cp Module.symvers $RPM_BUILD_ROOT/lib/modules/$KernelVer/build
     # then drop all but the needed Makefiles/Kconfig files
     rm -rf $RPM_BUILD_ROOT/lib/modules/$KernelVer/build/Documentation
     rm -rf $RPM_BUILD_ROOT/lib/modules/$KernelVer/build/scripts
@@ -375,7 +383,7 @@ BuildKernel() {
     # external modules can be built
     touch -r $RPM_BUILD_ROOT/lib/modules/$KernelVer/build/Makefile $RPM_BUILD_ROOT/lib/modules/$KernelVer/build/include/linux/version.h
     touch -r $RPM_BUILD_ROOT/lib/modules/$KernelVer/build/.config $RPM_BUILD_ROOT/lib/modules/$KernelVer/build/include/linux/autoconf.h
-    cd .. 
+    cd ..
 
     #
     # save the vmlinux file for kernel debugging into the kernel-debuginfo rpm
@@ -390,10 +398,10 @@ BuildKernel() {
     # gpg sign the modules
 %if %{signmodules}
     gcc -o scripts/modsign/mod-extract scripts/modsign/mod-extract.c -Wall
-    KEYFLAGS="--no-default-keyring --homedir .." 
-    KEYFLAGS="$KEYFLAGS --secret-keyring ../kernel.sec" 
-    KEYFLAGS="$KEYFLAGS --keyring ../kernel.pub" 
-    export KEYFLAGS 
+    KEYFLAGS="--no-default-keyring --homedir .."
+    KEYFLAGS="$KEYFLAGS --secret-keyring ../kernel.sec"
+    KEYFLAGS="$KEYFLAGS --keyring ../kernel.pub"
+    export KEYFLAGS
 
     for i in `cat modnames`
     do
@@ -409,7 +417,7 @@ BuildKernel() {
     # detect missing or incorrect license tags
     for i in `cat modnames`
     do
-      echo -n "$i " 
+      echo -n "$i "
       /sbin/modinfo -l $i >> modinfo
     done
     cat modinfo |\
@@ -417,7 +425,7 @@ BuildKernel() {
       grep -v "^Dual BSD/GPL" |\
       grep -v "^Dual MPL/GPL" |\
       grep -v "^GPL and additional rights" |\
-      grep -v "^GPL v2" && exit 1 
+      grep -v "^GPL v2" && exit 1
     rm -f modinfo
     rm -f modnames
     # remove files that will be auto generated by depmod at rpm -i time
@@ -470,7 +478,7 @@ rm -rf $RPM_BUILD_ROOT
 
 # load the loop module for upgrades...in case the old modules get removed we have
 # loopback in the kernel so that mkinitrd will work.
-%pre 
+%pre
 /sbin/modprobe loop 2> /dev/null > /dev/null  || :
 exit 0
 
@@ -478,7 +486,7 @@ exit 0
 /sbin/modprobe loop 2> /dev/null > /dev/null  || :
 exit 0
 
-%post 
+%post
 [ ! -x /usr/sbin/module_upgrade ] || /usr/sbin/module_upgrade %{rpmversion}-%{release}
 /sbin/new-kernel-pkg --package kernel-arp2 --kernel-args="init=/lib/arp2/sbin/arp2-init quiet" --banner="ARP2 UAE" --mkinitrd --depmod --install %{KVERREL}arp2
 
@@ -504,7 +512,7 @@ fi
 
 
 
-%preun 
+%preun
 /sbin/modprobe loop 2> /dev/null > /dev/null  || :
 /sbin/new-kernel-pkg --rminitrd --rmmoddep --remove %{KVERREL}arp2
 
