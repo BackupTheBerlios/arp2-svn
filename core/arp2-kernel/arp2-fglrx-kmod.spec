@@ -1,6 +1,6 @@
 # stuff to be implemented externally:
 Source10: kmodtool
-%define   kmodtool sh %{SOURCE10}
+%define   kmodtool bash %{SOURCE10}
 # end stuff to be ...
 
 # hardcode for now:
@@ -22,7 +22,7 @@ Source10: kmodtool
 
 
 Name:           %{kmod_name}-kmod
-Version:        8.25.18
+Version:        8.26.18
 Release:        1.%(echo %{kverrel} | tr - _)
 Summary:        ATI proprietary driver for ATI Radeon graphic cards, kernel part
 
