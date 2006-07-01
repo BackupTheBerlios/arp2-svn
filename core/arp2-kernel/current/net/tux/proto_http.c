@@ -391,7 +391,7 @@ continue_parsing:
 				GOTO_REDIR;
 		}
 
-#define PARSE_STR_FIELD(char,field,str,len) 				\
+#define PARSE_STR_FIELD(char,field,str,len)				\
 	if (PARSE_TOKEN(curr,field,left)) {				\
 		req->str = curr;					\
 		SKIP_LINE(curr,left);					\

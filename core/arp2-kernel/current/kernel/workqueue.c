@@ -27,6 +27,7 @@
 #include <linux/cpu.h>
 #include <linux/notifier.h>
 #include <linux/kthread.h>
+#include <linux/hardirq.h>
 
 /*
  * The per-CPU workqueue (if single thread, we always use the first
@@ -476,6 +477,34 @@ void cancel_rearming_delayed_work(struct work_struct *work)
 }
 EXPORT_SYMBOL(cancel_rearming_delayed_work);
 
+/**
+ * execute_in_process_context - reliably execute the routine with user context
+ * @fn:		the function to execute
+ * @data:	data to pass to the function
+ * @ew:		guaranteed storage for the execute work structure (must
+ *		be available when the work executes)
+ *
+ * Executes the function immediately if process context is available,
+ * otherwise schedules the function for delayed execution.
+ *
+ * Returns:	0 - function was executed
+ *		1 - function was scheduled for execution
+ */
+int execute_in_process_context(void (*fn)(void *data), void *data,
+			       struct execute_work *ew)
+{
+	if (!in_interrupt()) {
+		fn(data);
+		return 0;
+	}
+
+	INIT_WORK(&ew->work, fn, data);
+	schedule_work(&ew->work);
+
+	return 1;
+}
+EXPORT_SYMBOL_GPL(execute_in_process_context);
+
 int keventd_up(void)
 {
 	return keventd_wq != NULL;
@@ -495,37 +524,6 @@ int current_is_keventd(void)
 
 	return ret;
 
-}
-
-static struct cpu_workqueue_struct saved_cwq;
-
-void dump_clear_workqueue(void)
-{
-	int cpu = smp_processor_id();
-	struct cpu_workqueue_struct *cwq = keventd_wq->cpu_wq + cpu;
-
-	memcpy(&saved_cwq, cwq, sizeof(saved_cwq));
-	spin_lock_init(&cwq->lock);
-	INIT_LIST_HEAD(&cwq->worklist);
-	init_waitqueue_head(&cwq->more_work);
-	init_waitqueue_head(&cwq->work_done);
-}
-
-void dump_run_workqueue(void)
-{
-	struct cpu_workqueue_struct *cwq;
-
-	cwq = keventd_wq->cpu_wq + smp_processor_id();
-	while (!list_empty(&cwq->worklist)) {
-		struct work_struct *work = list_entry(cwq->worklist.next,
-						struct work_struct, entry);
-		void (*f) (void *) = work->func;
-		void *data = work->data;
-
-		list_del_init(cwq->worklist.next);
-		clear_bit(0, &work->pending);
-		f(data);
-	}
 }
 
 #ifdef CONFIG_HOTPLUG_CPU
@@ -549,7 +547,7 @@ static void take_over_work(struct workqueue_struct *wq, unsigned int cpu)
 }
 
 /* We're holding the cpucontrol mutex here */
-static int __devinit workqueue_cpu_callback(struct notifier_block *nfb,
+static int workqueue_cpu_callback(struct notifier_block *nfb,
 				  unsigned long action,
 				  void *hcpu)
 {
@@ -617,6 +615,3 @@ EXPORT_SYMBOL(schedule_work);
 EXPORT_SYMBOL(schedule_delayed_work);
 EXPORT_SYMBOL(schedule_delayed_work_on);
 EXPORT_SYMBOL(flush_scheduled_work);
-
-EXPORT_SYMBOL_GPL(dump_clear_workqueue);
-EXPORT_SYMBOL_GPL(dump_run_workqueue);

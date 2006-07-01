@@ -16,6 +16,8 @@ E("IBM", "236697G", "IBM ThinkPad T30", "Stephan Groß <st.gross@inf.tu-dresden.
 E("IBM", "2366JBG", "IBM ThinkPad T30", "Thomas M Steenholdt <tmus@tmus.dk>"),
 E("IBM", "2366MU9", "IBM ThinkPad T30", "Phillip Jones <philljones@us.ibm.com>"),
 E("IBM", "2366QU5", "IBM ThinkPad T30", "ChazeFroy <chazefroy@gmail.com>"),
+/* brads's 2366QU8 works, but dmidecode shows bogus data */
+E("IBM", "2366QU8", "IBM ThinkPad T30", "Brad Smith <brads@redhat.com>"),
 E("IBM", "23729CU", "IBM ThinkPad T40", "George Avrunin <avrunin@math.umass.edu>"),
 E("IBM", "237314U", "IBM ThinkPad T40", "Dmitriy Zavin <dzavin@yahoo.com>"),
 E("IBM", "23731FG", "IBM ThinkPad T41", "Aivo Prykk <aivo.prykk@mail.ee>"),

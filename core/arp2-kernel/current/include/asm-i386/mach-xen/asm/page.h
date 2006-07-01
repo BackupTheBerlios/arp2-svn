@@ -276,6 +276,7 @@ extern unsigned int __VMALLOC_RESERVE;
 
 extern int sysctl_legacy_va_layout;
 
+extern int devmem_is_allowed(unsigned long pagenr);
 extern int page_is_ram(unsigned long pagenr);
 
 #endif /* __ASSEMBLY__ */
@@ -289,9 +290,10 @@ extern int page_is_ram(unsigned long pagenr);
 #endif
 #define __KERNEL_START		(__PAGE_OFFSET + __PHYSICAL_START)
 
+#ifdef CONFIG_XEN_COMPAT_030002
 #undef LOAD_OFFSET
 #define LOAD_OFFSET		0
-
+#endif /* CONFIG_XEN_COMPAT_030002 */
 
 #define PAGE_OFFSET		((unsigned long)__PAGE_OFFSET)
 #define VMALLOC_RESERVE		((unsigned long)__VMALLOC_RESERVE)
@@ -300,8 +302,6 @@ extern int page_is_ram(unsigned long pagenr);
 #define __va(x)			((void *)((unsigned long)(x)+PAGE_OFFSET))
 #define pfn_to_kaddr(pfn)      __va((pfn) << PAGE_SHIFT)
 #ifdef CONFIG_FLATMEM
-#define pfn_to_page(pfn)	(mem_map + (pfn))
-#define page_to_pfn(page)	((unsigned long)((page) - mem_map))
 #define pfn_valid(pfn)		((pfn) < max_mapnr)
 #endif /* CONFIG_FLATMEM */
 #define virt_to_page(kaddr)	pfn_to_page(__pa(kaddr) >> PAGE_SHIFT)
@@ -320,6 +320,7 @@ extern int page_is_ram(unsigned long pagenr);
 
 #endif /* __KERNEL__ */
 
+#include <asm-generic/memory_model.h>
 #include <asm-generic/page.h>
 
 #endif /* _I386_PAGE_H */

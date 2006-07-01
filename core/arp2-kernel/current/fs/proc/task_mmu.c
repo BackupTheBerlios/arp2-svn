@@ -331,12 +331,11 @@ static void *m_start(struct seq_file *m, loff_t *pos)
 	if (last_addr == -1UL)
 		return NULL;
 
-	mm = get_task_mm(task);
+	mm = mm_for_maps(task);
 	if (!mm)
 		return NULL;
 
 	tail_vma = get_gate_vma(task);
-	down_read(&mm->mmap_sem);
 
 	/* Start with last addr hint */
 	if (last_addr && (vma = find_vma(mm, last_addr))) {

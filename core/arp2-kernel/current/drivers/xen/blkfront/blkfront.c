@@ -247,7 +247,7 @@ fail:
  * Callback received when the backend's state changes.
  */
 static void backend_changed(struct xenbus_device *dev,
-			    XenbusState backend_state)
+			    enum xenbus_state backend_state)
 {
 	struct blkfront_info *info = dev->data;
 	struct block_device *bd;
@@ -271,13 +271,13 @@ static void backend_changed(struct xenbus_device *dev,
 		if (bd == NULL)
 			xenbus_dev_fatal(dev, -ENODEV, "bdget failed");
 
-		down(&bd->bd_sem);
+		mutex_lock(&bd->bd_mutex);
 		if (info->users > 0)
 			xenbus_dev_error(dev, -EBUSY,
 					 "Device in use; refusing to close");
 		else
 			blkfront_closing(dev);
-		up(&bd->bd_sem);
+		mutex_unlock(&bd->bd_mutex);
 		bdput(bd);
 		break;
 	}
@@ -434,7 +434,7 @@ int blkif_release(struct inode *inode, struct file *filep)
 		   have ignored this request initially, as the device was
 		   still mounted. */
 		struct xenbus_device * dev = info->xbdev;
-		XenbusState state = xenbus_read_driver_state(dev->otherend);
+		enum xenbus_state state = xenbus_read_driver_state(dev->otherend);
 
 		if (state == XenbusStateClosing)
 			blkfront_closing(dev);
@@ -452,10 +452,6 @@ int blkif_ioctl(struct inode *inode, struct file *filep,
 		      command, (long)argument, inode->i_rdev);
 
 	switch (command) {
-	case HDIO_GETGEO:
-		/* return ENOSYS to use defaults */
-		return -ENOSYS;
-
 	case CDROMMULTISESSION:
 		DPRINTK("FIXME: support multisession CDs later\n");
 		for (i = 0; i < sizeof(struct cdrom_multisession); i++)
@@ -469,6 +465,23 @@ int blkif_ioctl(struct inode *inode, struct file *filep,
 		return -EINVAL; /* same return as native Linux */
 	}
 
+	return 0;
+}
+
+
+int blkif_getgeo(struct block_device *bd, struct hd_geometry *hg)
+{
+	/* We don't have real geometry info, but let's at least return
+	   values consistent with the size of the device */
+	sector_t nsect = get_capacity(bd->bd_disk);
+	sector_t cylinders = nsect;
+
+	hg->heads = 0xff;
+	hg->sectors = 0x3f;
+	sector_div(cylinders, hg->heads * hg->sectors);
+	hg->cylinders = cylinders;
+	if ((sector_t)(hg->cylinders + 1) * hg->heads * hg->sectors < nsect)
+		hg->cylinders = 0xffff;
 	return 0;
 }
 
@@ -792,7 +805,7 @@ static struct xenbus_driver blkfront = {
 
 static int __init xlblk_init(void)
 {
-	if (xen_init() < 0)
+	if (!is_running_on_xen())
 		return -ENODEV;
 
 	return xenbus_register_frontend(&blkfront);
@@ -807,13 +820,3 @@ static void xlblk_exit(void)
 module_exit(xlblk_exit);
 
 MODULE_LICENSE("Dual BSD/GPL");
-
-/*
- * Local variables:
- *  c-file-style: "linux"
- *  indent-tabs-mode: t
- *  c-indent-level: 8
- *  c-basic-offset: 8
- *  tab-width: 8
- * End:
- */

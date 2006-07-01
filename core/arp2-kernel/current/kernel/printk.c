@@ -69,6 +69,7 @@ EXPORT_SYMBOL(oops_in_progress);
  * driver system.
  */
 static DECLARE_MUTEX(console_sem);
+static DECLARE_MUTEX(secondary_console_sem);
 struct console *console_drivers;
 /*
  * This is used for debugging the mess that is the VT code by
@@ -79,6 +80,7 @@ struct console *console_drivers;
  * locked without the console sempahore held
  */
 static int console_locked;
+int console_suspended;
 
 /*
  * logbuf_lock protects log_buf, log_start, log_end, con_start and logged_chars
@@ -123,44 +125,6 @@ static char __log_buf[__LOG_BUF_LEN];
 static char *log_buf = __log_buf;
 static int log_buf_len = __LOG_BUF_LEN;
 static unsigned long logged_chars; /* Number of chars produced since last read+clear operation */
-
-/*
- *	Setup a list of consoles. Called from init/main.c
- */
-static int __init console_setup(char *str)
-{
-	char name[sizeof(console_cmdline[0].name)];
-	char *s, *options;
-	int idx;
-
-	/*
-	 *	Decode str into name, index, options.
-	 */
-	if (str[0] >= '0' && str[0] <= '9') {
-		strcpy(name, "ttyS");
-		strncpy(name + 4, str, sizeof(name) - 5);
-	} else
-		strncpy(name, str, sizeof(name) - 1);
-	name[sizeof(name) - 1] = 0;
-	if ((options = strchr(str, ',')) != NULL)
-		*(options++) = 0;
-#ifdef __sparc__
-	if (!strcmp(str, "ttya"))
-		strcpy(name, "ttyS0");
-	if (!strcmp(str, "ttyb"))
-		strcpy(name, "ttyS1");
-#endif
-	for (s = name; *s; s++)
-		if ((*s >= '0' && *s <= '9') || *s == ',')
-			break;
-	idx = simple_strtoul(s, NULL, 10);
-	*s = 0;
-
-	add_preferred_console(name, idx, options);
-	return 1;
-}
-
-__setup("console=", console_setup);
 
 static int __init log_buf_len_setup(char *str)
 {
@@ -387,20 +351,6 @@ asmlinkage long sys_syslog(int type, char __user *buf, int len)
 }
 
 /*
- * Crashdump special routine. Don't print to global log_buf, just to the
- * actual console device(s).
- */
-static void crashdump_call_console_drivers(const char *buf, unsigned long len)
-{
-	struct console *con;
-
-	for (con = console_drivers; con; con = con->next) {
-		if ((con->flags & CON_ENABLED) && con->write)
-			con->write(con, buf, len);
-	}
-}
-
-/*
  * Call the console drivers on a range of log_buf
  */
 static void __call_console_drivers(unsigned long start, unsigned long end)
@@ -442,8 +392,7 @@ static void call_console_drivers(unsigned long start, unsigned long end)
 	unsigned long cur_index, start_print;
 	static int msg_level = -1;
 
-	if (((long)(start - end)) > 0)
-		BUG();
+	BUG_ON(((long)(start - end)) > 0);
 
 	cur_index = start;
 	start_print = start;
@@ -596,12 +545,6 @@ asmlinkage int vprintk(const char *fmt, va_list args)
 	/* Emit the output into the temporary buffer */
 	printed_len = vscnprintf(printk_buf, sizeof(printk_buf), fmt, args);
 
-	if (unlikely(crashdump_mode())) {
-		crashdump_call_console_drivers(printk_buf, printed_len);
-		spin_unlock_irqrestore(&logbuf_lock, flags);
-		goto out;
-	}
-
 	/*
 	 * Copy the output into log_buf.  If the caller didn't provide
 	 * appropriate log level tags, we insert them here
@@ -714,6 +657,44 @@ static void call_console_drivers(unsigned long start, unsigned long end)
 
 #endif
 
+/*
+ * Set up a list of consoles.  Called from init/main.c
+ */
+static int __init console_setup(char *str)
+{
+	char name[sizeof(console_cmdline[0].name)];
+	char *s, *options;
+	int idx;
+
+	/*
+	 * Decode str into name, index, options.
+	 */
+	if (str[0] >= '0' && str[0] <= '9') {
+		strcpy(name, "ttyS");
+		strncpy(name + 4, str, sizeof(name) - 5);
+	} else {
+		strncpy(name, str, sizeof(name) - 1);
+	}
+	name[sizeof(name) - 1] = 0;
+	if ((options = strchr(str, ',')) != NULL)
+		*(options++) = 0;
+#ifdef __sparc__
+	if (!strcmp(str, "ttya"))
+		strcpy(name, "ttyS0");
+	if (!strcmp(str, "ttyb"))
+		strcpy(name, "ttyS1");
+#endif
+	for (s = name; *s; s++)
+		if ((*s >= '0' && *s <= '9') || *s == ',')
+			break;
+	idx = simple_strtoul(s, NULL, 10);
+	*s = 0;
+
+	add_preferred_console(name, idx, options);
+	return 1;
+}
+__setup("console=", console_setup);
+
 /**
  * add_preferred_console - add a device to the list of preferred consoles.
  * @name: device name
@@ -763,8 +744,12 @@ int __init add_preferred_console(char *name, int idx, char *options)
  */
 void acquire_console_sem(void)
 {
-	if (in_interrupt())
-		BUG();
+	if (console_suspended) {
+		down(&secondary_console_sem);
+		return;
+	}
+
+	BUG_ON(in_interrupt());
 	down(&console_sem);
 	console_locked = 1;
 	console_may_schedule = 1;
@@ -806,6 +791,11 @@ void release_console_sem(void)
 	unsigned long flags;
 	unsigned long _con_start, _log_end;
 	unsigned long wake_klogd = 0;
+
+	if (console_suspended) {
+		up(&secondary_console_sem);
+		return;
+	}
 
 	for ( ; ; ) {
 		spin_lock_irqsave(&logbuf_lock, flags);

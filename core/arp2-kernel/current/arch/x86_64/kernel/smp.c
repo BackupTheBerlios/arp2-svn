@@ -19,7 +19,6 @@
 #include <linux/kernel_stat.h>
 #include <linux/mc146818rtc.h>
 #include <linux/interrupt.h>
-#include <linux/module.h>
 
 #include <asm/mtrr.h>
 #include <asm/pgalloc.h>
@@ -76,7 +75,7 @@ static inline void leave_mm(int cpu)
 {
 	if (read_pda(mmu_state) == TLBSTATE_OK)
 		BUG();
-	clear_bit(cpu, &read_pda(active_mm)->cpu_vm_mask);
+	cpu_clear(cpu, read_pda(active_mm)->cpu_vm_mask);
 	load_cr3(swapper_pg_dir);
 }
 
@@ -86,7 +85,7 @@ static inline void leave_mm(int cpu)
  * [cpu0: the cpu that switches]
  * 1) switch_mm() either 1a) or 1b)
  * 1a) thread switch to a different mm
- * 1a1) clear_bit(cpu, &old_mm->cpu_vm_mask);
+ * 1a1) cpu_clear(cpu, old_mm->cpu_vm_mask);
  * 	Stop ipi delivery for the old mm. This is not synchronized with
  * 	the other cpus, but smp_invalidate_interrupt ignore flush ipis
  * 	for the wrong mm, and in the worst case we perform a superfluous
@@ -96,7 +95,7 @@ static inline void leave_mm(int cpu)
  *	was in lazy tlb mode.
  * 1a3) update cpu active_mm
  * 	Now cpu0 accepts tlb flushes for the new mm.
- * 1a4) set_bit(cpu, &new_mm->cpu_vm_mask);
+ * 1a4) cpu_set(cpu, new_mm->cpu_vm_mask);
  * 	Now the other cpus will send tlb flush ipis.
  * 1a4) change cr3.
  * 1b) thread switch without mm change
@@ -136,10 +135,10 @@ asmlinkage void smp_invalidate_interrupt(struct pt_regs *regs)
 
 	cpu = smp_processor_id();
 	/*
-	 * orig_rax contains the interrupt vector - 256.
+	 * orig_rax contains the negated interrupt vector.
 	 * Use that to determine where the sender put the data.
 	 */
-	sender = regs->orig_rax + 256 - INVALIDATE_TLB_VECTOR_START;
+	sender = ~regs->orig_rax - INVALIDATE_TLB_VECTOR_START;
 	f = &per_cpu(flush_state, sender);
 
 	if (!cpu_isset(cpu, f->flush_cpumask))
@@ -298,7 +297,6 @@ void smp_send_reschedule(int cpu)
  * static memory requirements. It also looks cleaner.
  */
 static DEFINE_SPINLOCK(call_lock);
-static DEFINE_SPINLOCK(dump_call_lock);
 
 struct call_data_struct {
 	void (*func) (void *info);
@@ -309,49 +307,6 @@ struct call_data_struct {
 };
 
 static struct call_data_struct * call_data;
-static struct call_data_struct * saved_call_data;
-
-/*
- * dump version of smp_call_function to avoid deadlock in call_lock
- */
-void dump_smp_call_function (void (*func) (void *info), void *info)
-{
-	static struct call_data_struct dumpdata;
-	int waitcount;
-
-	spin_lock(&dump_call_lock);
-	/* if another cpu beat us, they win! */
-	if (dumpdata.func) {
-		spin_unlock(&dump_call_lock);
-		func(info);
-		/* NOTREACHED */
-	}
-
- 	/* freeze call_lock or wait for on-going IPIs to settle down */
-	waitcount = 0;
-	while (!spin_trylock(&call_lock)) {
-		if (waitcount++ > 1000) {
-			/* save original for dump analysis */
-			saved_call_data = call_data;
-			break;
-		}
-		udelay(1000);
-		barrier();
-	}
-
-	dumpdata.func = func;
-	dumpdata.info = info;
-	dumpdata.wait = 0; /* not used */
-	atomic_set(&dumpdata.started, 0); /* not used */
-	atomic_set(&dumpdata.finished, 0); /* not used */
-
- 	call_data = &dumpdata;
-	wmb();
-	send_IPI_allbutself(CALL_FUNCTION_VECTOR);
-	/* Don't wait */
-	spin_unlock(&dump_call_lock);
-}
-EXPORT_SYMBOL_GPL(dump_smp_call_function);
 
 void lock_ipi_call_lock(void)
 {

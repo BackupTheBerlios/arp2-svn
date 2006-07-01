@@ -9,27 +9,10 @@
 
 
 /* DMA-Interrupt reasons. */
-/*TODO: add the missing ones. */
-#define BCM43xx_DMAIRQ_ERR0		(1 << 10)
-#define BCM43xx_DMAIRQ_ERR1		(1 << 11)
-#define BCM43xx_DMAIRQ_ERR2		(1 << 12)
-#define BCM43xx_DMAIRQ_ERR3		(1 << 13)
-#define BCM43xx_DMAIRQ_ERR4		(1 << 14)
-#define BCM43xx_DMAIRQ_ERR5		(1 << 15)
+#define BCM43xx_DMAIRQ_FATALMASK	((1 << 10) | (1 << 11) | (1 << 12) \
+					 | (1 << 14) | (1 << 15))
+#define BCM43xx_DMAIRQ_NONFATALMASK	(1 << 13)
 #define BCM43xx_DMAIRQ_RX_DONE		(1 << 16)
-/* helpers */
-#define BCM43xx_DMAIRQ_ANYERR		(BCM43xx_DMAIRQ_ERR0 | \
-					 BCM43xx_DMAIRQ_ERR1 | \
-					 BCM43xx_DMAIRQ_ERR2 | \
-					 BCM43xx_DMAIRQ_ERR3 | \
-					 BCM43xx_DMAIRQ_ERR4 | \
-					 BCM43xx_DMAIRQ_ERR5)
-#define BCM43xx_DMAIRQ_FATALERR		(BCM43xx_DMAIRQ_ERR0 | \
-					 BCM43xx_DMAIRQ_ERR1 | \
-					 BCM43xx_DMAIRQ_ERR2 | \
-					 BCM43xx_DMAIRQ_ERR4 | \
-					 BCM43xx_DMAIRQ_ERR5)
-#define BCM43xx_DMAIRQ_NONFATALERR	BCM43xx_DMAIRQ_ERR3
 
 /* DMA controller register offsets. (relative to BCM43xx_DMA#_BASE) */
 #define BCM43xx_DMA_TX_CONTROL		0x00
@@ -119,10 +102,6 @@ struct bcm43xx_dmadesc_meta {
 	struct sk_buff *skb;
 	/* DMA base bus-address of the descriptor buffer. */
 	dma_addr_t dmaaddr;
-	/* Pointer to our txb (can be NULL).
-	 * This should be freed in completion IRQ.
-	 */
-	struct ieee80211_txb *txb;
 };
 
 struct bcm43xx_dmaring {
@@ -161,6 +140,21 @@ struct bcm43xx_dmaring {
 };
 
 
+static inline
+u32 bcm43xx_dma_read(struct bcm43xx_dmaring *ring,
+		     u16 offset)
+{
+	return bcm43xx_read32(ring->bcm, ring->mmio_base + offset);
+}
+
+static inline
+void bcm43xx_dma_write(struct bcm43xx_dmaring *ring,
+		       u16 offset, u32 value)
+{
+	bcm43xx_write32(ring->bcm, ring->mmio_base + offset, value);
+}
+
+
 int bcm43xx_dma_init(struct bcm43xx_private *bcm);
 void bcm43xx_dma_free(struct bcm43xx_private *bcm);
 
@@ -168,6 +162,9 @@ int bcm43xx_dmacontroller_rx_reset(struct bcm43xx_private *bcm,
 				   u16 dmacontroller_mmio_base);
 int bcm43xx_dmacontroller_tx_reset(struct bcm43xx_private *bcm,
 				   u16 dmacontroller_mmio_base);
+
+void bcm43xx_dma_tx_suspend(struct bcm43xx_dmaring *ring);
+void bcm43xx_dma_tx_resume(struct bcm43xx_dmaring *ring);
 
 void bcm43xx_dma_handle_xmitstatus(struct bcm43xx_private *bcm,
 				   struct bcm43xx_xmitstatus *status);
@@ -214,6 +211,14 @@ void bcm43xx_dma_handle_xmitstatus(struct bcm43xx_private *bcm,
 }
 static inline
 void bcm43xx_dma_rx(struct bcm43xx_dmaring *ring)
+{
+}
+static inline
+void bcm43xx_dma_tx_suspend(struct bcm43xx_dmaring *ring)
+{
+}
+static inline
+void bcm43xx_dma_tx_resume(struct bcm43xx_dmaring *ring)
 {
 }
 

@@ -5,6 +5,10 @@
  * @remark Read the file COPYING
  *
  * @author John Levon <levon@movementarian.org>
+ *
+ * Modified by Aravind Menon for Xen
+ * These modifications are:
+ * Copyright (C) 2005 Hewlett-Packard Co.
  */
 
 #include <linux/kernel.h>
@@ -19,7 +23,7 @@
 #include "cpu_buffer.h"
 #include "buffer_sync.h"
 #include "oprofile_stats.h"
- 
+
 struct oprofile_operations oprofile_ops;
 
 unsigned long oprofile_started;
@@ -32,6 +36,19 @@ static DECLARE_MUTEX(start_sem);
    1 - use the timer int mechanism regardless
  */
 static int timer = 0;
+
+#ifdef CONFIG_XEN
+extern unsigned int adomains;
+extern int active_domains[MAX_OPROF_DOMAINS];
+
+int oprofile_set_active(void)
+{
+	if (oprofile_ops.set_active)
+		return oprofile_ops.set_active(active_domains, adomains);
+
+	return -EINVAL;
+}
+#endif
 
 int oprofile_setup(void)
 {

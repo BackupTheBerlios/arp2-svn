@@ -30,7 +30,6 @@
 #include <linux/efi.h>
 #include <linux/interrupt.h>
 #include <linux/delay.h>
-#include <linux/kprobes.h>
 
 #include <asm/cpu.h>
 #include <asm/delay.h>
@@ -45,7 +44,6 @@
 #include <asm/uaccess.h>
 #include <asm/unwind.h>
 #include <asm/user.h>
-#include <asm/diskdump.h>
 
 #include "entry.h"
 
@@ -158,8 +156,6 @@ show_regs (struct pt_regs *regs)
 	} else
 		show_stack(NULL, NULL);
 }
-
-EXPORT_SYMBOL_GPL(show_regs);
 
 void
 do_notify_resume_user (sigset_t *oldset, struct sigscratch *scr, long in_syscall)
@@ -603,12 +599,10 @@ do_dump_task_fpu (struct task_struct *task, struct unw_frame_info *info, void *a
 }
 
 void
-ia64_do_copy_regs (struct unw_frame_info *info, void *arg)
+do_copy_regs (struct unw_frame_info *info, void *arg)
 {
 	do_copy_task_regs(current, info, arg);
 }
-
-EXPORT_SYMBOL_GPL(ia64_do_copy_regs);
 
 void
 do_dump_fpu (struct unw_frame_info *info, void *arg)
@@ -622,7 +616,7 @@ dump_task_regs(struct task_struct *task, elf_gregset_t *regs)
 	struct unw_frame_info tcore_info;
 
 	if (current == task) {
-		unw_init_running(ia64_do_copy_regs, regs);
+		unw_init_running(do_copy_regs, regs);
 	} else {
 		memset(&tcore_info, 0, sizeof(tcore_info));
 		unw_init_from_blocked_task(&tcore_info, task);
@@ -634,7 +628,7 @@ dump_task_regs(struct task_struct *task, elf_gregset_t *regs)
 void
 ia64_elf_core_copy_regs (struct pt_regs *pt, elf_gregset_t dst)
 {
-	unw_init_running(ia64_do_copy_regs, dst);
+	unw_init_running(do_copy_regs, dst);
 }
 
 int
@@ -743,13 +737,6 @@ void
 exit_thread (void)
 {
 
-	/*
-	 * Remove function-return probe instances associated with this task
-	 * and put them back on the free list. Do not insert an exit probe for
-	 * this function, it will be disabled by kprobe_flush_task if you do.
-	 */
-	kprobe_flush_task(current);
-
 	ia64_drop_fpu(current);
 #ifdef CONFIG_PERFMON
        /* if needed, stop monitoring and flush state to perfmon context */
@@ -819,7 +806,6 @@ machine_restart (char *restart_cmd)
 	(void) notify_die(DIE_MACHINE_RESTART, restart_cmd, NULL, 0, 0, 0);
 	(*efi.reset_system)(EFI_RESET_WARM, 0, 0, NULL);
 }
-EXPORT_SYMBOL_GPL(machine_restart);
 
 void
 machine_halt (void)
@@ -827,7 +813,6 @@ machine_halt (void)
 	(void) notify_die(DIE_MACHINE_HALT, "", NULL, 0, 0, 0);
 	cpu_halt();
 }
-EXPORT_SYMBOL_GPL(machine_halt);
 
 void
 machine_power_off (void)
@@ -837,22 +822,3 @@ machine_power_off (void)
 	machine_halt();
 }
 
-
-void
-ia64_freeze_cpu (struct unw_frame_info *info, void *arg)
-{
-	current->thread.ksp = (__u64)(info->sw) - 16;
-	for (;;) local_irq_disable();
-}
-
-EXPORT_SYMBOL_GPL(ia64_freeze_cpu);
-
-void
-ia64_start_dump (struct unw_frame_info *info, void *arg)
-{
-	struct dump_call_param *param = arg;
-
-	param->func(param->regs, info);
-}
-
-EXPORT_SYMBOL_GPL(ia64_start_dump);

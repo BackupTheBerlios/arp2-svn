@@ -33,7 +33,7 @@ static void nop_destructor(struct request_sock *req)
 
 static struct request_sock_ops tux_req =
 {
- 	.destructor = &nop_destructor,
+	.destructor = &nop_destructor,
 };
 
 static int redirect_sock (tux_req_t *req, const int port)

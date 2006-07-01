@@ -75,7 +75,7 @@ static void __update_bandwidth (tux_req_t *req, unsigned int bytes)
 		req, bytes, ftp_bytes_sent, ftp_bandwidth);
 }
 
-#define update_bandwidth(req,bytes) 				\
+#define update_bandwidth(req,bytes)				\
 	do {							\
 		if (unlikely(tux_ftp_login_message))		\
 			__update_bandwidth(req, bytes);		\
@@ -1325,7 +1325,7 @@ static void ftp_execute_command (tux_req_t *req, int cachemiss)
 		icsk = inet_csk(data_sock->sk);
 
 		tp->nonagle = 2;
-	       	Dprintk("PASV bind() ret: %d.\n", err);
+		Dprintk("PASV bind() ret: %d.\n", err);
 		if (err < 0) {
 			req_err(req);
 			sock_release(data_sock);
@@ -1403,7 +1403,7 @@ static void ftp_execute_command (tux_req_t *req, int cachemiss)
 				(struct sockaddr*)&addr, sizeof(addr));
 		current->cap_effective = saved_cap;
 
-	       	Dprintk("ACTIVE bind() ret: %d.\n", err);
+		Dprintk("ACTIVE bind() ret: %d.\n", err);
 		if (err) {
 			sock_release(data_sock);
 			req_err(req);

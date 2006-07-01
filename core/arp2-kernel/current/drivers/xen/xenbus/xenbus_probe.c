@@ -55,7 +55,7 @@
 
 extern struct mutex xenwatch_mutex;
 
-static struct notifier_block *xenstore_chain;
+static BLOCKING_NOTIFIER_HEAD(xenstore_notifier_list);
 
 /* If something in array of ids matches this device, return it. */
 static const struct xenbus_device_id *
@@ -284,7 +284,7 @@ static void otherend_changed(struct xenbus_watch *watch,
 	struct xenbus_device *dev =
 		container_of(watch, struct xenbus_device, otherend_watch);
 	struct xenbus_driver *drv = to_xenbus_driver(dev->dev.driver);
-	XenbusState state;
+	enum xenbus_state state;
 
 	/* Protect us against watches firing on old details when the otherend
 	   details change, say immediately after a resume. */
@@ -539,7 +539,7 @@ static int xenbus_probe_node(struct xen_bus_type *bus,
 	size_t stringlen;
 	char *tmpstring;
 
-	XenbusState state = xenbus_read_driver_state(nodename);
+	enum xenbus_state state = xenbus_read_driver_state(nodename);
 
 	if (state != XenbusStateInitialising) {
 		/* Device is not new, so ignore it.  This can happen if a
@@ -866,7 +866,7 @@ int register_xenstore_notifier(struct notifier_block *nb)
 	if (xenstored_ready > 0)
 		ret = nb->notifier_call(nb, 0, NULL);
 	else
-		notifier_chain_register(&xenstore_chain, nb);
+		blocking_notifier_chain_register(&xenstore_notifier_list, nb);
 
 	return ret;
 }
@@ -874,7 +874,7 @@ EXPORT_SYMBOL_GPL(register_xenstore_notifier);
 
 void unregister_xenstore_notifier(struct notifier_block *nb)
 {
-	notifier_chain_unregister(&xenstore_chain, nb);
+	blocking_notifier_chain_unregister(&xenstore_notifier_list, nb);
 }
 EXPORT_SYMBOL_GPL(unregister_xenstore_notifier);
 
@@ -915,7 +915,7 @@ void xenbus_probe(void *unused)
 	register_xenbus_watch(&be_watch);
 
 	/* Notify others that xenstore is up */
-	notifier_call_chain(&xenstore_chain, 0, NULL);
+	blocking_notifier_call_chain(&xenstore_notifier_list, 0, NULL);
 }
 
 
@@ -966,10 +966,8 @@ static int __init xenbus_probe_init(void)
 
 	DPRINTK("");
 
-	if (xen_init() < 0) {
-		DPRINTK("failed");
+	if (!is_running_on_xen())
 		return -ENODEV;
-	}
 
 	/* Register ourselves with the kernel bus subsystem */
 	bus_register(&xenbus_frontend.bus);
@@ -981,7 +979,7 @@ static int __init xenbus_probe_init(void)
 	dom0 = (xen_start_info->store_evtchn == 0);
 
 	if (dom0) {
-		evtchn_op_t op = { 0 };
+		struct evtchn_alloc_unbound alloc_unbound;
 
 		/* Allocate page. */
 		page = get_zeroed_page(GFP_KERNEL);
@@ -993,15 +991,15 @@ static int __init xenbus_probe_init(void)
 				   PAGE_SHIFT);
 
 		/* Next allocate a local port which xenstored can bind to */
-		op.cmd = EVTCHNOP_alloc_unbound;
-		op.u.alloc_unbound.dom        = DOMID_SELF;
-		op.u.alloc_unbound.remote_dom = 0;
+		alloc_unbound.dom        = DOMID_SELF;
+		alloc_unbound.remote_dom = 0;
 
-		err = HYPERVISOR_event_channel_op(&op);
+		err = HYPERVISOR_event_channel_op(EVTCHNOP_alloc_unbound,
+						  &alloc_unbound);
 		if (err == -ENOSYS)
 			goto err;
 		BUG_ON(err);
-		xen_start_info->store_evtchn = op.u.alloc_unbound.port;
+		xen_start_info->store_evtchn = alloc_unbound.port;
 
 		/* And finally publish the above info in /proc/xen */
 		xsd_kva_intf = create_xen_proc_entry("xsd_kva", 0600);
@@ -1069,6 +1067,9 @@ static int __init wait_for_devices(void)
 {
 	unsigned long timeout = jiffies + 10*HZ;
 
+	if (!is_running_on_xen())
+		return -ENODEV;
+
 	while (time_before(jiffies, timeout)) {
 		if (all_devices_ready())
 			return 0;
@@ -1080,14 +1081,3 @@ static int __init wait_for_devices(void)
 }
 
 late_initcall(wait_for_devices);
-
-
-/*
- * Local variables:
- *  c-file-style: "linux"
- *  indent-tabs-mode: t
- *  c-indent-level: 8
- *  c-basic-offset: 8
- *  tab-width: 8
- * End:
- */

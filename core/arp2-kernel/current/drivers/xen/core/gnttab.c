@@ -38,7 +38,6 @@
 #include <linux/vmalloc.h>
 #include <asm/pgtable.h>
 #include <xen/interface/xen.h>
-#include <asm/fixmap.h>
 #include <asm/uaccess.h>
 #include <xen/gnttab.h>
 #include <asm/synch_bitops.h>
@@ -65,6 +64,7 @@ EXPORT_SYMBOL_GPL(gnttab_end_foreign_transfer);
 EXPORT_SYMBOL_GPL(gnttab_alloc_grant_references);
 EXPORT_SYMBOL_GPL(gnttab_free_grant_references);
 EXPORT_SYMBOL_GPL(gnttab_free_grant_reference);
+EXPORT_SYMBOL_GPL(gnttab_empty_grant_references);
 EXPORT_SYMBOL_GPL(gnttab_claim_grant_reference);
 EXPORT_SYMBOL_GPL(gnttab_release_grant_reference);
 EXPORT_SYMBOL_GPL(gnttab_request_free_callback);
@@ -80,7 +80,7 @@ EXPORT_SYMBOL_GPL(gnttab_grant_foreign_transfer_ref);
 static grant_ref_t gnttab_list[NR_GRANT_ENTRIES];
 static int gnttab_free_count;
 static grant_ref_t gnttab_free_head;
-static spinlock_t gnttab_list_lock = SPIN_LOCK_UNLOCKED;
+static DEFINE_SPINLOCK(gnttab_list_lock);
 
 static grant_entry_t *shared = NULL;
 
@@ -325,6 +325,12 @@ gnttab_alloc_grant_references(u16 count, grant_ref_t *head)
 }
 
 int
+gnttab_empty_grant_references(const grant_ref_t *private_head)
+{
+	return (*private_head == GNTTAB_LIST_END);
+}
+
+int
 gnttab_claim_grant_reference(grant_ref_t *private_head)
 {
 	grant_ref_t g = *private_head;
@@ -392,7 +398,7 @@ gnttab_resume(void)
 
 	setup.dom        = DOMID_SELF;
 	setup.nr_frames  = NR_GRANT_FRAMES;
-	setup.frame_list = frames;
+	set_xen_guest_handle(setup.frame_list, frames);
 
 	rc = HYPERVISOR_grant_table_op(GNTTABOP_setup_table, &setup, 1);
 	if (rc == -ENOSYS)
@@ -436,7 +442,7 @@ gnttab_init(void)
 {
 	int i;
 
-	if (xen_init() < 0)
+	if (!is_running_on_xen())
 		return -ENODEV;
 
 	if (gnttab_resume() < 0)
@@ -452,13 +458,3 @@ gnttab_init(void)
 }
 
 core_initcall(gnttab_init);
-
-/*
- * Local variables:
- *  c-file-style: "linux"
- *  indent-tabs-mode: t
- *  c-indent-level: 8
- *  c-basic-offset: 8
- *  tab-width: 8
- * End:
- */

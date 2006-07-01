@@ -117,14 +117,17 @@ static int __init xencons_bufsz_setup(char *str)
 {
 	unsigned int goal;
 	goal = simple_strtoul(str, NULL, 0);
-	while (wbuf_size < goal)
-		wbuf_size <<= 1;
+	if (goal) {
+		goal = roundup_pow_of_two(goal);
+		if (wbuf_size < goal)
+			wbuf_size = goal;
+	}
 	return 1;
 }
 __setup("xencons_bufsz=", xencons_bufsz_setup);
 
 /* This lock protects accesses to the common transmit buffer. */
-static spinlock_t xencons_lock = SPIN_LOCK_UNLOCKED;
+static DEFINE_SPINLOCK(xencons_lock);
 
 /* Common transmit-kick routine. */
 static void __xencons_tx_flush(void);
@@ -133,8 +136,7 @@ static struct tty_driver *xencons_driver;
 
 /******************** Kernel console driver ********************************/
 
-static void kcons_write(
-	struct console *c, const char *s, unsigned int count)
+static void kcons_write(struct console *c, const char *s, unsigned int count)
 {
 	int           i = 0;
 	unsigned long flags;
@@ -155,14 +157,14 @@ static void kcons_write(
 	spin_unlock_irqrestore(&xencons_lock, flags);
 }
 
-static void kcons_write_dom0(
-	struct console *c, const char *s, unsigned int count)
+static void kcons_write_dom0(struct console *c, const char *s, unsigned int count)
 {
-	int rc;
 
-	while ((count > 0) &&
-	       ((rc = HYPERVISOR_console_io(
-			CONSOLEIO_write, count, (char *)s)) > 0)) {
+	while (count > 0) {
+		int rc;
+		rc = HYPERVISOR_console_io( CONSOLEIO_write, count, (char *)s);
+		if (rc <= 0)
+			break;
 		count -= rc;
 		s += rc;
 	}
@@ -183,7 +185,7 @@ static struct console kcons_info = {
 #define __RETCODE 0
 static int __init xen_console_init(void)
 {
-	if (xen_init() < 0)
+	if (!is_running_on_xen())
 		return __RETCODE;
 
 	if (xen_start_info->flags & SIF_INITDOMAIN) {
@@ -566,7 +568,7 @@ static int __init xencons_init(void)
 {
 	int rc;
 
-	if (xen_init() < 0)
+	if (!is_running_on_xen())
 		return -ENODEV;
 
 	if (xc_mode == XC_OFF)
@@ -636,13 +638,3 @@ static int __init xencons_init(void)
 module_init(xencons_init);
 
 MODULE_LICENSE("Dual BSD/GPL");
-
-/*
- * Local variables:
- *  c-file-style: "linux"
- *  indent-tabs-mode: t
- *  c-indent-level: 8
- *  c-basic-offset: 8
- *  tab-width: 8
- * End:
- */

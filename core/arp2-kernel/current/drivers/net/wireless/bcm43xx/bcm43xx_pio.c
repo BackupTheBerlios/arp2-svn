@@ -26,6 +26,8 @@
 #include "bcm43xx.h"
 #include "bcm43xx_pio.h"
 #include "bcm43xx_main.h"
+#include "bcm43xx_xmit.h"
+#include "bcm43xx_power.h"
 
 #include <linux/delay.h>
 
@@ -43,10 +45,10 @@ static void tx_octet(struct bcm43xx_pioqueue *queue,
 		bcm43xx_pio_write(queue, BCM43xx_PIO_TXDATA,
 				  octet);
 		bcm43xx_pio_write(queue, BCM43xx_PIO_TXCTL,
-				  BCM43xx_PIO_TXCTL_WRITEHI);
+				  BCM43xx_PIO_TXCTL_WRITELO);
 	} else {
 		bcm43xx_pio_write(queue, BCM43xx_PIO_TXCTL,
-				  BCM43xx_PIO_TXCTL_WRITEHI);
+				  BCM43xx_PIO_TXCTL_WRITELO);
 		bcm43xx_pio_write(queue, BCM43xx_PIO_TXDATA,
 				  octet);
 	}
@@ -102,7 +104,7 @@ static void tx_complete(struct bcm43xx_pioqueue *queue,
 		bcm43xx_pio_write(queue, BCM43xx_PIO_TXDATA,
 				  skb->data[skb->len - 1]);
 		bcm43xx_pio_write(queue, BCM43xx_PIO_TXCTL,
-				  BCM43xx_PIO_TXCTL_WRITEHI |
+				  BCM43xx_PIO_TXCTL_WRITELO |
 				  BCM43xx_PIO_TXCTL_COMPLETE);
 	} else {
 		bcm43xx_pio_write(queue, BCM43xx_PIO_TXCTL,
@@ -111,9 +113,10 @@ static void tx_complete(struct bcm43xx_pioqueue *queue,
 }
 
 static u16 generate_cookie(struct bcm43xx_pioqueue *queue,
-			   int packetindex)
+			   struct bcm43xx_pio_txpacket *packet)
 {
 	u16 cookie = 0x0000;
+	int packetindex;
 
 	/* We use the upper 4 bits for the PIO
 	 * controller ID and the lower 12 bits
@@ -134,6 +137,7 @@ static u16 generate_cookie(struct bcm43xx_pioqueue *queue,
 	default:
 		assert(0);
 	}
+	packetindex = pio_txpacket_getindex(packet);
 	assert(((u16)packetindex & 0xF000) == 0x0000);
 	cookie |= (u16)packetindex;
 
@@ -145,7 +149,7 @@ struct bcm43xx_pioqueue * parse_cookie(struct bcm43xx_private *bcm,
 				       u16 cookie,
 				       struct bcm43xx_pio_txpacket **packet)
 {
-	struct bcm43xx_pio *pio = bcm->current_core->pio;
+	struct bcm43xx_pio *pio = bcm43xx_current_pio(bcm);
 	struct bcm43xx_pioqueue *queue = NULL;
 	int packetindex;
 
@@ -183,7 +187,7 @@ static void pio_tx_write_fragment(struct bcm43xx_pioqueue *queue,
 	bcm43xx_generate_txhdr(queue->bcm,
 			       &txhdr, skb->data, skb->len,
 			       (packet->xmitted_frags == 0),
-			       generate_cookie(queue, pio_txpacket_getindex(packet)));
+			       generate_cookie(queue, packet));
 
 	tx_start(queue);
 	octets = skb->len + sizeof(txhdr);
@@ -240,7 +244,7 @@ static int pio_tx_packet(struct bcm43xx_pio_txpacket *packet)
 		queue->tx_devq_packets++;
 		queue->tx_devq_used += octets;
 
-		assert(packet->xmitted_frags <= packet->txb->nr_frags);
+		assert(packet->xmitted_frags < packet->txb->nr_frags);
 		packet->xmitted_frags++;
 		packet->xmitted_octets += octets;
 	}
@@ -256,8 +260,14 @@ static void tx_tasklet(unsigned long d)
 	unsigned long flags;
 	struct bcm43xx_pio_txpacket *packet, *tmp_packet;
 	int err;
+	u16 txctl;
 
-	spin_lock_irqsave(&bcm->lock, flags);
+	bcm43xx_lock_mmio(bcm, flags);
+
+	txctl = bcm43xx_pio_read(queue, BCM43xx_PIO_TXCTL);
+	if (txctl & BCM43xx_PIO_TXCTL_SUSPEND)
+		goto out_unlock;
+
 	list_for_each_entry_safe(packet, tmp_packet, &queue->txqueue, list) {
 		assert(packet->xmitted_frags < packet->txb->nr_frags);
 		if (packet->xmitted_frags == 0) {
@@ -287,7 +297,8 @@ static void tx_tasklet(unsigned long d)
 	next_packet:
 		continue;
 	}
-	spin_unlock_irqrestore(&bcm->lock, flags);
+out_unlock:
+	bcm43xx_unlock_mmio(bcm, flags);
 }
 
 static void setup_txqueues(struct bcm43xx_pioqueue *queue)
@@ -329,12 +340,19 @@ struct bcm43xx_pioqueue * bcm43xx_setup_pioqueue(struct bcm43xx_private *bcm,
 		     (unsigned long)queue);
 
 	value = bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS_BITFIELD);
-	value |= BCM43xx_SBF_XFER_REG_BYTESWAP;
+	value &= ~BCM43xx_SBF_XFER_REG_BYTESWAP;
 	bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS_BITFIELD, value);
 
 	qsize = bcm43xx_read16(bcm, queue->mmio_base + BCM43xx_PIO_TXQBUFSIZE);
+	if (qsize == 0) {
+		printk(KERN_ERR PFX "ERROR: This card does not support PIO "
+				    "operation mode. Please use DMA mode "
+				    "(module parameter pio=0).\n");
+		goto err_freequeue;
+	}
 	if (qsize <= BCM43xx_PIO_TXQADJUST) {
-		printk(KERN_ERR PFX "PIO tx device-queue too small (%u)\n", qsize);
+		printk(KERN_ERR PFX "PIO tx device-queue too small (%u)\n",
+		       qsize);
 		goto err_freequeue;
 	}
 	qsize -= BCM43xx_PIO_TXQADJUST;
@@ -376,7 +394,11 @@ static void bcm43xx_destroy_pioqueue(struct bcm43xx_pioqueue *queue)
 
 void bcm43xx_pio_free(struct bcm43xx_private *bcm)
 {
-	struct bcm43xx_pio *pio = bcm->current_core->pio;
+	struct bcm43xx_pio *pio;
+
+	if (!bcm43xx_using_pio(bcm))
+		return;
+	pio = bcm43xx_current_pio(bcm);
 
 	bcm43xx_destroy_pioqueue(pio->queue3);
 	pio->queue3 = NULL;
@@ -390,7 +412,7 @@ void bcm43xx_pio_free(struct bcm43xx_private *bcm)
 
 int bcm43xx_pio_init(struct bcm43xx_private *bcm)
 {
-	struct bcm43xx_pio *pio = bcm->current_core->pio;
+	struct bcm43xx_pio *pio = bcm43xx_current_pio(bcm);
 	struct bcm43xx_pioqueue *queue;
 	int err = -ENOMEM;
 
@@ -437,16 +459,11 @@ err_destroy0:
 int bcm43xx_pio_tx(struct bcm43xx_private *bcm,
 		   struct ieee80211_txb *txb)
 {
-	struct bcm43xx_pioqueue *queue = bcm->current_core->pio->queue1;
+	struct bcm43xx_pioqueue *queue = bcm43xx_current_pio(bcm)->queue1;
 	struct bcm43xx_pio_txpacket *packet;
-	u16 tmp;
 
 	assert(!queue->tx_suspended);
 	assert(!list_empty(&queue->txfree));
-
-	tmp = bcm43xx_pio_read(queue, BCM43xx_PIO_TXCTL);
-	if (tmp & BCM43xx_PIO_TXCTL_SUSPEND)
-		return -EBUSY;
 
 	packet = list_entry(queue->txfree.next, struct bcm43xx_pio_txpacket, list);
 	packet->txb = txb;
@@ -457,7 +474,7 @@ int bcm43xx_pio_tx(struct bcm43xx_private *bcm,
 	assert(queue->nr_txfree < BCM43xx_PIO_MAXTXPACKETS);
 
 	/* Suspend TX, if we are out of packets in the "free" queue. */
-	if (unlikely(list_empty(&queue->txfree))) {
+	if (list_empty(&queue->txfree)) {
 		netif_stop_queue(queue->bcm->net_dev);
 		queue->tx_suspended = 1;
 	}
@@ -475,15 +492,15 @@ void bcm43xx_pio_handle_xmitstatus(struct bcm43xx_private *bcm,
 
 	queue = parse_cookie(bcm, status->cookie, &packet);
 	assert(queue);
-//TODO
-if (!queue)
-return;
+
 	free_txpacket(packet, 1);
-	if (unlikely(queue->tx_suspended)) {
+	if (queue->tx_suspended) {
 		queue->tx_suspended = 0;
 		netif_wake_queue(queue->bcm->net_dev);
 	}
-	/* If there are packets on the txqueue, poke the tasklet. */
+	/* If there are packets on the txqueue, poke the tasklet
+	 * to transmit them.
+	 */
 	if (!list_empty(&queue->txqueue))
 		tasklet_schedule(&queue->txtask);
 }
@@ -514,12 +531,9 @@ void bcm43xx_pio_rx(struct bcm43xx_pioqueue *queue)
 	int i, preamble_readwords;
 	struct sk_buff *skb;
 
-return;
 	tmp = bcm43xx_pio_read(queue, BCM43xx_PIO_RXCTL);
-	if (!(tmp & BCM43xx_PIO_RXCTL_DATAAVAILABLE)) {
-		dprintkl(KERN_ERR PFX "PIO RX: No data available\n");//TODO: remove this printk.
+	if (!(tmp & BCM43xx_PIO_RXCTL_DATAAVAILABLE))
 		return;
-	}
 	bcm43xx_pio_write(queue, BCM43xx_PIO_RXCTL,
 			  BCM43xx_PIO_RXCTL_DATAAVAILABLE);
 
@@ -533,8 +547,7 @@ return;
 	return;
 data_ready:
 
-//FIXME: endianess in this function.
-	len = le16_to_cpu(bcm43xx_pio_read(queue, BCM43xx_PIO_RXDATA));
+	len = bcm43xx_pio_read(queue, BCM43xx_PIO_RXDATA);
 	if (unlikely(len > 0x700)) {
 		pio_rx_error(queue, 0, "len > 0x700");
 		return;
@@ -550,7 +563,7 @@ data_ready:
 		preamble_readwords = 18 / sizeof(u16);
 	for (i = 0; i < preamble_readwords; i++) {
 		tmp = bcm43xx_pio_read(queue, BCM43xx_PIO_RXDATA);
-		preamble[i + 1] = cpu_to_be16(tmp);//FIXME?
+		preamble[i + 1] = cpu_to_le16(tmp);
 	}
 	rxhdr = (struct bcm43xx_rxhdr *)preamble;
 	rxflags2 = le16_to_cpu(rxhdr->flags2);
@@ -586,18 +599,40 @@ data_ready:
 	}
 	skb_put(skb, len);
 	for (i = 0; i < len - 1; i += 2) {
-		tmp = cpu_to_be16(bcm43xx_pio_read(queue, BCM43xx_PIO_RXDATA));
-		*((u16 *)(skb->data + i)) = tmp;
+		tmp = bcm43xx_pio_read(queue, BCM43xx_PIO_RXDATA);
+		*((u16 *)(skb->data + i)) = cpu_to_le16(tmp);
 	}
 	if (len % 2) {
 		tmp = bcm43xx_pio_read(queue, BCM43xx_PIO_RXDATA);
 		skb->data[len - 1] = (tmp & 0x00FF);
+/* The specs say the following is required, but
+ * it is wrong and corrupts the PLCP. If we don't do
+ * this, the PLCP seems to be correct. So ifdef it out for now.
+ */
+#if 0
 		if (rxflags2 & BCM43xx_RXHDR_FLAGS2_TYPE2FRAME)
-			skb->data[0x20] = (tmp & 0xFF00) >> 8;
+			skb->data[2] = (tmp & 0xFF00) >> 8;
 		else
-			skb->data[0x1E] = (tmp & 0xFF00) >> 8;
+			skb->data[0] = (tmp & 0xFF00) >> 8;
+#endif
 	}
+	skb_trim(skb, len - IEEE80211_FCS_LEN);
 	bcm43xx_rx(queue->bcm, skb, rxhdr);
 }
 
-/* vim: set ts=8 sw=8 sts=8: */
+void bcm43xx_pio_tx_suspend(struct bcm43xx_pioqueue *queue)
+{
+	bcm43xx_power_saving_ctl_bits(queue->bcm, -1, 1);
+	bcm43xx_pio_write(queue, BCM43xx_PIO_TXCTL,
+			  bcm43xx_pio_read(queue, BCM43xx_PIO_TXCTL)
+			  | BCM43xx_PIO_TXCTL_SUSPEND);
+}
+
+void bcm43xx_pio_tx_resume(struct bcm43xx_pioqueue *queue)
+{
+	bcm43xx_pio_write(queue, BCM43xx_PIO_TXCTL,
+			  bcm43xx_pio_read(queue, BCM43xx_PIO_TXCTL)
+			  & ~BCM43xx_PIO_TXCTL_SUSPEND);
+	bcm43xx_power_saving_ctl_bits(queue->bcm, -1, -1);
+	tasklet_schedule(&queue->txtask);
+}

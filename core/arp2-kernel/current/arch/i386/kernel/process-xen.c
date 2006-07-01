@@ -38,7 +38,6 @@
 #include <linux/kallsyms.h>
 #include <linux/ptrace.h>
 #include <linux/random.h>
-#include <linux/kprobes.h>
 
 #include <asm/uaccess.h>
 #include <asm/pgtable.h>
@@ -55,6 +54,7 @@
 
 #include <xen/interface/physdev.h>
 #include <xen/interface/vcpu.h>
+#include <xen/cpu_hotplug.h>
 
 #include <linux/err.h>
 
@@ -101,8 +101,6 @@ void enable_hlt(void)
 EXPORT_SYMBOL(enable_hlt);
 
 /* XXX XEN doesn't use default_idle(), poll_idle(). Use xen_idle() instead. */
-extern void stop_hz_timer(void);
-extern void start_hz_timer(void);
 void xen_idle(void)
 {
 	local_irq_disable();
@@ -112,10 +110,7 @@ void xen_idle(void)
 	else {
 		clear_thread_flag(TIF_POLLING_NRFLAG);
 		smp_mb__after_clear_bit();
-		stop_hz_timer();
-		/* Blocking includes an implicit local_irq_enable(). */
-		HYPERVISOR_block();
-		start_hz_timer();
+		safe_halt();
 		set_thread_flag(TIF_POLLING_NRFLAG);
 	}
 }
@@ -132,11 +127,7 @@ static inline void play_dead(void)
 	cpu_clear(smp_processor_id(), cpu_initialized);
 	preempt_enable_no_resched();
 	HYPERVISOR_vcpu_op(VCPUOP_down, smp_processor_id(), NULL);
-	/* Same as drivers/xen/core/smpboot.c:cpu_bringup(). */
-	cpu_init();
-	touch_softlockup_watchdog();
-	preempt_disable();
-	local_irq_enable();
+	cpu_bringup();
 }
 #else
 static inline void play_dead(void)
@@ -219,7 +210,7 @@ void show_regs(struct pt_regs * regs)
 	printk("EIP: %04x:[<%08lx>] CPU: %d\n",0xffff & regs->xcs,regs->eip, smp_processor_id());
 	print_symbol("EIP is at %s\n", regs->eip);
 
-	if (user_mode(regs))
+	if (user_mode_vm(regs))
 		printk(" ESP: %04x:%08lx",0xffff & regs->xss,regs->esp);
 	printk(" EFLAGS: %08lx    %s  (%s %.*s)\n",
 	       regs->eflags, print_tainted(), system_utsname.release,
@@ -288,18 +279,10 @@ void exit_thread(void)
 	struct task_struct *tsk = current;
 	struct thread_struct *t = &tsk->thread;
 
-	/*
-	 * Remove function-return probe instances associated with this task
-	 * and put them back on the free list. Do not insert an exit probe for
-	 * this function, it will be disabled by kprobe_flush_task if you do.
-	 */
-	kprobe_flush_task(tsk);
-
 	/* The process may have allocated an io port bitmap... nuke it. */
 	if (unlikely(NULL != t->io_bitmap_ptr)) {
-		physdev_op_t op = { 0 };
-		op.cmd = PHYSDEVOP_SET_IOBITMAP;
-		HYPERVISOR_physdev_op(&op);
+		struct physdev_set_iobitmap set_iobitmap = { 0 };
+		HYPERVISOR_physdev_op(PHYSDEVOP_set_iobitmap, &set_iobitmap);
 		kfree(t->io_bitmap_ptr);
 		t->io_bitmap_ptr = NULL;
 	}
@@ -521,7 +504,8 @@ struct task_struct fastcall * __switch_to(struct task_struct *prev_p, struct tas
 #ifndef CONFIG_X86_NO_TSS
 	struct tss_struct *tss = &per_cpu(init_tss, cpu);
 #endif
-	physdev_op_t iopl_op, iobmp_op;
+	struct physdev_set_iopl iopl_op;
+	struct physdev_set_iobitmap iobmp_op;
 	multicall_entry_t _mcl[8], *mcl = _mcl;
 
 	/* XEN NOTE: FS/GS saved in switch_mm(), not here. */
@@ -570,23 +554,19 @@ struct task_struct fastcall * __switch_to(struct task_struct *prev_p, struct tas
 #undef C
 
 	if (unlikely(prev->iopl != next->iopl)) {
-		iopl_op.cmd             = PHYSDEVOP_SET_IOPL;
-		iopl_op.u.set_iopl.iopl = (next->iopl == 0) ? 1 :
-			(next->iopl >> 12) & 3;
+		iopl_op.iopl = (next->iopl == 0) ? 1 : (next->iopl >> 12) & 3;
 		mcl->op      = __HYPERVISOR_physdev_op;
-		mcl->args[0] = (unsigned long)&iopl_op;
+		mcl->args[0] = PHYSDEVOP_set_iopl;
+		mcl->args[1] = (unsigned long)&iopl_op;
 		mcl++;
 	}
 
 	if (unlikely(prev->io_bitmap_ptr || next->io_bitmap_ptr)) {
-		iobmp_op.cmd                     =
-			PHYSDEVOP_SET_IOBITMAP;
-		iobmp_op.u.set_iobitmap.bitmap   =
-			(char *)next->io_bitmap_ptr;
-		iobmp_op.u.set_iobitmap.nr_ports =
-			next->io_bitmap_ptr ? IO_BITMAP_BITS : 0;
+		iobmp_op.bitmap   = (char *)next->io_bitmap_ptr;
+		iobmp_op.nr_ports = next->io_bitmap_ptr ? IO_BITMAP_BITS : 0;
 		mcl->op      = __HYPERVISOR_physdev_op;
-		mcl->args[0] = (unsigned long)&iobmp_op;
+		mcl->args[0] = PHYSDEVOP_set_iobitmap;
+		mcl->args[1] = (unsigned long)&iobmp_op;
 		mcl++;
 	}
 
@@ -711,7 +691,6 @@ unsigned long get_wchan(struct task_struct *p)
 	} while (count++ < 16);
 	return 0;
 }
-EXPORT_SYMBOL(get_wchan);
 
 /*
  * sys_alloc_thread_area: get a yet unused TLS descriptor index.

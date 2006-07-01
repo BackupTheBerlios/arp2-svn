@@ -20,6 +20,10 @@ struct work_struct {
 	struct timer_list timer;
 };
 
+struct execute_work {
+	struct work_struct work;
+};
+
 #define __WORK_INITIALIZER(n, f, d) {				\
         .entry	= { &(n).entry, &(n).entry },			\
 	.func = (f),						\
@@ -74,6 +78,8 @@ extern void init_workqueues(void);
 void cancel_rearming_delayed_work(struct work_struct *work);
 void cancel_rearming_delayed_workqueue(struct workqueue_struct *,
 				       struct work_struct *);
+int execute_in_process_context(void (*fn)(void *), void *,
+			       struct execute_work *);
 
 /*
  * Kill off a pending schedule_delayed_work().  Note that the work callback
@@ -89,8 +95,5 @@ static inline int cancel_delayed_work(struct work_struct *work)
 		clear_bit(0, &work->pending);
 	return ret;
 }
-
-extern void dump_clear_workqueue(void);
-extern void dump_run_workqueue(void);
 
 #endif

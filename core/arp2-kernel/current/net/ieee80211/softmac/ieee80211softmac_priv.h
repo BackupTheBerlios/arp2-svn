@@ -75,15 +75,6 @@
 # define dprintk(f, x...)  do { /* nothing */ } while (0)
 #endif
 
-#ifdef function_enter
-# undef function_enter
-#endif
-#ifdef CONFIG_IEEE80211_SOFTMAC_DEBUG
-# define function_enter() do { printk(KERN_DEBUG PFX "%s:%d:%s()\n", __FILE__, __LINE__, __FUNCTION__); } while (0)
-#else
-# define function_enter() do { /* nothing */ } while (0)
-#endif
-
 /* private definitions and prototypes */
 
 /*** prototypes from _scan.c */
@@ -147,7 +138,7 @@ int ieee80211softmac_deauth_req(struct ieee80211softmac_device *mac, struct ieee
 
 /* for use by _module.c to assign to the callbacks */
 int ieee80211softmac_auth_resp(struct net_device *dev, struct ieee80211_auth *auth);
-int ieee80211softmac_deauth_resp(struct net_device *dev, struct ieee80211_auth *deauth);
+int ieee80211softmac_deauth_resp(struct net_device *dev, struct ieee80211_deauth *deauth);
 
 /*** prototypes from _assoc.c */
 void ieee80211softmac_assoc_work(void *d);

@@ -109,6 +109,7 @@ lazy_mmu_prot_update (pte_t pte)
 {
 	unsigned long addr;
 	struct page *page;
+	unsigned long order;
 
 	if (!pte_exec(pte))
 		return;				/* not an executable page... */
@@ -119,7 +120,12 @@ lazy_mmu_prot_update (pte_t pte)
 	if (test_bit(PG_arch_1, &page->flags))
 		return;				/* i-cache is already coherent with d-cache */
 
-	flush_icache_range(addr, addr + PAGE_SIZE);
+	if (PageCompound(page)) {
+		order = (unsigned long) (page[1].lru.prev);
+		flush_icache_range(addr, addr + (1UL << order << PAGE_SHIFT));
+	}
+	else
+		flush_icache_range(addr, addr + PAGE_SIZE);
 	set_bit(PG_arch_1, &page->flags);	/* mark page as clean */
 }
 
@@ -197,7 +203,7 @@ free_initmem (void)
 	eaddr = (unsigned long) ia64_imva(__init_end);
 	while (addr < eaddr) {
 		ClearPageReserved(virt_to_page(addr));
-		set_page_count(virt_to_page(addr), 1);
+		init_page_count(virt_to_page(addr));
 		free_page(addr);
 		++totalram_pages;
 		addr += PAGE_SIZE;
@@ -206,7 +212,7 @@ free_initmem (void)
 	       (__init_end - __init_begin) >> 10);
 }
 
-void
+void __init
 free_initrd_mem (unsigned long start, unsigned long end)
 {
 	struct page *page;
@@ -252,105 +258,23 @@ free_initrd_mem (unsigned long start, unsigned long end)
 			continue;
 		page = virt_to_page(start);
 		ClearPageReserved(page);
-		set_page_count(page, 1);
+		init_page_count(page);
 		free_page(start);
 		++totalram_pages;
 	}
 }
 
-struct curr_mem_request {
-	unsigned long requested;
-	unsigned long min_physaddr;
-	int found;
-};
-
-/*
- *  Check whether a physical address fits within the memory descriptor
- *  block sent from efi_mmap_walk(). If it fits, set found.
- */
-static int
-verify_physaddr (unsigned long start, unsigned long end, void *arg)
+int page_is_ram(unsigned long pagenr)
 {
-	struct curr_mem_request *cr = arg;
-
-	start = __pa(start);
-	end = __pa(end);
-
-	if ((cr->requested >= start) && (cr->requested + PAGE_SIZE) <= end) {
-		cr->found = 1;
-		return -1;
-	}
-
-	return 0;
+      //FIXME: implement w/efi walk
+      printk("page is ram is called!!!!!\n");	
+      return 1;
 }
-
-/*
- * If physical page 'nr' is valid RAM then return 1.  Otherwise return 0.
- */
-
-int
-page_is_ram (unsigned long pagenr)
-{
-	struct curr_mem_request cr;
-
-	if (!pfn_valid(pagenr))
-		return 0;
-
-	cr.requested = pagenr << PAGE_SHIFT;
-	cr.found = 0;
-
-	efi_memmap_walk(verify_physaddr, &cr);
-
-	return cr.found;
-}
-EXPORT_SYMBOL_GPL(page_is_ram);
-
-static int
-find_next (unsigned long start, unsigned long end, void *arg)
-{
-	struct curr_mem_request *cr = (struct curr_mem_request *)arg;
-
-	start = __pa(start);
-	end = __pa(end);
-
-	if ((cr->requested >= start) && (cr->requested + PAGE_SIZE) <= end) {
-		cr->min_physaddr = cr->requested;
-		cr->found = 1;
-		return -1;
-	}
-	if ((cr->requested < start) && (start + PAGE_SIZE) <= end)
-		if (start < cr->min_physaddr) {
-			cr->min_physaddr = start;
-			cr->found = 1;
-		}
-
-	return 0;
-}
-
-unsigned long
-next_ram_page (unsigned long pagenr)
-{
-	struct curr_mem_request cr;
-
-	pagenr++;
-
-	cr.requested = pagenr << PAGE_SHIFT;
-	cr.found = 0;
-	cr.min_physaddr = ULONG_MAX;
-
-	efi_memmap_walk(find_next, &cr);
-
-	if (cr.found)
-		return cr.min_physaddr >> PAGE_SHIFT;
-	else
-		return ULONG_MAX;
-}
-EXPORT_SYMBOL_GPL(next_ram_page);
 
 /*
  * This installs a clean page in the kernel's page table.
  */
-struct page *
+static struct page * __init
 put_kernel_page (struct page *page, unsigned long address, pgprot_t pgprot)
 {
 	pgd_t *pgd;
@@ -383,7 +307,7 @@ put_kernel_page (struct page *page, unsigned long address, pgprot_t pgprot)
 	return page;
 }
 
-static void
+static void __init
 setup_gate (void)
 {
 	struct page *page;
@@ -500,7 +424,7 @@ ia64_mmu_init (void *my_cpu_data)
 
 #ifdef CONFIG_VIRTUAL_MEM_MAP
 
-int
+int __init
 create_mem_map_page_table (u64 start, u64 end, void *arg)
 {
 	unsigned long address, start_page, end_page;
@@ -608,7 +532,7 @@ ia64_pfn_valid (unsigned long pfn)
 }
 EXPORT_SYMBOL(ia64_pfn_valid);
 
-int
+int __init
 find_largest_hole (u64 start, u64 end, void *arg)
 {
 	u64 *max_gap = arg;
@@ -624,7 +548,7 @@ find_largest_hole (u64 start, u64 end, void *arg)
 }
 #endif /* CONFIG_VIRTUAL_MEM_MAP */
 
-static int
+static int __init
 count_reserved_pages (u64 start, u64 end, void *arg)
 {
 	unsigned long num_reserved = 0;
@@ -645,7 +569,7 @@ count_reserved_pages (u64 start, u64 end, void *arg)
  * purposes.
  */
 
-static int nolwsys;
+static int nolwsys __initdata;
 
 static int __init
 nolwsys_setup (char *s)
@@ -656,7 +580,7 @@ nolwsys_setup (char *s)
 
 __setup("nolwsys", nolwsys_setup);
 
-void
+void __init
 mem_init (void)
 {
 	long reserved_pages, codesize, datasize, initsize;
@@ -689,7 +613,7 @@ mem_init (void)
 	kclist_add(&kcore_vmem, (void *)VMALLOC_START, VMALLOC_END-VMALLOC_START);
 	kclist_add(&kcore_kernel, _stext, _end - _stext);
 
-	for_each_pgdat(pgdat)
+	for_each_online_pgdat(pgdat)
 		if (pgdat->bdata->node_bootmem_map)
 			totalram_pages += free_all_bootmem_node(pgdat);
 
@@ -729,7 +653,7 @@ mem_init (void)
 void online_page(struct page *page)
 {
 	ClearPageReserved(page);
-	set_page_count(page, 1);
+	init_page_count(page);
 	__free_page(page);
 	totalram_pages++;
 	num_physpages++;

@@ -856,12 +856,12 @@ static int register_mimetype(user_req_t *u_info)
 		GOTO_ERR_no_unlock;
 	mimetype[ret] = 0;
 	Dprintk("got MIME type: %s.\n", mimetype);
-        ret = strncpy_from_user(expires, u_info->cache_control, MAX_URI_LEN);
-        if (ret >= 0)
-        	expires[ret] = 0;
+       ret = strncpy_from_user(expires, u_info->cache_control, MAX_URI_LEN);
+       if (ret >= 0)
+		expires[ret] = 0;
 	else
 		expires[0] = 0;
-        Dprintk("got expires header: %s.\n", expires);
+       Dprintk("got expires header: %s.\n", expires);
 
 	add_mimetype(extension, mimetype, expires);
 	ret = 0;
@@ -999,8 +999,8 @@ asmlinkage long __sys_tux (unsigned int action, user_req_t *u_info)
 			TUX_BUG();
 
 	if (!capable(CAP_SYS_ADMIN)
-		 	&& (action != TUX_ACTION_CONTINUE_REQ) &&
-		 		(action != TUX_ACTION_STOPTHREAD))
+			&& (action != TUX_ACTION_CONTINUE_REQ) &&
+				(action != TUX_ACTION_STOPTHREAD))
 		goto userspace_actions;
 
 	switch (action) {

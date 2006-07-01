@@ -67,7 +67,7 @@ static DECLARE_MUTEX(balloon_mutex);
  * Also protects non-atomic updates of current_pages and driver_pages, and
  * balloon lists.
  */
-spinlock_t balloon_lock = SPIN_LOCK_UNLOCKED;
+DEFINE_SPINLOCK(balloon_lock);
 
 /* We aim for 'current allocation' == 'target allocation'. */
 static unsigned long current_pages;
@@ -195,14 +195,14 @@ static int increase_reservation(unsigned long nr_pages)
 		page = balloon_next_page(page);
 	}
 
-	reservation.extent_start = frame_list;
+	set_xen_guest_handle(reservation.extent_start, frame_list);
 	reservation.nr_extents   = nr_pages;
 	rc = HYPERVISOR_memory_op(
 		XENMEM_populate_physmap, &reservation);
 	if (rc < nr_pages) {
 		int ret;
 		/* We hit the Xen hard limit: reprobe. */
-		reservation.extent_start = frame_list;
+		set_xen_guest_handle(reservation.extent_start, frame_list);
 		reservation.nr_extents   = rc;
 		ret = HYPERVISOR_memory_op(XENMEM_decrease_reservation,
 				&reservation);
@@ -216,7 +216,8 @@ static int increase_reservation(unsigned long nr_pages)
 		BUG_ON(page == NULL);
 
 		pfn = page_to_pfn(page);
-		BUG_ON(phys_to_machine_mapping_valid(pfn));
+		BUG_ON(!xen_feature(XENFEAT_auto_translated_physmap) &&
+		       phys_to_machine_mapping_valid(pfn));
 
 		/* Update P->M and M->P tables. */
 		set_phys_to_machine(pfn, frame_list[i]);
@@ -234,7 +235,7 @@ static int increase_reservation(unsigned long nr_pages)
 
 		/* Relinquish the page back to the allocator. */
 		ClearPageReserved(page);
-		set_page_count(page, 1);
+		init_page_count(page);
 		__free_page(page);
 	}
 
@@ -308,7 +309,7 @@ static int decrease_reservation(unsigned long nr_pages)
 		balloon_append(pfn_to_page(pfn));
 	}
 
-	reservation.extent_start = frame_list;
+	set_xen_guest_handle(reservation.extent_start, frame_list);
 	reservation.nr_extents   = nr_pages;
 	ret = HYPERVISOR_memory_op(XENMEM_decrease_reservation, &reservation);
 	BUG_ON(ret != nr_pages);
@@ -467,8 +468,8 @@ static int __init balloon_init(void)
 
 	IPRINTK("Initialising balloon driver.\n");
 
-	if (xen_init() < 0)
-		return -1;
+	if (!is_running_on_xen())
+		return -ENODEV;
 
 	current_pages = min(xen_start_info->nr_pages, max_pfn);
 	totalram_pages = current_pages;
@@ -522,11 +523,11 @@ static int dealloc_pte_fn(
 	unsigned long mfn = pte_mfn(*pte);
 	int ret;
 	struct xen_memory_reservation reservation = {
-		.extent_start = &mfn,
 		.nr_extents   = 1,
 		.extent_order = 0,
 		.domid        = DOMID_SELF
 	};
+	set_xen_guest_handle(reservation.extent_start, &mfn);
 	set_pte_at(&init_mm, addr, pte, __pte_ma(0));
 	set_phys_to_machine(__pa(addr) >> PAGE_SHIFT, INVALID_P2M_ENTRY);
 	ret = HYPERVISOR_memory_op(XENMEM_decrease_reservation, &reservation);
@@ -539,6 +540,8 @@ struct page *balloon_alloc_empty_page_range(unsigned long nr_pages)
 	unsigned long vstart, flags;
 	unsigned int  order = get_order(nr_pages * PAGE_SIZE);
 	int ret;
+	unsigned long i;
+	struct page *page;
 
 	vstart = __get_free_pages(GFP_KERNEL, order);
 	if (vstart == 0)
@@ -547,9 +550,22 @@ struct page *balloon_alloc_empty_page_range(unsigned long nr_pages)
 	scrub_pages(vstart, 1 << order);
 
 	balloon_lock(flags);
-	ret = apply_to_page_range(&init_mm, vstart,
-				  PAGE_SIZE << order, dealloc_pte_fn, NULL);
-	BUG_ON(ret);
+	if (xen_feature(XENFEAT_auto_translated_physmap)) {
+		unsigned long gmfn = __pa(vstart) >> PAGE_SHIFT;
+		struct xen_memory_reservation reservation = {
+			.nr_extents   = 1,
+			.extent_order = order,
+			.domid        = DOMID_SELF
+		};
+		set_xen_guest_handle(reservation.extent_start, &gmfn);
+		ret = HYPERVISOR_memory_op(XENMEM_decrease_reservation,
+					   &reservation);
+		BUG_ON(ret != 1);
+	} else {
+		ret = apply_to_page_range(&init_mm, vstart, PAGE_SIZE << order,
+					  dealloc_pte_fn, NULL);
+		BUG_ON(ret);
+	}
 	current_pages -= 1UL << order;
 	totalram_pages = current_pages;
 	balloon_unlock(flags);
@@ -558,7 +574,12 @@ struct page *balloon_alloc_empty_page_range(unsigned long nr_pages)
 
 	flush_tlb_all();
 
-	return virt_to_page(vstart);
+	page = virt_to_page(vstart);
+
+	for (i = 0; i < (1UL << order); i++)
+		init_page_count(page + i);
+
+	return page;
 }
 
 void balloon_dealloc_empty_page_range(
@@ -568,8 +589,10 @@ void balloon_dealloc_empty_page_range(
 	unsigned int  order = get_order(nr_pages * PAGE_SIZE);
 
 	balloon_lock(flags);
-	for (i = 0; i < (1UL << order); i++)
+	for (i = 0; i < (1UL << order); i++) {
+		BUG_ON(page_count(page + i) != 1);
 		balloon_append(page + i);
+	}
 	balloon_unlock(flags);
 
 	schedule_work(&balloon_worker);
@@ -580,13 +603,3 @@ EXPORT_SYMBOL_GPL(balloon_alloc_empty_page_range);
 EXPORT_SYMBOL_GPL(balloon_dealloc_empty_page_range);
 
 MODULE_LICENSE("Dual BSD/GPL");
-
-/*
- * Local variables:
- *  c-file-style: "linux"
- *  indent-tabs-mode: t
- *  c-indent-level: 8
- *  c-basic-offset: 8
- *  tab-width: 8
- * End:
- */

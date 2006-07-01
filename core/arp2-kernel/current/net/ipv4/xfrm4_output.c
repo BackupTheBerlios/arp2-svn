@@ -17,6 +17,8 @@
 #include <net/xfrm.h>
 #include <net/icmp.h>
 
+extern int skb_checksum_setup(struct sk_buff *skb);
+
 /* Add encapsulation header.
  *
  * In transport mode, the IP header will be moved forward to make space
@@ -62,7 +64,7 @@ static void xfrm4_encap(struct sk_buff *skb)
 	top_iph->frag_off = (flags & XFRM_STATE_NOPMTUDISC) ?
 		0 : (iph->frag_off & htons(IP_DF));
 	if (!top_iph->frag_off)
-		__ip_select_ident(top_iph, dst, 0);
+		__ip_select_ident(top_iph, dst->child, 0);
 
 	top_iph->ttl = dst_metric(dst->child, RTAX_HOPLIMIT);
 
@@ -103,6 +105,10 @@ static int xfrm4_output_one(struct sk_buff *skb)
 	struct xfrm_state *x = dst->xfrm;
 	int err;
 	
+	err = skb_checksum_setup(skb);
+	if (err)
+		goto error_nolock;
+
 	if (skb->ip_summed == CHECKSUM_HW) {
 		err = skb_checksum_help(skb, 0);
 		if (err)

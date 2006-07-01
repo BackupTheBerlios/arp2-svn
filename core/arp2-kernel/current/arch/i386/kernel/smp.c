@@ -488,7 +488,6 @@ void smp_send_reschedule(int cpu)
  * static memory requirements. It also looks cleaner.
  */
 static DEFINE_SPINLOCK(call_lock);
-static DEFINE_SPINLOCK(dump_call_lock);
 
 struct call_data_struct {
 	void (*func) (void *info);
@@ -508,70 +507,23 @@ void unlock_ipi_call_lock(void)
 	spin_unlock_irq(&call_lock);
 }
 
-static struct call_data_struct * call_data;
-static struct call_data_struct * saved_call_data;
+static struct call_data_struct *call_data;
 
-/*
- * dump version of smp_call_function to avoid deadlock in call_lock
- */
-void dump_smp_call_function (void (*func) (void *info), void *info)
-{
-	static struct call_data_struct dumpdata;
-	int waitcount;
-
-	spin_lock(&dump_call_lock);
-	/* if another cpu beat us, they win! */
-	if (dumpdata.func) {
-		spin_unlock(&dump_call_lock);
-		func(info);
-		/* NOTREACHED */
-	}
-	/* freeze call_lock or wait for on-going IPIs to settle down */
-	waitcount = 0;
-	while (!spin_trylock(&call_lock)) {
-		if (waitcount++ > 1000) {
-			/* save original for dump analysis */
-			saved_call_data = call_data;
-			break;
-		}
-		udelay(1000);
-		barrier();
-	}
-
-	dumpdata.func = func;
-	dumpdata.info = info;
-	dumpdata.wait = 0; /* not used */
-	atomic_set(&dumpdata.started, 0); /* not used */
-	atomic_set(&dumpdata.finished, 0); /* not used */
-
-	call_data = &dumpdata;
-	mb();
-	send_IPI_allbutself(CALL_FUNCTION_VECTOR);
-	/* Don't wait */
-	spin_unlock(&dump_call_lock);
-}
-
-EXPORT_SYMBOL_GPL(dump_smp_call_function);
-
-/*
- * this function sends a 'generic call function' IPI to all other CPUs
- * in the system.
- */
-
-int smp_call_function (void (*func) (void *info), void *info, int nonatomic,
-			int wait)
-/*
- * [SUMMARY] Run a function on all other CPUs.
- * <func> The function to run. This must be fast and non-blocking.
- * <info> An arbitrary pointer to pass to the function.
- * <nonatomic> currently unused.
- * <wait> If true, wait (atomically) until function has completed on other CPUs.
- * [RETURNS] 0 on success, else a negative status code. Does not return until
+/**
+ * smp_call_function(): Run a function on all other CPUs.
+ * @func: The function to run. This must be fast and non-blocking.
+ * @info: An arbitrary pointer to pass to the function.
+ * @nonatomic: currently unused.
+ * @wait: If true, wait (atomically) until function has completed on other CPUs.
+ *
+ * Returns 0 on success, else a negative status code. Does not return until
  * remote CPUs are nearly ready to execute <<func>> or are or have executed.
  *
  * You must not call this function with disabled interrupts or from a
  * hardware interrupt handler or from a bottom half handler.
  */
+int smp_call_function (void (*func) (void *info), void *info, int nonatomic,
+			int wait)
 {
 	struct call_data_struct data;
 	int cpus;

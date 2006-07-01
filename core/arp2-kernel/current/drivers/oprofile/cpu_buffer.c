@@ -6,6 +6,10 @@
  *
  * @author John Levon <levon@movementarian.org>
  *
+ * Modified by Aravind Menon for Xen
+ * These modifications are:
+ * Copyright (C) 2005 Hewlett-Packard Co.
+ *
  * Each CPU has a local buffer that stores PC value/event
  * pairs. We also log context switches when we notice them.
  * Eventually each CPU's buffer is processed into the global
@@ -38,9 +42,8 @@ void free_cpu_buffers(void)
 {
 	int i;
  
-	for_each_online_cpu(i) {
+	for_each_online_cpu(i)
 		vfree(cpu_buffer[i].buffer);
-	}
 }
 
 int alloc_cpu_buffers(void)
@@ -58,7 +61,7 @@ int alloc_cpu_buffers(void)
 			goto fail;
  
 		b->last_task = NULL;
-		b->last_is_kernel = -1;
+		b->last_cpu_mode = -1;
 		b->tracing = 0;
 		b->buffer_size = buffer_size;
 		b->tail_pos = 0;
@@ -114,7 +117,7 @@ void cpu_buffer_reset(struct oprofile_cpu_buffer * cpu_buf)
 	 * collected will populate the buffer with proper
 	 * values to initialize the buffer
 	 */
-	cpu_buf->last_is_kernel = -1;
+	cpu_buf->last_cpu_mode = -1;
 	cpu_buf->last_task = NULL;
 }
 
@@ -164,13 +167,13 @@ add_code(struct oprofile_cpu_buffer * buffer, unsigned long value)
  * because of the head/tail separation of the writer and reader
  * of the CPU buffer.
  *
- * is_kernel is needed because on some architectures you cannot
+ * cpu_mode is needed because on some architectures you cannot
  * tell if you are in kernel or user space simply by looking at
- * pc. We tag this in the buffer by generating kernel enter/exit
- * events whenever is_kernel changes
+ * pc. We tag this in the buffer by generating kernel/user (and xen)
+ *  enter events whenever cpu_mode changes
  */
 static int log_sample(struct oprofile_cpu_buffer * cpu_buf, unsigned long pc,
-		      int is_kernel, unsigned long event)
+		      int cpu_mode, unsigned long event)
 {
 	struct task_struct * task;
 
@@ -181,16 +184,16 @@ static int log_sample(struct oprofile_cpu_buffer * cpu_buf, unsigned long pc,
 		return 0;
 	}
 
-	is_kernel = !!is_kernel;
+	WARN_ON(cpu_mode > CPU_MODE_XEN);
 
 	task = current;
 
 	/* notice a switch from user->kernel or vice versa */
-	if (cpu_buf->last_is_kernel != is_kernel) {
-		cpu_buf->last_is_kernel = is_kernel;
-		add_code(cpu_buf, is_kernel);
+	if (cpu_buf->last_cpu_mode != cpu_mode) {
+		cpu_buf->last_cpu_mode = cpu_mode;
+		add_code(cpu_buf, cpu_mode);
 	}
-
+	
 	/* notice a task switch */
 	if (cpu_buf->last_task != task) {
 		cpu_buf->last_task = task;
@@ -218,11 +221,10 @@ static void oprofile_end_trace(struct oprofile_cpu_buffer * cpu_buf)
 	cpu_buf->tracing = 0;
 }
 
-void oprofile_add_sample(struct pt_regs * const regs, unsigned long event)
+void oprofile_add_ext_sample(unsigned long pc, struct pt_regs * const regs,
+				unsigned long event, int is_kernel)
 {
 	struct oprofile_cpu_buffer * cpu_buf = &cpu_buffer[smp_processor_id()];
-	unsigned long pc = profile_pc(regs);
-	int is_kernel = !user_mode(regs);
 
 	if (!backtrace_depth) {
 		log_sample(cpu_buf, pc, is_kernel, event);
@@ -237,6 +239,14 @@ void oprofile_add_sample(struct pt_regs * const regs, unsigned long event)
 	if (log_sample(cpu_buf, pc, is_kernel, event))
 		oprofile_ops.backtrace(regs, backtrace_depth);
 	oprofile_end_trace(cpu_buf);
+}
+
+void oprofile_add_sample(struct pt_regs * const regs, unsigned long event)
+{
+	int is_kernel = !user_mode(regs);
+	unsigned long pc = profile_pc(regs);
+
+	oprofile_add_ext_sample(pc, regs, event, is_kernel);
 }
 
 void oprofile_add_pc(unsigned long pc, int is_kernel, unsigned long event)

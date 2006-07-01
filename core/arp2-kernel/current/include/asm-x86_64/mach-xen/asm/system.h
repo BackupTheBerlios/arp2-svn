@@ -80,12 +80,6 @@ extern void load_gs_index(unsigned);
 		".previous"			\
 		: :"r" (value), "r" (0))
 
-#define set_debug(value,register) \
-                __asm__("movq %0,%%db" #register  \
-		: /* no output */ \
-		:"r" ((unsigned long) value))
-
-
 #ifdef __KERNEL__
 struct alt_instr { 
 	__u8 *instr; 		/* original instruction */
@@ -424,8 +418,8 @@ do {									\
 	preempt_enable_no_resched();					\
 	___x; })
 
-#define safe_halt()		((void)0)
-#define halt()			((void)0)
+void safe_halt(void);
+void halt(void);
 
 void cpu_idle_wait(void);
 

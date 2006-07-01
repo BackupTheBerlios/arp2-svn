@@ -78,7 +78,7 @@ static struct ethtool_ops network_ethtool_ops =
 	.set_tx_csum = ethtool_op_set_tx_csum,
 };
 
-netif_t *alloc_netif(domid_t domid, unsigned int handle, u8 be_mac[ETH_ALEN])
+netif_t *netif_alloc(domid_t domid, unsigned int handle, u8 be_mac[ETH_ALEN])
 {
 	int err = 0, i;
 	struct net_device *dev;
@@ -97,7 +97,8 @@ netif_t *alloc_netif(domid_t domid, unsigned int handle, u8 be_mac[ETH_ALEN])
 	netif->domid  = domid;
 	netif->handle = handle;
 	netif->status = DISCONNECTED;
-	atomic_set(&netif->refcnt, 0);
+	atomic_set(&netif->refcnt, 1);
+	init_waitqueue_head(&netif->waiting_to_free);
 	netif->dev = dev;
 
 	netif->credit_bytes = netif->remaining_credit = ~0UL;
@@ -150,10 +151,8 @@ static int map_frontend_pages(
 	struct gnttab_map_grant_ref op;
 	int ret;
 
-	op.host_addr = (unsigned long)netif->tx_comms_area->addr;
-	op.flags     = GNTMAP_host_map;
-	op.ref       = tx_ring_ref;
-	op.dom       = netif->domid;
+	gnttab_set_map_op(&op, (unsigned long)netif->tx_comms_area->addr,
+			  GNTMAP_host_map, tx_ring_ref, netif->domid);
     
 	lock_vm_area(netif->tx_comms_area);
 	ret = HYPERVISOR_grant_table_op(GNTTABOP_map_grant_ref, &op, 1);
@@ -168,10 +167,8 @@ static int map_frontend_pages(
 	netif->tx_shmem_ref    = tx_ring_ref;
 	netif->tx_shmem_handle = op.handle;
 
-	op.host_addr = (unsigned long)netif->rx_comms_area->addr;
-	op.flags     = GNTMAP_host_map;
-	op.ref       = rx_ring_ref;
-	op.dom       = netif->domid;
+	gnttab_set_map_op(&op, (unsigned long)netif->rx_comms_area->addr,
+			  GNTMAP_host_map, rx_ring_ref, netif->domid);
 
 	lock_vm_area(netif->rx_comms_area);
 	ret = HYPERVISOR_grant_table_op(GNTTABOP_map_grant_ref, &op, 1);
@@ -194,18 +191,16 @@ static void unmap_frontend_pages(netif_t *netif)
 	struct gnttab_unmap_grant_ref op;
 	int ret;
 
-	op.host_addr    = (unsigned long)netif->tx_comms_area->addr;
-	op.handle       = netif->tx_shmem_handle;
-	op.dev_bus_addr = 0;
+	gnttab_set_unmap_op(&op, (unsigned long)netif->tx_comms_area->addr,
+			    GNTMAP_host_map, netif->tx_shmem_handle);
 
 	lock_vm_area(netif->tx_comms_area);
 	ret = HYPERVISOR_grant_table_op(GNTTABOP_unmap_grant_ref, &op, 1);
 	unlock_vm_area(netif->tx_comms_area);
 	BUG_ON(ret);
 
-	op.host_addr    = (unsigned long)netif->rx_comms_area->addr;
-	op.handle       = netif->rx_shmem_handle;
-	op.dev_bus_addr = 0;
+	gnttab_set_unmap_op(&op, (unsigned long)netif->rx_comms_area->addr,
+			    GNTMAP_host_map, netif->rx_shmem_handle);
 
 	lock_vm_area(netif->rx_comms_area);
 	ret = HYPERVISOR_grant_table_op(GNTTABOP_unmap_grant_ref, &op, 1);
@@ -219,10 +214,7 @@ int netif_map(netif_t *netif, unsigned long tx_ring_ref,
 	int err = -ENOMEM;
 	netif_tx_sring_t *txs;
 	netif_rx_sring_t *rxs;
-	evtchn_op_t op = {
-		.cmd = EVTCHNOP_bind_interdomain,
-		.u.bind_interdomain.remote_dom = netif->domid,
-		.u.bind_interdomain.remote_port = evtchn };
+	struct evtchn_bind_interdomain bind_interdomain;
 
 	/* Already connected through? */
 	if (netif->irq)
@@ -239,11 +231,15 @@ int netif_map(netif_t *netif, unsigned long tx_ring_ref,
 	if (err)
 		goto err_map;
 
-	err = HYPERVISOR_event_channel_op(&op);
+	bind_interdomain.remote_dom = netif->domid;
+	bind_interdomain.remote_port = evtchn;
+
+	err = HYPERVISOR_event_channel_op(EVTCHNOP_bind_interdomain,
+					  &bind_interdomain);
 	if (err)
 		goto err_hypervisor;
 
-	netif->evtchn = op.u.bind_interdomain.local_port;
+	netif->evtchn = bind_interdomain.local_port;
 
 	netif->irq = bind_evtchn_to_irqhandler(
 		netif->evtchn, netif_be_int, 0, netif->dev->name, netif);
@@ -278,9 +274,10 @@ err_rx:
 	return err;
 }
 
-static void free_netif_callback(void *arg)
+static void netif_free(netif_t *netif)
 {
-	netif_t *netif = (netif_t *)arg;
+	atomic_dec(&netif->refcnt);
+	wait_event(netif->waiting_to_free, atomic_read(&netif->refcnt) == 0);
 
 	if (netif->irq)
 		unbind_from_irqhandler(netif->irq, netif);
@@ -296,12 +293,6 @@ static void free_netif_callback(void *arg)
 	free_netdev(netif->dev);
 }
 
-void free_netif(netif_t *netif)
-{
-	INIT_WORK(&netif->free_work, free_netif_callback, (void *)netif);
-	schedule_work(&netif->free_work);
-}
-
 void netif_disconnect(netif_t *netif)
 {
 	switch (netif->status) {
@@ -313,22 +304,11 @@ void netif_disconnect(netif_t *netif)
 			__netif_down(netif);
 		rtnl_unlock();
 		netif_put(netif);
-		break;
+		/* fall through */
 	case DISCONNECTED:
-		BUG_ON(atomic_read(&netif->refcnt) != 0);
-		free_netif(netif);
+		netif_free(netif);
 		break;
 	default:
 		BUG();
 	}
 }
-
-/*
- * Local variables:
- *  c-file-style: "linux"
- *  indent-tabs-mode: t
- *  c-indent-level: 8
- *  c-basic-offset: 8
- *  tab-width: 8
- * End:
- */

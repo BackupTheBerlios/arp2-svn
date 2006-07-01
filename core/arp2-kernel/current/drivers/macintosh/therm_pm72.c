@@ -104,7 +104,6 @@
 #include <linux/kernel.h>
 #include <linux/delay.h>
 #include <linux/sched.h>
-#include <linux/i2c.h>
 #include <linux/slab.h>
 #include <linux/init.h>
 #include <linux/spinlock.h>
@@ -113,7 +112,6 @@
 #include <linux/reboot.h>
 #include <linux/kmod.h>
 #include <linux/i2c.h>
-#include <linux/i2c-dev.h>
 #include <asm/prom.h>
 #include <asm/machdep.h>
 #include <asm/io.h>
@@ -924,16 +922,10 @@ static void do_monitor_cpu_combined(void)
 		printk(KERN_WARNING "Warning ! Temperature way above maximum (%d) !\n",
 		       temp_combi >> 16);
 		state0->overtemp += CPU_MAX_OVERTEMP / 4;
-	} else if (temp_combi > (state0->mpu.tmax << 16)) {
+	} else if (temp_combi > (state0->mpu.tmax << 16))
 		state0->overtemp++;
-		printk(KERN_WARNING "Temperature %d above max %d. overtemp %d\n",
-		       temp_combi >> 16, state0->mpu.tmax, state0->overtemp);
-	} else {
-		if (state0->overtemp)
-			printk(KERN_WARNING "Temperature back down to %d\n",
-			       temp_combi >> 16);
+	else
 		state0->overtemp = 0;
-	}
 	if (state0->overtemp >= CPU_MAX_OVERTEMP)
 		critical_state = 1;
 	if (state0->overtemp > 0) {
@@ -1005,16 +997,10 @@ static void do_monitor_cpu_split(struct cpu_pid_state *state)
 		       " (%d) !\n",
 		       state->index, temp >> 16);
 		state->overtemp += CPU_MAX_OVERTEMP / 4;
-	} else if (temp > (state->mpu.tmax << 16)) {
+	} else if (temp > (state->mpu.tmax << 16))
 		state->overtemp++;
-		printk(KERN_WARNING "CPU %d temperature %d above max %d. overtemp %d\n",
-		       state->index, temp >> 16, state->mpu.tmax, state->overtemp);
-	} else {
-		if (state->overtemp)
-			printk(KERN_WARNING "CPU %d temperature back down to %d\n",
-			       state->index, temp >> 16);
+	else
 		state->overtemp = 0;
-	}
 	if (state->overtemp >= CPU_MAX_OVERTEMP)
 		critical_state = 1;
 	if (state->overtemp > 0) {
@@ -1073,16 +1059,10 @@ static void do_monitor_cpu_rack(struct cpu_pid_state *state)
 		       " (%d) !\n",
 		       state->index, temp >> 16);
 		state->overtemp = CPU_MAX_OVERTEMP / 4;
-	} else if (temp > (state->mpu.tmax << 16)) {
+	} else if (temp > (state->mpu.tmax << 16))
 		state->overtemp++;
-		printk(KERN_WARNING "CPU %d temperature %d above max %d. overtemp %d\n",
-		       state->index, temp >> 16, state->mpu.tmax, state->overtemp);
-	} else {
-		if (state->overtemp)
-			printk(KERN_WARNING "CPU %d temperature back down to %d\n",
-			       state->index, temp >> 16);
+	else
 		state->overtemp = 0;
-	}
 	if (state->overtemp >= CPU_MAX_OVERTEMP)
 		critical_state = 1;
 	if (state->overtemp > 0) {

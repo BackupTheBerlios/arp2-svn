@@ -45,6 +45,8 @@ struct net_device *alloc_ieee80211softmac(int sizeof_priv)
 	softmac->ieee->handle_disassoc = ieee80211softmac_handle_disassoc;
 	softmac->scaninfo = NULL;
 
+	softmac->associnfo.scan_retry = IEEE80211SOFTMAC_ASSOC_SCAN_RETRY_LIMIT;
+
 	/* TODO: initialise all the other callbacks in the ieee struct
 	 *	 (once they're written)
 	 */
@@ -87,6 +89,8 @@ ieee80211softmac_clear_pending_work(struct ieee80211softmac_device *sm)
 	ieee80211softmac_wait_for_scan(sm);
 	
 	spin_lock_irqsave(&sm->lock, flags);
+	sm->running = 0;
+
 	/* Free all pending assoc work items */
 	cancel_delayed_work(&sm->associnfo.work);
 	
@@ -183,23 +187,27 @@ void ieee80211softmac_start(struct net_device *dev)
 	 */
 	if (mac->txrates_change)
 		oldrates = mac->txrates;
-	/* FIXME: We don't correctly handle backing down to lower rates,
-	   so start off at 11M for now. People can manually change it if
-	   they really need to, but 11M is more reliable. */	 
-	if (0 && ieee->modulation & IEEE80211_OFDM_MODULATION) {
-		mac->txrates.default_rate = IEEE80211_OFDM_RATE_54MB;
-		change |= IEEE80211SOFTMAC_TXRATECHG_DEFAULT;
-		mac->txrates.default_fallback = IEEE80211_OFDM_RATE_24MB;
-		change |= IEEE80211SOFTMAC_TXRATECHG_DEFAULT_FBACK;
-	} else if (ieee->modulation & IEEE80211_CCK_MODULATION) {
+	/* FIXME: We don't correctly handle backing down to lower
+	   rates, so 801.11g devices start off at 11M for now. People
+	   can manually change it if they really need to, but 11M is
+	   more reliable. Note similar logic in
+	   ieee80211softmac_wx_set_rate() */	 
+	if (ieee->modulation & IEEE80211_CCK_MODULATION) {
 		mac->txrates.default_rate = IEEE80211_CCK_RATE_11MB;
 		change |= IEEE80211SOFTMAC_TXRATECHG_DEFAULT;
 		mac->txrates.default_fallback = IEEE80211_CCK_RATE_5MB;
+		change |= IEEE80211SOFTMAC_TXRATECHG_DEFAULT_FBACK;
+	} else if (ieee->modulation & IEEE80211_OFDM_MODULATION) {
+		mac->txrates.default_rate = IEEE80211_OFDM_RATE_54MB;
+		change |= IEEE80211SOFTMAC_TXRATECHG_DEFAULT;
+		mac->txrates.default_fallback = IEEE80211_OFDM_RATE_24MB;
 		change |= IEEE80211SOFTMAC_TXRATECHG_DEFAULT_FBACK;
 	} else
 		assert(0);
 	if (mac->txrates_change)
 		mac->txrates_change(dev, change, &oldrates);
+
+	mac->running = 1;
 }
 EXPORT_SYMBOL_GPL(ieee80211softmac_start);
 

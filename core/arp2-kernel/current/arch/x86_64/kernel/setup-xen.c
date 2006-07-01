@@ -46,6 +46,7 @@
 #include <linux/cpufreq.h>
 #include <linux/dmi.h>
 #include <linux/dma-mapping.h>
+#include <linux/ctype.h>
 
 #include <asm/mtrr.h>
 #include <asm/uaccess.h>
@@ -67,6 +68,7 @@
 #include <asm/swiotlb.h>
 #include <asm/sections.h>
 #include <asm/gart-mapping.h>
+#include <asm/dmi.h>
 #ifdef CONFIG_XEN
 #include <linux/percpu.h>
 #include <xen/interface/physdev.h>
@@ -76,8 +78,8 @@
 #include <xen/features.h>
 #define PFN_UP(x)       (((x) + PAGE_SIZE-1) >> PAGE_SHIFT)
 #define PFN_PHYS(x)     ((x) << PAGE_SHIFT)
-#define end_pfn_map end_pfn
 #include <asm/mach-xen/setup_arch_post.h>
+#include <xen/interface/memory.h>
 
 extern unsigned long start_pfn;
 extern struct edid_info edid_info;
@@ -131,6 +133,12 @@ int acpi_numa __initdata;
 int bootloader_type;
 
 unsigned long saved_video_mode;
+
+/* 
+ * Early DMI memory
+ */
+int dmi_alloc_index;
+char dmi_alloc_data[DMI_MAX_DATA];
 
 /*
  * Setup options
@@ -317,6 +325,13 @@ static void __init probe_roms(void)
 }
 #endif
 
+/* Check for full argument with no trailing characters */
+static int fullarg(char *p, char *arg)
+{
+	int l = strlen(arg);
+	return !memcmp(p, arg, l) && (p[l] == 0 || isspace(p[l]));
+}
+
 static __init void parse_cmdline_early (char ** cmdline_p)
 {
 	char c = ' ', *to = command_line, *from = COMMAND_LINE;
@@ -340,10 +355,10 @@ static __init void parse_cmdline_early (char ** cmdline_p)
 #endif
 #ifdef CONFIG_ACPI
 		/* "acpi=off" disables both ACPI table parsing and interpreter init */
-		if (!memcmp(from, "acpi=off", 8))
+		if (fullarg(from,"acpi=off"))
 			disable_acpi();
 
-		if (!memcmp(from, "acpi=force", 10)) { 
+		if (fullarg(from, "acpi=force")) { 
 			/* add later when we do DMI horrors: */
 			acpi_force = 1;
 			acpi_disabled = 0;
@@ -351,48 +366,50 @@ static __init void parse_cmdline_early (char ** cmdline_p)
 
 		/* acpi=ht just means: do ACPI MADT parsing 
 		   at bootup, but don't enable the full ACPI interpreter */
-		if (!memcmp(from, "acpi=ht", 7)) { 
+		if (fullarg(from, "acpi=ht")) { 
 			if (!acpi_force)
 				disable_acpi();
 			acpi_ht = 1; 
 		}
-                else if (!memcmp(from, "pci=noacpi", 10)) 
+                else if (fullarg(from, "pci=noacpi")) 
 			acpi_disable_pci();
-		else if (!memcmp(from, "acpi=noirq", 10))
+		else if (fullarg(from, "acpi=noirq"))
 			acpi_noirq_set();
 
-		else if (!memcmp(from, "acpi_sci=edge", 13))
+		else if (fullarg(from, "acpi_sci=edge"))
 			acpi_sci_flags.trigger =  1;
-		else if (!memcmp(from, "acpi_sci=level", 14))
+		else if (fullarg(from, "acpi_sci=level"))
 			acpi_sci_flags.trigger = 3;
-		else if (!memcmp(from, "acpi_sci=high", 13))
+		else if (fullarg(from, "acpi_sci=high"))
 			acpi_sci_flags.polarity = 1;
-		else if (!memcmp(from, "acpi_sci=low", 12))
+		else if (fullarg(from, "acpi_sci=low"))
 			acpi_sci_flags.polarity = 3;
 
 		/* acpi=strict disables out-of-spec workarounds */
-		else if (!memcmp(from, "acpi=strict", 11)) {
+		else if (fullarg(from, "acpi=strict")) {
 			acpi_strict = 1;
 		}
 #ifdef CONFIG_X86_IO_APIC
-		else if (!memcmp(from, "acpi_skip_timer_override", 24))
+		else if (fullarg(from, "acpi_skip_timer_override"))
 			acpi_skip_timer_override = 1;
 #endif
 #endif
 
 #ifndef CONFIG_XEN
-		if (!memcmp(from, "nolapic", 7) ||
-		    !memcmp(from, "disableapic", 11))
-			disable_apic = 1;
+		if (fullarg(from, "disable_timer_pin_1"))
+			disable_timer_pin_1 = 1;
+		if (fullarg(from, "enable_timer_pin_1"))
+			disable_timer_pin_1 = -1;
 
-		/* Don't confuse with noapictimer */
-		if (!memcmp(from, "noapic", 6) &&
-			(from[6] == ' ' || from[6] == 0))
+		if (fullarg(from, "nolapic") || fullarg(from, "disableapic")) {
+			clear_bit(X86_FEATURE_APIC, boot_cpu_data.x86_capability);
+			disable_apic = 1;
+		}
+
+		if (fullarg(from, "noapic"))
 			skip_ioapic_setup = 1;
 
-		/* Make sure to not confuse with apic= */
-		if (!memcmp(from, "apic", 4) &&
-			(from[4] == ' ' || from[4] == 0)) {
+		if (fullarg(from,"apic")) {
 			skip_ioapic_setup = 0;
 			ioapic_force = 1;
 		}
@@ -432,7 +449,7 @@ static __init void parse_cmdline_early (char ** cmdline_p)
 			iommu_setup(from+6); 
 		}
 
-		if (!memcmp(from,"oops=panic", 10))
+		if (fullarg(from,"oops=panic"))
 			panic_on_oops = 1;
 
 		if (!memcmp(from, "noexec=", 7))
@@ -490,19 +507,6 @@ static __init void parse_cmdline_early (char ** cmdline_p)
 }
 
 #ifndef CONFIG_NUMA
-#ifdef CONFIG_XEN
-static void __init
-contig_initmem_init(unsigned long start_pfn, unsigned long end_pfn)
-{
-        unsigned long bootmap_size;
-
-        bootmap_size = init_bootmem(start_pfn, end_pfn);
-        free_bootmem(0, xen_start_info->nr_pages << PAGE_SHIFT);   
-        reserve_bootmem(HIGH_MEMORY,
-                        (PFN_PHYS(start_pfn) + bootmap_size + PAGE_SIZE-1)
-                        - HIGH_MEMORY);
-}
-#else
 static void __init
 contig_initmem_init(unsigned long start_pfn, unsigned long end_pfn)
 {
@@ -513,10 +517,13 @@ contig_initmem_init(unsigned long start_pfn, unsigned long end_pfn)
 	if (bootmap == -1L)
 		panic("Cannot find bootmem map of size %ld\n",bootmap_size);
 	bootmap_size = init_bootmem(bootmap >> PAGE_SHIFT, end_pfn);
+#ifdef CONFIG_XEN
+	e820_bootmem_free(NODE_DATA(0), 0, xen_start_info->nr_pages<<PAGE_SHIFT);
+#else
 	e820_bootmem_free(NODE_DATA(0), 0, end_pfn << PAGE_SHIFT);
+#endif
 	reserve_bootmem(bootmap, bootmap_size);
 } 
-#endif	/* !CONFIG_XEN */
 #endif
 
 /* Use inline assembly to define this because the nops are defined 
@@ -588,7 +595,7 @@ void __init alternative_instructions(void)
 static int __init noreplacement_setup(char *s)
 { 
      no_replacement = 1; 
-     return 0; 
+     return 1;
 } 
 
 __setup("noreplacement", noreplacement_setup); 
@@ -618,17 +625,28 @@ static inline void copy_edd(void)
 
 #ifndef CONFIG_XEN
 #define EBDA_ADDR_POINTER 0x40E
-static void __init reserve_ebda_region(void)
+
+unsigned __initdata ebda_addr;
+unsigned __initdata ebda_size;
+
+static void discover_ebda(void)
 {
-	unsigned int addr;
-	/** 
+	/*
 	 * there is a real-mode segmented pointer pointing to the 
 	 * 4K EBDA area at 0x40E
 	 */
-	addr = *(unsigned short *)phys_to_virt(EBDA_ADDR_POINTER);
-	addr <<= 4;
-	if (addr)
-		reserve_bootmem_generic(addr, PAGE_SIZE);
+	ebda_addr = *(unsigned short *)EBDA_ADDR_POINTER;
+	ebda_addr <<= 4;
+
+	ebda_size = *(unsigned short *)(unsigned long)ebda_addr;
+
+	/* Round EBDA up to pages */
+	if (ebda_size == 0)
+		ebda_size = 1;
+	ebda_size <<= 10;
+	ebda_size = round_up(ebda_size + (ebda_addr & ~PAGE_MASK), PAGE_SIZE);
+	if (ebda_size > 64*1024)
+		ebda_size = 64*1024;
 }
 #endif
 
@@ -636,9 +654,14 @@ void __init setup_arch(char **cmdline_p)
 {
 	unsigned long kernel_end;
 
+#if defined(CONFIG_XEN_PRIVILEGED_GUEST)
+	struct e820entry *machine_e820;
+	struct xen_memory_map memmap;
+#endif
+
 #ifdef CONFIG_XEN
 	/* Register a call for panic conditions. */
-	notifier_chain_register(&panic_notifier_list, &xen_panic_block);
+	atomic_notifier_chain_register(&panic_notifier_list, &xen_panic_block);
 
  	ROOT_DEV = MKDEV(RAMDISK_MAJOR,0); 
 	kernel_end = 0;		/* dummy */
@@ -670,13 +693,6 @@ void __init setup_arch(char **cmdline_p)
 
 	setup_xen_features();
 
-	if (xen_feature(XENFEAT_auto_translated_physmap) &&
-	    xen_start_info->shared_info < xen_start_info->nr_pages) {
-		HYPERVISOR_shared_info =
-			(shared_info_t *)__va(xen_start_info->shared_info);
-		memset(empty_zero_page, 0, sizeof(empty_zero_page));
-	}
-
 	HYPERVISOR_vm_assist(VMASST_CMD_enable,
 			     VMASST_TYPE_writable_pagetables);
 
@@ -693,20 +709,18 @@ void __init setup_arch(char **cmdline_p)
 	rd_prompt = ((RAMDISK_FLAGS & RAMDISK_PROMPT_FLAG) != 0);
 	rd_doload = ((RAMDISK_FLAGS & RAMDISK_LOAD_FLAG) != 0);
 #endif
+#endif	/* !CONFIG_XEN */
 	setup_memory_region();
 	copy_edd();
-#endif	/* !CONFIG_XEN */
 
 	if (!MOUNT_ROOT_RDONLY)
 		root_mountflags &= ~MS_RDONLY;
 	init_mm.start_code = (unsigned long) &_text;
 	init_mm.end_code = (unsigned long) &_etext;
 	init_mm.end_data = (unsigned long) &_edata;
-#ifdef CONFIG_XEN
-	init_mm.brk = start_pfn << PAGE_SHIFT;
-#else
-	init_mm.brk = (unsigned long) &_end;	
+	init_mm.brk = (unsigned long) &_end;
 
+#ifndef CONFIG_XEN
 	code_resource.start = virt_to_phys(&_text);
 	code_resource.end = virt_to_phys(&_etext)-1;
 	data_resource.start = virt_to_phys(&_etext);
@@ -722,8 +736,13 @@ void __init setup_arch(char **cmdline_p)
 	 * we are rounding upwards:
 	 */
 	end_pfn = e820_end_of_ram();
+	num_physpages = end_pfn;		/* for pfn_valid */
 
 	check_efer();
+
+#ifndef CONFIG_XEN
+	discover_ebda();
+#endif
 
 	init_memory_mapping(0, (end_pfn_map << PAGE_SHIFT));
 
@@ -735,12 +754,11 @@ void __init setup_arch(char **cmdline_p)
 #endif
 
 #ifdef CONFIG_NUMA
-	numa_initmem_init(start_pfn, end_pfn); 
+	numa_initmem_init(0, end_pfn); 
 #else
-	contig_initmem_init(start_pfn, end_pfn);
+	contig_initmem_init(0, end_pfn);
 #endif
 
-#ifndef CONFIG_XEN
 	/* Reserve direct mapping */
 	reserve_bootmem_generic(table_start << PAGE_SHIFT, 
 				(table_end - table_start) << PAGE_SHIFT);
@@ -749,6 +767,10 @@ void __init setup_arch(char **cmdline_p)
 	kernel_end = round_up(__pa_symbol(&_end),PAGE_SIZE);
 	reserve_bootmem_generic(HIGH_MEMORY, kernel_end - HIGH_MEMORY);
 
+#ifdef CONFIG_XEN
+	/* reserve physmap, start info and initial page tables */
+	reserve_bootmem(kernel_end, (table_start<<PAGE_SHIFT)-kernel_end);
+#else
 	/*
 	 * reserve physical page 0 - it's a special BIOS page on many boxes,
 	 * enabling clean reboots, SMP operation, laptop functions.
@@ -756,7 +778,8 @@ void __init setup_arch(char **cmdline_p)
 	reserve_bootmem_generic(0, PAGE_SIZE);
 
 	/* reserve ebda region */
-	reserve_ebda_region();
+	if (ebda_addr)
+		reserve_bootmem_generic(ebda_addr, ebda_size);
 #endif
 
 #ifdef CONFIG_SMP
@@ -889,6 +912,9 @@ void __init setup_arch(char **cmdline_p)
 
 	}
 
+	if (xen_start_info->flags & SIF_INITDOMAIN)
+		dmi_scan_machine();
+
 	if ( ! (xen_start_info->flags & SIF_INITDOMAIN))
 	{
 		acpi_disabled = 1;
@@ -904,6 +930,12 @@ void __init setup_arch(char **cmdline_p)
 
 	zap_low_mappings(0);
 
+	/*
+	 * set this early, so we dont allocate cpu0
+	 * if MADT list doesnt list BSP first
+	 * mpparse.c/MP_processor_info() allocates logical cpu numbers.
+	 */
+	cpu_set(0, cpu_present_map);
 #ifdef CONFIG_ACPI
 	/*
 	 * Initialize the ACPI boot-time table parser (gets the RSDP and SDT).
@@ -933,13 +965,25 @@ void __init setup_arch(char **cmdline_p)
 	prefill_possible_map();
 #endif
 
-#if defined(CONFIG_XEN_PRIVILEGED_GUEST) || !defined(CONFIG_XEN)
 	/*
 	 * Request address space for all standard RAM and ROM resources
 	 * and also for regions reported as reserved by the e820.
 	 */
+#if defined(CONFIG_XEN_PRIVILEGED_GUEST)
 	probe_roms();
-	e820_reserve_resources(); 
+	if (xen_start_info->flags & SIF_INITDOMAIN) {
+		machine_e820 = alloc_bootmem_low_pages(PAGE_SIZE);
+
+		memmap.nr_entries = E820MAX;
+		set_xen_guest_handle(memmap.buffer, machine_e820);
+
+		BUG_ON(HYPERVISOR_memory_op(XENMEM_machine_memory_map, &memmap));
+
+		e820_reserve_resources(machine_e820, memmap.nr_entries);
+	}
+#elif !defined(CONFIG_XEN)
+	probe_roms();
+	e820_reserve_resources(e820.map, e820.nr_map);
 #endif
 
 	request_resource(&iomem_resource, &video_ram_resource);
@@ -951,7 +995,14 @@ void __init setup_arch(char **cmdline_p)
 		request_resource(&ioport_resource, &standard_io_resources[i]);
 	}
 
-	e820_setup_gap();
+#if defined(CONFIG_XEN_PRIVILEGED_GUEST)
+	if (xen_start_info->flags & SIF_INITDOMAIN) {
+		e820_setup_gap(machine_e820, memmap.nr_entries);
+		free_bootmem(__pa(machine_e820), PAGE_SIZE);
+	}
+#elif !defined(CONFIG_XEN)
+	e820_setup_gap(e820.map, e820.nr_map);
+#endif
 
 #ifdef CONFIG_GART_IOMMU
 	iommu_hole_init();
@@ -959,11 +1010,10 @@ void __init setup_arch(char **cmdline_p)
 
 #ifdef CONFIG_XEN
 	{
-		physdev_op_t op;
+		struct physdev_set_iopl set_iopl;
 
-		op.cmd             = PHYSDEVOP_SET_IOPL;
-		op.u.set_iopl.iopl = 1;
-		HYPERVISOR_physdev_op(&op);
+		set_iopl.iopl = 1;
+		HYPERVISOR_physdev_op(PHYSDEVOP_set_iopl, &set_iopl);
 
 		if (xen_start_info->flags & SIF_INITDOMAIN) {
 			if (!(xen_start_info->flags & SIF_PRIVILEGED))
@@ -1085,7 +1135,7 @@ static void __init amd_detect_cmp(struct cpuinfo_x86 *c)
 	unsigned bits;
 #ifdef CONFIG_NUMA
 	int node = 0;
-	unsigned apicid = phys_proc_id[cpu];
+	unsigned apicid = hard_smp_processor_id();
 #endif
 
 	bits = 0;
@@ -1095,7 +1145,7 @@ static void __init amd_detect_cmp(struct cpuinfo_x86 *c)
 	/* Low order bits define the core id (index of core in socket) */
 	cpu_core_id[cpu] = phys_proc_id[cpu] & ((1 << bits)-1);
 	/* Convert the APIC ID into the socket ID */
-	phys_proc_id[cpu] >>= bits;
+	phys_proc_id[cpu] = phys_pkg_id(bits);
 
 #ifdef CONFIG_NUMA
   	node = phys_proc_id[cpu];
@@ -1121,8 +1171,8 @@ static void __init amd_detect_cmp(struct cpuinfo_x86 *c)
  	}
 	numa_set_node(cpu, node);
 
-  	printk(KERN_INFO "CPU %d(%d) -> Node %d -> Core %d\n",
-  			cpu, c->x86_max_cores, node, cpu_core_id[cpu]);
+  	printk(KERN_INFO "CPU %d/%x(%d) -> Node %d -> Core %d\n",
+  			cpu, apicid, c->x86_max_cores, node, cpu_core_id[cpu]);
 #endif
 #endif
 }
@@ -1180,8 +1230,6 @@ static int __init init_amd(struct cpuinfo_x86 *c)
 
 	if (c->extended_cpuid_level >= 0x80000008) {
 		c->x86_max_cores = (cpuid_ecx(0x80000008) & 0xff) + 1;
-		if (c->x86_max_cores & (c->x86_max_cores - 1))
-			c->x86_max_cores = 1;
 
 		amd_detect_cmp(c);
 	}
@@ -1198,7 +1246,6 @@ static void __cpuinit detect_ht(struct cpuinfo_x86 *c)
 
 	cpuid(1, &eax, &ebx, &ecx, &edx);
 
-	c->apicid = phys_pkg_id(0);
 
 	if (!cpu_has(c, X86_FEATURE_HT) || cpu_has(c, X86_FEATURE_CMP_LEGACY))
 		return;
@@ -1407,6 +1454,8 @@ void __cpuinit identify_cpu(struct cpuinfo_x86 *c)
 			c->x86_capability[2] = cpuid_edx(0x80860001);
 	}
 
+	c->apicid = phys_pkg_id(0);
+
 	/*
 	 * Vendor-specific initialization.  In this section we
 	 * canonicalize the feature flags, meaning if there are
@@ -1514,7 +1563,7 @@ static int show_cpuinfo(struct seq_file *m, void *v)
 		NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
 
 		/* Intel-defined (#2) */
-		"pni", NULL, NULL, "monitor", "ds_cpl", "vmx", NULL, "est",
+		"pni", NULL, NULL, "monitor", "ds_cpl", "vmx", "smx", "est",
 		"tm2", NULL, "cid", NULL, NULL, "cx16", "xtpr", NULL,
 		NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
 		NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
@@ -1597,8 +1646,7 @@ static int show_cpuinfo(struct seq_file *m, void *v)
 	{ 
 		int i; 
 		for ( i = 0 ; i < 32*NCAPINTS ; i++ )
-			if ( test_bit(i, &c->x86_capability) &&
-			     x86_cap_flags[i] != NULL )
+			if (cpu_has(c, i) && x86_cap_flags[i] != NULL)
 				seq_printf(m, " %s", x86_cap_flags[i]);
 	}
 		
@@ -1656,10 +1704,22 @@ struct seq_operations cpuinfo_op = {
 	.show =	show_cpuinfo,
 };
 
-static int __init run_dmi_scan(void)
+#ifdef CONFIG_INPUT_PCSPKR
+#include <linux/platform_device.h>
+static __init int add_pcspkr(void)
 {
-	dmi_scan_machine();
-	return 0;
-}
-core_initcall(run_dmi_scan);
+	struct platform_device *pd;
+	int ret;
 
+	pd = platform_device_alloc("pcspkr", -1);
+	if (!pd)
+		return -ENOMEM;
+
+	ret = platform_device_add(pd);
+	if (ret)
+		platform_device_put(pd);
+
+	return ret;
+}
+device_initcall(add_pcspkr);
+#endif

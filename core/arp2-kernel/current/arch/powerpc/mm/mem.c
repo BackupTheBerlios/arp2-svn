@@ -91,34 +91,6 @@ int page_is_ram(unsigned long pfn)
 }
 EXPORT_SYMBOL(page_is_ram);
 
-unsigned long next_ram_page(unsigned long pfn)
-{
-	int i;
-	unsigned long paddr, base;
-	unsigned long best_base = (ULONG_MAX << PAGE_SHIFT);
-
-	pfn++;
-	paddr = (pfn << PAGE_SHIFT);
-                                                                                
-	for (i=0; i < lmb.memory.cnt; i++) {
-#ifdef CONFIG_MSCHUNKS
-		base = lmb.memory.region[i].physbase;
-#else
-		base = lmb.memory.region[i].base;
-#endif
-		if ((paddr >= base)
-		    && (paddr < (base + lmb.memory.region[i].size)))
-			return (paddr >> PAGE_SHIFT);
-		if ((paddr < base) && (base < best_base))
-			best_base = base;
-	}
-	if (best_base < (ULONG_MAX << PAGE_SHIFT))
-		return (best_base >> PAGE_SHIFT);
-	else
-		return ULONG_MAX;
-}
-EXPORT_SYMBOL_GPL(next_ram_page);
-
 pgprot_t phys_mem_access_prot(struct file *file, unsigned long pfn,
 			      unsigned long size, pgprot_t vma_prot)
 {
@@ -137,8 +109,8 @@ EXPORT_SYMBOL(phys_mem_access_prot);
 void online_page(struct page *page)
 {
 	ClearPageReserved(page);
-	set_page_count(page, 0);
-	free_cold_page(page);
+	init_page_count(page);
+	__free_page(page);
 	totalram_pages++;
 	num_physpages++;
 }
@@ -154,7 +126,7 @@ int __devinit add_memory(u64 start, u64 size)
 	nid = hot_add_scn_to_nid(start);
 	pgdata = NODE_DATA(nid);
 
-	start = __va(start);
+	start = (unsigned long)__va(start);
 	create_section_mapping(start, start + size);
 
 	/* this should work for most non-highmem platforms */
@@ -224,7 +196,7 @@ void show_mem(void)
 	printk("Mem-info:\n");
 	show_free_areas();
 	printk("Free swap:       %6ldkB\n", nr_swap_pages<<(PAGE_SHIFT-10));
-	for_each_pgdat(pgdat) {
+	for_each_online_pgdat(pgdat) {
 		unsigned long flags;
 		pgdat_resize_lock(pgdat, &flags);
 		for (i = 0; i < pgdat->node_spanned_pages; i++) {
@@ -251,7 +223,6 @@ void show_mem(void)
 	printk("%ld pages shared\n", shared);
 	printk("%ld pages swap cached\n", cached);
 }
-EXPORT_SYMBOL_GPL(show_mem);
 
 /*
  * Initialize the bootmem system and give it all the memory we
@@ -279,7 +250,6 @@ void __init do_init_bootmem(void)
 	bootmap_pages = bootmem_bootmap_pages(total_pages);
 
 	start = lmb_alloc(bootmap_pages << PAGE_SHIFT, PAGE_SIZE);
-	BUG_ON(!start);
 
 	boot_mapsize = init_bootmem(start >> PAGE_SHIFT, total_pages);
 
@@ -373,7 +343,7 @@ void __init mem_init(void)
 #ifdef CONFIG_NEED_MULTIPLE_NODES
         for_each_online_node(nid) {
 		if (NODE_DATA(nid)->node_spanned_pages != 0) {
-			printk("freeing bootmem node %x\n", nid);
+			printk("freeing bootmem node %d\n", nid);
 			totalram_pages +=
 				free_all_bootmem_node(NODE_DATA(nid));
 		}
@@ -395,7 +365,7 @@ void __init mem_init(void)
 	}
 #endif
 
-	for_each_pgdat(pgdat) {
+	for_each_online_pgdat(pgdat) {
 		for (i = 0; i < pgdat->node_spanned_pages; i++) {
 			if (!pfn_valid(pgdat->node_start_pfn + i))
 				continue;
@@ -419,7 +389,7 @@ void __init mem_init(void)
 			struct page *page = pfn_to_page(pfn);
 
 			ClearPageReserved(page);
-			set_page_count(page, 1);
+			init_page_count(page);
 			__free_page(page);
 			totalhigh_pages++;
 		}
