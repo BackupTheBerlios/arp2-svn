@@ -33,10 +33,8 @@ static int map_frontend_page(blkif_t *blkif, unsigned long shared_page)
 	struct gnttab_map_grant_ref op;
 	int ret;
 
-	op.host_addr = (unsigned long)blkif->blk_ring_area->addr;
-	op.flags     = GNTMAP_host_map;
-	op.ref       = shared_page;
-	op.dom       = blkif->domid;
+	gnttab_set_map_op(&op, (unsigned long)blkif->blk_ring_area->addr,
+			  GNTMAP_host_map, shared_page, blkif->domid);
 
 	lock_vm_area(blkif->blk_ring_area);
 	ret = HYPERVISOR_grant_table_op(GNTTABOP_map_grant_ref, &op, 1);
@@ -59,9 +57,8 @@ static void unmap_frontend_page(blkif_t *blkif)
 	struct gnttab_unmap_grant_ref op;
 	int ret;
 
-	op.host_addr    = (unsigned long)blkif->blk_ring_area->addr;
-	op.handle       = blkif->shmem_handle;
-	op.dev_bus_addr = 0;
+	gnttab_set_unmap_op(&op, (unsigned long)blkif->blk_ring_area->addr,
+			    GNTMAP_host_map, blkif->shmem_handle);
 
 	lock_vm_area(blkif->blk_ring_area);
 	ret = HYPERVISOR_grant_table_op(GNTTABOP_unmap_grant_ref, &op, 1);
@@ -73,10 +70,7 @@ int blkif_map(blkif_t *blkif, unsigned long shared_page, unsigned int evtchn)
 {
 	blkif_sring_t *sring;
 	int err;
-	evtchn_op_t op = {
-		.cmd = EVTCHNOP_bind_interdomain,
-		.u.bind_interdomain.remote_dom  = blkif->domid,
-		.u.bind_interdomain.remote_port = evtchn };
+	struct evtchn_bind_interdomain bind_interdomain;
 
 	if ((blkif->blk_ring_area = alloc_vm_area(PAGE_SIZE)) == NULL)
 		return -ENOMEM;
@@ -87,14 +81,18 @@ int blkif_map(blkif_t *blkif, unsigned long shared_page, unsigned int evtchn)
 		return err;
 	}
 
-	err = HYPERVISOR_event_channel_op(&op);
+	bind_interdomain.remote_dom  = blkif->domid;
+	bind_interdomain.remote_port = evtchn;
+
+	err = HYPERVISOR_event_channel_op(EVTCHNOP_bind_interdomain,
+					  &bind_interdomain);
 	if (err) {
 		unmap_frontend_page(blkif);
 		free_vm_area(blkif->blk_ring_area);
 		return err;
 	}
 
-	blkif->evtchn = op.u.bind_interdomain.local_port;
+	blkif->evtchn = bind_interdomain.local_port;
 
 	sring = (blkif_sring_t *)blkif->blk_ring_area->addr;
 	BACK_RING_INIT(&blkif->blk_ring, sring, PAGE_SIZE);
@@ -134,13 +132,3 @@ void __init blkif_interface_init(void)
 	blkif_cachep = kmem_cache_create(
 		"blkif_cache", sizeof(blkif_t), 0, 0, NULL, NULL);
 }
-
-/*
- * Local variables:
- *  c-file-style: "linux"
- *  indent-tabs-mode: t
- *  c-indent-level: 8
- *  c-basic-offset: 8
- *  tab-width: 8
- * End:
- */

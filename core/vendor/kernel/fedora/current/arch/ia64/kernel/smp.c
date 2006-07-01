@@ -53,7 +53,6 @@
  * requirements. It also looks cleaner.
  */
 static  __cacheline_aligned DEFINE_SPINLOCK(call_lock);
-static spinlock_t dump_call_lock __cacheline_aligned = SPIN_LOCK_UNLOCKED;
 
 struct call_data_struct {
 	void (*func) (void *info);
@@ -64,7 +63,6 @@ struct call_data_struct {
 };
 
 static volatile struct call_data_struct *call_data;
-static volatile struct call_data_struct *saved_call_data;
 
 #define IPI_CALL_FUNC		0
 #define IPI_CPU_STOP		1
@@ -306,48 +304,6 @@ smp_call_function_single (int cpuid, void (*func) (void *info), void *info, int 
 	return 0;
 }
 EXPORT_SYMBOL(smp_call_function_single);
-
-/*
- * dump version of smp_call_function to avoid deadlock in call_lock
- */
-void dump_smp_call_function (void (*func) (void *info), void *info)
-{
-	static struct call_data_struct dumpdata;
-	int waitcount;
-
-	spin_lock(&dump_call_lock);
-	/* if another cpu beat us, they win! */
-	if (dumpdata.func) {
-		spin_unlock(&dump_call_lock);
-		func(info);
-		/* NOTREACHED */
-	}
-
-	/* freeze call_lock or wait for on-going IPIs to settle down */
-	waitcount = 0;
-	while (!spin_trylock(&call_lock)) {
-		if (waitcount++ > 1000) {
-			/* save original for dump analysis */
-			saved_call_data = call_data;
-			break;
-		}
-		udelay(1000);
-		cpu_relax();
-	}
-
-	dumpdata.func = func;
-	dumpdata.info = info;
-	dumpdata.wait = 0; /* not used */
-	atomic_set(&dumpdata.started, 0); /* not used */
-	atomic_set(&dumpdata.finished, 0); /* not used */
-
-	call_data = &dumpdata;
-	mb();
-	send_IPI_allbutself(IPI_CALL_FUNC);
-	/* Don't wait */
-	spin_unlock(&dump_call_lock);
-}
-EXPORT_SYMBOL_GPL(dump_smp_call_function);
 
 /*
  * this function sends a 'generic call function' IPI to all other CPUs

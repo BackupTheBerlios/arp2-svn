@@ -161,13 +161,13 @@ time_t mimetime_to_unixtime(char *Q)
 	s++;
 	if ((s[0]!='G')||(s[1]!='M')||(s[2]!='T'))
 	{
-  		return 0; /* No GMT */
-  	}
+		return 0; /* No GMT */
+	}
 
 	if (Y<TUX_YEAROFFSET) Y = TUX_YEAROFFSET;
 	if (Y>TUX_YEAROFFSET+9) Y = TUX_YEAROFFSET+9;
 
-	Temp = 	TimeDays[Y-TUX_YEAROFFSET][M];
+	Temp = TimeDays[Y-TUX_YEAROFFSET][M];
 	Temp += D*86400+H*3600+Min*60+S;
 
 	return Temp;
@@ -352,7 +352,7 @@ time_t parse_time(const char *str, const int str_len)
 			/* Wed Jun  9 01:29:59 1993 */
 
 			if (str_len < 24)
-                        	return -1;
+				return -1;
 
 			mon = make_month(str+4);
 			mday = make_num(str+8);

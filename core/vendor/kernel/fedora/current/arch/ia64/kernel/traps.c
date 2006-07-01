@@ -30,19 +30,19 @@ extern spinlock_t timerlist_lock;
 fpswa_interface_t *fpswa_interface;
 EXPORT_SYMBOL(fpswa_interface);
 
-struct notifier_block *ia64die_chain;
+ATOMIC_NOTIFIER_HEAD(ia64die_chain);
 
 int
 register_die_notifier(struct notifier_block *nb)
 {
-	return notifier_chain_register(&ia64die_chain, nb);
+	return atomic_notifier_chain_register(&ia64die_chain, nb);
 }
 EXPORT_SYMBOL_GPL(register_die_notifier);
 
 int
 unregister_die_notifier(struct notifier_block *nb)
 {
-	return notifier_chain_unregister(&ia64die_chain, nb);
+	return atomic_notifier_chain_unregister(&ia64die_chain, nb);
 }
 EXPORT_SYMBOL_GPL(unregister_die_notifier);
 
@@ -114,12 +114,6 @@ die (const char *str, struct pt_regs *regs, long err)
   	} else
 		printk(KERN_ERR "Recursive die() failure, output suppressed\n");
 
-	try_crashdump(regs);
-	if (panic_on_oops) {
-		if (netdump_func)
-			netdump_func = NULL;
-		panic("Fatal exception");
-	}
 	bust_spinlocks(0);
 	die.lock_owner = -1;
 	spin_unlock_irq(&die.lock);

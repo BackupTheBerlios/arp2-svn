@@ -32,12 +32,12 @@
 #include "bcm43xx_main.h"
 #include "bcm43xx_debugfs.h"
 #include "bcm43xx_power.h"
+#include "bcm43xx_xmit.h"
 
-#include <linux/dmapool.h>
+#include <linux/dma-mapping.h>
 #include <linux/pci.h>
 #include <linux/delay.h>
 #include <linux/skbuff.h>
-#include <asm/semaphore.h>
 
 
 static inline int free_slots(struct bcm43xx_dmaring *ring)
@@ -169,19 +169,6 @@ void sync_descbuffer_for_device(struct bcm43xx_dmaring *ring,
 				   addr, len, DMA_FROM_DEVICE);
 }
 
-static inline
-void mark_skb_mustfree(struct sk_buff *skb,
-		       char mustfree)
-{
-	skb->cb[0] = mustfree;
-}
-
-static inline
-int skb_mustfree(struct sk_buff *skb)
-{
-	return (skb->cb[0] != 0);
-}
-
 /* Unmap and free a descriptor buffer. */
 static inline
 void free_descriptor_buffer(struct bcm43xx_dmaring *ring,
@@ -190,17 +177,11 @@ void free_descriptor_buffer(struct bcm43xx_dmaring *ring,
 			    int irq_context)
 {
 	assert(meta->skb);
-	if (skb_mustfree(meta->skb)) {
-		if (irq_context)
-			dev_kfree_skb_irq(meta->skb);
-		else
-			dev_kfree_skb(meta->skb);
-	}
+	if (irq_context)
+		dev_kfree_skb_irq(meta->skb);
+	else
+		dev_kfree_skb(meta->skb);
 	meta->skb = NULL;
-	if (meta->txb) {
-		ieee80211_txb_free(meta->txb);
-		meta->txb = NULL;
-	}
 }
 
 static int alloc_ringmemory(struct bcm43xx_dmaring *ring)
@@ -215,8 +196,9 @@ static int alloc_ringmemory(struct bcm43xx_dmaring *ring)
 	}
 	if (ring->dmabase + BCM43xx_DMA_RINGMEMSIZE > BCM43xx_DMA_BUSADDRMAX) {
 		printk(KERN_ERR PFX ">>>FATAL ERROR<<<  DMA RINGMEMORY >1G "
-				    "(0x%08x, len: %lu)\n",
-		       ring->dmabase, BCM43xx_DMA_RINGMEMSIZE);
+				    "(0x%llx, len: %lu)\n",
+				(unsigned long long)ring->dmabase,
+				BCM43xx_DMA_RINGMEMSIZE);
 		dma_free_coherent(dev, BCM43xx_DMA_RINGMEMSIZE,
 				  ring->vbase, ring->dmabase);
 		return -ENOMEM;
@@ -326,14 +308,13 @@ static int setup_rx_descbuffer(struct bcm43xx_dmaring *ring,
 		unmap_descbuffer(ring, dmaaddr, ring->rx_buffersize, 0);
 		dev_kfree_skb_any(skb);
 		printk(KERN_ERR PFX ">>>FATAL ERROR<<<  DMA RX SKB >1G "
-				    "(0x%08x, len: %u)\n",
-		       dmaaddr, ring->rx_buffersize);
+				    "(0x%llx, len: %u)\n",
+			(unsigned long long)dmaaddr, ring->rx_buffersize);
 		return -ENOMEM;
 	}
 	meta->skb = skb;
 	meta->dmaaddr = dmaaddr;
 	skb->dev = ring->bcm->net_dev;
-	mark_skb_mustfree(skb, 1);
 	desc_addr = (u32)(dmaaddr + ring->memoffset);
 	desc_ctl = (BCM43xx_DMADTOR_BYTECNT_MASK &
 		    (u32)(ring->rx_buffersize - ring->frameoffset));
@@ -393,13 +374,11 @@ static int dmacontroller_setup(struct bcm43xx_dmaring *ring)
 
 	if (ring->tx) {
 		/* Set Transmit Control register to "transmit enable" */
-		bcm43xx_write32(ring->bcm,
-				ring->mmio_base + BCM43xx_DMA_TX_CONTROL,
-				BCM43xx_DMA_TXCTRL_ENABLE);
+		bcm43xx_dma_write(ring, BCM43xx_DMA_TX_CONTROL,
+				  BCM43xx_DMA_TXCTRL_ENABLE);
 		/* Set Transmit Descriptor ring address. */
-		bcm43xx_write32(ring->bcm,
-				ring->mmio_base + BCM43xx_DMA_TX_DESC_RING,
-				ring->dmabase + ring->memoffset);
+		bcm43xx_dma_write(ring, BCM43xx_DMA_TX_DESC_RING,
+				  ring->dmabase + ring->memoffset);
 	} else {
 		err = alloc_initial_descbuffers(ring);
 		if (err)
@@ -407,17 +386,12 @@ static int dmacontroller_setup(struct bcm43xx_dmaring *ring)
 		/* Set Receive Control "receive enable" and frame offset */
 		value = (ring->frameoffset << BCM43xx_DMA_RXCTRL_FRAMEOFF_SHIFT);
 		value |= BCM43xx_DMA_RXCTRL_ENABLE;
-		bcm43xx_write32(ring->bcm,
-				ring->mmio_base + BCM43xx_DMA_RX_CONTROL,
-				value);
+		bcm43xx_dma_write(ring, BCM43xx_DMA_RX_CONTROL, value);
 		/* Set Receive Descriptor ring address. */
-		bcm43xx_write32(ring->bcm,
-				ring->mmio_base + BCM43xx_DMA_RX_DESC_RING,
-				ring->dmabase + ring->memoffset);
+		bcm43xx_dma_write(ring, BCM43xx_DMA_RX_DESC_RING,
+				  ring->dmabase + ring->memoffset);
 		/* Init the descriptor pointer. */
-		bcm43xx_write32(ring->bcm,
-				ring->mmio_base + BCM43xx_DMA_RX_DESC_INDEX,
-				200);
+		bcm43xx_dma_write(ring, BCM43xx_DMA_RX_DESC_INDEX, 200);
 	}
 
 out:
@@ -430,15 +404,11 @@ static void dmacontroller_cleanup(struct bcm43xx_dmaring *ring)
 	if (ring->tx) {
 		bcm43xx_dmacontroller_tx_reset(ring->bcm, ring->mmio_base);
 		/* Zero out Transmit Descriptor ring address. */
-		bcm43xx_write32(ring->bcm,
-				ring->mmio_base + BCM43xx_DMA_TX_DESC_RING,
-				0x00000000);
+		bcm43xx_dma_write(ring, BCM43xx_DMA_TX_DESC_RING, 0);
 	} else {
 		bcm43xx_dmacontroller_rx_reset(ring->bcm, ring->mmio_base);
 		/* Zero out Receive Descriptor ring address. */
-		bcm43xx_write32(ring->bcm,
-				ring->mmio_base + BCM43xx_DMA_RX_DESC_RING,
-				0x00000000);
+		bcm43xx_dma_write(ring, BCM43xx_DMA_RX_DESC_RING, 0);
 	}
 }
 
@@ -456,7 +426,6 @@ static void free_all_descbuffers(struct bcm43xx_dmaring *ring)
 
 		if (!meta->skb) {
 			assert(ring->tx);
-			assert(!meta->txb);
 			continue;
 		}
 		if (ring->tx) {
@@ -562,7 +531,11 @@ static void bcm43xx_destroy_dmaring(struct bcm43xx_dmaring *ring)
 
 void bcm43xx_dma_free(struct bcm43xx_private *bcm)
 {
-	struct bcm43xx_dma *dma = bcm->current_core->dma;
+	struct bcm43xx_dma *dma;
+
+	if (bcm43xx_using_pio(bcm))
+		return;
+	dma = bcm43xx_current_dma(bcm);
 
 	bcm43xx_destroy_dmaring(dma->rx_ring1);
 	dma->rx_ring1 = NULL;
@@ -580,7 +553,7 @@ void bcm43xx_dma_free(struct bcm43xx_private *bcm)
 
 int bcm43xx_dma_init(struct bcm43xx_private *bcm)
 {
-	struct bcm43xx_dma *dma = bcm->current_core->dma;
+	struct bcm43xx_dma *dma = bcm43xx_current_dma(bcm);
 	struct bcm43xx_dmaring *ring;
 	int err = -ENOMEM;
 
@@ -651,25 +624,28 @@ err_destroy_tx0:
 static u16 generate_cookie(struct bcm43xx_dmaring *ring,
 			   int slot)
 {
-	u16 cookie = 0x0000;
+	u16 cookie = 0xF000;
 
 	/* Use the upper 4 bits of the cookie as
 	 * DMA controller ID and store the slot number
-	 * in the lower 12 bits
+	 * in the lower 12 bits.
+	 * Note that the cookie must never be 0, as this
+	 * is a special value used in RX path.
 	 */
 	switch (ring->mmio_base) {
 	default:
 		assert(0);
 	case BCM43xx_MMIO_DMA1_BASE:
+		cookie = 0xA000;
 		break;
 	case BCM43xx_MMIO_DMA2_BASE:
-		cookie = 0x1000;
+		cookie = 0xB000;
 		break;
 	case BCM43xx_MMIO_DMA3_BASE:
-		cookie = 0x2000;
+		cookie = 0xC000;
 		break;
 	case BCM43xx_MMIO_DMA4_BASE:
-		cookie = 0x3000;
+		cookie = 0xD000;
 		break;
 	}
 	assert(((u16)slot & 0xF000) == 0x0000);
@@ -683,20 +659,20 @@ static
 struct bcm43xx_dmaring * parse_cookie(struct bcm43xx_private *bcm,
 				      u16 cookie, int *slot)
 {
-	struct bcm43xx_dma *dma = bcm->current_core->dma;
+	struct bcm43xx_dma *dma = bcm43xx_current_dma(bcm);
 	struct bcm43xx_dmaring *ring = NULL;
 
 	switch (cookie & 0xF000) {
-	case 0x0000:
+	case 0xA000:
 		ring = dma->tx_ring0;
 		break;
-	case 0x1000:
+	case 0xB000:
 		ring = dma->tx_ring1;
 		break;
-	case 0x2000:
+	case 0xC000:
 		ring = dma->tx_ring2;
 		break;
-	case 0x3000:
+	case 0xD000:
 		ring = dma->tx_ring3;
 		break;
 	default:
@@ -718,14 +694,12 @@ static void dmacontroller_poke_tx(struct bcm43xx_dmaring *ring,
 	 */
 	wmb();
 	slot = next_slot(ring, slot);
-	bcm43xx_write32(ring->bcm,
-			ring->mmio_base + BCM43xx_DMA_TX_DESC_INDEX,
-			(u32)(slot * sizeof(struct bcm43xx_dmadesc)));
+	bcm43xx_dma_write(ring, BCM43xx_DMA_TX_DESC_INDEX,
+			  (u32)(slot * sizeof(struct bcm43xx_dmadesc)));
 }
 
 static int dma_tx_fragment(struct bcm43xx_dmaring *ring,
 			   struct sk_buff *skb,
-			   struct ieee80211_txb *txb,
 			   u8 cur_frag)
 {
 	int slot;
@@ -739,11 +713,6 @@ static int dma_tx_fragment(struct bcm43xx_dmaring *ring,
 	slot = request_slot(ring);
 	desc = ring->vbase + slot;
 	meta = ring->meta + slot;
-
-	if (cur_frag == 0) {
-		/* Save the txb pointer for freeing in xmitstatus IRQ */
-		meta->txb = txb;
-	}
 
 	/* Add a device specific TX header. */
 	assert(skb_headroom(skb) >= sizeof(struct bcm43xx_txhdr));
@@ -764,8 +733,8 @@ static int dma_tx_fragment(struct bcm43xx_dmaring *ring,
 	if (unlikely(meta->dmaaddr + skb->len > BCM43xx_DMA_BUSADDRMAX)) {
 		return_slot(ring, slot);
 		printk(KERN_ERR PFX ">>>FATAL ERROR<<<  DMA TX SKB >1G "
-				    "(0x%08x, len: %u)\n",
-		       meta->dmaaddr, skb->len);
+				    "(0x%llx, len: %u)\n",
+			(unsigned long long)meta->dmaaddr, skb->len);
 		return -ENOMEM;
 	}
 
@@ -793,7 +762,7 @@ int bcm43xx_dma_tx(struct bcm43xx_private *bcm,
 	 * the device to send the stuff.
 	 * Note that this is called from atomic context.
 	 */
-	struct bcm43xx_dmaring *ring = bcm->current_core->dma->tx_ring1;
+	struct bcm43xx_dmaring *ring = bcm43xx_current_dma(bcm)->tx_ring1;
 	u8 i;
 	struct sk_buff *skb;
 
@@ -809,13 +778,12 @@ int bcm43xx_dma_tx(struct bcm43xx_private *bcm,
 
 	for (i = 0; i < txb->nr_frags; i++) {
 		skb = txb->fragments[i];
-		/* We do not free the skb, as it is freed as
-		 * part of the txb freeing.
-		 */
-		mark_skb_mustfree(skb, 0);
-		dma_tx_fragment(ring, skb, txb, i);
+		/* Take skb from ieee80211_txb_free */
+		txb->fragments[i] = NULL;
+		dma_tx_fragment(ring, skb, i);
 		//TODO: handle failure of dma_tx_fragment
 	}
+	ieee80211_txb_free(txb);
 
 	return 0;
 }
@@ -874,8 +842,18 @@ static void dma_rx(struct bcm43xx_dmaring *ring,
 		/* We received an xmit status. */
 		struct bcm43xx_hwxmitstatus *hw = (struct bcm43xx_hwxmitstatus *)skb->data;
 		struct bcm43xx_xmitstatus stat;
+		int i = 0;
 
 		stat.cookie = le16_to_cpu(hw->cookie);
+		while (stat.cookie == 0) {
+			if (unlikely(++i >= 10000)) {
+				assert(0);
+				break;
+			}
+			udelay(2);
+			barrier();
+			stat.cookie = le16_to_cpu(hw->cookie);
+		}
 		stat.flags = hw->flags;
 		stat.cnt1 = hw->cnt1;
 		stat.cnt2 = hw->cnt2;
@@ -967,7 +945,7 @@ void bcm43xx_dma_rx(struct bcm43xx_dmaring *ring)
 #endif
 
 	assert(!ring->tx);
-	status = bcm43xx_read32(ring->bcm, ring->mmio_base + BCM43xx_DMA_RX_STATUS);
+	status = bcm43xx_dma_read(ring, BCM43xx_DMA_RX_STATUS);
 	descptr = (status & BCM43xx_DMA_RXSTAT_DPTR_MASK);
 	current_slot = descptr / sizeof(struct bcm43xx_dmadesc);
 	assert(current_slot >= 0 && current_slot < ring->nr_slots);
@@ -980,10 +958,25 @@ void bcm43xx_dma_rx(struct bcm43xx_dmaring *ring)
 			ring->max_used_slots = used_slots;
 #endif
 	}
-	bcm43xx_write32(ring->bcm,
-			ring->mmio_base + BCM43xx_DMA_RX_DESC_INDEX,
-			(u32)(slot * sizeof(struct bcm43xx_dmadesc)));
+	bcm43xx_dma_write(ring, BCM43xx_DMA_RX_DESC_INDEX,
+			  (u32)(slot * sizeof(struct bcm43xx_dmadesc)));
 	ring->current_slot = slot;
 }
 
-/* vim: set ts=8 sw=8 sts=8: */
+void bcm43xx_dma_tx_suspend(struct bcm43xx_dmaring *ring)
+{
+	assert(ring->tx);
+	bcm43xx_power_saving_ctl_bits(ring->bcm, -1, 1);
+	bcm43xx_dma_write(ring, BCM43xx_DMA_TX_CONTROL,
+			  bcm43xx_dma_read(ring, BCM43xx_DMA_TX_CONTROL)
+			  | BCM43xx_DMA_TXCTRL_SUSPEND);
+}
+
+void bcm43xx_dma_tx_resume(struct bcm43xx_dmaring *ring)
+{
+	assert(ring->tx);
+	bcm43xx_dma_write(ring, BCM43xx_DMA_TX_CONTROL,
+			  bcm43xx_dma_read(ring, BCM43xx_DMA_TX_CONTROL)
+			  & ~BCM43xx_DMA_TXCTRL_SUSPEND);
+	bcm43xx_power_saving_ctl_bits(ring->bcm, -1, -1);
+}

@@ -42,7 +42,7 @@ static const char *ieee80211_modes[] = {
 };
 
 #define MAX_CUSTOM_LEN 64
-static char *ipw2100_translate_scan(struct ieee80211_device *ieee,
+static char *ieee80211_translate_scan(struct ieee80211_device *ieee,
 					   char *start, char *stop,
 					   struct ieee80211_network *network)
 {
@@ -149,9 +149,7 @@ static char *ipw2100_translate_scan(struct ieee80211_device *ieee,
 		iwe.u.qual.updated |= IW_QUAL_QUAL_INVALID |
 		    IW_QUAL_LEVEL_INVALID;
 		iwe.u.qual.qual = 0;
-		iwe.u.qual.level = 0;
 	} else {
-		iwe.u.qual.level = network->stats.rssi;
 		if (ieee->perfect_rssi == ieee->worst_rssi)
 			iwe.u.qual.qual = 100;
 		else
@@ -179,6 +177,13 @@ static char *ipw2100_translate_scan(struct ieee80211_device *ieee,
 		iwe.u.qual.noise = network->stats.noise;
 	}
 
+	if (!(network->stats.mask & IEEE80211_STATMASK_SIGNAL)) {
+		iwe.u.qual.updated |= IW_QUAL_LEVEL_INVALID;
+		iwe.u.qual.level = 0;
+	} else {
+		iwe.u.qual.level = network->stats.signal;
+	}
+
 	start = iwe_stream_add_event(start, stop, &iwe, IW_EV_QUAL_LEN);
 
 	iwe.cmd = IWEVCUSTOM;
@@ -188,33 +193,21 @@ static char *ipw2100_translate_scan(struct ieee80211_device *ieee,
 	if (iwe.u.data.length)
 		start = iwe_stream_add_point(start, stop, &iwe, custom);
 
+	memset(&iwe, 0, sizeof(iwe));
 	if (network->wpa_ie_len) {
-		char buf[MAX_WPA_IE_LEN * 2 + 30];
-
-		u8 *p = buf;
-		p += sprintf(p, "wpa_ie=");
-		for (i = 0; i < network->wpa_ie_len; i++) {
-			p += sprintf(p, "%02x", network->wpa_ie[i]);
-		}
-
-		memset(&iwe, 0, sizeof(iwe));
-		iwe.cmd = IWEVCUSTOM;
-		iwe.u.data.length = strlen(buf);
+		char buf[MAX_WPA_IE_LEN];
+		memcpy(buf, network->wpa_ie, network->wpa_ie_len);
+		iwe.cmd = IWEVGENIE;
+		iwe.u.data.length = network->wpa_ie_len;
 		start = iwe_stream_add_point(start, stop, &iwe, buf);
 	}
 
+	memset(&iwe, 0, sizeof(iwe));
 	if (network->rsn_ie_len) {
-		char buf[MAX_WPA_IE_LEN * 2 + 30];
-
-		u8 *p = buf;
-		p += sprintf(p, "rsn_ie=");
-		for (i = 0; i < network->rsn_ie_len; i++) {
-			p += sprintf(p, "%02x", network->rsn_ie[i]);
-		}
-
-		memset(&iwe, 0, sizeof(iwe));
-		iwe.cmd = IWEVCUSTOM;
-		iwe.u.data.length = strlen(buf);
+		char buf[MAX_WPA_IE_LEN];
+		memcpy(buf, network->rsn_ie, network->rsn_ie_len);
+		iwe.cmd = IWEVGENIE;
+		iwe.u.data.length = network->rsn_ie_len;
 		start = iwe_stream_add_point(start, stop, &iwe, buf);
 	}
 
@@ -228,6 +221,28 @@ static char *ipw2100_translate_scan(struct ieee80211_device *ieee,
 	iwe.u.data.length = p - custom;
 	if (iwe.u.data.length)
 		start = iwe_stream_add_point(start, stop, &iwe, custom);
+
+	/* Add spectrum management information */
+	iwe.cmd = -1;
+	p = custom;
+	p += snprintf(p, MAX_CUSTOM_LEN - (p - custom), " Channel flags: ");
+
+	if (ieee80211_get_channel_flags(ieee, network->channel) &
+	    IEEE80211_CH_INVALID) {
+		iwe.cmd = IWEVCUSTOM;
+		p += snprintf(p, MAX_CUSTOM_LEN - (p - custom), "INVALID ");
+	}
+
+	if (ieee80211_get_channel_flags(ieee, network->channel) &
+	    IEEE80211_CH_RADAR_DETECT) {
+		iwe.cmd = IWEVCUSTOM;
+		p += snprintf(p, MAX_CUSTOM_LEN - (p - custom), "DFS ");
+	}
+
+	if (iwe.cmd == IWEVCUSTOM) {
+		iwe.u.data.length = p - custom;
+		start = iwe_stream_add_point(start, stop, &iwe, custom);
+	}
 
 	return start;
 }
@@ -259,7 +274,7 @@ int ieee80211_wx_get_scan(struct ieee80211_device *ieee,
 
 		if (ieee->scan_age == 0 ||
 		    time_after(network->last_scanned + ieee->scan_age, jiffies))
-			ev = ipw2100_translate_scan(ieee, ev, stop, network);
+			ev = ieee80211_translate_scan(ieee, ev, stop, network);
 		else
 			IEEE80211_DEBUG_SCAN("Not showing network '%s ("
 					     MAC_FMT ")' due to age (%dms).\n",

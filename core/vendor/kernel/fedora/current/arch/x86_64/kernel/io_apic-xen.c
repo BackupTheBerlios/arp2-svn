@@ -51,7 +51,7 @@ static int no_timer_check;
 int disable_timer_pin_1 __initdata;
 
 #ifndef CONFIG_XEN
-int timer_over_8254 __initdata = 1;
+int timer_over_8254 __initdata = 0;
 
 /* Where if anywhere is the i8259 connect in external int mode */
 static struct { int pin, apic; } ioapic_i8259 = { -1, -1 };
@@ -104,27 +104,25 @@ unsigned long io_apic_irqs;
 
 static inline unsigned int xen_io_apic_read(unsigned int apic, unsigned int reg)
 {
-	physdev_op_t op;
+	struct physdev_apic apic_op;
 	int ret;
 
-	op.cmd = PHYSDEVOP_APIC_READ;
-	op.u.apic_op.apic_physbase = mp_ioapics[apic].mpc_apicaddr;
-	op.u.apic_op.reg = reg;
-	ret = HYPERVISOR_physdev_op(&op);
+	apic_op.apic_physbase = mp_ioapics[apic].mpc_apicaddr;
+	apic_op.reg = reg;
+	ret = HYPERVISOR_physdev_op(PHYSDEVOP_apic_read, &apic_op);
 	if (ret)
 		return ret;
-	return op.u.apic_op.value;
+	return apic_op.value;
 }
 
 static inline void xen_io_apic_write(unsigned int apic, unsigned int reg, unsigned int value)
 {
-	physdev_op_t op;
+	struct physdev_apic apic_op;
 
-	op.cmd = PHYSDEVOP_APIC_WRITE;
-	op.u.apic_op.apic_physbase = mp_ioapics[apic].mpc_apicaddr;
-	op.u.apic_op.reg = reg;
-	op.u.apic_op.value = value;
-	HYPERVISOR_physdev_op(&op);
+	apic_op.apic_physbase = mp_ioapics[apic].mpc_apicaddr;
+	apic_op.reg = reg;
+	apic_op.value = value;
+	HYPERVISOR_physdev_op(PHYSDEVOP_apic_write, &apic_op);
 }
 
 #define io_apic_read(a,r)    xen_io_apic_read(a,r)
@@ -362,7 +360,7 @@ void __init check_ioapic(void)
 					     force_iommu) &&
 					    !iommu_aperture_allowed) {
 						printk(KERN_INFO
-    "Looks like a VIA chipset. Disabling IOMMU. Overwrite with \"iommu=allowed\"\n");
+    "Looks like a VIA chipset. Disabling IOMMU. Override with \"iommu=allowed\"\n");
 						iommu_aperture_disabled = 1;
 					}
 #endif
@@ -869,24 +867,21 @@ u8 irq_vector[NR_IRQ_VECTORS] __read_mostly;
 
 int assign_irq_vector(int irq)
 {
-	static int current_vector = FIRST_DEVICE_VECTOR;
-	physdev_op_t op;
+	struct physdev_irq irq_op;
   
   	BUG_ON(irq != AUTO_ASSIGN && (unsigned)irq >= NR_IRQ_VECTORS);
   	if (irq != AUTO_ASSIGN && IO_APIC_VECTOR(irq) > 0)
   		return IO_APIC_VECTOR(irq);
 
-	op.cmd = PHYSDEVOP_ASSIGN_VECTOR;
-	op.u.irq_op.irq = irq;
-	if (HYPERVISOR_physdev_op(&op))
+	irq_op.irq = irq;
+	if (HYPERVISOR_physdev_op(PHYSDEVOP_alloc_irq_vector, &irq_op))
 		return -ENOSPC;
-	current_vector = op.u.irq_op.vector;
 
-	vector_irq[current_vector] = irq;
+	vector_irq[irq_op.vector] = irq;
 	if (irq != AUTO_ASSIGN)
-		IO_APIC_VECTOR(irq) = current_vector;
+		IO_APIC_VECTOR(irq) = irq_op.vector;
 
-	return current_vector;
+	return irq_op.vector;
 }
 
 extern void (*interrupt[NR_IRQS])(void);
@@ -1854,6 +1849,8 @@ static inline void unlock_ExtINT_logic(void)
 	spin_unlock_irqrestore(&ioapic_lock, flags);
 }
 
+int timer_uses_ioapic_pin_0;
+
 /*
  * This code may look a bit paranoid, but it's supposed to cooperate with
  * a wide range of boards and BIOS bugs.  Fortunately only the timer IRQ
@@ -1891,6 +1888,9 @@ static inline void check_timer(void)
 	pin2  = ioapic_i8259.pin;
 	apic2 = ioapic_i8259.apic;
 
+	if (pin1 == 0)
+		timer_uses_ioapic_pin_0 = 1;
+
 	apic_printk(APIC_VERBOSE,KERN_INFO "..TIMER: vector=0x%02X apic1=%d pin1=%d apic2=%d pin2=%d\n",
 		vector, apic1, pin1, apic2, pin2);
 
@@ -1925,7 +1925,7 @@ static inline void check_timer(void)
 		 */
 		setup_ExtINT_IRQ0_pin(apic2, pin2, vector);
 		if (timer_irq_works()) {
-			printk("works.\n");
+			apic_printk(APIC_VERBOSE," works.\n");
 			nmi_watchdog_default();
 			if (nmi_watchdog == NMI_IO_APIC) {
 				setup_nmi();
@@ -1937,7 +1937,7 @@ static inline void check_timer(void)
 		 */
 		clear_IO_APIC_pin(apic2, pin2);
 	}
-	printk(" failed.\n");
+	apic_printk(APIC_VERBOSE," failed.\n");
 
 	if (nmi_watchdog == NMI_IO_APIC) {
 		printk(KERN_WARNING "timer doesn't work through the IO-APIC - disabling NMI Watchdog!\n");
@@ -1952,7 +1952,7 @@ static inline void check_timer(void)
 	enable_8259A_irq(0);
 
 	if (timer_irq_works()) {
-		apic_printk(APIC_QUIET, " works.\n");
+		apic_printk(APIC_VERBOSE," works.\n");
 		return;
 	}
 	apic_write(APIC_LVT0, APIC_LVT_MASKED | APIC_DM_FIXED | vector);
@@ -1974,6 +1974,7 @@ static inline void check_timer(void)
 	panic("IO-APIC + timer doesn't work! Try using the 'noapic' kernel parameter\n");
 }
 #else
+int timer_uses_ioapic_pin_0;
 #define check_timer() ((void)0)
 #endif /* !CONFIG_XEN */
 

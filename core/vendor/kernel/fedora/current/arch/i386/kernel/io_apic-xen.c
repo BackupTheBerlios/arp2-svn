@@ -57,27 +57,25 @@ unsigned long io_apic_irqs;
 
 static inline unsigned int xen_io_apic_read(unsigned int apic, unsigned int reg)
 {
-	physdev_op_t op;
+	struct physdev_apic apic_op;
 	int ret;
 
-	op.cmd = PHYSDEVOP_APIC_READ;
-	op.u.apic_op.apic_physbase = mp_ioapics[apic].mpc_apicaddr;
-	op.u.apic_op.reg = reg;
-	ret = HYPERVISOR_physdev_op(&op);
+	apic_op.apic_physbase = mp_ioapics[apic].mpc_apicaddr;
+	apic_op.reg = reg;
+	ret = HYPERVISOR_physdev_op(PHYSDEVOP_apic_read, &apic_op);
 	if (ret)
 		return ret;
-	return op.u.apic_op.value;
+	return apic_op.value;
 }
 
 static inline void xen_io_apic_write(unsigned int apic, unsigned int reg, unsigned int value)
 {
-	physdev_op_t op;
+	struct physdev_apic apic_op;
 
-	op.cmd = PHYSDEVOP_APIC_WRITE;
-	op.u.apic_op.apic_physbase = mp_ioapics[apic].mpc_apicaddr;
-	op.u.apic_op.reg = reg;
-	op.u.apic_op.value = value;
-	HYPERVISOR_physdev_op(&op);
+	apic_op.apic_physbase = mp_ioapics[apic].mpc_apicaddr;
+	apic_op.reg = reg;
+	apic_op.value = value;
+	HYPERVISOR_physdev_op(PHYSDEVOP_apic_write, &apic_op);
 }
 
 #define io_apic_read(a,r)    xen_io_apic_read(a,r)
@@ -396,8 +394,8 @@ static inline void rotate_irqs_among_cpus(unsigned long useful_load_threshold)
 {
 	int i, j;
 	Dprintk("Rotating IRQs among CPUs.\n");
-	for (i = 0; i < NR_CPUS; i++) {
-		for (j = 0; cpu_online(i) && (j < NR_IRQS); j++) {
+	for_each_online_cpu(i) {
+		for (j = 0; j < NR_IRQS; j++) {
 			if (!irq_desc[j].action)
 				continue;
 			/* Is it a significant load ?  */
@@ -426,7 +424,7 @@ static void do_irq_balance(void)
 	unsigned long imbalance = 0;
 	cpumask_t allowed_mask, target_cpu_mask, tmp;
 
-	for (i = 0; i < NR_CPUS; i++) {
+	for_each_possible_cpu(i) {
 		int package_index;
 		CPU_IRQ(i) = 0;
 		if (!cpu_online(i))
@@ -467,9 +465,7 @@ static void do_irq_balance(void)
 		}
 	}
 	/* Find the least loaded processor package */
-	for (i = 0; i < NR_CPUS; i++) {
-		if (!cpu_online(i))
-			continue;
+	for_each_online_cpu(i) {
 		if (i != CPU_TO_PACKAGEINDEX(i))
 			continue;
 		if (min_cpu_irq > CPU_IRQ(i)) {
@@ -486,9 +482,7 @@ tryanothercpu:
 	 */
 	tmp_cpu_irq = 0;
 	tmp_loaded = -1;
-	for (i = 0; i < NR_CPUS; i++) {
-		if (!cpu_online(i))
-			continue;
+	for_each_online_cpu(i) {
 		if (i != CPU_TO_PACKAGEINDEX(i))
 			continue;
 		if (max_cpu_irq <= CPU_IRQ(i)) 
@@ -664,9 +658,7 @@ static int __init balanced_irq_init(void)
 	if (smp_num_siblings > 1 && !cpus_empty(tmp))
 		physical_balance = 1;
 
-	for (i = 0; i < NR_CPUS; i++) {
-		if (!cpu_online(i))
-			continue;
+	for_each_online_cpu(i) {
 		irq_cpu_data[i].irq_delta = kmalloc(sizeof(unsigned long) * NR_IRQS, GFP_KERNEL);
 		irq_cpu_data[i].last_irq = kmalloc(sizeof(unsigned long) * NR_IRQS, GFP_KERNEL);
 		if (irq_cpu_data[i].irq_delta == NULL || irq_cpu_data[i].last_irq == NULL) {
@@ -683,9 +675,11 @@ static int __init balanced_irq_init(void)
 	else 
 		printk(KERN_ERR "balanced_irq_init: failed to spawn balanced_irq");
 failed:
-	for (i = 0; i < NR_CPUS; i++) {
+	for_each_possible_cpu(i) {
 		kfree(irq_cpu_data[i].irq_delta);
+		irq_cpu_data[i].irq_delta = NULL;
 		kfree(irq_cpu_data[i].last_irq);
+		irq_cpu_data[i].last_irq = NULL;
 	}
 	return 0;
 }
@@ -693,7 +687,7 @@ failed:
 int __init irqbalance_disable(char *str)
 {
 	irqbalance_disabled = 1;
-	return 0;
+	return 1;
 }
 
 __setup("noirqbalance", irqbalance_disable);
@@ -1205,24 +1199,21 @@ u8 irq_vector[NR_IRQ_VECTORS] __read_mostly; /* = { FIRST_DEVICE_VECTOR , 0 }; *
 
 int assign_irq_vector(int irq)
 {
-	static int current_vector = FIRST_DEVICE_VECTOR;
-	physdev_op_t op;
+	struct physdev_irq irq_op;
 
 	BUG_ON(irq >= NR_IRQ_VECTORS);
 	if (irq != AUTO_ASSIGN && IO_APIC_VECTOR(irq) > 0)
 		return IO_APIC_VECTOR(irq);
 
-	op.cmd = PHYSDEVOP_ASSIGN_VECTOR;
-	op.u.irq_op.irq = irq;
-	if (HYPERVISOR_physdev_op(&op))
+	irq_op.irq = irq;
+	if (HYPERVISOR_physdev_op(PHYSDEVOP_alloc_irq_vector, &irq_op))
 		return -ENOSPC;
-	current_vector = op.u.irq_op.vector;
 
-	vector_irq[current_vector] = irq;
+	vector_irq[irq_op.vector] = irq;
 	if (irq != AUTO_ASSIGN)
-		IO_APIC_VECTOR(irq) = current_vector;
+		IO_APIC_VECTOR(irq) = irq_op.vector;
 
-	return current_vector;
+	return irq_op.vector;
 }
 
 #ifndef CONFIG_XEN
@@ -1818,7 +1809,8 @@ static void __init setup_ioapic_ids_from_mpc(void)
 	 * Don't check I/O APIC IDs for xAPIC systems.  They have
 	 * no meaning without the serial APIC bus.
 	 */
-	if (!(boot_cpu_data.x86_vendor == X86_VENDOR_INTEL && boot_cpu_data.x86 < 15))
+	if (!(boot_cpu_data.x86_vendor == X86_VENDOR_INTEL)
+		|| APIC_XAPIC(apic_version[boot_cpu_physical_apicid]))
 		return;
 	/*
 	 * This is broken; anything with a real cpu count has to
@@ -2303,6 +2295,8 @@ static inline void unlock_ExtINT_logic(void)
 	spin_unlock_irqrestore(&ioapic_lock, flags);
 }
 
+int timer_uses_ioapic_pin_0;
+
 /*
  * This code may look a bit paranoid, but it's supposed to cooperate with
  * a wide range of boards and BIOS bugs.  Fortunately only the timer IRQ
@@ -2338,6 +2332,9 @@ static inline void check_timer(void)
 	apic1 = find_isa_irq_apic(0, mp_INT);
 	pin2  = ioapic_i8259.pin;
 	apic2 = ioapic_i8259.apic;
+
+	if (pin1 == 0)
+		timer_uses_ioapic_pin_0 = 1;
 
 	printk(KERN_INFO "..TIMER: vector=0x%02X apic1=%d pin1=%d apic2=%d pin2=%d\n",
 		vector, apic1, pin1, apic2, pin2);
@@ -2424,6 +2421,7 @@ static inline void check_timer(void)
 		"report.  Then try booting with the 'noapic' option");
 }
 #else
+int timer_uses_ioapic_pin_0;
 #define check_timer() ((void)0)
 #endif
 

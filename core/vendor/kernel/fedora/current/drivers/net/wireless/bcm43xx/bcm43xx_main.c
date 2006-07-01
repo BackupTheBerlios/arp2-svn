@@ -38,6 +38,7 @@
 #include <linux/wireless.h>
 #include <linux/workqueue.h>
 #include <linux/skbuff.h>
+#include <linux/dma-mapping.h>
 #include <net/iw_handler.h>
 
 #include "bcm43xx.h"
@@ -50,6 +51,8 @@
 #include "bcm43xx_power.h"
 #include "bcm43xx_wx.h"
 #include "bcm43xx_ethtool.h"
+#include "bcm43xx_xmit.h"
+#include "bcm43xx_sysfs.h"
 
 
 MODULE_DESCRIPTION("Broadcom BCM43xx wireless driver");
@@ -143,9 +146,7 @@ MODULE_PARM_DESC(fwpostfix, "Postfix for .fw files. Useful for debugging.");
 #endif
 	{ 0 },
 };
-#if 0 /* Disable automatic loading in FC5 */
 MODULE_DEVICE_TABLE(pci, bcm43xx_pci_tbl);
-#endif
 
 static void bcm43xx_ram_write(struct bcm43xx_private *bcm, u16 offset, u32 val)
 {
@@ -156,6 +157,7 @@ static void bcm43xx_ram_write(struct bcm43xx_private *bcm, u16 offset, u32 val)
 		val = swab32(val);
 
 	bcm43xx_write32(bcm, BCM43xx_MMIO_RAM_CONTROL, offset);
+	mmiowb();
 	bcm43xx_write32(bcm, BCM43xx_MMIO_RAM_DATA, val);
 }
 
@@ -226,9 +228,12 @@ void bcm43xx_shm_write32(struct bcm43xx_private *bcm,
 		if (offset & 0x0003) {
 			/* Unaligned access */
 			bcm43xx_shm_control_word(bcm, routing, offset >> 2);
+			mmiowb();
 			bcm43xx_write16(bcm, BCM43xx_MMIO_SHM_DATA_UNALIGNED,
 					(value >> 16) & 0xffff);
+			mmiowb();
 			bcm43xx_shm_control_word(bcm, routing, (offset >> 2) + 1);
+			mmiowb();
 			bcm43xx_write16(bcm, BCM43xx_MMIO_SHM_DATA,
 					value & 0xffff);
 			return;
@@ -236,6 +241,7 @@ void bcm43xx_shm_write32(struct bcm43xx_private *bcm,
 		offset >>= 2;
 	}
 	bcm43xx_shm_control_word(bcm, routing, offset);
+	mmiowb();
 	bcm43xx_write32(bcm, BCM43xx_MMIO_SHM_DATA, value);
 }
 
@@ -247,6 +253,7 @@ void bcm43xx_shm_write16(struct bcm43xx_private *bcm,
 		if (offset & 0x0003) {
 			/* Unaligned access */
 			bcm43xx_shm_control_word(bcm, routing, offset >> 2);
+			mmiowb();
 			bcm43xx_write16(bcm, BCM43xx_MMIO_SHM_DATA_UNALIGNED,
 					value);
 			return;
@@ -254,6 +261,7 @@ void bcm43xx_shm_write16(struct bcm43xx_private *bcm,
 		offset >>= 2;
 	}
 	bcm43xx_shm_control_word(bcm, routing, offset);
+	mmiowb();
 	bcm43xx_write16(bcm, BCM43xx_MMIO_SHM_DATA, value);
 }
 
@@ -312,6 +320,7 @@ void bcm43xx_tsf_write(struct bcm43xx_private *bcm, u64 tsf)
 	status = bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS_BITFIELD);
 	status |= BCM43xx_SBF_TIME_UPDATE;
 	bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS_BITFIELD, status);
+	mmiowb();
 
 	/* Be careful with the in-progress timer.
 	 * First zero out the low register, so we have a full
@@ -321,9 +330,10 @@ void bcm43xx_tsf_write(struct bcm43xx_private *bcm, u64 tsf)
 		u32 lo = (tsf & 0x00000000FFFFFFFFULL);
 		u32 hi = (tsf & 0xFFFFFFFF00000000ULL) >> 32;
 
-		barrier();
 		bcm43xx_write32(bcm, BCM43xx_MMIO_REV3PLUS_TSF_LOW, 0);
+		mmiowb();
 		bcm43xx_write32(bcm, BCM43xx_MMIO_REV3PLUS_TSF_HIGH, hi);
+		mmiowb();
 		bcm43xx_write32(bcm, BCM43xx_MMIO_REV3PLUS_TSF_LOW, lo);
 	} else {
 		u16 v0 = (tsf & 0x000000000000FFFFULL);
@@ -331,245 +341,20 @@ void bcm43xx_tsf_write(struct bcm43xx_private *bcm, u64 tsf)
 		u16 v2 = (tsf & 0x0000FFFF00000000ULL) >> 32;
 		u16 v3 = (tsf & 0xFFFF000000000000ULL) >> 48;
 
-		barrier();
 		bcm43xx_write16(bcm, BCM43xx_MMIO_TSF_0, 0);
+		mmiowb();
 		bcm43xx_write16(bcm, BCM43xx_MMIO_TSF_3, v3);
+		mmiowb();
 		bcm43xx_write16(bcm, BCM43xx_MMIO_TSF_2, v2);
+		mmiowb();
 		bcm43xx_write16(bcm, BCM43xx_MMIO_TSF_1, v1);
+		mmiowb();
 		bcm43xx_write16(bcm, BCM43xx_MMIO_TSF_0, v0);
 	}
 
 	status = bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS_BITFIELD);
 	status &= ~BCM43xx_SBF_TIME_UPDATE;
 	bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS_BITFIELD, status);
-}
-
-static u8 bcm43xx_plcp_get_bitrate(struct bcm43xx_plcp_hdr4 *plcp,
-				   const int ofdm_modulation)
-{
-	u8 rate;
-
-	if (ofdm_modulation) {
-		switch (plcp->raw[0] & 0xF) {
-		case 0xB:
-			rate = IEEE80211_OFDM_RATE_6MB;
-			break;
-		case 0xF:
-			rate = IEEE80211_OFDM_RATE_9MB;
-			break;
-		case 0xA:
-			rate = IEEE80211_OFDM_RATE_12MB;
-			break;
-		case 0xE:
-			rate = IEEE80211_OFDM_RATE_18MB;
-			break;
-		case 0x9:
-			rate = IEEE80211_OFDM_RATE_24MB;
-			break;
-		case 0xD:
-			rate = IEEE80211_OFDM_RATE_36MB;
-			break;
-		case 0x8:
-			rate = IEEE80211_OFDM_RATE_48MB;
-			break;
-		case 0xC:
-			rate = IEEE80211_OFDM_RATE_54MB;
-			break;
-		default:
-			rate = 0;
-			assert(0);
-		}
-	} else {
-		switch (plcp->raw[0]) {
-		case 0x0A:
-			rate = IEEE80211_CCK_RATE_1MB;
-			break;
-		case 0x14:
-			rate = IEEE80211_CCK_RATE_2MB;
-			break;
-		case 0x37:
-			rate = IEEE80211_CCK_RATE_5MB;
-			break;
-		case 0x6E:
-			rate = IEEE80211_CCK_RATE_11MB;
-			break;
-		default:
-			rate = 0;
-			assert(0);
-		}
-	}
-
-	return rate;
-}
-
-static u8 bcm43xx_plcp_get_ratecode_cck(const u8 bitrate)
-{
-	switch (bitrate) {
-	case IEEE80211_CCK_RATE_1MB:
-		return 0x0A;
-	case IEEE80211_CCK_RATE_2MB:
-		return 0x14;
-	case IEEE80211_CCK_RATE_5MB:
-		return 0x37;
-	case IEEE80211_CCK_RATE_11MB:
-		return 0x6E;
-	}
-	assert(0);
-	return 0;
-}
-
-static u8 bcm43xx_plcp_get_ratecode_ofdm(const u8 bitrate)
-{
-	switch (bitrate) {
-	case IEEE80211_OFDM_RATE_6MB:
-		return 0xB;
-	case IEEE80211_OFDM_RATE_9MB:
-		return 0xF;
-	case IEEE80211_OFDM_RATE_12MB:
-		return 0xA;
-	case IEEE80211_OFDM_RATE_18MB:
-		return 0xE;
-	case IEEE80211_OFDM_RATE_24MB:
-		return 0x9;
-	case IEEE80211_OFDM_RATE_36MB:
-		return 0xD;
-	case IEEE80211_OFDM_RATE_48MB:
-		return 0x8;
-	case IEEE80211_OFDM_RATE_54MB:
-		return 0xC;
-	}
-	assert(0);
-	return 0;
-}
-
-static void bcm43xx_generate_plcp_hdr(struct bcm43xx_plcp_hdr4 *plcp,
-				      u16 octets, const u8 bitrate,
-				      const int ofdm_modulation)
-{
-	__le32 *data = &(plcp->data);
-	__u8 *raw = plcp->raw;
-
-	/* Account for hardware-appended FCS. */
-	octets += IEEE80211_FCS_LEN;
-
-	if (ofdm_modulation) {
-		*data = bcm43xx_plcp_get_ratecode_ofdm(bitrate);
-		assert(!(octets & 0xF000));
-		*data |= (octets << 5);
-		*data = cpu_to_le32(*data);
-	} else {
-		u32 plen;
-
-		plen = octets * 16 / bitrate;
-		if ((octets * 16 % bitrate) > 0) {
-			plen++;
-			if ((bitrate == IEEE80211_CCK_RATE_11MB)
-			    && ((octets * 8 % 11) < 4)) {
-				raw[1] = 0x84;
-			} else
-				raw[1] = 0x04;
-		} else
-			raw[1] = 0x04;
-		*data |= cpu_to_le32(plen << 16);
-		raw[0] = bcm43xx_plcp_get_ratecode_cck(bitrate);
-	}
-
-//bcm43xx_printk_bitdump(raw, 4, 0, "PLCP");
-}
-
-void bcm43xx_generate_txhdr(struct bcm43xx_private *bcm,
-			    struct bcm43xx_txhdr *txhdr,
-			    const unsigned char *fragment_data,
-			    unsigned int fragment_len,
-			    const int is_first_fragment,
-			    const u16 cookie)
-{
-	const struct bcm43xx_phyinfo *phy = bcm->current_core->phy;
-	const struct ieee80211_hdr_1addr *wireless_header = (const struct ieee80211_hdr_1addr *)fragment_data;
-	const struct ieee80211_security *secinfo = &bcm->ieee->sec;
-	u8 bitrate;
-	int ofdm_modulation;
-	u8 fallback_bitrate;
-	int fallback_ofdm_modulation;
-	u16 tmp;
-	u16 encrypt_frame;
-
-	/* Now construct the TX header. */
-	memset(txhdr, 0, sizeof(*txhdr));
-
-	//TODO: Some RTS/CTS stuff has to be done.
-	//TODO: Encryption stuff.
-	//TODO: others?
-
-	bitrate = bcm->softmac->txrates.default_rate;
-	ofdm_modulation = !(ieee80211_is_cck_rate(bitrate));
-	fallback_bitrate = bcm->softmac->txrates.default_fallback;
-	fallback_ofdm_modulation = !(ieee80211_is_cck_rate(fallback_bitrate));
-
-	/* Set Frame Control from 80211 header. */
-	txhdr->frame_control = wireless_header->frame_ctl;
-	/* Copy address1 from 80211 header. */
-	memcpy(txhdr->mac1, wireless_header->addr1, 6);
-	/* Set the fallback duration ID. */
-	//FIXME: We use the original durid for now.
-	txhdr->fallback_dur_id = wireless_header->duration_id;
-
-	/* Set the cookie (used as driver internal ID for the frame) */
-	txhdr->cookie = cpu_to_le16(cookie);
-
-	encrypt_frame = le16_to_cpup(&wireless_header->frame_ctl) & IEEE80211_FCTL_PROTECTED;
-	if (encrypt_frame && !bcm->ieee->host_encrypt) {
-		const struct ieee80211_hdr_3addr *hdr = (struct ieee80211_hdr_3addr *)wireless_header;
-		if (fragment_len <= sizeof(struct ieee80211_hdr_3addr)+4) {
-			dprintkl(KERN_ERR PFX "invalid packet with PROTECTED"
-					      "flag set discarded");
-			return;
-		}
-		memcpy(txhdr->wep_iv, hdr->payload, 4);
-		/* Hardware appends ICV. */
-		fragment_len += 4;
-	}
-
-	/* Generate the PLCP header and the fallback PLCP header. */
-	bcm43xx_generate_plcp_hdr((struct bcm43xx_plcp_hdr4 *)(&txhdr->plcp),
-				  fragment_len,
-				  bitrate, ofdm_modulation);
-	bcm43xx_generate_plcp_hdr(&txhdr->fallback_plcp, fragment_len,
-				  fallback_bitrate, fallback_ofdm_modulation);
-
-	/* Set the CONTROL field */
-	tmp = 0;
-	if (ofdm_modulation)
-		tmp |= BCM43xx_TXHDRCTL_OFDM;
-	if (bcm->short_preamble) //FIXME: could be the other way around, please test
-		tmp |= BCM43xx_TXHDRCTL_SHORT_PREAMBLE;
-	tmp |= (phy->antenna_diversity << BCM43xx_TXHDRCTL_ANTENNADIV_SHIFT)
-		& BCM43xx_TXHDRCTL_ANTENNADIV_MASK;
-	txhdr->control = cpu_to_le16(tmp);
-
-	/* Set the FLAGS field */
-	tmp = 0;
-	if (!is_multicast_ether_addr(wireless_header->addr1) &&
-	    !is_broadcast_ether_addr(wireless_header->addr1))
-		tmp |= BCM43xx_TXHDRFLAG_EXPECTACK;
-	if (1 /* FIXME: PS poll?? */)
-		tmp |= 0x10; // FIXME: unknown meaning.
-	if (fallback_ofdm_modulation)
-		tmp |= BCM43xx_TXHDRFLAG_FALLBACKOFDM;
-	if (is_first_fragment)
-		tmp |= BCM43xx_TXHDRFLAG_FIRSTFRAGMENT;
-	txhdr->flags = cpu_to_le16(tmp);
-
-	/* Set WSEC/RATE field */
-	if (encrypt_frame && !bcm->ieee->host_encrypt) {
-		tmp = (bcm->key[secinfo->active_key].algorithm << BCM43xx_TXHDR_WSEC_ALGO_SHIFT)
-		       & BCM43xx_TXHDR_WSEC_ALGO_MASK;
-		tmp |= (secinfo->active_key << BCM43xx_TXHDR_WSEC_KEYINDEX_SHIFT)
-			& BCM43xx_TXHDR_WSEC_KEYINDEX_MASK;
-		txhdr->wsec_rate = cpu_to_le16(tmp);
-	}
-
-//bcm43xx_printk_bitdump((const unsigned char *)txhdr, sizeof(*txhdr), 1, "TX header");
 }
 
 static
@@ -620,10 +405,12 @@ static void bcm43xx_write_mac_bssid_templates(struct bcm43xx_private *bcm)
 		bcm43xx_ram_write(bcm, 0x478 + i, *((u32 *)(mac_bssid + i)));
 }
 
+//FIXME: Well, we should probably call them from somewhere.
+#if 0
 static void bcm43xx_set_slot_time(struct bcm43xx_private *bcm, u16 slot_time)
 {
 	/* slot_time is in usec. */
-	if (bcm->current_core->phy->type != BCM43xx_PHYTYPE_G)
+	if (bcm43xx_current_phy(bcm)->type != BCM43xx_PHYTYPE_G)
 		return;
 	bcm43xx_write16(bcm, 0x684, 510 + slot_time);
 	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x0010, slot_time);
@@ -638,8 +425,12 @@ static void bcm43xx_short_slot_timing_disable(struct bcm43xx_private *bcm)
 {
 	bcm43xx_set_slot_time(bcm, 20);
 }
+#endif
 
-//FIXME: rename this func?
+/* FIXME: To get the MAC-filter working, we need to implement the
+ *        following functions (and rename them :)
+ */
+#if 0
 static void bcm43xx_disassociate(struct bcm43xx_private *bcm)
 {
 	bcm43xx_mac_suspend(bcm);
@@ -660,14 +451,13 @@ static void bcm43xx_disassociate(struct bcm43xx_private *bcm)
 
 	bcm43xx_shm_write32(bcm, BCM43xx_SHM_WIRELESS, 0x0004, 0x000003ff);
 
-	if (bcm->current_core->phy->type == BCM43xx_PHYTYPE_G &&
+	if (bcm43xx_current_phy(bcm)->type == BCM43xx_PHYTYPE_G &&
 	    ieee80211_is_ofdm_rate(bcm->softmac->txrates.default_rate))
 		bcm43xx_short_slot_timing_enable(bcm);
 
 	bcm43xx_mac_enable(bcm);
 }
 
-//FIXME: rename this func?
 static void bcm43xx_associate(struct bcm43xx_private *bcm,
 			      const u8 *mac)
 {
@@ -678,6 +468,7 @@ static void bcm43xx_associate(struct bcm43xx_private *bcm,
 	bcm43xx_write_mac_bssid_templates(bcm);
 	bcm43xx_mac_enable(bcm);
 }
+#endif
 
 /* Enable a Generic IRQ. "mask" is the mask of which IRQs to enable.
  * Returns the _previously_ enabled IRQ mask.
@@ -711,14 +502,14 @@ static int bcm43xx_disable_interrupts_sync(struct bcm43xx_private *bcm, u32 *old
 	u32 old;
 	unsigned long flags;
 
-	spin_lock_irqsave(&bcm->lock, flags);
+	bcm43xx_lock_mmio(bcm, flags);
 	if (bcm43xx_is_initializing(bcm) || bcm->shutting_down) {
-		spin_unlock_irqrestore(&bcm->lock, flags);
+		bcm43xx_unlock_mmio(bcm, flags);
 		return -EBUSY;
 	}
 	old = bcm43xx_interrupt_disable(bcm, BCM43xx_IRQ_ALL);
 	tasklet_disable(&bcm->isr_tasklet);
-	spin_unlock_irqrestore(&bcm->lock, flags);
+	bcm43xx_unlock_mmio(bcm, flags);
 	if (oldstate)
 		*oldstate = old;
 
@@ -727,8 +518,8 @@ static int bcm43xx_disable_interrupts_sync(struct bcm43xx_private *bcm, u32 *old
 
 static int bcm43xx_read_radioinfo(struct bcm43xx_private *bcm)
 {
-	struct bcm43xx_radioinfo *radio = bcm->current_core->radio;
-	struct bcm43xx_phyinfo *phy = bcm->current_core->phy;
+	struct bcm43xx_radioinfo *radio = bcm43xx_current_radio(bcm);
+	struct bcm43xx_phyinfo *phy = bcm43xx_current_phy(bcm);
 	u32 radio_id;
 	u16 manufact;
 	u16 version;
@@ -777,16 +568,14 @@ static int bcm43xx_read_radioinfo(struct bcm43xx_private *bcm)
 	radio->revision = revision;
 
 	/* Set default attenuation values. */
-	radio->txpower[0] = 2;
-	radio->txpower[1] = 2;
-	if (revision == 1)
-		radio->txpower[2] = 3;
-	else
-		radio->txpower[2] = 0;
-	if (bcm->current_core->phy->type == BCM43xx_PHYTYPE_A)
+	radio->baseband_atten = bcm43xx_default_baseband_attenuation(bcm);
+	radio->radio_atten = bcm43xx_default_radio_attenuation(bcm);
+	radio->txctl1 = bcm43xx_default_txctl1(bcm);
+	radio->txctl2 = 0xFFFF;
+	if (phy->type == BCM43xx_PHYTYPE_A)
 		radio->txpower_desired = bcm->sprom.maxpower_aphy;
 	else
-		bcm->current_core->radio->txpower_desired = bcm->sprom.maxpower_bgphy;
+		radio->txpower_desired = bcm->sprom.maxpower_bgphy;
 
 	/* Initialize the in-memory nrssi Lookup Table. */
 	for (i = 0; i < 64; i++)
@@ -903,7 +692,7 @@ static inline u8 bcm43xx_crc8(u8 crc, u8 data)
 	return t[crc ^ data];
 }
 
-u8 bcm43xx_sprom_crc(const u16 *sprom)
+static u8 bcm43xx_sprom_crc(const u16 *sprom)
 {
 	int word;
 	u8 crc = 0xFF;
@@ -918,13 +707,85 @@ u8 bcm43xx_sprom_crc(const u16 *sprom)
 	return crc;
 }
 
-
-static int bcm43xx_read_sprom(struct bcm43xx_private *bcm)
+int bcm43xx_sprom_read(struct bcm43xx_private *bcm, u16 *sprom)
 {
 	int i;
+	u8 crc, expected_crc;
+
+	for (i = 0; i < BCM43xx_SPROM_SIZE; i++)
+		sprom[i] = bcm43xx_read16(bcm, BCM43xx_SPROM_BASE + (i * 2));
+	/* CRC-8 check. */
+	crc = bcm43xx_sprom_crc(sprom);
+	expected_crc = (sprom[BCM43xx_SPROM_VERSION] & 0xFF00) >> 8;
+	if (crc != expected_crc) {
+		printk(KERN_WARNING PFX "WARNING: Invalid SPROM checksum "
+					"(0x%02X, expected: 0x%02X)\n",
+		       crc, expected_crc);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+int bcm43xx_sprom_write(struct bcm43xx_private *bcm, const u16 *sprom)
+{
+	int i, err;
+	u8 crc, expected_crc;
+	u32 spromctl;
+
+	/* CRC-8 validation of the input data. */
+	crc = bcm43xx_sprom_crc(sprom);
+	expected_crc = (sprom[BCM43xx_SPROM_VERSION] & 0xFF00) >> 8;
+	if (crc != expected_crc) {
+		printk(KERN_ERR PFX "SPROM input data: Invalid CRC\n");
+		return -EINVAL;
+	}
+
+	printk(KERN_INFO PFX "Writing SPROM. Do NOT turn off the power! Please stand by...\n");
+	err = bcm43xx_pci_read_config32(bcm, BCM43xx_PCICFG_SPROMCTL, &spromctl);
+	if (err)
+		goto err_ctlreg;
+	spromctl |= 0x10; /* SPROM WRITE enable. */
+	bcm43xx_pci_write_config32(bcm, BCM43xx_PCICFG_SPROMCTL, spromctl);
+	if (err)
+		goto err_ctlreg;
+	/* We must burn lots of CPU cycles here, but that does not
+	 * really matter as one does not write the SPROM every other minute...
+	 */
+	printk(KERN_INFO PFX "[ 0%%");
+	mdelay(500);
+	for (i = 0; i < BCM43xx_SPROM_SIZE; i++) {
+		if (i == 16)
+			printk("25%%");
+		else if (i == 32)
+			printk("50%%");
+		else if (i == 48)
+			printk("75%%");
+		else if (i % 2)
+			printk(".");
+		bcm43xx_write16(bcm, BCM43xx_SPROM_BASE + (i * 2), sprom[i]);
+		mmiowb();
+		mdelay(20);
+	}
+	spromctl &= ~0x10; /* SPROM WRITE enable. */
+	bcm43xx_pci_write_config32(bcm, BCM43xx_PCICFG_SPROMCTL, spromctl);
+	if (err)
+		goto err_ctlreg;
+	mdelay(500);
+	printk("100%% ]\n");
+	printk(KERN_INFO PFX "SPROM written.\n");
+	bcm43xx_controller_restart(bcm, "SPROM update");
+
+	return 0;
+err_ctlreg:
+	printk(KERN_ERR PFX "Could not access SPROM control register.\n");
+	return -ENODEV;
+}
+
+static int bcm43xx_sprom_extract(struct bcm43xx_private *bcm)
+{
 	u16 value;
 	u16 *sprom;
-	u8 crc, expected_crc;
 #ifdef CONFIG_BCM947XX
 	char *c;
 #endif
@@ -932,7 +793,7 @@ static int bcm43xx_read_sprom(struct bcm43xx_private *bcm)
 	sprom = kzalloc(BCM43xx_SPROM_SIZE * sizeof(u16),
 			GFP_KERNEL);
 	if (!sprom) {
-		printk(KERN_ERR PFX "read_sprom OOM\n");
+		printk(KERN_ERR PFX "sprom_extract OOM\n");
 		return -ENOMEM;
 	}
 #ifdef CONFIG_BCM947XX
@@ -955,17 +816,7 @@ static int bcm43xx_read_sprom(struct bcm43xx_private *bcm)
 
 	sprom[BCM43xx_SPROM_BOARDREV] = atoi(nvram_get("boardrev"));
 #else
-	for (i = 0; i < BCM43xx_SPROM_SIZE; i++)
-		sprom[i] = bcm43xx_read16(bcm, BCM43xx_SPROM_BASE + (i * 2));
-
-	/* CRC-8 check. */
-	crc = bcm43xx_sprom_crc(sprom);
-	expected_crc = (sprom[BCM43xx_SPROM_VERSION] & 0xFF00) >> 8;
-	if (crc != expected_crc) {
-		printk(KERN_WARNING PFX "WARNING: Invalid SPROM checksum "
-					"(0x%02X, expected: 0x%02X)\n",
-		       crc, expected_crc);
-	}
+	bcm43xx_sprom_read(bcm, sprom);
 #endif
 
 	/* boardflags2 */
@@ -1065,6 +916,15 @@ static int bcm43xx_read_sprom(struct bcm43xx_private *bcm)
 	if (value == 0xFFFF)
 		value = 0x0000;
 	bcm->sprom.boardflags = value;
+	/* boardflags workarounds */
+	if (bcm->board_vendor == PCI_VENDOR_ID_DELL &&
+	    bcm->chip_id == 0x4301 &&
+	    bcm->board_revision == 0x74)
+		bcm->sprom.boardflags |= BCM43xx_BFL_BTCOEXIST;
+	if (bcm->board_vendor == PCI_VENDOR_ID_APPLE &&
+	    bcm->board_type == 0x4E &&
+	    bcm->board_revision > 0x40)
+		bcm->sprom.boardflags |= BCM43xx_BFL_PACTRL;
 
 	/* antenna gain */
 	value = sprom[BCM43xx_SPROM_ANTENNA_GAIN];
@@ -1079,20 +939,22 @@ static int bcm43xx_read_sprom(struct bcm43xx_private *bcm)
 	return 0;
 }
 
-static void bcm43xx_geo_init(struct bcm43xx_private *bcm)
+static int bcm43xx_geo_init(struct bcm43xx_private *bcm)
 {
-	struct ieee80211_geo geo;
+	struct ieee80211_geo *geo;
 	struct ieee80211_channel *chan;
 	int have_a = 0, have_bg = 0;
-	int i, num80211;
+	int i;
 	u8 channel;
 	struct bcm43xx_phyinfo *phy;
 	const char *iso_country;
 
-	memset(&geo, 0, sizeof(geo));
-	num80211 = bcm43xx_num_80211_cores(bcm);
-	for (i = 0; i < num80211; i++) {
-		phy = bcm->phy + i;
+	geo = kzalloc(sizeof(*geo), GFP_KERNEL);
+	if (!geo)
+		return -ENOMEM;
+
+	for (i = 0; i < bcm->nr_80211_available; i++) {
+		phy = &(bcm->core_80211_ext[i].phy);
 		switch (phy->type) {
 		case BCM43xx_PHYTYPE_B:
 		case BCM43xx_PHYTYPE_G:
@@ -1108,31 +970,36 @@ static void bcm43xx_geo_init(struct bcm43xx_private *bcm)
 	iso_country = bcm43xx_locale_iso(bcm->sprom.locale);
 
  	if (have_a) {
-		for (i = 0, channel = 0; channel < 201; channel++) {
-			chan = &geo.a[i++];
-			chan->freq = bcm43xx_channel_to_freq(bcm, channel);
+		for (i = 0, channel = IEEE80211_52GHZ_MIN_CHANNEL;
+		      channel <= IEEE80211_52GHZ_MAX_CHANNEL; channel++) {
+			chan = &geo->a[i++];
+			chan->freq = bcm43xx_channel_to_freq_a(channel);
 			chan->channel = channel;
 		}
-		geo.a_channels = i;
+		geo->a_channels = i;
 	}
 	if (have_bg) {
-		for (i = 0, channel = 1; channel < 15; channel++) {
-			chan = &geo.bg[i++];
-			chan->freq = bcm43xx_channel_to_freq(bcm, channel);
+		for (i = 0, channel = IEEE80211_24GHZ_MIN_CHANNEL;
+		      channel <= IEEE80211_24GHZ_MAX_CHANNEL; channel++) {
+			chan = &geo->bg[i++];
+			chan->freq = bcm43xx_channel_to_freq_bg(channel);
 			chan->channel = channel;
 		}
-		geo.bg_channels = i;
+		geo->bg_channels = i;
 	}
-	memcpy(geo.name, iso_country, 2);
+	memcpy(geo->name, iso_country, 2);
 	if (0 /*TODO: Outdoor use only */)
-		geo.name[2] = 'O';
+		geo->name[2] = 'O';
 	else if (0 /*TODO: Indoor use only */)
-		geo.name[2] = 'I';
+		geo->name[2] = 'I';
 	else
-		geo.name[2] = ' ';
-	geo.name[3] = '\0';
+		geo->name[2] = ' ';
+	geo->name[3] = '\0';
 
-	ieee80211_set_geo(bcm->ieee, &geo);
+	ieee80211_set_geo(bcm->ieee, geo);
+	kfree(geo);
+
+	return 0;
 }
 
 /* DummyTransmission function, as documented on 
@@ -1140,7 +1007,8 @@ static void bcm43xx_geo_init(struct bcm43xx_private *bcm)
  */
 void bcm43xx_dummy_transmission(struct bcm43xx_private *bcm)
 {
-	struct bcm43xx_phyinfo *phy = bcm->current_core->phy;
+	struct bcm43xx_phyinfo *phy = bcm43xx_current_phy(bcm);
+	struct bcm43xx_radioinfo *radio = bcm43xx_current_radio(bcm);
 	unsigned int i, max_loop;
 	u16 value = 0;
 	u32 buffer[5] = {
@@ -1182,24 +1050,28 @@ void bcm43xx_dummy_transmission(struct bcm43xx_private *bcm)
 	bcm43xx_write16(bcm, 0x0500, 0x0000);
 	bcm43xx_write16(bcm, 0x0502, 0x0030);
 
+	if (radio->version == 0x2050 && radio->revision <= 0x5)
+		bcm43xx_radio_write16(bcm, 0x0051, 0x0017);
 	for (i = 0x00; i < max_loop; i++) {
 		value = bcm43xx_read16(bcm, 0x050E);
-		if ((value & 0x0080) != 0)
+		if (value & 0x0080)
 			break;
 		udelay(10);
 	}
 	for (i = 0x00; i < 0x0A; i++) {
 		value = bcm43xx_read16(bcm, 0x050E);
-		if ((value & 0x0400) != 0)
+		if (value & 0x0400)
 			break;
 		udelay(10);
 	}
 	for (i = 0x00; i < 0x0A; i++) {
 		value = bcm43xx_read16(bcm, 0x0690);
-		if ((value & 0x0100) == 0)
+		if (!(value & 0x0100))
 			break;
 		udelay(10);
 	}
+	if (radio->version == 0x2050 && radio->revision <= 0x5)
+		bcm43xx_radio_write16(bcm, 0x0051, 0x0037);
 }
 
 static void key_write(struct bcm43xx_private *bcm,
@@ -1356,14 +1228,20 @@ int bcm43xx_switch_core(struct bcm43xx_private *bcm, struct bcm43xx_coreinfo *ne
 
 	if (unlikely(!new_core))
 		return 0;
-	if (!(new_core->flags & BCM43xx_COREFLAG_AVAILABLE))
+	if (!new_core->available)
 		return -ENODEV;
 	if (bcm->current_core == new_core)
 		return 0;
 	err = _switch_core(bcm, new_core->index);
-	if (likely(!err))
-		bcm->current_core = new_core;
+	if (unlikely(err))
+		goto out;
 
+	bcm->current_core = new_core;
+	bcm->current_80211_core_idx = -1;
+	if (new_core->id == BCM43xx_COREID_80211)
+		bcm->current_80211_core_idx = (int)(new_core - &(bcm->core_80211[0]));
+
+out:
 	return err;
 }
 
@@ -1438,7 +1316,8 @@ static int bcm43xx_core_disable(struct bcm43xx_private *bcm, u32 core_flags)
 	bcm43xx_write32(bcm, BCM43xx_CIR_SBTMSTATELOW, sbtmstatelow);
 
 out:
-	bcm->current_core->flags &= ~ BCM43xx_COREFLAG_ENABLED;
+	bcm->current_core->enabled = 0;
+
 	return 0;
 }
 
@@ -1483,7 +1362,7 @@ static int bcm43xx_core_enable(struct bcm43xx_private *bcm, u32 core_flags)
 	bcm43xx_write32(bcm, BCM43xx_CIR_SBTMSTATELOW, sbtmstatelow);
 	udelay(1);
 
-	bcm->current_core->flags |= BCM43xx_COREFLAG_ENABLED;
+	bcm->current_core->enabled = 1;
 	assert(err == 0);
 out:
 	return err;
@@ -1554,7 +1433,7 @@ static int bcm43xx_wireless_core_mark_inactive(struct bcm43xx_private *bcm,
 	bcm43xx_write32(bcm, BCM43xx_CIR_SBTMSTATELOW, sbtmstatelow);
 	udelay(1);
 
-	if (bcm->current_core->phy->type == BCM43xx_PHYTYPE_G) {
+	if (bcm43xx_current_phy(bcm)->type == BCM43xx_PHYTYPE_G) {
 		old_core = bcm->current_core;
 		err = bcm43xx_switch_core(bcm, active_80211_core);
 		if (err)
@@ -1575,9 +1454,6 @@ static void handle_irq_transmit_status(struct bcm43xx_private *bcm)
 	u32 v0, v1;
 	u16 tmp;
 	struct bcm43xx_xmitstatus stat;
-
-	assert(bcm->current_core->id == BCM43xx_COREID_80211);
-	assert(bcm->current_core->rev >= 5);
 
 	while (1) {
 		v0 = bcm43xx_read32(bcm, BCM43xx_MMIO_XMITSTAT_0);
@@ -1616,7 +1492,7 @@ static void bcm43xx_generate_noise_sample(struct bcm43xx_private *bcm)
 	bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS2_BITFIELD,
 			bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS2_BITFIELD) | (1 << 4));
 	assert(bcm->noisecalc.core_at_start == bcm->current_core);
-	assert(bcm->noisecalc.channel_at_start == bcm->current_core->radio->channel);
+	assert(bcm->noisecalc.channel_at_start == bcm43xx_current_radio(bcm)->channel);
 }
 
 static void bcm43xx_calculate_link_quality(struct bcm43xx_private *bcm)
@@ -1626,7 +1502,7 @@ static void bcm43xx_calculate_link_quality(struct bcm43xx_private *bcm)
 	if (bcm->noisecalc.calculation_running)
 		return;
 	bcm->noisecalc.core_at_start = bcm->current_core;
-	bcm->noisecalc.channel_at_start = bcm->current_core->radio->channel;
+	bcm->noisecalc.channel_at_start = bcm43xx_current_radio(bcm)->channel;
 	bcm->noisecalc.calculation_running = 1;
 	bcm->noisecalc.nr_samples = 0;
 
@@ -1635,7 +1511,7 @@ static void bcm43xx_calculate_link_quality(struct bcm43xx_private *bcm)
 
 static void handle_irq_noise(struct bcm43xx_private *bcm)
 {
-	struct bcm43xx_radioinfo *radio = bcm->current_core->radio;
+	struct bcm43xx_radioinfo *radio = bcm43xx_current_radio(bcm);
 	u16 tmp;
 	u8 noise[4];
 	u8 i, j;
@@ -1680,6 +1556,7 @@ static void handle_irq_noise(struct bcm43xx_private *bcm)
 		average *= 125;
 		average += 64;
 		average /= 128;
+
 		tmp = bcm43xx_shm_read16(bcm, BCM43xx_SHM_SHARED, 0x40C);
 		tmp = (tmp / 128) & 0x1F;
 		if (tmp >= 8)
@@ -1691,6 +1568,8 @@ static void handle_irq_noise(struct bcm43xx_private *bcm)
 		else
 			average -= 48;
 
+/* FIXME: This is wrong, but people want fancy stats. well... */
+bcm->stats.noise = average;
 		if (average > -65)
 			bcm->stats.link_quality = 0;
 		else if (average > -75)
@@ -1813,22 +1692,6 @@ static void handle_irq_beacon(struct bcm43xx_private *bcm)
 	}
 }
 
-/* Debug helper for irq bottom-half to print all reason registers. */
-#define bcmirq_print_reasons(description) \
-	do {											\
-		dprintkl(KERN_ERR PFX description "\n"						\
-			 KERN_ERR PFX "  Generic Reason: 0x%08x\n"				\
-			 KERN_ERR PFX "  DMA reasons:    0x%08x, 0x%08x, 0x%08x, 0x%08x\n"	\
-			 KERN_ERR PFX "  DMA TX status:  0x%08x, 0x%08x, 0x%08x, 0x%08x\n",	\
-			 reason,								\
-			 dma_reason[0], dma_reason[1],						\
-			 dma_reason[2], dma_reason[3],						\
-			 bcm43xx_read32(bcm, BCM43xx_MMIO_DMA1_BASE + BCM43xx_DMA_TX_STATUS),	\
-			 bcm43xx_read32(bcm, BCM43xx_MMIO_DMA2_BASE + BCM43xx_DMA_TX_STATUS),	\
-			 bcm43xx_read32(bcm, BCM43xx_MMIO_DMA3_BASE + BCM43xx_DMA_TX_STATUS),	\
-			 bcm43xx_read32(bcm, BCM43xx_MMIO_DMA4_BASE + BCM43xx_DMA_TX_STATUS));	\
-	} while (0)
-
 /* Interrupt handler bottom-half */
 static void bcm43xx_interrupt_tasklet(struct bcm43xx_private *bcm)
 {
@@ -1844,7 +1707,7 @@ static void bcm43xx_interrupt_tasklet(struct bcm43xx_private *bcm)
 # define bcmirq_handled(irq)	do { /* nothing */ } while (0)
 #endif /* CONFIG_BCM43XX_DEBUG*/
 
-	spin_lock_irqsave(&bcm->lock, flags);
+	bcm43xx_lock_mmio(bcm, flags);
 	reason = bcm->irq_reason;
 	dma_reason[0] = bcm->dma_reason[0];
 	dma_reason[1] = bcm->dma_reason[1];
@@ -1857,8 +1720,29 @@ static void bcm43xx_interrupt_tasklet(struct bcm43xx_private *bcm)
 		 * on DMA or PIO queues.
 		 * Maybe we get this in other error conditions, too.
 		 */
-		bcmirq_print_reasons("XMIT ERROR");
+		printkl(KERN_ERR PFX "FATAL ERROR: BCM43xx_IRQ_XMIT_ERROR\n");
 		bcmirq_handled(BCM43xx_IRQ_XMIT_ERROR);
+	}
+	if (unlikely((dma_reason[0] & BCM43xx_DMAIRQ_FATALMASK) |
+		     (dma_reason[1] & BCM43xx_DMAIRQ_FATALMASK) |
+		     (dma_reason[2] & BCM43xx_DMAIRQ_FATALMASK) |
+		     (dma_reason[3] & BCM43xx_DMAIRQ_FATALMASK))) {
+		printkl(KERN_ERR PFX "FATAL ERROR: Fatal DMA error: "
+				     "0x%08X, 0x%08X, 0x%08X, 0x%08X\n",
+		        dma_reason[0], dma_reason[1],
+			dma_reason[2], dma_reason[3]);
+		bcm43xx_controller_restart(bcm, "DMA error");
+		bcm43xx_unlock_mmio(bcm, flags);
+		return;
+	}
+	if (unlikely((dma_reason[0] & BCM43xx_DMAIRQ_NONFATALMASK) |
+		     (dma_reason[1] & BCM43xx_DMAIRQ_NONFATALMASK) |
+		     (dma_reason[2] & BCM43xx_DMAIRQ_NONFATALMASK) |
+		     (dma_reason[3] & BCM43xx_DMAIRQ_NONFATALMASK))) {
+		printkl(KERN_ERR PFX "DMA error: "
+				     "0x%08X, 0x%08X, 0x%08X, 0x%08X\n",
+		        dma_reason[0], dma_reason[1],
+			dma_reason[2], dma_reason[3]);
 	}
 
 	if (reason & BCM43xx_IRQ_PS) {
@@ -1897,36 +1781,27 @@ static void bcm43xx_interrupt_tasklet(struct bcm43xx_private *bcm)
 	assert(!(dma_reason[2] & BCM43xx_DMAIRQ_RX_DONE));
 	if (dma_reason[0] & BCM43xx_DMAIRQ_RX_DONE) {
 		if (bcm43xx_using_pio(bcm))
-			bcm43xx_pio_rx(bcm->current_core->pio->queue0);
+			bcm43xx_pio_rx(bcm43xx_current_pio(bcm)->queue0);
 		else
-			bcm43xx_dma_rx(bcm->current_core->dma->rx_ring0);
+			bcm43xx_dma_rx(bcm43xx_current_dma(bcm)->rx_ring0);
 		/* We intentionally don't set "activity" to 1, here. */
 	}
 	if (dma_reason[3] & BCM43xx_DMAIRQ_RX_DONE) {
-		if (likely(bcm->current_core->rev < 5)) {
-			if (bcm43xx_using_pio(bcm))
-				bcm43xx_pio_rx(bcm->current_core->pio->queue3);
-			else
-				bcm43xx_dma_rx(bcm->current_core->dma->rx_ring1);
-			activity = 1;
-		} else
-			assert(0);
+		if (bcm43xx_using_pio(bcm))
+			bcm43xx_pio_rx(bcm43xx_current_pio(bcm)->queue3);
+		else
+			bcm43xx_dma_rx(bcm43xx_current_dma(bcm)->rx_ring1);
+		activity = 1;
 	}
 	bcmirq_handled(BCM43xx_IRQ_RX);
 
 	if (reason & BCM43xx_IRQ_XMIT_STATUS) {
-		if (bcm->current_core->rev >= 5) {
-			handle_irq_transmit_status(bcm);
-			activity = 1;
-		}
+		handle_irq_transmit_status(bcm);
+		activity = 1;
 		//TODO: In AP mode, this also causes sending of powersave responses.
 		bcmirq_handled(BCM43xx_IRQ_XMIT_STATUS);
 	}
 
-	/* We get spurious IRQs, althought they are masked.
-	 * Assume they are void and ignore them.
-	 */
-	bcmirq_handled(~(bcm->irq_savedstate));
 	/* IRQ_PIO_WORKAROUND is handled in the top-half. */
 	bcmirq_handled(BCM43xx_IRQ_PIO_WORKAROUND);
 #ifdef CONFIG_BCM43XX_DEBUG
@@ -1944,46 +1819,34 @@ static void bcm43xx_interrupt_tasklet(struct bcm43xx_private *bcm)
 	if (!modparam_noleds)
 		bcm43xx_leds_update(bcm, activity);
 	bcm43xx_interrupt_enable(bcm, bcm->irq_savedstate);
-	spin_unlock_irqrestore(&bcm->lock, flags);
+	bcm43xx_unlock_mmio(bcm, flags);
 }
 
-#undef bcmirq_print_reasons
-
-static void bcm43xx_interrupt_ack(struct bcm43xx_private *bcm,
-				  u32 reason, u32 mask)
+static void pio_irq_workaround(struct bcm43xx_private *bcm,
+			       u16 base, int queueidx)
 {
-	bcm->dma_reason[0] = bcm43xx_read32(bcm, BCM43xx_MMIO_DMA1_REASON)
-			     & 0x0001dc00;
-	bcm->dma_reason[1] = bcm43xx_read32(bcm, BCM43xx_MMIO_DMA2_REASON)
-			     & 0x0000dc00;
-	bcm->dma_reason[2] = bcm43xx_read32(bcm, BCM43xx_MMIO_DMA3_REASON)
-			     & 0x0000dc00;
-	bcm->dma_reason[3] = bcm43xx_read32(bcm, BCM43xx_MMIO_DMA4_REASON)
-			     & 0x0001dc00;
+	u16 rxctl;
 
+	rxctl = bcm43xx_read16(bcm, base + BCM43xx_PIO_RXCTL);
+	if (rxctl & BCM43xx_PIO_RXCTL_DATAAVAILABLE)
+		bcm->dma_reason[queueidx] |= BCM43xx_DMAIRQ_RX_DONE;
+	else
+		bcm->dma_reason[queueidx] &= ~BCM43xx_DMAIRQ_RX_DONE;
+}
+
+static void bcm43xx_interrupt_ack(struct bcm43xx_private *bcm, u32 reason)
+{
 	if (bcm43xx_using_pio(bcm) &&
 	    (bcm->current_core->rev < 3) &&
 	    (!(reason & BCM43xx_IRQ_PIO_WORKAROUND))) {
 		/* Apply a PIO specific workaround to the dma_reasons */
-
-#define apply_pio_workaround(BASE, QNUM) \
-	do {											\
-	if (bcm43xx_read16(bcm, BASE + BCM43xx_PIO_RXCTL) & BCM43xx_PIO_RXCTL_DATAAVAILABLE)	\
-		bcm->dma_reason[QNUM] |= 0x00010000;						\
-	else											\
-		bcm->dma_reason[QNUM] &= ~0x00010000;						\
-	} while (0)
-
-		apply_pio_workaround(BCM43xx_MMIO_PIO1_BASE, 0);
-		apply_pio_workaround(BCM43xx_MMIO_PIO2_BASE, 1);
-		apply_pio_workaround(BCM43xx_MMIO_PIO3_BASE, 2);
-		apply_pio_workaround(BCM43xx_MMIO_PIO4_BASE, 3);
-
-#undef apply_pio_workaround
+		pio_irq_workaround(bcm, BCM43xx_MMIO_PIO1_BASE, 0);
+		pio_irq_workaround(bcm, BCM43xx_MMIO_PIO2_BASE, 1);
+		pio_irq_workaround(bcm, BCM43xx_MMIO_PIO3_BASE, 2);
+		pio_irq_workaround(bcm, BCM43xx_MMIO_PIO4_BASE, 3);
 	}
 
-	bcm43xx_write32(bcm, BCM43xx_MMIO_GEN_IRQ_REASON,
-			reason & mask);
+	bcm43xx_write32(bcm, BCM43xx_MMIO_GEN_IRQ_REASON, reason);
 
 	bcm43xx_write32(bcm, BCM43xx_MMIO_DMA1_REASON,
 			bcm->dma_reason[0]);
@@ -1998,38 +1861,55 @@ static void bcm43xx_interrupt_ack(struct bcm43xx_private *bcm,
 /* Interrupt handler top-half */
 static irqreturn_t bcm43xx_interrupt_handler(int irq, void *dev_id, struct pt_regs *regs)
 {
+	irqreturn_t ret = IRQ_HANDLED;
 	struct bcm43xx_private *bcm = dev_id;
-	u32 reason, mask;
+	u32 reason;
 
 	if (!bcm)
 		return IRQ_NONE;
 
-	spin_lock(&bcm->lock);
+	spin_lock(&bcm->_lock);
 
 	reason = bcm43xx_read32(bcm, BCM43xx_MMIO_GEN_IRQ_REASON);
 	if (reason == 0xffffffff) {
 		/* irq not for us (shared irq) */
-		spin_unlock(&bcm->lock);
-		return IRQ_NONE;
+		ret = IRQ_NONE;
+		goto out;
 	}
-	mask = bcm43xx_read32(bcm, BCM43xx_MMIO_GEN_IRQ_MASK);
-	if (!(reason & mask)) {
-		spin_unlock(&bcm->lock);
-		return IRQ_HANDLED;
+	reason &= bcm43xx_read32(bcm, BCM43xx_MMIO_GEN_IRQ_MASK);
+	if (!reason)
+		goto out;
+
+	bcm->dma_reason[0] = bcm43xx_read32(bcm, BCM43xx_MMIO_DMA1_REASON)
+			     & 0x0001dc00;
+	bcm->dma_reason[1] = bcm43xx_read32(bcm, BCM43xx_MMIO_DMA2_REASON)
+			     & 0x0000dc00;
+	bcm->dma_reason[2] = bcm43xx_read32(bcm, BCM43xx_MMIO_DMA3_REASON)
+			     & 0x0000dc00;
+	bcm->dma_reason[3] = bcm43xx_read32(bcm, BCM43xx_MMIO_DMA4_REASON)
+			     & 0x0001dc00;
+
+	bcm43xx_interrupt_ack(bcm, reason);
+
+	/* Only accept IRQs, if we are initialized properly.
+	 * This avoids an RX race while initializing.
+	 * We should probably not enable IRQs before we are initialized
+	 * completely, but some careful work is needed to fix this. I think it
+	 * is best to stay with this cheap workaround for now... .
+	 */
+	if (likely(bcm->initialized)) {
+		/* disable all IRQs. They are enabled again in the bottom half. */
+		bcm->irq_savedstate = bcm43xx_interrupt_disable(bcm, BCM43xx_IRQ_ALL);
+		/* save the reason code and call our bottom half. */
+		bcm->irq_reason = reason;
+		tasklet_schedule(&bcm->isr_tasklet);
 	}
 
-	bcm43xx_interrupt_ack(bcm, reason, mask);
+out:
+	mmiowb();
+	spin_unlock(&bcm->_lock);
 
-	/* disable all IRQs. They are enabled again in the bottom half. */
-	bcm->irq_savedstate = bcm43xx_interrupt_disable(bcm, BCM43xx_IRQ_ALL);
-
-	/* save the reason code and call our bottom half. */
-	bcm->irq_reason = reason;
-	tasklet_schedule(&bcm->isr_tasklet);
-
-	spin_unlock(&bcm->lock);
-
-	return IRQ_HANDLED;
+	return ret;
 }
 
 static void bcm43xx_release_firmware(struct bcm43xx_private *bcm, int force)
@@ -2048,7 +1928,7 @@ static void bcm43xx_release_firmware(struct bcm43xx_private *bcm, int force)
 
 static int bcm43xx_request_firmware(struct bcm43xx_private *bcm)
 {
-	struct bcm43xx_phyinfo *phy = bcm->current_core->phy;
+	struct bcm43xx_phyinfo *phy = bcm43xx_current_phy(bcm);
 	u8 rev = bcm->current_core->rev;
 	int err = 0;
 	int nr;
@@ -2177,12 +2057,6 @@ static void bcm43xx_upload_microcode(struct bcm43xx_private *bcm)
 	const u32 *data;
 	unsigned int i, len;
 
-#ifdef DEBUG_ENABLE_UCODE_MMIO_PRINT
-	bcm43xx_mmioprint_enable(bcm);
-#else
-	bcm43xx_mmioprint_disable(bcm);
-#endif
-
 	/* Upload Microcode. */
 	data = (u32 *)(bcm->ucode->data);
 	len = bcm->ucode->size / sizeof(u32);
@@ -2204,12 +2078,6 @@ static void bcm43xx_upload_microcode(struct bcm43xx_private *bcm)
 				be32_to_cpu(data[i]));
 		udelay(10);
 	}
-
-#ifdef DEBUG_ENABLE_UCODE_MMIO_PRINT
-	bcm43xx_mmioprint_disable(bcm);
-#else
-	bcm43xx_mmioprint_enable(bcm);
-#endif
 }
 
 static int bcm43xx_write_initvals(struct bcm43xx_private *bcm,
@@ -2249,12 +2117,6 @@ static int bcm43xx_upload_initvals(struct bcm43xx_private *bcm)
 {
 	int err;
 
-#ifdef DEBUG_ENABLE_UCODE_MMIO_PRINT
-	bcm43xx_mmioprint_enable(bcm);
-#else
-	bcm43xx_mmioprint_disable(bcm);
-#endif
-
 	err = bcm43xx_write_initvals(bcm, (struct bcm43xx_initval *)bcm->initvals0->data,
 				     bcm->initvals0->size / sizeof(struct bcm43xx_initval));
 	if (err)
@@ -2265,13 +2127,7 @@ static int bcm43xx_upload_initvals(struct bcm43xx_private *bcm)
 		if (err)
 			goto out;
 	}
-
 out:
-#ifdef DEBUG_ENABLE_UCODE_MMIO_PRINT
-	bcm43xx_mmioprint_disable(bcm);
-#else
-	bcm43xx_mmioprint_enable(bcm);
-#endif
 	return err;
 }
 
@@ -2338,13 +2194,10 @@ static int switch_to_gpio_core(struct bcm43xx_private *bcm)
 		if (unlikely(err == -ENODEV)) {
 			printk(KERN_ERR PFX "gpio error: "
 			       "Neither ChipCommon nor PCI core available!\n");
-			return -ENODEV;
-		} else if (unlikely(err != 0))
-			return -ENODEV;
-	} else if (unlikely(err != 0))
-		return -ENODEV;
+		}
+	}
 
-	return 0;
+	return err;
 }
 
 /* Initialize the GPIOs
@@ -2354,45 +2207,48 @@ static int bcm43xx_gpio_init(struct bcm43xx_private *bcm)
 {
 	struct bcm43xx_coreinfo *old_core;
 	int err;
-	u32 mask, value;
+	u32 mask, set;
 
-	value = bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS_BITFIELD);
-	value &= ~0xc000;
-	bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS_BITFIELD, value);
+	bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS_BITFIELD,
+			bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS_BITFIELD)
+			& 0xFFFF3FFF);
 
-	mask = 0x0000001F;
-	value = 0x0000000F;
-	bcm43xx_write16(bcm, BCM43xx_MMIO_GPIO_CONTROL,
-			bcm43xx_read16(bcm, BCM43xx_MMIO_GPIO_CONTROL) & 0xFFF0);
+	bcm43xx_leds_switch_all(bcm, 0);
 	bcm43xx_write16(bcm, BCM43xx_MMIO_GPIO_MASK,
 			bcm43xx_read16(bcm, BCM43xx_MMIO_GPIO_MASK) | 0x000F);
 
-	old_core = bcm->current_core;
-	
-	err = switch_to_gpio_core(bcm);
-	if (err)
-		return err;
-
-	if (bcm->current_core->rev >= 2){
-		mask  |= 0x10;
-		value |= 0x10;
-	}
+	mask = 0x0000001F;
+	set = 0x0000000F;
 	if (bcm->chip_id == 0x4301) {
-		mask  |= 0x60;
-		value |= 0x60;
+		mask |= 0x0060;
+		set |= 0x0060;
+	}
+	if (0 /* FIXME: conditional unknown */) {
+		bcm43xx_write16(bcm, BCM43xx_MMIO_GPIO_MASK,
+				bcm43xx_read16(bcm, BCM43xx_MMIO_GPIO_MASK)
+				| 0x0100);
+		mask |= 0x0180;
+		set |= 0x0180;
 	}
 	if (bcm->sprom.boardflags & BCM43xx_BFL_PACTRL) {
-		mask  |= 0x200;
-		value |= 0x200;
+		bcm43xx_write16(bcm, BCM43xx_MMIO_GPIO_MASK,
+				bcm43xx_read16(bcm, BCM43xx_MMIO_GPIO_MASK)
+				| 0x0200);
+		mask |= 0x0200;
+		set |= 0x0200;
 	}
+	if (bcm->current_core->rev >= 2)
+		mask  |= 0x0010; /* FIXME: This is redundant. */
 
+	old_core = bcm->current_core;
+	err = switch_to_gpio_core(bcm);
+	if (err)
+		goto out;
 	bcm43xx_write32(bcm, BCM43xx_GPIO_CONTROL,
-	                (bcm43xx_read32(bcm, BCM43xx_GPIO_CONTROL) & mask) | value);
-
+	                (bcm43xx_read32(bcm, BCM43xx_GPIO_CONTROL) & mask) | set);
 	err = bcm43xx_switch_core(bcm, old_core);
-	assert(err == 0);
-
-	return 0;
+out:
+	return err;
 }
 
 /* Turn off all GPIO stuff. Call this on module unload, for example. */
@@ -2448,50 +2304,60 @@ void bcm43xx_set_iwmode(struct bcm43xx_private *bcm,
 			int iw_mode)
 {
 	unsigned long flags;
+	struct net_device *net_dev = bcm->net_dev;
 	u32 status;
+	u16 value;
 
 	spin_lock_irqsave(&bcm->ieee->lock, flags);
 	bcm->ieee->iw_mode = iw_mode;
 	spin_unlock_irqrestore(&bcm->ieee->lock, flags);
 	if (iw_mode == IW_MODE_MONITOR)
-		bcm->net_dev->type = ARPHRD_IEEE80211;
+		net_dev->type = ARPHRD_IEEE80211;
 	else
-		bcm->net_dev->type = ARPHRD_ETHER;
+		net_dev->type = ARPHRD_ETHER;
 
-	if (!bcm->initialized)
-		return;
-
-	bcm43xx_mac_suspend(bcm);
 	status = bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS_BITFIELD);
 	/* Reset status to infrastructured mode */
 	status &= ~(BCM43xx_SBF_MODE_AP | BCM43xx_SBF_MODE_MONITOR);
-	/*FIXME: We actually set promiscuous mode as well, until we don't
-	 * get the HW mac filter working */
-	status |= BCM43xx_SBF_MODE_NOTADHOC | BCM43xx_SBF_MODE_PROMISC;
+	status &= ~BCM43xx_SBF_MODE_PROMISC;
+	status |= BCM43xx_SBF_MODE_NOTADHOC;
+
+/* FIXME: Always enable promisc mode, until we get the MAC filters working correctly. */
+status |= BCM43xx_SBF_MODE_PROMISC;
 
 	switch (iw_mode) {
 	case IW_MODE_MONITOR:
-		status |= (BCM43xx_SBF_MODE_PROMISC |
-			   BCM43xx_SBF_MODE_MONITOR);
+		status |= BCM43xx_SBF_MODE_MONITOR;
+		status |= BCM43xx_SBF_MODE_PROMISC;
 		break;
 	case IW_MODE_ADHOC:
 		status &= ~BCM43xx_SBF_MODE_NOTADHOC;
 		break;
 	case IW_MODE_MASTER:
+		status |= BCM43xx_SBF_MODE_AP;
+		break;
 	case IW_MODE_SECOND:
 	case IW_MODE_REPEAT:
-		/* TODO: No AP/Repeater mode for now :-/ */
-		TODO();
+		TODO(); /* TODO */
 		break;
 	case IW_MODE_INFRA:
 		/* nothing to be done here... */
 		break;
 	default:
-		printk(KERN_ERR PFX "Unknown iwmode %d\n", iw_mode);
+		dprintk(KERN_ERR PFX "Unknown mode in set_iwmode: %d\n", iw_mode);
 	}
-
+	if (net_dev->flags & IFF_PROMISC)
+		status |= BCM43xx_SBF_MODE_PROMISC;
 	bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS_BITFIELD, status);
-	bcm43xx_mac_enable(bcm);
+
+	value = 0x0002;
+	if (iw_mode != IW_MODE_ADHOC && iw_mode != IW_MODE_MASTER) {
+		if (bcm->chip_id == 0x4306 && bcm->chip_rev == 3)
+			value = 0x0064;
+		else
+			value = 0x0032;
+	}
+	bcm43xx_write16(bcm, 0x0612, value);
 }
 
 /* This is the opposite of bcm43xx_chip_init() */
@@ -2510,8 +2376,9 @@ static void bcm43xx_chip_cleanup(struct bcm43xx_private *bcm)
  */
 static int bcm43xx_chip_init(struct bcm43xx_private *bcm)
 {
+	struct bcm43xx_radioinfo *radio = bcm43xx_current_radio(bcm);
+	struct bcm43xx_phyinfo *phy = bcm43xx_current_phy(bcm);
 	int err;
-	int iw_mode = bcm->ieee->iw_mode;
 	int tmp;
 	u32 value32;
 	u16 value16;
@@ -2538,24 +2405,19 @@ static int bcm43xx_chip_init(struct bcm43xx_private *bcm)
 		goto err_gpio_cleanup;
 	bcm43xx_radio_turn_on(bcm);
 
-	if (modparam_noleds)
-		bcm43xx_leds_turn_off(bcm);
-	else
-		bcm43xx_leds_update(bcm, 0);
-
 	bcm43xx_write16(bcm, 0x03E6, 0x0000);
 	err = bcm43xx_phy_init(bcm);
 	if (err)
 		goto err_radio_off;
 
 	/* Select initial Interference Mitigation. */
-	tmp = bcm->current_core->radio->interfmode;
-	bcm->current_core->radio->interfmode = BCM43xx_RADIO_INTERFMODE_NONE;
+	tmp = radio->interfmode;
+	radio->interfmode = BCM43xx_RADIO_INTERFMODE_NONE;
 	bcm43xx_radio_set_interference_mitigation(bcm, tmp);
 
 	bcm43xx_phy_set_antenna_diversity(bcm);
 	bcm43xx_radio_set_txantenna(bcm, BCM43xx_RADIO_TXANTENNA_DEFAULT);
-	if (bcm->current_core->phy->type == BCM43xx_PHYTYPE_B) {
+	if (phy->type == BCM43xx_PHYTYPE_B) {
 		value16 = bcm43xx_read16(bcm, 0x005E);
 		value16 |= 0x0004;
 		bcm43xx_write16(bcm, 0x005E, value16);
@@ -2570,20 +2432,9 @@ static int bcm43xx_chip_init(struct bcm43xx_private *bcm)
 	value32 = bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS_BITFIELD);
 	value32 |= BCM43xx_SBF_MODE_NOTADHOC;
 	bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS_BITFIELD, value32);
-	/*FIXME: For now, use promiscuous mode at all times; otherwise we don't
-	   get broadcast or multicast packets */
-	value32 = bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS_BITFIELD);
-	value32 |= BCM43xx_SBF_MODE_PROMISC;
-	bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS_BITFIELD, value32);
 
-	if (iw_mode == IW_MODE_MONITOR) {
-		value32 = bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS_BITFIELD);
-		value32 |= BCM43xx_SBF_MODE_PROMISC;
-		value32 |= BCM43xx_SBF_MODE_MONITOR;
-		bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS_BITFIELD, value32);
-	}
 	value32 = bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS_BITFIELD);
-	value32 |= 0x100000; //FIXME: What's this? Is this correct?
+	value32 |= 0x100000;
 	bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS_BITFIELD, value32);
 
 	if (bcm43xx_using_pio(bcm)) {
@@ -2598,13 +2449,8 @@ static int bcm43xx_chip_init(struct bcm43xx_private *bcm)
 	/* FIXME: Default to 0, has to be set by ioctl probably... :-/ */
 	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x0074, 0x0000);
 
-	if (iw_mode != IW_MODE_ADHOC && iw_mode != IW_MODE_MASTER) {
-		if ((bcm->chip_id == 0x4306) && (bcm->chip_rev == 3))
-			bcm43xx_write16(bcm, 0x0612, 0x0064);
-		else
-			bcm43xx_write16(bcm, 0x0612, 0x0032);
-	} else
-		bcm43xx_write16(bcm, 0x0612, 0x0002);
+	/* Initially set the wireless operation mode. */
+	bcm43xx_set_iwmode(bcm, bcm->ieee->iw_mode);
 
 	if (bcm->current_core->rev < 3) {
 		bcm43xx_write16(bcm, 0x060E, 0x0000);
@@ -2673,6 +2519,32 @@ error:
 	return -ENODEV;
 }
 
+static void bcm43xx_init_struct_phyinfo(struct bcm43xx_phyinfo *phy)
+{
+	/* Initialize a "phyinfo" structure. The structure is already
+	 * zeroed out.
+	 */
+	phy->antenna_diversity = 0xFFFF;
+	phy->savedpctlreg = 0xFFFF;
+	phy->minlowsig[0] = 0xFFFF;
+	phy->minlowsig[1] = 0xFFFF;
+	spin_lock_init(&phy->lock);
+}
+
+static void bcm43xx_init_struct_radioinfo(struct bcm43xx_radioinfo *radio)
+{
+	/* Initialize a "radioinfo" structure. The structure is already
+	 * zeroed out.
+	 */
+	radio->interfmode = BCM43xx_RADIO_INTERFMODE_NONE;
+	radio->channel = 0xFF;
+	radio->initial_channel = 0xFF;
+	radio->lofcal = 0xFFFF;
+	radio->initval = 0xFFFF;
+	radio->nrssi[0] = -1000;
+	radio->nrssi[1] = -1000;
+}
+
 static int bcm43xx_probe_cores(struct bcm43xx_private *bcm)
 {
 	int err, i;
@@ -2684,15 +2556,14 @@ static int bcm43xx_probe_cores(struct bcm43xx_private *bcm)
 
 	memset(&bcm->core_chipcommon, 0, sizeof(struct bcm43xx_coreinfo));
 	memset(&bcm->core_pci, 0, sizeof(struct bcm43xx_coreinfo));
-	memset(&bcm->core_v90, 0, sizeof(struct bcm43xx_coreinfo));
-	memset(&bcm->core_pcmcia, 0, sizeof(struct bcm43xx_coreinfo));
 	memset(&bcm->core_80211, 0, sizeof(struct bcm43xx_coreinfo)
 				    * BCM43xx_MAX_80211_CORES);
-
-	memset(&bcm->phy, 0, sizeof(struct bcm43xx_phyinfo)
-			     * BCM43xx_MAX_80211_CORES);
-	memset(&bcm->radio, 0, sizeof(struct bcm43xx_radioinfo)
-			       * BCM43xx_MAX_80211_CORES);
+	memset(&bcm->core_80211_ext, 0, sizeof(struct bcm43xx_coreinfo_80211)
+					* BCM43xx_MAX_80211_CORES);
+	bcm->current_80211_core_idx = -1;
+	bcm->nr_80211_available = 0;
+	bcm->current_core = NULL;
+	bcm->active_80211_core = NULL;
 
 	/* map core 0 */
 	err = _switch_core(bcm, 0);
@@ -2710,7 +2581,7 @@ static int bcm43xx_probe_cores(struct bcm43xx_private *bcm)
 	if (core_id == BCM43xx_COREID_CHIPCOMMON) {
 		chip_id_32 = bcm43xx_read32(bcm, 0);
 		chip_id_16 = chip_id_32 & 0xFFFF;
-		bcm->core_chipcommon.flags |= BCM43xx_COREFLAG_AVAILABLE;
+		bcm->core_chipcommon.available = 1;
 		bcm->core_chipcommon.id = core_id;
 		bcm->core_chipcommon.rev = core_rev;
 		bcm->core_chipcommon.index = 0;
@@ -2774,23 +2645,25 @@ static int bcm43xx_probe_cores(struct bcm43xx_private *bcm)
 	}
 
 	bcm->chip_id = chip_id_16;
-	bcm->chip_rev = (chip_id_32 & 0x000f0000) >> 16;
+	bcm->chip_rev = (chip_id_32 & 0x000F0000) >> 16;
+	bcm->chip_package = (chip_id_32 & 0x00F00000) >> 20;
 
 	dprintk(KERN_INFO PFX "Chip ID 0x%x, rev 0x%x\n",
 		bcm->chip_id, bcm->chip_rev);
 	dprintk(KERN_INFO PFX "Number of cores: %d\n", core_count);
-	if (bcm->core_chipcommon.flags & BCM43xx_COREFLAG_AVAILABLE) {
+	if (bcm->core_chipcommon.available) {
 		dprintk(KERN_INFO PFX "Core 0: ID 0x%x, rev 0x%x, vendor 0x%x, %s\n",
 			core_id, core_rev, core_vendor,
 			bcm43xx_core_enabled(bcm) ? "enabled" : "disabled");
 	}
 
-	if (bcm->core_chipcommon.flags & BCM43xx_COREFLAG_AVAILABLE)
+	if (bcm->core_chipcommon.available)
 		current_core = 1;
 	else
 		current_core = 0;
 	for ( ; current_core < core_count; current_core++) {
 		struct bcm43xx_coreinfo *core;
+		struct bcm43xx_coreinfo_80211 *ext_80211;
 
 		err = _switch_core(bcm, current_core);
 		if (err)
@@ -2812,36 +2685,16 @@ static int bcm43xx_probe_cores(struct bcm43xx_private *bcm)
 		switch (core_id) {
 		case BCM43xx_COREID_PCI:
 			core = &bcm->core_pci;
-			if (core->flags & BCM43xx_COREFLAG_AVAILABLE) {
+			if (core->available) {
 				printk(KERN_WARNING PFX "Multiple PCI cores found.\n");
-				continue;
-			}
-			break;
-		case BCM43xx_COREID_V90:
-			core = &bcm->core_v90;
-			if (core->flags & BCM43xx_COREFLAG_AVAILABLE) {
-				printk(KERN_WARNING PFX "Multiple V90 cores found.\n");
-				continue;
-			}
-			break;
-		case BCM43xx_COREID_PCMCIA:
-			core = &bcm->core_pcmcia;
-			if (core->flags & BCM43xx_COREFLAG_AVAILABLE) {
-				printk(KERN_WARNING PFX "Multiple PCMCIA cores found.\n");
-				continue;
-			}
-			break;
-		case BCM43xx_COREID_ETHERNET:
-			core = &bcm->core_ethernet;
-			if (core->flags & BCM43xx_COREFLAG_AVAILABLE) {
-				printk(KERN_WARNING PFX "Multiple Ethernet cores found.\n");
 				continue;
 			}
 			break;
 		case BCM43xx_COREID_80211:
 			for (i = 0; i < BCM43xx_MAX_80211_CORES; i++) {
 				core = &(bcm->core_80211[i]);
-				if (!(core->flags & BCM43xx_COREFLAG_AVAILABLE))
+				ext_80211 = &(bcm->core_80211_ext[i]);
+				if (!core->available)
 					break;
 				core = NULL;
 			}
@@ -2876,40 +2729,23 @@ static int bcm43xx_probe_cores(struct bcm43xx_private *bcm)
 				err = -ENODEV;
 				goto out;
 			}
-			core->phy = &bcm->phy[i];
-			core->phy->antenna_diversity = 0xffff;
-			core->phy->savedpctlreg = 0xFFFF;
-			core->phy->minlowsig[0] = 0xFFFF;
-			core->phy->minlowsig[1] = 0xFFFF;
-			core->phy->minlowsigpos[0] = 0;
-			core->phy->minlowsigpos[1] = 0;
-			spin_lock_init(&core->phy->lock);
-			core->radio = &bcm->radio[i];
-			core->radio->interfmode = BCM43xx_RADIO_INTERFMODE_NONE;
-			core->radio->channel = 0xFF;
-			core->radio->initial_channel = 0xFF;
-			core->radio->lofcal = 0xFFFF;
-			core->radio->initval = 0xFFFF;
-			core->radio->nrssi[0] = -1000;
-			core->radio->nrssi[1] = -1000;
-			core->dma = &bcm->dma[i];
-			core->pio = &bcm->pio[i];
+			bcm->nr_80211_available++;
+			bcm43xx_init_struct_phyinfo(&ext_80211->phy);
+			bcm43xx_init_struct_radioinfo(&ext_80211->radio);
 			break;
 		case BCM43xx_COREID_CHIPCOMMON:
 			printk(KERN_WARNING PFX "Multiple CHIPCOMMON cores found.\n");
 			break;
-		default:
-			printk(KERN_WARNING PFX "Unknown core found (ID 0x%x)\n", core_id);
 		}
 		if (core) {
-			core->flags |= BCM43xx_COREFLAG_AVAILABLE;
+			core->available = 1;
 			core->id = core_id;
 			core->rev = core_rev;
 			core->index = current_core;
 		}
 	}
 
-	if (!(bcm->core_80211[0].flags & BCM43xx_COREFLAG_AVAILABLE)) {
+	if (!bcm->core_80211[0].available) {
 		printk(KERN_ERR PFX "Error: No 80211 core found!\n");
 		err = -ENODEV;
 		goto out;
@@ -2963,7 +2799,7 @@ static void bcm43xx_rate_memory_write(struct bcm43xx_private *bcm,
 
 static void bcm43xx_rate_memory_init(struct bcm43xx_private *bcm)
 {
-	switch (bcm->current_core->phy->type) {
+	switch (bcm43xx_current_phy(bcm)->type) {
 	case BCM43xx_PHYTYPE_A:
 	case BCM43xx_PHYTYPE_G:
 		bcm43xx_rate_memory_write(bcm, IEEE80211_OFDM_RATE_6MB, 1);
@@ -2990,12 +2826,14 @@ static void bcm43xx_wireless_core_cleanup(struct bcm43xx_private *bcm)
 	bcm43xx_pio_free(bcm);
 	bcm43xx_dma_free(bcm);
 
-	bcm->current_core->flags &= ~ BCM43xx_COREFLAG_INITIALIZED;
+	bcm->current_core->initialized = 0;
 }
 
 /* http://bcm-specs.sipsolutions.net/80211Init */
 static int bcm43xx_wireless_core_init(struct bcm43xx_private *bcm)
 {
+	struct bcm43xx_phyinfo *phy = bcm43xx_current_phy(bcm);
+	struct bcm43xx_radioinfo *radio = bcm43xx_current_radio(bcm);
 	u32 ucodeflags;
 	int err;
 	u32 sbimconfiglow;
@@ -3028,16 +2866,15 @@ static int bcm43xx_wireless_core_init(struct bcm43xx_private *bcm)
 	/* HW decryption needs to be set now */
 	ucodeflags |= 0x40000000;
 	
-	if (bcm->current_core->phy->type == BCM43xx_PHYTYPE_G) {
+	if (phy->type == BCM43xx_PHYTYPE_G) {
 		ucodeflags |= BCM43xx_UCODEFLAG_UNKBGPHY;
-		if (bcm->current_core->phy->rev == 1)
+		if (phy->rev == 1)
 			ucodeflags |= BCM43xx_UCODEFLAG_UNKGPHY;
 		if (bcm->sprom.boardflags & BCM43xx_BFL_PACTRL)
 			ucodeflags |= BCM43xx_UCODEFLAG_UNKPACTRL;
-	} else if (bcm->current_core->phy->type == BCM43xx_PHYTYPE_B) {
+	} else if (phy->type == BCM43xx_PHYTYPE_B) {
 		ucodeflags |= BCM43xx_UCODEFLAG_UNKBGPHY;
-		if ((bcm->current_core->phy->rev >= 2) &&
-		    (bcm->current_core->radio->version == 0x2050))
+		if (phy->rev >= 2 && radio->version == 0x2050)
 			ucodeflags &= ~BCM43xx_UCODEFLAG_UNKGPHY;
 	}
 
@@ -3062,7 +2899,7 @@ static int bcm43xx_wireless_core_init(struct bcm43xx_private *bcm)
 	bcm43xx_rate_memory_init(bcm);
 
 	/* Minimum Contention Window */
-	if (bcm->current_core->phy->type == BCM43xx_PHYTYPE_B)
+	if (phy->type == BCM43xx_PHYTYPE_B)
 		bcm43xx_shm_write32(bcm, BCM43xx_SHM_WIRELESS, 0x0003, 0x0000001f);
 	else
 		bcm43xx_shm_write32(bcm, BCM43xx_SHM_WIRELESS, 0x0003, 0x0000000f);
@@ -3088,7 +2925,7 @@ static int bcm43xx_wireless_core_init(struct bcm43xx_private *bcm)
 	bcm43xx_mac_enable(bcm);
 	bcm43xx_interrupt_enable(bcm, bcm->irq_savedstate);
 
-	bcm->current_core->flags |= BCM43xx_COREFLAG_INITIALIZED;
+	bcm->current_core->initialized = 1;
 out:
 	return err;
 
@@ -3209,7 +3046,7 @@ static void bcm43xx_softmac_init(struct bcm43xx_private *bcm)
 
 static void bcm43xx_periodic_every120sec(struct bcm43xx_private *bcm)
 {
-	struct bcm43xx_phyinfo *phy = bcm->current_core->phy;
+	struct bcm43xx_phyinfo *phy = bcm43xx_current_phy(bcm);
 
 	if (phy->type != BCM43xx_PHYTYPE_G || phy->rev < 2)
 		return;
@@ -3237,8 +3074,8 @@ static void bcm43xx_periodic_every30sec(struct bcm43xx_private *bcm)
 
 static void bcm43xx_periodic_every15sec(struct bcm43xx_private *bcm)
 {
-	struct bcm43xx_phyinfo *phy = bcm->current_core->phy;
-	struct bcm43xx_radioinfo *radio = bcm->current_core->radio;
+	struct bcm43xx_phyinfo *phy = bcm43xx_current_phy(bcm);
+	struct bcm43xx_radioinfo *radio = bcm43xx_current_radio(bcm);
 
 	if (phy->type == BCM43xx_PHYTYPE_G) {
 		//TODO: update_aci_moving_average
@@ -3273,7 +3110,7 @@ static void bcm43xx_periodic_task_handler(unsigned long d)
 	unsigned long flags;
 	unsigned int state;
 
-	spin_lock_irqsave(&bcm->lock, flags);
+	bcm43xx_lock_mmio(bcm, flags);
 
 	assert(bcm->initialized);
 	state = bcm->periodic_state;
@@ -3288,7 +3125,7 @@ static void bcm43xx_periodic_task_handler(unsigned long d)
 
 	mod_timer(&bcm->periodic_tasks, jiffies + (HZ * 15));
 
-	spin_unlock_irqrestore(&bcm->lock, flags);
+	bcm43xx_unlock_mmio(bcm, flags);
 }
 
 static void bcm43xx_periodic_tasks_delete(struct bcm43xx_private *bcm)
@@ -3300,6 +3137,7 @@ static void bcm43xx_periodic_tasks_setup(struct bcm43xx_private *bcm)
 {
 	struct timer_list *timer = &(bcm->periodic_tasks);
 
+	assert(bcm->initialized);
 	setup_timer(timer,
 		    bcm43xx_periodic_task_handler,
 		    (unsigned long)bcm);
@@ -3320,17 +3158,19 @@ static void bcm43xx_free_board(struct bcm43xx_private *bcm)
 	int i, err;
 	unsigned long flags;
 
+	bcm43xx_sysfs_unregister(bcm);
+
 	bcm43xx_periodic_tasks_delete(bcm);
 
-	spin_lock_irqsave(&bcm->lock, flags);
+	bcm43xx_lock(bcm, flags);
 	bcm->initialized = 0;
 	bcm->shutting_down = 1;
-	spin_unlock_irqrestore(&bcm->lock, flags);
+	bcm43xx_unlock(bcm, flags);
 
 	for (i = 0; i < BCM43xx_MAX_80211_CORES; i++) {
-		if (!(bcm->core_80211[i].flags & BCM43xx_COREFLAG_AVAILABLE))
+		if (!bcm->core_80211[i].available)
 			continue;
-		if (!(bcm->core_80211[i].flags & BCM43xx_COREFLAG_INITIALIZED))
+		if (!bcm->core_80211[i].initialized)
 			continue;
 
 		err = bcm43xx_switch_core(bcm, &bcm->core_80211[i]);
@@ -3340,24 +3180,23 @@ static void bcm43xx_free_board(struct bcm43xx_private *bcm)
 
 	bcm43xx_pctl_set_crystal(bcm, 0);
 
-	spin_lock_irqsave(&bcm->lock, flags);
+	bcm43xx_lock(bcm, flags);
 	bcm->shutting_down = 0;
-	spin_unlock_irqrestore(&bcm->lock, flags);
+	bcm43xx_unlock(bcm, flags);
 }
 
 static int bcm43xx_init_board(struct bcm43xx_private *bcm)
 {
 	int i, err;
-	int num_80211_cores;
 	int connect_phy;
 	unsigned long flags;
 
 	might_sleep();
 
-	spin_lock_irqsave(&bcm->lock, flags);
+	bcm43xx_lock(bcm, flags);
 	bcm->initialized = 0;
 	bcm->shutting_down = 0;
-	spin_unlock_irqrestore(&bcm->lock, flags);
+	bcm43xx_unlock(bcm, flags);
 
 	err = bcm43xx_pctl_set_crystal(bcm, 1);
 	if (err)
@@ -3370,8 +3209,7 @@ static int bcm43xx_init_board(struct bcm43xx_private *bcm)
 		goto err_crystal_off;
 
 	tasklet_enable(&bcm->isr_tasklet);
-	num_80211_cores = bcm43xx_num_80211_cores(bcm);
-	for (i = 0; i < num_80211_cores; i++) {
+	for (i = 0; i < bcm->nr_80211_available; i++) {
 		err = bcm43xx_switch_core(bcm, &bcm->core_80211[i]);
 		assert(err != -ENODEV);
 		if (err)
@@ -3381,8 +3219,8 @@ static int bcm43xx_init_board(struct bcm43xx_private *bcm)
 		 * Connect PHY only on the first core.
 		 */
 		if (!bcm43xx_core_enabled(bcm)) {
-			if (num_80211_cores == 1) {
-				connect_phy = bcm->current_core->phy->connected;
+			if (bcm->nr_80211_available == 1) {
+				connect_phy = bcm43xx_current_phy(bcm)->connected;
 			} else {
 				if (i == 0)
 					connect_phy = 1;
@@ -3406,7 +3244,7 @@ static int bcm43xx_init_board(struct bcm43xx_private *bcm)
 		}
 	}
 	bcm->active_80211_core = &bcm->core_80211[0];
-	if (num_80211_cores >= 2) {
+	if (bcm->nr_80211_available >= 2) {
 		bcm43xx_switch_core(bcm, &bcm->core_80211[0]);
 		bcm43xx_mac_enable(bcm);
 	}
@@ -3418,16 +3256,20 @@ static int bcm43xx_init_board(struct bcm43xx_private *bcm)
 
 	bcm43xx_pctl_set_clock(bcm, BCM43xx_PCTL_CLK_DYNAMIC);
 
-	spin_lock_irqsave(&bcm->lock, flags);
-	bcm->initialized = 1;
-	spin_unlock_irqrestore(&bcm->lock, flags);
-
-	if (bcm->current_core->radio->initial_channel != 0xFF) {
+	if (bcm43xx_current_radio(bcm)->initial_channel != 0xFF) {
 		bcm43xx_mac_suspend(bcm);
-		bcm43xx_radio_selectchannel(bcm, bcm->current_core->radio->initial_channel, 0);
+		bcm43xx_radio_selectchannel(bcm, bcm43xx_current_radio(bcm)->initial_channel, 0);
 		bcm43xx_mac_enable(bcm);
 	}
+
+	/* Initialization of the board is done. Flag it as such. */
+	bcm43xx_lock(bcm, flags);
+	bcm->initialized = 1;
+	bcm43xx_unlock(bcm, flags);
+
 	bcm43xx_periodic_tasks_setup(bcm);
+	bcm43xx_sysfs_register(bcm);
+	//FIXME: check for bcm43xx_sysfs_register failure. This function is a bit messy regarding unwinding, though...
 
 	/*FIXME: This should be handled by softmac instead. */
 	schedule_work(&bcm->softmac->associnfo.work);
@@ -3439,8 +3281,8 @@ out:
 err_80211_unwind:
 	tasklet_disable(&bcm->isr_tasklet);
 	/* unwind all 80211 initialization */
-	for (i = 0; i < num_80211_cores; i++) {
-		if (!(bcm->core_80211[i].flags & BCM43xx_COREFLAG_INITIALIZED))
+	for (i = 0; i < bcm->nr_80211_available; i++) {
+		if (!bcm->core_80211[i].initialized)
 			continue;
 		bcm43xx_interrupt_disable(bcm, BCM43xx_IRQ_ALL);
 		bcm43xx_wireless_core_cleanup(bcm);
@@ -3464,15 +3306,15 @@ static void bcm43xx_detach_board(struct bcm43xx_private *bcm)
 
 	/* Free allocated structures/fields */
 	for (i = 0; i < BCM43xx_MAX_80211_CORES; i++) {
-		kfree(bcm->phy[i]._lo_pairs);
-		if (bcm->phy[i].dyn_tssi_tbl)
-			kfree(bcm->phy[i].tssi2dbm);
+		kfree(bcm->core_80211_ext[i].phy._lo_pairs);
+		if (bcm->core_80211_ext[i].phy.dyn_tssi_tbl)
+			kfree(bcm->core_80211_ext[i].phy.tssi2dbm);
 	}
 }	
 
 static int bcm43xx_read_phyinfo(struct bcm43xx_private *bcm)
 {
-	struct bcm43xx_phyinfo *phy = bcm->current_core->phy;
+	struct bcm43xx_phyinfo *phy = bcm43xx_current_phy(bcm);
 	u16 value;
 	u8 phy_version;
 	u8 phy_type;
@@ -3548,24 +3390,17 @@ static int bcm43xx_attach_board(struct bcm43xx_private *bcm)
 	struct net_device *net_dev = bcm->net_dev;
 	int err;
 	int i;
-	void __iomem *ioaddr;
-	unsigned long mmio_start, mmio_end, mmio_flags, mmio_len;
-	int num_80211_cores;
+	unsigned long mmio_start, mmio_flags, mmio_len;
 	u32 coremask;
 
 	err = pci_enable_device(pci_dev);
 	if (err) {
 		printk(KERN_ERR PFX "unable to wake up pci device (%i)\n", err);
-		err = -ENODEV;
 		goto out;
 	}
-
 	mmio_start = pci_resource_start(pci_dev, 0);
-	mmio_end = pci_resource_end(pci_dev, 0);
 	mmio_flags = pci_resource_flags(pci_dev, 0);
 	mmio_len = pci_resource_len(pci_dev, 0);
-
-	/* make sure PCI base addr is MMIO */
 	if (!(mmio_flags & IORESOURCE_MEM)) {
 		printk(KERN_ERR PFX
 		       "%s, region #0 not an MMIO resource, aborting\n",
@@ -3573,39 +3408,23 @@ static int bcm43xx_attach_board(struct bcm43xx_private *bcm)
 		err = -ENODEV;
 		goto err_pci_disable;
 	}
-//FIXME: Why is this check disabled for BCM947XX? What is the IO_SIZE there?
-#ifndef CONFIG_BCM947XX
-	if (mmio_len != BCM43xx_IO_SIZE) {
-		printk(KERN_ERR PFX
-		       "%s: invalid PCI mem region size(s), aborting\n",
-		       pci_name(pci_dev));
-		err = -ENODEV;
-		goto err_pci_disable;
-	}
-#endif
-
 	err = pci_request_regions(pci_dev, KBUILD_MODNAME);
 	if (err) {
 		printk(KERN_ERR PFX
 		       "could not access PCI resources (%i)\n", err);
 		goto err_pci_disable;
 	}
-
 	/* enable PCI bus-mastering */
 	pci_set_master(pci_dev);
-
-	/* ioremap MMIO region */
-	ioaddr = ioremap(mmio_start, mmio_len);
-	if (!ioaddr) {
+	bcm->mmio_addr = ioremap(mmio_start, mmio_len);
+	if (!bcm->mmio_addr) {
 		printk(KERN_ERR PFX "%s: cannot remap MMIO, aborting\n",
 		       pci_name(pci_dev));
 		err = -EIO;
 		goto err_pci_release;
 	}
-
-	net_dev->base_addr = (unsigned long)ioaddr;
-	bcm->mmio_addr = ioaddr;
 	bcm->mmio_len = mmio_len;
+	net_dev->base_addr = (unsigned long)bcm->mmio_addr;
 
 	bcm43xx_pci_read_config16(bcm, PCI_SUBSYSTEM_VENDOR_ID,
 	                          &bcm->board_vendor);
@@ -3624,11 +3443,9 @@ static int bcm43xx_attach_board(struct bcm43xx_private *bcm)
 	if (err)
 		goto err_chipset_detach;
 	
-	num_80211_cores = bcm43xx_num_80211_cores(bcm);
-
 	/* Attach all IO cores to the backplane. */
 	coremask = 0;
-	for (i = 0; i < num_80211_cores; i++)
+	for (i = 0; i < bcm->nr_80211_available; i++)
 		coremask |= (1 << bcm->core_80211[i].index);
 	//FIXME: Also attach some non80211 cores?
 	err = bcm43xx_setup_backplane_pci_connection(bcm, coremask);
@@ -3637,14 +3454,14 @@ static int bcm43xx_attach_board(struct bcm43xx_private *bcm)
 		goto err_chipset_detach;
 	}
 
-	err = bcm43xx_read_sprom(bcm);
+	err = bcm43xx_sprom_extract(bcm);
 	if (err)
 		goto err_chipset_detach;
 	err = bcm43xx_leds_init(bcm);
 	if (err)
 		goto err_chipset_detach;
 
-	for (i = 0; i < num_80211_cores; i++) {
+	for (i = 0; i < bcm->nr_80211_available; i++) {
 		err = bcm43xx_switch_core(bcm, &bcm->core_80211[i]);
 		assert(err != -ENODEV);
 		if (err)
@@ -3673,15 +3490,16 @@ static int bcm43xx_attach_board(struct bcm43xx_private *bcm)
 			goto err_80211_unwind;
 		bcm43xx_wireless_core_disable(bcm);
 	}
+	err = bcm43xx_geo_init(bcm);
+	if (err)
+		goto err_80211_unwind;
 	bcm43xx_pctl_set_crystal(bcm, 0);
 
 	/* Set the MAC address in the networking subsystem */
-	if (bcm->current_core->phy->type == BCM43xx_PHYTYPE_A)
+	if (is_valid_ether_addr(bcm->sprom.et1macaddr))
 		memcpy(bcm->net_dev->dev_addr, bcm->sprom.et1macaddr, 6);
 	else
 		memcpy(bcm->net_dev->dev_addr, bcm->sprom.il0macaddr, 6);
-
-	bcm43xx_geo_init(bcm);
 
 	snprintf(bcm->nick, IW_ESSID_MAX_SIZE,
 		 "Broadcom %04X", bcm->chip_id);
@@ -3692,9 +3510,9 @@ out:
 
 err_80211_unwind:
 	for (i = 0; i < BCM43xx_MAX_80211_CORES; i++) {
-		kfree(bcm->phy[i]._lo_pairs);
-		if (bcm->phy[i].dyn_tssi_tbl)
-			kfree(bcm->phy[i].tssi2dbm);
+		kfree(bcm->core_80211_ext[i].phy._lo_pairs);
+		if (bcm->core_80211_ext[i].phy.dyn_tssi_tbl)
+			kfree(bcm->core_80211_ext[i].phy.tssi2dbm);
 	}
 err_chipset_detach:
 	bcm43xx_chipset_detach(bcm);
@@ -3707,207 +3525,6 @@ err_pci_disable:
 	goto out;
 }
 
-static s8 bcm43xx_rssi_postprocess(struct bcm43xx_private *bcm,
-				   u8 in_rssi, int ofdm,
-				   int adjust_2053, int adjust_2050)
-{
-	s32 tmp;
-
-	switch (bcm->current_core->radio->version) {
-	case 0x2050:
-		if (ofdm) {
-			tmp = in_rssi;
-			if (tmp > 127)
-				tmp -= 256;
-			tmp *= 73;
-			tmp /= 64;
-			if (adjust_2050)
-				tmp += 25;
-			else
-				tmp -= 3;
-		} else {
-			if (bcm->sprom.boardflags & BCM43xx_BFL_RSSI) {
-				if (in_rssi > 63)
-					in_rssi = 63;
-				tmp = bcm->current_core->radio->nrssi_lt[in_rssi];
-				tmp = 31 - tmp;
-				tmp *= -131;
-				tmp /= 128;
-				tmp -= 57;
-			} else {
-				tmp = in_rssi;
-				tmp = 31 - tmp;
-				tmp *= -149;
-				tmp /= 128;
-				tmp -= 68;
-			}
-			if (bcm->current_core->phy->type == BCM43xx_PHYTYPE_G &&
-			    adjust_2050)
-				tmp += 25;
-		}
-		break;
-	case 0x2060:
-		if (in_rssi > 127)
-			tmp = in_rssi - 256;
-		else
-			tmp = in_rssi;
-		break;
-	default:
-		tmp = in_rssi;
-		tmp -= 11;
-		tmp *= 103;
-		tmp /= 64;
-		if (adjust_2053)
-			tmp -= 109;
-		else
-			tmp -= 83;
-	}
-
-	return (s8)tmp;
-}
-
-static s8 bcm43xx_rssinoise_postprocess(struct bcm43xx_private *bcm,
-					u8 in_rssi)
-{
-	s8 ret;
-
-	if (bcm->current_core->phy->type == BCM43xx_PHYTYPE_A) {
-		//TODO: Incomplete specs.
-		ret = 0;
-	} else
-		ret = bcm43xx_rssi_postprocess(bcm, in_rssi, 0, 1, 1);
-
-	return ret;
-}
-
-static inline
-int bcm43xx_rx_packet(struct bcm43xx_private *bcm,
-		      struct sk_buff *skb,
-		      struct ieee80211_rx_stats *stats)
-{
-	int err;
-
-	err = ieee80211_rx(bcm->ieee, skb, stats);
-	if (unlikely(err == 0))
-		return -EINVAL;
-	return 0;
-}
-
-int bcm43xx_rx(struct bcm43xx_private *bcm,
-	       struct sk_buff *skb,
-	       struct bcm43xx_rxhdr *rxhdr)
-{
-	struct bcm43xx_plcp_hdr4 *plcp;
-	struct ieee80211_rx_stats stats;
-	struct ieee80211_hdr_4addr *wlhdr;
-	u16 frame_ctl;
-	int is_packet_for_us = 0;
-	int err = -EINVAL;
-	const u16 rxflags1 = le16_to_cpu(rxhdr->flags1);
-	const u16 rxflags2 = le16_to_cpu(rxhdr->flags2);
-	const u16 rxflags3 = le16_to_cpu(rxhdr->flags3);
-	const int is_ofdm = !!(rxflags1 & BCM43xx_RXHDR_FLAGS1_OFDM);
-
-	if (rxflags2 & BCM43xx_RXHDR_FLAGS2_TYPE2FRAME) {
-		plcp = (struct bcm43xx_plcp_hdr4 *)(skb->data + 2);
-		/* Skip two unknown bytes and the PLCP header. */
-		skb_pull(skb, 2 + sizeof(struct bcm43xx_plcp_hdr6));
-	} else {
-		plcp = (struct bcm43xx_plcp_hdr4 *)(skb->data);
-		/* Skip the PLCP header. */
-		skb_pull(skb, sizeof(struct bcm43xx_plcp_hdr6));
-	}
-	/* The SKB contains the PAYLOAD (wireless header + data)
-	 * at this point. The FCS at the end is stripped.
-	 */
-
-	memset(&stats, 0, sizeof(stats));
-	stats.mac_time = le16_to_cpu(rxhdr->mactime);
-	stats.rssi = bcm43xx_rssi_postprocess(bcm, rxhdr->rssi, is_ofdm,
-					      !!(rxflags1 & BCM43xx_RXHDR_FLAGS1_2053RSSIADJ),
-					      !!(rxflags3 & BCM43xx_RXHDR_FLAGS3_2050RSSIADJ));
-	stats.signal = rxhdr->signal_quality;	//FIXME
-//TODO	stats.noise = 
-	stats.rate = bcm43xx_plcp_get_bitrate(plcp, is_ofdm);
-//printk("RX ofdm %d, rate == %u\n", is_ofdm, stats.rate);
-	stats.received_channel = bcm->current_core->radio->channel;
-//TODO	stats.control = 
-	stats.mask = IEEE80211_STATMASK_SIGNAL |
-//TODO		     IEEE80211_STATMASK_NOISE |
-		     IEEE80211_STATMASK_RATE |
-		     IEEE80211_STATMASK_RSSI;
-	if (bcm->current_core->phy->type == BCM43xx_PHYTYPE_A)
-		stats.freq = IEEE80211_52GHZ_BAND;
-	else
-		stats.freq = IEEE80211_24GHZ_BAND;
-	stats.len = skb->len;
-
-	bcm->stats.last_rx = jiffies;
-	if (bcm->ieee->iw_mode == IW_MODE_MONITOR)
-		return bcm43xx_rx_packet(bcm, skb, &stats);
-
-	wlhdr = (struct ieee80211_hdr_4addr *)(skb->data);
-
-	switch (bcm->ieee->iw_mode) {
-	case IW_MODE_ADHOC:
-		if (memcmp(wlhdr->addr1, bcm->net_dev->dev_addr, ETH_ALEN) == 0 ||
-		    memcmp(wlhdr->addr3, bcm->ieee->bssid, ETH_ALEN) == 0 ||
-		    is_broadcast_ether_addr(wlhdr->addr1) ||
-		    is_multicast_ether_addr(wlhdr->addr1) ||
-		    bcm->net_dev->flags & IFF_PROMISC)
-			is_packet_for_us = 1;
-		break;
-	case IW_MODE_INFRA:
-	default:
-		/* When receiving multicast or broadcast packets, filter out
-		   the packets we send ourself; we shouldn't see those */
-		if (memcmp(wlhdr->addr3, bcm->ieee->bssid, ETH_ALEN) == 0 ||
-		    memcmp(wlhdr->addr1, bcm->net_dev->dev_addr, ETH_ALEN) == 0 ||
-		    (memcmp(wlhdr->addr3, bcm->net_dev->dev_addr, ETH_ALEN) &&
-		     (is_broadcast_ether_addr(wlhdr->addr1) ||
-		      is_multicast_ether_addr(wlhdr->addr1) ||
-		      bcm->net_dev->flags & IFF_PROMISC)))
-			is_packet_for_us = 1;
-		break;
-	}
-
-	frame_ctl = le16_to_cpu(wlhdr->frame_ctl);
-	if ((frame_ctl & IEEE80211_FCTL_PROTECTED) && !bcm->ieee->host_decrypt) {
-		frame_ctl &= ~IEEE80211_FCTL_PROTECTED;
-		wlhdr->frame_ctl = cpu_to_le16(frame_ctl);		
-		/* trim IV and ICV */
-		/* FIXME: this must be done only for WEP encrypted packets */
-		if (skb->len < 32) {
-			dprintkl(KERN_ERR PFX "RX packet dropped (PROTECTED flag "
-					      "set and length < 32)\n");
-			return -EINVAL;
-		} else {		
-			memmove(skb->data + 4, skb->data, 24);
-			skb_pull(skb, 4);
-			skb_trim(skb, skb->len - 4);
-			stats.len -= 8;
-		}
-		wlhdr = (struct ieee80211_hdr_4addr *)(skb->data);
-	}
-	
-	switch (WLAN_FC_GET_TYPE(frame_ctl)) {
-	case IEEE80211_FTYPE_MGMT:
-		ieee80211_rx_mgt(bcm->ieee, wlhdr, &stats);
-		break;
-	case IEEE80211_FTYPE_DATA:
-		if (is_packet_for_us)
-			err = bcm43xx_rx_packet(bcm, skb, &stats);
-		break;
-	case IEEE80211_FTYPE_CTL:
-		break;
-	default:
-		assert(0);
-		return -EINVAL;
-	}
-
-	return err;
-}
-
 /* Do the Hardware IO operations to send the txb */
 static inline int bcm43xx_tx(struct bcm43xx_private *bcm,
 			     struct ieee80211_txb *txb)
@@ -3918,6 +3535,7 @@ static inline int bcm43xx_tx(struct bcm43xx_private *bcm,
 		err = bcm43xx_pio_tx(bcm, txb);
 	else
 		err = bcm43xx_dma_tx(bcm, txb);
+	bcm->net_dev->trans_start = jiffies;
 
 	return err;
 }
@@ -3926,17 +3544,19 @@ static void bcm43xx_ieee80211_set_chan(struct net_device *net_dev,
 				       u8 channel)
 {
 	struct bcm43xx_private *bcm = bcm43xx_priv(net_dev);
+	struct bcm43xx_radioinfo *radio;
 	unsigned long flags;
 
-	spin_lock_irqsave(&bcm->lock, flags);
-	if (likely(bcm->initialized)) {
-		    bcm43xx_mac_suspend(bcm);
-		    bcm43xx_radio_selectchannel(bcm, channel, 0);
-		    bcm43xx_mac_enable(bcm);
+	bcm43xx_lock_mmio(bcm, flags);
+	if (bcm->initialized) {
+		bcm43xx_mac_suspend(bcm);
+		bcm43xx_radio_selectchannel(bcm, channel, 0);
+		bcm43xx_mac_enable(bcm);
 	} else {
-		bcm->current_core->radio->initial_channel = channel;
+		radio = bcm43xx_current_radio(bcm);
+		radio->initial_channel = channel;
 	}
-	spin_unlock_irqrestore(&bcm->lock, flags);
+	bcm43xx_unlock_mmio(bcm, flags);
 }
 
 /* set_security() callback in struct ieee80211_device */
@@ -3949,9 +3569,9 @@ static void bcm43xx_ieee80211_set_security(struct net_device *net_dev,
 	int keyidx;
 	
 	dprintk(KERN_INFO PFX "set security called\n");
-	
-	spin_lock_irqsave(&bcm->lock, flags);
-	
+
+	bcm43xx_lock_mmio(bcm, flags);
+
 	for (keyidx = 0; keyidx<WEP_KEYS; keyidx++)
 		if (sec->flags & (1<<keyidx)) {
 			secinfo->encode_alg[keyidx] = sec->encode_alg[keyidx];
@@ -4013,7 +3633,7 @@ static void bcm43xx_ieee80211_set_security(struct net_device *net_dev,
 		} else
 				bcm43xx_clear_keys(bcm);
 	}
-	spin_unlock_irqrestore(&bcm->lock, flags);
+	bcm43xx_unlock_mmio(bcm, flags);
 }
 
 /* hard_start_xmit() callback in struct ieee80211_device */
@@ -4025,10 +3645,10 @@ static int bcm43xx_ieee80211_hard_start_xmit(struct ieee80211_txb *txb,
 	int err = -ENODEV;
 	unsigned long flags;
 
-	spin_lock_irqsave(&bcm->lock, flags);
+	bcm43xx_lock_mmio(bcm, flags);
 	if (likely(bcm->initialized))
 		err = bcm43xx_tx(bcm, txb);
-	spin_unlock_irqrestore(&bcm->lock, flags);
+	bcm43xx_unlock_mmio(bcm, flags);
 
 	return err;
 }
@@ -4041,8 +3661,11 @@ static struct net_device_stats * bcm43xx_net_get_stats(struct net_device *net_de
 static void bcm43xx_net_tx_timeout(struct net_device *net_dev)
 {
 	struct bcm43xx_private *bcm = bcm43xx_priv(net_dev);
+	unsigned long flags;
 
+	bcm43xx_lock_mmio(bcm, flags);
 	bcm43xx_controller_restart(bcm, "TX timeout");
+	bcm43xx_unlock_mmio(bcm, flags);
 }
 
 #ifdef CONFIG_NET_POLL_CONTROLLER
@@ -4079,27 +3702,17 @@ static int bcm43xx_init_private(struct bcm43xx_private *bcm,
 				struct net_device *net_dev,
 				struct pci_dev *pci_dev)
 {
+	int err;
+
 	bcm->ieee = netdev_priv(net_dev);
 	bcm->softmac = ieee80211_priv(net_dev);
 	bcm->softmac->set_channel = bcm43xx_ieee80211_set_chan;
 
-#ifdef DEBUG_ENABLE_MMIO_PRINT
-	bcm43xx_mmioprint_initial(bcm, 1);
-#else
-	bcm43xx_mmioprint_initial(bcm, 0);
-#endif
-#ifdef DEBUG_ENABLE_PCILOG
-	bcm43xx_pciprint_initial(bcm, 1);
-#else
-	bcm43xx_pciprint_initial(bcm, 0);
-#endif
-
 	bcm->irq_savedstate = BCM43xx_IRQ_INITIAL;
 	bcm->pci_dev = pci_dev;
 	bcm->net_dev = net_dev;
-	if (modparam_bad_frames_preempt)
-		bcm->bad_frames_preempt = 1;
-	spin_lock_init(&bcm->lock);
+	bcm->bad_frames_preempt = modparam_bad_frames_preempt;
+	spin_lock_init(&bcm->_lock);
 	tasklet_init(&bcm->isr_tasklet,
 		     (void (*)(unsigned long))bcm43xx_interrupt_tasklet,
 		     (unsigned long)bcm);
@@ -4107,7 +3720,9 @@ static int bcm43xx_init_private(struct bcm43xx_private *bcm,
 	if (modparam_pio) {
 		bcm->__using_pio = 1;
 	} else {
-		if (pci_set_dma_mask(pci_dev, DMA_30BIT_MASK)) {
+		err = pci_set_dma_mask(pci_dev, DMA_30BIT_MASK);
+		err |= pci_set_consistent_dma_mask(pci_dev, DMA_30BIT_MASK);
+		if (err) {
 #ifdef CONFIG_BCM43XX_PIO
 			printk(KERN_WARNING PFX "DMA not supported. Falling back to PIO.\n");
 			bcm->__using_pio = 1;
@@ -4264,6 +3879,7 @@ failure:
 void bcm43xx_controller_restart(struct bcm43xx_private *bcm, const char *reason)
 {
 	bcm43xx_interrupt_disable(bcm, BCM43xx_IRQ_ALL);
+	bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS_BITFIELD); /* dummy read */
 	printk(KERN_ERR PFX "Controller RESET (%s) ...\n", reason);
 	INIT_WORK(&bcm->restart_work, bcm43xx_chip_reset, bcm);
 	schedule_work(&bcm->restart_work);
@@ -4280,11 +3896,11 @@ static int bcm43xx_suspend(struct pci_dev *pdev, pm_message_t state)
 
 	dprintk(KERN_INFO PFX "Suspending...\n");
 
-	spin_lock_irqsave(&bcm->lock, flags);
+	bcm43xx_lock(bcm, flags);
 	bcm->was_initialized = bcm->initialized;
 	if (bcm->initialized)
 		try_to_shutdown = 1;
-	spin_unlock_irqrestore(&bcm->lock, flags);
+	bcm43xx_unlock(bcm, flags);
 
 	netif_device_detach(net_dev);
 	if (try_to_shutdown) {
@@ -4366,5 +3982,3 @@ static void __exit bcm43xx_exit(void)
 
 module_init(bcm43xx_init)
 module_exit(bcm43xx_exit)
-
-/* vim: set ts=8 sw=8 sts=8: */

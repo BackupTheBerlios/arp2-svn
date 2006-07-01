@@ -260,8 +260,10 @@ static inline pgd_t __pgd(unsigned long x)
 #define __PAGE_OFFSET           0xffff880000000000
 #endif /* !__ASSEMBLY__ */
 
+#ifdef CONFIG_XEN_COMPAT_030002
 #undef LOAD_OFFSET
 #define LOAD_OFFSET		0
+#endif /* CONFIG_XEN_COMPAT_030002 */
 
 /* to align the pointer to the (next) page boundary */
 #define PAGE_ALIGN(addr)	(((addr)+PAGE_SIZE-1)&PAGE_MASK)
@@ -291,8 +293,6 @@ static inline pgd_t __pgd(unsigned long x)
 #define __boot_va(x)		__va(x)
 #define __boot_pa(x)		__pa(x)
 #ifdef CONFIG_FLATMEM
-#define pfn_to_page(pfn)	(mem_map + (pfn))
-#define page_to_pfn(page)	((unsigned long)((page) - mem_map))
 #define pfn_valid(pfn)		((pfn) < end_pfn)
 #endif
 
@@ -311,8 +311,13 @@ static inline pgd_t __pgd(unsigned long x)
 
 #define __HAVE_ARCH_GATE_AREA 1	
 
+#ifndef __ASSEMBLY__
+extern int devmem_is_allowed(unsigned long pagenr);
+#endif
+
 #endif /* __KERNEL__ */
 
+#include <asm-generic/memory_model.h>
 #include <asm-generic/page.h>
 
 #endif /* _X86_64_PAGE_H */

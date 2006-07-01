@@ -37,6 +37,7 @@
 #include "bcm43xx_debugfs.h"
 #include "bcm43xx_dma.h"
 #include "bcm43xx_pio.h"
+#include "bcm43xx_xmit.h"
 
 #define REALLY_BIG_BUFFER_SIZE	(1024*256)
 
@@ -76,7 +77,7 @@ static ssize_t devinfo_read_file(struct file *file, char __user *userbuf,
 
 	down(&big_buffer_sem);
 
-	spin_lock_irqsave(&bcm->lock, flags);
+	bcm43xx_lock_mmio(bcm, flags);
 	if (!bcm->initialized) {
 		fappend("Board not initialized.\n");
 		goto out;
@@ -103,16 +104,13 @@ static ssize_t devinfo_read_file(struct file *file, char __user *userbuf,
 	fappend("\nCores:\n");
 #define fappend_core(name, info) fappend("core \"" name "\" %s, %s, id: 0x%04x, "	\
 					 "rev: 0x%02x, index: 0x%02x\n",		\
-					 (info).flags & BCM43xx_COREFLAG_AVAILABLE	\
+					 (info).available				\
 						? "available" : "nonavailable",		\
-					 (info).flags & BCM43xx_COREFLAG_ENABLED	\
+					 (info).enabled					\
 						? "enabled" : "disabled",		\
 					 (info).id, (info).rev, (info).index)
 	fappend_core("CHIPCOMMON", bcm->core_chipcommon);
 	fappend_core("PCI", bcm->core_pci);
-	fappend_core("V90", bcm->core_v90);
-	fappend_core("PCMCIA", bcm->core_pcmcia);
-	fappend_core("ETHERNET", bcm->core_ethernet);
 	fappend_core("first 80211", bcm->core_80211[0]);
 	fappend_core("second 80211", bcm->core_80211[1]);
 #undef fappend_core
@@ -123,7 +121,7 @@ static ssize_t devinfo_read_file(struct file *file, char __user *userbuf,
 	fappend("\n");
 
 out:
-	spin_unlock_irqrestore(&bcm->lock, flags);
+	bcm43xx_unlock_mmio(bcm, flags);
 	res = simple_read_from_buffer(userbuf, count, ppos, buf, pos);
 	up(&big_buffer_sem);
 	return res;
@@ -161,7 +159,7 @@ static ssize_t spromdump_read_file(struct file *file, char __user *userbuf,
 	unsigned long flags;
 
 	down(&big_buffer_sem);
-	spin_lock_irqsave(&bcm->lock, flags);
+	bcm43xx_lock_mmio(bcm, flags);
 	if (!bcm->initialized) {
 		fappend("Board not initialized.\n");
 		goto out;
@@ -171,7 +169,7 @@ static ssize_t spromdump_read_file(struct file *file, char __user *userbuf,
 	fappend("boardflags: 0x%04x\n", bcm->sprom.boardflags);
 
 out:
-	spin_unlock_irqrestore(&bcm->lock, flags);
+	bcm43xx_unlock_mmio(bcm, flags);
 	res = simple_read_from_buffer(userbuf, count, ppos, buf, pos);
 	up(&big_buffer_sem);
 	return res;
@@ -190,7 +188,7 @@ static ssize_t tsf_read_file(struct file *file, char __user *userbuf,
 	u64 tsf;
 
 	down(&big_buffer_sem);
-	spin_lock_irqsave(&bcm->lock, flags);
+	bcm43xx_lock_mmio(bcm, flags);
 	if (!bcm->initialized) {
 		fappend("Board not initialized.\n");
 		goto out;
@@ -201,7 +199,7 @@ static ssize_t tsf_read_file(struct file *file, char __user *userbuf,
 		(unsigned int)(tsf & 0xFFFFFFFFULL));
 
 out:
-	spin_unlock_irqrestore(&bcm->lock, flags);
+	bcm43xx_unlock_mmio(bcm, flags);
 	res = simple_read_from_buffer(userbuf, count, ppos, buf, pos);
 	up(&big_buffer_sem);
 	return res;
@@ -223,7 +221,7 @@ static ssize_t tsf_write_file(struct file *file, const char __user *user_buf,
 	        res = -EFAULT;
 		goto out_up;
 	}
-	spin_lock_irqsave(&bcm->lock, flags);
+	bcm43xx_lock_mmio(bcm, flags);
 	if (!bcm->initialized) {
 		printk(KERN_INFO PFX "debugfs: Board not initialized.\n");
 		res = -EFAULT;
@@ -238,7 +236,7 @@ static ssize_t tsf_write_file(struct file *file, const char __user *user_buf,
 	res = buf_size;
 	
 out_unlock:
-	spin_unlock_irqrestore(&bcm->lock, flags);
+	bcm43xx_unlock_mmio(bcm, flags);
 out_up:
 	up(&big_buffer_sem);
 	return res;
@@ -259,7 +257,7 @@ static ssize_t txstat_read_file(struct file *file, char __user *userbuf,
 	int i, cnt, j = 0;
 
 	down(&big_buffer_sem);
-	spin_lock_irqsave(&bcm->lock, flags);
+	bcm43xx_lock(bcm, flags);
 
 	fappend("Last %d logged xmitstatus blobs (Latest first):\n\n",
 		BCM43xx_NR_LOGGED_XMITSTATUS);
@@ -295,14 +293,14 @@ static ssize_t txstat_read_file(struct file *file, char __user *userbuf,
 			i = BCM43xx_NR_LOGGED_XMITSTATUS - 1;
 	}
 
-	spin_unlock_irqrestore(&bcm->lock, flags);
+	bcm43xx_unlock(bcm, flags);
 	res = simple_read_from_buffer(userbuf, count, ppos, buf, pos);
-	spin_lock_irqsave(&bcm->lock, flags);
+	bcm43xx_lock(bcm, flags);
 	if (*ppos == pos) {
 		/* Done. Drop the copied data. */
 		e->xmitstatus_printing = 0;
 	}
-	spin_unlock_irqrestore(&bcm->lock, flags);
+	bcm43xx_unlock(bcm, flags);
 	up(&big_buffer_sem);
 	return res;
 }
@@ -418,7 +416,7 @@ void bcm43xx_debugfs_log_txstat(struct bcm43xx_private *bcm,
 	struct bcm43xx_dfsentry *e;
 	struct bcm43xx_xmitstatus *savedstatus;
 
-	/* This is protected by bcm->lock */
+	/* This is protected by bcm->_lock */
 	e = bcm->dfsentry;
 	assert(e);
 	savedstatus = e->xmitstatus_buffer + e->xmitstatus_ptr;
@@ -454,12 +452,12 @@ void bcm43xx_printk_dump(const char *data,
 	size_t i;
 	char c;
 
-	printk(KERN_INFO PFX "Data dump (%s, %u bytes):",
+	printk(KERN_INFO PFX "Data dump (%s, %zd bytes):",
 	       description, size);
 	for (i = 0; i < size; i++) {
 		c = data[i];
 		if (i % 8 == 0)
-			printk("\n" KERN_INFO PFX "0x%08x:  0x%02x, ", i, c & 0xff);
+			printk("\n" KERN_INFO PFX "0x%08zx:  0x%02x, ", i, c & 0xff);
 		else
 			printk("0x%02x, ", c & 0xff);
 	}
@@ -474,12 +472,12 @@ void bcm43xx_printk_bitdump(const unsigned char *data,
 	int j;
 	const unsigned char *d;
 
-	printk(KERN_INFO PFX "*** Bitdump (%s, %u bytes, %s) ***",
+	printk(KERN_INFO PFX "*** Bitdump (%s, %zd bytes, %s) ***",
 	       description, bytes, msb_to_lsb ? "MSB to LSB" : "LSB to MSB");
 	for (i = 0; i < bytes; i++) {
 		d = data + i;
 		if (i % 8 == 0)
-			printk("\n" KERN_INFO PFX "0x%08x:  ", i);
+			printk("\n" KERN_INFO PFX "0x%08zx:  ", i);
 		if (msb_to_lsb) {
 			for (j = 7; j >= 0; j--) {
 				if (*d & (1 << j))
@@ -499,5 +497,3 @@ void bcm43xx_printk_bitdump(const unsigned char *data,
 	}
 	printk("\n");
 }
-
-/* vim: set ts=8 sw=8 sts=8: */

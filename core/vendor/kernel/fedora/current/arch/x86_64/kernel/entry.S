@@ -540,7 +540,7 @@ iret_label:
 	/* force a signal here? this matches i386 behaviour */
 	/* running with kernel gs */
 bad_iret:
-	movq $-9999,%rdi	/* better code? */
+	movq $11,%rdi	/* SIGSEGV */
 	sti
 	jmp do_exit			
 	.previous	
@@ -596,7 +596,7 @@ retint_kernel:
  */		
 	.macro apicinterrupt num,func
 	INTR_FRAME
-	pushq $\num-256
+	pushq $~(\num)
 	CFI_ADJUST_CFA_OFFSET 8
 	interrupt \func
 	jmp ret_from_intr

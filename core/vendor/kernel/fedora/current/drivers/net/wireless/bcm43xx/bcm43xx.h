@@ -119,6 +119,10 @@
 #define BCM43xx_BFL_AFTERBURNER		0x0200 /* supports Afterburner mode */
 #define BCM43xx_BFL_NOPCI		0x0400 /* leaves PCI floating */
 #define BCM43xx_BFL_FEM			0x0800 /* supports the Front End Module */
+#define BCM43xx_BFL_EXTLNA		0x1000 /* has an external LNA */
+#define BCM43xx_BFL_HGPA		0x2000 /* had high gain PA */
+#define BCM43xx_BFL_BTCMOD		0x4000 /* BFL_BTCOEXIST is given in alternate GPIOs */
+#define BCM43xx_BFL_ALTIQ		0x8000 /* alternate I/Q settings */
 
 /* GPIO register offset, in both ChipCommon and PCI core. */
 #define BCM43xx_GPIO_CONTROL		0x6c
@@ -314,23 +318,6 @@
 /* Initial default iw_mode */
 #define BCM43xx_INITIAL_IWMODE			IW_MODE_INFRA
 
-/* Values/Masks for the device TX header */
-#define BCM43xx_TXHDRFLAG_EXPECTACK		0x0001
-#define BCM43xx_TXHDRFLAG_FIRSTFRAGMENT		0x0008
-#define BCM43xx_TXHDRFLAG_DESTPSMODE		0x0020
-#define BCM43xx_TXHDRFLAG_FALLBACKOFDM		0x0100
-#define BCM43xx_TXHDRFLAG_FRAMEBURST		0x0800
-
-#define BCM43xx_TXHDRCTL_OFDM			0x0001
-#define BCM43xx_TXHDRCTL_SHORT_PREAMBLE		0x0010
-#define BCM43xx_TXHDRCTL_ANTENNADIV_MASK	0x0030
-#define BCM43xx_TXHDRCTL_ANTENNADIV_SHIFT	8
-
-#define BCM43xx_TXHDR_WSEC_KEYINDEX_MASK	0x00F0
-#define BCM43xx_TXHDR_WSEC_KEYINDEX_SHIFT	4
-#define BCM43xx_TXHDR_WSEC_ALGO_MASK		0x0003
-#define BCM43xx_TXHDR_WSEC_ALGO_SHIFT		0
-
 /* Bus type PCI. */
 #define BCM43xx_BUSTYPE_PCI	0
 /* Bus type Silicone Backplane Bus. */
@@ -507,6 +494,10 @@ struct bcm43xx_phyinfo {
 	const s8 *tssi2dbm;
 	/* idle TSSI value */
 	s8 idle_tssi;
+
+	/* Values from bcm43xx_calc_loopback_gain() */
+	u16 loopback_gain[2];
+
 	/* PHY lock for core.rev < 3
 	 * This lock is only used by bcm43xx_phy_{un}lock()
 	 */
@@ -519,18 +510,35 @@ struct bcm43xx_radioinfo {
 	u16 version;
 	u8 revision;
 
-	/* 0: baseband attenuation,
-	 * 1: radio attenuation, 
-	 * 2: tx_CTL1
-	 * 3: tx_CTL2
-	 */
-	u16 txpower[4];
 	/* Desired TX power in dBm Q5.2 */
 	u16 txpower_desired;
+	/* TX Power control values. */
+	union {
+		/* B/G PHY */
+		struct {
+			u16 baseband_atten;
+			u16 radio_atten;
+			u16 txctl1;
+			u16 txctl2;
+		};
+		/* A PHY */
+		struct {
+			u16 txpwr_offset;
+		};
+	};
+
 	/* Current Interference Mitigation mode */
 	int interfmode;
-	/* Stack of saved values from the Interference Mitigation code */
-	u16 interfstack[20];
+	/* Stack of saved values from the Interference Mitigation code.
+	 * Each value in the stack is layed out as follows:
+	 * bit 0-11:  offset
+	 * bit 12-15: register ID
+	 * bit 16-32: value
+	 * register ID is: 0x1 PHY, 0x2 Radio, 0x3 ILT
+	 */
+#define BCM43xx_INTERFSTACK_SIZE	26
+	u32 interfstack[BCM43xx_INTERFSTACK_SIZE];
+
 	/* Saved values from the NRSSI Slope calculation */
 	s16 nrssi[2];
 	s32 nrssislope;
@@ -572,33 +580,37 @@ struct bcm43xx_pio {
 
 #define BCM43xx_MAX_80211_CORES		2
 
-#define BCM43xx_COREFLAG_AVAILABLE	(1 << 0)
-#define BCM43xx_COREFLAG_ENABLED	(1 << 1)
-#define BCM43xx_COREFLAG_INITIALIZED	(1 << 2)
-
 #ifdef CONFIG_BCM947XX
 #define core_offset(bcm) (bcm)->current_core_offset
 #else
 #define core_offset(bcm) 0
 #endif
 
+/* Generic information about a core. */
 struct bcm43xx_coreinfo {
-	/** Driver internal flags. See BCM43xx_COREFLAG_* */
-	u32 flags;
+	u8 available:1,
+	   enabled:1,
+	   initialized:1;
 	/** core_id ID number */
 	u16 id;
 	/** core_rev revision number */
 	u8 rev;
 	/** Index number for _switch_core() */
 	u8 index;
-	/* Pointer to the PHYinfo, which belongs to this core (if 80211 core) */
-	struct bcm43xx_phyinfo *phy;
-	/* Pointer to the RadioInfo, which belongs to this core (if 80211 core) */
-	struct bcm43xx_radioinfo *radio;
-	/* Pointer to the DMA rings, which belong to this core (if 80211 core) */
-	struct bcm43xx_dma *dma;
-	/* Pointer to the PIO queues, which belong to this core (if 80211 core) */
-	struct bcm43xx_pio *pio;
+};
+
+/* Additional information for each 80211 core. */
+struct bcm43xx_coreinfo_80211 {
+	/* PHY device. */
+	struct bcm43xx_phyinfo phy;
+	/* Radio device. */
+	struct bcm43xx_radioinfo radio;
+	union {
+		/* DMA context. */
+		struct bcm43xx_dma dma;
+		/* PIO context. */
+		struct bcm43xx_pio pio;
+	};
 };
 
 /* Context information for a noise calculation (Link Quality). */
@@ -612,6 +624,8 @@ struct bcm43xx_noise_calculation {
 
 struct bcm43xx_stats {
 	u8 link_quality;
+	u8 noise;
+	struct iw_statistics wstats;
 	/* Store the last TX/RX times here for updating the leds. */
 	unsigned long last_tx;
 	unsigned long last_rx;
@@ -633,7 +647,9 @@ struct bcm43xx_private {
 	void __iomem *mmio_addr;
 	unsigned int mmio_len;
 
-	spinlock_t lock;
+	/* Do not use the lock directly. Use the bcm43xx_lock* helper
+	 * functions, to be MMIO-safe. */
+	spinlock_t _lock;
 
 	/* Driver status flags. */
 	u32 initialized:1,		/* init_board() succeed */
@@ -659,12 +675,13 @@ struct bcm43xx_private {
 
 	u16 chip_id;
 	u8 chip_rev;
+	u8 chip_package;
 
 	struct bcm43xx_sprominfo sprom;
 #define BCM43xx_NR_LEDS		4
 	struct bcm43xx_led leds[BCM43xx_NR_LEDS];
 
-	/* The currently active core. NULL if not initialized, yet. */
+	/* The currently active core. */
 	struct bcm43xx_coreinfo *current_core;
 #ifdef CONFIG_BCM947XX
 	/** current core memory offset */
@@ -677,18 +694,15 @@ struct bcm43xx_private {
 	 */
 	struct bcm43xx_coreinfo core_chipcommon;
 	struct bcm43xx_coreinfo core_pci;
-	struct bcm43xx_coreinfo core_v90;
-	struct bcm43xx_coreinfo core_pcmcia;
-	struct bcm43xx_coreinfo core_ethernet;
 	struct bcm43xx_coreinfo core_80211[ BCM43xx_MAX_80211_CORES ];
-	/* Info about the PHY for each 80211 core. */
-	struct bcm43xx_phyinfo phy[ BCM43xx_MAX_80211_CORES ];
-	/* Info about the Radio for each 80211 core. */
-	struct bcm43xx_radioinfo radio[ BCM43xx_MAX_80211_CORES ];
-	/* DMA */
-	struct bcm43xx_dma dma[ BCM43xx_MAX_80211_CORES ];
-	/* PIO */
-	struct bcm43xx_pio pio[ BCM43xx_MAX_80211_CORES ];
+	/* Additional information, specific to the 80211 cores. */
+	struct bcm43xx_coreinfo_80211 core_80211_ext[ BCM43xx_MAX_80211_CORES ];
+	/* Index of the current 80211 core. If current_core is not
+	 * an 80211 core, this is -1.
+	 */
+	int current_80211_core_idx;
+	/* Number of available 80211 cores. */
+	int nr_80211_available;
 
 	u32 chipcommon_capabilities;
 
@@ -730,15 +744,43 @@ struct bcm43xx_private {
 	/* Debugging stuff follows. */
 #ifdef CONFIG_BCM43XX_DEBUG
 	struct bcm43xx_dfsentry *dfsentry;
-	atomic_t mmio_print_cnt;
-	atomic_t pcicfg_print_cnt;
 #endif
 };
+
+/* bcm43xx_(un)lock() protect struct bcm43xx_private.
+ * Note that _NO_ MMIO writes are allowed. If you want to
+ * write to the device through MMIO in the critical section, use
+ * the *_mmio lock functions.
+ * MMIO read-access is allowed, though.
+ */
+#define bcm43xx_lock(bcm, flags)	spin_lock_irqsave(&(bcm)->_lock, flags)
+#define bcm43xx_unlock(bcm, flags)	spin_unlock_irqrestore(&(bcm)->_lock, flags)
+/* bcm43xx_(un)lock_mmio() protect struct bcm43xx_private and MMIO.
+ * MMIO write-access to the device is allowed.
+ * All MMIO writes are flushed on unlock, so it is guaranteed to not
+ * interfere with other threads writing MMIO registers.
+ */
+#define bcm43xx_lock_mmio(bcm, flags)	bcm43xx_lock(bcm, flags)
+#define bcm43xx_unlock_mmio(bcm, flags)	do { mmiowb(); bcm43xx_unlock(bcm, flags); } while (0)
 
 static inline
 struct bcm43xx_private * bcm43xx_priv(struct net_device *dev)
 {
 	return ieee80211softmac_priv(dev);
+}
+
+struct device;
+
+static inline
+struct bcm43xx_private * dev_to_bcm(struct device *dev)
+{
+	struct net_device *net_dev;
+	struct bcm43xx_private *bcm;
+
+	net_dev = dev_get_drvdata(dev);
+	bcm = bcm43xx_priv(net_dev);
+
+	return bcm;
 }
 
 
@@ -767,18 +809,39 @@ int bcm43xx_using_pio(struct bcm43xx_private *bcm)
 # error "Using neither DMA nor PIO? Confused..."
 #endif
 
-
+/* Helper functions to access data structures private to the 80211 cores.
+ * Note that we _must_ have an 80211 core mapped when calling
+ * any of these functions.
+ */
 static inline
-int bcm43xx_num_80211_cores(struct bcm43xx_private *bcm)
+struct bcm43xx_pio * bcm43xx_current_pio(struct bcm43xx_private *bcm)
 {
-	int i, cnt = 0;
-
-	for (i = 0; i < BCM43xx_MAX_80211_CORES; i++) {
-		if (bcm->core_80211[i].flags & BCM43xx_COREFLAG_AVAILABLE)
-			cnt++;
-	}
-
-	return cnt;
+	assert(bcm43xx_using_pio(bcm));
+	assert(bcm->current_80211_core_idx >= 0);
+	assert(bcm->current_80211_core_idx < BCM43xx_MAX_80211_CORES);
+	return &(bcm->core_80211_ext[bcm->current_80211_core_idx].pio);
+}
+static inline
+struct bcm43xx_dma * bcm43xx_current_dma(struct bcm43xx_private *bcm)
+{
+	assert(!bcm43xx_using_pio(bcm));
+	assert(bcm->current_80211_core_idx >= 0);
+	assert(bcm->current_80211_core_idx < BCM43xx_MAX_80211_CORES);
+	return &(bcm->core_80211_ext[bcm->current_80211_core_idx].dma);
+}
+static inline
+struct bcm43xx_phyinfo * bcm43xx_current_phy(struct bcm43xx_private *bcm)
+{
+	assert(bcm->current_80211_core_idx >= 0);
+	assert(bcm->current_80211_core_idx < BCM43xx_MAX_80211_CORES);
+	return &(bcm->core_80211_ext[bcm->current_80211_core_idx].phy);
+}
+static inline
+struct bcm43xx_radioinfo * bcm43xx_current_radio(struct bcm43xx_private *bcm)
+{
+	assert(bcm->current_80211_core_idx >= 0);
+	assert(bcm->current_80211_core_idx < BCM43xx_MAX_80211_CORES);
+	return &(bcm->core_80211_ext[bcm->current_80211_core_idx].radio);
 }
 
 /* Are we running in init_board() context? */
@@ -801,140 +864,53 @@ struct bcm43xx_lopair * bcm43xx_get_lopair(struct bcm43xx_phyinfo *phy,
 }
 
 
-/* MMIO read/write functions. Debug and non-debug variants. */
-#ifdef CONFIG_BCM43XX_DEBUG
-
 static inline
 u16 bcm43xx_read16(struct bcm43xx_private *bcm, u16 offset)
 {
-	u16 value;
-
-	value = ioread16(bcm->mmio_addr + core_offset(bcm) + offset);
-	if (unlikely(atomic_read(&bcm->mmio_print_cnt) > 0)) {
-		printk(KERN_INFO PFX "ioread16   offset: 0x%04x, value: 0x%04x\n",
-		       offset, value);
-	}
-
-	return value;
+	return ioread16(bcm->mmio_addr + core_offset(bcm) + offset);
 }
 
 static inline
 void bcm43xx_write16(struct bcm43xx_private *bcm, u16 offset, u16 value)
 {
 	iowrite16(value, bcm->mmio_addr + core_offset(bcm) + offset);
-	if (unlikely(atomic_read(&bcm->mmio_print_cnt) > 0)) {
-		printk(KERN_INFO PFX "iowrite16  offset: 0x%04x, value: 0x%04x\n",
-		       offset, value);
-	}
 }
 
 static inline
 u32 bcm43xx_read32(struct bcm43xx_private *bcm, u16 offset)
 {
-	u32 value;
-
-	value = ioread32(bcm->mmio_addr + core_offset(bcm) + offset);
-	if (unlikely(atomic_read(&bcm->mmio_print_cnt) > 0)) {
-		printk(KERN_INFO PFX "ioread32   offset: 0x%04x, value: 0x%08x\n",
-		       offset, value);
-	}
-
-	return value;
+	return ioread32(bcm->mmio_addr + core_offset(bcm) + offset);
 }
 
 static inline
 void bcm43xx_write32(struct bcm43xx_private *bcm, u16 offset, u32 value)
 {
 	iowrite32(value, bcm->mmio_addr + core_offset(bcm) + offset);
-	if (unlikely(atomic_read(&bcm->mmio_print_cnt) > 0)) {
-		printk(KERN_INFO PFX "iowrite32  offset: 0x%04x, value: 0x%08x\n",
-		       offset, value);
-	}
 }
 
 static inline
 int bcm43xx_pci_read_config16(struct bcm43xx_private *bcm, int offset, u16 *value)
 {
-	int err;
-
-	err = pci_read_config_word(bcm->pci_dev, offset, value);
-	if (unlikely(atomic_read(&bcm->pcicfg_print_cnt) > 0)) {
-		printk(KERN_INFO PFX "pciread16   offset: 0x%08x, value: 0x%04x, err: %d\n",
-		       offset, *value, err);
-	}
-
-	return err;
+	return pci_read_config_word(bcm->pci_dev, offset, value);
 }
 
 static inline
 int bcm43xx_pci_read_config32(struct bcm43xx_private *bcm, int offset, u32 *value)
 {
-	int err;
-
-	err = pci_read_config_dword(bcm->pci_dev, offset, value);
-	if (unlikely(atomic_read(&bcm->pcicfg_print_cnt) > 0)) {
-		printk(KERN_INFO PFX "pciread32   offset: 0x%08x, value: 0x%08x, err: %d\n",
-		       offset, *value, err);
-	}
-
-	return err;
+	return pci_read_config_dword(bcm->pci_dev, offset, value);
 }
 
 static inline
 int bcm43xx_pci_write_config16(struct bcm43xx_private *bcm, int offset, u16 value)
 {
-	int err;
-
-	err = pci_write_config_word(bcm->pci_dev, offset, value);
-	if (unlikely(atomic_read(&bcm->pcicfg_print_cnt) > 0)) {
-		printk(KERN_INFO PFX "pciwrite16  offset: 0x%08x, value: 0x%04x, err: %d\n",
-		       offset, value, err);
-	}
-
-	return err;
+	return pci_write_config_word(bcm->pci_dev, offset, value);
 }
 
 static inline
 int bcm43xx_pci_write_config32(struct bcm43xx_private *bcm, int offset, u32 value)
 {
-	int err;
-
-	err = pci_write_config_dword(bcm->pci_dev, offset, value);
-	if (unlikely(atomic_read(&bcm->pcicfg_print_cnt) > 0)) {
-		printk(KERN_INFO PFX "pciwrite32  offset: 0x%08x, value: 0x%08x, err: %d\n",
-		       offset, value, err);
-	}
-
-	return err;
+	return pci_write_config_dword(bcm->pci_dev, offset, value);
 }
-
-#define bcm43xx_mmioprint_initial(bcm, value)	atomic_set(&(bcm)->mmio_print_cnt, (value))
-#define bcm43xx_mmioprint_enable(bcm)		atomic_inc(&(bcm)->mmio_print_cnt)
-#define bcm43xx_mmioprint_disable(bcm)		atomic_dec(&(bcm)->mmio_print_cnt)
-#define bcm43xx_pciprint_initial(bcm, value)	atomic_set(&(bcm)->pcicfg_print_cnt, (value))
-#define bcm43xx_pciprint_enable(bcm)		atomic_inc(&(bcm)->pcicfg_print_cnt)
-#define bcm43xx_pciprint_disable(bcm)		atomic_dec(&(bcm)->pcicfg_print_cnt)
-
-#else /* CONFIG_BCM43XX_DEBUG*/
-
-#define bcm43xx_read16(bcm, offset)		ioread16((bcm)->mmio_addr + core_offset(bcm) + (offset))
-#define bcm43xx_write16(bcm, offset, value)	iowrite16((value), (bcm)->mmio_addr + core_offset(bcm) + (offset))
-#define bcm43xx_read32(bcm, offset)		ioread32((bcm)->mmio_addr + core_offset(bcm) + (offset))
-#define bcm43xx_write32(bcm, offset, value)	iowrite32((value), (bcm)->mmio_addr + core_offset(bcm) + (offset))
-#define bcm43xx_pci_read_config16(bcm, o, v)	pci_read_config_word((bcm)->pci_dev, (o), (v))
-#define bcm43xx_pci_read_config32(bcm, o, v)	pci_read_config_dword((bcm)->pci_dev, (o), (v))
-#define bcm43xx_pci_write_config16(bcm, o, v)	pci_write_config_word((bcm)->pci_dev, (o), (v))
-#define bcm43xx_pci_write_config32(bcm, o, v)	pci_write_config_dword((bcm)->pci_dev, (o), (v))
-
-#define bcm43xx_mmioprint_initial(x, y)		do { /* nothing */ } while (0)
-#define bcm43xx_mmioprint_enable(x)		do { /* nothing */ } while (0)
-#define bcm43xx_mmioprint_disable(x)		do { /* nothing */ } while (0)
-#define bcm43xx_pciprint_initial(bcm, value)	do { /* nothing */ } while (0)
-#define bcm43xx_pciprint_enable(bcm)		do { /* nothing */ } while (0)
-#define bcm43xx_pciprint_disable(bcm)		do { /* nothing */ } while (0)
-
-#endif /* CONFIG_BCM43XX_DEBUG*/
-
 
 /** Limit a value between two limits */
 #ifdef limit_value
@@ -951,5 +927,11 @@ int bcm43xx_pci_write_config32(struct bcm43xx_private *bcm, int offset, u32 valu
 	 		__value = __max;		\
 	 	__value;				\
 	})
+
+/** Helpers to print MAC addresses. */
+#define BCM43xx_MACFMT		"%02x:%02x:%02x:%02x:%02x:%02x"
+#define BCM43xx_MACARG(x)	((u8*)(x))[0], ((u8*)(x))[1], \
+				((u8*)(x))[2], ((u8*)(x))[3], \
+				((u8*)(x))[4], ((u8*)(x))[5]
 
 #endif /* BCM43xx_H_ */

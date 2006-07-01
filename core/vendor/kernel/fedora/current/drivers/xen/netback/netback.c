@@ -99,17 +99,17 @@ static spinlock_t net_schedule_list_lock;
 #define MAX_MFN_ALLOC 64
 static unsigned long mfn_list[MAX_MFN_ALLOC];
 static unsigned int alloc_index = 0;
-static spinlock_t mfn_lock = SPIN_LOCK_UNLOCKED;
+static DEFINE_SPINLOCK(mfn_lock);
 
 static unsigned long alloc_mfn(void)
 {
 	unsigned long mfn = 0, flags;
 	struct xen_memory_reservation reservation = {
-		.extent_start = mfn_list,
 		.nr_extents   = MAX_MFN_ALLOC,
 		.extent_order = 0,
 		.domid        = DOMID_SELF
 	};
+	set_xen_guest_handle(reservation.extent_start, mfn_list);
 	spin_lock_irqsave(&mfn_lock, flags);
 	if ( unlikely(alloc_index == 0) )
 		alloc_index = HYPERVISOR_memory_op(
@@ -170,7 +170,9 @@ int netif_be_start_xmit(struct sk_buff *skb, struct net_device *dev)
 		ret = skb_copy_bits(skb, -hlen, nskb->data - hlen,
 				     skb->len + hlen);
 		BUG_ON(ret);
+		/* Copy only the header fields we use in this driver. */
 		nskb->dev = skb->dev;
+		nskb->ip_summed = skb->ip_summed;
 		nskb->proto_data_valid = skb->proto_data_valid;
 		dev_kfree_skb(skb);
 		skb = nskb;
@@ -235,23 +237,35 @@ static void net_rx_action(unsigned long unused)
 		vdata   = (unsigned long)skb->data;
 		old_mfn = virt_to_mfn(vdata);
 
-		/* Memory squeeze? Back off for an arbitrary while. */
-		if ((new_mfn = alloc_mfn()) == 0) {
-			if ( net_ratelimit() )
-				WPRINTK("Memory squeeze in netback driver.\n");
-			mod_timer(&net_timer, jiffies + HZ);
-			skb_queue_head(&rx_queue, skb);
-			break;
-		}
-		/*
-		 * Set the new P2M table entry before reassigning the old data
-		 * page. Heed the comment in pgtable-2level.h:pte_page(). :-)
-		 */
-		set_phys_to_machine(__pa(skb->data) >> PAGE_SHIFT, new_mfn);
+		if (!xen_feature(XENFEAT_auto_translated_physmap)) {
+			/* Memory squeeze? Back off for an arbitrary while. */
+			if ((new_mfn = alloc_mfn()) == 0) {
+				if ( net_ratelimit() )
+					WPRINTK("Memory squeeze in netback "
+						"driver.\n");
+				mod_timer(&net_timer, jiffies + HZ);
+				skb_queue_head(&rx_queue, skb);
+				break;
+			}
+			/*
+			 * Set the new P2M table entry before reassigning
+			 * the old data page. Heed the comment in
+			 * pgtable-2level.h:pte_page(). :-)
+			 */
+			set_phys_to_machine(
+				__pa(skb->data) >> PAGE_SHIFT,
+				new_mfn);
 
-		MULTI_update_va_mapping(mcl, vdata,
-					pfn_pte_ma(new_mfn, PAGE_KERNEL), 0);
-		mcl++;
+			MULTI_update_va_mapping(mcl, vdata,
+						pfn_pte_ma(new_mfn,
+							   PAGE_KERNEL), 0);
+			mcl++;
+
+			mmu->ptr = ((maddr_t)new_mfn << PAGE_SHIFT) |
+				MMU_MACHPHYS_UPDATE;
+			mmu->val = __pa(vdata) >> PAGE_SHIFT;
+			mmu++;
+		}
 
 		gop->mfn = old_mfn;
 		gop->domid = netif->domid;
@@ -260,13 +274,6 @@ static void net_rx_action(unsigned long unused)
 		netif->rx.req_cons++;
 		gop++;
 
-		if (!xen_feature(XENFEAT_auto_translated_physmap)) {
-			mmu->ptr = ((maddr_t)new_mfn << PAGE_SHIFT) |
-				MMU_MACHPHYS_UPDATE;
-			mmu->val = __pa(vdata) >> PAGE_SHIFT;
-			mmu++;
-		}
-
 		__skb_queue_tail(&rxq, skb);
 
 		/* Filled the batch queue? */
@@ -274,22 +281,24 @@ static void net_rx_action(unsigned long unused)
 			break;
 	}
 
-	if (mcl == rx_mcl)
-		return;
+	if (!xen_feature(XENFEAT_auto_translated_physmap)) {
+		if (mcl == rx_mcl)
+			return;
 
-	mcl[-1].args[MULTI_UVMFLAGS_INDEX] = UVMF_TLB_FLUSH|UVMF_ALL;
+		mcl[-1].args[MULTI_UVMFLAGS_INDEX] = UVMF_TLB_FLUSH|UVMF_ALL;
 
-	if (mmu - rx_mmu) {
-		mcl->op = __HYPERVISOR_mmu_update;
-		mcl->args[0] = (unsigned long)rx_mmu;
-		mcl->args[1] = mmu - rx_mmu;
-		mcl->args[2] = 0;
-		mcl->args[3] = DOMID_SELF;
-		mcl++;
+		if (mmu - rx_mmu) {
+			mcl->op = __HYPERVISOR_mmu_update;
+			mcl->args[0] = (unsigned long)rx_mmu;
+			mcl->args[1] = mmu - rx_mmu;
+			mcl->args[2] = 0;
+			mcl->args[3] = DOMID_SELF;
+			mcl++;
+		}
+
+		ret = HYPERVISOR_multicall(rx_mcl, mcl - rx_mcl);
+		BUG_ON(ret != 0);
 	}
-
-	ret = HYPERVISOR_multicall(rx_mcl, mcl - rx_mcl);
-	BUG_ON(ret != 0);
 
 	ret = HYPERVISOR_grant_table_op(GNTTABOP_transfer, grant_rx_op, 
 					gop - grant_rx_op);
@@ -301,9 +310,6 @@ static void net_rx_action(unsigned long unused)
 		netif   = netdev_priv(skb->dev);
 		size    = skb->tail - skb->data;
 
-		/* Rederive the machine addresses. */
-		new_mfn = mcl->args[1] >> PAGE_SHIFT;
-		old_mfn = gop->mfn;
 		atomic_set(&(skb_shinfo(skb)->dataref), 1);
 		skb_shinfo(skb)->nr_frags = 0;
 		skb_shinfo(skb)->frag_list = NULL;
@@ -311,8 +317,11 @@ static void net_rx_action(unsigned long unused)
 		netif->stats.tx_bytes += size;
 		netif->stats.tx_packets++;
 
-		/* The update_va_mapping() must not fail. */
-		BUG_ON(mcl->result != 0);
+		if (!xen_feature(XENFEAT_auto_translated_physmap)) {
+			/* The update_va_mapping() must not fail. */
+			BUG_ON(mcl->result != 0);
+			mcl++;
+		}
 
 		/* Check the reassignment error code. */
 		status = NETIF_RSP_OKAY;
@@ -343,7 +352,6 @@ static void net_rx_action(unsigned long unused)
 
 		netif_put(netif);
 		dev_kfree_skb(skb);
-		mcl++;
 		gop++;
 	}
 
@@ -450,15 +458,18 @@ inline static void net_tx_action_dealloc(void)
 	dc = dealloc_cons;
 	dp = dealloc_prod;
 
+	/* Ensure we see all indexes enqueued by netif_idx_release(). */
+	smp_rmb();
+
 	/*
 	 * Free up any grants we have finished using
 	 */
 	gop = tx_unmap_ops;
 	while (dc != dp) {
 		pending_idx = dealloc_ring[MASK_PEND_IDX(dc++)];
-		gop->host_addr    = MMAP_VADDR(pending_idx);
-		gop->dev_bus_addr = 0;
-		gop->handle       = grant_tx_handle[pending_idx];
+		gnttab_set_unmap_op(gop, MMAP_VADDR(pending_idx),
+				    GNTMAP_host_map,
+				    grant_tx_handle[pending_idx]);
 		gop++;
 	}
 	ret = HYPERVISOR_grant_table_op(
@@ -479,6 +490,177 @@ inline static void net_tx_action_dealloc(void)
 	}
 }
 
+static void netbk_tx_err(netif_t *netif, RING_IDX end)
+{
+	RING_IDX cons = netif->tx.req_cons;
+
+	do {
+		netif_tx_request_t *txp = RING_GET_REQUEST(&netif->tx, cons);
+		make_tx_response(netif, txp->id, NETIF_RSP_ERROR);
+	} while (++cons < end);
+	netif->tx.req_cons = cons;
+	netif_schedule_work(netif);
+	netif_put(netif);
+}
+
+static int netbk_count_requests(netif_t *netif, netif_tx_request_t *txp,
+				int work_to_do)
+{
+	netif_tx_request_t *first = txp;
+	RING_IDX cons = netif->tx.req_cons;
+	int frags = 1;
+
+	while (txp->flags & NETTXF_more_data) {
+		if (frags >= work_to_do) {
+			DPRINTK("Need more frags\n");
+			return -frags;
+		}
+
+		txp = RING_GET_REQUEST(&netif->tx, cons + frags);
+		if (txp->size > first->size) {
+			DPRINTK("Frags galore\n");
+			return -frags;
+		}
+
+		first->size -= txp->size;
+		frags++;
+
+		if (unlikely((txp->offset + txp->size) > PAGE_SIZE)) {
+			DPRINTK("txp->offset: %x, size: %u\n",
+				txp->offset, txp->size);
+			return -frags;
+		}
+	}
+
+	return frags;
+}
+
+static gnttab_map_grant_ref_t *netbk_get_requests(netif_t *netif,
+						  struct sk_buff *skb,
+						  gnttab_map_grant_ref_t *mop)
+{
+	struct skb_shared_info *shinfo = skb_shinfo(skb);
+	skb_frag_t *frags = shinfo->frags;
+	netif_tx_request_t *txp;
+	unsigned long pending_idx = *((u16 *)skb->data);
+	RING_IDX cons = netif->tx.req_cons + 1;
+	int i, start;
+
+	/* Skip first skb fragment if it is on same page as header fragment. */
+	start = ((unsigned long)shinfo->frags[0].page == pending_idx);
+
+	for (i = start; i < shinfo->nr_frags; i++) {
+		txp = RING_GET_REQUEST(&netif->tx, cons++);
+		pending_idx = pending_ring[MASK_PEND_IDX(pending_cons++)];
+
+		gnttab_set_map_op(mop++, MMAP_VADDR(pending_idx),
+				  GNTMAP_host_map | GNTMAP_readonly,
+				  txp->gref, netif->domid);
+
+		memcpy(&pending_tx_info[pending_idx].req, txp, sizeof(*txp));
+		netif_get(netif);
+		pending_tx_info[pending_idx].netif = netif;
+		frags[i].page = (void *)pending_idx;
+	}
+
+	return mop;
+}
+
+static int netbk_tx_check_mop(struct sk_buff *skb,
+			       gnttab_map_grant_ref_t **mopp)
+{
+	gnttab_map_grant_ref_t *mop = *mopp;
+	int pending_idx = *((u16 *)skb->data);
+	netif_t *netif = pending_tx_info[pending_idx].netif;
+	netif_tx_request_t *txp;
+	struct skb_shared_info *shinfo = skb_shinfo(skb);
+	int nr_frags = shinfo->nr_frags;
+	int i, err, start;
+
+	/* Check status of header. */
+	err = mop->status;
+	if (unlikely(err)) {
+		txp = &pending_tx_info[pending_idx].req;
+		make_tx_response(netif, txp->id, NETIF_RSP_ERROR);
+		pending_ring[MASK_PEND_IDX(pending_prod++)] = pending_idx;
+		netif_put(netif);
+	} else {
+		set_phys_to_machine(
+			__pa(MMAP_VADDR(pending_idx)) >> PAGE_SHIFT,
+			FOREIGN_FRAME(mop->dev_bus_addr >> PAGE_SHIFT));
+		grant_tx_handle[pending_idx] = mop->handle;
+	}
+
+	/* Skip first skb fragment if it is on same page as header fragment. */
+	start = ((unsigned long)shinfo->frags[0].page == pending_idx);
+
+	for (i = start; i < nr_frags; i++) {
+		int j, newerr;
+
+		pending_idx = (unsigned long)shinfo->frags[i].page;
+
+		/* Check error status: if okay then remember grant handle. */
+		newerr = (++mop)->status;
+		if (likely(!newerr)) {
+			set_phys_to_machine(
+				__pa(MMAP_VADDR(pending_idx))>>PAGE_SHIFT,
+				FOREIGN_FRAME(mop->dev_bus_addr>>PAGE_SHIFT));
+			grant_tx_handle[pending_idx] = mop->handle;
+			/* Had a previous error? Invalidate this fragment. */
+			if (unlikely(err))
+				netif_idx_release(pending_idx);
+			continue;
+		}
+
+		/* Error on this fragment: respond to client with an error. */
+		txp = &pending_tx_info[pending_idx].req;
+		make_tx_response(netif, txp->id, NETIF_RSP_ERROR);
+		pending_ring[MASK_PEND_IDX(pending_prod++)] = pending_idx;
+		netif_put(netif);
+
+		/* Not the first error? Preceding frags already invalidated. */
+		if (err)
+			continue;
+
+		/* First error: invalidate header and preceding fragments. */
+		pending_idx = *((u16 *)skb->data);
+		netif_idx_release(pending_idx);
+		for (j = start; j < i; j++) {
+			pending_idx = (unsigned long)shinfo->frags[i].page;
+			netif_idx_release(pending_idx);
+		}
+
+		/* Remember the error: invalidate all subsequent fragments. */
+		err = newerr;
+	}
+
+	*mopp = mop + 1;
+	return err;
+}
+
+static void netbk_fill_frags(struct sk_buff *skb)
+{
+	struct skb_shared_info *shinfo = skb_shinfo(skb);
+	int nr_frags = shinfo->nr_frags;
+	int i;
+
+	for (i = 0; i < nr_frags; i++) {
+		skb_frag_t *frag = shinfo->frags + i;
+		netif_tx_request_t *txp;
+		unsigned long pending_idx;
+
+		pending_idx = (unsigned long)frag->page;
+		txp = &pending_tx_info[pending_idx].req;
+		frag->page = virt_to_page(MMAP_VADDR(pending_idx));
+		frag->size = txp->size;
+		frag->page_offset = txp->offset;
+
+		skb->len += txp->size;
+		skb->data_len += txp->size;
+		skb->truesize += txp->size;
+	}
+}
+
 /* Called after netfront has transmitted */
 static void net_tx_action(unsigned long unused)
 {
@@ -496,7 +678,7 @@ static void net_tx_action(unsigned long unused)
 		net_tx_action_dealloc();
 
 	mop = tx_map_ops;
-	while ((NR_PENDING_REQS < MAX_PENDING_REQS) &&
+	while (((NR_PENDING_REQS + MAX_SKB_FRAGS) < MAX_PENDING_REQS) &&
 		!list_empty(&net_schedule_list)) {
 		/* Get a netif from the list with work to do. */
 		ent = net_schedule_list.next;
@@ -544,48 +726,53 @@ static void net_tx_action(unsigned long unused)
 		}
 		netif->remaining_credit -= txreq.size;
 
-		netif->tx.req_cons++;
+		ret = netbk_count_requests(netif, &txreq, work_to_do);
+		if (unlikely(ret < 0)) {
+			netbk_tx_err(netif, i - ret);
+			continue;
+		}
+		i += ret;
 
-		netif_schedule_work(netif);
+		if (unlikely(ret > MAX_SKB_FRAGS + 1)) {
+			DPRINTK("Too many frags\n");
+			netbk_tx_err(netif, i);
+			continue;
+		}
 
-		if (unlikely(txreq.size < ETH_HLEN) || 
-		    unlikely(txreq.size > ETH_FRAME_LEN)) {
+		if (unlikely(txreq.size < ETH_HLEN)) {
 			DPRINTK("Bad packet size: %d\n", txreq.size);
-			make_tx_response(netif, txreq.id, NETIF_RSP_ERROR);
-			netif_put(netif);
+			netbk_tx_err(netif, i);
 			continue; 
 		}
 
 		/* No crossing a page as the payload mustn't fragment. */
-		if (unlikely((txreq.offset + txreq.size) >= PAGE_SIZE)) {
+		if (unlikely((txreq.offset + txreq.size) > PAGE_SIZE)) {
 			DPRINTK("txreq.offset: %x, size: %u, end: %lu\n", 
 				txreq.offset, txreq.size, 
 				(txreq.offset &~PAGE_MASK) + txreq.size);
-			make_tx_response(netif, txreq.id, NETIF_RSP_ERROR);
-			netif_put(netif);
+			netbk_tx_err(netif, i);
 			continue;
 		}
 
 		pending_idx = pending_ring[MASK_PEND_IDX(pending_cons)];
 
-		data_len = (txreq.size > PKT_PROT_LEN) ?
+		data_len = (txreq.size > PKT_PROT_LEN &&
+			    ret < MAX_SKB_FRAGS + 1) ?
 			PKT_PROT_LEN : txreq.size;
 
 		skb = alloc_skb(data_len+16, GFP_ATOMIC);
 		if (unlikely(skb == NULL)) {
 			DPRINTK("Can't allocate a skb in start_xmit.\n");
-			make_tx_response(netif, txreq.id, NETIF_RSP_ERROR);
-			netif_put(netif);
+			netbk_tx_err(netif, i);
 			break;
 		}
 
 		/* Packets passed to netif_rx() must have some headroom. */
 		skb_reserve(skb, 16);
 
-		mop->host_addr = MMAP_VADDR(pending_idx);
-		mop->dom       = netif->domid;
-		mop->ref       = txreq.gref;
-		mop->flags     = GNTMAP_host_map | GNTMAP_readonly;
+		gnttab_set_map_op(mop, MMAP_VADDR(pending_idx),
+				  GNTMAP_host_map | GNTMAP_readonly,
+				  txreq.gref, netif->domid);
 		mop++;
 
 		memcpy(&pending_tx_info[pending_idx].req,
@@ -593,9 +780,23 @@ static void net_tx_action(unsigned long unused)
 		pending_tx_info[pending_idx].netif = netif;
 		*((u16 *)skb->data) = pending_idx;
 
+		__skb_put(skb, data_len);
+
+		skb_shinfo(skb)->nr_frags = ret - 1;
+		if (data_len < txreq.size) {
+			skb_shinfo(skb)->nr_frags++;
+			skb_shinfo(skb)->frags[0].page =
+				(void *)(unsigned long)pending_idx;
+		}
+
 		__skb_queue_tail(&tx_queue, skb);
 
 		pending_cons++;
+
+		mop = netbk_get_requests(netif, skb, mop);
+
+		netif->tx.req_cons = i;
+		netif_schedule_work(netif);
 
 		if ((mop - tx_map_ops) >= ARRAY_SIZE(tx_map_ops))
 			break;
@@ -610,84 +811,69 @@ static void net_tx_action(unsigned long unused)
 
 	mop = tx_map_ops;
 	while ((skb = __skb_dequeue(&tx_queue)) != NULL) {
+		netif_tx_request_t *txp;
+
 		pending_idx = *((u16 *)skb->data);
 		netif       = pending_tx_info[pending_idx].netif;
-		memcpy(&txreq, &pending_tx_info[pending_idx].req,
-		       sizeof(txreq));
+		txp         = &pending_tx_info[pending_idx].req;
 
 		/* Check the remap error code. */
-		if (unlikely(mop->status)) {
+		if (unlikely(netbk_tx_check_mop(skb, &mop))) {
 			printk(KERN_ALERT "#### netback grant fails\n");
-			make_tx_response(netif, txreq.id, NETIF_RSP_ERROR);
-			netif_put(netif);
+			skb_shinfo(skb)->nr_frags = 0;
 			kfree_skb(skb);
-			mop++;
-			pending_ring[MASK_PEND_IDX(pending_prod++)] =
-				pending_idx;
 			continue;
 		}
-		set_phys_to_machine(
-			__pa(MMAP_VADDR(pending_idx)) >> PAGE_SHIFT,
-			FOREIGN_FRAME(mop->dev_bus_addr >> PAGE_SHIFT));
-		grant_tx_handle[pending_idx] = mop->handle;
 
-		data_len = (txreq.size > PKT_PROT_LEN) ?
-			PKT_PROT_LEN : txreq.size;
-
-		__skb_put(skb, data_len);
+		data_len = skb->len;
 		memcpy(skb->data, 
-		       (void *)(MMAP_VADDR(pending_idx)|txreq.offset),
+		       (void *)(MMAP_VADDR(pending_idx)|txp->offset),
 		       data_len);
-		if (data_len < txreq.size) {
+		if (data_len < txp->size) {
 			/* Append the packet payload as a fragment. */
-			skb_shinfo(skb)->frags[0].page        = 
-				virt_to_page(MMAP_VADDR(pending_idx));
-			skb_shinfo(skb)->frags[0].size        =
-				txreq.size - data_len;
-			skb_shinfo(skb)->frags[0].page_offset = 
-				txreq.offset + data_len;
-			skb_shinfo(skb)->nr_frags = 1;
+			txp->offset += data_len;
+			txp->size -= data_len;
 		} else {
 			/* Schedule a response immediately. */
 			netif_idx_release(pending_idx);
 		}
 
-		skb->data_len  = txreq.size - data_len;
-		skb->len      += skb->data_len;
-
-		skb->dev      = netif->dev;
-		skb->protocol = eth_type_trans(skb, skb->dev);
-
 		/*
 		 * Old frontends do not assert data_validated but we
 		 * can infer it from csum_blank so test both flags.
 		 */
-		if (txreq.flags & (NETTXF_data_validated|NETTXF_csum_blank)) {
+		if (txp->flags & (NETTXF_data_validated|NETTXF_csum_blank)) {
 			skb->ip_summed = CHECKSUM_UNNECESSARY;
 			skb->proto_data_valid = 1;
 		} else {
 			skb->ip_summed = CHECKSUM_NONE;
 			skb->proto_data_valid = 0;
 		}
-		skb->proto_csum_blank = !!(txreq.flags & NETTXF_csum_blank);
+		skb->proto_csum_blank = !!(txp->flags & NETTXF_csum_blank);
 
-		netif->stats.rx_bytes += txreq.size;
+		netbk_fill_frags(skb);
+
+		skb->dev      = netif->dev;
+		skb->protocol = eth_type_trans(skb, skb->dev);
+
+		netif->stats.rx_bytes += skb->len;
 		netif->stats.rx_packets++;
 
 		netif_rx(skb);
 		netif->dev->last_rx = jiffies;
-
-		mop++;
 	}
 }
 
 static void netif_idx_release(u16 pending_idx)
 {
-	static spinlock_t _lock = SPIN_LOCK_UNLOCKED;
+	static DEFINE_SPINLOCK(_lock);
 	unsigned long flags;
 
 	spin_lock_irqsave(&_lock, flags);
-	dealloc_ring[MASK_PEND_IDX(dealloc_prod++)] = pending_idx;
+	dealloc_ring[MASK_PEND_IDX(dealloc_prod)] = pending_idx;
+	/* Sync with net_tx_action_dealloc: insert idx /then/ incr producer. */
+	smp_wmb();
+	dealloc_prod++;
 	spin_unlock_irqrestore(&_lock, flags);
 
 	tasklet_schedule(&net_tx_tasklet);
@@ -698,7 +884,7 @@ static void netif_page_release(struct page *page)
 	u16 pending_idx = page - virt_to_page(mmap_vstart);
 
 	/* Ready for next use. */
-	set_page_count(page, 1);
+	init_page_count(page);
 
 	netif_idx_release(pending_idx);
 }
@@ -802,6 +988,9 @@ static int __init netback_init(void)
 	int i;
 	struct page *page;
 
+	if (!is_running_on_xen())
+		return -ENODEV;
+
 	/* We can increase reservation by this much in net_rx_action(). */
 	balloon_update_driver_allowance(NET_RX_RING_SIZE);
 
@@ -818,7 +1007,7 @@ static int __init netback_init(void)
 
 	for (i = 0; i < MAX_PENDING_REQS; i++) {
 		page = virt_to_page(MMAP_VADDR(i));
-		set_page_count(page, 1);
+		init_page_count(page);
 		SetPageForeign(page, netif_page_release);
 	}
 
@@ -842,27 +1031,9 @@ static int __init netback_init(void)
 		&netif_be_dbg);
 #endif
 
-	__unsafe(THIS_MODULE);
-
 	return 0;
 }
 
-static void netback_cleanup(void)
-{
-	BUG();
-}
-
 module_init(netback_init);
-module_exit(netback_cleanup);
 
 MODULE_LICENSE("Dual BSD/GPL");
-
-/*
- * Local variables:
- *  c-file-style: "linux"
- *  indent-tabs-mode: t
- *  c-indent-level: 8
- *  c-basic-offset: 8
- *  tab-width: 8
- * End:
- */

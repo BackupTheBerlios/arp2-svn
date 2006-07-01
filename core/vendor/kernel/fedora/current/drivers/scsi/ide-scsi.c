@@ -47,6 +47,7 @@
 #include <linux/ide.h>
 #include <linux/scatterlist.h>
 #include <linux/delay.h>
+#include <linux/mutex.h>
 
 #include <asm/io.h>
 #include <asm/bitops.h>
@@ -109,7 +110,7 @@ typedef struct ide_scsi_obj {
 	unsigned long log;			/* log flags */
 } idescsi_scsi_t;
 
-static DECLARE_MUTEX(idescsi_ref_sem);
+static DEFINE_MUTEX(idescsi_ref_mutex);
 
 #define ide_scsi_g(disk) \
 	container_of((disk)->private_data, struct ide_scsi_obj, driver)
@@ -118,19 +119,19 @@ static struct ide_scsi_obj *ide_scsi_get(struct gendisk *disk)
 {
 	struct ide_scsi_obj *scsi = NULL;
 
-	down(&idescsi_ref_sem);
+	mutex_lock(&idescsi_ref_mutex);
 	scsi = ide_scsi_g(disk);
 	if (scsi)
 		scsi_host_get(scsi->host);
-	up(&idescsi_ref_sem);
+	mutex_unlock(&idescsi_ref_mutex);
 	return scsi;
 }
 
 static void ide_scsi_put(struct ide_scsi_obj *scsi)
 {
-	down(&idescsi_ref_sem);
+	mutex_lock(&idescsi_ref_mutex);
 	scsi_host_put(scsi->host);
-	up(&idescsi_ref_sem);
+	mutex_unlock(&idescsi_ref_mutex);
 }
 
 static inline idescsi_scsi_t *scsihost_to_idescsi(struct Scsi_Host *host)
@@ -798,8 +799,6 @@ static ide_driver_t idescsi_driver = {
 	.abort                  = idescsi_atapi_abort,
 };
 
-static int ide_scsi_warned;
-
 static int idescsi_ide_open(struct inode *inode, struct file *filp)
 {
 	struct gendisk *disk = inode->i_bdev->bd_disk;
@@ -812,10 +811,7 @@ static int idescsi_ide_open(struct inode *inode, struct file *filp)
 	drive = scsi->drive;
 
 	drive->usage++;
-	if (!ide_scsi_warned++) {
-		printk(KERN_WARNING "ide-scsi: Warning this device driver is only intended for specialist devices.\n");
-		printk(KERN_WARNING "ide-scsi: Do not use for cd burning, use /dev/hdX directly instead.\n");
-	}
+
 	return 0;
 }
 

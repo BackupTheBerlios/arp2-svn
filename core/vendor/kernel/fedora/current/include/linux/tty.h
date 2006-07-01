@@ -24,6 +24,7 @@
 #include <linux/tty_driver.h>
 #include <linux/tty_ldisc.h>
 #include <linux/screen_info.h>
+#include <linux/mutex.h>
 
 #include <asm/system.h>
 
@@ -231,8 +232,8 @@ struct tty_struct {
 	int canon_data;
 	unsigned long canon_head;
 	unsigned int canon_column;
-	struct semaphore atomic_read;
-	struct semaphore atomic_write;
+	struct mutex atomic_read_lock;
+	struct mutex atomic_write_lock;
 	unsigned char *write_buf;
 	int write_cnt;
 	spinlock_t read_lock;
@@ -296,6 +297,8 @@ extern int tty_read_raw_data(struct tty_struct *tty, unsigned char *bufp,
 			     int buflen);
 extern void tty_write_message(struct tty_struct *tty, char *msg);
 
+extern void tty_get_termios(struct tty_driver *drv, int idx, struct termios *tio);
+
 extern int is_orphaned_pgrp(int pgrp);
 extern int is_ignored(int sig);
 extern int tty_signal(int sig, struct tty_struct *tty);
@@ -319,8 +322,7 @@ extern void tty_ldisc_put(int);
 extern void tty_wakeup(struct tty_struct *tty);
 extern void tty_ldisc_flush(struct tty_struct *tty);
 
-struct semaphore;
-extern struct semaphore tty_sem;
+extern struct mutex tty_mutex;
 
 /* n_tty.c */
 extern struct tty_ldisc tty_ldisc_N_TTY;

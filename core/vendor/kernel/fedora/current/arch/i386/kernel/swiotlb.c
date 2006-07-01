@@ -32,7 +32,7 @@ EXPORT_SYMBOL(swiotlb);
 
 #define OFFSET(val,align) ((unsigned long)((val) & ( (align) - 1)))
 
-#define SG_ENT_PHYS_ADDRESS(sg)	(page_to_phys((sg)->page) + (sg)->offset)
+#define SG_ENT_PHYS_ADDRESS(sg)	(page_to_bus((sg)->page) + (sg)->offset)
 
 /*
  * Maximum allowable number of contiguous slabs to map,
@@ -191,6 +191,7 @@ swiotlb_init(void)
 	if (swiotlb_force == 1) {
 		swiotlb = 1;
 	} else if ((swiotlb_force != -1) &&
+		   is_running_on_xen() &&
 		   (xen_start_info->flags & SIF_INITDOMAIN)) {
 		/* Domain 0 always has a swiotlb. */
 		ram_end = HYPERVISOR_memory_op(XENMEM_maximum_ram_page, NULL);
@@ -607,7 +608,7 @@ swiotlb_map_page(struct device *hwdev, struct page *page,
 	dma_addr_t dev_addr;
 	char *map;
 
-	dev_addr = page_to_phys(page) + offset;
+	dev_addr = page_to_bus(page) + offset;
 	if (address_needs_mapping(hwdev, dev_addr)) {
 		buffer.page   = page;
 		buffer.offset = offset;
@@ -662,13 +663,3 @@ EXPORT_SYMBOL(swiotlb_map_page);
 EXPORT_SYMBOL(swiotlb_unmap_page);
 EXPORT_SYMBOL(swiotlb_dma_mapping_error);
 EXPORT_SYMBOL(swiotlb_dma_supported);
-
-/*
- * Local variables:
- *  c-file-style: "linux"
- *  indent-tabs-mode: t
- *  c-indent-level: 8
- *  c-basic-offset: 8
- *  tab-width: 8
- * End:
- */

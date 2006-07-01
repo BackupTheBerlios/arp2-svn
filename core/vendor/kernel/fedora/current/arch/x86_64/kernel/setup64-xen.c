@@ -41,7 +41,7 @@ struct x8664_pda *_cpu_pda[NR_CPUS] __read_mostly;
 struct x8664_pda boot_cpu_pda[NR_CPUS] __cacheline_aligned;
 
 #ifndef CONFIG_X86_NO_IDT
-struct desc_ptr idt_descr = { 256 * 16, (unsigned long) idt_table }; 
+struct desc_ptr idt_descr = { 256 * 16 - 1, (unsigned long) idt_table }; 
 #endif
 
 char boot_cpu_stack[IRQSTACKSIZE] __attribute__((section(".bss.page_aligned")));
@@ -64,8 +64,8 @@ void __init nonx_setup(const char *str)
 		do_not_nx = 1;
 		__supported_pte_mask &= ~_PAGE_NX;
         }
-}
-
+	return 1;
+} 
 /*
  * Great future plan:
  * Declare PDA itself and support (irqstack,tss,pgd) as per cpu data.
@@ -290,7 +290,7 @@ void __cpuinit cpu_init (void)
 		switch (v + 1) {
 #if DEBUG_STKSZ > EXCEPTION_STKSZ
 		case DEBUG_STACK:
-			cpu_pda[cpu].debugstack = (unsigned long)estacks;
+			cpu_pda(cpu)->debugstack = (unsigned long)estacks;
 			estacks += DEBUG_STKSZ;
 			break;
 #endif
@@ -328,12 +328,12 @@ void __cpuinit cpu_init (void)
 	 * Clear all 6 debug registers:
 	 */
 
-	set_debug(0UL, 0);
-	set_debug(0UL, 1);
-	set_debug(0UL, 2);
-	set_debug(0UL, 3);
-	set_debug(0UL, 6);
-	set_debug(0UL, 7);
+	set_debugreg(0UL, 0);
+	set_debugreg(0UL, 1);
+	set_debugreg(0UL, 2);
+	set_debugreg(0UL, 3);
+	set_debugreg(0UL, 6);
+	set_debugreg(0UL, 7);
 
 	fpu_init(); 
 }

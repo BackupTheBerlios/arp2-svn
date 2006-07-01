@@ -20,6 +20,7 @@
 #include <linux/config.h>
 #include <linux/threads.h>
 #include <asm/percpu.h>
+#include <linux/cpumask.h>
 #include <xen/interface/physdev.h>
 
 /* flag for disabling the tsc */
@@ -68,6 +69,9 @@ struct cpuinfo_x86 {
 	char	pad0;
 	int	x86_power;
 	unsigned long loops_per_jiffy;
+#ifdef CONFIG_SMP
+	cpumask_t llc_shared_map;	/* cpus sharing the last level cache */
+#endif
 	unsigned char x86_max_cores;	/* cpuid returned max cores value */
 	unsigned char booted_cores;	/* number of cores as seen by OS */
 	unsigned char apicid;
@@ -106,6 +110,7 @@ extern struct cpuinfo_x86 cpu_data[];
 
 extern	int phys_proc_id[NR_CPUS];
 extern	int cpu_core_id[NR_CPUS];
+extern	int cpu_llc_id[NR_CPUS];
 extern char ignore_fpu_irq;
 
 extern void identify_cpu(struct cpuinfo_x86 *);
@@ -499,13 +504,11 @@ struct thread_struct {
 static inline void __load_esp0(struct tss_struct *tss, struct thread_struct *thread)
 {
 	tss->esp0 = thread->esp0;
-#ifdef CONFIG_X86_SYSENTER
 	/* This can only happen when SEP is enabled, no need to test "SEP"arately */
 	if (unlikely(tss->ss1 != thread->sysenter_cs)) {
 		tss->ss1 = thread->sysenter_cs;
 		wrmsr(MSR_IA32_SYSENTER_CS, thread->sysenter_cs, 0);
 	}
-#endif
 }
 #define load_esp0(tss, thread) \
 	__load_esp0(tss, thread)
@@ -541,12 +544,11 @@ static inline void __load_esp0(struct tss_struct *tss, struct thread_struct *thr
  */
 static inline void set_iopl_mask(unsigned mask)
 {
-	physdev_op_t op;
+	struct physdev_set_iopl set_iopl;
 
 	/* Force the change at ring 0. */
-	op.cmd = PHYSDEVOP_SET_IOPL;
-	op.u.set_iopl.iopl = (mask == 0) ? 1 : (mask >> 12) & 3;
-	HYPERVISOR_physdev_op(&op);
+	set_iopl.iopl = (mask == 0) ? 1 : (mask >> 12) & 3;
+	HYPERVISOR_physdev_op(PHYSDEVOP_set_iopl, &set_iopl);
 }
 
 /* Forward declaration, a strange C thing */
@@ -631,8 +633,6 @@ struct extended_sigtable {
 	unsigned int reserved[3];
 	struct extended_signature sigs[0];
 };
-/* '6' because it used to be for P6 only (but now covers Pentium 4 as well) */
-#define MICROCODE_IOCFREE	_IO('6',0)
 
 /* REP NOP (PAUSE) is a good thing to insert into busy-wait loops. */
 static inline void rep_nop(void)

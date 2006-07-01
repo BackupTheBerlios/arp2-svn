@@ -6,7 +6,7 @@
  * 	Ryan S. Arnold <rsa@us.ibm.com>
  *
  * hvc_console header information:
- *      moved here from include/asm-ppc64/hvconsole.h
+ *      moved here from include/asm-powerpc/hvconsole.h
  *      and drivers/char/hvc_console.c
  *
  * This program is free software; you can redistribute it and/or modify
@@ -27,10 +27,6 @@
 #ifndef HVC_CONSOLE_H
 #define HVC_CONSOLE_H
 
-#include <linux/spinlock.h>
-#include <linux/list.h>
-#include <linux/kobject.h>
-
 /*
  * This is the max number of console adapters that can/will be found as
  * console devices on first stage console init.  Any number beyond this range
@@ -39,15 +35,13 @@
 #define MAX_NR_HVC_CONSOLES	16
 
 /*
- * This is a design shortcoming, the number '16' is a vio required buffer
- * size.  This should be changeable per architecture, but hvc_struct relies
- * upon it and that struct is used by all hvc_console backend drivers.  This
- * needs to be fixed.
+ * The Linux TTY code does not support dynamic addition of tty derived devices
+ * so we need to know how many tty devices we might need when space is allocated
+ * for the tty device.  Since this driver supports hotplug of vty adapters we
+ * need to make sure we have enough allocated.
  */
-#define N_OUTBUF	16
-#define N_INBUF		16
+#define HVC_ALLOC_TTY_ADAPTERS	8
 
-#define __ALIGNED__ __attribute__((__aligned__(sizeof(long))))
 
 /* implemented by a low level driver */
 struct hv_ops {
@@ -55,21 +49,7 @@ struct hv_ops {
 	int (*put_chars)(uint32_t vtermno, const char *buf, int count);
 };
 
-struct hvc_struct {
-	spinlock_t lock;
-	int index;
-	struct tty_struct *tty;
-	unsigned int count;
-	int do_wakeup;
-	char outbuf[N_OUTBUF] __ALIGNED__;
-	int n_outbuf;
-	uint32_t vtermno;
-	struct hv_ops *ops;
-	int irq_requested;
-	int irq;
-	struct list_head next;
-	struct kobject kobj; /* ref count & hvc_struct lifetime */
-};
+struct hvc_struct;
 
 /* Register a vterm and a slot index for use as a console (console_init) */
 extern int hvc_instantiate(uint32_t vtermno, int index, struct hv_ops *ops);

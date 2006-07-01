@@ -17,7 +17,6 @@
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
-
 #include <stdarg.h>
 #include <linux/module.h>
 #include <linux/kthread.h>
@@ -25,21 +24,19 @@
 #include "common.h"
 
 #undef DPRINTK
-#define DPRINTK(fmt, args...) \
-    pr_debug("blkback/xenbus (%s:%d) " fmt ".\n", __FUNCTION__, __LINE__, ##args)
-
+#define DPRINTK(fmt, args...)				\
+	pr_debug("blkback/xenbus (%s:%d) " fmt ".\n",	\
+		 __FUNCTION__, __LINE__, ##args)
 
 struct backend_info
 {
 	struct xenbus_device *dev;
 	blkif_t *blkif;
 	struct xenbus_watch backend_watch;
-
 	unsigned major;
 	unsigned minor;
 	char *mode;
 };
-
 
 static void connect(struct backend_info *);
 static int connect_ring(struct backend_info *);
@@ -47,7 +44,7 @@ static void backend_changed(struct xenbus_watch *, const char **,
 			    unsigned int);
 
 
-void update_blkif_status(blkif_t *blkif)
+static void update_blkif_status(blkif_t *blkif)
 { 
 	int err;
 
@@ -109,10 +106,9 @@ static int blkback_remove(struct xenbus_device *dev)
 		be->backend_watch.node = NULL;
 	}
 	if (be->blkif) {
-		be->blkif->status = DISCONNECTED; 
 		if (be->blkif->xenblkd)
 			kthread_stop(be->blkif->xenblkd);
-		blkif_put(be->blkif);
+		blkif_free(be->blkif);
 		be->blkif = NULL;
 	}
 
@@ -144,7 +140,7 @@ static int blkback_probe(struct xenbus_device *dev,
 	be->dev = dev;
 	dev->data = be;
 
-	be->blkif = alloc_blkif(dev->otherend_id);
+	be->blkif = blkif_alloc(dev->otherend_id);
 	if (IS_ERR(be->blkif)) {
 		err = PTR_ERR(be->blkif);
 		be->blkif = NULL;
@@ -203,8 +199,8 @@ static void backend_changed(struct xenbus_watch *watch,
 		return;
 	}
 
-	if (be->major && be->minor &&
-	    (be->major != major || be->minor != minor)) {
+	if ((be->major || be->minor) &&
+	    ((be->major != major) || (be->minor != minor))) {
 		printk(KERN_WARNING
 		       "blkback: changing physical device (from %x:%x to "
 		       "%x:%x) not supported.\n", be->major, be->minor,
@@ -251,7 +247,7 @@ static void backend_changed(struct xenbus_watch *watch,
  * Callback received when the frontend's state changes.
  */
 static void frontend_changed(struct xenbus_device *dev,
-			     XenbusState frontend_state)
+			     enum xenbus_state frontend_state)
 {
 	struct backend_info *be = dev->data;
 	int err;
@@ -412,14 +408,3 @@ void blkif_xenbus_init(void)
 {
 	xenbus_register_backend(&blkback);
 }
-
-
-/*
- * Local variables:
- *  c-file-style: "linux"
- *  indent-tabs-mode: t
- *  c-indent-level: 8
- *  c-basic-offset: 8
- *  tab-width: 8
- * End:
- */

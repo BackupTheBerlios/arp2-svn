@@ -87,10 +87,13 @@ extern int cond_resched(void);
 		(__x < 0) ? -__x : __x;		\
 	})
 
-extern struct notifier_block *panic_notifier_list;
+extern struct atomic_notifier_head panic_notifier_list;
 extern long (*panic_blink)(long time);
 NORET_TYPE void panic(const char * fmt, ...)
 	__attribute__ ((NORET_AND format (printf, 1, 2)));
+extern void oops_enter(void);
+extern void oops_exit(void);
+extern int oops_may_print(void);
 fastcall NORET_TYPE void do_exit(long error_code)
 	ATTRIB_NORET;
 NORET_TYPE void complete_and_exit(struct completion *, long)
@@ -121,6 +124,7 @@ extern int get_option(char **str, int *pint);
 extern char *get_options(const char *str, int nints, int *ints);
 extern unsigned long long memparse(char *ptr, char **retptr);
 
+extern int core_kernel_text(unsigned long addr);
 extern int __kernel_text_address(unsigned long addr);
 extern int kernel_text_address(unsigned long addr);
 extern int session_of_pgrp(int pgrp);
@@ -151,9 +155,10 @@ static inline int __attribute_pure__ long_log2(unsigned long x)
 	return r;
 }
 
-static inline unsigned long __attribute_const__ roundup_pow_of_two(unsigned long x)
+static inline unsigned long
+__attribute_const__ roundup_pow_of_two(unsigned long x)
 {
-	return (1UL << fls(x - 1));
+	return 1UL << fls_long(x - 1);
 }
 
 extern int printk_ratelimit(void);
@@ -172,22 +177,11 @@ static inline void console_verbose(void)
 
 extern void bust_spinlocks(int yes);
 extern int oops_in_progress;		/* If set, an oops, panic(), BUG() or die() is in progress */
-extern __deprecated_for_modules int panic_timeout;
+extern int panic_timeout;
 extern int panic_on_oops;
 extern int tainted;
 extern const char *print_tainted(void);
 extern void add_taint(unsigned);
-
-#define crashdump_mode()       unlikely(netdump_mode || diskdump_mode)
-
-struct pt_regs;
-extern void try_crashdump(struct pt_regs *);
-extern void (*netdump_func) (struct pt_regs *regs);
-extern int netdump_mode;
-extern void (*diskdump_func) (struct pt_regs *regs);
-extern int diskdump_mode;
-
-#define crashdump_func()	unlikely(netdump_func || diskdump_func)
 
 /* Values used for system_state */
 extern enum system_states {
@@ -197,7 +191,6 @@ extern enum system_states {
 	SYSTEM_POWER_OFF,
 	SYSTEM_RESTART,
 	SYSTEM_SUSPEND_DISK,
-	SYSTEM_DUMPING,
 } system_state;
 
 #define TAINT_PROPRIETARY_MODULE	(1<<0)
@@ -219,12 +212,6 @@ extern void dump_stack(void);
 
 #define pr_info(fmt,arg...) \
 	printk(KERN_INFO fmt,##arg)
-
-#define pr_err(fmt,arg...) \
-	printk(KERN_ERR fmt,##arg)
-
-#define pr_warn(fmt,arg...) \
-	printk(KERN_WARNING fmt,##arg)
 
 /*
  *      Display an IP address in readable format.

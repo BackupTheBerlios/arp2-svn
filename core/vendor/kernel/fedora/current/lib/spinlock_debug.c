@@ -11,7 +11,6 @@
 #include <linux/interrupt.h>
 #include <linux/delay.h>
 #include <linux/module.h>
-#include <asm/processor.h>
 
 int nopanic;
 static int __init nopanic_setup(char *str)
@@ -89,7 +88,6 @@ static void __spin_lock_debug(spinlock_t *lock)
 		for (i = 0; i < loops_per_jiffy * HZ; i++) {
 			if (__raw_spin_trylock(&lock->raw_lock))
 				return;
-			cpu_relax();
 		}
 		/* lockup suspected: */
 		if (print_once) {
@@ -161,7 +159,6 @@ static void __read_lock_debug(rwlock_t *lock)
 		for (i = 0; i < loops_per_jiffy * HZ; i++) {
 			if (__raw_read_trylock(&lock->raw_lock))
 				return;
-			cpu_relax();
 		}
 		/* lockup suspected: */
 		if (print_once) {
@@ -234,7 +231,6 @@ static void __write_lock_debug(rwlock_t *lock)
 		for (i = 0; i < loops_per_jiffy * HZ; i++) {
 			if (__raw_write_trylock(&lock->raw_lock))
 				return;
-			cpu_relax();
 		}
 		/* lockup suspected: */
 		if (print_once) {

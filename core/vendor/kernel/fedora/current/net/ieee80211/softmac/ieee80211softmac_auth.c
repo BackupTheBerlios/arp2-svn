@@ -36,8 +36,6 @@ ieee80211softmac_auth_req(struct ieee80211softmac_device *mac,
 	struct ieee80211softmac_auth_queue_item *auth;
 	unsigned long flags;
 	
-	function_enter();
-	
 	if (net->authenticating)
 		return 0;
 
@@ -78,8 +76,6 @@ ieee80211softmac_auth_queue(void *data)
 	struct ieee80211softmac_network *net;
 	unsigned long flags;
 
-	function_enter();
-	
 	auth = (struct ieee80211softmac_auth_queue_item *)data;
 	net = auth->net;
 	mac = auth->mac;
@@ -90,6 +86,11 @@ ieee80211softmac_auth_queue(void *data)
 		
 		/* Lock and set flags */
 		spin_lock_irqsave(&mac->lock, flags);
+		if (unlikely(!mac->running)) {
+			/* Prevent reschedule on workqueue flush */
+			spin_unlock_irqrestore(&mac->lock, flags);
+			return;
+		}
 		net->authenticated = 0;
 		net->authenticating = 1;
 		/* add a timeout call so we eventually give up waiting for an auth reply */
@@ -128,8 +129,9 @@ ieee80211softmac_auth_resp(struct net_device *dev, struct ieee80211_auth *auth)
 	unsigned long flags;
 	u8 * data;
 	
-	function_enter();
-	
+	if (unlikely(!mac->running))
+		return -ENODEV;
+
 	/* Find correct auth queue item */
 	spin_lock_irqsave(&mac->lock, flags);
 	list_for_each(list_ptr, &mac->auth_queue) {
@@ -277,8 +279,6 @@ ieee80211softmac_deauth_from_net(struct ieee80211softmac_device *mac,
 	struct list_head *list_ptr;
 	unsigned long flags;
 
-	function_enter();
-	
 	/* Lock and reset status flags */
 	spin_lock_irqsave(&mac->lock, flags);
 	net->authenticating = 0;
@@ -306,8 +306,6 @@ ieee80211softmac_deauth_from_net(struct ieee80211softmac_device *mac,
 	
 	/* can't transmit data right now... */
 	netif_carrier_off(mac->dev);
-	/* let's try to re-associate */
-	schedule_work(&mac->associnfo.work);
 	spin_unlock_irqrestore(&mac->lock, flags);
 }
 
@@ -320,8 +318,6 @@ ieee80211softmac_deauth_req(struct ieee80211softmac_device *mac,
 {
 	int ret;
 	
-	function_enter();
-
 	/* Make sure the network is authenticated */
 	if (!net->authenticated)
 	{
@@ -342,14 +338,15 @@ ieee80211softmac_deauth_req(struct ieee80211softmac_device *mac,
  * This should be registered with ieee80211 as handle_deauth
  */
 int 
-ieee80211softmac_deauth_resp(struct net_device *dev, struct ieee80211_auth *deauth)
+ieee80211softmac_deauth_resp(struct net_device *dev, struct ieee80211_deauth *deauth)
 {
 	
 	struct ieee80211softmac_network *net = NULL;
 	struct ieee80211softmac_device *mac = ieee80211_priv(dev);
 	
-	function_enter();
-	
+	if (unlikely(!mac->running))
+		return -ENODEV;
+
 	if (!deauth) {
 		dprintk("deauth without deauth packet. eek!\n");
 		return 0;
@@ -372,5 +369,8 @@ ieee80211softmac_deauth_resp(struct net_device *dev, struct ieee80211_auth *deau
 	}
 
 	ieee80211softmac_deauth_from_net(mac, net);
+
+	/* let's try to re-associate */
+	schedule_work(&mac->associnfo.work);
 	return 0;
 }

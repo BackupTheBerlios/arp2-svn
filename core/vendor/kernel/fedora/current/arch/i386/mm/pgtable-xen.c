@@ -45,7 +45,7 @@ void show_mem(void)
 	printk(KERN_INFO "Mem-info:\n");
 	show_free_areas();
 	printk(KERN_INFO "Free swap:       %6ldkB\n", nr_swap_pages<<(PAGE_SHIFT-10));
-	for_each_pgdat(pgdat) {
+	for_each_online_pgdat(pgdat) {
 		pgdat_resize_lock(pgdat, &flags);
 		for (i = 0; i < pgdat->node_spanned_pages; ++i) {
 			page = pgdat_page_nr(pgdat, i);
@@ -236,7 +236,7 @@ struct page *pte_alloc_one(struct mm_struct *mm, unsigned long address)
 	pte = alloc_pages(GFP_KERNEL|__GFP_REPEAT|__GFP_ZERO, 0);
 	if (pte) {
 		SetPageForeign(pte, pte_free);
-		set_page_count(pte, 1);
+		init_page_count(pte);
 	}
 #endif
 	return pte;
@@ -251,7 +251,7 @@ void pte_free(struct page *pte)
 			va, pfn_pte(page_to_pfn(pte), PAGE_KERNEL), 0));
 
 	ClearPageForeign(pte);
-	set_page_count(pte, 1);
+	init_page_count(pte);
 
 	__free_page(pte);
 }
@@ -641,13 +641,3 @@ void _arch_exit_mmap(struct mm_struct *mm)
 	    (atomic_read(&mm->mm_count) == 1))
 		mm_unpin(mm);
 }
-
-/*
- * Local variables:
- *  c-file-style: "linux"
- *  indent-tabs-mode: t
- *  c-indent-level: 8
- *  c-basic-offset: 8
- *  tab-width: 8
- * End:
- */

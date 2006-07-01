@@ -38,8 +38,8 @@
 #include <linux/ptrace.h>
 #include <linux/utsname.h>
 #include <linux/random.h>
-#include <linux/kprobes.h>
 #include <linux/notifier.h>
+#include <linux/kprobes.h>
 
 #include <asm/uaccess.h>
 #include <asm/pgtable.h>
@@ -60,6 +60,8 @@
 #include <asm/ia32.h>
 #include <asm/idle.h>
 
+#include <xen/cpu_hotplug.h>
+
 asmlinkage extern void ret_from_fork(void);
 
 unsigned long kernel_thread_flags = CLONE_VM | CLONE_UNTRACED;
@@ -73,24 +75,17 @@ EXPORT_SYMBOL(boot_option_idle_override);
 void (*pm_idle)(void);
 static DEFINE_PER_CPU(unsigned int, cpu_idle_state);
 
-static struct notifier_block *idle_notifier;
-static DEFINE_SPINLOCK(idle_notifier_lock);
+static ATOMIC_NOTIFIER_HEAD(idle_notifier);
 
 void idle_notifier_register(struct notifier_block *n)
 {
-	unsigned long flags;
-	spin_lock_irqsave(&idle_notifier_lock, flags);
-	notifier_chain_register(&idle_notifier, n);
-	spin_unlock_irqrestore(&idle_notifier_lock, flags);
+	atomic_notifier_chain_register(&idle_notifier, n);
 }
 EXPORT_SYMBOL_GPL(idle_notifier_register);
 
 void idle_notifier_unregister(struct notifier_block *n)
 {
-	unsigned long flags;
-	spin_lock_irqsave(&idle_notifier_lock, flags);
-	notifier_chain_unregister(&idle_notifier, n);
-	spin_unlock_irqrestore(&idle_notifier_lock, flags);
+	atomic_notifier_chain_unregister(&idle_notifier, n);
 }
 EXPORT_SYMBOL(idle_notifier_unregister);
 
@@ -100,13 +95,13 @@ static DEFINE_PER_CPU(enum idle_state, idle_state) = CPU_NOT_IDLE;
 void enter_idle(void)
 {
 	__get_cpu_var(idle_state) = CPU_IDLE;
-	notifier_call_chain(&idle_notifier, IDLE_START, NULL);
+	atomic_notifier_call_chain(&idle_notifier, IDLE_START, NULL);
 }
 
 static void __exit_idle(void)
 {
 	__get_cpu_var(idle_state) = CPU_NOT_IDLE;
-	notifier_call_chain(&idle_notifier, IDLE_END, NULL);
+	atomic_notifier_call_chain(&idle_notifier, IDLE_END, NULL);
 }
 
 /* Called from interrupts to signify idle end */
@@ -118,8 +113,6 @@ void exit_idle(void)
 }
 
 /* XXX XEN doesn't use default_idle(), poll_idle(). Use xen_idle() instead. */
-extern void stop_hz_timer(void);
-extern void start_hz_timer(void);
 void xen_idle(void)
 {
 	local_irq_disable();
@@ -129,10 +122,7 @@ void xen_idle(void)
 	else {
 		clear_thread_flag(TIF_POLLING_NRFLAG);
 		smp_mb__after_clear_bit();
-		stop_hz_timer();
-		/* Blocking includes an implicit local_irq_enable(). */
-		HYPERVISOR_block();
-		start_hz_timer();
+		safe_halt();
 		set_thread_flag(TIF_POLLING_NRFLAG);
 	}
 }
@@ -145,11 +135,7 @@ static inline void play_dead(void)
 	cpu_clear(smp_processor_id(), cpu_initialized);
 	preempt_enable_no_resched();
 	HYPERVISOR_vcpu_op(VCPUOP_down, smp_processor_id(), NULL);
-	/* Same as drivers/xen/core/smpboot.c:cpu_bringup(). */
-	cpu_init();
-	touch_softlockup_watchdog();
-	preempt_disable();
-	local_irq_enable();
+	cpu_bringup();
 }
 #else
 static inline void play_dead(void)
@@ -281,21 +267,12 @@ void exit_thread(void)
 	struct task_struct *me = current;
 	struct thread_struct *t = &me->thread;
 
-	/*
-	 * Remove function-return probe instances associated with this task
-	 * and put them back on the free list. Do not insert an exit probe for
-	 * this function, it will be disabled by kprobe_flush_task if you do.
-	 */
-	kprobe_flush_task(me);
-
 	if (me->thread.io_bitmap_ptr) { 
 #ifndef CONFIG_X86_NO_TSS
 		struct tss_struct *tss = &per_cpu(init_tss, get_cpu());
 #endif
 #ifdef CONFIG_XEN
-		static physdev_op_t iobmp_op = {
-			.cmd = PHYSDEVOP_SET_IOBITMAP
-		};
+		struct physdev_set_iobitmap iobmp_op = { 0 };
 #endif
 
 		kfree(t->io_bitmap_ptr);
@@ -308,7 +285,7 @@ void exit_thread(void)
 		put_cpu();
 #endif
 #ifdef CONFIG_XEN
-		HYPERVISOR_physdev_op(&iobmp_op);
+		HYPERVISOR_physdev_op(PHYSDEVOP_set_iobitmap, &iobmp_op);
 #endif
 		t->io_bitmap_max = 0;
 	}
@@ -478,8 +455,21 @@ __switch_to(struct task_struct *prev_p, struct task_struct *next_p)
 #ifndef CONFIG_X86_NO_TSS
 	struct tss_struct *tss = &per_cpu(init_tss, cpu);
 #endif
-	physdev_op_t iopl_op, iobmp_op;
+	struct physdev_set_iopl iopl_op;
+	struct physdev_set_iobitmap iobmp_op;
 	multicall_entry_t _mcl[8], *mcl = _mcl;
+
+	/*
+	 * This is basically '__unlazy_fpu', except that we queue a
+	 * multicall to indicate FPU task switch, rather than
+	 * synchronously trapping to Xen.
+	 */
+	if (prev_p->thread_info->status & TS_USEDFPU) {
+		__save_init_fpu(prev_p); /* _not_ save_init_fpu() */
+		mcl->op      = __HYPERVISOR_fpu_taskswitch;
+		mcl->args[0] = 1;
+		mcl++;
+	}
 
 	/*
 	 * Reload esp0, LDT and the page table pointer:
@@ -506,22 +496,19 @@ __switch_to(struct task_struct *prev_p, struct task_struct *next_p)
 #undef C
 
 	if (unlikely(prev->iopl != next->iopl)) {
-		iopl_op.cmd             = PHYSDEVOP_SET_IOPL;
-		iopl_op.u.set_iopl.iopl = (next->iopl == 0) ? 1 : next->iopl;
+		iopl_op.iopl = (next->iopl == 0) ? 1 : next->iopl;
 		mcl->op      = __HYPERVISOR_physdev_op;
-		mcl->args[0] = (unsigned long)&iopl_op;
+		mcl->args[0] = PHYSDEVOP_set_iopl;
+		mcl->args[1] = (unsigned long)&iopl_op;
 		mcl++;
 	}
 
 	if (unlikely(prev->io_bitmap_ptr || next->io_bitmap_ptr)) {
-		iobmp_op.cmd                     =
-			PHYSDEVOP_SET_IOBITMAP;
-		iobmp_op.u.set_iobitmap.bitmap   =
-			(char *)next->io_bitmap_ptr;
-		iobmp_op.u.set_iobitmap.nr_ports =
-			next->io_bitmap_ptr ? IO_BITMAP_BITS : 0;
+		iobmp_op.bitmap   = (char *)next->io_bitmap_ptr;
+		iobmp_op.nr_ports = next->io_bitmap_ptr ? IO_BITMAP_BITS : 0;
 		mcl->op      = __HYPERVISOR_physdev_op;
-		mcl->args[0] = (unsigned long)&iobmp_op;
+		mcl->args[0] = PHYSDEVOP_set_iobitmap;
+		mcl->args[1] = (unsigned long)&iobmp_op;
 		mcl++;
 	}
 
@@ -552,21 +539,11 @@ __switch_to(struct task_struct *prev_p, struct task_struct *next_p)
 		HYPERVISOR_set_segment_base(SEGBASE_GS_USER, next->gs); 
 
 	/* 
-	 * Switch the PDA context.
+	 * Switch the PDA.
 	 */
 	prev->userrsp = read_pda(oldrsp); 
 	write_pda(oldrsp, next->userrsp); 
 	write_pda(pcurrent, next_p); 
-	/*
-	 * This is basically '__unlazy_fpu', except that we queue a
-	 * multicall to indicate FPU task switch, rather than
-	 * synchronously trapping to Xen.
-	 */
-	if (prev_p->thread_info->status & TS_USEDFPU) {
-		__save_init_fpu(prev_p); /* _not_ save_init_fpu() */
-		HYPERVISOR_fpu_taskswitch(1);
-	}
-
 	write_pda(kernelstack,
 		  task_stack_page(next_p) + THREAD_SIZE - PDA_STACKOFFSET);
 
@@ -746,10 +723,16 @@ long do_arch_prctl(struct task_struct *task, int code, unsigned long addr)
 	}
 	case ARCH_GET_GS: { 
 		unsigned long base;
+		unsigned gsindex;
 		if (task->thread.gsindex == GS_TLS_SEL)
 			base = read_32bit_tls(task, GS_TLS);
-		else if (doit)
-			rdmsrl(MSR_KERNEL_GS_BASE, base);
+		else if (doit) {
+ 			asm("movl %%gs,%0" : "=r" (gsindex));
+			if (gsindex)
+				rdmsrl(MSR_KERNEL_GS_BASE, base);
+			else
+				base = task->thread.gs;
+		}
 		else
 			base = task->thread.gs;
 		ret = put_user(base, (unsigned long __user *)addr); 

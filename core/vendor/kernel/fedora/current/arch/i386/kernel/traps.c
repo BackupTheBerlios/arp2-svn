@@ -28,7 +28,6 @@
 #include <linux/utsname.h>
 #include <linux/kprobes.h>
 #include <linux/kexec.h>
-#include <linux/nmi.h> 
 
 #ifdef CONFIG_EISA
 #include <linux/ioport.h>
@@ -93,21 +92,22 @@ asmlinkage void spurious_interrupt_bug(void);
 asmlinkage void machine_check(void);
 
 static int kstack_depth_to_print = 24;
-struct notifier_block *i386die_chain;
-static DEFINE_SPINLOCK(die_notifier_lock);
+ATOMIC_NOTIFIER_HEAD(i386die_chain);
 
 extern char last_sysfs_file[];
 
 int register_die_notifier(struct notifier_block *nb)
 {
-	int err = 0;
-	unsigned long flags;
-	spin_lock_irqsave(&die_notifier_lock, flags);
-	err = notifier_chain_register(&i386die_chain, nb);
-	spin_unlock_irqrestore(&die_notifier_lock, flags);
-	return err;
+	vmalloc_sync_all();
+	return atomic_notifier_chain_register(&i386die_chain, nb);
 }
 EXPORT_SYMBOL(register_die_notifier);
+
+int unregister_die_notifier(struct notifier_block *nb)
+{
+	return atomic_notifier_chain_unregister(&i386die_chain, nb);
+}
+EXPORT_SYMBOL(unregister_die_notifier);
 
 static inline int valid_stack_ptr(struct thread_info *tinfo, void *p)
 {
@@ -115,19 +115,29 @@ static inline int valid_stack_ptr(struct thread_info *tinfo, void *p)
 		p < (void *)tinfo + THREAD_SIZE - 3;
 }
 
-static void print_addr_and_symbol(unsigned long addr, char *log_lvl)
+/*
+ * Print CONFIG_STACK_BACKTRACE_COLS address/symbol entries per line.
+ */
+static inline int print_addr_and_symbol(unsigned long addr, char *log_lvl,
+					int printed)
 {
-	static char space=0;
-
-	if (space == 0)
+	if (!printed)
 		printk(log_lvl);
+
+#if CONFIG_STACK_BACKTRACE_COLS == 1
 	printk(" [<%08lx>] ", addr);
+#else
+	printk(" <%08lx> ", addr);
+#endif
 	print_symbol("%s", addr);
-	if (space == 0)
-		printk("    ");
+
+	printed = (printed + 1) % CONFIG_STACK_BACKTRACE_COLS;
+	if (printed)
+		printk(" ");
 	else
 		printk("\n");
-	space = !space;
+
+	return printed;
 }
 
 static inline unsigned long print_context_stack(struct thread_info *tinfo,
@@ -135,43 +145,26 @@ static inline unsigned long print_context_stack(struct thread_info *tinfo,
 				char *log_lvl)
 {
 	unsigned long addr;
+	int printed = 0; /* nr of entries already printed on current line */
 
 #ifdef	CONFIG_FRAME_POINTER
 	while (valid_stack_ptr(tinfo, (void *)ebp)) {
 		addr = *(unsigned long *)(ebp + 4);
-		print_addr_and_symbol(addr, log_lvl);
+		printed = print_addr_and_symbol(addr, log_lvl, printed);
 		ebp = *(unsigned long *)ebp;
 	}
 #else
 	while (valid_stack_ptr(tinfo, stack)) {
 		addr = *stack++;
 		if (__kernel_text_address(addr))
-			print_addr_and_symbol(addr, log_lvl);
+			printed = print_addr_and_symbol(addr, log_lvl, printed);
 	}
 #endif
+	if (printed)
+		printk("\n");
+
 	return ebp;
 }
-
-static int oopsdelay = 120;
-
-void pause_for_two_minutes(void)
-{
-	int i, j;
-	for (i=oopsdelay; i>0; i--) {
-		for (j=0; j<1000; j++)
-			udelay(1000);
-		touch_nmi_watchdog();
-		printk("Continuing in %d seconds. \r", i);
-	}
-	printk("\n");
-}	
-
-static int __init oopsdelay_setup(char *s)
-{
-	oopsdelay = simple_strtoul(s, NULL, 0);
-	return 1;
-}
-__setup("oopsdelay=", oopsdelay_setup);
 
 static void show_trace_log_lvl(struct task_struct *task,
 			       unsigned long *stack, char *log_lvl)
@@ -197,9 +190,7 @@ static void show_trace_log_lvl(struct task_struct *task,
 		stack = (unsigned long*)context->previous_esp;
 		if (!stack)
 			break;
-		printk(log_lvl);
-		printk(" =======================\n");
-		//pause_for_two_minutes();
+		printk("%s =======================\n", log_lvl);
 	}
 }
 
@@ -222,25 +213,20 @@ static void show_stack_log_lvl(struct task_struct *task, unsigned long *esp,
 	}
 
 	stack = esp;
-	printk(log_lvl);
 	for(i = 0; i < kstack_depth_to_print; i++) {
 		if (kstack_end(stack))
 			break;
-		if (i && ((i % 8) == 0)) {
-			printk("\n");
-			printk(log_lvl);
-			printk("       ");
-		}
+		if (i && ((i % 8) == 0))
+			printk("\n%s       ", log_lvl);
 		printk("%08lx ", *stack++);
 	}
-	printk("\n");
-	printk(log_lvl);
-	printk("Call Trace:\n");
+	printk("\n%sCall Trace:\n", log_lvl);
 	show_trace_log_lvl(task, esp, log_lvl);
 }
 
 void show_stack(struct task_struct *task, unsigned long *esp)
 {
+	printk("       ");
 	show_stack_log_lvl(task, esp, "");
 }
 
@@ -265,7 +251,7 @@ void show_registers(struct pt_regs *regs)
 
 	esp = (unsigned long) (&regs->esp);
 	savesegment(ss, ss);
-	if (user_mode(regs)) {
+	if (user_mode_vm(regs)) {
 		in_kernel = 0;
 		esp = regs->esp;
 		ss = regs->xss & 0xffff;
@@ -313,8 +299,7 @@ void show_registers(struct pt_regs *regs)
 		}
 	}
 	printk("\n");
-	pause_for_two_minutes();
-}
+}	
 
 static void handle_BUG(struct pt_regs *regs)
 {
@@ -366,6 +351,8 @@ void die(const char * str, struct pt_regs * regs, long err)
 	static int die_counter;
 	unsigned long flags;
 
+	oops_enter();
+
 	if (die.lock_owner != raw_smp_processor_id()) {
 		console_verbose();
 		spin_lock_irqsave(&die.lock, flags);
@@ -378,6 +365,9 @@ void die(const char * str, struct pt_regs * regs, long err)
 
 	if (++die.lock_owner_depth < 3) {
 		int nl = 0;
+		unsigned long esp;
+		unsigned short ss;
+
 		handle_BUG(regs);
 		printk(KERN_EMERG "%s: %04lx [#%d]\n", str, err & 0xffff, ++die_counter);
 #ifdef CONFIG_PREEMPT
@@ -401,15 +391,32 @@ void die(const char * str, struct pt_regs * regs, long err)
 #ifdef CONFIG_SYSFS
 		printk(KERN_ALERT "last sysfs file: %s\n", last_sysfs_file);
 #endif
-	notify_die(DIE_OOPS, (char *)str, regs, err, 255, SIGSEGV);
-		show_registers(regs);
-		try_crashdump(regs);
+		if (notify_die(DIE_OOPS, str, regs, err,
+					current->thread.trap_no, SIGSEGV) !=
+				NOTIFY_STOP) {
+			show_registers(regs);
+			/* Executive summary in case the oops scrolled away */
+			esp = (unsigned long) (&regs->esp);
+			savesegment(ss, ss);
+			if (user_mode(regs)) {
+				esp = regs->esp;
+				ss = regs->xss & 0xffff;
+			}
+			printk(KERN_EMERG "EIP: [<%08lx>] ", regs->eip);
+			print_symbol("%s", regs->eip);
+			printk(" SS:ESP %04x:%08lx\n", ss, esp);
+		}
+		else
+			regs = NULL;
   	} else
 		printk(KERN_EMERG "Recursive die() failure, output suppressed\n");
 
 	bust_spinlocks(0);
 	die.lock_owner = -1;
 	spin_unlock_irqrestore(&die.lock, flags);
+
+	if (!regs)
+		return;
 
 	if (kexec_should_crash(current))
 		crash_kexec(regs);
@@ -418,12 +425,11 @@ void die(const char * str, struct pt_regs * regs, long err)
 		panic("Fatal exception in interrupt");
 
 	if (panic_on_oops) {
-		if (netdump_func)
-			netdump_func = NULL;
 		printk(KERN_EMERG "Fatal exception: panic in 5 seconds\n");
 		ssleep(5);
 		panic("Fatal exception");
 	}
+	oops_exit();
 	do_exit(SIGSEGV);
 }
 
@@ -722,7 +728,7 @@ static DEFINE_SPINLOCK(nmi_print_lock);
 
 void die_nmi (struct pt_regs *regs, const char *msg)
 {
-	if (notify_die(DIE_NMIWATCHDOG, msg, regs, 0, 0, SIGINT) ==
+	if (notify_die(DIE_NMIWATCHDOG, msg, regs, 0, 2, SIGINT) ==
 	    NOTIFY_STOP)
 		return;
 
@@ -744,7 +750,7 @@ void die_nmi (struct pt_regs *regs, const char *msg)
 	/* If we are in kernel we are probably nested up pretty bad
 	 * and might aswell get out now while we still can.
 	*/
-	if (!user_mode(regs)) {
+	if (!user_mode_vm(regs)) {
 		current->thread.trap_no = 2;
 		crash_kexec(regs);
 	}
@@ -761,7 +767,7 @@ static void default_do_nmi(struct pt_regs * regs)
 		reason = get_nmi_reason();
  
 	if (!(reason & 0xc0)) {
-		if (notify_die(DIE_NMI_IPI, "nmi_ipi", regs, reason, 0, SIGINT)
+		if (notify_die(DIE_NMI_IPI, "nmi_ipi", regs, reason, 2, SIGINT)
 							== NOTIFY_STOP)
 			return;
 #ifdef CONFIG_X86_LOCAL_APIC
@@ -777,7 +783,7 @@ static void default_do_nmi(struct pt_regs * regs)
 		unknown_nmi_error(reason, regs);
 		return;
 	}
-	if (notify_die(DIE_NMI, "nmi", regs, reason, 0, SIGINT) == NOTIFY_STOP)
+	if (notify_die(DIE_NMI, "nmi", regs, reason, 2, SIGINT) == NOTIFY_STOP)
 		return;
 	if (reason & 0x80)
 		mem_parity_error(reason, regs);
@@ -815,6 +821,7 @@ fastcall void do_nmi(struct pt_regs * regs, long error_code)
 
 void set_nmi_callback(nmi_callback_t callback)
 {
+	vmalloc_sync_all();
 	rcu_assign_pointer(nmi_callback, callback);
 }
 EXPORT_SYMBOL_GPL(set_nmi_callback);
@@ -1285,6 +1292,6 @@ void __init trap_init(void)
 static int __init kstack_setup(char *s)
 {
 	kstack_depth_to_print = simple_strtoul(s, NULL, 0);
-	return 0;
+	return 1;
 }
 __setup("kstack=", kstack_setup);
