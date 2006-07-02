@@ -1,6 +1,6 @@
 # stuff to be implemented externally:
 Source10: kmodtool
-%define   kmodtool sh %{SOURCE10}
+%define   kmodtool bash %{SOURCE10}
 # end stuff to be ...
 
 # hardcode for now:
