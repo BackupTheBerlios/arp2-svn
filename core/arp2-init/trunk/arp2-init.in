@@ -222,7 +222,7 @@ elif [ -f /.autofsck ]; then
 	fsckoptions="$AUTOFSCK_OPT $fsckoptions"
 fi
 
-fsckoptions="-V $fsckoptions"
+fsckoptions="-C $fsckoptions"
 
 if [ -z "$fastboot" ]; then
 	fsck -T -t noopts=_netdev -A -a $fsckoptions
