@@ -19,7 +19,7 @@ ifelse(DRIVER,NVIDIA,
 	ModulePath   "/usr/lib64/xorg/modules"
 	ModulePath   "/usr/lib/xorg/modules"
 	RgbPath      "/usr/share/X11/rgb"
-	FontPath     "/usr/share/X11/fonts/misc/"
+	FontPath     "/usr/share/X11/fonts/misc:unscaled,/usr/share/X11/fonts/75dpi:unscaled,/usr/share/X11/fonts/100dpi:unscaled,/usr/share/X11/fonts/Type1,/usr/share/fonts/default/Type1"
 #	FontPath     "unix/:7100"
 EndSection
 
