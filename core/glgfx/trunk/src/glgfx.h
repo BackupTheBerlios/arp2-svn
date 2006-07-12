@@ -112,7 +112,7 @@ enum glgfx_init_tag {
 
 
 bool glgfx_init_a(struct glgfx_tagitem const* tags);
-void glgfx_cleanup();
+void glgfx_cleanup(void);
 
 
 #define glgfx_init(tag1, ...) \
