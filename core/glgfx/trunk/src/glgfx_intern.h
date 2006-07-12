@@ -33,6 +33,40 @@ extern int glgfx_signum;
 extern GLenum const glgfx_blend_equations[glgfx_blend_equation_max];
 extern GLenum const glgfx_blend_funcs[glgfx_blend_func_max];
 
+
+struct glgfx_node {
+    struct glgfx_node* succ;
+    struct glgfx_node* pred;
+};
+
+struct glgfx_list {
+    struct glgfx_node* head;
+    struct glgfx_node* tail;
+    struct glgfx_node* tailpred;
+};
+
+void glgfx_list_new(struct glgfx_list* list);
+bool glgfx_list_isempty(struct glgfx_list* list);
+void glgfx_list_addhead(struct glgfx_list* list, struct glgfx_node* node);
+void glgfx_list_addtail(struct glgfx_list* list, struct glgfx_node* node);
+void glgfx_list_insert(struct glgfx_list* list, 
+		       struct glgfx_node* node, 
+		       struct glgfx_node* pred);
+void glgfx_list_enqueue(struct glgfx_list* list, 
+			struct glgfx_node* node, 
+			struct glgfx_hook* cmp_hook);
+struct glgfx_node* glgfx_list_remove(struct glgfx_node* node);
+struct glgfx_node* glgfx_list_remhead(struct glgfx_list* list);
+struct glgfx_node* glgfx_list_remtail(struct glgfx_list* list);
+
+size_t glgfx_list_length(struct glgfx_list* list);
+void glgfx_list_foreach(struct glgfx_list* list, struct glgfx_hook* node_hook, void* message);
+
+#define GLGFX_LIST_FOR(list, node) for (node = (void*) ((struct glgfx_list*) (list))->head;	\
+					((struct glgfx_node*) (node))->succ != NULL;		\
+					node = (void*) ((struct glgfx_node*) (node))->succ)
+
+
 struct glgfx_bitmap;
 struct glgfx_shader;
 
