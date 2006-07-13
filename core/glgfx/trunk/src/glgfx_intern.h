@@ -59,6 +59,7 @@ struct glgfx_node* glgfx_list_remove(struct glgfx_node* node);
 struct glgfx_node* glgfx_list_remhead(struct glgfx_list* list);
 struct glgfx_node* glgfx_list_remtail(struct glgfx_list* list);
 
+struct glgfx_node* glgfx_list_find(struct glgfx_list* list, struct glgfx_node* node);
 size_t glgfx_list_length(struct glgfx_list* list);
 void glgfx_list_foreach(struct glgfx_list* list, struct glgfx_hook* node_hook, void* message);
 

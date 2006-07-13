@@ -88,6 +88,18 @@ struct glgfx_node* glgfx_list_remtail(struct glgfx_list* list) {
   return glgfx_list_remove(list->tailpred);
 }
 
+struct glgfx_node* glgfx_list_find(struct glgfx_list* list, struct glgfx_node* node) {
+  struct glgfx_node* current;
+
+  GLGFX_LIST_FOR(list, current) {
+    if (current == node) {
+      return current;
+    }
+  }
+  
+  return NULL;
+}
+
 size_t glgfx_list_length(struct glgfx_list* list) {
   struct glgfx_node* node;
   size_t length = 0;
