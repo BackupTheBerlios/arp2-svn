@@ -118,12 +118,16 @@ enum glgfx_input_code {
   glgfx_input_home = 0x70,
   glgfx_input_end = 0x71,
 
-  glgfx_input_stop = 0x72,
-  glgfx_input_play = 0x73,
-  glgfx_input_prev = 0x74,
-  glgfx_input_next = 0x75,
-  glgfx_input_rew = 0x76,
-  glgfx_input_ff = 0x77,
+  glgfx_input_cdstop = 0x72,
+  glgfx_input_cdplaypause = 0x73,
+  glgfx_input_cdprev = 0x74,
+  glgfx_input_cdnext = 0x75,
+  glgfx_input_cdrew = 0x76,
+  glgfx_input_cdff = 0x77,
+
+  // Extended special keys
+  glgfx_input_sysrq = 0x100,	// lalt + prtscr
+  glgfx_input_break = 0x101,    // ctrl + pause
   
   // Multimedia keyboard keys [see also /usr/X11R6/lib/X11/XKeysymDB]
 /*   glgfx_input_my_computer = 0x80, */
@@ -163,7 +167,7 @@ enum glgfx_input_code {
 /*   glgfx_input_vendor = 0x80, */
 
   // System key codes
-  glgfx_input_resetwarning = 0x78,
+  glgfx_input_resetwarning = 0x78,	
   glgfx_input_badkey = 0xfa,
   glgfx_input_error = 0xfc,
   glgfx_input_init_powerup = 0xfd,
