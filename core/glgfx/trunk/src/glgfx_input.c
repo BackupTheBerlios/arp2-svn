@@ -6,11 +6,11 @@
 #include <X11/Xlib.h>
 #include <X11/extensions/xf86dga.h>
 
+#include <sys/inotify.h>
 #include <linux/input.h>
-#include <sys/types.h>
+#include <dirent.h>
+#include <fcntl.h>
 #include <unistd.h>
-#include <sys/wait.h>
-#include <signal.h>
 
 #include "glgfx.h"
 #include "glgfx_input.h"
@@ -20,6 +20,8 @@
 static GList* monitors = NULL;
 static GQueue* pending_queue = NULL;
 static GQueue* cache_queue = NULL;
+
+/*** Event mappings **********************************************************/
 
 static enum glgfx_input_code xorg_codes[256] = {
   // Row 0: 0-
@@ -216,7 +218,7 @@ static enum glgfx_input_code linux_codes[KEY_MAX + 1] = {
 //  [KEY_FIND]		= glgfx_input_none,
 //  [KEY_CUT]		= glgfx_input_none,
 //  [KEY_HELP]		= glgfx_input_none,
-//  [KEY_MENU]		= glgfx_input_none,
+  [KEY_MENU]		= glgfx_input_help,
 //  [KEY_CALC]		= glgfx_input_none,
 //  [KEY_SETUP]		= glgfx_input_none,
 //  [KEY_SLEEP]		= glgfx_input_none,
@@ -434,6 +436,266 @@ static enum glgfx_input_code linux_codes[KEY_MAX + 1] = {
 //  [KEY_DEL_LINE]	= glgfx_input_none,
 };
 
+/*** /dev/input/eventX support functions *************************************/
+
+
+struct input_device {
+    int event_number;
+    int fd;
+    struct input_id id;
+};
+
+static gint compare_devices(gconstpointer a, gconstpointer b, gpointer userdata) {
+  struct input_device const* device1 = a;
+  struct input_device const* device2 = b;
+  (void) userdata;
+
+  int64_t id1 = ID_TO_LONG(device1->id);
+  int64_t id2 = ID_TO_LONG(device2->id);
+
+  if (id1 < id2) {
+    return 1;
+  }
+  else if (id1 > id2) {
+    return -1;
+  }
+  else {
+    return 0;
+  }
+}
+
+
+static gint compare_device_to_event_number(gconstpointer a, gconstpointer b) {
+  struct input_device const* device = a;
+  intptr_t                   event_number     = (intptr_t) b;
+
+  return device->event_number - event_number;
+}
+
+
+static int get_event_number(char const* name) {
+  int rc = -1;
+
+  if (strncmp(name, "event", 5) == 0 && name[5] != '\0') {
+    long event_number;
+    char* endp;
+
+    event_number = strtol(&name[5], &endp, 10);
+
+    if (endp[0] == '\0') {
+      rc = (int) event_number;
+    }
+  }
+
+  return rc;
+}
+
+
+static struct input_device* create_device(int event_number) {
+  char full_path[64];
+
+  struct input_device* dev = calloc(1, sizeof (*dev));
+
+  if (dev == NULL) {
+    return false;
+  }
+
+  dev->event_number = event_number;
+
+  snprintf(full_path, sizeof (full_path), "/dev/input/event%d", dev->event_number);
+
+  dev->fd = open(full_path, O_RDWR | O_NONBLOCK);
+
+  if (dev->fd < 0) {
+    perror("open(\"/dev/input/eventX\")");
+    free(dev);
+    return NULL;
+  }
+
+  // Grab events so they never reach the X server
+//  ioctl(dev->fd, EVIOCGRAB, 1);
+
+  return dev;
+}
+
+
+static void destroy_device(struct input_device* device) {
+  if (device == NULL) {
+    return;
+  }
+
+  close(device->fd);
+  free(device);
+}
+
+
+
+static bool add_device(GQueue* devices, struct input_device* device) {
+  if (device == NULL) {
+    return false;
+  }
+
+  g_queue_insert_sorted(devices, device, compare_devices, NULL);
+  return true;
+}
+
+
+static bool remove_device(GQueue* devices, int event_number) {
+  if (devices == NULL) {
+    return false;
+  }
+
+  GList* link = g_queue_find_custom(devices, (gconstpointer) (intptr_t) event_number,
+				    compare_device_to_event_number);
+
+  if (link == NULL) {
+    return false;
+  }
+
+  struct input_device* device = link->data;
+
+  g_queue_delete_link(devices, link);
+  destroy_device(device);
+
+  return true;
+}
+
+
+static void remove_all_devices(GQueue* devices) {
+  if (devices != NULL) {
+    gpointer data;
+
+    while ((data = g_queue_pop_head(devices)) != NULL) {
+      struct input_device* device = data;
+
+      destroy_device(device);
+    }
+  }
+}
+
+static bool rescan_devices(GQueue* devices) {
+  DIR* dir;
+  bool rc = true;
+
+  remove_all_devices(devices);
+
+  dir = opendir("/dev/input");
+
+  if (dir == NULL) {
+    perror("opendir(\"/dev/input\")");
+    rc = false;
+  }
+  else {
+    struct dirent* de;
+
+    while ((de = readdir(dir)) != NULL) {
+      int event_number = get_event_number(de->d_name);
+
+      if (event_number >= 0) {
+	struct input_device* device = create_device(event_number);
+
+	if (device == NULL || !add_device(devices, device)) {
+	  rc = false;
+	  break;
+	}
+      }
+    }
+
+    closedir(dir);
+  }
+
+  if (!rc) {
+    remove_all_devices(devices);
+  }
+
+  return rc;
+}
+
+
+static bool update_devices(GQueue* devices, int inotify_fd) {
+  char buf[1024];
+  int rc = true;
+
+  while (true) {
+    int len = read(inotify_fd, buf, sizeof (buf));
+
+    if (len < 0) {
+      if (errno == EINTR) {
+	continue;
+      }
+      else if (errno == EAGAIN) {
+	// Would block
+	return true;
+      }
+      else {
+	perror("read");
+	return false;
+      }
+    }
+    else if (len == 0) {
+      /* buffer too small! */
+      return false;
+    }
+    
+    int i = 0;
+
+    while (i < len) {
+      struct inotify_event* event = (struct inotify_event*) &buf[i];
+
+      if (event->len > 0) {
+	int event_number = get_event_number(event->name);
+
+	if (event_number >= 0) {
+	  if (event->mask & IN_CREATE) {
+	    struct input_device* device = create_device(event_number);
+
+	    if (device == NULL || !add_device(devices, device)) {
+	      rc = false;
+	      break;
+	    }
+	  }
+	  
+	  if (event->mask & IN_DELETE) {
+	    if (!remove_device(devices, event_number)) {
+	      rc = false;
+	    }
+	  }
+	}
+      }
+
+      i += sizeof (*event) + event->len;
+    }
+  }
+
+  return rc;
+}
+
+static int find_fd_set(GQueue* devices, fd_set* read_fds, int inotify_fd) {
+  int max_fd = inotify_fd;
+
+  void dev_func(gpointer data, gpointer userdata) {
+    struct input_device* device = data;
+    (void) userdata;
+
+    if (device->fd > max_fd) {
+      max_fd = device->fd;
+    }
+
+    FD_SET(device->fd, read_fds);
+  };
+
+  FD_ZERO(read_fds);
+
+  if (inotify_fd >= 0) {
+    FD_SET(inotify_fd, read_fds);
+  }
+
+  g_queue_foreach(devices, dev_func, NULL);
+  
+  return max_fd;
+}
+
+/*** API functions **********************************************************/
 
 bool glgfx_input_acquire(struct glgfx_monitor* monitor) {
   bool rc = true;

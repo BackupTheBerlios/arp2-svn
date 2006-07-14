@@ -8,6 +8,8 @@ struct glgfx_monitor;
 enum glgfx_input_code {
   glgfx_input_none         = 0x00000000,
 
+  // Standard keys
+
   glgfx_input_a = 0x20,
   glgfx_input_b = 0x35,
   glgfx_input_c = 0x33,
@@ -44,6 +46,7 @@ enum glgfx_input_code {
   glgfx_input_7 = 0x07,
   glgfx_input_8 = 0x08,
   glgfx_input_9 = 0x09,
+
   glgfx_input_np0 = 0x0f,
   glgfx_input_np1 = 0x1d,
   glgfx_input_np2 = 0x1e,
@@ -61,6 +64,7 @@ enum glgfx_input_code {
   glgfx_input_npdel = 0x3c,
   glgfx_input_nplparen = 0x5a,
   glgfx_input_nprparen = 0x5b,
+
   glgfx_input_f1 = 0x50,
   glgfx_input_f2 = 0x51,
   glgfx_input_f3 = 0x52,
@@ -71,27 +75,30 @@ enum glgfx_input_code {
   glgfx_input_f8 = 0x57,
   glgfx_input_f9 = 0x58,
   glgfx_input_f10 = 0x59,
+  glgfx_input_f11 = 0x4b,
+  glgfx_input_f12 = 0x6f,
+
   glgfx_input_up = 0x4c,
   glgfx_input_down = 0x4d,
   glgfx_input_left = 0x4f,
   glgfx_input_right = 0x4e,
+
   glgfx_input_space = 0x40,
-  glgfx_input_bs = 0x41,
+  glgfx_input_backspace = 0x41,
   glgfx_input_tab = 0x42,
   glgfx_input_enter = 0x43,
   glgfx_input_return = 0x44,
   glgfx_input_esc = 0x45,
-  glgfx_input_del = 0x46,
+
   glgfx_input_lshift = 0x60,
   glgfx_input_rshift = 0x61,
-  glgfx_input_capslock = 0x62,
   glgfx_input_lctrl = 0x63,
   glgfx_input_rctrl = 0x7f,
   glgfx_input_lalt = 0x64,
   glgfx_input_ralt = 0x65,
   glgfx_input_lmeta = 0x66,
   glgfx_input_rmeta = 0x67,
-  glgfx_input_menu = 0x5f,
+
   glgfx_input_lbracket = 0x1a,
   glgfx_input_rbracket = 0x1b,
   glgfx_input_semicolon = 0x29,
@@ -106,17 +113,24 @@ enum glgfx_input_code {
   glgfx_input_minus = 0x0b,
   glgfx_input_equal = 0x0c,
 
+  glgfx_input_del = 0x46,
   glgfx_input_insert = 0x47,
   glgfx_input_pageup = 0x48,
   glgfx_input_pagedown = 0x49,
-  glgfx_input_f11 = 0x4b,
-  glgfx_input_f12 = 0x6f,
-  glgfx_input_scrlock = 0x6b,
-  glgfx_input_prtscr = 0x6c,
-  glgfx_input_numlock = 0x6d,
-  glgfx_input_pause = 0x6e,
   glgfx_input_home = 0x70,
   glgfx_input_end = 0x71,
+
+  glgfx_input_help = 0x5f,
+  glgfx_input_menu = 0x82,	// > 0x7f
+
+  glgfx_input_prtscr = 0x6c,
+  glgfx_input_sysrq = 0x80,	// > 0x7f: lalt + prtscr
+  glgfx_input_pause = 0x6e,
+  glgfx_input_break = 0x81,	// > 0x7f: ctrl + pause
+
+  glgfx_input_capslock = 0x62,
+  glgfx_input_scrlock = 0x6b,
+  glgfx_input_numlock = 0x6d,
 
   glgfx_input_cdstop = 0x72,
   glgfx_input_cdplaypause = 0x73,
@@ -125,10 +139,53 @@ enum glgfx_input_code {
   glgfx_input_cdrew = 0x76,
   glgfx_input_cdff = 0x77,
 
-  // Extended special keys
-  glgfx_input_sysrq = 0x100,	// lalt + prtscr
-  glgfx_input_break = 0x101,    // ctrl + pause
+  // Extended keys, > 0x7f
   
+  glgfx_input_f13 = 0x83,
+  glgfx_input_f14 = 0x84,
+  glgfx_input_f15 = 0x85,
+  glgfx_input_f16 = 0x86,
+  glgfx_input_f17 = 0x87,
+  glgfx_input_f18 = 0x88,
+  glgfx_input_f19 = 0x89,
+  glgfx_input_f20 = 0x8a,
+  glgfx_input_f21 = 0x8b,
+  glgfx_input_f22 = 0x8c,
+  glgfx_input_f23 = 0x8d,
+  glgfx_input_f24 = 0x8e,
+
+  // 8f
+
+  glgfx_input_power = 0x90,
+  glgfx_input_sleep = 0x91,
+  glgfx_input_suspend = 0x92,
+  glgfx_input_wakeup = 0x93,
+
+  glgfx_input_stop = 0x94,
+  glgfx_input_props = 0x95,
+  glgfx_input_front = 0x96,
+  glgfx_input_open = 0x97,
+  glgfx_input_find = 0x98,
+  glgfx_input_undo = 0x99,
+  glgfx_input_again = 0x9a,
+  glgfx_input_copy = 0x9b,
+  glgfx_input_cut = 0x9c,
+  glgfx_input_paste = 0x9d,
+
+//  [KEY_MUTE]		= glgfx_input_none,
+//  [KEY_VOLUMEDOWN]	= glgfx_input_none,
+//  [KEY_VOLUMEUP]	= glgfx_input_none,
+
+//  [KEY_CLOSECD]	= glgfx_input_none,
+//  [KEY_EJECTCD]	= glgfx_input_none,
+//  [KEY_EJECTCLOSECD]	= glgfx_input_none,
+
+
+//  [KEY_KPEQUAL]	= glgfx_input_none,
+//  [KEY_KPPLUSMINUS]	= glgfx_input_none,
+
+  
+
   // Multimedia keyboard keys [see also /usr/X11R6/lib/X11/XKeysymDB]
 /*   glgfx_input_my_computer = 0x80, */
 /*   glgfx_input_my_documents = 0x80, */
