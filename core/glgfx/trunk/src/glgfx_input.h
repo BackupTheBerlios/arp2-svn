@@ -5,6 +5,28 @@
 
 struct glgfx_monitor;
 
+#ifndef KEY_NEW
+# define KEY_NEW         181
+#endif
+#ifndef KEY_REDO
+# define KEY_REDO        182
+#endif
+#ifndef KEY_SEND
+# define KEY_SEND        231
+#endif
+#ifndef KEY_REPLY
+# define KEY_REPLY       232
+#endif
+#ifndef KEY_FORWARDMAIL
+# define KEY_FORWARDMAIL 233
+#endif
+#ifndef KEY_SAVE
+# define KEY_SAVE        234
+#endif
+#ifndef KEY_DOCUMENTS
+# define KEY_DOCUMENTS   235
+#endif
+
 enum glgfx_input_code {
   glgfx_input_none         = 0x00000000,
 
@@ -47,23 +69,23 @@ enum glgfx_input_code {
   glgfx_input_8 = 0x08,
   glgfx_input_9 = 0x09,
 
-  glgfx_input_np0 = 0x0f,
-  glgfx_input_np1 = 0x1d,
-  glgfx_input_np2 = 0x1e,
-  glgfx_input_np3 = 0x1f,
-  glgfx_input_np4 = 0x2d,
-  glgfx_input_np5 = 0x2e,
-  glgfx_input_np6 = 0x2f,
-  glgfx_input_np7 = 0x3d,
-  glgfx_input_np8 = 0x3e,
-  glgfx_input_np9 = 0x3f,
-  glgfx_input_npdiv = 0x5c,
-  glgfx_input_npmul = 0x5d,
-  glgfx_input_npsub = 0x4a,
-  glgfx_input_npadd = 0x5e,
-  glgfx_input_npdel = 0x3c,
-  glgfx_input_nplparen = 0x5a,
-  glgfx_input_nprparen = 0x5b,
+  glgfx_input_np_0 = 0x0f,
+  glgfx_input_np_1 = 0x1d,
+  glgfx_input_np_2 = 0x1e,
+  glgfx_input_np_3 = 0x1f,
+  glgfx_input_np_4 = 0x2d,
+  glgfx_input_np_5 = 0x2e,
+  glgfx_input_np_6 = 0x2f,
+  glgfx_input_np_7 = 0x3d,
+  glgfx_input_np_8 = 0x3e,
+  glgfx_input_np_9 = 0x3f,
+  glgfx_input_np_div = 0x5c,
+  glgfx_input_np_mul = 0x5d,
+  glgfx_input_np_sub = 0x4a,
+  glgfx_input_np_add = 0x5e,
+  glgfx_input_np_decimal = 0x3c,
+  glgfx_input_np_lparen = 0x5a,
+  glgfx_input_np_rparen = 0x5b,
 
   glgfx_input_f1 = 0x50,
   glgfx_input_f2 = 0x51,
@@ -93,7 +115,7 @@ enum glgfx_input_code {
   glgfx_input_lshift = 0x60,
   glgfx_input_rshift = 0x61,
   glgfx_input_lctrl = 0x63,
-  glgfx_input_rctrl = 0x7f,
+  glgfx_input_rctrl = 0x83,
   glgfx_input_lalt = 0x64,
   glgfx_input_ralt = 0x65,
   glgfx_input_lmeta = 0x66,
@@ -132,59 +154,151 @@ enum glgfx_input_code {
   glgfx_input_scrlock = 0x6b,
   glgfx_input_numlock = 0x6d,
 
-  glgfx_input_cdstop = 0x72,
-  glgfx_input_cdplaypause = 0x73,
-  glgfx_input_cdprev = 0x74,
-  glgfx_input_cdnext = 0x75,
-  glgfx_input_cdrew = 0x76,
-  glgfx_input_cdff = 0x77,
+  glgfx_input_cd_stop = 0x72,
+  glgfx_input_cd_playpause = 0x73,
+  glgfx_input_cd_prev = 0x74,
+  glgfx_input_cd_next = 0x75,
+  glgfx_input_cd_rew = 0x76,
+  glgfx_input_cd_ff = 0x77,
+
+  // 2c free?
+  // 68, 69, 6a mouse buttons
+  // 79 free
+  // 7a, 7b, 7c, 7d, 7e mouse buttons/wheel
+  // 7f free
 
   // Extended keys, > 0x7f
+
+  glgfx_input_np_equal = 0x84,
+  glgfx_input_np_plusminus = 0x85,
   
-  glgfx_input_f13 = 0x83,
-  glgfx_input_f14 = 0x84,
-  glgfx_input_f15 = 0x85,
-  glgfx_input_f16 = 0x86,
-  glgfx_input_f17 = 0x87,
-  glgfx_input_f18 = 0x88,
-  glgfx_input_f19 = 0x89,
-  glgfx_input_f20 = 0x8a,
-  glgfx_input_f21 = 0x8b,
-  glgfx_input_f22 = 0x8c,
-  glgfx_input_f23 = 0x8d,
-  glgfx_input_f24 = 0x8e,
+  // Extra function keys
+  glgfx_input_f13 = 0x86,
+  glgfx_input_f14 = 0x87,
+  glgfx_input_f15 = 0x88,
+  glgfx_input_f16 = 0x89,
+  glgfx_input_f17 = 0x90,
+  glgfx_input_f18 = 0x91,
+  glgfx_input_f19 = 0x92,
+  glgfx_input_f20 = 0x93,
+  glgfx_input_f21 = 0x94,
+  glgfx_input_f22 = 0x95,
+  glgfx_input_f23 = 0x96,
+  glgfx_input_f24 = 0x97,
 
-  // 8f
+  // Sun keyboard
+  glgfx_input_front = 0x98,
 
-  glgfx_input_power = 0x90,
-  glgfx_input_sleep = 0x91,
-  glgfx_input_suspend = 0x92,
-  glgfx_input_wakeup = 0x93,
+  // Power
+  glgfx_input_power = 0x99,
+  glgfx_input_sleep = 0x9a,
+  glgfx_input_suspend = 0x9b,
+  glgfx_input_wakeup = 0x9c,
+  // 9d, 9e, 9f free
 
-  glgfx_input_stop = 0x94,
-  glgfx_input_props = 0x95,
-  glgfx_input_front = 0x96,
-  glgfx_input_open = 0x97,
-  glgfx_input_find = 0x98,
-  glgfx_input_undo = 0x99,
-  glgfx_input_again = 0x9a,
-  glgfx_input_copy = 0x9b,
-  glgfx_input_cut = 0x9c,
-  glgfx_input_paste = 0x9d,
-
-//  [KEY_MUTE]		= glgfx_input_none,
-//  [KEY_VOLUMEDOWN]	= glgfx_input_none,
-//  [KEY_VOLUMEUP]	= glgfx_input_none,
-
-//  [KEY_CLOSECD]	= glgfx_input_none,
-//  [KEY_EJECTCD]	= glgfx_input_none,
-//  [KEY_EJECTCLOSECD]	= glgfx_input_none,
+  // CD/Media control
+  glgfx_input_cd_mute = 0xa0,
+  glgfx_input_cd_volumeup = 0xa1,
+  glgfx_input_cd_volumedown = 0xa2,
+  glgfx_input_cd_close = 0xa3,
+  glgfx_input_cd_eject = 0xa4,
+  glgfx_input_cd_ejectclose = 0xa5,
+  glgfx_input_cd_play = 0xa6,
+  glgfx_input_cd_pause = 0xa7,
+  glgfx_input_cd_menu = 0xa8,
+  glgfx_input_cd_record = 0xa9,
+  glgfx_input_cd_bassboost,
 
 
-//  [KEY_KPEQUAL]	= glgfx_input_none,
-//  [KEY_KPPLUSMINUS]	= glgfx_input_none,
+  // Application Launch (USB)
+  glgfx_input_al_launchconfig = 0x181,
+  glgfx_input_al_buttonconfig,
+  glgfx_input_al_controlconfig,
+  glgfx_input_al_wordprocessor,
+  glgfx_input_al_texteditor,
+  glgfx_input_al_spreadsheet,
+  glgfx_input_al_graphicseditor,
+  glgfx_input_al_presentation,
+  glgfx_input_al_database,
+  glgfx_input_al_email,
+  glgfx_input_al_news,
+  glgfx_input_al_voicemail,
+  glgfx_input_al_addressbook,
+  glgfx_input_al_calendar,
+  glgfx_input_al_projectmanager,
+  glgfx_input_al_journal,
+  glgfx_input_al_finance,
+  glgfx_input_al_calculator,
+  glgfx_input_al_avcapture,
+  glgfx_input_al_browser,
+  glgfx_input_al_lanbrowser,
+  glgfx_input_al_internetbrowser,
+  glgfx_input_al_remotenetworking,
+  glgfx_input_al_networkconference,
+  glgfx_input_al_networkchat,
+  glgfx_input_al_telephony,
+  glgfx_input_al_logon,
+  glgfx_input_al_logoff,
+  glgfx_input_al_logonlogoff,
+  glgfx_input_al_screensaver,
+  glgfx_input_al_controlpanel,
+  glgfx_input_al_cli,
+  glgfx_input_al_taskmanager,
+  glgfx_input_al_selecttask,
+  glgfx_input_al_nexttask,
+  glgfx_input_al_prevtask,
+  glgfx_input_al_halttask,
 
-  
+  // Application Control (USB)
+  glgfx_input_ac_new = 0x201,
+  glgfx_input_ac_open,
+  glgfx_input_ac_close,
+  glgfx_input_ac_exit,
+  glgfx_input_ac_maximize,
+  glgfx_input_ac_minimize,
+  glgfx_input_ac_save,
+  glgfx_input_ac_print,
+  glgfx_input_ac_properties,
+  glgfx_input_ac_undo,
+  glgfx_input_ac_copy,
+  glgfx_input_ac_cut,
+  glgfx_input_ac_paste,
+  glgfx_input_ac_selectall,
+  glgfx_input_ac_find,
+  glgfx_input_ac_findreplace,
+  glgfx_input_ac_search,
+  glgfx_input_ac_goto,
+  glgfx_input_ac_home,
+  glgfx_input_ac_back,
+  glgfx_input_ac_forward,
+  glgfx_input_ac_stop,
+  glgfx_input_ac_refresh,
+  glgfx_input_ac_prevlink,
+  glgfx_input_ac_nextlink,
+  glgfx_input_ac_bookmarks,
+  glgfx_input_ac_history,
+  glgfx_input_ac_subscriptions,
+  glgfx_input_ac_zoomin,
+  glgfx_input_ac_zoomout,
+  glgfx_input_ac_zoom,
+  glgfx_input_ac_fullscreenview,
+  glgfx_input_ac_normalview,
+  glgfx_input_ac_toggleview,
+  glgfx_input_ac_scrollup,
+  glgfx_input_ac_scrolldown,
+  glgfx_input_ac_scroll,
+  glgfx_input_ac_panleft,
+  glgfx_input_ac_panright,
+  glgfx_input_ac_pan,
+  glgfx_input_ac_newwindow,
+  glgfx_input_ac_tilehorizontally,
+  glgfx_input_ac_tilevertically,
+  glgfx_input_ac_format,
+
+  glgfx_input_ac_redo = 0x279,
+  glgfx_input_ac_emailreply = 0x289,
+  glgfx_input_ac_emailforward = 0x28b,
+  glgfx_input_ac_emailsend = 0x28c,
 
   // Multimedia keyboard keys [see also /usr/X11R6/lib/X11/XKeysymDB]
 /*   glgfx_input_my_computer = 0x80, */
@@ -192,19 +306,13 @@ enum glgfx_input_code {
 /*   glgfx_input_my_pictures = 0x80, */
 /*   glgfx_input_my_music = 0x80, */
 
-/*   glgfx_input_mute = 0x80, */
-/*   glgfx_input_volume_up = 0x80, */
-/*   glgfx_input_volume_down = 0x80, */
 
 /*   glgfx_input_media = 0x80, */
 /*   glgfx_input_mail = 0x80, */
 /*   glgfx_input_web_home = 0x80, */
 /*   glgfx_input_messenger = 0x80, */
 /*   glgfx_input_calculator = 0x80, */
-
-/*   glgfx_input_log_off = 0x80, */
-/*   glgfx_input_sleep = 0x80, */
-  
+ 
 /*   glgfx_input_help = 0x80, */
 /*   glgfx_input_undo = 0x80, */
 /*   glgfx_input_redo = 0x80, */
