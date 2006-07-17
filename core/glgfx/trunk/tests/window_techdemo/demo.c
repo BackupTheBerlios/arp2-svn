@@ -207,20 +207,17 @@ int main(int argc, char** argv) {
 	  glgfx_rasinfo_getattr(ri_selected, glgfx_rasinfo_attr_y, &win_y);
 
 	  while (!quit) {
-	    enum glgfx_input_code code;
+	    struct glgfx_input_event event;
 
 	    glgfx_monitor_render(monitor);
 
-	    while ((code = glgfx_input_getcode()) != glgfx_input_none) {
-	      if ((code & glgfx_input_typemask) == glgfx_input_mouse_xyz) {
-		int8_t dx = ((code & glgfx_input_valuemask) >> 0) & 0xff;
-		int8_t dy = ((code & glgfx_input_valuemask) >> 8) & 0xff;
-		
+	    while ((glgfx_input_getcode(&event))) {
+	      if ((event.class & glgfx_input_classmask) == glgfx_input_mouse) {
 		int old_mouse_x = mouse_x;
 		int old_mouse_y = mouse_y;
 
-		mouse_x += dx;
-		mouse_y += dy;
+		mouse_x += event.mouse.dx;
+		mouse_y += event.mouse.dy;
 
 		if (mouse_x < 0) mouse_x = 0;
 		if (mouse_y < 0) mouse_y = 0;
@@ -237,9 +234,9 @@ int main(int argc, char** argv) {
 					 glgfx_tag_end);
 		}
 	      }
-	      else if ((code & glgfx_input_typemask) == glgfx_input_mouse_button) {
-		if ((code & glgfx_input_valuemask) == 0) {
-		  if (code & glgfx_input_releasemask) {
+	      else if ((event.class & glgfx_input_classmask) == glgfx_input_event) {
+		if (event.event_code == glgfx_event_btn_left) {
+		  if (event.class & glgfx_input_releasemask) {
 		    drag = false;
 		  }
 		  else if (mouse_x >= -win_x && mouse_x < -win_x + window_selected.width &&
@@ -247,7 +244,7 @@ int main(int argc, char** argv) {
 		    drag = true;
 		  }
 		}
-		else if ((code & glgfx_input_valuemask) == 1) {
+		else if (event.event_code == glgfx_event_btn_right) {
 		  quit = true;
 		}
 	      }

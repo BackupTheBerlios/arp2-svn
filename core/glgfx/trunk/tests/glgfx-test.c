@@ -159,16 +159,14 @@ int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) 
 	//	glgfx_context_unbindfbo(glgfx_context_getcurrent());
 
 
-	enum glgfx_input_code code;
-	while ((code = glgfx_input_getcode()) != glgfx_input_none) {
-	  if ((code & glgfx_input_typemask) == glgfx_input_mouse_xyz) {
-	    int8_t dx = ((code & glgfx_input_valuemask) >> 0) & 0xff;
-	    int8_t dy = ((code & glgfx_input_valuemask) >> 8) & 0xff;
-
-	    mouse_x += dx;
-	    mouse_y += dy;
+	struct glgfx_input_event event;
+	while ((glgfx_input_getcode(&event))) {
+	  if ((event.class & glgfx_input_classmask) == glgfx_input_mouse) {
+	    mouse_x += event.mouse.dx;
+	    mouse_y += event.mouse.dy;
 	  }
-	  else if ((code & glgfx_input_typemask) == glgfx_input_mouse_button) {
+	  else if ((event.class & glgfx_input_classmask) == glgfx_input_event &&
+		   (event.event_code & glgfx_event_pagemask) == glgfx_event_page_buttons) {
 	    i += 1000;
 	  }
 	}
