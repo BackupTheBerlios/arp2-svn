@@ -161,13 +161,16 @@ int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) 
 
 	struct glgfx_input_event event;
 	while ((glgfx_input_getcode(&event))) {
-	  if ((event.class & glgfx_input_classmask) == glgfx_input_mouse) {
-	    mouse_x += event.mouse.dx;
-	    mouse_y += event.mouse.dy;
-	  }
-	  else if ((event.class & glgfx_input_classmask) == glgfx_input_event &&
-		   (event.event_code & glgfx_event_pagemask) == glgfx_event_page_buttons) {
-	    i += 1000;
+	  if (event.class == glgfx_input_class_mouse) {
+	    if (event.code == glgfx_input_x) {
+	      mouse_x += event.value;
+	    }
+	    else if (event.code == glgfx_input_y) {
+	      mouse_y += event.value;
+	    }
+	    else if (event.code == glgfx_input_btn_left) {
+	      i += 1000;
+	    }
 	  }
 	}
 

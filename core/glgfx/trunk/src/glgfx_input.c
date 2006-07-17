@@ -46,421 +46,448 @@ static GQueue* cache_queue = NULL;
 
 /*** Event mappings **********************************************************/
 
-static enum glgfx_event_code xorg_codes[256] = {
+static enum glgfx_input_code xorg_codes[256] = {
   // Row 0: 0-
-  glgfx_event_key_none,	glgfx_event_key_none,	glgfx_event_key_none,	glgfx_event_key_none,
-  glgfx_event_key_none,	glgfx_event_key_none,	glgfx_event_key_none,	glgfx_event_key_none,
-  glgfx_event_key_none,
+  glgfx_input_none,		glgfx_input_none,
+  glgfx_input_none,		glgfx_input_none,
+  glgfx_input_none,		glgfx_input_none,
+  glgfx_input_none,		glgfx_input_none,
+  glgfx_input_none,
 
   // Row 1: 9-
-  glgfx_event_key_escape,	glgfx_event_key_1,  	glgfx_event_key_2,  	glgfx_event_key_3,
-  glgfx_event_key_4,     	glgfx_event_key_5,  	glgfx_event_key_6,  	glgfx_event_key_7,
-  glgfx_event_key_8,     	glgfx_event_key_9,  	glgfx_event_key_0,  	glgfx_event_key_minus,
-  glgfx_event_key_equal, 	glgfx_event_key_backspace,
+  glgfx_input_key_escape,	glgfx_input_key_1,
+  glgfx_input_key_2,		glgfx_input_key_3,
+  glgfx_input_key_4,		glgfx_input_key_5,
+  glgfx_input_key_6,		glgfx_input_key_7,
+  glgfx_input_key_8,		glgfx_input_key_9,
+  glgfx_input_key_0,		glgfx_input_key_minus,
+  glgfx_input_key_equal,	glgfx_input_key_backspace,
 
   // Row 2: 23-
-  glgfx_event_key_tab,      glgfx_event_key_q,       	glgfx_event_key_w,  	glgfx_event_key_e,
-  glgfx_event_key_r,        glgfx_event_key_t,       	glgfx_event_key_y,  	glgfx_event_key_u,
-  glgfx_event_key_i,        glgfx_event_key_o,       	glgfx_event_key_p,  	glgfx_event_key_lbracket,
-  glgfx_event_key_rbracket, glgfx_event_key_return,
+  glgfx_input_key_tab,		glgfx_input_key_q,
+  glgfx_input_key_w,		glgfx_input_key_e,
+  glgfx_input_key_r,		glgfx_input_key_t,
+  glgfx_input_key_y,		glgfx_input_key_u,
+  glgfx_input_key_i,		glgfx_input_key_o,
+  glgfx_input_key_p,		glgfx_input_key_lbracket,
+  glgfx_input_key_rbracket,	glgfx_input_key_return,
 
   // Row 3: 37-
-  glgfx_event_key_lctrl,    glgfx_event_key_a,  	glgfx_event_key_s,         	glgfx_event_key_d,
-  glgfx_event_key_f,        glgfx_event_key_g,  	glgfx_event_key_h,          glgfx_event_key_j,
-  glgfx_event_key_k,        glgfx_event_key_l,  	glgfx_event_key_semicolon,  glgfx_event_key_quote,
-  glgfx_event_key_backquote,
+  glgfx_input_key_lctrl,	glgfx_input_key_a,
+  glgfx_input_key_s,		glgfx_input_key_d,
+  glgfx_input_key_f,		glgfx_input_key_g,
+  glgfx_input_key_h,		glgfx_input_key_j,
+  glgfx_input_key_k,		glgfx_input_key_l,
+  glgfx_input_key_semicolon,	glgfx_input_key_quote,
+  glgfx_input_key_backquote,
 
   // Row 4: 50-
-  glgfx_event_key_lshift,  	glgfx_event_key_backslash,  glgfx_event_key_z,       	glgfx_event_key_x,
-  glgfx_event_key_c,       	glgfx_event_key_v,          glgfx_event_key_b,       	glgfx_event_key_n,
-  glgfx_event_key_m,       	glgfx_event_key_comma,      glgfx_event_key_period,  	glgfx_event_key_slash,
-  glgfx_event_key_rshift,  	glgfx_event_key_np_mul,
+  glgfx_input_key_lshift,	glgfx_input_key_backslash,
+  glgfx_input_key_z,		glgfx_input_key_x,
+  glgfx_input_key_c,		glgfx_input_key_v,
+  glgfx_input_key_b,		glgfx_input_key_n,
+  glgfx_input_key_m,		glgfx_input_key_comma,
+  glgfx_input_key_period,	glgfx_input_key_slash,
+  glgfx_input_key_rshift,	glgfx_input_key_np_mul,
 
   // Row 5: 64-
-  glgfx_event_key_lalt,  	glgfx_event_key_space,  	glgfx_event_key_capslock,  	glgfx_event_key_f1,
-  glgfx_event_key_f2,  	glgfx_event_key_f3,  	glgfx_event_key_f4,  	glgfx_event_key_f5,
-  glgfx_event_key_f6,  	glgfx_event_key_f7,  	glgfx_event_key_f8,  	glgfx_event_key_f9,
-  glgfx_event_key_f10,
+  glgfx_input_key_lalt,		glgfx_input_key_space,
+  glgfx_input_key_capslock,	glgfx_input_key_f1,
+  glgfx_input_key_f2,		glgfx_input_key_f3,
+  glgfx_input_key_f4,		glgfx_input_key_f5,
+  glgfx_input_key_f6,		glgfx_input_key_f7,
+  glgfx_input_key_f8,		glgfx_input_key_f9,
+  glgfx_input_key_f10,
 
   // Keypad
-  glgfx_event_key_numlock,  glgfx_event_key_scrlock,  	glgfx_event_key_np_7,  	glgfx_event_key_np_8,
-  glgfx_event_key_np_9,  	glgfx_event_key_np_sub,  	glgfx_event_key_np_4,  	glgfx_event_key_np_5,
-  glgfx_event_key_np_6,  	glgfx_event_key_np_add,  	glgfx_event_key_np_1,  	glgfx_event_key_np_2,
-  glgfx_event_key_np_3,  	glgfx_event_key_np_0,  	glgfx_event_key_np_decimal,
+  glgfx_input_key_numlock,	glgfx_input_key_scrlock,
+  glgfx_input_key_np_7,		glgfx_input_key_np_8,
+  glgfx_input_key_np_9,		glgfx_input_key_np_sub,
+  glgfx_input_key_np_4,		glgfx_input_key_np_5,
+  glgfx_input_key_np_6,		glgfx_input_key_np_add,
+  glgfx_input_key_np_1,		glgfx_input_key_np_2,
+  glgfx_input_key_np_3,		glgfx_input_key_np_0,
+  glgfx_input_key_np_decimal,
 
   // Extra
-  glgfx_event_key_none,  	glgfx_event_key_none,  	glgfx_event_key_ltgt,  	glgfx_event_key_f11,
-  glgfx_event_key_f12, 	glgfx_event_key_home,  	glgfx_event_key_up,  	glgfx_event_key_pageup,
-  glgfx_event_key_left,  	glgfx_event_key_none,  	glgfx_event_key_right,  	glgfx_event_key_end,
-  glgfx_event_key_down,  	glgfx_event_key_pagedown,  	glgfx_event_key_insert,  	glgfx_event_key_delete,
-  glgfx_event_key_np_enter,	glgfx_event_key_rctrl,  	glgfx_event_key_pause,  	glgfx_event_key_prtscr,
-  glgfx_event_key_np_div,  	glgfx_event_key_ralt,  	glgfx_event_key_none,   	glgfx_event_key_lgui,
-  glgfx_event_key_rgui,  	glgfx_event_key_menu,       // None: 92-93, 101, 114
+  glgfx_input_none,		glgfx_input_none,
+  glgfx_input_key_ltgt,		glgfx_input_key_f11,
+  glgfx_input_key_f12,		glgfx_input_key_home,
+  glgfx_input_key_up,		glgfx_input_key_pageup,
+  glgfx_input_key_left,		glgfx_input_none,
+  glgfx_input_key_right,	glgfx_input_key_end,
+  glgfx_input_key_down,		glgfx_input_key_pagedown,
+  glgfx_input_key_insert,	glgfx_input_key_delete,
+  glgfx_input_key_np_enter,	glgfx_input_key_rctrl,
+  glgfx_input_key_pause,	glgfx_input_key_prtscr,
+  glgfx_input_key_np_div,	glgfx_input_key_ralt,
+  glgfx_input_none,		glgfx_input_key_lgui,
+  glgfx_input_key_rgui,		glgfx_input_key_menu,		// None: 92-93, 101, 114
 
-/*   glgfx_event_key_np_lparen, */
-/*   glgfx_event_key_np_rparen, */
-/*   glgfx_event_key_numbersign = 0x2b, */
+/*   glgfx_input_key_np_lparen, */
+/*   glgfx_input_key_np_rparen, */
+/*   glgfx_input_key_numbersign = 0x2b, */
 };
 
-static enum glgfx_event_code linux_codes[KEY_MAX + 1] = {
-  [0 ... KEY_MAX]	= glgfx_event_key_none,
+static enum glgfx_input_code linux_codes[KEY_MAX + 1] = {
+  [0 ... KEY_MAX]	= glgfx_input_none,
 
-  [KEY_ESC]		= glgfx_event_key_escape,
-  [KEY_1]		= glgfx_event_key_1,
-  [KEY_2]		= glgfx_event_key_2,
-  [KEY_3]		= glgfx_event_key_3,
-  [KEY_4]		= glgfx_event_key_4,
-  [KEY_5]		= glgfx_event_key_5,
-  [KEY_6]		= glgfx_event_key_6,
-  [KEY_7]		= glgfx_event_key_7,
-  [KEY_8]		= glgfx_event_key_8,
-  [KEY_9]		= glgfx_event_key_9,
-  [KEY_0]		= glgfx_event_key_0,
-  [KEY_MINUS]		= glgfx_event_key_minus,
-  [KEY_EQUAL]		= glgfx_event_key_equal,
-  [KEY_BACKSPACE]	= glgfx_event_key_backspace,
-  [KEY_TAB]		= glgfx_event_key_tab,
-  [KEY_Q]		= glgfx_event_key_q,
-  [KEY_W]		= glgfx_event_key_w,
-  [KEY_E]		= glgfx_event_key_e,
-  [KEY_R]		= glgfx_event_key_r,
-  [KEY_T]		= glgfx_event_key_t,
-  [KEY_Y]		= glgfx_event_key_y,
-  [KEY_U]		= glgfx_event_key_u,
-  [KEY_I]		= glgfx_event_key_i,
-  [KEY_O]		= glgfx_event_key_o,
-  [KEY_P]		= glgfx_event_key_p,
-  [KEY_LEFTBRACE]	= glgfx_event_key_lbracket,
-  [KEY_RIGHTBRACE]	= glgfx_event_key_rbracket,
-  [KEY_ENTER]		= glgfx_event_key_return,
-  [KEY_LEFTCTRL]	= glgfx_event_key_lctrl,
-  [KEY_A]		= glgfx_event_key_a,
-  [KEY_S]		= glgfx_event_key_s,
-  [KEY_D]		= glgfx_event_key_d,
-  [KEY_F]		= glgfx_event_key_f,
-  [KEY_G]		= glgfx_event_key_g,
-  [KEY_H]		= glgfx_event_key_h,
-  [KEY_J]		= glgfx_event_key_j,
-  [KEY_K]		= glgfx_event_key_k,
-  [KEY_L]		= glgfx_event_key_l,
-  [KEY_SEMICOLON]	= glgfx_event_key_semicolon,
-  [KEY_APOSTROPHE]	= glgfx_event_key_quote,
-  [KEY_GRAVE]		= glgfx_event_key_backquote,
-  [KEY_LEFTSHIFT]	= glgfx_event_key_lshift,
-  [KEY_BACKSLASH]	= glgfx_event_key_backslash,
-  [KEY_Z]		= glgfx_event_key_z,
-  [KEY_X]		= glgfx_event_key_x,
-  [KEY_C]		= glgfx_event_key_c,
-  [KEY_V]		= glgfx_event_key_v,
-  [KEY_B]		= glgfx_event_key_b,
-  [KEY_N]		= glgfx_event_key_n,
-  [KEY_M]		= glgfx_event_key_m,
-  [KEY_COMMA]		= glgfx_event_key_comma,
-  [KEY_DOT]		= glgfx_event_key_period,
-  [KEY_SLASH]		= glgfx_event_key_slash,
-  [KEY_RIGHTSHIFT]	= glgfx_event_key_rshift,
-  [KEY_KPASTERISK]	= glgfx_event_key_np_mul,
-  [KEY_LEFTALT]		= glgfx_event_key_lalt,
-  [KEY_SPACE]		= glgfx_event_key_space,
-  [KEY_CAPSLOCK]	= glgfx_event_key_capslock,
-  [KEY_F1]		= glgfx_event_key_f1,
-  [KEY_F2]		= glgfx_event_key_f2,
-  [KEY_F3]		= glgfx_event_key_f3,
-  [KEY_F4]		= glgfx_event_key_f4,
-  [KEY_F5]		= glgfx_event_key_f5,
-  [KEY_F6]		= glgfx_event_key_f6,
-  [KEY_F7]		= glgfx_event_key_f7,
-  [KEY_F8]		= glgfx_event_key_f8,
-  [KEY_F9]		= glgfx_event_key_f9,
-  [KEY_F10]		= glgfx_event_key_f10,
-  [KEY_NUMLOCK]		= glgfx_event_key_numlock,
-  [KEY_SCROLLLOCK]	= glgfx_event_key_scrlock,
-  [KEY_KP7]		= glgfx_event_key_np_7,
-  [KEY_KP8]		= glgfx_event_key_np_8,
-  [KEY_KP9]		= glgfx_event_key_np_9,
-  [KEY_KPMINUS]		= glgfx_event_key_np_sub,
-  [KEY_KP4]		= glgfx_event_key_np_4,
-  [KEY_KP5]		= glgfx_event_key_np_5,
-  [KEY_KP6]		= glgfx_event_key_np_6,
-  [KEY_KPPLUS]		= glgfx_event_key_np_add,
-  [KEY_KP1]		= glgfx_event_key_np_1,
-  [KEY_KP2]		= glgfx_event_key_np_2,
-  [KEY_KP3]		= glgfx_event_key_np_3,
-  [KEY_KP0]		= glgfx_event_key_np_0,
-  [KEY_KPDOT]		= glgfx_event_key_np_decimal,
-//  [KEY_ZENKAKUHANKAKU]= glgfx_event_key_none,
-  [KEY_102ND]		= glgfx_event_key_ltgt,
-  [KEY_F11]		= glgfx_event_key_f11,
-  [KEY_F12]		= glgfx_event_key_f12,
-//  [KEY_RO]		= glgfx_event_key_none,
-//  [KEY_KATAKANA]	= glgfx_event_key_none,
-//  [KEY_HIRAGANA]	= glgfx_event_key_none,
-//  [KEY_HENKAN]	= glgfx_event_key_none,
-//  [KEY_KATAKANAHIRAGANA]= glgfx_event_key_none,
-//  [KEY_MUHENKAN]	= glgfx_event_key_none,
-//  [KEY_KPJPCOMMA]	= glgfx_event_key_none,
-  [KEY_KPENTER]		= glgfx_event_key_np_enter,
-  [KEY_RIGHTCTRL]	= glgfx_event_key_rctrl,
-  [KEY_KPSLASH]		= glgfx_event_key_np_div,
-  [KEY_SYSRQ]		= glgfx_event_key_prtscr,
-  [KEY_RIGHTALT]	= glgfx_event_key_ralt,
-//  [KEY_LINEFEED]	= glgfx_event_key_none,
-  [KEY_HOME]		= glgfx_event_key_home,
-  [KEY_UP]		= glgfx_event_key_up,
-  [KEY_PAGEUP]		= glgfx_event_key_pageup,
-  [KEY_LEFT]		= glgfx_event_key_left,
-  [KEY_RIGHT]		= glgfx_event_key_right,
-  [KEY_END]		= glgfx_event_key_end,
-  [KEY_DOWN]		= glgfx_event_key_down,
-  [KEY_PAGEDOWN]	= glgfx_event_key_pagedown,
-  [KEY_INSERT]		= glgfx_event_key_insert,
-  [KEY_DELETE]		= glgfx_event_key_delete,
-//  [KEY_MACRO]		= glgfx_event_key_none,
-  [KEY_MUTE]		= glgfx_event_cd_mute,
-  [KEY_VOLUMEDOWN]	= glgfx_event_cd_volumedown,
-  [KEY_VOLUMEUP]	= glgfx_event_cd_volumeup,
-  [KEY_POWER]		= glgfx_event_poweroff,
-  [KEY_KPEQUAL]		= glgfx_event_key_np_equal,
-  [KEY_KPPLUSMINUS]	= glgfx_event_key_np_plusminus,
-  [KEY_PAUSE]		= glgfx_event_key_pause,
-  [KEY_KPCOMMA]		= glgfx_event_key_np_decimal,		/* ? */
-//  [KEY_HANGUEL]	= glgfx_event_key_none,
-//  [KEY_HANJA]		= glgfx_event_key_none,
-//  [KEY_YEN]		= glgfx_event_key_none,
-  [KEY_LEFTMETA]	= glgfx_event_key_lgui,
-  [KEY_RIGHTMETA]	= glgfx_event_key_rgui,
-  [KEY_COMPOSE]		= glgfx_event_key_menu,
-  [KEY_STOP]		= glgfx_event_ac_stop,
-  [KEY_AGAIN]		= glgfx_event_ac_redo,
-  [KEY_PROPS]		= glgfx_event_ac_properties,
-  [KEY_UNDO]		= glgfx_event_ac_undo,
-  [KEY_FRONT]		= glgfx_event_key_front,
-  [KEY_COPY]		= glgfx_event_ac_copy,
-  [KEY_OPEN]		= glgfx_event_ac_open,
-  [KEY_PASTE]		= glgfx_event_ac_paste,
-  [KEY_FIND]		= glgfx_event_ac_find,
-  [KEY_CUT]		= glgfx_event_ac_cut,
-  [KEY_HELP]		= glgfx_event_key_help,
-  [KEY_CALC]		= glgfx_event_al_calculator,
-//  [KEY_SETUP]		= glgfx_event_key_none,
-  [KEY_SLEEP]		= glgfx_event_hibernate,
-  [KEY_WAKEUP]		= glgfx_event_wakeup,
-  [KEY_FILE]		= glgfx_event_al_browser,
-//  [KEY_SENDFILE]	= glgfx_event_key_none,
-//  [KEY_DELETEFILE]	= glgfx_event_key_none,
-//  [KEY_XFER]		= glgfx_event_key_none,
-//  [KEY_PROG1]		= glgfx_event_key_none,
-//  [KEY_PROG2]		= glgfx_event_key_none,
-  [KEY_WWW]		= glgfx_event_al_internetbrowser,
-  [KEY_MSDOS]		= glgfx_event_al_cli,
-//  [KEY_COFFEE]	= glgfx_event_key_none,
-//  [KEY_DIRECTION]	= glgfx_event_key_none,
-//  [KEY_CYCLEWINDOWS]	= glgfx_event_key_none,
-  [KEY_MAIL]		= glgfx_event_al_email,
-  [KEY_BOOKMARKS]	= glgfx_event_ac_bookmarks,
-  [KEY_COMPUTER]	= glgfx_event_al_browser,
-  [KEY_BACK]		= glgfx_event_ac_back,
-  [KEY_FORWARD]		= glgfx_event_ac_forward,
-  [KEY_EJECTCD]		= glgfx_event_cd_eject,
-  [KEY_NEXTSONG]	= glgfx_event_cd_next,
-  [KEY_PLAYPAUSE]	= glgfx_event_cd_playpause,
-  [KEY_PREVIOUSSONG]	= glgfx_event_cd_prev,
-  [KEY_STOPCD]		= glgfx_event_cd_stop,
-  [KEY_RECORD]		= glgfx_event_cd_record,
-  [KEY_REWIND]		= glgfx_event_cd_rew,
-  [KEY_PHONE]		= glgfx_event_al_telephony,
-//  [KEY_ISO]		= glgfx_event_key_none,
-  [KEY_CONFIG]		= glgfx_event_al_controlconfig,
-  [KEY_HOMEPAGE]	= glgfx_event_ac_home,
-  [KEY_REFRESH]		= glgfx_event_ac_refresh,
-  [KEY_EXIT]		= glgfx_event_ac_exit,
-//  [KEY_MOVE]		= glgfx_event_key_none,
-//  [KEY_EDIT]		= glgfx_event_key_none,
-  [KEY_SCROLLUP]	= glgfx_event_ac_scrollup,
-  [KEY_SCROLLDOWN]	= glgfx_event_ac_scrolldown,
-  [KEY_KPLEFTPAREN]	= glgfx_event_key_np_lparen,
-  [KEY_KPRIGHTPAREN]	= glgfx_event_key_np_rparen,
-  [KEY_NEW]		= glgfx_event_ac_new,
-  [KEY_REDO]		= glgfx_event_ac_redo,
-  [KEY_F13]		= glgfx_event_key_f13,
-  [KEY_F14]		= glgfx_event_key_f14,
-  [KEY_F15]		= glgfx_event_key_f15,
-  [KEY_F16]		= glgfx_event_key_f16,
-  [KEY_F17]		= glgfx_event_key_f17,
-  [KEY_F18]		= glgfx_event_key_f18,
-  [KEY_F19]		= glgfx_event_key_f19,
-  [KEY_F20]		= glgfx_event_key_f20,
-  [KEY_F21]		= glgfx_event_key_f21,
-  [KEY_F22]		= glgfx_event_key_f22,
-  [KEY_F23]		= glgfx_event_key_f23,
-  [KEY_F24]		= glgfx_event_key_f24,
-  [KEY_PLAYCD]		= glgfx_event_cd_play,
-  [KEY_PAUSECD]		= glgfx_event_cd_pause,
-//  [KEY_PROG3]		= glgfx_event_key_none,
-//  [KEY_PROG4]		= glgfx_event_key_none,
-  [KEY_SUSPEND]		= glgfx_event_sleep,
-//  [KEY_CLOSE]		= glgfx_event_key_none,
-  [KEY_PLAY]		= glgfx_event_cd_play,		/* ? */
-  [KEY_FASTFORWARD]	= glgfx_event_cd_ff,
-  [KEY_BASSBOOST]	= glgfx_event_cd_bassboost,
-  [KEY_PRINT]		= glgfx_event_ac_print,
-//  [KEY_HP]		= glgfx_event_key_none,
-//  [KEY_CAMERA]	= glgfx_event_key_none,
-//  [KEY_SOUND]		= glgfx_event_key_none,
-//  [KEY_QUESTION]	= glgfx_event_key_none,
-  [KEY_EMAIL]		= glgfx_event_al_email,
-  [KEY_CHAT]		= glgfx_event_al_networkchat,
-  [KEY_SEARCH]		= glgfx_event_ac_search,
-//  [KEY_CONNECT]	= glgfx_event_key_none,
-  [KEY_FINANCE]		= glgfx_event_al_finance,
-//  [KEY_SPORT]		= glgfx_event_key_none,
-//  [KEY_SHOP]		= glgfx_event_key_none,
-//  [KEY_ALTERASE]	= glgfx_event_key_none,
-//  [KEY_CANCEL]	= glgfx_event_key_none,
-//  [KEY_BRIGHTNESSDOWN]= glgfx_event_key_none,
-//  [KEY_BRIGHTNESSUP]	= glgfx_event_key_none,
-//  [KEY_MEDIA]		= glgfx_event_key_none,
-//  [KEY_UNKNOWN]	= glgfx_event_key_none,
-//  [BTN_MISC]		= glgfx_event_key_none,
-//  [BTN_0]		= glgfx_event_key_none,
-//  [BTN_1]		= glgfx_event_key_none,
-//  [BTN_2]		= glgfx_event_key_none,
-//  [BTN_3]		= glgfx_event_key_none,
-//  [BTN_4]		= glgfx_event_key_none,
-//  [BTN_5]		= glgfx_event_key_none,
-//  [BTN_6]		= glgfx_event_key_none,
-//  [BTN_7]		= glgfx_event_key_none,
-//  [BTN_8]		= glgfx_event_key_none,
-//  [BTN_9]		= glgfx_event_key_none,
-//  [BTN_MOUSE]		= glgfx_event_key_none,
-//  [BTN_LEFT]		= glgfx_event_key_none,
-//  [BTN_RIGHT]		= glgfx_event_key_none,
-//  [BTN_MIDDLE]	= glgfx_event_key_none,
-//  [BTN_SIDE]		= glgfx_event_key_none,
-//  [BTN_EXTRA]		= glgfx_event_key_none,
-//  [BTN_FORWARD]	= glgfx_event_key_none,
-//  [BTN_BACK]		= glgfx_event_key_none,
-//  [BTN_TASK]		= glgfx_event_key_none,
-//  [BTN_JOYSTICK]	= glgfx_event_key_none,
-//  [BTN_TRIGGER]	= glgfx_event_key_none,
-//  [BTN_THUMB]		= glgfx_event_key_none,
-//  [BTN_THUMB2]	= glgfx_event_key_none,
-//  [BTN_TOP]		= glgfx_event_key_none,
-//  [BTN_TOP2]		= glgfx_event_key_none,
-//  [BTN_PINKIE]	= glgfx_event_key_none,
-//  [BTN_BASE]		= glgfx_event_key_none,
-//  [BTN_BASE2]		= glgfx_event_key_none,
-//  [BTN_BASE3]		= glgfx_event_key_none,
-//  [BTN_BASE4]		= glgfx_event_key_none,
-//  [BTN_BASE5]		= glgfx_event_key_none,
-//  [BTN_BASE6]		= glgfx_event_key_none,
-//  [BTN_DEAD]		= glgfx_event_key_none,
-//  [BTN_GAMEPAD]	= glgfx_event_key_none,
-//  [BTN_A]		= glgfx_event_key_none,
-//  [BTN_B]		= glgfx_event_key_none,
-//  [BTN_C]		= glgfx_event_key_none,
-//  [BTN_X]		= glgfx_event_key_none,
-//  [BTN_Y]		= glgfx_event_key_none,
-//  [BTN_Z]		= glgfx_event_key_none,
-//  [BTN_TL]		= glgfx_event_key_none,
-//  [BTN_TR]		= glgfx_event_key_none,
-//  [BTN_TL2]		= glgfx_event_key_none,
-//  [BTN_TR2]		= glgfx_event_key_none,
-//  [BTN_SELECT]	= glgfx_event_key_none,
-//  [BTN_START]		= glgfx_event_key_none,
-//  [BTN_MODE]		= glgfx_event_key_none,
-//  [BTN_THUMBL]	= glgfx_event_key_none,
-//  [BTN_THUMBR]	= glgfx_event_key_none,
-//  [BTN_DIGI]		= glgfx_event_key_none,
-//  [BTN_TOOL_PEN]	= glgfx_event_key_none,
-//  [BTN_TOOL_RUBBER]	= glgfx_event_key_none,
-//  [BTN_TOOL_BRUSH]	= glgfx_event_key_none,
-//  [BTN_TOOL_PENCIL]	= glgfx_event_key_none,
-//  [BTN_TOOL_AIRBRUSH]	= glgfx_event_key_none,
-//  [BTN_TOOL_FINGER]	= glgfx_event_key_none,
-//  [BTN_TOOL_MOUSE]	= glgfx_event_key_none,
-//  [BTN_TOOL_LENS]	= glgfx_event_key_none,
-//  [BTN_TOUCH]		= glgfx_event_key_none,
-//  [BTN_STYLUS]	= glgfx_event_key_none,
-//  [BTN_STYLUS2]	= glgfx_event_key_none,
-//  [BTN_TOOL_DOUBLETAP]= glgfx_event_key_none,
-//  [BTN_TOOL_TRIPLETAP]= glgfx_event_key_none,
-//  [BTN_WHEEL]		= glgfx_event_key_none,
-//  [BTN_GEAR_DOWN]	= glgfx_event_key_none,
-//  [BTN_GEAR_UP]	= glgfx_event_key_none,
-//  [KEY_OK]		= glgfx_event_key_none,
-//  [KEY_SELECT]	= glgfx_event_key_none,
-//  [KEY_GOTO]		= glgfx_event_key_none,
-//  [KEY_CLEAR]		= glgfx_event_key_none,
-//  [KEY_POWER2]	= glgfx_event_key_none,
-//  [KEY_OPTION]	= glgfx_event_key_none,
-//  [KEY_INFO]		= glgfx_event_key_none,
-//  [KEY_TIME]		= glgfx_event_key_none,
-//  [KEY_VENDOR]	= glgfx_event_key_none,
-//  [KEY_ARCHIVE]	= glgfx_event_key_none,
-//  [KEY_PROGRAM]	= glgfx_event_key_none,
-//  [KEY_CHANNEL]	= glgfx_event_key_none,
-//  [KEY_FAVORITES]	= glgfx_event_key_none,
-//  [KEY_EPG]		= glgfx_event_key_none,
-//  [KEY_PVR]		= glgfx_event_key_none,
-//  [KEY_MHP]		= glgfx_event_key_none,
-//  [KEY_LANGUAGE]	= glgfx_event_key_none,
-//  [KEY_TITLE]		= glgfx_event_key_none,
-//  [KEY_SUBTITLE]	= glgfx_event_key_none,
-//  [KEY_ANGLE]		= glgfx_event_key_none,
-//  [KEY_ZOOM]		= glgfx_event_key_none,
-//  [KEY_MODE]		= glgfx_event_key_none,
-//  [KEY_KEYBOARD]	= glgfx_event_key_none,
-//  [KEY_SCREEN]	= glgfx_event_key_none,
-//  [KEY_PC]		= glgfx_event_key_none,
-//  [KEY_TV]		= glgfx_event_key_none,
-//  [KEY_TV2]		= glgfx_event_key_none,
-//  [KEY_VCR]		= glgfx_event_key_none,
-//  [KEY_VCR2]		= glgfx_event_key_none,
-//  [KEY_SAT]		= glgfx_event_key_none,
-//  [KEY_SAT2]		= glgfx_event_key_none,
-//  [KEY_CD]		= glgfx_event_key_none,
-//  [KEY_TAPE]		= glgfx_event_key_none,
-//  [KEY_RADIO]		= glgfx_event_key_none,
-//  [KEY_TUNER]		= glgfx_event_key_none,
-//  [KEY_PLAYER]	= glgfx_event_key_none,
-//  [KEY_TEXT]		= glgfx_event_key_none,
-//  [KEY_DVD]		= glgfx_event_key_none,
-//  [KEY_AUX]		= glgfx_event_key_none,
-//  [KEY_MP3]		= glgfx_event_key_none,
-//  [KEY_AUDIO]		= glgfx_event_key_none,
-//  [KEY_VIDEO]		= glgfx_event_key_none,
-//  [KEY_DIRECTORY]	= glgfx_event_key_none,
-//  [KEY_LIST]		= glgfx_event_key_none,
-//  [KEY_MEMO]		= glgfx_event_key_none,
-//  [KEY_CALENDAR]	= glgfx_event_key_none,
-//  [KEY_RED]		= glgfx_event_key_none,
-//  [KEY_GREEN]		= glgfx_event_key_none,
-//  [KEY_YELLOW]	= glgfx_event_key_none,
-//  [KEY_BLUE]		= glgfx_event_key_none,
-//  [KEY_CHANNELUP]	= glgfx_event_key_none,
-//  [KEY_CHANNELDOWN]	= glgfx_event_key_none,
-//  [KEY_FIRST]		= glgfx_event_key_none,
-//  [KEY_LAST]		= glgfx_event_key_none,
-//  [KEY_AB]		= glgfx_event_key_none,
-//  [KEY_NEXT]		= glgfx_event_key_none,
-//  [KEY_RESTART]	= glgfx_event_key_none,
-//  [KEY_SLOW]		= glgfx_event_key_none,
-//  [KEY_SHUFFLE]	= glgfx_event_key_none,
-//  [KEY_BREAK]		= glgfx_event_key_none,
-//  [KEY_PREVIOUS]	= glgfx_event_key_none,
-//  [KEY_DIGITS]	= glgfx_event_key_none,
-//  [KEY_TEEN]		= glgfx_event_key_none,
-//  [KEY_TWEN]		= glgfx_event_key_none,
-//  [KEY_DEL_EOL]	= glgfx_event_key_none,
-//  [KEY_DEL_EOS]	= glgfx_event_key_none,
-//  [KEY_INS_LINE]	= glgfx_event_key_none,
-//  [KEY_DEL_LINE]	= glgfx_event_key_none,
-  [KEY_SEND]		= glgfx_event_ac_msgsend,
-  [KEY_REPLY]		= glgfx_event_ac_msgreply,
-  [KEY_FORWARDMAIL]	= glgfx_event_ac_msgforward,
-  [KEY_SAVE]		= glgfx_event_ac_save,
-//  [KEY_DOCUMENTS]	= glgfx_event_ac_
+  [KEY_ESC]		= glgfx_input_key_escape,
+  [KEY_1]		= glgfx_input_key_1,
+  [KEY_2]		= glgfx_input_key_2,
+  [KEY_3]		= glgfx_input_key_3,
+  [KEY_4]		= glgfx_input_key_4,
+  [KEY_5]		= glgfx_input_key_5,
+  [KEY_6]		= glgfx_input_key_6,
+  [KEY_7]		= glgfx_input_key_7,
+  [KEY_8]		= glgfx_input_key_8,
+  [KEY_9]		= glgfx_input_key_9,
+  [KEY_0]		= glgfx_input_key_0,
+  [KEY_MINUS]		= glgfx_input_key_minus,
+  [KEY_EQUAL]		= glgfx_input_key_equal,
+  [KEY_BACKSPACE]	= glgfx_input_key_backspace,
+  [KEY_TAB]		= glgfx_input_key_tab,
+  [KEY_Q]		= glgfx_input_key_q,
+  [KEY_W]		= glgfx_input_key_w,
+  [KEY_E]		= glgfx_input_key_e,
+  [KEY_R]		= glgfx_input_key_r,
+  [KEY_T]		= glgfx_input_key_t,
+  [KEY_Y]		= glgfx_input_key_y,
+  [KEY_U]		= glgfx_input_key_u,
+  [KEY_I]		= glgfx_input_key_i,
+  [KEY_O]		= glgfx_input_key_o,
+  [KEY_P]		= glgfx_input_key_p,
+  [KEY_LEFTBRACE]	= glgfx_input_key_lbracket,
+  [KEY_RIGHTBRACE]	= glgfx_input_key_rbracket,
+  [KEY_ENTER]		= glgfx_input_key_return,
+  [KEY_LEFTCTRL]	= glgfx_input_key_lctrl,
+  [KEY_A]		= glgfx_input_key_a,
+  [KEY_S]		= glgfx_input_key_s,
+  [KEY_D]		= glgfx_input_key_d,
+  [KEY_F]		= glgfx_input_key_f,
+  [KEY_G]		= glgfx_input_key_g,
+  [KEY_H]		= glgfx_input_key_h,
+  [KEY_J]		= glgfx_input_key_j,
+  [KEY_K]		= glgfx_input_key_k,
+  [KEY_L]		= glgfx_input_key_l,
+  [KEY_SEMICOLON]	= glgfx_input_key_semicolon,
+  [KEY_APOSTROPHE]	= glgfx_input_key_quote,
+  [KEY_GRAVE]		= glgfx_input_key_backquote,
+  [KEY_LEFTSHIFT]	= glgfx_input_key_lshift,
+  [KEY_BACKSLASH]	= glgfx_input_key_backslash,
+  [KEY_Z]		= glgfx_input_key_z,
+  [KEY_X]		= glgfx_input_key_x,
+  [KEY_C]		= glgfx_input_key_c,
+  [KEY_V]		= glgfx_input_key_v,
+  [KEY_B]		= glgfx_input_key_b,
+  [KEY_N]		= glgfx_input_key_n,
+  [KEY_M]		= glgfx_input_key_m,
+  [KEY_COMMA]		= glgfx_input_key_comma,
+  [KEY_DOT]		= glgfx_input_key_period,
+  [KEY_SLASH]		= glgfx_input_key_slash,
+  [KEY_RIGHTSHIFT]	= glgfx_input_key_rshift,
+  [KEY_KPASTERISK]	= glgfx_input_key_np_mul,
+  [KEY_LEFTALT]		= glgfx_input_key_lalt,
+  [KEY_SPACE]		= glgfx_input_key_space,
+  [KEY_CAPSLOCK]	= glgfx_input_key_capslock,
+  [KEY_F1]		= glgfx_input_key_f1,
+  [KEY_F2]		= glgfx_input_key_f2,
+  [KEY_F3]		= glgfx_input_key_f3,
+  [KEY_F4]		= glgfx_input_key_f4,
+  [KEY_F5]		= glgfx_input_key_f5,
+  [KEY_F6]		= glgfx_input_key_f6,
+  [KEY_F7]		= glgfx_input_key_f7,
+  [KEY_F8]		= glgfx_input_key_f8,
+  [KEY_F9]		= glgfx_input_key_f9,
+  [KEY_F10]		= glgfx_input_key_f10,
+  [KEY_NUMLOCK]		= glgfx_input_key_numlock,
+  [KEY_SCROLLLOCK]	= glgfx_input_key_scrlock,
+  [KEY_KP7]		= glgfx_input_key_np_7,
+  [KEY_KP8]		= glgfx_input_key_np_8,
+  [KEY_KP9]		= glgfx_input_key_np_9,
+  [KEY_KPMINUS]		= glgfx_input_key_np_sub,
+  [KEY_KP4]		= glgfx_input_key_np_4,
+  [KEY_KP5]		= glgfx_input_key_np_5,
+  [KEY_KP6]		= glgfx_input_key_np_6,
+  [KEY_KPPLUS]		= glgfx_input_key_np_add,
+  [KEY_KP1]		= glgfx_input_key_np_1,
+  [KEY_KP2]		= glgfx_input_key_np_2,
+  [KEY_KP3]		= glgfx_input_key_np_3,
+  [KEY_KP0]		= glgfx_input_key_np_0,
+  [KEY_KPDOT]		= glgfx_input_key_np_decimal,
+//  [KEY_ZENKAKUHANKAKU]= glgfx_input_none,
+  [KEY_102ND]		= glgfx_input_key_ltgt,
+  [KEY_F11]		= glgfx_input_key_f11,
+  [KEY_F12]		= glgfx_input_key_f12,
+//  [KEY_RO]		= glgfx_input_none,
+//  [KEY_KATAKANA]	= glgfx_input_none,
+//  [KEY_HIRAGANA]	= glgfx_input_none,
+//  [KEY_HENKAN]	= glgfx_input_none,
+//  [KEY_KATAKANAHIRAGANA]= glgfx_input_none,
+//  [KEY_MUHENKAN]	= glgfx_input_none,
+//  [KEY_KPJPCOMMA]	= glgfx_input_none,
+  [KEY_KPENTER]		= glgfx_input_key_np_enter,
+  [KEY_RIGHTCTRL]	= glgfx_input_key_rctrl,
+  [KEY_KPSLASH]		= glgfx_input_key_np_div,
+  [KEY_SYSRQ]		= glgfx_input_key_prtscr,
+  [KEY_RIGHTALT]	= glgfx_input_key_ralt,
+//  [KEY_LINEFEED]	= glgfx_input_none,
+  [KEY_HOME]		= glgfx_input_key_home,
+  [KEY_UP]		= glgfx_input_key_up,
+  [KEY_PAGEUP]		= glgfx_input_key_pageup,
+  [KEY_LEFT]		= glgfx_input_key_left,
+  [KEY_RIGHT]		= glgfx_input_key_right,
+  [KEY_END]		= glgfx_input_key_end,
+  [KEY_DOWN]		= glgfx_input_key_down,
+  [KEY_PAGEDOWN]	= glgfx_input_key_pagedown,
+  [KEY_INSERT]		= glgfx_input_key_insert,
+  [KEY_DELETE]		= glgfx_input_key_delete,
+//  [KEY_MACRO]		= glgfx_input_none,
+  [KEY_MUTE]		= glgfx_input_cd_mute,
+  [KEY_VOLUMEDOWN]	= glgfx_input_cd_volumedown,
+  [KEY_VOLUMEUP]	= glgfx_input_cd_volumeup,
+  [KEY_POWER]		= glgfx_input_poweroff,
+  [KEY_KPEQUAL]		= glgfx_input_key_np_equal,
+  [KEY_KPPLUSMINUS]	= glgfx_input_key_np_plusminus,
+  [KEY_PAUSE]		= glgfx_input_key_pause,
+  [KEY_KPCOMMA]		= glgfx_input_key_np_decimal,		/* ? */
+//  [KEY_HANGUEL]	= glgfx_input_none,
+//  [KEY_HANJA]		= glgfx_input_none,
+//  [KEY_YEN]		= glgfx_input_none,
+  [KEY_LEFTMETA]	= glgfx_input_key_lgui,
+  [KEY_RIGHTMETA]	= glgfx_input_key_rgui,
+  [KEY_COMPOSE]		= glgfx_input_key_menu,
+  [KEY_STOP]		= glgfx_input_ac_stop,
+  [KEY_AGAIN]		= glgfx_input_ac_redo,
+  [KEY_PROPS]		= glgfx_input_ac_properties,
+  [KEY_UNDO]		= glgfx_input_ac_undo,
+  [KEY_FRONT]		= glgfx_input_key_front,
+  [KEY_COPY]		= glgfx_input_ac_copy,
+  [KEY_OPEN]		= glgfx_input_ac_open,
+  [KEY_PASTE]		= glgfx_input_ac_paste,
+  [KEY_FIND]		= glgfx_input_ac_find,
+  [KEY_CUT]		= glgfx_input_ac_cut,
+  [KEY_HELP]		= glgfx_input_key_help,
+  [KEY_CALC]		= glgfx_input_al_calculator,
+//  [KEY_SETUP]		= glgfx_input_none,
+  [KEY_SLEEP]		= glgfx_input_hibernate,
+  [KEY_WAKEUP]		= glgfx_input_wakeup,
+  [KEY_FILE]		= glgfx_input_al_browser,
+//  [KEY_SENDFILE]	= glgfx_input_none,
+//  [KEY_DELETEFILE]	= glgfx_input_none,
+//  [KEY_XFER]		= glgfx_input_none,
+//  [KEY_PROG1]		= glgfx_input_none,
+//  [KEY_PROG2]		= glgfx_input_none,
+  [KEY_WWW]		= glgfx_input_al_internetbrowser,
+  [KEY_MSDOS]		= glgfx_input_al_cli,
+//  [KEY_COFFEE]	= glgfx_input_none,
+//  [KEY_DIRECTION]	= glgfx_input_none,
+//  [KEY_CYCLEWINDOWS]	= glgfx_input_none,
+  [KEY_MAIL]		= glgfx_input_al_email,
+  [KEY_BOOKMARKS]	= glgfx_input_ac_bookmarks,
+  [KEY_COMPUTER]	= glgfx_input_al_browser,
+  [KEY_BACK]		= glgfx_input_ac_back,
+  [KEY_FORWARD]		= glgfx_input_ac_forward,
+  [KEY_EJECTCD]		= glgfx_input_cd_eject,
+  [KEY_NEXTSONG]	= glgfx_input_cd_next,
+  [KEY_PLAYPAUSE]	= glgfx_input_cd_playpause,
+  [KEY_PREVIOUSSONG]	= glgfx_input_cd_prev,
+  [KEY_STOPCD]		= glgfx_input_cd_stop,
+  [KEY_RECORD]		= glgfx_input_cd_record,
+  [KEY_REWIND]		= glgfx_input_cd_rew,
+  [KEY_PHONE]		= glgfx_input_al_telephony,
+//  [KEY_ISO]		= glgfx_input_none,
+  [KEY_CONFIG]		= glgfx_input_al_controlconfig,
+  [KEY_HOMEPAGE]	= glgfx_input_ac_home,
+  [KEY_REFRESH]		= glgfx_input_ac_refresh,
+  [KEY_EXIT]		= glgfx_input_ac_exit,
+//  [KEY_MOVE]		= glgfx_input_none,
+//  [KEY_EDIT]		= glgfx_input_none,
+  [KEY_SCROLLUP]	= glgfx_input_ac_scrollup,
+  [KEY_SCROLLDOWN]	= glgfx_input_ac_scrolldown,
+  [KEY_KPLEFTPAREN]	= glgfx_input_key_np_lparen,
+  [KEY_KPRIGHTPAREN]	= glgfx_input_key_np_rparen,
+  [KEY_NEW]		= glgfx_input_ac_new,
+  [KEY_REDO]		= glgfx_input_ac_redo,
+  [KEY_F13]		= glgfx_input_key_f13,
+  [KEY_F14]		= glgfx_input_key_f14,
+  [KEY_F15]		= glgfx_input_key_f15,
+  [KEY_F16]		= glgfx_input_key_f16,
+  [KEY_F17]		= glgfx_input_key_f17,
+  [KEY_F18]		= glgfx_input_key_f18,
+  [KEY_F19]		= glgfx_input_key_f19,
+  [KEY_F20]		= glgfx_input_key_f20,
+  [KEY_F21]		= glgfx_input_key_f21,
+  [KEY_F22]		= glgfx_input_key_f22,
+  [KEY_F23]		= glgfx_input_key_f23,
+  [KEY_F24]		= glgfx_input_key_f24,
+  [KEY_PLAYCD]		= glgfx_input_cd_play,
+  [KEY_PAUSECD]		= glgfx_input_cd_pause,
+//  [KEY_PROG3]		= glgfx_input_none,
+//  [KEY_PROG4]		= glgfx_input_none,
+  [KEY_SUSPEND]		= glgfx_input_sleep,
+//  [KEY_CLOSE]		= glgfx_input_none,
+  [KEY_PLAY]		= glgfx_input_cd_play,		/* ? */
+  [KEY_FASTFORWARD]	= glgfx_input_cd_ff,
+  [KEY_BASSBOOST]	= glgfx_input_cd_bassboost,
+  [KEY_PRINT]		= glgfx_input_ac_print,
+//  [KEY_HP]		= glgfx_input_none,
+//  [KEY_CAMERA]	= glgfx_input_none,
+//  [KEY_SOUND]		= glgfx_input_none,
+//  [KEY_QUESTION]	= glgfx_input_none,
+  [KEY_EMAIL]		= glgfx_input_al_email,
+  [KEY_CHAT]		= glgfx_input_al_networkchat,
+  [KEY_SEARCH]		= glgfx_input_ac_search,
+//  [KEY_CONNECT]	= glgfx_input_none,
+  [KEY_FINANCE]		= glgfx_input_al_finance,
+//  [KEY_SPORT]		= glgfx_input_none,
+//  [KEY_SHOP]		= glgfx_input_none,
+//  [KEY_ALTERASE]	= glgfx_input_none,
+//  [KEY_CANCEL]	= glgfx_input_none,
+//  [KEY_BRIGHTNESSDOWN]= glgfx_input_none,
+//  [KEY_BRIGHTNESSUP]	= glgfx_input_none,
+//  [KEY_MEDIA]		= glgfx_input_none,
+//  [KEY_UNKNOWN]	= glgfx_input_none,
+//  [BTN_MISC]		= glgfx_input_none,
+//  [BTN_0]		= glgfx_input_none,
+//  [BTN_1]		= glgfx_input_none,
+//  [BTN_2]		= glgfx_input_none,
+//  [BTN_3]		= glgfx_input_none,
+//  [BTN_4]		= glgfx_input_none,
+//  [BTN_5]		= glgfx_input_none,
+//  [BTN_6]		= glgfx_input_none,
+//  [BTN_7]		= glgfx_input_none,
+//  [BTN_8]		= glgfx_input_none,
+//  [BTN_9]		= glgfx_input_none,
+//  [BTN_MOUSE]		= glgfx_input_none,
+//  [BTN_LEFT]		= glgfx_input_none,
+//  [BTN_RIGHT]		= glgfx_input_none,
+//  [BTN_MIDDLE]	= glgfx_input_none,
+//  [BTN_SIDE]		= glgfx_input_none,
+//  [BTN_EXTRA]		= glgfx_input_none,
+//  [BTN_FORWARD]	= glgfx_input_none,
+//  [BTN_BACK]		= glgfx_input_none,
+//  [BTN_TASK]		= glgfx_input_none,
+//  [BTN_JOYSTICK]	= glgfx_input_none,
+//  [BTN_TRIGGER]	= glgfx_input_none,
+//  [BTN_THUMB]		= glgfx_input_none,
+//  [BTN_THUMB2]	= glgfx_input_none,
+//  [BTN_TOP]		= glgfx_input_none,
+//  [BTN_TOP2]		= glgfx_input_none,
+//  [BTN_PINKIE]	= glgfx_input_none,
+//  [BTN_BASE]		= glgfx_input_none,
+//  [BTN_BASE2]		= glgfx_input_none,
+//  [BTN_BASE3]		= glgfx_input_none,
+//  [BTN_BASE4]		= glgfx_input_none,
+//  [BTN_BASE5]		= glgfx_input_none,
+//  [BTN_BASE6]		= glgfx_input_none,
+//  [BTN_DEAD]		= glgfx_input_none,
+//  [BTN_GAMEPAD]	= glgfx_input_none,
+//  [BTN_A]		= glgfx_input_none,
+//  [BTN_B]		= glgfx_input_none,
+//  [BTN_C]		= glgfx_input_none,
+//  [BTN_X]		= glgfx_input_none,
+//  [BTN_Y]		= glgfx_input_none,
+//  [BTN_Z]		= glgfx_input_none,
+//  [BTN_TL]		= glgfx_input_none,
+//  [BTN_TR]		= glgfx_input_none,
+//  [BTN_TL2]		= glgfx_input_none,
+//  [BTN_TR2]		= glgfx_input_none,
+//  [BTN_SELECT]	= glgfx_input_none,
+//  [BTN_START]		= glgfx_input_none,
+//  [BTN_MODE]		= glgfx_input_none,
+//  [BTN_THUMBL]	= glgfx_input_none,
+//  [BTN_THUMBR]	= glgfx_input_none,
+//  [BTN_DIGI]		= glgfx_input_none,
+//  [BTN_TOOL_PEN]	= glgfx_input_none,
+//  [BTN_TOOL_RUBBER]	= glgfx_input_none,
+//  [BTN_TOOL_BRUSH]	= glgfx_input_none,
+//  [BTN_TOOL_PENCIL]	= glgfx_input_none,
+//  [BTN_TOOL_AIRBRUSH]	= glgfx_input_none,
+//  [BTN_TOOL_FINGER]	= glgfx_input_none,
+//  [BTN_TOOL_MOUSE]	= glgfx_input_none,
+//  [BTN_TOOL_LENS]	= glgfx_input_none,
+//  [BTN_TOUCH]		= glgfx_input_none,
+//  [BTN_STYLUS]	= glgfx_input_none,
+//  [BTN_STYLUS2]	= glgfx_input_none,
+//  [BTN_TOOL_DOUBLETAP]= glgfx_input_none,
+//  [BTN_TOOL_TRIPLETAP]= glgfx_input_none,
+//  [BTN_WHEEL]		= glgfx_input_none,
+//  [BTN_GEAR_DOWN]	= glgfx_input_none,
+//  [BTN_GEAR_UP]	= glgfx_input_none,
+//  [KEY_OK]		= glgfx_input_none,
+//  [KEY_SELECT]	= glgfx_input_none,
+//  [KEY_GOTO]		= glgfx_input_none,
+//  [KEY_CLEAR]		= glgfx_input_none,
+//  [KEY_POWER2]	= glgfx_input_none,
+//  [KEY_OPTION]	= glgfx_input_none,
+//  [KEY_INFO]		= glgfx_input_none,
+//  [KEY_TIME]		= glgfx_input_none,
+//  [KEY_VENDOR]	= glgfx_input_none,
+//  [KEY_ARCHIVE]	= glgfx_input_none,
+//  [KEY_PROGRAM]	= glgfx_input_none,
+//  [KEY_CHANNEL]	= glgfx_input_none,
+//  [KEY_FAVORITES]	= glgfx_input_none,
+//  [KEY_EPG]		= glgfx_input_none,
+//  [KEY_PVR]		= glgfx_input_none,
+//  [KEY_MHP]		= glgfx_input_none,
+//  [KEY_LANGUAGE]	= glgfx_input_none,
+//  [KEY_TITLE]		= glgfx_input_none,
+//  [KEY_SUBTITLE]	= glgfx_input_none,
+//  [KEY_ANGLE]		= glgfx_input_none,
+//  [KEY_ZOOM]		= glgfx_input_none,
+//  [KEY_MODE]		= glgfx_input_none,
+//  [KEY_KEYBOARD]	= glgfx_input_none,
+//  [KEY_SCREEN]	= glgfx_input_none,
+//  [KEY_PC]		= glgfx_input_none,
+//  [KEY_TV]		= glgfx_input_none,
+//  [KEY_TV2]		= glgfx_input_none,
+//  [KEY_VCR]		= glgfx_input_none,
+//  [KEY_VCR2]		= glgfx_input_none,
+//  [KEY_SAT]		= glgfx_input_none,
+//  [KEY_SAT2]		= glgfx_input_none,
+//  [KEY_CD]		= glgfx_input_none,
+//  [KEY_TAPE]		= glgfx_input_none,
+//  [KEY_RADIO]		= glgfx_input_none,
+//  [KEY_TUNER]		= glgfx_input_none,
+//  [KEY_PLAYER]	= glgfx_input_none,
+//  [KEY_TEXT]		= glgfx_input_none,
+//  [KEY_DVD]		= glgfx_input_none,
+//  [KEY_AUX]		= glgfx_input_none,
+//  [KEY_MP3]		= glgfx_input_none,
+//  [KEY_AUDIO]		= glgfx_input_none,
+//  [KEY_VIDEO]		= glgfx_input_none,
+//  [KEY_DIRECTORY]	= glgfx_input_none,
+//  [KEY_LIST]		= glgfx_input_none,
+//  [KEY_MEMO]		= glgfx_input_none,
+//  [KEY_CALENDAR]	= glgfx_input_none,
+//  [KEY_RED]		= glgfx_input_none,
+//  [KEY_GREEN]		= glgfx_input_none,
+//  [KEY_YELLOW]	= glgfx_input_none,
+//  [KEY_BLUE]		= glgfx_input_none,
+//  [KEY_CHANNELUP]	= glgfx_input_none,
+//  [KEY_CHANNELDOWN]	= glgfx_input_none,
+//  [KEY_FIRST]		= glgfx_input_none,
+//  [KEY_LAST]		= glgfx_input_none,
+//  [KEY_AB]		= glgfx_input_none,
+//  [KEY_NEXT]		= glgfx_input_none,
+//  [KEY_RESTART]	= glgfx_input_none,
+//  [KEY_SLOW]		= glgfx_input_none,
+//  [KEY_SHUFFLE]	= glgfx_input_none,
+//  [KEY_BREAK]		= glgfx_input_none,
+//  [KEY_PREVIOUS]	= glgfx_input_none,
+//  [KEY_DIGITS]	= glgfx_input_none,
+//  [KEY_TEEN]		= glgfx_input_none,
+//  [KEY_TWEN]		= glgfx_input_none,
+//  [KEY_DEL_EOL]	= glgfx_input_none,
+//  [KEY_DEL_EOS]	= glgfx_input_none,
+//  [KEY_INS_LINE]	= glgfx_input_none,
+//  [KEY_DEL_LINE]	= glgfx_input_none,
+  [KEY_SEND]		= glgfx_input_ac_msgsend,
+  [KEY_REPLY]		= glgfx_input_ac_msgreply,
+  [KEY_FORWARDMAIL]	= glgfx_input_ac_msgforward,
+  [KEY_SAVE]		= glgfx_input_ac_save,
+//  [KEY_DOCUMENTS]	= glgfx_input_ac_
 
 };
 
@@ -468,7 +495,7 @@ static enum glgfx_event_code linux_codes[KEY_MAX + 1] = {
 
 
 struct input_device {
-    int event_number;
+    int input_number;
     int fd;
     struct input_id id;
 };
@@ -493,25 +520,25 @@ static gint compare_devices(gconstpointer a, gconstpointer b, gpointer userdata)
 }
 
 
-static gint compare_device_to_event_number(gconstpointer a, gconstpointer b) {
+static gint compare_device_to_input_number(gconstpointer a, gconstpointer b) {
   struct input_device const* device = a;
-  intptr_t                   event_number     = (intptr_t) b;
+  intptr_t                   input_number     = (intptr_t) b;
 
-  return device->event_number - event_number;
+  return device->input_number - input_number;
 }
 
 
-static int get_event_number(char const* name) {
+static int get_input_number(char const* name) {
   int rc = -1;
 
   if (strncmp(name, "event", 5) == 0 && name[5] != '\0') {
-    long event_number;
+    long input_number;
     char* endp;
 
-    event_number = strtol(&name[5], &endp, 10);
+    input_number = strtol(&name[5], &endp, 10);
 
     if (endp[0] == '\0') {
-      rc = (int) event_number;
+      rc = (int) input_number;
     }
   }
 
@@ -519,7 +546,7 @@ static int get_event_number(char const* name) {
 }
 
 
-static struct input_device* create_device(int event_number) {
+static struct input_device* create_device(int input_number) {
   char full_path[64];
 
   struct input_device* dev = calloc(1, sizeof (*dev));
@@ -528,9 +555,9 @@ static struct input_device* create_device(int event_number) {
     return false;
   }
 
-  dev->event_number = event_number;
+  dev->input_number = input_number;
 
-  snprintf(full_path, sizeof (full_path), "/dev/input/event%d", dev->event_number);
+  snprintf(full_path, sizeof (full_path), "/dev/input/event%d", dev->input_number);
 
   dev->fd = open(full_path, O_RDWR | O_NONBLOCK);
 
@@ -568,13 +595,13 @@ static bool add_device(GQueue* devices, struct input_device* device) {
 }
 
 
-static bool remove_device(GQueue* devices, int event_number) {
+static bool remove_device(GQueue* devices, int input_number) {
   if (devices == NULL) {
     return false;
   }
 
-  GList* link = g_queue_find_custom(devices, (gconstpointer) (intptr_t) event_number,
-				    compare_device_to_event_number);
+  GList* link = g_queue_find_custom(devices, (gconstpointer) (intptr_t) input_number,
+				    compare_device_to_input_number);
 
   if (link == NULL) {
     return false;
@@ -617,10 +644,10 @@ static bool rescan_devices(GQueue* devices) {
     struct dirent* de;
 
     while ((de = readdir(dir)) != NULL) {
-      int event_number = get_event_number(de->d_name);
+      int input_number = get_input_number(de->d_name);
 
-      if (event_number >= 0) {
-	struct input_device* device = create_device(event_number);
+      if (input_number >= 0) {
+	struct input_device* device = create_device(input_number);
 
 	if (device == NULL || !add_device(devices, device)) {
 	  rc = false;
@@ -671,11 +698,11 @@ static bool update_devices(GQueue* devices, int inotify_fd) {
       struct inotify_event* event = (struct inotify_event*) &buf[i];
 
       if (event->len > 0) {
-	int event_number = get_event_number(event->name);
+	int input_number = get_input_number(event->name);
 
-	if (event_number >= 0) {
+	if (input_number >= 0) {
 	  if (event->mask & IN_CREATE) {
-	    struct input_device* device = create_device(event_number);
+	    struct input_device* device = create_device(input_number);
 
 	    if (device == NULL || !add_device(devices, device)) {
 	      rc = false;
@@ -684,7 +711,7 @@ static bool update_devices(GQueue* devices, int inotify_fd) {
 	  }
 	  
 	  if (event->mask & IN_DELETE) {
-	    if (!remove_device(devices, event_number)) {
+	    if (!remove_device(devices, input_number)) {
 	      rc = false;
 	    }
 	  }
@@ -834,23 +861,111 @@ bool glgfx_input_release(struct glgfx_monitor* monitor) {
   return true;
 }
 
+static void add_event(enum glgfx_input_class class, 
+		      enum glgfx_input_code  code, 
+		      int32_t                value) {
+  struct glgfx_input_event* event;
+
+  if (!g_queue_is_empty(cache_queue)) {
+    event = g_queue_pop_head(cache_queue);
+  }
+  else {
+    event = calloc(1, sizeof (*event));
+  }
+
+  event->class     = class;
+  event->code      = code;
+  event->value     = value;
+  event->device    = -1;
+  event->timestamp = (struct timespec) { 0, 0 };
+
+  g_queue_push_tail(pending_queue, event);
+
+}
 
 static void filler(gpointer data, gpointer userdata) {
   struct glgfx_monitor* monitor = (struct glgfx_monitor*) data;
   (void) userdata;
 
   while (XPending(monitor->display)) {
-    XEvent* event;
+    XEvent xevent;
 
-    if (!g_queue_is_empty(cache_queue)) {
-      event = g_queue_pop_head(cache_queue);
-    }
-    else {
-      event = calloc(1, sizeof (*event));
-    }
+    XNextEvent(monitor->display, &xevent);
 
-    XNextEvent(monitor->display, event);
-    g_queue_push_tail(pending_queue, event);
+    switch (xevent.type) {
+      case KeyPress:
+      case KeyRelease: {
+	XKeyEvent* ev = (XKeyEvent*) &xevent;
+
+	if (ev->keycode < 256) {
+	  add_event(glgfx_input_class_keyboard, 
+		    xorg_codes[ev->keycode], 
+		    ev->type == KeyRelease ? 0 : 1);
+
+//	  if (ev->altmask is true
+	}
+	else {
+	  continue;
+	}
+	break;
+      }
+
+      case ButtonPress:
+      case ButtonRelease: {
+	XButtonEvent* ev = (XButtonEvent*) &xevent;
+
+	switch (ev->button) {
+	  case 1:
+	    add_event(glgfx_input_class_mouse, 
+		      glgfx_input_btn_left,
+		      ev->type == ButtonRelease ? 0 : 1);
+	    break;
+
+	  case 2:
+	    add_event(glgfx_input_class_mouse, 
+		      glgfx_input_btn_middle,
+		      ev->type == ButtonRelease ? 0 : 1);
+	    break;
+
+	  case 3:
+	    add_event(glgfx_input_class_mouse, 
+		      glgfx_input_btn_right,
+		      ev->type == ButtonRelease ? 0 : 1);
+	    break;
+
+	  case 4:
+	  case 5:
+	    if (ev->type == ButtonPress) {
+	      add_event(glgfx_input_class_mouse, 
+			glgfx_input_ac_scroll,
+			ev->button == 4 ? +32 : -32);
+	    }
+	    else {
+	      continue;
+	    }
+	    break;
+
+	  default:
+	    continue;
+	}
+	break;
+      }
+
+      case MotionNotify: {
+	XMotionEvent* ev = (XMotionEvent*) &xevent;
+	int dx = ev->x_root;
+	int dy = ev->y_root;
+
+	if (dx != 0) {
+	  add_event(glgfx_input_class_mouse, glgfx_input_x, dx);
+	}
+
+	if (dy != 0) {
+	  add_event(glgfx_input_class_mouse, glgfx_input_y, dy);
+	}
+	break;
+      }
+    }
   }
 }
 
@@ -861,7 +976,6 @@ static void fill_queue(void) {
 
 bool glgfx_input_getcode(struct glgfx_input_event* event) {
   bool rc = false;
-  event->class = glgfx_input_none;
 
   if (g_queue_is_empty(pending_queue)) {
     // For fairness, we scan all displays in order
@@ -869,90 +983,13 @@ bool glgfx_input_getcode(struct glgfx_input_event* event) {
   }
 
   if (!g_queue_is_empty(pending_queue)) {
-    XEvent* xevent = g_queue_pop_head(pending_queue);
+    struct glgfx_input_event* ev = g_queue_pop_head(pending_queue);
+
+    *event = *ev;
+    rc = true;
 
     // Return event to cache queue
-    g_queue_push_tail(cache_queue, xevent);
-
-    switch (xevent->type) {
-      case KeyPress:
-      case KeyRelease: {
-	XKeyEvent* ev = (XKeyEvent*) xevent;
-
-	if (ev->keycode < 256) {
-	  event->class = (glgfx_input_event | 
-			  (xevent->type == KeyRelease ? glgfx_input_releasemask : 0));
-	  event->event_code = xorg_codes[ev->keycode];
-
-//	  if (ev->altmask is true
-	  rc = true;
-	}
-	else {
-	  return glgfx_input_getcode(event);
-	}
-	break;
-      }
-
-      case ButtonPress:
-      case ButtonRelease: {
-	XButtonEvent* ev = (XButtonEvent*) xevent;
-	event->class = (glgfx_input_event |
-			(xevent->type == ButtonRelease ? glgfx_input_releasemask : 0));
-
-	switch (ev->button) {
-	  case 1:
-	    event->event_code = glgfx_event_page_buttons | 0;
-	    break;
-
-	  case 2:
-	    event->event_code = glgfx_event_page_buttons | 2;
-	    break;
-
-	  case 3:
-	    event->event_code = glgfx_event_page_buttons | 1;
-	    break;
-
-/* 	  case 4: */
-/* 	    if (event->type == ButtonPress) { */
-/* 	      code |= glgfx_input_mouse_vwheel | (+16 & 0xffff); */
-/* 	    } */
-/* 	    else { */
-/* 	      return glgfx_input_getcode(); */
-/* 	    } */
-/* 	    break; */
-
-/* 	  case 5: */
-/* 	    if (event->type == ButtonPress) { */
-/* 	      code |= glgfx_input_mouse_vwheel | (-16 & 0xffff); */
-/* 	    } */
-/* 	    else { */
-/* 	      return glgfx_input_getcode(); */
-/* 	    } */
-/* 	    break; */
-
-	  default:
-	    return glgfx_input_getcode(event);
-	}
-
-	rc = true;
-	break;
-      }
-
-      case MotionNotify: {
-	XMotionEvent* ev = (XMotionEvent*) xevent;
-	int dx = ev->x_root;
-	int dy = ev->y_root;
-
-	event->class = glgfx_input_mouse;
-	event->mouse.dx = dx & 0xffff;
-	event->mouse.dy = dy & 0xffff;
-	rc = true;
-	break;
-      }
-
-      default:
-	return glgfx_input_getcode(event);
-    }
+    g_queue_push_tail(cache_queue, ev);
   }
 
   return rc;
