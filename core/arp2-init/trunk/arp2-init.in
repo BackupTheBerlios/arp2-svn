@@ -47,7 +47,7 @@ FONT=topaz8dbl.psf
 KICKSTART=3.1
 RESOLUTION=
 DEPTH=24
-ISSUE=issue-3.1
+ISSUE=arp2-issue-3.1
 . ${sysconfdir}/arp2.conf
 
 # Gimme a nice font!
