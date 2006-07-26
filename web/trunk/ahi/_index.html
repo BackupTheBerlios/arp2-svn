@@ -1,0 +1,483 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN"
+    "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" >
+ <head>
+  <title>AHI &mdash; Retargetable Audio for AmigaOS et al.</title>
+  <link href="mailto:martin@blom.org" rev="made" />
+  <link rel="stylesheet" type="text/css" href="/css/amiga.css" 
+        title="Workbench 1.x"/>
+  <link rel="alternate stylesheet" type="text/css" href="/css/caribbean.css" 
+        title="Caribbean"/>
+  <link rel="alternate stylesheet" type="text/css" href="/css/blackwhite.css" 
+        title="Black &amp; white"/>
+  <link rel="alternate stylesheet" type="text/css" href="/css/plain.css" 
+        title="Plain"/>
+  <link rel="alternate stylesheet" type="text/css" href="/css/system.css" 
+        title="System default"/>
+  <script type="text/javascript" src="/js/styleswitch.js"></script>
+ </head>
+
+<!--[if IE]>
+ <body class="ie_scrollbar"><div class="ie_scrollbar">
+<![endif]-->
+
+<!--[if IE]>
+ <![if !IE]>
+<![endif]-->
+ <body>
+<!--[if IE]>
+ <![endif]>
+<![endif]-->
+    
+<!-- Title **************************************************************** -->
+
+  <h1>&AHI; &mdash; Retargetable Audio for AmigaOS et al.</h1>
+
+  <p class="google">
+   <script type="text/javascript"><!--
+    google_ad_client = "pub-2115989180089866";
+    google_ad_width = 120;
+    google_ad_height = 240;
+    google_ad_format = "120x240_as";
+    google_ad_type = "text";
+    google_ad_channel ="";
+    google_color_border = "DDB7BA";
+    google_color_bg = "FFF5F6";
+    google_color_link = "0000CC";
+    google_color_url = "008000";
+    google_color_text = "6F6F6F";
+   //--></script>
+   <script type="text/javascript"
+     src="http://pagead2.googlesyndication.com/pagead/show_ads.js">
+   </script>
+  </p>
+
+  <form action="https://www.paypal.com/cgi-bin/webscr" method="post">
+    <p><em>The current &AHI; release version is
+      <strong>@VERSION@</strong>. This page was last updated on @DATE@.  Do you like &AHI;?
+
+      <input type="hidden" name="cmd" value="_xclick" />
+      <input type="hidden" name="business" value="martin@blom.org" />
+      <input type="hidden" name="item_name" value="AHI" />
+      <input type="hidden" name="no_note" value="1" />
+      <input type="hidden" name="currency_code" value="EUR" />
+      <input type="hidden" name="tax" value="0" />
+      <input type="hidden" name="bn" value="PP-DonationsBF" />
+      <input class="donate" type="image" src="https://www.paypal.com/en_US/i/btn/x-click-butcc-donate.gif" 
+             name="submit" alt="Donate" />
+    </em></p>
+  </form>
+  
+  <ul>
+   <li><a href="#intro">Introduction</a></li>
+   <li><div>
+     <a href="#news">News &amp; recent changes</a>
+     <ul>
+       <li><a href="#history">What's new here?</a></li>
+     </ul>
+   </div></li>
+   <li><a href="#support">Support</a></li>
+   <li><div>
+     <a href="#downloads">Downloads</a>
+     <ul>
+       <li><a href="#binaries">Binaries</a></li>
+       <li><a href="#source">Source code</a></li>
+     </ul>
+   </div></li>
+  </ul>
+
+  <h2 id="intro">Introduction</h2>
+
+  <p>Welcome to the new home of &AHI;!</p>
+
+  <p>&AHI; is (still!) the <em>de facto</em> standard audio subsystem
+for AmigaOS, MorphOS and AROS. It handles sound card arbitration and
+sharing, real-time audio mixing and virtual audio channel
+management.</p>
+
+  <p>&AHI; was written by Martin Blom more than ten years ago, while he 
+was still an inexperienced student and didn't even know C, but had plenty 
+of spare time that could be spent coding. The situation is quite different 
+today, especially regarding that <q class="lazy">spare time</q> part, but 
+&AHI; is still being maintained and even improved upon once in a while. 
+Over the years, lots of people have <a 
+href="/ahi/docs/ahiusr.html#SEC24">contributed</a> 
+to the project.</p>
+
+<p>&AHI; is released under a mixed license, where the executable
+programs are covered by the GNU GPL license and the device/library is
+LGPL'ed, making it possible for non-free software to use the system
+without restrictions.</p>
+
+  <p>The GPL and LGPL give everyone the right to freely modify,
+enhance, hack and rebuild &AHI;, and also to redistribute the result to
+others. You are <a href="#source">encouraged</a> to do so!</p>
+
+
+  <p>&AHI; currently supports the following sound cards:</p>
+
+  <table summary="This table lists all supported sound cards or 
+                  chipsets."
+    class="fixed">
+    <caption>Supported sound devices or chipsets</caption>
+    <tr>
+      <td>
+        <ul>
+	  <li>AROS (ALSA/OSS)</li>
+	  <li>AmigaXL (QNX-based UAE)</li>
+	  <li>Amithlon</li>
+	  <li>Aura (sampling only)</li>
+	  <li>C-Media</li>
+	  <li>Clarity (sampling only)</li>
+	  <li>Concierto</li>
+	  <li>Delfina</li>
+	  <li>DraCo Motion</li>
+	  <li>ES1371</li>
+	  <li>ESI Juli@</li>
+	</ul>
+      </td>
+      <td>
+        <ul>
+	  <li>ESS Solo-1</li>
+	  <li>ForteMedia FM801</li>
+	  <li>Intel i8x0 AC97</li>
+	  <li>Maestro Pro</li>
+	  <li>Melody</li>
+	  <li>Paula (standard Amiga)</li>
+          <li>Prelude</li>
+	  <li>Repulse</li>
+	  <li>SoundBlaster 128</li>
+	  <li>SoundBlaster Audigy 1 &amp; 2</li>
+	  <li>SoundBlaster Live!</li>
+	</ul>
+      </td>
+      <td>
+        <ul>
+	  <li>Sunrize</li>
+	  <li>Terratec 128i PCI</li>
+	  <li>Terratec 512i digital</li>
+	  <li>Toccata</li>
+	  <li>UAE</li>
+	  <li>Umilator</li>
+	  <li>VIA AC97</li>
+	  <li>VIA Envy24</li>
+	  <li>Vivanco</li>
+	  <li>Wavetools</li>
+	</ul>
+      </td>
+    </tr>
+  </table>
+
+  <p>Drivers for more cards are constantly being developed. It's fun!
+Don't hesitate to try yourself if you're interested. See the support
+section below for information about where you can ask for help. The
+developer archives from the download section contain driver examples
+and skeletons that you are free to use in any way you want. They are
+in the public domain and not covered by the GPL and LGPL licenses.</p>
+
+
+<!-- News & recent changes ************************************************ -->
+
+  <h2 id="news">News &amp; recent changes</h2>
+
+  <p>Here are all the major changes since the last stable release, v4:</p>
+
+  <ul>
+   <li><q>Anti-click</q> mixing routines, which makes &AHI;
+search for a zero-crossing before playing a new note</li>
+
+   <li>Playback of 32 bit samples.</li>
+
+   <li>Multi-channel audio. Eight channels are supported.</li>
+
+   <li>Support for four more architectures: MorphOS/PPC, AmigaOS4/PPC,
+Amithlon/ix86, AROS/ix86.</li>
+
+   <li>Support for PowerPC accelerator cards (MorphOS and AmigaOS4
+   only).</li>
+
+   <li>A new driver, device.audio, can be used to make all low-level
+   AHI applications, which normally open AHI in exclusive mode, behave
+   as if they used the high-level API which allows several AHI
+   applications to work simultaneously.</li>
+
+   <li>The 68000 processor is no longer supported; a 68020 or better
+is required.</li>
+  </ul>
+
+  <p>For a full log of everything that has been updated, see the
+<a href="#docs">ChangeLog</a> file below.</p>
+
+
+<!-- What's new here? ***************************************************** -->
+
+  <h3 id="history">What's new here?</h3>
+
+  <dl>
+   <dt><strong>2006-07-26</strong></dt>
+   <dd>Unfortunately, it looks like Lysator's project web servers will be 
+off-line for quite some time, perhaps forever. What a shame, considering 
+that Lysator had Sweden's first web server online back in february 1993 
+&mdash; server number 10 in the world. &AHI; has now moved completely to 
+Berlios; sadly, that means that the old v4 site is gone (at least until I 
+can find a server that still runs Roxen 1.3).</dd>
+
+
+   <dt><strong>2005-11-23</strong></dt>
+   <dd>Added a <a href="#binaries">new archive</a> with extra drivers
+   for m68k-amigaos, including the latest <tt>paula.audio</tt>,
+   <tt>toccata.audio</tt> and more.</dd>
+
+   <dt><strong>2005-11-20</strong></dt>
+   <dd>&AHI; v6 is finally released and this page goes online!</dd>
+  </dl>
+
+
+<!-- Support ************************************************************** -->
+
+  <h2 id="support">Support</h2>
+
+  <p>Over at <a href="http://www.berlios.de">Berlios</a>, I've set up
+a <a
+href="http://developer.berlios.de/forum/forum.php?forum_id=10657">user
+forum</a>, a <a
+href="http://developer.berlios.de/bugs/?group_id=3406">bug tracker</a>
+and <a href="http://developer.berlios.de/mail/?group_id=3406">mailing
+lists</a>, both for users and developers. The various forums on the
+Amiga community sites, like <a
+href="http://www.amiga.org/">Amiga.org</a>, <a
+href="http://www.amigaworld.net/">AmigaWorld.Net</a>, <a
+href="http://aros-exec.org/">AROS-Exec</a> and <a
+href="http://www.morphzone.org/">MorphZone</a> to name just a few, are
+also great support resources.</p>
+
+<!-- Downloads ************************************************************ -->
+
+  <h2 id="downloads">Downloads</h2>
+
+  <p>&AHI; is available for a wide number of Amiga-like systems. This
+page offers downloads of binaries for all supported architectures,
+online documentation and the complete source code. </p>
+
+<!-- Online documentation ************************************************* -->
+
+  <h3 id="docs">Online documentation</h3>
+
+  <p>The online documentation includes a subset of the formats it is
+available in. The downloadable binary packages also include
+documentation in DVI, AutoDoc and AmigaGuide formats.</p>
+
+  <table summary="This table lists all online documentation 
+                  available for download.">
+    <caption>Documentation for verion <strong>@VERSION@</strong></caption>
+    <thead>
+      <tr>
+        <td>Document name</td>
+	<td>Description</td>
+	<td>Download links</td>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Changelog</td>
+        <td>A complete log of all changes, improvements and bug fixes in &AHI; since 
+	    the version that appeared on the AmigsOS 3.9 CD</td>
+	<td><a href="docs/ChangeLog.txt">Plain text</a></td>
+      </tr>
+      <tr>
+        <td>Licenses</td>
+        <td>GNU GPL, LGPL and exceptions for some drivers</td>
+	<td><a href="docs/COPYING.txt">GNU GPL</a><br />
+	    <a href="docs/COPYING.LIB.txt">GNU LGPL</a><br />
+	    <a href="docs/COPYING.DRIVERS.txt">Drivers</a></td>
+      </tr>
+      <tr>
+        <td>&AHI; User's Guide</td>
+        <td>Documentation for &AHI; users</td>
+	<td><a href="docs/ahiusr.html">HTML</a><br />
+	    <a href="docs/ahiusr.pdf">PDF</a><br />
+	    <a href="docs/ahiusr.ps">Postscript</a> (for printing)</td>
+      </tr>
+      <tr>
+        <td>&AHI; Developers's Guide</td>
+        <td>Documentation for developers using &AHI; in their own applications</td>
+	<td><a href="docs/ahidev.html">HTML</a><br />
+	    <a href="docs/ahidev.pdf">PDF</a><br />
+	    <a href="docs/ahidev.ps">Postscript</a> (for printing)</td>
+      </tr>
+      <tr>
+        <td>API documentation</td>
+        <td>API documentation for developers using &AHI; in their own applications</td>
+	<td><a href="docs/ahi.html">HTML</a></td>
+      </tr>
+      <tr>
+        <td>Driver API documentation</td>
+        <td>API documentation for &AHI; driver developers</td>
+	<td><a href="docs/ahi_sub.html">HTML</a></td>
+      </tr>
+    </tbody>
+  </table>
+
+
+<!-- Binaries ************************************************************* -->
+
+  <h3 id="binaries">Binaries</h3>
+
+  <p>In case you have problems with the download links below, all
+packages are also available from the files section at <a
+href="http://developer.berlios.de/project/showfiles.php?group_id=3406">Berlios</a>.
+You will also find all old releases archived there.</p>
+
+  <table summary="This table lists all AHI versions that are 
+                  available for download.">
+    <caption>Available &AHI; releases for verion <strong>@VERSION@</strong>
+    </caption>
+    <thead>
+      <tr>
+        <td>Architecture</td>
+	<td>Description</td>
+	<td>Download links</td>
+	<td>README link</td>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>i386-aros</td>
+        <td>AROS for i386</td>
+	<td><a href="@FTP@/system/i386-aros-ahidev-@VERSION@.lha">Developer</a><br />
+	    <a href="@FTP@/system/i386-aros-ahiusr-@VERSION@.lha">User</a></td>
+	<td><a href="@FTP@/system/i386-aros-ahiusr-@VERSION@.readme">Info</a></td>
+      </tr>
+      <tr>
+        <td>i686be-amithlon</td>
+        <td>AmigaOS 2.0 or later for i686 (Amithlon)</td>
+	<td><a href="@FTP@/system/i686be-amithlon-ahidev-@VERSION@.lha">Developer</a><br />
+	    <a href="@FTP@/system/i686be-amithlon-ahiusr-@VERSION@.lha">User</a></td>
+	<td><a href="@FTP@/system/i686be-amithlon-ahiusr-@VERSION@.readme">Info</a></td>
+      </tr>
+      <tr>
+        <td>m68k-amigaos</td>
+        <td>AmigaOS 2.0 or later for m68k</td>
+	<td><a href="@FTP@/system/m68k-amigaos-ahidev-@VERSION@.lha">Developer</a><br />
+	    <a href="@FTP@/system/m68k-amigaos-ahiusr-@VERSION@.lha">User</a></td>
+	<td><a href="@FTP@/system/m68k-amigaos-ahiusr-@VERSION@.readme">Info</a></td>
+      </tr>
+      <tr>
+        <td>m68k-amigaos</td>
+        <td>Extra drivers for m68k</td>
+	<td><a href="@FTP@/system/m68k-amigaos-ahidrv-@VERSION@.lha">Drivers</a></td>
+	<td><a href="@FTP@/system/m68k-amigaos-ahidrv-@VERSION@.readme">Info</a></td>
+      </tr>
+      <tr>
+        <td>ppc-amigaos</td>
+        <td>AmigaOS 4.0 or later for ppc</td>
+	<td><a href="@FTP@/system/ppc-amigaos-ahidev-@VERSION@.lha">Developer</a><br />
+	    <a href="@FTP@/system/ppc-amigaos-ahiusr-@VERSION@.lha">User</a></td>
+	<td><a href="@FTP@/system/ppc-amigaos-ahiusr-@VERSION@.readme">Info</a></td>
+      </tr>
+      <tr>
+        <td>ppc-morphos</td>
+        <td>MorphOS 0.4 or later for ppc</td>
+	<td><a href="@FTP@/system/ppc-morphos-ahidev-@VERSION@.lha">Developer</a><br />
+	    <a href="@FTP@/system/ppc-morphos-ahiusr-@VERSION@.lha">User</a></td>
+	<td><a href="@FTP@/system/ppc-morphos-ahiusr-@VERSION@.readme">Info</a></td>
+      </tr>
+    </tbody>
+  </table>
+
+
+<!-- Source code ********************************************************** -->
+
+  <h3 id="source">Source code</h3>
+
+  <p>The most recent source code release is available 
+<a href="@FTP@/system/ahisrc-@VERSION@.tar.gz">here</a> or from 
+<a href="http://developer.berlios.de/projects/arp2/">Berlios</a>.</p>
+
+  <p>The code is also available for anonymous 
+<a href="http://subversion.tigris.org/">Subversion</a> checkout:</p>
+
+  <pre class="example">svn co svn://svn.berlios.de/arp2/ahi/ahisrc/branches/BRANCH_6 ahisrc-6</pre>
+
+  <p>Or even better, create a local mirror using <a
+href="http://svk.elixus.org/">SVK</a>, which makes it really easy to
+stay up-to-date, develop new features and send patches:</p>
+
+  <pre class="example"># Create a local mirror
+svk mirror svn://svn.berlios.de/arp2/ahi/ahisrc/branches/BRANCH_6/ //mirror/ahisrc-6
+
+# Sync it
+svk sync //mirror/ahisrc-6
+
+# Create a local branch
+svk cp -p //mirror/ahisrc-6 //local/ahisrc-6
+
+# Check out the local branch
+svk co //local/ahisrc-6
+
+# Work
+cd ahisrc-6; emacs some-file; svk diff
+
+# Stay updated
+svk pull
+
+# Check in your new code to the local branch
+svk ci
+
+# Create a patch for submission
+svk push -P cool-feature
+</pre>
+
+  <p>You can also register as a developer at Berlios and get direct
+write access to the repository.</p>
+
+  <p>In case you just want to browse around, the source code is also
+available via <a
+href="http://svn.berlios.de/wsvn/arp2/ahi/ahisrc/branches/BRANCH_6/">WebSVN</a>
+or <a
+href="http://svn.berlios.de/viewcvs/arp2/ahi/ahisrc/branches/BRANCH_6/">ViewCVS</a>.
+</p>
+
+  <p class="crap">(If you think that this page looks like crap, your
+browser is either lacking CSS support, or you don't know your history.
+If the latter, use your browser or the links at the bottom to switch
+style sheet.)</p>
+
+  <table class="switcher">
+    <tr>
+      <td><a href="#" onclick="setActiveStyleSheet('Workbench 1.x'); return false;">Workbench 1.x</a></td>
+      <td><a href="#" onclick="setActiveStyleSheet('Caribbean'); return false;">Caribbean</a></td>
+      <td><a href="#" onclick="setActiveStyleSheet('Black &amp; white'); return false;">Black &amp; white</a></td>
+      <td><a href="#" onclick="setActiveStyleSheet('Plain'); return false;">Plain</a></td>
+      <td><a href="#" onclick="setActiveStyleSheet('System default'); return false;">System default</a></td>
+      <td class="logo"><img src="/gfx/logo.gif" alt="Leviticus, Divine Software" /></td>
+    </tr>
+  </table>
+
+  <p>
+  <a href="http://validator.w3.org/check?uri=referer"><img
+        src="http://www.w3.org/Icons/valid-xhtml11"
+        alt="Valid XHTML 1.1" height="31" width="88" /></a>
+
+  <a href="http://jigsaw.w3.org/css-validator/check/referer" class="css2"><img 
+     style="border:0;width:88px;height:31px"
+     src="http://jigsaw.w3.org/css-validator/images/vcss" 
+     alt="Valid CSS!" /></a>
+
+  <a href="http://lynx.isc.org/"><img 
+     src="/gfx/lynx.gif" alt="Lynx Enhanced" /></a>
+
+  <a href="http://developer.berlios.de" title="BerliOS Developer"><img
+      src="http://developer.berlios.de/bslogo.php?group_id=3406"
+      width="124px" height="32px" alt="BerliOS Developer Logo" /></a>
+  <br />
+  <br />
+  </p>
+
+<!--[if IE]>
+</div>
+<![endif]-->
+ </body>
+</html>

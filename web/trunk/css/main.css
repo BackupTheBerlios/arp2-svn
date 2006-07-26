@@ -1,0 +1,102 @@
+
+/* Main style sheet, without color definitions */
+
+body {
+    font-family: helvetica, arial, sans-serif;
+}
+
+a:link, a:visited {
+    text-decoration: underline;
+}
+
+h1, h2, h3, h4, h5, h6 {
+}
+
+h1 {
+    text-align: center
+}
+
+h2 {
+    text-indent: 0.5em;
+}
+
+h3 {
+    text-indent: 1em;
+}
+
+img {
+    border: 0;
+}
+
+input.donate {
+    vertical-align: middle;
+}
+
+pre {
+    padding: 1em;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+
+thead {
+    font-weight: bold;
+}
+
+td {
+    padding: 0.1cm;
+}
+
+caption {
+    font-style: italic;
+}
+
+table.fixed {
+    table-layout: fixed;
+}
+
+table.switcher {
+    position: fixed;
+    left: 0px;
+    bottom: 0px;
+    text-align: center;
+/*    table-layout: fixed;*/
+    color: inherit;
+    background: inherit;
+    font-style: italic;
+    font-size: 8pt;
+}
+
+table.switcher td {
+    border: 0;
+/*    padding: 0px; */
+}
+
+table.switcher td.logo { 
+    text-align: right;
+}
+
+a.nohi {
+    color: inherit;
+    background: inherit;
+}
+
+.caps {
+    font-variant: small-caps;
+}
+
+.lower {
+    text-transform: lowercase;
+}
+
+.crap {
+    visibility: hidden;
+    font-size: 8pt;
+}
+
+p.google {
+    float: right;    
+}
