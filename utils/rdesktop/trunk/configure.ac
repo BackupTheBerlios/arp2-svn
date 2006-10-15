@@ -51,6 +51,7 @@ AC_SUBST(DESKTOP)
 AC_SUBST(CPU)
 
 AC_DEFINE_UNQUOTED([PACKAGE_OS], "$OS", [The OS we're configured for.])
+AC_SUBST(PACKAGE_OS, $OS)
 
 # Checks for programs.
 AC_PROG_CC

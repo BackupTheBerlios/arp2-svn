@@ -311,7 +311,7 @@ ac_includes_default="\
 # include <unistd.h>
 #endif"
 
-ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir guidedir htmldir psdir dvidir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS build build_cpu build_vendor build_os host host_cpu host_vendor host_os ALIBS OS OS_VERSION OS_VERSION_AGA OS_VERSION_GFX DESKTOP CPU CC CFLAGS LDFLAGS CPPFLAGS ac_ct_CC EXEEXT OBJEXT INSTALL_PROGRAM INSTALL_SCRIPT INSTALL_DATA CPP EGREP LIBOBJS LTLIBOBJS'
+ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir guidedir htmldir psdir dvidir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS build build_cpu build_vendor build_os host host_cpu host_vendor host_os ALIBS OS OS_VERSION OS_VERSION_AGA OS_VERSION_GFX DESKTOP CPU PACKAGE_OS CC CFLAGS LDFLAGS CPPFLAGS ac_ct_CC EXEEXT OBJEXT INSTALL_PROGRAM INSTALL_SCRIPT INSTALL_DATA CPP EGREP LIBOBJS LTLIBOBJS'
 ac_subst_files=''
 
 # Initialize some variables set by options.
@@ -1478,6 +1478,8 @@ esac
 cat >>confdefs.h <<_ACEOF
 #define PACKAGE_OS "$OS"
 _ACEOF
+
+PACKAGE_OS=$OS
 
 
 # Checks for programs.
@@ -4800,6 +4802,7 @@ s,@OS_VERSION_AGA@,$OS_VERSION_AGA,;t t
 s,@OS_VERSION_GFX@,$OS_VERSION_GFX,;t t
 s,@DESKTOP@,$DESKTOP,;t t
 s,@CPU@,$CPU,;t t
+s,@PACKAGE_OS@,$PACKAGE_OS,;t t
 s,@CC@,$CC,;t t
 s,@CFLAGS@,$CFLAGS,;t t
 s,@LDFLAGS@,$LDFLAGS,;t t
