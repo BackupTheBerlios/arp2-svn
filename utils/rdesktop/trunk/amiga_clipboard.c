@@ -290,6 +290,12 @@ static char* extract_collection(struct CollectionItem* ci, char* str) {
   return str;
 }
 
+void
+ui_clip_request_failed()
+{
+  // Do what here?
+}
+
 void ui_clip_request_data(uint32 format)
 {
   char* str = NULL;
@@ -358,5 +364,11 @@ void ui_clip_request_data(uint32 format)
 void ui_clip_sync(void)
 {
   // TODO: Check format of all clipboard.device data here
-  cliprdr_send_text_format_announce();
+  cliprdr_send_simple_native_format_announce(CF_TEXT);
+}
+
+void
+ui_clip_set_mode(const char *optarg)
+{
+  // Not used
 }

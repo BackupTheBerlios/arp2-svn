@@ -1,5 +1,5 @@
 # Process this file with autoconf to produce a configure script.
-AC_INIT(amiga_rdesktop, 1.4.1-2006-04-19-amiga, martin@blom.org)
+AC_INIT(RDesktop, 1.5.0 (2006-10-15), martin@blom.org)
 AC_CONFIG_SRCDIR([amiga_rdesktop.c])
 AC_CONFIG_HEADER([config.h])
 
@@ -49,6 +49,8 @@ AC_SUBST(OS_VERSION_AGA)
 AC_SUBST(OS_VERSION_GFX)
 AC_SUBST(DESKTOP)
 AC_SUBST(CPU)
+
+AC_DEFINE_UNQUOTED([PACKAGE_OS], "$OS", [The OS we're configured for.])
 
 # Checks for programs.
 AC_PROG_CC

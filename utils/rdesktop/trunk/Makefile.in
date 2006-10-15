@@ -1,7 +1,7 @@
 # @configure_input@
 
 srcdir		= @srcdir@
-rdesktop_srcdir	= $(srcdir)/rdesktop-RDESKTOP-1-4-1
+rdesktop_srcdir	= $(srcdir)/rdesktop-RDESKTOP-1-5-0
 abs_builddir	= @abs_builddir@
 
 CC		= @CC@

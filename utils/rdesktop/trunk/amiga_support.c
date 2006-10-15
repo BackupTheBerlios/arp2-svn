@@ -39,7 +39,7 @@
 extern int  g_width;
 extern int  g_height;
 extern Bool g_fullscreen;
-extern int  g_server_bpp;
+extern int  g_server_depth;
 
 extern BOOL           amiga_is_os4;
 extern BOOL           amiga_broken_blitter;
@@ -256,7 +256,7 @@ amiga_obtain_pen( ULONG color )
 {
   ULONG r, g, b;
 
-  switch( g_server_bpp )
+  switch( g_server_depth )
   {
     case 8:
       return amiga_pens[ color ];
@@ -298,7 +298,7 @@ void
 amiga_release_pen( LONG pen )
 {
 #if !defined (__MORPHOS__) && !defined (__amigaos4__)
-  if( g_server_bpp != 8)
+  if( g_server_depth != 8)
   {
     ReleasePen( amiga_window->WScreen->ViewPort.ColorMap, pen );
   }
@@ -406,7 +406,7 @@ WorkingClipBlit( struct RastPort *srcRP, LONG xSrc, LONG ySrc,
 
   if( minterm == 0 )
   {
-    LONG pen = g_server_bpp == 8 ? 16 + 1 : amiga_obtain_pen( 0x00000000 ); // Use black color of the mouse pointer for 8 bpp
+    LONG pen = g_server_depth == 8 ? 16 + 1 : amiga_obtain_pen( 0x00000000 ); // Use black color of the mouse pointer for 8 bpp
   
     amiga_set_abpen_drmd( amiga_window->RPort, pen, 0, JAM1 );
     RectFill( amiga_window->RPort,
@@ -417,7 +417,7 @@ WorkingClipBlit( struct RastPort *srcRP, LONG xSrc, LONG ySrc,
   }
   else if( minterm == 0xf0 )
   {
-    LONG pen = g_server_bpp == 8 ? 16 + 3 : amiga_obtain_pen( 0xffffffff ); // Use white color of the mouse pointer for 8 bpp
+    LONG pen = g_server_depth == 8 ? 16 + 3 : amiga_obtain_pen( 0xffffffff ); // Use white color of the mouse pointer for 8 bpp
   
     amiga_set_abpen_drmd( amiga_window->RPort, pen, 0, JAM1 );
     RectFill( amiga_window->RPort,
@@ -456,7 +456,7 @@ WorkingBltBitMapRastPort( struct BitMap *srcBitMap, LONG xSrc, LONG ySrc,
   
   if( minterm == 0 )
   {
-    LONG pen = g_server_bpp == 8 ? 16 + 1 : amiga_obtain_pen( 0x00000000 ); // Use black color of the mouse pointer for 8 bpp
+    LONG pen = g_server_depth == 8 ? 16 + 1 : amiga_obtain_pen( 0x00000000 ); // Use black color of the mouse pointer for 8 bpp
   
     amiga_set_abpen_drmd( amiga_window->RPort, pen, 0, JAM1 );
     RectFill( amiga_window->RPort,
@@ -467,7 +467,7 @@ WorkingBltBitMapRastPort( struct BitMap *srcBitMap, LONG xSrc, LONG ySrc,
   }
   else if( minterm == 0xf0 )
   {
-    LONG pen = g_server_bpp == 8 ? 16 + 3 : amiga_obtain_pen( 0xffffffff ); // Use white color of the mouse pointer for 8 bpp
+    LONG pen = g_server_depth == 8 ? 16 + 3 : amiga_obtain_pen( 0xffffffff ); // Use white color of the mouse pointer for 8 bpp
 
     amiga_set_abpen_drmd( amiga_window->RPort, pen, 0, JAM1 );
     RectFill( amiga_window->RPort,
@@ -564,7 +564,7 @@ amiga_write_pixels( struct RastPort* rp,
 		    int x, int y, int width, int height,
 		    UBYTE* data, int data_width )
 {
-  if( g_server_bpp == 8 )
+  if( g_server_depth == 8 )
   {
     RemappedWriteChunkyPixels( rp, x, y, x + width - 1, y + height - 1,
 			       data, data_width );
@@ -575,7 +575,7 @@ amiga_write_pixels( struct RastPort* rp,
     int xx, yy;
     int i = 0;
     
-    switch( g_server_bpp )
+    switch( g_server_depth )
     {
       case 15:
       {

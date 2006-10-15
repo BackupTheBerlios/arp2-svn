@@ -67,12 +67,12 @@ extern struct DiskObject* amiga_icon;
 extern char g_title[64];
 extern char g_username[64];
 extern char g_hostname[16];
-extern char keymapname[16];
+extern char g_keymapname[PATH_MAX];
 extern int g_keylayout;
 extern int g_width;
 extern int g_height;
 extern int g_tcp_port_rdp;
-extern int g_server_bpp;
+extern int g_server_depth;
 extern int g_win_button_size;
 extern Bool g_bitmap_compression;
 extern Bool g_sendmotion;
@@ -90,6 +90,14 @@ extern Bool g_owncolmap;
 extern Bool g_ownbackstore;
 extern uint32 g_embed_wnd;
 extern uint32 g_rdp5_performanceflags;
+/* Session Directory redirection */
+extern Bool g_redirect;
+extern char g_redirect_server[64];
+extern char g_redirect_domain[16];
+extern char g_redirect_password[64];
+extern char g_redirect_username[64];
+extern char g_redirect_cookie[128];
+extern uint32 g_redirect_flags;
 extern Bool g_bitmap_cache_persist_enable;
 
 #ifdef WITH_RDPSND
@@ -110,16 +118,7 @@ static void show_disconnect_reason(uint16 reason);
 #endif
 
 
-const char version[] = "$VER: RDesktop 1.4.1-"
-#ifdef __MORPHOS__
-                              "MorphOS"
-#else
-                              "AmigaOS"
-#ifdef __amigaos4__
-                              "4"
-#endif
-#endif
-                              " (19.4.2006)"
+const char version[] = "$VER: " PACKAGE_STRING " [" PACKAGE_OS "] "
                               "(C) 2005-2006 Joerg Strohmayer; "
                               "(C) 2001-2006 Martin Blom; "
                               "(C) 1999-2005 Matthew Chapman et al.";
@@ -231,6 +230,12 @@ static struct
 
 static struct WBStartup*  wb_msg = NULL;
 int a_slowmouse;
+
+static void
+rdesktop_reset_state(void)
+{
+  rdp_reset_state();
+}
 
 static Bool
 read_password(char *password, int size)
@@ -406,8 +411,8 @@ main(int argc, char *argv[])
   char fullhostname[64];
   char domain[16];
   char password[64];
-  char shell[128];
-  char directory[32];
+  char shell[256];
+  char directory[256];
   Bool prompt_password, deactivated;
   struct passwd *pw;
   uint32 flags;
@@ -419,73 +424,76 @@ main(int argc, char *argv[])
   char* wbargs = NULL;
   int rc = RETURN_OK;
 
+  int run_count = 0;	/* Session Directory support */
+  BOOL continue_connect = True;	/* Session Directory support */
+
   atexit(cleanup);
 
 
 #ifdef __amigaos4__
   // We handle it ourselves
   signal(SIGINT, SIG_IGN);
-{
-  struct Library *LibBase;
+  {
+    struct Library *LibBase;
 
-  LibBase = OpenLibrary("keymap.library", 36);
-  if (NULL != LibBase)
-  {
-     IKeymap = (struct KeymapIFace *)GetInterface(LibBase, "main", 1, NULL);
-     if (!IKeymap) CloseLibrary(LibBase);
-  }
-  if( NULL == IKeymap)
-  {
-    error( "Unable to open '%s'.\n", "keymap.library" );
-    return RETURN_FAIL;
-  }
+    LibBase = OpenLibrary("keymap.library", 36);
+    if (NULL != LibBase)
+    {
+      IKeymap = (struct KeymapIFace *)GetInterface(LibBase, "main", 1, NULL);
+      if (!IKeymap) CloseLibrary(LibBase);
+    }
+    if( NULL == IKeymap)
+    {
+      error( "Unable to open '%s'.\n", "keymap.library" );
+      return RETURN_FAIL;
+    }
 
-  LibBase = OpenLibrary("usergroup.library", 0L);
-  if (LibBase)
-  {
-     IUserGroup = (struct UserGroupIFace *)GetInterface(LibBase, "main", 1, NULL);
-     if (!IUserGroup) CloseLibrary(LibBase);
-  }
-  if (!LibBase || !IUserGroup)
-  {
-     error( "Unable to open '%s'.\n", "usergroup.library" );
-     return RETURN_FAIL;
-  }
+    LibBase = OpenLibrary("usergroup.library", 0L);
+    if (LibBase)
+    {
+      IUserGroup = (struct UserGroupIFace *)GetInterface(LibBase, "main", 1, NULL);
+      if (!IUserGroup) CloseLibrary(LibBase);
+    }
+    if (!LibBase || !IUserGroup)
+    {
+      error( "Unable to open '%s'.\n", "usergroup.library" );
+      return RETURN_FAIL;
+    }
 
-  LibBase = OpenLibrary("amisslmaster.library", 1);
-  if (LibBase)
-  {
-     IAmiSSLMaster = (struct AmiSSLMasterIFace *)GetInterface(LibBase, "main", 1, NULL);
-     if (!IAmiSSLMaster) CloseLibrary(LibBase);
-     else
-     {
+    LibBase = OpenLibrary("amisslmaster.library", 1);
+    if (LibBase)
+    {
+      IAmiSSLMaster = (struct AmiSSLMasterIFace *)GetInterface(LibBase, "main", 1, NULL);
+      if (!IAmiSSLMaster) CloseLibrary(LibBase);
+      else
+      {
         if (! InitAmiSSLMaster(AMISSL_CURRENT_VERSION, TRUE))
         {
         } else {
-           struct Library *AmiSSLBase = OpenAmiSSL();
+	  struct Library *AmiSSLBase = OpenAmiSSL();
 
-           IAmiSSL = (struct AmiSSLIFace *)GetInterface(AmiSSLBase, "main", 1, NULL);
+	  IAmiSSL = (struct AmiSSLIFace *)GetInterface(AmiSSLBase, "main", 1, NULL);
         }
-     }
-  }
-  if (!LibBase || !IAmiSSLMaster)
-  {
-     error( "Unable to open '%s'.\n", "amisslmaster.library" );
-     return RETURN_FAIL;
-  }
+      }
+    }
+    if (!LibBase || !IAmiSSLMaster)
+    {
+      error( "Unable to open '%s'.\n", "amisslmaster.library" );
+      return RETURN_FAIL;
+    }
 
-  if (!InitAmiSSL(AmiSSL_ISocket, ISocket,
-                  AmiSSL_ErrNoPtr, &errno,
-                  TAG_DONE))
-  {
-     AmiSSL_initialized = TRUE;
-  } else {
-     error( "Unable to initialize AmiSSL\n" );
-     return RETURN_FAIL;
-  }
+    if (!InitAmiSSL(AmiSSL_ISocket, ISocket,
+		    AmiSSL_ErrNoPtr, &errno,
+		    TAG_DONE))
+    {
+      AmiSSL_initialized = TRUE;
+    } else {
+      error( "Unable to initialize AmiSSL\n" );
+      return RETURN_FAIL;
+    }
 
-  SetErrnoPtr(&errno, 4);
-}
+    SetErrnoPtr(&errno, 4);
+  }
 #else
   AslBase = OpenLibrary( AslName, 39 );
   
@@ -584,7 +592,7 @@ main(int argc, char *argv[])
   flags = RDP_LOGON_NORMAL;
   prompt_password = False;
   domain[0] = password[0] = shell[0] = directory[0] = 0;
-  strcpy(keymapname, "en-us");
+  strcpy(g_keymapname, "en-us");
   g_embed_wnd = 0;
 
   g_num_devices = 0;
@@ -643,7 +651,7 @@ main(int argc, char *argv[])
       }
     }
 
-got_it:
+    got_it:
     CloseLocale(locale);
   }
   
@@ -786,9 +794,9 @@ got_it:
 
   if (0 == argc)
   {
-     rdargs = ReadArgs(wbtemplate, (LONG*) &a_args, rdargs);
+    rdargs = ReadArgs(wbtemplate, (LONG*) &a_args, rdargs);
   } else {
-     rdargs = ReadArgs(template, (LONG*)&a_args, rdargs);
+    rdargs = ReadArgs(template, (LONG*)&a_args, rdargs);
   }
 
   if (rdargs == NULL)
@@ -874,13 +882,13 @@ got_it:
 	
   if( a_args.a_title != NULL) STRNCPY(g_title, a_args.a_title, sizeof(g_title));
 
-  g_server_bpp = *a_args.a_depth;
+  g_server_depth = *a_args.a_depth;
 
-  if (g_server_bpp < 0 ||
-      (g_server_bpp > 8 && g_server_bpp != 16 && g_server_bpp != 15
-       && g_server_bpp != 24))
+  if (g_server_depth < 0 ||
+      (g_server_depth > 8 && g_server_depth != 16 && g_server_depth != 15
+       && g_server_depth != 24))
   {
-    error("invalid server bpp\n");
+    error("invalid server colour depth.\n");
     rc = RETURN_ERROR;
   }
 
@@ -965,12 +973,12 @@ got_it:
   PRINTS(  g_title );
   PRINTS(  g_username );
   PRINTS(  g_hostname );
-  PRINTS(  keymapname );
+  PRINTS(  g_keymapname );
   PRINTI(  g_keylayout );
   PRINTI(  g_width );
   PRINTI(  g_height );
   PRINTI(  tcp_port_rdp );
-  PRINTI(  g_server_bpp );
+  PRINTI(  g_server_depth );
   PRINTI(  g_win_button_size );
   PRINTI(  g_bitmap_compression );
   PRINTI(  g_sendmotion );
@@ -1008,24 +1016,67 @@ got_it:
   rdpdr_init();
   startup |= RDPDR_INIT;
 
-  if (!rdp_connect(server, flags, domain, password, shell, directory))
-    return RETURN_FAIL;
-
-  startup |= RDP_CONNECT;
-	
-  /* By setting encryption to False here, we have an encrypted login 
-     packet but unencrypted transfer of other packets */
-  if (!packet_encryption)
-    g_encryption = False;
-
-  DEBUG(("Connection successful.\n"));
-  memset(password, 0, sizeof(password));
-
-  cache_create();
-  if (ui_create_window())
+  
+  while (run_count < 2 && continue_connect)	/* add support for Session Directory; only reconnect once */
   {
-    startup |= UI_CREATE_WINDOW;
-    rdp_main_loop(&deactivated, &ext_disc_reason);
+    if (run_count == 0)
+    {
+      if (!rdp_connect(server, flags, domain, password, shell, directory))
+	return RETURN_FAIL;
+    }
+    else if (!rdp_reconnect
+	     (server, flags, domain, password, shell, directory, g_redirect_cookie))
+      return RETURN_FAIL;
+
+    startup |= RDP_CONNECT;
+	
+    /* By setting encryption to False here, we have an encrypted login 
+       packet but unencrypted transfer of other packets */
+    if (!packet_encryption)
+      g_encryption = False;
+
+    DEBUG(("Connection successful.\n"));
+    memset(password, 0, sizeof(password));
+
+    if (run_count == 0)
+    {
+      cache_create();
+      if (!ui_create_window())
+      {
+	continue_connect = False;
+      }
+      else
+      {
+	startup |= UI_CREATE_WINDOW;
+      }
+    }
+
+    if (continue_connect)
+      rdp_main_loop(&deactivated, &ext_disc_reason);
+
+    rdp_disconnect();    
+    startup &= ~RDP_CONNECT;
+
+    if ((g_redirect == True) && (run_count == 0))	/* Support for Session Directory */
+    {
+      /* reset state of major globals */
+      rdesktop_reset_state();
+
+      STRNCPY(domain, g_redirect_domain, sizeof(domain));
+      STRNCPY(g_username, g_redirect_username, sizeof(g_username));
+      STRNCPY(password, g_redirect_password, sizeof(password));
+      STRNCPY(server, g_redirect_server, sizeof(server));
+      flags |= RDP_LOGON_AUTO;
+
+      g_redirect = False;
+    }
+    else
+    {
+      continue_connect = False;
+      break;
+    }
+    
+    run_count++;
   }
 
   if (deactivated)

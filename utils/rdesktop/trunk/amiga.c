@@ -98,7 +98,7 @@ extern int  g_height;
 extern Bool g_sendmotion;
 extern Bool g_fullscreen;
 extern char g_title[];
-extern int  g_server_bpp;
+extern int  g_server_depth;
 extern Bool g_bitmap_cache_persist_enable;
 extern int  a_slowmouse;
 
@@ -206,9 +206,9 @@ ui_init(void)
     amiga_bpp = amiga_pubscreen->RastPort.BitMap->Depth;
   }
 
-  if( g_server_bpp != 0 )
+  if( g_server_depth != 0 )
   {
-    amiga_bpp = g_server_bpp;
+    amiga_bpp = g_server_depth;
   }
   
   if( g_fullscreen )
@@ -288,9 +288,9 @@ ui_init(void)
       }
       else
       {
-	if( g_server_bpp != 0 )
+	if( g_server_depth != 0 )
 	{
-	  amiga_bpp = g_server_bpp;
+	  amiga_bpp = g_server_depth;
 	}
 	else
 	{
@@ -299,7 +299,7 @@ ui_init(void)
       }
     }
 
-    g_server_bpp = 0;
+    g_server_depth = 0;
   }
 
   if( g_width == 0 )
@@ -338,7 +338,7 @@ ui_init(void)
   //   amiga version of rdesktop).
   // * If window mode, amiga_bpp is taken from the public screen.
   //
-  // Now, set g_server_bpp to something appropriate.
+  // Now, set g_server_depth to something appropriate.
   
   switch( amiga_bpp )
   {
@@ -350,20 +350,20 @@ ui_init(void)
     case 6:
     case 7:
     case 8:
-      g_server_bpp = 8;
+      g_server_depth = 8;
       break;
 
     case 15:
-      g_server_bpp = 15;
+      g_server_depth = 15;
       break;
 	
     case 16:
-      g_server_bpp = 16;
+      g_server_depth = 16;
       break;
 
     case 24:
     case 32:
-      g_server_bpp = 24;
+      g_server_depth = 24;
       break;
 
     default:
