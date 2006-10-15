@@ -1350,6 +1350,10 @@ str_handle_lines(const char *input, char **rest, str_handle_lines_t linehandler,
 BOOL
 subprocess(char *const argv[], str_handle_lines_t linehandler, void *data)
 {
+#ifdef ENABLE_AMIGA
+	error("subprocess() called.\n");
+	return False;
+#else
 	pid_t child;
 	int fd[2];
 	int n = 1;
@@ -1395,6 +1399,7 @@ subprocess(char *const argv[], str_handle_lines_t linehandler, void *data)
 	xfree(rest);
 
 	return True;
+#endif
 }
 
 
