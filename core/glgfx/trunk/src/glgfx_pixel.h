@@ -5,6 +5,10 @@
 #include <inttypes.h>
 #include <glgfx.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 enum glgfx_pixel_format {
   glgfx_pixel_format_unknown = 0, // MUST start at 0!
   
@@ -88,5 +92,8 @@ bool glgfx_pixel_getattr(enum glgfx_pixel_format format,
     glgfx_pixel_getformat_a((struct glgfx_tagitem const*) (void*) _tags); })
 
 
-#endif /* ARP2_glgfx_glgfx_pixel_h */
+#ifdef __cplusplus
+}
+#endif
 
+#endif /* ARP2_glgfx_glgfx_pixel_h */

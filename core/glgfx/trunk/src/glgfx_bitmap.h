@@ -5,6 +5,10 @@
 #include <glgfx_pixel.h>
 #include <inttypes.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct glgfx_bitmap;
 
 enum glgfx_bitmap_attr {
@@ -132,5 +136,8 @@ int glgfx_bitmap_numcliprects(struct glgfx_bitmap* bitmap);
   ({ intptr_t const _tags[] = { tag1, ## __VA_ARGS__ }; \
     glgfx_bitmap_blit_a((bitmap), (struct glgfx_tagitem const*) (void*) _tags); })
 
-#endif /* arp2_glgfx_glgfx_bitmap_h */
+#ifdef __cplusplus
+}
+#endif
 
+#endif /* arp2_glgfx_glgfx_bitmap_h */

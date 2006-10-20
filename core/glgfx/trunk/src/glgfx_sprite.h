@@ -4,6 +4,10 @@
 #include <glgfx.h>
 #include <glgfx_bitmap.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct glgfx_sprite;
 
 enum glgfx_sprite_attr {
@@ -38,5 +42,8 @@ bool glgfx_sprite_getattr(struct glgfx_sprite* sprite,
     glgfx_sprite_setattrs_a((sprite), (struct glgfx_tagitem const*) (void*) _tags); })
 
 
-#endif /* arp2_glgfx_glgfx_sprite_h */
+#ifdef __cplusplus
+}
+#endif
 
+#endif /* arp2_glgfx_glgfx_sprite_h */

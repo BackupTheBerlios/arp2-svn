@@ -5,6 +5,10 @@
 #include <glgfx_view.h>
 #include <inttypes.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct glgfx_monitor;
 struct glgfx_context;
 
@@ -59,5 +63,8 @@ bool glgfx_monitor_remview(struct glgfx_monitor* monitor,
 bool glgfx_monitor_waittof(struct glgfx_monitor* monitor);
 bool glgfx_monitor_render(struct glgfx_monitor* monitor);
 
-#endif /* arp2_glgfx_glgfx_monitor_h */
+#ifdef __cplusplus
+}
+#endif
 
+#endif /* arp2_glgfx_glgfx_monitor_h */

@@ -5,6 +5,10 @@
 #include <glgfx_sprite.h>
 #include <glgfx_viewport.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct glgfx_view;
 
 struct glgfx_view* glgfx_view_create(void);
@@ -30,5 +34,8 @@ bool glgfx_view_remsprite(struct glgfx_view* view,
 int glgfx_view_numsprites(struct glgfx_view* view);
 
 
-#endif /* arp2_glgfx_glgfx_view_h */
+#ifdef __cplusplus
+}
+#endif
 
+#endif /* arp2_glgfx_glgfx_view_h */

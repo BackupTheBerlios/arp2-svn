@@ -4,6 +4,10 @@
 #include <stdbool.h>
 #include <inttypes.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 
 /*** Tag/attribute handling **************************************************/
 
@@ -118,5 +122,9 @@ void glgfx_cleanup(void);
 #define glgfx_init(tag1, ...) \
   ({ intptr_t const _tags[] = { tag1, ## __VA_ARGS__ }; \
     glgfx_init_a((struct glgfx_tagitem const*) (void*) _tags); })
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* arp2_glgfx_glgfx_h */

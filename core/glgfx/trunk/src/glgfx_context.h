@@ -3,6 +3,10 @@
 
 #include <glgfx.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct glgfx_context;
 struct glgfx_monitor;
 struct glgfx_bitmap;
@@ -13,5 +17,8 @@ bool glgfx_context_unselect(void);
 struct glgfx_context* glgfx_context_getcurrent(void);
 bool glgfx_context_destroy(struct glgfx_context* context);
 
-#endif /* arp2_glgfx_glgfx_context_h */
+#ifdef __cplusplus
+}
+#endif
 
+#endif /* arp2_glgfx_glgfx_context_h */

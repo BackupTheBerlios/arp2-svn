@@ -3,6 +3,10 @@
 
 #include <glgfx.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct glgfx_monitor;
 
 enum glgfx_input_page {
@@ -377,5 +381,9 @@ struct glgfx_input_event {
 bool glgfx_input_acquire(struct glgfx_monitor* monitor);
 bool glgfx_input_release(struct glgfx_monitor* monitor);
 bool glgfx_input_getcode(struct glgfx_input_event* event);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* ARP2_glgfx_glgfx_input_h */

@@ -4,6 +4,10 @@
 #include <glgfx.h>
 #include <glgfx_bitmap.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct glgfx_rasinfo;
 struct glgfx_viewport;
 
@@ -84,6 +88,8 @@ bool glgfx_rasinfo_getattr(struct glgfx_rasinfo* rasinfo,
   ({ intptr_t const _tags[] = { tag1, ##__VA_ARGS__ }; \
     glgfx_rasinfo_setattrs_a((rasinfo),(struct glgfx_tagitem const*) (void*) _tags); })
 
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* arp2_glgfx_glgfx_viewport_h */
-
