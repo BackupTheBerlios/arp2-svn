@@ -45,12 +45,17 @@ int main(int argc, char** argv) {
       rc = 20;
     }
     else {
+      int blit_width  = 50;
+      int blit_height = 50;
+
       struct glgfx_bitmap* background;
 
       struct glgfx_bitmap* pointer;
       struct glgfx_bitmap* tile;
       struct glgfx_bitmap* selected;
       struct glgfx_bitmap* unselected;
+
+      struct glgfx_bitmap* blit_backup;
 
       pointer = glgfx_bitmap_create(glgfx_bitmap_attr_width,  sprite_pointer.width,
 				    glgfx_bitmap_attr_height, sprite_pointer.height,
@@ -77,8 +82,14 @@ int main(int argc, char** argv) {
 				       glgfx_bitmap_attr_format, glgfx_pixel_format_a8b8g8r8,
 				       glgfx_tag_end);
 
+      blit_backup = glgfx_bitmap_create(glgfx_bitmap_attr_width,  blit_width,
+					glgfx_bitmap_attr_height, blit_height,
+					glgfx_bitmap_attr_format, glgfx_pixel_format_a8b8g8r8,
+					glgfx_tag_end);
+
       if (background == NULL || pointer == NULL ||
-	  tile == NULL || selected == NULL || unselected == NULL) {
+	  tile == NULL || selected == NULL || unselected == NULL ||
+	  blit_backup == NULL) {
 	printf("Unable to allocate bitmaps\n");
 	rc = 20;
       }
@@ -191,9 +202,6 @@ int main(int argc, char** argv) {
 			     glgfx_bitmap_copy_data,    (uintptr_t) sprite_pointer.pixel_data,
 			     glgfx_tag_end);
 
-	  // Test one rendering before locking input, in case we crash ...
-	  glgfx_monitor_render(monitor);
-
 	  // Handle input
 	  glgfx_input_acquire(monitor);
 	  
@@ -203,6 +211,19 @@ int main(int argc, char** argv) {
 	  int mouse_x = 0, mouse_y = 0;
 	  double phase1 = 0, phase2 = 0;
 
+	  int blit_x = 40; 
+	  int blit_y = 40;
+
+	  glgfx_bitmap_blit(blit_backup,
+			    glgfx_bitmap_blit_x,          0,
+			    glgfx_bitmap_blit_y,          0,
+			    glgfx_bitmap_blit_width,      blit_width,
+			    glgfx_bitmap_blit_height,     blit_height,
+			    glgfx_bitmap_blit_src_bitmap, (uintptr_t) selected,
+			    glgfx_bitmap_blit_src_x,      blit_x,
+			    glgfx_bitmap_blit_src_y,      blit_y,
+			    glgfx_tag_end);
+
 	  glgfx_rasinfo_getattr(ri_selected, glgfx_rasinfo_attr_x, &win_x);
 	  glgfx_rasinfo_getattr(ri_selected, glgfx_rasinfo_attr_y, &win_y);
 
@@ -210,6 +231,40 @@ int main(int argc, char** argv) {
 	    struct glgfx_input_event event;
 
 	    glgfx_monitor_render(monitor);
+	    
+	    glgfx_bitmap_blit(selected,
+			      glgfx_bitmap_blit_x,          blit_x,
+			      glgfx_bitmap_blit_y,          blit_y,
+			      glgfx_bitmap_blit_width,      blit_width,
+			      glgfx_bitmap_blit_height,     blit_height,
+			      glgfx_bitmap_blit_src_bitmap, (uintptr_t) blit_backup,
+			      glgfx_bitmap_blit_src_x,      0,
+			      glgfx_bitmap_blit_src_y,      0,
+			      glgfx_tag_end);
+
+	    blit_x = (blit_x + blit_width + 1) % (window_selected.width + blit_width) - blit_width;
+
+	    glgfx_bitmap_blit(blit_backup,
+			      glgfx_bitmap_blit_x,          0,
+			      glgfx_bitmap_blit_y,          0,
+			      glgfx_bitmap_blit_width,      blit_width,
+			      glgfx_bitmap_blit_height,     blit_height,
+			      glgfx_bitmap_blit_src_bitmap, (uintptr_t) selected,
+			      glgfx_bitmap_blit_src_x,      blit_x,
+			      glgfx_bitmap_blit_src_y,      blit_y,
+			      glgfx_tag_end);
+
+	    glgfx_bitmap_blit(selected,
+			      glgfx_bitmap_blit_x,          blit_x,
+			      glgfx_bitmap_blit_y,          blit_y,
+			      glgfx_bitmap_blit_width,      blit_width,
+			      glgfx_bitmap_blit_height,     blit_height,
+			      glgfx_bitmap_blit_src_x,      0,
+			      glgfx_bitmap_blit_src_y,      0,	
+			      glgfx_bitmap_blit_mod_a,      0x8000, 
+			      glgfx_bitmap_blit_blend_equation, glgfx_blend_equation_func_add,
+			      glgfx_tag_end);
+
 
 	    while ((glgfx_input_getcode(&event))) {
 	      if (event.class == glgfx_input_class_mouse) {
