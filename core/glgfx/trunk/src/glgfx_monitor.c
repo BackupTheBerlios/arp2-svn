@@ -18,7 +18,6 @@
 #include "glgfx_intern.h"
 
 #include <GL/glxext.h>
-#include <X11/extensions/xf86dga.h>
 
 static int __GL_SYNC_TO_VBLANK = -1;
 
@@ -158,6 +157,8 @@ struct glgfx_monitor* glgfx_monitor_create_a(char const* display_name,
 					     struct glgfx_tagitem const* tags) {
   struct glgfx_monitor* monitor;
   struct glgfx_tagitem const* tag;
+  Window dummy_win;
+  int dummy;
 
   if (display_name == NULL) {
     errno = EINVAL;
@@ -228,21 +229,6 @@ struct glgfx_monitor* glgfx_monitor_create_a(char const* display_name,
     errno = ENXIO;
     return NULL;
   }
-
-  int dummy;
-#ifdef USE_DGA2
-  if (!XDGAQueryExtension(monitor->display, &monitor->dga_base, &dummy)) {
-    BUG("The XDGA extension is missing from display %s!\n", display_name);
-    glgfx_monitor_destroy(monitor);
-    return NULL;
-  }
-#else
-  if (!XF86DGAQueryExtension(monitor->display, &dummy, &dummy)) {
-    BUG("The XF86DGA extension is missing from display %s!\n", display_name);
-    glgfx_monitor_destroy(monitor);
-    return NULL;
-  }
-#endif
 
   if (!XF86VidModeQueryExtension(monitor->display, &dummy, &dummy)) {
     BUG("The XF86VidMode extension is missing from display %s!\n", display_name);
@@ -456,6 +442,10 @@ struct glgfx_monitor* glgfx_monitor_create_a(char const* display_name,
 		KeyPressMask |
 		KeyReleaseMask));
   XFlush(monitor->display);
+
+  XQueryPointer(monitor->display, monitor->window, &dummy_win, &dummy_win,
+		&monitor->mouse_x, &monitor->mouse_y, &dummy, &dummy, &dummy);
+
 
   glgfx_context_select(monitor->main_context);
 
