@@ -887,7 +887,7 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
   }
 
   if (mod_bitmap != NULL) {
-    if (/* mod_x < 0 || mod_y < 0 || */ mod_width <= 0 || mod_height <= 0 ||
+    if (/* mod_x < 0 || mod_y < 0 || */ mod_width <= 0 || mod_height <= 0 /* || */
 	/* mod_x + mod_width > mod_bitmap->width ||  */
 	/* mod_y + mod_height > mod_bitmap->height */) {
       errno = EINVAL;
