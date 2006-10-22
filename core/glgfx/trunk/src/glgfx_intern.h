@@ -103,6 +103,7 @@ struct glgfx_monitor {
     Window                  window;
     GLXWindow               glx_window;
     Atom                    xa_win_state;
+    Cursor                  cursor;
 
     struct glgfx_context*   main_context;
 

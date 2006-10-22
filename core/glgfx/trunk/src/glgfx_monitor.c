@@ -446,6 +446,14 @@ struct glgfx_monitor* glgfx_monitor_create_a(char const* display_name,
   XQueryPointer(monitor->display, monitor->window, &dummy_win, &dummy_win,
 		&monitor->mouse_x, &monitor->mouse_y, &dummy, &dummy, &dummy);
 
+  // Nuke X pointer
+  char zero[1] = { 0 };
+  XColor dummy_color;
+  Pixmap pixmap = XCreateBitmapFromData(monitor->display, monitor->window, zero, 1, 1);
+  monitor->cursor = XCreatePixmapCursor(monitor->display, pixmap, pixmap, 
+					&dummy_color, &dummy_color, 0, 0);
+  XFreePixmap(monitor->display, pixmap);
+  XDefineCursor(monitor->display, monitor->window, monitor->cursor);
 
   glgfx_context_select(monitor->main_context);
 
@@ -471,6 +479,12 @@ void glgfx_monitor_destroy(struct glgfx_monitor* monitor) {
 
   D(BUG("Destroying monitor %p (%s)\n", monitor, monitor->name));
 
+
+  if (monitor->cursor != 0) {
+    XUndefineCursor(monitor->display, monitor->window);
+    XFreeCursor(monitor->display, monitor->cursor);
+  }
+  
   if (monitor->fb_config != NULL) {
     XFree(monitor->fb_config);
   }
