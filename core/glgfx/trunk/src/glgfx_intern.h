@@ -296,6 +296,7 @@ bool glgfx_context_bindfbo(struct glgfx_context* context, struct glgfx_bitmap* b
 bool glgfx_context_unbindfbo(struct glgfx_context* context);
 bool glgfx_context_bindprogram(struct glgfx_context* context, struct glgfx_shader* shader);
 bool glgfx_context_unbindprogram(struct glgfx_context* context);
+bool glgfx_context_checkstate(struct glgfx_context* context);
 struct glgfx_bitmap* glgfx_context_gettempbitmap(struct glgfx_context* context,
 						 int min_width,
 						 int min_height,

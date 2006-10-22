@@ -355,12 +355,7 @@ bool glgfx_context_bindprogram(struct glgfx_context* context,
     return false;
   }
 
-  if (context->fbo_bitmap != NULL &&
-      (context->fbo_bitmap == context->tex_bitmap[0] ||
-       context->fbo_bitmap == context->tex_bitmap[1])) {
-    BUG("glgfx_context_bindprogram: Bitmap %p is currently bound to both FBO and TEX!\n", 
-	context->fbo_bitmap);
-  }
+  glgfx_context_checkstate(context);
 
   // Defaults
   enum glgfx_pixel_format dst  = context->monitor->format;
@@ -389,6 +384,21 @@ bool glgfx_context_unbindprogram(struct glgfx_context* context) {
   
   return true;
 }	       
+
+
+bool glgfx_context_checkstate(struct glgfx_context* context) {
+  bool rc = true;
+
+  if (context->fbo_bitmap != NULL &&
+      (context->fbo_bitmap == context->tex_bitmap[0] ||
+       context->fbo_bitmap == context->tex_bitmap[1])) {
+    BUG("glgfx_context_bindprogram: Bitmap %p is currently bound to both FBO and TEX!\n", 
+	context->fbo_bitmap);
+    rc = false;
+  }
+
+  return rc;
+}
 
 
 struct glgfx_bitmap* glgfx_context_gettempbitmap(struct glgfx_context* context,
