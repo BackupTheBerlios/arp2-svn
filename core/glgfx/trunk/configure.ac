@@ -58,6 +58,7 @@ AC_CHECK_HEADERS([GL/glATI.h GL/glxATI.h],,,
 #include <GL/glx.h>
 #endif
 ])
+AC_CHECK_HEADERS([execinfo.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_HEADER_STDBOOL

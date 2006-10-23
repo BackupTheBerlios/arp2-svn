@@ -6,6 +6,10 @@
 #include <signal.h>
 #include <stdlib.h>
 
+#ifdef HAVE_EXECINFO_H
+# include <execinfo.h>
+#endif
+
 #include <GL/glu.h>
 
 #include "glgfx.h"
@@ -123,6 +127,15 @@ void glgfx_checkerror(char const* func, char const* file, int line) {
     char const* msg = (char const*) gluErrorString(error);
     
     BUG("OpenGL error %d %s:%d (%s): %s\n", error, file, line, func, msg);
+
+#ifdef HAVE_EXECINFO_H
+    void*  addr[8];
+    size_t size = backtrace(addr, 8);
+    BUG("Backtrace:\n");
+    backtrace_symbols_fd(addr, size, 1);
+    fflush(stdout);
+#endif
+
     abort();
   }
 }
