@@ -821,6 +821,7 @@ static unsigned long depth_func(struct glgfx_hook* hook,
     glgfx_context_bindprogram(context, &depth_renderer);
   }
   
+  glgfx_context_checkstate(context);
   glgfx_callhook(msg->geometry_hook, rasinfo, msg);
 
   return 0;
@@ -832,6 +833,7 @@ static unsigned long stencil_func(struct glgfx_hook* hook,
   struct glgfx_context* context = (struct glgfx_context*) hook->data;
 
   glgfx_context_unbindprogram(context);
+  glgfx_context_checkstate(context);
   glgfx_callhook(msg->geometry_hook, rasinfo, msg);
 
   return 0;
@@ -859,6 +861,7 @@ static unsigned long blur_func(struct glgfx_hook* hook,
 
   glgfx_context_bindprogram(context, &blur_renderer);
   msg->z -= 0.01;
+  glgfx_context_checkstate(context);
   glgfx_callhook(msg->geometry_hook, rasinfo, msg);
 
   return 0;
@@ -884,6 +887,7 @@ static unsigned long render_func(struct glgfx_hook* hook,
   }
 
   glgfx_context_bindprogram(context, &plain_texture_blitter);
+  glgfx_context_checkstate(context);
   glgfx_callhook(msg->geometry_hook, rasinfo, msg);
 
   return 0;

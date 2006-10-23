@@ -137,6 +137,7 @@ bool glgfx_sprite_render(struct glgfx_sprite* sprite) {
 
   GLenum unit = glgfx_context_bindtex(context, 0, sprite->bitmap);
   glgfx_context_bindprogram(context, &plain_texture_blitter);
+  glgfx_context_checkstate(context);
 
   glBegin(GL_QUADS); {
     glMultiTexCoord2i(unit,

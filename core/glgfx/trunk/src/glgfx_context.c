@@ -210,54 +210,66 @@ struct glgfx_context* glgfx_context_getcurrent(void) {
 }
 
 
-bool glgfx_context_bindfbo(struct glgfx_context* context,
-			   struct glgfx_bitmap* bitmap) {
-  bool check = false;
+bool glgfx_context_bindfbo(struct glgfx_context* context, 
+			   int bitmaps, struct glgfx_bitmap* const* bitmap) {
+  int i;
   bool rc = true;
 
-  if (context == NULL) {
+  if (context == NULL || 
+      bitmaps <= 0 || bitmaps > GLGFX_MAX_RENDER_TARGETS || 
+      bitmap == NULL || bitmap[0] == NULL) {
     errno = EINVAL;
     return false;
+  }
+
+  for (i = 1; i < bitmaps; ++i) {
+    if (bitmap[i] == NULL ||
+	bitmap[i]->width != bitmap[0]->width ||
+	bitmap[i]->height != bitmap[0]->height ||
+	bitmap[i]->format != bitmap[0]->format) {
+      errno = EINVAL;
+      return false;
+    }
   }
 
   // Make sure the FBO is bound
   if (!context->fbo_bound) {
     glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, context->fbo);
-    check = true;
+    GLGFX_CHECKERROR();
   }
 
-  // Make sure the bitmap is attached to buffer 0
-  if (context->fbo_bitmap != bitmap) {
-    glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT,
-                              bitmap->texture_target, bitmap->texture, 0);
-    check = true;
+  context->fbo_bound  = true;
+
+  GLenum buffers[GLGFX_MAX_RENDER_TARGETS];
+
+  // Make sure the bitmaps are attached to the buffers
+  for (i = 0; i < bitmaps; ++i) {
+    if (context->fbo_bitmap[i] != bitmap[i]) {
+      glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT + i,
+				bitmap[i]->texture_target, bitmap[i]->texture, 0);
+      GLGFX_CHECKERROR();
+      context->fbo_bitmap[i] = bitmap[i];
+    }
+
+    buffers[i] = GL_COLOR_ATTACHMENT0_EXT + i;
   }
 
-  if (check) {
-    if (glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT) != 
-	GL_FRAMEBUFFER_COMPLETE_EXT) {
-      BUG("FBO incomplete! (%x)\n", 
-	  glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT));
-      rc = false;
-    }
-    else {
-      context->fbo_bound  = true;
-      context->fbo_bitmap = bitmap;
-    }
-  }
+  glDrawBuffers(bitmaps, buffers);
+  GLGFX_CHECKERROR();
 
   // Make sure the viewport and projection are correct
-  if (context->fbo_width != bitmap->width ||
-      context->fbo_height != bitmap->height) {
-    glViewport(0, 0, bitmap->width, bitmap->height);
+  if (context->fbo_width != bitmap[0]->width ||
+      context->fbo_height != bitmap[0]->height) {
+    glViewport(0, 0, bitmap[0]->width, bitmap[0]->height);
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    glOrtho(0, bitmap->width, bitmap->height, 0, -1, 0);
+    glOrtho(0, bitmap[0]->width, bitmap[0]->height, 0, -1, 0);
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
 
-    context->fbo_width = bitmap->width;
-    context->fbo_height = bitmap->height;
+    context->fbo_width = bitmap[0]->width;
+    context->fbo_height = bitmap[0]->height;
+    GLGFX_CHECKERROR();
   }
 
   return rc;
@@ -273,7 +285,6 @@ bool glgfx_context_unbindfbo(struct glgfx_context* context) {
   if (context->fbo_bound) {
     glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
     context->fbo_bound = false;
-    context->fbo_bitmap = NULL;
   }
 
   if (context->fbo_width != context->monitor->mode.hdisplay ||
@@ -355,13 +366,11 @@ bool glgfx_context_bindprogram(struct glgfx_context* context,
     return false;
   }
 
-  glgfx_context_checkstate(context);
-
   // Defaults
   enum glgfx_pixel_format dst  = context->monitor->format;
 
-  if (context->fbo_bitmap != NULL) {
-    dst = context->fbo_bitmap->format;
+  if (context->fbo_bound && context->fbo_bitmap[0] != NULL) {
+    dst = context->fbo_bitmap[0]->format;
   }
 
   context->program = glgfx_shader_load(context->tex_bitmap[0],
@@ -380,6 +389,7 @@ bool glgfx_context_unbindprogram(struct glgfx_context* context) {
 
   if (context->program != 0) {
     glUseProgram(0);
+    context->program = 0;
   }
   
   return true;
@@ -389,12 +399,30 @@ bool glgfx_context_unbindprogram(struct glgfx_context* context) {
 bool glgfx_context_checkstate(struct glgfx_context* context) {
   bool rc = true;
 
-  if (context->fbo_bitmap != NULL &&
-      (context->fbo_bitmap == context->tex_bitmap[0] ||
-       context->fbo_bitmap == context->tex_bitmap[1])) {
-    BUG("glgfx_context_bindprogram: Bitmap %p is currently bound to both FBO and TEX!\n", 
-	context->fbo_bitmap);
-    rc = false;
+  // Conflicts will only occur if we're rendering to a FBO and
+  // texturing is active (which we assume is the case if a program is active)
+  if (context->fbo_bound && context->program != 0) {
+    if (context->fbo_bitmap[0] != NULL &&
+	(context->fbo_bitmap[0] == context->tex_bitmap[0] ||
+	 context->fbo_bitmap[0] == context->tex_bitmap[1])) {
+      BUG("glgfx_context_checkstate: Bitmap %p is currently bound to both FBO and TEX!\n", 
+	  context->fbo_bitmap[0]);
+      rc = false;
+    }
+
+    if (context->fbo_bitmap[1] != NULL &&
+	(context->fbo_bitmap[1] == context->tex_bitmap[0] ||
+	 context->fbo_bitmap[1] == context->tex_bitmap[1])) {
+      BUG("glgfx_context_checkstate: Bitmap %p is currently bound to both FBO and TEX!\n", 
+	  context->fbo_bitmap[1]);
+      rc = false;
+    }
+
+    if (glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT) != 
+	GL_FRAMEBUFFER_COMPLETE_EXT) {
+      BUG("FBO incomplete! (%x)\n", glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT));
+      rc = false;
+    }
   }
 
   return rc;

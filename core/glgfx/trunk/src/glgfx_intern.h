@@ -69,6 +69,8 @@ void glgfx_list_foreach(struct glgfx_list* list, struct glgfx_hook* node_hook, v
 struct glgfx_bitmap;
 struct glgfx_shader;
 
+#define GLGFX_MAX_RENDER_TARGETS 4
+
 struct glgfx_context {
     struct glgfx_monitor*   monitor;
     GLXContext              glx_context;
@@ -77,7 +79,7 @@ struct glgfx_context {
     struct glgfx_bitmap*    temp_bitmaps[glgfx_pixel_format_max];
 
     bool                    fbo_bound;
-    struct glgfx_bitmap*    fbo_bitmap;
+    struct glgfx_bitmap*    fbo_bitmap[GLGFX_MAX_RENDER_TARGETS];
     int                     fbo_width;
     int                     fbo_height;
 
@@ -290,7 +292,8 @@ bool glgfx_sprite_render(struct glgfx_sprite* sprite);
 GLenum glgfx_context_bindtex(struct glgfx_context* context, 
 			     int channel, struct glgfx_bitmap* bitmap);
 bool glgfx_context_unbindtex(struct glgfx_context* context, int channel);
-bool glgfx_context_bindfbo(struct glgfx_context* context, struct glgfx_bitmap* bitmap);
+bool glgfx_context_bindfbo(struct glgfx_context* context, 
+			   int bitmaps, struct glgfx_bitmap* const* bitmap);
 bool glgfx_context_unbindfbo(struct glgfx_context* context);
 bool glgfx_context_bindprogram(struct glgfx_context* context, struct glgfx_shader* shader);
 bool glgfx_context_unbindprogram(struct glgfx_context* context);

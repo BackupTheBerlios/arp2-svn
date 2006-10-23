@@ -263,13 +263,12 @@ void* glgfx_bitmap_lock_a(struct glgfx_bitmap* bitmap, bool read, bool write,
   if (context->monitor->have_GL_ARB_pixel_buffer_object) {
     if (bitmap->pbo == 0) {
       glGenBuffers(1, &bitmap->pbo);
-      GLGFX_CHECKERROR();
       glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, bitmap->pbo);
-      GLGFX_CHECKERROR();
       glBufferData(GL_PIXEL_UNPACK_BUFFER_ARB, bitmap->pbo_size, 
 		      NULL, bitmap->locked_usage);
-      GLGFX_CHECKERROR();
       glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, 0);
+
+      GLGFX_CHECKERROR();
     }
   }
   else {
@@ -283,16 +282,17 @@ void* glgfx_bitmap_lock_a(struct glgfx_bitmap* bitmap, bool read, bool write,
   // I have no idea why, but on some GeForces, this needs to be done
   // even if we're only writing. Driver 1.0.8756 bug?
   if (context->monitor->have_GL_ARB_pixel_buffer_object) {
-    glgfx_context_bindfbo(context, bitmap);
+    glgfx_context_bindfbo(context, 1, &bitmap);
   }
 
   if (read) {
     // Bind FBO and attach texture
-// always done    glgfx_context_bindfbo(context, bitmap); 
+// always done    glgfx_context_bindfbo(context, 1, &bitmap); 
+
+    glReadBuffer(GL_COLOR_ATTACHMENT0_EXT);
 
     if (context->monitor->have_GL_ARB_pixel_buffer_object) {
       glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, bitmap->pbo);
-      GLGFX_CHECKERROR();
       glPixelStorei(GL_PACK_ROW_LENGTH, bitmap->width);
       glReadPixels(bitmap->locked_x, bitmap->locked_y, 
 		   bitmap->locked_width, bitmap->locked_height,
@@ -301,8 +301,9 @@ void* glgfx_bitmap_lock_a(struct glgfx_bitmap* bitmap, bool read, bool write,
 		   (void*) (bitmap->locked_x * formats[bitmap->format].size +
 			    bitmap->locked_y * bitmap->pbo_bytes_per_row));
       glPixelStorei(GL_PACK_ROW_LENGTH, 0);
-      GLGFX_CHECKERROR();
       glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, 0);
+
+      GLGFX_CHECKERROR();
     }
     else {
       glPixelStorei(GL_PACK_ROW_LENGTH, bitmap->width);
@@ -324,6 +325,7 @@ void* glgfx_bitmap_lock_a(struct glgfx_bitmap* bitmap, bool read, bool write,
     bitmap->locked_memory = glMapBuffer(GL_PIXEL_UNPACK_BUFFER_ARB,
 					   bitmap->locked_access);
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, 0);
+
     GLGFX_CHECKERROR();
   }
   else {
@@ -400,7 +402,7 @@ bool glgfx_bitmap_unlock_a(struct glgfx_bitmap* bitmap,
 	  (bitmap->locked_access == GL_READ_WRITE ||
 	   bitmap->locked_access == GL_WRITE_ONLY)) {
 #if 0
-	glgfx_context_bindfbo(context, bitmap);
+	glgfx_context_bindfbo(context, 1, &bitmap);
 
 	glPixelStorei(GL_UNPACK_ROW_LENGTH, bitmap->width);
 	glWindowPos2i(x, y);
@@ -409,7 +411,6 @@ bool glgfx_bitmap_unlock_a(struct glgfx_bitmap* bitmap,
 		     formats[bitmap->format].type,
 		     (void*) (x * formats[bitmap->format].size +
 			      y * bitmap->pbo_bytes_per_row));
-	GLGFX_CHECKERROR();
 #else
 	glgfx_context_bindtex(context, 0, bitmap);
 
@@ -420,7 +421,6 @@ bool glgfx_bitmap_unlock_a(struct glgfx_bitmap* bitmap,
 			formats[bitmap->format].type,
 			(void*) (x * formats[bitmap->format].size +
 				 y * bitmap->pbo_bytes_per_row));
-	GLGFX_CHECKERROR();
 	glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
 
 	glgfx_context_unbindtex(context, 0);
@@ -439,7 +439,6 @@ bool glgfx_bitmap_unlock_a(struct glgfx_bitmap* bitmap,
 	glgfx_context_bindtex(context, 0, bitmap);
 	
 	glPixelStorei(GL_UNPACK_ROW_LENGTH, bitmap->width);
-	GLGFX_CHECKERROR();
 	glTexSubImage2D(bitmap->texture_target, 0,
 			x, y, width, height,
 			formats[bitmap->format].format,
@@ -447,10 +446,11 @@ bool glgfx_bitmap_unlock_a(struct glgfx_bitmap* bitmap,
 			(void*) (bitmap->buffer +
 				 x * formats[bitmap->format].size +
 				 y * bitmap->pbo_bytes_per_row));
-	GLGFX_CHECKERROR();
 	glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
 
 	glgfx_context_unbindtex(context, 0);
+
+	GLGFX_CHECKERROR();
       }
     }
 
@@ -544,8 +544,9 @@ bool glgfx_bitmap_write_a(struct glgfx_bitmap* bitmap,
 		  formats[format].format,
 		  formats[format].type,
 		  data);
-  GLGFX_CHECKERROR();
   glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+
+  GLGFX_CHECKERROR();
 
   glgfx_context_unbindtex(context, 0);
 
@@ -936,11 +937,10 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
     }
 
     // Bind FBO and attach texture
-    glgfx_context_bindfbo(context, dst_bitmap);
+    glgfx_context_bindfbo(context, 1, &dst_bitmap);
 
     // Blit using glCopyPixels(), no texturing
     glReadBuffer(GL_COLOR_ATTACHMENT0_EXT);
-    glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
     glWindowPos2i(dst_x, dst_y);
 
     GList* cr = g_list_first(bitmap->cliprects);
@@ -950,6 +950,7 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
     }
 
     glgfx_context_unbindprogram(context);
+    glgfx_context_checkstate(context);
 
     do {
       if (cr != NULL) {
@@ -998,15 +999,14 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
       }
       else {
 	// Bind FBO and attach destination (aka the temp src) bitmap
-	glgfx_context_bindfbo(context, tmp_bitmap);
-
-	glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
+	glgfx_context_bindfbo(context, 1, &tmp_bitmap);
 
 	if (mask != NULL && // FIXME: glBitmap() is totally broken on ATI
 	    !context->monitor->is_ati) { 
 	  // Clear area
 	  glColor4f(0, 0, 0, 0);
 	  glgfx_context_bindprogram(context, &color_blitter);
+	  glgfx_context_checkstate(context);
 
 	  glBegin(GL_QUADS); {
 	    glVertex2i(0,
@@ -1059,6 +1059,8 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
 	    glgfx_context_bindprogram(context, &plain_texture_blitter);
 	  }
 
+	  glgfx_context_checkstate(context);
+
 	  glBegin(GL_QUADS); {
 	    glMultiTexCoord2i(unit, 
 			      src_x,
@@ -1089,7 +1091,6 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
 
 	if (mask != NULL) {
 	  glDisable(GL_BLEND);
-	  GLGFX_CHECKERROR();
 	}
 
 	src_x = 0;
@@ -1106,9 +1107,7 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
     }
 
     // Bind FBO and attach texture
-    glgfx_context_bindfbo(context, dst_bitmap);
-
-    glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
+    glgfx_context_bindfbo(context, 1, &dst_bitmap);
 
     GLenum src_unit = GL_TEXTURE0;
     GLenum mod_unit = GL_TEXTURE1;
@@ -1154,6 +1153,8 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
     if (cr != NULL) {
       glEnable(GL_SCISSOR_TEST);
     }
+
+    glgfx_context_checkstate(context);
 
     do {
       if (cr != NULL) {
