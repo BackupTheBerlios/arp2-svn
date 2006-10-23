@@ -95,7 +95,7 @@ int blit(struct glgfx_bitmap* bitmap, int w, int h) {
 
 		      glgfx_bitmap_blit_src_x,   0,
 		      glgfx_bitmap_blit_src_y,   0,
-		      glgfx_bitmap_blit_minterm, 0x30, // inverted source
+//		      glgfx_bitmap_blit_minterm, 0x30, // inverted source
 		      glgfx_tag_end);
 //    printf("[%d] ",i);
 //    glgfx_monitor_render(monitor);
