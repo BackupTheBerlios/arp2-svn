@@ -8,6 +8,7 @@
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/time.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -446,7 +447,7 @@ struct glgfx_monitor* glgfx_monitor_create_a(char const* display_name,
   XFlush(monitor->display);
 
   XQueryPointer(monitor->display, monitor->window, &dummy_win, &dummy_win,
-		&monitor->mouse_x, &monitor->mouse_y, &dummy, &dummy, &dummy);
+		&monitor->mouse_x, &monitor->mouse_y, &dummy, &dummy, (unsigned int*) &dummy);
 
   // Nuke X pointer
   char zero[1] = { 0 };

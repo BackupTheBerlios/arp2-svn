@@ -128,7 +128,7 @@ int glgfx_view_numsprites(struct glgfx_view* view) {
 
   pthread_mutex_lock(&glgfx_mutex);
 
-  g_queue_get_length(view->sprites);
+  res = g_queue_get_length(view->sprites);
 
   pthread_mutex_unlock(&glgfx_mutex);
   return res;
