@@ -69,6 +69,8 @@ static bool check_extensions(struct glgfx_monitor* monitor) {
   // Ugly hack for Geforce FX 5xxx driver bugs. FIXME!
   monitor->is_geforce_fx = strstr((char*) glGetString(GL_RENDERER), "GeForce FX 5") != NULL;
 
+  glGetIntegerv(GL_MAX_DRAW_BUFFERS, &monitor->max_mrt);
+
   // Check for framebuffer_object support
   if (g_hash_table_lookup(monitor->gl_extensions, "GL_EXT_framebuffer_object") != NULL) {
     monitor->have_GL_EXT_framebuffer_object = true;

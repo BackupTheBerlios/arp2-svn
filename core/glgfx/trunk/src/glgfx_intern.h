@@ -118,6 +118,7 @@ struct glgfx_monitor {
     bool                    is_ati;
     bool                    is_geforce_fx;
     bool                    miss_pixel_ops;
+    GLuint                  max_mrt;
 
     timer_t                 vsync_timer;
     struct itimerspec       vsync_itimerspec;

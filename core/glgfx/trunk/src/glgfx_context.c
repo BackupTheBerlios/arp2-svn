@@ -217,6 +217,7 @@ bool glgfx_context_bindfbo(struct glgfx_context* context,
 
   if (context == NULL || 
       bitmaps <= 0 || bitmaps > GLGFX_MAX_RENDER_TARGETS || 
+      bitmaps > context->monitor->max_mrt ||
       bitmap == NULL || bitmap[0] == NULL) {
     errno = EINVAL;
     return false;
@@ -243,13 +244,22 @@ bool glgfx_context_bindfbo(struct glgfx_context* context,
   GLenum buffers[GLGFX_MAX_RENDER_TARGETS];
 
   // Make sure the bitmaps are attached to the buffers
-  for (i = 0; i < bitmaps; ++i) {
+  for (i = 0; i < context->monitor->max_mrt; ++i) {
     if (context->fbo_bitmap[i] != bitmap[i]) {
-      glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT + i,
-				bitmap[i]->texture_target, bitmap[i]->texture, 0);
-      GLGFX_CHECKERROR();
-      context->fbo_bitmap[i] = bitmap[i];
+      if (i < bitmaps) {
+	glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT + i,
+				  bitmap[i]->texture_target, bitmap[i]->texture, 0);
+	GLGFX_CHECKERROR();
+	context->fbo_bitmap[i] = bitmap[i];
+      }
+      else {
+	glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT + i,
+				  GL_TEXTURE_2D, 0, 0);
+	context->fbo_bitmap[i] = NULL;
+      }
     }
+
+    GLGFX_CHECKERROR();
 
     buffers[i] = GL_COLOR_ATTACHMENT0_EXT + i;
   }
