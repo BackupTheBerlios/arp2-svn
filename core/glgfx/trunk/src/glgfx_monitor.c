@@ -72,6 +72,10 @@ static bool check_extensions(struct glgfx_monitor* monitor) {
 
   glGetIntegerv(GL_MAX_DRAW_BUFFERS, &monitor->max_mrt);
 
+  if (monitor->max_mrt > GLGFX_MAX_RENDER_TARGETS) {
+    monitor->max_mrt = GLGFX_MAX_RENDER_TARGETS;
+  }
+
   // Check for framebuffer_object support
   if (g_hash_table_lookup(monitor->gl_extensions, "GL_EXT_framebuffer_object") != NULL) {
     monitor->have_GL_EXT_framebuffer_object = true;

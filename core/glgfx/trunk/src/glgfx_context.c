@@ -216,8 +216,7 @@ bool glgfx_context_bindfbo(struct glgfx_context* context,
   bool rc = true;
 
   if (context == NULL || 
-      bitmaps <= 0 || bitmaps > GLGFX_MAX_RENDER_TARGETS || 
-      bitmaps > context->monitor->max_mrt ||
+      bitmaps <= 0 || bitmaps > context->monitor->max_mrt ||
       bitmap == NULL || bitmap[0] == NULL) {
     errno = EINVAL;
     return false;
@@ -412,20 +411,16 @@ bool glgfx_context_checkstate(struct glgfx_context* context) {
   // Conflicts will only occur if we're rendering to a FBO and
   // texturing is active (which we assume is the case if a program is active)
   if (context->fbo_bound && context->program != 0) {
-    if (context->fbo_bitmap[0] != NULL &&
-	(context->fbo_bitmap[0] == context->tex_bitmap[0] ||
-	 context->fbo_bitmap[0] == context->tex_bitmap[1])) {
-      BUG("glgfx_context_checkstate: Bitmap %p is currently bound to both FBO and TEX!\n", 
-	  context->fbo_bitmap[0]);
-      rc = false;
-    }
+    int i;
 
-    if (context->fbo_bitmap[1] != NULL &&
-	(context->fbo_bitmap[1] == context->tex_bitmap[0] ||
-	 context->fbo_bitmap[1] == context->tex_bitmap[1])) {
-      BUG("glgfx_context_checkstate: Bitmap %p is currently bound to both FBO and TEX!\n", 
-	  context->fbo_bitmap[1]);
-      rc = false;
+    for (i = 0; i < context->monitor->max_mrt; ++i) {
+      if (context->fbo_bitmap[i] != NULL &&
+	  (context->fbo_bitmap[i] == context->tex_bitmap[0] ||
+	   context->fbo_bitmap[i] == context->tex_bitmap[1])) {
+	BUG("glgfx_context_checkstate: Bitmap %p is currently bound to both FBO and TEX!\n", 
+	    context->fbo_bitmap[i]);
+	rc = false;
+      }
     }
 
     if (glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT) != 
