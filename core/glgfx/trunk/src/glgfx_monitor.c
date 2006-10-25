@@ -86,7 +86,8 @@ static bool check_extensions(struct glgfx_monitor* monitor) {
   }
 
   // Check for texture_rectangle extension
-  if (g_hash_table_lookup(monitor->gl_extensions, "GL_ARB_texture_rectangle") != NULL) {
+  if (! monitor->is_ati &&
+      g_hash_table_lookup(monitor->gl_extensions, "GL_ARB_texture_rectangle") != NULL) {
     monitor->have_GL_ARB_texture_rectangle = true;
   }
   else {
