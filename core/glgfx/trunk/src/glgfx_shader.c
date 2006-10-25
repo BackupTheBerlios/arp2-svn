@@ -303,8 +303,8 @@ static GLuint compile_fragment_shader(char const* main_src,
 	   "#define SAMPLER %s\n"
 	   "#define TEXTURE %s\n",
 	   monitor->have_GL_ARB_texture_rectangle,
-	   monitor->have_GL_ARB_texture_rectangle ? "samplerRect" : "sampler2D",
-	   monitor->have_GL_ARB_texture_rectangle ? "textureRect" : "texture2D");
+	   monitor->have_GL_ARB_texture_rectangle ? "sampler2DRect" : "sampler2D",
+	   monitor->have_GL_ARB_texture_rectangle ? "texture2DRect" : "texture2D");
 
   GLuint fragment = glCreateShader(GL_FRAGMENT_SHADER);
 
@@ -462,6 +462,8 @@ static bool init_table(struct glgfx_shader* shader, struct glgfx_monitor* monito
 
       // Texture coordinate transform
       "#if HAVE_GL_ARB_TEXTURE_RECTANGLE\n"
+
+      "#extension GL_ARB_texture_rectangle : enable\n"
 
       "vec4 textureTransform0(vec4 tc) {\n"
       "  return tc;\n"
