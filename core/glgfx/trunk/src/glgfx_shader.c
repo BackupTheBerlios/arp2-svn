@@ -210,6 +210,9 @@ struct glgfx_shader modulated_texture_blitter = {
 };
 
 static char const* read_shader_source[shader_function_read_max] = {
+  "#if HAVE_GL_ARB_TEXTURE_RECTANGLE\n"
+  "#extension GL_ARB_texture_rectangle : enable\n"
+  "#endif\n"
   "uniform SAMPLER tex%da, tex%db;\n"
   "\n"
   "vec4 readPixel%d(vec2 pos) {\n"
