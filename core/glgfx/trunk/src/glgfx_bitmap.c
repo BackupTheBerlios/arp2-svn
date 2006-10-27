@@ -121,7 +121,7 @@ struct glgfx_bitmap* glgfx_bitmap_create_a(struct glgfx_tagitem const* tags) {
     bitmap->texture_target = GL_TEXTURE_2D;
   }
 
-  glgfx_context_bindtex(context, 0, bitmap);
+  glgfx_context_bindtex(context, 0, bitmap, false);
 
   glTexImage2D(bitmap->texture_target, 0,
 	       formats[bitmap->format].internal_format,
@@ -142,17 +142,6 @@ struct glgfx_bitmap* glgfx_bitmap_create_a(struct glgfx_tagitem const* tags) {
 
   glTexParameteri(bitmap->texture_target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
   glTexParameteri(bitmap->texture_target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-  if (bitmap->format == glgfx_pixel_format_r32g32b32a32f) {
-    // Currently, there's no hardware support for FP32 filtering.
-    // TODO: Detect support for it run-time?
-    glTexParameteri(bitmap->texture_target, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(bitmap->texture_target, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-  }
-  else {
-    glTexParameteri(bitmap->texture_target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(bitmap->texture_target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  }
 
   GLGFX_CHECKERROR();
   glgfx_context_unbindtex(context, 0);
@@ -410,7 +399,7 @@ bool glgfx_bitmap_unlock_a(struct glgfx_bitmap* bitmap,
 		     (void*) (x * formats[bitmap->format].size +
 			      y * bitmap->pbo_bytes_per_row));
 #else
-	glgfx_context_bindtex(context, 0, bitmap);
+	glgfx_context_bindtex(context, 0, bitmap, false);
 
 	glPixelStorei(GL_UNPACK_ROW_LENGTH, bitmap->width);
 	glTexSubImage2D(bitmap->texture_target, 0,
@@ -434,7 +423,7 @@ bool glgfx_bitmap_unlock_a(struct glgfx_bitmap* bitmap,
       if (width != 0 && height != 0 &&
 	  (bitmap->locked_access == GL_READ_WRITE ||
 	   bitmap->locked_access == GL_WRITE_ONLY)) {
-	glgfx_context_bindtex(context, 0, bitmap);
+	glgfx_context_bindtex(context, 0, bitmap, false);
 	
 	glPixelStorei(GL_UNPACK_ROW_LENGTH, bitmap->width);
 	glTexSubImage2D(bitmap->texture_target, 0,
@@ -534,7 +523,7 @@ bool glgfx_bitmap_write_a(struct glgfx_bitmap* bitmap,
 
   pthread_mutex_lock(&glgfx_mutex);
 
-  glgfx_context_bindtex(context, 0, bitmap);
+  glgfx_context_bindtex(context, 0, bitmap, false);
    
   glPixelStorei(GL_UNPACK_ROW_LENGTH, bytes_per_row / formats[format].size);
   glTexSubImage2D(bitmap->texture_target, 0,
@@ -661,6 +650,8 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
   struct glgfx_bitmap* src_bitmap = bitmap;
   struct glgfx_bitmap* mod_bitmap = NULL;
   struct glgfx_bitmap* dst_bitmap = bitmap;
+  bool src_interpolated = false;
+  bool mod_interpolated = false;
   void* mask = NULL;
   int mask_x = 0, mask_y = 0;
   int mask_bpp = 0;
@@ -732,6 +723,10 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
 	src_bitmap = (struct glgfx_bitmap*) tag->data;
 	break;
 
+      case glgfx_bitmap_blit_src_interpolated:
+	src_interpolated = (bool) tag->data;
+	break;
+
       case glgfx_bitmap_blit_mask_x:
 	mask_x = tag->data;
 	break;
@@ -770,6 +765,10 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
 
       case glgfx_bitmap_blit_mod_bitmap:
 	mod_bitmap = (struct glgfx_bitmap*) tag->data;
+	break;
+
+      case glgfx_bitmap_blit_mod_interpolated:
+	mod_interpolated = (bool) tag->data;
 	break;
 
       case glgfx_bitmap_blit_mod_x:
@@ -866,6 +865,7 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
     // NULL src bitmap components are always 1.0 and the coordinates are
     // irrelevant. If mod_bitmap is present, set it as the new source.
     src_bitmap = mod_bitmap;
+    src_interpolated = mod_interpolated;
     src_x = mod_x;
     src_y = mod_y;
     src_width = mod_width;
@@ -1045,7 +1045,7 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
 
 	if (src_bitmap != NULL) {
 	  // Bind src bitmap as texture
-	  unit = glgfx_context_bindtex(context, 0, src_bitmap);
+	  unit = glgfx_context_bindtex(context, 0, src_bitmap, false);
 
 	  if (mask == NULL) {
 	    // Make a plain copy, with no color-space transformations
@@ -1112,11 +1112,11 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
 
     if (src_bitmap != NULL) {
       // Bind temp src bitmap as texture
-      src_unit = glgfx_context_bindtex(context, 0, src_bitmap);
+      src_unit = glgfx_context_bindtex(context, 0, src_bitmap, src_interpolated);
 
       if (mod_bitmap != NULL) {
 	// Bind mod bitmap as texture
-	mod_unit = glgfx_context_bindtex(context, 1, mod_bitmap);
+	mod_unit = glgfx_context_bindtex(context, 1, mod_bitmap, mod_interpolated);
 
 	glColor4f(mod_r, mod_g, mod_b, mod_a);
 	glgfx_context_bindprogram(context, &modulated_texture_blitter);

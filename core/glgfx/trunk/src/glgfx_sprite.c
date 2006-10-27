@@ -18,7 +18,9 @@ struct glgfx_sprite* glgfx_sprite_create_a(struct glgfx_tagitem const* tags) {
   if (sprite == NULL) {
     return NULL;
   }
-  
+
+  sprite->interpolated = true;
+
   if (!glgfx_sprite_setattrs_a(sprite, tags)) {
     glgfx_sprite_destroy(sprite);
     return NULL;
@@ -69,6 +71,10 @@ bool glgfx_sprite_setattrs_a(struct glgfx_sprite* sprite,
 	sprite->bitmap = (struct glgfx_bitmap*) tag->data;
 	break;
 
+      case glgfx_sprite_attr_interpolated:
+	sprite->interpolated = (bool) tag->data;
+	break;
+
       case glgfx_sprite_attr_unknown:
       case glgfx_sprite_attr_max:
 	/* Make compiler happy */
@@ -115,6 +121,10 @@ bool glgfx_sprite_getattr(struct glgfx_sprite* sprite,
       *storage = (intptr_t) sprite->bitmap;
       break;
 
+    case glgfx_sprite_attr_interpolated:
+      *storage = (intptr_t) sprite->interpolated;
+      break;
+
     default:
       return false;
   }
@@ -135,7 +145,7 @@ bool glgfx_sprite_haschanged(struct glgfx_sprite* sprite) {
 bool glgfx_sprite_render(struct glgfx_sprite* sprite) {
   struct glgfx_context* context = glgfx_context_getcurrent();
 
-  GLenum unit = glgfx_context_bindtex(context, 0, sprite->bitmap);
+  GLenum unit = glgfx_context_bindtex(context, 0, sprite->bitmap, sprite->interpolated);
   glgfx_context_bindprogram(context, &plain_texture_blitter);
   glgfx_context_checkstate(context);
 

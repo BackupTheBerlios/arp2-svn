@@ -115,6 +115,7 @@ int blit(struct glgfx_bitmap* bitmap, int w, int h) {
 		    glgfx_bitmap_blit_src_y,      h/2-50,
 		    glgfx_bitmap_blit_src_width,  100,
 		    glgfx_bitmap_blit_src_height, 100,
+		    glgfx_bitmap_blit_src_interpolated, true,
 		    glgfx_tag_end);
 
 
@@ -216,8 +217,10 @@ int blit(struct glgfx_bitmap* bitmap, int w, int h) {
 		      glgfx_bitmap_blit_src_width,  16,
 		      glgfx_bitmap_blit_src_height, 16,
 		      glgfx_bitmap_blit_src_bitmap, (intptr_t) bm2,
+		      glgfx_bitmap_blit_src_interpolated, true,
 
 		      glgfx_bitmap_blit_mod_bitmap, (intptr_t) bm3,
+		      glgfx_bitmap_blit_mod_interpolated, true,
 		      glgfx_bitmap_blit_mod_r,      0x20000,
 		      glgfx_bitmap_blit_mod_a,      0xc000,
 

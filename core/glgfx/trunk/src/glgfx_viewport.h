@@ -30,6 +30,7 @@ enum glgfx_rasinfo_attr {
   glgfx_rasinfo_attr_x,
   glgfx_rasinfo_attr_y,
   glgfx_rasinfo_attr_bitmap,
+  glgfx_rasinfo_attr_interpolated,		/* Default is true */
   
   glgfx_rasinfo_attr_blend_equation,
   glgfx_rasinfo_attr_blend_equation_alpha,

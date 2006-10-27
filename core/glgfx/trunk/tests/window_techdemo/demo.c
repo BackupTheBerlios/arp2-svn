@@ -98,6 +98,7 @@ int main(int argc, char** argv) {
 	  glgfx_sprite_attr_width,  sprite_pointer.width*2,
 	  glgfx_sprite_attr_height, sprite_pointer.height*2,
 	  glgfx_sprite_attr_bitmap, (intptr_t) pointer,
+	  glgfx_sprite_attr_interpolated, false,
 	  glgfx_tag_end);
 
 	struct glgfx_viewport* vp =

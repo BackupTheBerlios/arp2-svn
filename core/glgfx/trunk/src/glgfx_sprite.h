@@ -18,6 +18,7 @@ enum glgfx_sprite_attr {
   glgfx_sprite_attr_x,
   glgfx_sprite_attr_y,
   glgfx_sprite_attr_bitmap,
+  glgfx_sprite_attr_interpolated,		/* Default is true */
   
   glgfx_sprite_attr_max
 } __attribute__((mode(__pointer__)));

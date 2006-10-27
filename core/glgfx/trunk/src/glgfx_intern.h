@@ -159,6 +159,7 @@ struct glgfx_bitmap {
     enum glgfx_pixel_format format;
     GLuint                  texture;
     GLuint                  texture_target;
+    GLint                   texture_filter;
     union {
       GLuint                  pbo;
       uint8_t*                buffer;
@@ -187,6 +188,7 @@ struct glgfx_rasinfo {
     int                  yoffset;
     int                  width;
     int                  height;
+    bool                 interpolated;
 
     bool                 has_changed;
 
@@ -221,6 +223,7 @@ struct glgfx_sprite {
     int                  y;
     int                  width;
     int                  height;
+    bool                 interpolated;
     bool                 has_changed;
 };
 
@@ -291,7 +294,7 @@ bool glgfx_viewport_render(struct glgfx_viewport* viewport,
 bool glgfx_sprite_render(struct glgfx_sprite* sprite);
 
 GLenum glgfx_context_bindtex(struct glgfx_context* context, 
-			     int channel, struct glgfx_bitmap* bitmap);
+			     int channel, struct glgfx_bitmap* bitmap, bool interpolate);
 bool glgfx_context_unbindtex(struct glgfx_context* context, int channel);
 bool glgfx_context_bindfbo(struct glgfx_context* context, 
 			   int bitmaps, struct glgfx_bitmap* const* bitmap);

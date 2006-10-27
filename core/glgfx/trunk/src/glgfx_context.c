@@ -321,7 +321,8 @@ bool glgfx_context_unbindfbo(struct glgfx_context* context) {
 
 GLenum glgfx_context_bindtex(struct glgfx_context* context,
 			     int channel,
-			     struct glgfx_bitmap* bitmap) {
+			     struct glgfx_bitmap* bitmap,
+			     bool interpolate) {
   if (context == NULL || channel < 0 || channel > 1) {
     errno = EINVAL;
     return 0;
@@ -342,6 +343,22 @@ GLenum glgfx_context_bindtex(struct glgfx_context* context,
     glBindTexture(bitmap->texture_target, bitmap->texture);
     GLGFX_CHECKERROR();
     context->tex_bitmap[channel] = bitmap;
+  }
+
+  GLint filter =  interpolate ? GL_LINEAR : GL_NEAREST;
+  
+  if (bitmap->format == glgfx_pixel_format_r32g32b32a32f) {
+    // Currently, there's no hardware support for FP32 filtering.
+    // TODO: Detect support for it run-time?
+    filter = GL_NEAREST;
+  }
+
+  if (bitmap->texture_filter != filter) {
+    glTexParameteri(bitmap->texture_target, GL_TEXTURE_MIN_FILTER, filter);
+    glTexParameteri(bitmap->texture_target, GL_TEXTURE_MAG_FILTER, filter);
+    GLGFX_CHECKERROR();
+
+    bitmap->texture_filter = filter;
   }
 
   return GL_TEXTURE0 + channel * TEXUNITS_PER_CHANNEL;

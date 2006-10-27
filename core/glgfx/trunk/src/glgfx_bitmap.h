@@ -57,6 +57,7 @@ enum glgfx_bitmap_blit_tag {
   glgfx_bitmap_blit_src_height,	/* Default is same as destination width */
   glgfx_bitmap_blit_src_bitmap, /* Can also be NULL for a constant (1,1,1,1) bitmap.
 				 * Default is same as destination. */
+  glgfx_bitmap_blit_src_interpolated, /* Interpolate when reading */
 
   glgfx_bitmap_blit_mask_x,
   glgfx_bitmap_blit_mask_y,
@@ -74,6 +75,7 @@ enum glgfx_bitmap_blit_tag {
   glgfx_bitmap_blit_mod_height,	/* Default is mod_bitmap height */
   glgfx_bitmap_blit_mod_bitmap, /* Default is NULL, i.e. mod bitmap is disabled.
 				 * Must not be the same as destination! */
+  glgfx_bitmap_blit_mod_interpolated,
 
   /* MinTerms are currently ignored by the hardware for floating point
      bitmaps. Never specify anyting but 0xc0 (or leave unspecified) for such

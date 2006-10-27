@@ -156,6 +156,7 @@ struct glgfx_rasinfo* glgfx_viewport_addbitmap_a(struct glgfx_viewport* viewport
     return NULL;
   }
 
+  rasinfo->interpolated         = true;
   rasinfo->blend_eq             = glgfx_blend_equation_disabled;
   rasinfo->blend_eq_alpha       = glgfx_blend_equation_unknown;
   rasinfo->blend_func_src       = glgfx_blend_func_srcalpha;
@@ -235,6 +236,10 @@ bool glgfx_rasinfo_setattrs_a(struct glgfx_rasinfo* rasinfo,
 	rasinfo->bitmap = (struct glgfx_bitmap*) tag->data;
 	break;
 
+      case glgfx_rasinfo_attr_interpolated:
+	rasinfo->interpolated = (bool) tag->data;
+	break;
+
       case glgfx_rasinfo_attr_blend_equation:
 	rasinfo->blend_eq = tag->data;
 	break;
@@ -312,6 +317,10 @@ bool glgfx_rasinfo_getattr(struct glgfx_rasinfo* rasinfo,
 
     case glgfx_rasinfo_attr_bitmap:
       *storage = (intptr_t) rasinfo->bitmap;
+      break;
+
+    case glgfx_rasinfo_attr_interpolated:
+      *storage = (intptr_t) rasinfo->interpolated;
       break;
 
     case glgfx_rasinfo_attr_blend_equation:
@@ -496,7 +505,8 @@ bool glgfx_viewport_render(struct glgfx_viewport* viewport,
     struct glgfx_rasinfo* rasinfo = node->data;
 
     // Set up rendering mode and shaders (calls geometry_hook too)
-    render_data.tex_unit = glgfx_context_bindtex(context, 0, rasinfo->bitmap);
+    render_data.tex_unit = glgfx_context_bindtex(context, 0, 
+						 rasinfo->bitmap, rasinfo->interpolated);
     glgfx_callhook(mode_hook, rasinfo, &msg);
 
 //    printf("w=%d h=%d z=%f\n", rasinfo->width, rasinfo->height, msg.z);
