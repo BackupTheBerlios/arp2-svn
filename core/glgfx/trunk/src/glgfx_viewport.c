@@ -159,7 +159,7 @@ struct glgfx_rasinfo* glgfx_viewport_addbitmap_a(struct glgfx_viewport* viewport
   rasinfo->interpolated         = true;
   rasinfo->blend_eq             = glgfx_blend_equation_disabled;
   rasinfo->blend_eq_alpha       = glgfx_blend_equation_unknown;
-  rasinfo->blend_func_src       = glgfx_blend_func_srcalpha;
+  rasinfo->blend_func_src       = glgfx_blend_func_one;
   rasinfo->blend_func_src_alpha = glgfx_blend_func_unknown;
   rasinfo->blend_func_dst       = glgfx_blend_func_srcalpha_inv;
   rasinfo->blend_func_dst_alpha = glgfx_blend_func_unknown;

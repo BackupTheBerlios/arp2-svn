@@ -659,7 +659,7 @@ bool glgfx_bitmap_blit_a(struct glgfx_bitmap* bitmap,
   GLfloat mod_r = 1.0, mod_g = 1.0, mod_b = 1.0, mod_a = 1.0;
   enum glgfx_blend_equation blend_eq = glgfx_blend_equation_disabled;
   enum glgfx_blend_equation blend_eq_alpha = glgfx_blend_equation_unknown;
-  enum glgfx_blend_func blend_func_src = glgfx_blend_func_srcalpha;
+  enum glgfx_blend_func blend_func_src = glgfx_blend_func_one;
   enum glgfx_blend_func blend_func_src_alpha = glgfx_blend_func_unknown;
   enum glgfx_blend_func blend_func_dst = glgfx_blend_func_srcalpha_inv;
   enum glgfx_blend_func blend_func_dst_alpha = glgfx_blend_func_unknown;

@@ -14,6 +14,20 @@
 #include "unselected.c"
 #include "Prairie Wind.c"
 
+uint8_t* premultiply_alpha(int width, int height, uint8_t const* pixel_data) {
+  uint8_t* buf = malloc(width * height * 4);
+  int i;
+
+  for (i = 0; i < width * height * 4; i += 4) {
+    buf[i + 0] = pixel_data[i + 0] * pixel_data[i + 3] / 255;
+    buf[i + 1] = pixel_data[i + 1] * pixel_data[i + 3] / 255;
+    buf[i + 2] = pixel_data[i + 2] * pixel_data[i + 3] / 255;
+    buf[i + 3] = pixel_data[i + 3];
+  }
+
+  return buf;
+}
+
 int main(int argc, char** argv) {
   int rc = 0;
   struct glgfx_monitor* monitor;
@@ -149,13 +163,23 @@ int main(int argc, char** argv) {
 	  rc = 20;
 	}
 	else {
+	  // glgfx now defaults to pre-multiplied alpha -- fix up our
+	  // images rather than swithing blend mode to
+	  // srcalpha/(1-srcalpha).
+	  uint8_t* tb = premultiply_alpha(tile_background.width, tile_background.height, 
+					  tile_background.pixel_data);
+	  uint8_t* sw = premultiply_alpha(window_selected.width, window_selected.height, 
+					  window_selected.pixel_data);
+	  uint8_t* uw = premultiply_alpha(window_unselected.width, window_unselected.height, 
+					  window_unselected.pixel_data);
+
 	  // Load and blit tile to background
 	  glgfx_bitmap_write(tile,
 			     glgfx_bitmap_copy_width,   tile_background.width,
 			     glgfx_bitmap_copy_height,  tile_background.height,
 
 			     glgfx_bitmap_copy_format,  glgfx_pixel_format_a8b8g8r8,
-			     glgfx_bitmap_copy_data,    (uintptr_t) tile_background.pixel_data,
+			     glgfx_bitmap_copy_data,    (uintptr_t) tb,
 			     glgfx_tag_end);
 
 	  int x, y;
@@ -183,7 +207,7 @@ int main(int argc, char** argv) {
 			     glgfx_bitmap_copy_height,  window_selected.height,
 
 			     glgfx_bitmap_copy_format,  glgfx_pixel_format_a8b8g8r8,
-			     glgfx_bitmap_copy_data,    (uintptr_t) window_selected.pixel_data,
+			     glgfx_bitmap_copy_data,    (uintptr_t) sw,
 			     glgfx_tag_end);
 
 	  glgfx_bitmap_write(unselected,
@@ -191,7 +215,7 @@ int main(int argc, char** argv) {
 			     glgfx_bitmap_copy_height,  window_unselected.height,
 
 			     glgfx_bitmap_copy_format,  glgfx_pixel_format_a8b8g8r8,
-			     glgfx_bitmap_copy_data,    (uintptr_t) window_unselected.pixel_data,
+			     glgfx_bitmap_copy_data,    (uintptr_t) uw,
 			     glgfx_tag_end);
 
 	  // Load cursor
@@ -202,6 +226,10 @@ int main(int argc, char** argv) {
 			     glgfx_bitmap_copy_format,  glgfx_pixel_format_a8b8g8r8,
 			     glgfx_bitmap_copy_data,    (uintptr_t) sprite_pointer.pixel_data,
 			     glgfx_tag_end);
+
+	  free(tb);
+	  free(sw);
+	  free(uw);
 
 	  // Handle input
 	  glgfx_input_acquire(monitor);
