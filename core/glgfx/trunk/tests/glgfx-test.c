@@ -111,8 +111,7 @@ int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) 
 	glgfx_view_addsprite(v, sp);
       }
 
-      glgfx_monitor_addview(monitor, v);
-      glgfx_monitor_loadview(monitor, v);
+      glgfx_monitor_setattrs(monitor, glgfx_monitor_attr_view, (intptr_t) v, glgfx_tag_end);
 
       glgfx_input_acquire(monitor);
       int i;

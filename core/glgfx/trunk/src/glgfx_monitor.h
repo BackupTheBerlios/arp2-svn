@@ -18,6 +18,8 @@ enum glgfx_monitor_attr {
   glgfx_monitor_attr_friend,
   glgfx_monitor_attr_fullscreen,
 
+  glgfx_monitor_attr_view,
+
   glgfx_monitor_attr_width,
   glgfx_monitor_attr_height,
   glgfx_monitor_attr_format,
@@ -46,19 +48,11 @@ bool glgfx_monitor_getattr(struct glgfx_monitor* bm,
 
 #define glgfx_monitor_setattrs(monitor, tag1, ...) \
   ({ intptr_t const _tags[] = { tag1, ##__VA_ARGS__ }; \
-    glgfx_monitor_setattrs_a((viewport), (struct glgfx_tagitem const*) (void*) _tags); })
+    glgfx_monitor_setattrs_a((monitor), (struct glgfx_tagitem const*) (void*) _tags); })
 
 
 struct glgfx_context* glgfx_monitor_createcontext(struct glgfx_monitor* monitor);
 struct glgfx_context* glgfx_monitor_getcontext(struct glgfx_monitor* monitor);
-
-bool glgfx_monitor_addview(struct glgfx_monitor* monitor,
-			   struct glgfx_view* view);
-bool glgfx_monitor_loadview(struct glgfx_monitor* monitor,
-			    struct glgfx_view* view);
-bool glgfx_monitor_remview(struct glgfx_monitor* monitor,
-			   struct glgfx_view* view);
-
 
 bool glgfx_monitor_waittof(struct glgfx_monitor* monitor);
 bool glgfx_monitor_render(struct glgfx_monitor* monitor);

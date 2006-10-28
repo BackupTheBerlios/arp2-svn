@@ -269,8 +269,7 @@ int main(int argc, char** argv) {
 	    v == NULL ||
 	    !glgfx_view_addviewport(v, vp1) ||
 	    !glgfx_view_addviewport(v, vp2) ||
-	    !glgfx_monitor_addview(monitor, v) ||
-	    !glgfx_monitor_loadview(monitor, v)) {
+	    !glgfx_monitor_setattrs(monitor, glgfx_monitor_attr_view, v, glgfx_tag_end)) {
 	  printf("Unable to create view/viewport\n");
 	  rc = 20;
 	}

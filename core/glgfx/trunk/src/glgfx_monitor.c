@@ -180,14 +180,6 @@ struct glgfx_monitor* glgfx_monitor_create_a(char const* display_name,
     return NULL;
   }
 
-  monitor->views = g_queue_new();
-
-  if (monitor->views == NULL) {
-    glgfx_monitor_destroy(monitor);
-    errno = ENOMEM;
-    return NULL;
-  }
-
   monitor->fullscreen = true;
   pthread_cond_init(&monitor->vsync_cond, NULL);
 
@@ -201,6 +193,7 @@ struct glgfx_monitor* glgfx_monitor_create_a(char const* display_name,
 	monitor->fullscreen = tag->data;
 	break;
 
+      case glgfx_monitor_attr_view:
       case glgfx_monitor_attr_width:
       case glgfx_monitor_attr_height:
       case glgfx_monitor_attr_format:
@@ -483,8 +476,6 @@ void glgfx_monitor_destroy(struct glgfx_monitor* monitor) {
 
   pthread_mutex_lock(&glgfx_mutex);
 
-  g_queue_free(monitor->views);
-
   D(BUG("Destroying monitor %p (%s)\n", monitor, monitor->name));
 
 
@@ -564,6 +555,10 @@ bool glgfx_monitor_setattrs_a(struct glgfx_monitor* monitor,
 	go_fullscreen(monitor, monitor->fullscreen);
 	break;
 
+      case glgfx_monitor_attr_view:
+	monitor->view = (struct glgfx_view*) tag->data;
+	break;
+
       case glgfx_monitor_attr_friend:
       case glgfx_monitor_attr_width:
       case glgfx_monitor_attr_height:
@@ -594,6 +589,14 @@ bool glgfx_monitor_getattr(struct glgfx_monitor* monitor,
   pthread_mutex_lock(&glgfx_mutex);
 
   switch (attr) {
+    case glgfx_monitor_attr_fullscreen:
+      *storage = monitor->fullscreen;
+      break;
+
+    case glgfx_monitor_attr_view:
+      *storage = (intptr_t) monitor->view;
+      break;
+
     case glgfx_monitor_attr_width:
       *storage = monitor->mode.hdisplay;
       break;
@@ -733,53 +736,6 @@ struct glgfx_context* glgfx_monitor_getcontext(struct glgfx_monitor* monitor) {
 }
 
 
-bool glgfx_monitor_addview(struct glgfx_monitor* monitor,
-			   struct glgfx_view* view) {
-  if (monitor == NULL || view == NULL) {
-    errno = EINVAL;
-    return false;
-  }
-
-  pthread_mutex_lock(&glgfx_mutex);
-  g_queue_push_head(monitor->views, view);
-  pthread_mutex_unlock(&glgfx_mutex);
-
-  return true;
-}
-
-
-bool glgfx_monitor_loadview(struct glgfx_monitor* monitor,
-			    struct glgfx_view* view) {
-  if (monitor == NULL || view == NULL || 
-      g_queue_find(monitor->views, view) == NULL) {
-    errno = EINVAL;
-    return false;
-  }
-
-  pthread_mutex_lock(&glgfx_mutex);
-  g_queue_remove(monitor->views, view);
-  g_queue_push_head(monitor->views, view);
-  pthread_mutex_unlock(&glgfx_mutex);
-
-  return true;
-}
-
-
-bool glgfx_monitor_remview(struct glgfx_monitor* monitor,
-			   struct glgfx_view* view) {
-
-  if (monitor == NULL || view == NULL ||
-      g_queue_find(monitor->views, view) == NULL) {
-    errno = EINVAL;
-    return false;
-  }
-
-  pthread_mutex_lock(&glgfx_mutex);
-  g_queue_remove(monitor->views, view);
-  pthread_mutex_unlock(&glgfx_mutex);
-  return true;
-}
-
 
 bool glgfx_monitor_waittof(struct glgfx_monitor* monitor) {
   if (swapbuffer_syncs_to_vblank()) {
@@ -904,7 +860,7 @@ static unsigned long render_func(struct glgfx_hook* hook,
 bool glgfx_monitor_render(struct glgfx_monitor* monitor) {
   static const bool late_sprites = false;
 
-  if (monitor == NULL || g_queue_is_empty(monitor->views)) {
+  if (monitor == NULL || monitor->view == NULL) {
     errno = EINVAL;
     return false;
   }
@@ -929,7 +885,7 @@ bool glgfx_monitor_render(struct glgfx_monitor* monitor) {
   monitor->fps_counter = (monitor->fps_counter + 1) % 100;
   
 
-  bool has_changed = glgfx_view_haschanged(monitor->views->head->data);
+  bool has_changed = glgfx_view_haschanged(monitor->view);
 
   pthread_mutex_unlock(&glgfx_mutex);
 
@@ -965,7 +921,7 @@ bool glgfx_monitor_render(struct glgfx_monitor* monitor) {
     glEnable(GL_STENCIL_TEST);
     glStencilFunc(GL_ALWAYS, 1, ~0);
     glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
-    glgfx_view_render(monitor->views->head->data, &depth_hook, true);
+    glgfx_view_render(monitor->view, &depth_hook, true);
 
 
     // "Render" visible transparent pixels back-to-front to the
@@ -983,7 +939,7 @@ bool glgfx_monitor_render(struct glgfx_monitor* monitor) {
     glDepthMask(GL_FALSE);
     glStencilFunc(GL_NOTEQUAL, 0, ~0);
     glStencilOp(GL_KEEP, GL_KEEP, GL_INCR);
-    glgfx_view_render(monitor->views->head->data, &stencil_hook, false);
+    glgfx_view_render(monitor->view, &stencil_hook, false);
 
     // Enable framebuffer rendering
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
@@ -999,13 +955,13 @@ bool glgfx_monitor_render(struct glgfx_monitor* monitor) {
     glDepthMask(GL_TRUE);
     glStencilFunc(GL_LESS, 1, ~0);
     glStencilOp(GL_KEEP, GL_KEEP, GL_DECR);
-    glgfx_view_render(monitor->views->head->data, &blur_hook, false);
+    glgfx_view_render(monitor->view, &blur_hook, false);
 
     // Finally, disable the stencil test and draw the real image over
     // the background and blurred areas, back-to-front. (Only top-most
     // pixels will be drawn because of the Z-buffer.)
     glDisable(GL_STENCIL_TEST);
-    glgfx_view_render(monitor->views->head->data, &render_hook, false);
+    glgfx_view_render(monitor->view, &render_hook, false);
 
     // Sprites are always transparent
     glEnable(GL_BLEND);
@@ -1014,7 +970,7 @@ bool glgfx_monitor_render(struct glgfx_monitor* monitor) {
 			GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     if (!late_sprites) {
-      glgfx_view_rendersprites(monitor->views->head->data);
+      glgfx_view_rendersprites(monitor->view);
     }
 
     pthread_mutex_unlock(&glgfx_mutex);
@@ -1029,7 +985,7 @@ bool glgfx_monitor_render(struct glgfx_monitor* monitor) {
       glDrawBuffer(GL_FRONT);
 
       pthread_mutex_lock(&glgfx_mutex);
-      glgfx_view_rendersprites(monitor->views->head->data);
+      glgfx_view_rendersprites(monitor->view);
       pthread_mutex_unlock(&glgfx_mutex);
     }
 

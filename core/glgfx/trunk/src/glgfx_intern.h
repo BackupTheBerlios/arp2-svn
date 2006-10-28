@@ -134,7 +134,7 @@ struct glgfx_monitor {
     int                     dotclock;
     XF86VidModeMonitor      monitor_info;
 
-    GQueue*                 views;
+    struct glgfx_view*      view;
 };
 
 struct glgfx_view {
