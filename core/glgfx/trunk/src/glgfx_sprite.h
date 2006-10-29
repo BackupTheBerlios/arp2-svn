@@ -21,7 +21,7 @@ enum glgfx_sprite_attr {
   glgfx_sprite_attr_interpolated,		/* Default is true */
   
   glgfx_sprite_attr_max
-} __attribute__((mode(__pointer__)));
+};
 
 
 struct glgfx_sprite* glgfx_sprite_create_a(struct glgfx_tagitem const* tags);

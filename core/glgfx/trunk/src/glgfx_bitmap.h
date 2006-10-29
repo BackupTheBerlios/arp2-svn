@@ -24,7 +24,7 @@ enum glgfx_bitmap_attr {
   glgfx_bitmap_attr_mapaddr,
 
   glgfx_bitmap_attr_max
-} __attribute__((mode(__pointer__)));
+};
 
 
 enum glgfx_bitmap_copy_tag {
@@ -40,7 +40,7 @@ enum glgfx_bitmap_copy_tag {
   glgfx_bitmap_copy_bytesperrow,
 
   glgfx_bitmap_copy_max
-} __attribute__((mode(__pointer__)));
+};
 
 
 enum glgfx_bitmap_blit_tag {
@@ -90,7 +90,7 @@ enum glgfx_bitmap_blit_tag {
   glgfx_bitmap_blit_blend_dstfunc_alpha,
 
   glgfx_bitmap_blit_max
-} __attribute__((mode(__pointer__)));
+};
 
 
 struct glgfx_bitmap* glgfx_bitmap_create_a(struct glgfx_tagitem const* tags);

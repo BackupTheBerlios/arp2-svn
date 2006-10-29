@@ -17,7 +17,7 @@ enum glgfx_tag {
   glgfx_tag_more   = 2,
   glgfx_tag_skip   = 3,
   glgfx_tag_user   = 0x80000000
-} __attribute__((mode(__pointer__)));
+};
 
 struct glgfx_tagitem {
     enum glgfx_tag tag;
@@ -79,7 +79,7 @@ enum glgfx_blend_equation {
   glgfx_blend_equation_component_max,
 
   glgfx_blend_equation_max,
-} __attribute__((mode(__pointer__)));
+};
 
 
 enum glgfx_blend_func {
@@ -102,7 +102,7 @@ enum glgfx_blend_func {
   glgfx_blend_func_srcalpha_sat,
 
   glgfx_blend_func_max
-} __attribute__((mode(__pointer__)));
+};
 
 /*** System setup ************************************************************/
 
@@ -112,7 +112,7 @@ enum glgfx_init_tag {
   glgfx_init_signal,
 
   glgfx_init_max
-} __attribute__((mode(__pointer__)));
+};
 
 
 bool glgfx_init_a(struct glgfx_tagitem const* tags);

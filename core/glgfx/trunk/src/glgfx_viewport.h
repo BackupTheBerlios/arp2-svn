@@ -20,7 +20,7 @@ enum glgfx_viewport_attr {
   glgfx_viewport_attr_y,
   
   glgfx_viewport_attr_max
-} __attribute__((mode(__pointer__)));
+};
 
 enum glgfx_rasinfo_attr {
   glgfx_rasinfo_attr_unknown = glgfx_tag_user + 6100,
@@ -40,7 +40,7 @@ enum glgfx_rasinfo_attr {
   glgfx_rasinfo_attr_blend_dstfunc_alpha,
 
   glgfx_rasinfo_attr_max
-} __attribute__((mode(__pointer__)));
+};
 
 
 struct glgfx_viewport* glgfx_viewport_create_a(struct glgfx_tagitem const* tags);

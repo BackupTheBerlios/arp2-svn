@@ -29,7 +29,7 @@ enum glgfx_monitor_attr {
   glgfx_monitor_attr_dotclock,
 
   glgfx_monitor_attr_max
-} __attribute__((mode(__pointer__)));
+};
 
 struct glgfx_monitor* glgfx_monitor_create_a(char const* display_name,
 					     struct glgfx_tagitem const* tags);

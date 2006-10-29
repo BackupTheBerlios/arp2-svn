@@ -22,7 +22,7 @@ enum glgfx_pixel_format {
   glgfx_pixel_format_r32g32b32a32f,	// RGBA, 4 * FLOAT
 
   glgfx_pixel_format_max
-} __attribute__((mode(__pointer__)));
+};
 
 enum glgfx_pixel_attr {
   glgfx_pixel_attr_unknown = glgfx_tag_user + 4000,
@@ -48,7 +48,7 @@ enum glgfx_pixel_attr {
   glgfx_pixel_attr_alphamask,
   
   glgfx_pixel_attr_max
-} __attribute__((mode(__pointer__)));
+};
 
 
 typedef uint16_t glgfx_pixel_a4r4g4b4_t;
