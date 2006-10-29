@@ -17,6 +17,7 @@ enum glgfx_monitor_attr {
 
   glgfx_monitor_attr_friend,
   glgfx_monitor_attr_fullscreen,
+  glgfx_monitor_attr_xparent,
 
   glgfx_monitor_attr_view,
 

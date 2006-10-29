@@ -135,6 +135,8 @@ static void go_fullscreen(struct glgfx_monitor* monitor, bool fullscreen) {
 
   pthread_mutex_lock(&glgfx_mutex);
 
+  Window window = monitor->xparent != None ? monitor->xparent : monitor->window;
+
   if (monitor->xa_win_state == None) {
     monitor->xa_win_state = XInternAtom(monitor->display, "_NET_WM_STATE", False);
   }
@@ -146,7 +148,7 @@ static void go_fullscreen(struct glgfx_monitor* monitor, bool fullscreen) {
 			       False);
     propvalue[2] = 0;
 
-    XChangeProperty(monitor->display, monitor->window,
+    XChangeProperty(monitor->display, window,
 		    monitor->xa_win_state, XA_ATOM,
 		    32, PropModeReplace,
 		    (unsigned char *) propvalue, 2);
@@ -191,6 +193,10 @@ struct glgfx_monitor* glgfx_monitor_create_a(char const* display_name,
 
       case glgfx_monitor_attr_fullscreen:
 	monitor->fullscreen = tag->data;
+	break;
+
+      case glgfx_monitor_attr_xparent:
+	monitor->xparent = tag->data;
 	break;
 
       case glgfx_monitor_attr_view:
@@ -432,6 +438,10 @@ struct glgfx_monitor* glgfx_monitor_create_a(char const* display_name,
     }
   }
 
+  if (monitor->xparent != None) {
+    XReparentWindow(monitor->display, monitor->window, monitor->xparent, 0, 0);
+  }
+
   go_fullscreen(monitor, monitor->fullscreen);
 
   XMapRaised(monitor->display, monitor->window);
@@ -555,6 +565,11 @@ bool glgfx_monitor_setattrs_a(struct glgfx_monitor* monitor,
 	go_fullscreen(monitor, monitor->fullscreen);
 	break;
 
+      case glgfx_monitor_attr_xparent:
+	monitor->xparent = tag->data;
+	XReparentWindow(monitor->display, monitor->window, monitor->xparent, 0, 0);
+	break;
+
       case glgfx_monitor_attr_view:
 	monitor->view = (struct glgfx_view*) tag->data;
 	break;
@@ -591,6 +606,10 @@ bool glgfx_monitor_getattr(struct glgfx_monitor* monitor,
   switch (attr) {
     case glgfx_monitor_attr_fullscreen:
       *storage = monitor->fullscreen;
+      break;
+
+    case glgfx_monitor_attr_xparent:
+      *storage = monitor->xparent;
       break;
 
     case glgfx_monitor_attr_view:

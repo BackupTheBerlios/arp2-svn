@@ -103,6 +103,7 @@ struct glgfx_monitor {
     int                     fb_configs;
     XVisualInfo*            vinfo;
     Window                  window;
+    Window                  xparent;
     GLXWindow               glx_window;
     Atom                    xa_win_state;
     Cursor                  cursor;
