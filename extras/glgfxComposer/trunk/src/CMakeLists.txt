@@ -2,6 +2,7 @@
 INCLUDE (CheckIncludeFile)
 INCLUDE (CheckIncludeFiles)
 INCLUDE (CheckLibraryExists)
+INCLUDE (UsePkgConfig)
 
 # Check for thread & X11 & OpenGL support
 FIND_PACKAGE (Threads)
@@ -29,11 +30,15 @@ IF (NOT HAVE_POPT_H OR NOT HAVE_POPT_POPTGETCONTEXT)
   MESSAGE (SEND_ERROR "popt not found")
 ENDIF (NOT HAVE_POPT_H OR NOT HAVE_POPT_POPTGETCONTEXT)
 
+# Check for glib-2.0
+PKGCONFIG(glib-2.0 GLIB_INCLUDE GLIB_LIBDIR GLIB_LDFLAGS GLIB_CFLAGS)
+
 # Add warning options if using gcc
 IF (${CMAKE_COMPILER_IS_GNUCC})
   SET (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -W -Wall")
 ENDIF (${CMAKE_COMPILER_IS_GNUCC})
 
 ADD_EXECUTABLE (glgfxComposer glgfxComposer.c)
+SET_TARGET_PROPERTIES (glgfxComposer PROPERTIES COMPILE_FLAGS ${GLIB_CFLAGS})
 TARGET_LINK_LIBRARIES (glgfxComposer popt glgfx Xcomposite 
-		      ${CMAKE_THREAD_LIBS_INIT} ${X11_LIBRARIES})
+		      ${CMAKE_THREAD_LIBS_INIT} ${X11_LIBRARIES} ${GLIB_LDFLAGS})

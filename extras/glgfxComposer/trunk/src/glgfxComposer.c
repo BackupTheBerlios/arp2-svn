@@ -2,12 +2,184 @@
 #include <X11/Xlib.h>
 #include <X11/extensions/Xcomposite.h>
 #include <glgfx.h>
+#include <glgfx_bitmap.h>
 #include <glgfx_monitor.h>
+#include <glgfx_view.h>
+#include <glgfx_viewport.h>
+#include <glib.h>
 #include <popt.h>
 #include <stdio.h>
 #include <stdlib.h>
 
 int composite_request;
+
+
+struct screen {
+    Display* display;
+    int screen;
+    Window root;
+    Window overlay;
+    GHashTable* windows;
+    struct glgfx_monitor* monitor;
+    struct glgfx_view* view;
+    struct glgfx_viewport* viewport;
+};
+
+struct window {
+    struct screen* screen;
+    Window window;
+    struct glgfx_viewport* viewport;
+    struct glgfx_rasinfo* rasinfo;
+    struct glgfx_bitmap* bitmap;
+};
+
+struct window* create_window(struct screen* screen, Window id) {
+  struct window* window = calloc(sizeof *window, 1);
+
+  if (window != NULL) {
+    window->screen = screen;
+    window->window = id;
+
+//    printf("created window for id %x\n", (unsigned int) id);
+  }
+
+  return window;
+}
+
+void destroy_window(struct window* window) {
+  if (window == NULL) {
+    return;
+  }
+
+  free(window);
+}
+
+static void do_destroy_window(gpointer key, gpointer value, gpointer user_data) {
+  (void) key;
+  (void) user_data;
+
+  destroy_window((struct window*) value);
+}
+
+
+void destroy_screen(struct screen* screen) {
+  if (screen == NULL) {
+    return;
+  }
+
+  if (screen->windows != NULL) {
+    g_hash_table_foreach(screen->windows, do_destroy_window, NULL);
+    g_hash_table_destroy(screen->windows);
+  }
+
+  glgfx_monitor_setattrs(screen->monitor, 
+			 glgfx_monitor_attr_view, (intptr_t) NULL, 
+			 glgfx_tag_end);
+  glgfx_view_destroy(screen->view);
+  glgfx_monitor_destroy(screen->monitor);
+
+  if (screen->overlay != None) {
+    XCompositeUnredirectSubwindows (screen->display, screen->root, CompositeRedirectManual);
+    XCompositeReleaseOverlayWindow(screen->display, screen->overlay);
+  }
+  
+  free(screen);
+}
+
+struct screen* create_screen(char const* display, Display* d, int s) {
+  struct screen* screen = calloc(sizeof *screen, 1);
+
+  if (screen == NULL) { 
+    fprintf(stderr, "Unable to allocate screen structure.\n");
+    goto failed;
+  }
+   
+  screen->display = d;
+  screen->screen  = s;
+
+  screen->windows = g_hash_table_new(g_direct_hash, g_direct_equal);
+
+  if (screen->windows == NULL) {
+    fprintf(stderr, "Unable to allocate hash table.\n");
+    goto failed;
+  }
+
+  screen->root    = XRootWindow(d, s);
+
+#if 1
+  screen->overlay = XCompositeGetOverlayWindow(d, screen->root);
+#else
+  screen->overlay = XCreateWindow(d, screen->root, 100, 100, 100, 100,
+				  CopyFromParent, CopyFromParent, CopyFromParent, CopyFromParent,
+				  0, NULL);
+  XMapWindow(d, screen->overlay);
+  XFlush(d);
+#endif
+
+  if (screen->overlay == None) {
+    fprintf(stderr, "Unable to create XComposite overlay window.\n");
+    goto failed;
+  }
+
+
+  screen->monitor = glgfx_monitor_create(display,
+					 glgfx_monitor_attr_xparent, screen->overlay,
+					 glgfx_monitor_attr_fullscreen, false,
+					 glgfx_tag_end);
+
+  if (screen->monitor == NULL) {
+    fprintf(stderr, "Unable to create glgfx monitor.\n");
+    goto failed;
+  }
+
+  screen->view = glgfx_view_create();
+
+  if (screen->view == NULL) {
+    fprintf(stderr, "Unable to create glgfx view.\n");
+    goto failed;
+  }
+
+  if (!glgfx_monitor_setattrs(screen->monitor, 
+			      glgfx_monitor_attr_view, (intptr_t) screen->view, 
+			      glgfx_tag_end)) {
+    fprintf(stderr, "Unable to load glgfx view.\n");
+    goto failed;
+  }
+  
+  
+
+  XCompositeRedirectSubwindows (d, screen->root, CompositeRedirectManual);
+  XSelectInput (d, screen->root, SubstructureNotifyMask);
+
+  Window root_return;
+  Window parent_return;
+  Window* children;
+  unsigned int num_children;
+  unsigned int i;
+	      
+  XQueryTree(d, screen->root, &root_return, &parent_return, &children, &num_children);
+
+  for (i = 0; i < num_children; ++i) {
+    struct window* window = create_window(screen, children[i]);
+
+    if (window == NULL) { 
+      XFree(children);
+      goto failed;
+    }
+
+    g_hash_table_insert(screen->windows, GUINT_TO_POINTER(children[i]), window);
+  }
+
+  XFree(children);
+
+  return screen;
+
+  failed:
+  destroy_screen(screen);
+  return NULL;
+}
+
+
 
 static void usage(poptContext pc, int exitcode, char const *error) {
   poptPrintUsage(pc, stderr, 0);
@@ -74,37 +246,11 @@ int main(int argc, char const** argv) {
 	  rc = 20;
 	}
 	else {
-	  int    screen  = DefaultScreen(d);
-	  Window root    = XRootWindow(d, screen);
-	  Window overlay = XCompositeGetOverlayWindow(d, root);
+	  struct screen* s = create_screen(display, d, DefaultScreen(d));
 
-	  if (overlay == None) {
-	    fprintf(stderr, "Unable to create XComposite overlay window.\n");
-	    rc = 20;
-	  }
-	  else {
-	    struct glgfx_monitor* monitor = glgfx_monitor_create(
-	      display,
-	      glgfx_monitor_attr_xparent, overlay,
-	      glgfx_monitor_attr_fullscreen, false,
-	      glgfx_tag_end);
+	  sleep(1);
 
-	    if (monitor == NULL) {
-	      fprintf(stderr, "Unable to create glgfx monitor.\n");
-	      rc = 20;
-	    }
-	    else {
-	      XCompositeRedirectSubwindows (d, root, CompositeRedirectManual);
-	      XSelectInput (d, root, SubstructureNotifyMask);
-
-	      
-
-	      sleep(1);
-	      glgfx_monitor_destroy(monitor);
-	    }
-
-	    XCompositeReleaseOverlayWindow(d, overlay);
-	  }
+	  destroy_screen(s);
 	}
       }
 
