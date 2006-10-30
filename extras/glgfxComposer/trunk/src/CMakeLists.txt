@@ -3,9 +3,10 @@ INCLUDE (CheckIncludeFile)
 INCLUDE (CheckIncludeFiles)
 INCLUDE (CheckLibraryExists)
 
-# Check for thread & X11 support
+# Check for thread & X11 & OpenGL support
 FIND_PACKAGE (Threads)
 FIND_PACKAGE (X11)
+FIND_PACKAGE (OpenGL)
 
 # Check for glgfx
 CHECK_INCLUDE_FILE ("glgfx.h" HAVE_GLGFX_H)
