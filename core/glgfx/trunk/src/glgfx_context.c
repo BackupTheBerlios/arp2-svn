@@ -244,18 +244,18 @@ bool glgfx_context_bindfbo(struct glgfx_context* context,
 
   // Make sure the bitmaps are attached to the buffers
   for (i = 0; i < context->monitor->max_mrt; ++i) {
-    if (context->fbo_bitmap[i] != bitmap[i]) {
-      if (i < bitmaps) {
+    if (i < bitmaps) {
+      if (context->fbo_bitmap[i] != bitmap[i]) {
 	glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT + i,
 				  bitmap[i]->texture_target, bitmap[i]->texture, 0);
 	GLGFX_CHECKERROR();
 	context->fbo_bitmap[i] = bitmap[i];
       }
-      else {
-	glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT + i,
-				  GL_TEXTURE_2D, 0, 0);
-	context->fbo_bitmap[i] = NULL;
-      }
+    }
+    else {
+      glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT + i,
+				GL_TEXTURE_2D, 0, 0);
+      context->fbo_bitmap[i] = NULL;
     }
 
     GLGFX_CHECKERROR();
@@ -341,6 +341,7 @@ GLenum glgfx_context_bindtex(struct glgfx_context* context,
 
   if (context->tex_bitmap[channel] != bitmap) {
     glBindTexture(bitmap->texture_target, bitmap->texture);
+    glgfx_bitmap_update_texture_data(bitmap);	
     GLGFX_CHECKERROR();
     context->tex_bitmap[channel] = bitmap;
   }
