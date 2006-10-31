@@ -168,6 +168,8 @@ void glgfx_bitmap_destroy(struct glgfx_bitmap* bitmap) {
     return;
   }
 
+  glgfx_context_forget(bitmap);
+
   pthread_mutex_lock(&glgfx_mutex);
   glgfx_bitmap_unlock_a(bitmap, NULL);
   if (context->monitor->have_GL_ARB_pixel_buffer_object) {

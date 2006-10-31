@@ -16,6 +16,11 @@
 /** A thread-local variable that holds the current thread's context */
 static __thread struct glgfx_context* current_context  = NULL;
 
+struct glgfx_list contexts = { (struct glgfx_node*) &contexts.tail,
+			       NULL, 
+			       (struct glgfx_node*) &contexts };
+
+
 struct glgfx_context* glgfx_context_create(struct glgfx_monitor* monitor) {
   struct glgfx_context* context;
   
@@ -110,6 +115,9 @@ struct glgfx_context* glgfx_context_create(struct glgfx_monitor* monitor) {
     current_context = context;
   }
 
+  // Remember context
+  glgfx_list_addtail(&contexts, &context->node);
+
   pthread_mutex_unlock(&glgfx_mutex);
   return context;
 }
@@ -122,6 +130,9 @@ bool glgfx_context_destroy(struct glgfx_context* context) {
   }
 
   pthread_mutex_lock(&glgfx_mutex);
+
+  // Forget about it
+  glgfx_list_remove(&context->node);
 
   size_t i;
 
@@ -209,6 +220,29 @@ struct glgfx_context* glgfx_context_getcurrent(void) {
   return current_context;
 }
 
+void glgfx_context_forget(struct glgfx_bitmap const* bitmap/* , bool unbind */) {
+  struct glgfx_context* context;
+
+  pthread_mutex_lock(&glgfx_mutex);
+
+  GLGFX_LIST_FOR (&contexts, context) {
+    int i;
+
+    for (i = 0; i < GLGFX_MAX_RENDER_TARGETS; ++i) {
+      if (context->fbo_bitmap[i] == bitmap) {
+	context->fbo_bitmap[i] = NULL;
+      }
+    }
+
+    for (i = 0; i < 2; ++i) {
+      if (context->tex_bitmap[i] == bitmap) {
+	context->tex_bitmap[i] = NULL;
+      }
+    }
+  }
+
+  pthread_mutex_unlock(&glgfx_mutex);
+}
 
 bool glgfx_context_bindfbo(struct glgfx_context* context, 
 			   int bitmaps, struct glgfx_bitmap* const* bitmap) {
@@ -341,7 +375,6 @@ GLenum glgfx_context_bindtex(struct glgfx_context* context,
 
   if (context->tex_bitmap[channel] != bitmap) {
     glBindTexture(bitmap->texture_target, bitmap->texture);
-    glgfx_bitmap_update_texture_data(bitmap);	
     GLGFX_CHECKERROR();
     context->tex_bitmap[channel] = bitmap;
   }

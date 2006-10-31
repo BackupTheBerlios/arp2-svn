@@ -72,6 +72,7 @@ struct glgfx_shader;
 #define GLGFX_MAX_RENDER_TARGETS 4
 
 struct glgfx_context {
+    struct glgfx_node       node;
     struct glgfx_monitor*   monitor;
     GLXContext              glx_context;
     GLXPbuffer              glx_pbuffer;
@@ -294,6 +295,7 @@ bool glgfx_viewport_render(struct glgfx_viewport* viewport,
 			   bool front_to_back);
 bool glgfx_sprite_render(struct glgfx_sprite* sprite);
 
+void glgfx_context_forget(struct glgfx_bitmap const* bitmap/* , bool unbind */);
 GLenum glgfx_context_bindtex(struct glgfx_context* context, 
 			     int channel, struct glgfx_bitmap* bitmap, bool interpolate);
 bool glgfx_context_unbindtex(struct glgfx_context* context, int channel);

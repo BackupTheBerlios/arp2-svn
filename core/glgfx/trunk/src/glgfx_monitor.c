@@ -651,6 +651,8 @@ bool glgfx_monitor_getattr(struct glgfx_monitor* monitor,
 
 #include <time.h>
 
+extern struct glgfx_list contexts;
+
 struct glgfx_context* glgfx_monitor_createcontext(struct glgfx_monitor* monitor) {
   struct glgfx_context* context;
   
@@ -727,6 +729,9 @@ struct glgfx_context* glgfx_monitor_createcontext(struct glgfx_monitor* monitor)
 	    glPixelStorei(GL_PACK_ALIGNMENT, 1);
 
 	    GLGFX_CHECKERROR();
+
+	    // Remember context
+	    glgfx_list_addtail(&contexts, &context->node);
 	  }
 	}
       }
