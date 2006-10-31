@@ -18,7 +18,7 @@ static __thread struct glgfx_context* current_context  = NULL;
 
 struct glgfx_list contexts = { (struct glgfx_node*) &contexts.tail,
 			       NULL, 
-			       (struct glgfx_node*) &contexts };
+			       (struct glgfx_node*) &contexts.head };
 
 
 struct glgfx_context* glgfx_context_create(struct glgfx_monitor* monitor) {
