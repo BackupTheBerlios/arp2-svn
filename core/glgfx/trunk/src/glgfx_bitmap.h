@@ -103,6 +103,8 @@ bool glgfx_bitmap_unlock_a(struct glgfx_bitmap* bitmap,
 bool glgfx_bitmap_write_a(struct glgfx_bitmap* bitmap,
 			  struct glgfx_tagitem const* tags);
 
+bool glgfx_bitmap_setattrs_a(struct glgfx_bitmap* bitmap,
+			     struct glgfx_tagitem const* tags);
 bool glgfx_bitmap_getattr(struct glgfx_bitmap* bm,
 			  enum glgfx_bitmap_attr attr,
 			  intptr_t* storage);
@@ -122,6 +124,10 @@ int glgfx_bitmap_numcliprects(struct glgfx_bitmap* bitmap);
 #define glgfx_bitmap_create(tag1, ...)	\
   ({ intptr_t const _tags[] = { tag1, ## __VA_ARGS__ }; \
     glgfx_bitmap_create_a((struct glgfx_tagitem const*) (void*) _tags); })
+
+#define glgfx_bitmap_setattrs(bitmap, tag1, ...) \
+  ({ intptr_t const _tags[] = { tag1, ##__VA_ARGS__ }; \
+    glgfx_bitmap_setattrs_a((bitmap), (struct glgfx_tagitem const*) (void*) _tags); })
 
 #define glgfx_bitmap_write(bitmap, tag1, ...)	\
   ({ intptr_t const _tags[] = { tag1, ## __VA_ARGS__ }; \

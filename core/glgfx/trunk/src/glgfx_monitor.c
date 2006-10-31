@@ -118,7 +118,15 @@ static bool check_extensions(struct glgfx_monitor* monitor) {
   }
 
   if (!monitor->have_GL_NV_blend_square) {
-    BUG("Warning: GL_NV_blend_square not supported; some blend modes will not work\n");
+    BUG("Warning: GL_NV_blend_square not supported; some blend modes will not work.\n");
+  }
+
+  // Check for texture_from_pixmap
+  if (g_hash_table_lookup(monitor->gl_extensions, "GLX_EXT_texture_from_pixmap") != NULL) {
+    monitor->have_GLX_EXT_texture_from_pixmap = true;
+  }
+  else {
+    BUG("Warning: GLX_EXT_texture_from_pixmap not supported; reduced bitmap functionality.\n");
   }
 
   // Return true if all required extensions are present

@@ -44,122 +44,22 @@ static size_t glgfx_texture_size(int width, int height, enum glgfx_pixel_format 
 
 
 struct glgfx_bitmap* glgfx_bitmap_create_a(struct glgfx_tagitem const* tags) {
-  struct glgfx_context* context = glgfx_context_getcurrent();
   struct glgfx_bitmap* bitmap;
-
-  int width = 0, height = 0, bits = 0;
-  struct glgfx_bitmap* friend = NULL;
-  enum glgfx_pixel_format format = glgfx_pixel_format_unknown;
-  
-  GLXPixmap glx_pixmap = None;
-
-  struct glgfx_tagitem const* tag;
-
-  if (tags == NULL) {
-    return false;
-  }
-
-  while ((tag = glgfx_nexttagitem(&tags)) != NULL) {
-    switch ((enum glgfx_bitmap_attr) tag->tag) {
-      
-      case glgfx_bitmap_attr_width:
-	width = tag->data;
-	break;
-
-      case glgfx_bitmap_attr_height:
-	height = tag->data;
-	break;
-
-      case glgfx_bitmap_attr_bits:
-	bits = tag->data;
-	break;
-
-      case glgfx_bitmap_attr_friend:
-	friend = (struct glgfx_bitmap*) tag->data;
-	break;
-
-      case glgfx_bitmap_attr_format:
-	format = tag->data;
-	break;
-
-      case glgfx_bitmap_attr_glxpixmap:
-	glx_pixmap = tag->data;
-	break;
-
-      case glgfx_bitmap_attr_bytesperrow:
-      case glgfx_bitmap_attr_locked:
-      case glgfx_bitmap_attr_mapaddr:
-      case glgfx_bitmap_attr_unknown:
-      case glgfx_bitmap_attr_max:
-	/* Make compiler happy */
-	break;
-    }
-  }
-  
-  format = select_format(bits, friend, format);
-
-  if (width <= 0 || height <= 0 || format == glgfx_pixel_format_unknown) {
-    return NULL;
-  }
 
   bitmap = calloc(1, sizeof *bitmap);
 
   if (bitmap == NULL) {
+    errno = ENOMEM;
     return NULL;
   }
 
-  pthread_mutex_lock(&glgfx_mutex);
-  
-  bitmap->width             = width;
-  bitmap->height            = height;
-  bitmap->bits              = bits;
-  bitmap->format            = format;
-  bitmap->pbo_size          = glgfx_texture_size(width, height, bitmap->format);
-  bitmap->pbo_bytes_per_row = glgfx_texture_size(width, 1, bitmap->format);
+  bitmap->format = glgfx_pixel_format_unknown;
 
-  glGenTextures(1, &bitmap->texture);
-  GLGFX_CHECKERROR();
-
-  if (context->monitor->have_GL_ARB_texture_rectangle) {
-    bitmap->texture_target = GL_TEXTURE_RECTANGLE_ARB;
-  }
-  else {
-    bitmap->texture_target = GL_TEXTURE_2D;
-  }
-
-  glgfx_context_bindtex(context, 0, bitmap, false);
-
-  if (glx_pixmap != 0) {
-    #warning do something
-  }
-  else {
-    glTexImage2D(bitmap->texture_target, 0,
-		 formats[bitmap->format].internal_format,
-		 width, height, 0,
-		 formats[bitmap->format].format,
-		 formats[bitmap->format].type,
-		 NULL);
-  }
-  if (glGetError() == GL_INVALID_ENUM) {
-    // Format not supported by hardware
-
-    glgfx_context_unbindtex(context, 0);
-    pthread_mutex_unlock(&glgfx_mutex);
+  if (!glgfx_bitmap_setattrs_a(bitmap, tags)) {
     glgfx_bitmap_destroy(bitmap);
     return NULL;
   }
 
-  GLGFX_CHECKERROR();
-
-  glTexParameteri(bitmap->texture_target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-  glTexParameteri(bitmap->texture_target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-  GLGFX_CHECKERROR();
-  glgfx_context_unbindtex(context, 0);
-
-  bitmap->has_changed = true;
-
-  pthread_mutex_unlock(&glgfx_mutex);
   return bitmap;
 }
 
@@ -182,6 +82,7 @@ void glgfx_bitmap_destroy(struct glgfx_bitmap* bitmap) {
   glgfx_context_forget(bitmap);
 
   pthread_mutex_lock(&glgfx_mutex);
+
   glgfx_bitmap_unlock_a(bitmap, NULL);
   if (context->monitor->have_GL_ARB_pixel_buffer_object) {
     glDeleteBuffers(1, &bitmap->pbo);
@@ -192,6 +93,7 @@ void glgfx_bitmap_destroy(struct glgfx_bitmap* bitmap) {
   glDeleteTextures(1, &bitmap->texture);
   g_list_foreach(bitmap->cliprects, free_cliprect, NULL);
   free(bitmap);
+
   pthread_mutex_unlock(&glgfx_mutex);
 }
 
@@ -557,6 +459,163 @@ bool glgfx_bitmap_write_a(struct glgfx_bitmap* bitmap,
 }
 
 
+bool glgfx_bitmap_setattrs_a(struct glgfx_bitmap* bitmap,
+			     struct glgfx_tagitem const* tags) {
+  struct glgfx_context* context = glgfx_context_getcurrent();
+  struct glgfx_tagitem const* tag;
+  struct glgfx_bitmap* friend = NULL;
+  bool rc = true;
+  
+  bool recreate = false;
+
+  if (bitmap == NULL) {
+    errno = EINVAL;
+    return false;
+  }
+
+  pthread_mutex_lock(&glgfx_mutex);
+
+  if (bitmap->locked) {
+    // Uh, uh.
+    errno = EBUSY;
+    pthread_mutex_unlock(&glgfx_mutex);
+    return false;
+  }
+
+  while ((tag = glgfx_nexttagitem(&tags)) != NULL) {
+    switch ((enum glgfx_bitmap_attr) tag->tag) {
+      
+      case glgfx_bitmap_attr_width:
+	bitmap->width = tag->data;
+	recreate = true;
+	break;
+
+      case glgfx_bitmap_attr_height:
+	bitmap->height = tag->data;
+	recreate = true;
+	break;
+
+      case glgfx_bitmap_attr_bits:
+	bitmap->bits = tag->data;
+	recreate = true;
+	break;
+
+      case glgfx_bitmap_attr_friend:
+	friend = (struct glgfx_bitmap*) tag->data;
+	recreate = true;
+	break;
+
+      case glgfx_bitmap_attr_format:
+	bitmap->format = tag->data;
+	recreate = true;
+	break;
+
+      case glgfx_bitmap_attr_glxpixmap:
+	if (bitmap->glx_pixmap != None) {
+	  glXReleaseTexImageEXT(context->monitor->display, 
+				bitmap->glx_pixmap, 
+				GLX_FRONT_LEFT_EXT);
+	}
+
+	bitmap->glx_pixmap = tag->data;
+	recreate = true;
+	break;
+
+      case glgfx_bitmap_attr_bytesperrow:
+      case glgfx_bitmap_attr_locked:
+      case glgfx_bitmap_attr_mapaddr:
+      case glgfx_bitmap_attr_unknown:
+      case glgfx_bitmap_attr_max:
+	/* Make compiler happy */
+	break;
+    }
+  }
+
+  bitmap->format            = select_format(bitmap->bits, friend, bitmap->format);
+  bitmap->pbo_size          = glgfx_texture_size(bitmap->width, bitmap->height, bitmap->format);
+  bitmap->pbo_bytes_per_row = glgfx_texture_size(bitmap->width, 1, bitmap->format);
+
+  if (bitmap->width <= 0 || bitmap->height <= 0 || bitmap->format == glgfx_pixel_format_unknown) {
+    errno = EINVAL;
+    rc = false;
+  }
+
+  if (bitmap->glx_pixmap != None && !context->monitor->have_GLX_EXT_texture_from_pixmap) {
+    errno = ENOTSUP;
+    rc = false;
+  }
+  
+  if (rc && recreate) {
+    if (context->monitor->have_GL_ARB_pixel_buffer_object) {
+      if (bitmap->pbo != 0) {
+	glDeleteBuffers(1, &bitmap->pbo);
+	bitmap->pbo = 0;
+      }
+    }
+    else {
+      if (bitmap->buffer != NULL) {
+	free(bitmap->buffer);
+	bitmap->buffer = NULL;
+      }
+    }
+
+    if (bitmap->texture != 0) {
+      glDeleteTextures(1, &bitmap->texture);
+    }
+    
+    glGenTextures(1, &bitmap->texture);
+    GLGFX_CHECKERROR();
+
+    if (context->monitor->have_GL_ARB_texture_rectangle) {
+      bitmap->texture_target = GL_TEXTURE_RECTANGLE_ARB;
+    }
+    else {
+      bitmap->texture_target = GL_TEXTURE_2D;
+    }
+
+    glgfx_context_bindtex(context, 0, bitmap, false);
+
+    if (bitmap->glx_pixmap != None) {
+      glXBindTexImageEXT(context->monitor->display, 
+			 bitmap->glx_pixmap, 
+			 GLX_FRONT_LEFT_EXT, 
+			 NULL);
+    }
+    else {
+      glTexImage2D(bitmap->texture_target, 0,
+		   formats[bitmap->format].internal_format,
+		   bitmap->width, bitmap->height, 0,
+		   formats[bitmap->format].format,
+		   formats[bitmap->format].type,
+		   NULL);
+    }
+
+    if (glGetError() == GL_INVALID_ENUM) {
+      // Format not supported by hardware
+
+      glgfx_context_unbindtex(context, 0);
+      pthread_mutex_unlock(&glgfx_mutex);
+      errno = ENOTSUP;
+      rc = false;
+    }
+    else {
+      GLGFX_CHECKERROR();
+
+      glTexParameteri(bitmap->texture_target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+      glTexParameteri(bitmap->texture_target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+      GLGFX_CHECKERROR();
+      glgfx_context_unbindtex(context, 0);
+    }
+  }
+
+  bitmap->has_changed = true;
+
+  pthread_mutex_unlock(&glgfx_mutex);
+  return rc;
+}
+
+
 bool glgfx_bitmap_getattr(struct glgfx_bitmap* bm,
 			  enum glgfx_bitmap_attr attr,
 			  intptr_t* storage) {
@@ -591,6 +650,10 @@ bool glgfx_bitmap_getattr(struct glgfx_bitmap* bm,
 
     case glgfx_bitmap_attr_format: 
       *storage = bm->format;
+      break;
+
+    case glgfx_bitmap_attr_glxpixmap: 
+      *storage = bm->glx_pixmap;
       break;
 
     case glgfx_bitmap_attr_bytesperrow:

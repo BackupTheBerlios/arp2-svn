@@ -113,6 +113,7 @@ struct glgfx_monitor {
 
     GHashTable*             gl_extensions;
     bool                    have_GLX_SGI_video_sync;
+    bool                    have_GLX_EXT_texture_from_pixmap;
     bool                    have_GL_ARB_pixel_buffer_object;
     bool                    have_GL_EXT_framebuffer_object;
     bool                    have_GL_NV_blend_square;
@@ -159,6 +160,8 @@ struct glgfx_bitmap {
     int                     height;
     int                     bits;
     enum glgfx_pixel_format format;
+    GLXPixmap               glx_pixmap;
+
     GLuint                  texture;
     GLuint                  texture_target;
     GLint                   texture_filter;
@@ -168,6 +171,7 @@ struct glgfx_bitmap {
     };
     size_t                  pbo_size;
     size_t                  pbo_bytes_per_row;
+
     bool                    locked;
     GLenum                  locked_usage;
     GLenum                  locked_access;
