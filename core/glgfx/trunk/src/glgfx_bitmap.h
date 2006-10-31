@@ -19,6 +19,7 @@ enum glgfx_bitmap_attr {
   glgfx_bitmap_attr_bits,
   glgfx_bitmap_attr_friend,
   glgfx_bitmap_attr_format,
+  glgfx_bitmap_attr_glxpixmap,
   glgfx_bitmap_attr_bytesperrow,
   glgfx_bitmap_attr_locked,
   glgfx_bitmap_attr_mapaddr,

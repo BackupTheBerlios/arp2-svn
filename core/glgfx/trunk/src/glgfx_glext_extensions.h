@@ -280,3 +280,14 @@ GLGFX_GLEXT(PFNGLFRAMEBUFFERTEXTURE3DEXTPROC,	   glFramebufferTexture3DEXT)
 GLGFX_GLEXT(PFNGLFRAMEBUFFERRENDERBUFFEREXTPROC,   glFramebufferRenderbufferEXT)
 GLGFX_GLEXT(PFNGLGETFRAMEBUFFERATTACHMENTPARAMETERIVEXTPROC, glGetFramebufferAttachmentParameterivEXT)
 GLGFX_GLEXT(PFNGLGENERATEMIPMAPEXTPROC,		   glGenerateMipmapEXT)
+
+/* GLX_EXT_texture_from_pixmap */
+typedef void (*PFNGLXGLXBINDTEXIMAGEEXTPROC) (Display     *display, 
+					      GLXDrawable drawable, 
+					      int         buffer,
+					      const int   *attrib_list);
+typedef void (*PFNGLXGLXRELEASETEXIMAGEEXTPROC) (Display     *display, 
+						 GLXDrawable drawable, 
+						 int         buffer);
+GLGFX_GLEXT(PFNGLXGLXBINDTEXIMAGEEXTPROC,          glXBindTexImageEXT)
+GLGFX_GLEXT(PFNGLXGLXRELEASETEXIMAGEEXTPROC,       glXReleaseTexImageEXT)

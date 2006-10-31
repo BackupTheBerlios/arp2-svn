@@ -51,6 +51,8 @@ struct glgfx_bitmap* glgfx_bitmap_create_a(struct glgfx_tagitem const* tags) {
   struct glgfx_bitmap* friend = NULL;
   enum glgfx_pixel_format format = glgfx_pixel_format_unknown;
   
+  GLXPixmap glx_pixmap = None;
+
   struct glgfx_tagitem const* tag;
 
   if (tags == NULL) {
@@ -78,6 +80,10 @@ struct glgfx_bitmap* glgfx_bitmap_create_a(struct glgfx_tagitem const* tags) {
 
       case glgfx_bitmap_attr_format:
 	format = tag->data;
+	break;
+
+      case glgfx_bitmap_attr_glxpixmap:
+	glx_pixmap = tag->data;
 	break;
 
       case glgfx_bitmap_attr_bytesperrow:
@@ -123,12 +129,17 @@ struct glgfx_bitmap* glgfx_bitmap_create_a(struct glgfx_tagitem const* tags) {
 
   glgfx_context_bindtex(context, 0, bitmap, false);
 
-  glTexImage2D(bitmap->texture_target, 0,
-	       formats[bitmap->format].internal_format,
-	       width, height, 0,
-	       formats[bitmap->format].format,
-	       formats[bitmap->format].type,
-	       NULL);
+  if (glx_pixmap != 0) {
+    #warning do something
+  }
+  else {
+    glTexImage2D(bitmap->texture_target, 0,
+		 formats[bitmap->format].internal_format,
+		 width, height, 0,
+		 formats[bitmap->format].format,
+		 formats[bitmap->format].type,
+		 NULL);
+  }
   if (glGetError() == GL_INVALID_ENUM) {
     // Format not supported by hardware
 
