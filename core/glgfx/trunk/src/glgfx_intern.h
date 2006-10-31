@@ -100,6 +100,7 @@ struct glgfx_monitor {
     int                     mouse_y;
 
     Display*                display;
+    bool                    display_opened;
     GLXFBConfig*            fb_config;
     int                     fb_configs;
     XVisualInfo*            vinfo;

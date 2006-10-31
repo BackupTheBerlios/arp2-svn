@@ -210,7 +210,7 @@ int main(int argc, char** argv) {
   }
   
   struct glgfx_monitor* monitor = 
-    glgfx_monitor_create(getenv("DISPLAY"),
+    glgfx_monitor_create(NULL,
 			 glgfx_monitor_attr_fullscreen, true,
 			 glgfx_tag_end);
 

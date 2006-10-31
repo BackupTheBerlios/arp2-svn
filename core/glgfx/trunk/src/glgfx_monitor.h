@@ -1,6 +1,7 @@
 #ifndef arp2_glgfx_glgfx_monitor_h
 #define arp2_glgfx_glgfx_monitor_h
 
+#include <X11/Xlib.h>
 #include <glgfx.h>
 #include <glgfx_view.h>
 #include <inttypes.h>
@@ -31,7 +32,7 @@ enum glgfx_monitor_attr {
   glgfx_monitor_attr_max
 };
 
-struct glgfx_monitor* glgfx_monitor_create_a(char const* display_name,
+struct glgfx_monitor* glgfx_monitor_create_a(Display* display,
 					     struct glgfx_tagitem const* tags);
 void glgfx_monitor_destroy(struct glgfx_monitor* monitor);
 

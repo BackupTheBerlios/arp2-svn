@@ -171,23 +171,31 @@ static void go_fullscreen(struct glgfx_monitor* monitor, bool fullscreen) {
 
 
 
-struct glgfx_monitor* glgfx_monitor_create_a(char const* display_name,
+struct glgfx_monitor* glgfx_monitor_create_a(Display* display,
 					     struct glgfx_tagitem const* tags) {
   struct glgfx_monitor* monitor;
   struct glgfx_tagitem const* tag;
   Window dummy_win;
   int dummy;
 
-  if (display_name == NULL) {
-    errno = EINVAL;
-    return NULL;
-  }
-
   monitor = calloc(1, sizeof (*monitor));
 
   if (monitor == NULL) {
     errno = ENOMEM;
     return NULL;
+  }
+
+  if (display == NULL) {
+    display = XOpenDisplay(NULL);
+
+    if (display == NULL) {
+      BUG("Unable to open display '%s'.\n", XDisplayName(NULL));
+      free(monitor);
+      errno = EINVAL;
+      return NULL;
+    }
+
+    monitor->display_opened = true;
   }
 
   monitor->fullscreen = true;
@@ -221,12 +229,11 @@ struct glgfx_monitor* glgfx_monitor_create_a(char const* display_name,
     }
   }
 
-  D(BUG("Opening display %s\n", display_name));
-
   // Default error code
   errno = ENOTSUP;
 
-  monitor->name = strdup(display_name);
+  monitor->display = display;
+  monitor->name = strdup(DisplayString(monitor->display));
   monitor->xa_win_state = None;
 
   monitor->gl_extensions = g_hash_table_new(g_str_hash, g_str_equal);
@@ -237,16 +244,8 @@ struct glgfx_monitor* glgfx_monitor_create_a(char const* display_name,
     return NULL;
   }
 
-  monitor->display = XOpenDisplay(display_name);
-
-  if (monitor->display == NULL) {
-    glgfx_monitor_destroy(monitor);
-    errno = ENXIO;
-    return NULL;
-  }
-
   if (!XF86VidModeQueryExtension(monitor->display, &dummy, &dummy)) {
-    BUG("The XF86VidMode extension is missing from display %s!\n", display_name);
+    BUG("The XF86VidMode extension is missing from display %s!\n", monitor->name);
     glgfx_monitor_destroy(monitor);
     return NULL;
   }
@@ -255,7 +254,7 @@ struct glgfx_monitor* glgfx_monitor_create_a(char const* display_name,
 			      DefaultScreen(monitor->display),
 			      &monitor->dotclock,
 			      &monitor->mode)) {
-    BUG("Unable to get current mode line for display %s!\n", display_name);
+    BUG("Unable to get current mode line for display %s!\n", monitor->name);
     glgfx_monitor_destroy(monitor);
     return NULL;
   }
@@ -269,7 +268,7 @@ struct glgfx_monitor* glgfx_monitor_create_a(char const* display_name,
   if (!XF86VidModeGetMonitor(monitor->display,
 			     DefaultScreen(monitor->display),
 			     &monitor->monitor_info)) {
-    BUG("Unable to get current monitor info for display %s!\n", display_name);
+    BUG("Unable to get current monitor info for display %s!\n", monitor->name);
     glgfx_monitor_destroy(monitor);
     return NULL;
   }
@@ -291,7 +290,7 @@ struct glgfx_monitor* glgfx_monitor_create_a(char const* display_name,
   }
 
   if (!glXQueryExtension(monitor->display, NULL, NULL)) {
-    BUG("The GLX extension is missing from display %s!\n", display_name);
+    BUG("The GLX extension is missing from display %s!\n", monitor->name);
     glgfx_monitor_destroy(monitor);
     return NULL;
   }
@@ -318,7 +317,7 @@ struct glgfx_monitor* glgfx_monitor_create_a(char const* display_name,
   D(BUG("Found %d suitable FBConfigs\n", monitor->fb_configs));
 
   if (monitor->fb_configs == 0) {
-    BUG("Unable to get a sane FBConfig for display %s!\n", display_name);
+    BUG("Unable to get a sane FBConfig for display %s!\n", monitor->name);
     glgfx_monitor_destroy(monitor);
     return NULL;
   }
@@ -327,7 +326,7 @@ struct glgfx_monitor* glgfx_monitor_create_a(char const* display_name,
   monitor->vinfo = glXGetVisualFromFBConfig(monitor->display, monitor->fb_config[0]);
 
   if (monitor->vinfo == NULL) {
-    BUG("Unable to get a GL visual for display %s!\n", display_name);
+    BUG("Unable to get a GL visual for display %s!\n", monitor->name);
     glgfx_monitor_destroy(monitor);
     return NULL;
   }
@@ -343,7 +342,7 @@ struct glgfx_monitor* glgfx_monitor_create_a(char const* display_name,
   monitor->format = glgfx_pixel_getformat_a(px_tags);
 
   if (monitor->format == glgfx_pixel_format_unknown) {
-    BUG("Visual for display %s is not supported. Sorry.\n", display_name);
+    BUG("Visual for display %s is not supported. Sorry.\n", monitor->name);
     glgfx_monitor_destroy(monitor);
     return NULL;
   }
@@ -376,7 +375,7 @@ struct glgfx_monitor* glgfx_monitor_create_a(char const* display_name,
 				  &swa);
       
   if (monitor->window == 0) {
-    BUG("Unable to create a window on display %s!\n", display_name);
+    BUG("Unable to create a window on display %s!\n", monitor->name);
     glgfx_monitor_destroy(monitor);
     return NULL;
   }
@@ -387,7 +386,7 @@ struct glgfx_monitor* glgfx_monitor_create_a(char const* display_name,
 					NULL);
   
   if (monitor->glx_window == 0) {
-    BUG("Unable to create a GLX window on display %s!\n", display_name);
+    BUG("Unable to create a GLX window on display %s!\n", monitor->name);
     glgfx_monitor_destroy(monitor);
     return NULL;
   }
@@ -396,7 +395,7 @@ struct glgfx_monitor* glgfx_monitor_create_a(char const* display_name,
 
   if (monitor->main_context == NULL) {
     BUG("Unable to create a GL context for window on display %s!\n",
-	display_name);
+	monitor->name);
     glgfx_monitor_destroy(monitor);
     return NULL;
   }
@@ -536,16 +535,16 @@ void glgfx_monitor_destroy(struct glgfx_monitor* monitor) {
     D(BUG("Closed window.\n"));
   }
 
-  if (monitor->display != NULL) {
-    XCloseDisplay(monitor->display);
-    D(BUG("Closed display.\n"));
-  }
-
   if (monitor->gl_extensions != NULL) {
     g_hash_table_foreach(monitor->gl_extensions, cleanup, NULL);
     g_hash_table_destroy(monitor->gl_extensions);
   }
 
+  if (monitor->display_opened) {
+    XCloseDisplay(monitor->display);
+  }
+
+  free(monitor->name);
   free(monitor);
   D(BUG("Destroyed monitor\n"));
 

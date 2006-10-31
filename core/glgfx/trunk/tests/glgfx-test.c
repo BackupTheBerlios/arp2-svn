@@ -34,7 +34,7 @@ int main(int argc __attribute__((unused)), char** argv __attribute__((unused))) 
     return 10;
   }
 
-  struct glgfx_monitor* monitor = glgfx_monitor_create(getenv("DISPLAY"),
+  struct glgfx_monitor* monitor = glgfx_monitor_create(NULL,
 						       glgfx_tag_end);
 
   if (monitor != NULL) {

@@ -40,7 +40,7 @@ int main(int argc, char** argv) {
     return 20;
   }
 
-  monitor = glgfx_monitor_create(getenv("DISPLAY"),
+  monitor = glgfx_monitor_create(NULL,
 				 glgfx_monitor_attr_fullscreen, true,
 				 glgfx_tag_end);
 

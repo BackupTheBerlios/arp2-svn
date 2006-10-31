@@ -111,6 +111,7 @@ static enum glgfx_pixel_format format_from_visualid(struct glgfx_monitor* monito
   }
 
   printf("masks: %08lx %08lx %08lx\n", vinfo->red_mask, vinfo->green_mask, vinfo->blue_mask);
+  printf("fbconfig index: %d (inv: %d)\n", *fbconfig_index, *y_inverted);
 
   struct glgfx_tagitem const px_tags[] = {
     { glgfx_pixel_attr_rgb,       true              },
@@ -688,10 +689,10 @@ bool glgfx_bitmap_setattrs_a(struct glgfx_bitmap* bitmap,
 					   context->monitor->fb_config[bitmap->fbconfig_index],
 					   bitmap->pixmap, pixmap_attribs);      
       
-      glXBindTexImageEXT(context->monitor->display, 
-			 bitmap->glx_pixmap, 
-			 GLX_FRONT_LEFT_EXT, 
-			 NULL);
+/*       glXBindTexImageEXT(context->monitor->display, */
+/* 			 bitmap->glx_pixmap, */
+/* 			 GLX_FRONT_LEFT_EXT, */
+/* 			 NULL); */
     }
     else {
       glTexImage2D(bitmap->texture_target, 0,
