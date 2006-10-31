@@ -134,7 +134,7 @@ struct screen* create_screen(char const* display, Display* d, int s) {
   }
 
 
-  screen->monitor = glgfx_monitor_create(display,
+  screen->monitor = glgfx_monitor_create(d,
 					 glgfx_monitor_attr_xparent, screen->overlay,
 					 glgfx_monitor_attr_fullscreen, false,
 					 glgfx_tag_end);
