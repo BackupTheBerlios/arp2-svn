@@ -37,10 +37,22 @@ struct window* create_window(struct screen* screen, Window id) {
   struct window* window = calloc(sizeof *window, 1);
 
   if (window != NULL) {
+    XWindowAttributes attrs;
+
     window->screen = screen;
     window->window = id;
 
-//    printf("created window for id %x\n", (unsigned int) id);
+    XGetWindowAttributes(screen->display, id, &attrs);
+    
+    window->bitmap = glgfx_bitmap_create(
+      glgfx_bitmap_attr_width,    attrs.width,
+      glgfx_bitmap_attr_height,   attrs.height,
+      glgfx_bitmap_attr_bits,     attrs.depth,
+      glgfx_bitmap_attr_visualid, XVisualIDFromVisual(attrs.visual),
+      glgfx_bitmap_attr_pixmap,   XCompositeNameWindowPixmap(screen->display, id),
+      glgfx_tag_end);
+
+    printf("created window for id %x\n", (unsigned int) id);
   }
 
   return window;
