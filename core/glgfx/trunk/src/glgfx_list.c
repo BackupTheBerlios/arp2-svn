@@ -4,9 +4,9 @@
 #include "glgfx_intern.h"
 
 void glgfx_list_new(struct glgfx_list* list) {
-  list->tailpred = (struct glgfx_node*) list;
-  list->tail     = NULL;
   list->head     = (struct glgfx_node*) &list->tail;
+  list->tail     = NULL;
+  list->tailpred = (struct glgfx_node*) list;
 }
 
 bool glgfx_list_isempty(struct glgfx_list* list) {
@@ -68,6 +68,8 @@ void glgfx_list_enqueue(struct glgfx_list* list,
 struct glgfx_node* glgfx_list_remove(struct glgfx_node* node) {
   node->pred->succ = node->succ;
   node->succ->pred = node->pred;
+
+  node->succ = node->pred = NULL;
 
   return node;
 }
