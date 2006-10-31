@@ -160,7 +160,12 @@ struct glgfx_bitmap {
     int                     height;
     int                     bits;
     enum glgfx_pixel_format format;
+
+    Pixmap                  pixmap;
     GLXPixmap               glx_pixmap;
+    VisualID                visualid;
+    int                     fbconfig_index;
+    bool                    y_inverted;
 
     GLuint                  texture;
     GLuint                  texture_target;

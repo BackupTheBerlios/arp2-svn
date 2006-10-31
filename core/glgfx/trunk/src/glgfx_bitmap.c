@@ -26,11 +26,103 @@ static enum glgfx_pixel_format select_format(int bits,
   }
 
   if (fmt <= glgfx_pixel_format_unknown || fmt >= glgfx_pixel_format_max) {
-    abort();
+    fmt = glgfx_pixel_format_unknown;
+//    abort();
   }
 
   return fmt;
 }
+
+static enum glgfx_pixel_format format_from_visualid(struct glgfx_monitor* monitor, 
+						    VisualID id,
+						    int* fbconfig_index,
+						    bool* y_inverted) {
+  *fbconfig_index = -1;
+  *y_inverted = false;
+
+  XVisualInfo template = {
+    visualid : id
+  };
+
+  int i;
+
+  for (i = 0; i < monitor->fb_configs; ++i) {
+    XVisualInfo* visinfo = glXGetVisualFromFBConfig(monitor->display, 
+						    monitor->fb_config[i]);
+    
+    if (visinfo == NULL) {
+      continue;
+    }
+
+    if (visinfo->visualid != id) {
+      XFree(visinfo);
+      continue;
+    }
+
+    XFree(visinfo);
+
+    int value;
+    glXGetFBConfigAttrib(monitor->display, monitor->fb_config[i],
+			 GLX_DRAWABLE_TYPE, &value);
+    
+    if ((value & GLX_PIXMAP_BIT) == 0) {
+      continue;
+    }
+
+    glXGetFBConfigAttrib(monitor->display, monitor->fb_config[i],
+			 GLX_BIND_TO_TEXTURE_TARGETS_EXT, &value);
+    if ((value & GLX_TEXTURE_RECTANGLE_BIT_EXT) == 0) {
+      continue;
+    }
+
+    glXGetFBConfigAttrib(monitor->display, monitor->fb_config[i],
+                              GLX_BIND_TO_TEXTURE_RGBA_EXT, &value);
+    if (value == 0) {
+      glXGetFBConfigAttrib(monitor->display, monitor->fb_config[i],
+                                  GLX_BIND_TO_TEXTURE_RGB_EXT, &value);
+      if (value == 0) {
+	continue;
+      }
+    }
+
+    glXGetFBConfigAttrib(monitor->display, monitor->fb_config[i],
+			 GLX_Y_INVERTED_EXT, &value);
+    *y_inverted = value;
+
+    *fbconfig_index = i;
+    break;
+  }
+
+  if (*fbconfig_index == -1) {
+    BUG("Unable to find suitable FBConfig for visualid %lx\n", (long) id);
+  }
+
+  int items = 0;
+  XVisualInfo* vinfo = XGetVisualInfo(monitor->display, VisualIDMask, &template, &items);
+
+  if (vinfo == NULL) {
+    return glgfx_pixel_format_unknown;
+  }
+
+  if (items != 1) {
+    BUG("XGetVisualInfo returned more than one XVisualInfo??\n");
+    XFree(vinfo);
+    return glgfx_pixel_format_unknown;
+  }
+
+  printf("masks: %08lx %08lx %08lx\n", vinfo->red_mask, vinfo->green_mask, vinfo->blue_mask);
+
+  struct glgfx_tagitem const px_tags[] = {
+    { glgfx_pixel_attr_rgb,       true              },
+    { glgfx_pixel_attr_redmask,   vinfo->red_mask   },
+    { glgfx_pixel_attr_greenmask, vinfo->green_mask },
+    { glgfx_pixel_attr_bluemask,  vinfo->blue_mask  },
+    { glgfx_tag_end,              0                 }
+  };
+
+  return glgfx_pixel_getformat_a(px_tags);
+}
+
 
 static size_t glgfx_texture_size(int width, int height, enum glgfx_pixel_format format) {
   if (format <= glgfx_pixel_format_unknown || format >= glgfx_pixel_format_max ||
@@ -510,15 +602,29 @@ bool glgfx_bitmap_setattrs_a(struct glgfx_bitmap* bitmap,
 	recreate = true;
 	break;
 
-      case glgfx_bitmap_attr_glxpixmap:
+      case glgfx_bitmap_attr_pixmap:
 	if (bitmap->glx_pixmap != None) {
-	  glXReleaseTexImageEXT(context->monitor->display, 
-				bitmap->glx_pixmap, 
+	  glXReleaseTexImageEXT(context->monitor->display,
+				bitmap->glx_pixmap,
 				GLX_FRONT_LEFT_EXT);
+	  // TODO: DestroyGLXPixmap?
+	  bitmap->glx_pixmap = None;
 	}
 
-	bitmap->glx_pixmap = tag->data;
+	bitmap->pixmap = tag->data;
 	recreate = true;
+	break;
+
+      case glgfx_bitmap_attr_visualid:
+	// Don't recalculate format unless we have to
+	if (tag->data != (intptr_t) bitmap->visualid || 
+	    bitmap->format == glgfx_pixel_format_unknown) {
+	  bitmap->visualid = tag->data;
+	  bitmap->format = format_from_visualid(context->monitor, bitmap->visualid,
+						&bitmap->fbconfig_index,
+						&bitmap->y_inverted);
+	  recreate = true;
+	}
 	break;
 
       case glgfx_bitmap_attr_bytesperrow:
@@ -540,7 +646,8 @@ bool glgfx_bitmap_setattrs_a(struct glgfx_bitmap* bitmap,
     rc = false;
   }
 
-  if (bitmap->glx_pixmap != None && !context->monitor->have_GLX_EXT_texture_from_pixmap) {
+  if (bitmap->pixmap != None && 
+      (!context->monitor->have_GLX_EXT_texture_from_pixmap || bitmap->fbconfig_index == -1)) {
     errno = ENOTSUP;
     rc = false;
   }
@@ -575,7 +682,12 @@ bool glgfx_bitmap_setattrs_a(struct glgfx_bitmap* bitmap,
 
     glgfx_context_bindtex(context, 0, bitmap, false);
 
-    if (bitmap->glx_pixmap != None) {
+    if (bitmap->pixmap != None) {
+      int pixmap_attribs[] = { GLX_TEXTURE_TARGET_EXT, GLX_TEXTURE_RECTANGLE_EXT, None };
+      bitmap->glx_pixmap = glXCreatePixmap(context->monitor->display, 
+					   context->monitor->fb_config[bitmap->fbconfig_index],
+					   bitmap->pixmap, pixmap_attribs);      
+      
       glXBindTexImageEXT(context->monitor->display, 
 			 bitmap->glx_pixmap, 
 			 GLX_FRONT_LEFT_EXT, 
@@ -652,8 +764,12 @@ bool glgfx_bitmap_getattr(struct glgfx_bitmap* bm,
       *storage = bm->format;
       break;
 
-    case glgfx_bitmap_attr_glxpixmap: 
-      *storage = bm->glx_pixmap;
+    case glgfx_bitmap_attr_pixmap:
+      *storage = bm->pixmap;
+      break;
+
+    case glgfx_bitmap_attr_visualid:
+      *storage = bm->visualid;
       break;
 
     case glgfx_bitmap_attr_bytesperrow:
