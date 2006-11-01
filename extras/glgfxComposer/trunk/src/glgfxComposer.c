@@ -8,6 +8,7 @@
 #include <glgfx_viewport.h>
 #include <glib.h>
 #include <popt.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -28,6 +29,7 @@ struct screen {
 struct window {
     struct screen* screen;
     Window window;
+    Pixmap pixmap;
     struct glgfx_viewport* viewport;
     struct glgfx_rasinfo* rasinfo;
     struct glgfx_bitmap* bitmap;
@@ -43,15 +45,21 @@ struct window* create_window(struct screen* screen, Window id) {
     window->window = id;
 
     XGetWindowAttributes(screen->display, id, &attrs);
+
+    window->pixmap = XCompositeNameWindowPixmap(screen->display, id);
+/*     window->pixmap = XCreatePixmap(screen->display, window->window, 1000, 1000, 24); */
     
     window->bitmap = glgfx_bitmap_create(
       glgfx_bitmap_attr_width,    attrs.width,
       glgfx_bitmap_attr_height,   attrs.height,
       glgfx_bitmap_attr_bits,     attrs.depth,
+      glgfx_bitmap_attr_format,   glgfx_pixel_format_a8r8g8b8,
       glgfx_bitmap_attr_visualid, XVisualIDFromVisual(attrs.visual),
-      glgfx_bitmap_attr_pixmap,   XCompositeNameWindowPixmap(screen->display, id),
+      glgfx_bitmap_attr_pixmap,   window->pixmap,
       glgfx_tag_end);
-
+    glgfx_bitmap_destroy(window->bitmap);
+    window->bitmap = NULL;
+    
     printf("created window for id %x\n", (unsigned int) id);
   }
 
@@ -63,6 +71,14 @@ void destroy_window(struct window* window) {
     return;
   }
 
+  glgfx_bitmap_destroy(window->bitmap);
+
+  if (window->pixmap != None) {
+    XFreePixmap(window->screen->display, window->pixmap);
+  }
+
+  printf("destroyed window for id %x\n", (unsigned int) window->window);
+
   free(window);
 }
 
@@ -73,6 +89,17 @@ static void do_destroy_window(gpointer key, gpointer value, gpointer user_data) 
   destroy_window((struct window*) value);
 }
 
+void add_window(struct screen* screen, struct window* window) {
+  g_hash_table_insert(screen->windows, (void*) window->window, window);
+}
+
+void remove_window(struct screen* screen, struct window* window) {  
+  g_hash_table_remove(screen->windows, (void*) window->window);
+}
+
+struct window* find_window(struct screen* screen, Window id) {
+  return g_hash_table_lookup(screen->windows, (void*) id);
+}
 
 void destroy_screen(struct screen* screen) {
   if (screen == NULL) {
@@ -159,7 +186,8 @@ struct screen* create_screen(char const* display, Display* d, int s) {
   }
   
   
-
+  XGrabServer(d);
+  
   XCompositeRedirectSubwindows (d, screen->root, CompositeRedirectManual);
   XSelectInput (d, screen->root, SubstructureNotifyMask);
 
@@ -179,10 +207,13 @@ struct screen* create_screen(char const* display, Display* d, int s) {
       goto failed;
     }
 
-    g_hash_table_insert(screen->windows, GUINT_TO_POINTER(children[i]), window);
+    add_window(screen, window);
   }
 
   XFree(children);
+
+  XUngrabServer(d);
+
 
   return screen;
 
@@ -190,6 +221,47 @@ struct screen* create_screen(char const* display, Display* d, int s) {
   destroy_screen(screen);
   return NULL;
 }
+
+
+int handle_screen(struct screen* screen) {
+  bool quit = false;
+  int counter = 75*5;
+
+  while (!quit) {
+    while (XPending(screen->display)) {
+      XEvent xevent;
+
+      XNextEvent(screen->display, &xevent);
+
+      printf("got event type %d \n", xevent.type);
+
+      switch (xevent.type) {
+	case CreateNotify:
+	  add_window(screen, create_window(screen, xevent.xcreatewindow.window));
+	  break;
+
+	case DestroyNotify: {
+	  struct window* window = find_window(screen, xevent.xdestroywindow.window);
+
+	  if (window != NULL) {
+	    remove_window(window->screen, window);
+	    destroy_window(window);
+	  }
+	  break;
+	}
+      }
+    }
+
+    glgfx_monitor_render(screen->monitor);
+
+    if (--counter == 0) {
+      quit = true;
+    }
+  }
+
+  return 0;
+}
+
 
 
 
@@ -260,7 +332,12 @@ int main(int argc, char const** argv) {
 	else {
 	  struct screen* s = create_screen(display, d, DefaultScreen(d));
 
-	  sleep(1);
+	  if (s == NULL) {
+	    rc = 20;
+	  }
+	  else {
+//	    rc = handle_screen(s);
+	  }
 
 	  destroy_screen(s);
 	}
