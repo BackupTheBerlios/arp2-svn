@@ -789,6 +789,15 @@ bool glgfx_input_acquire(struct glgfx_monitor* monitor) {
 		 PointerMotionMask | ButtonPressMask | ButtonReleaseMask,
 		 GrabModeAsync, GrabModeAsync, None,  None, CurrentTime);
 
+    // Nuke X pointer
+    char zero[1] = { 0 };
+    XColor dummy_color;
+    Pixmap pixmap = XCreateBitmapFromData(monitor->display, monitor->window, zero, 1, 1);
+    monitor->cursor = XCreatePixmapCursor(monitor->display, pixmap, pixmap, 
+					&dummy_color, &dummy_color, 0, 0);
+    XFreePixmap(monitor->display, pixmap);
+    XDefineCursor(monitor->display, monitor->window, monitor->cursor);
+
     monitors = g_list_append(monitors, monitor);
   }
 
@@ -811,6 +820,11 @@ bool glgfx_input_release(struct glgfx_monitor* monitor) {
   }
 
   pthread_mutex_lock(&glgfx_mutex);
+
+  if (monitor->cursor != 0) {
+    XUndefineCursor(monitor->display, monitor->window);
+    XFreeCursor(monitor->display, monitor->cursor);
+  }
 
   XUngrabPointer(monitor->display, CurrentTime);
   XUngrabKeyboard(monitor->display, CurrentTime);
