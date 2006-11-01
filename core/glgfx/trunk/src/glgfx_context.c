@@ -41,7 +41,7 @@ struct glgfx_context* glgfx_context_create(struct glgfx_monitor* monitor) {
   context->monitor = monitor;
 
   context->glx_context = glXCreateNewContext(
-    monitor->display, monitor->fb_config[0], GLX_RGBA_TYPE,
+    monitor->display, monitor->fbconfig, GLX_RGBA_TYPE,
     monitor->main_context->glx_context,
     True);
 
@@ -62,7 +62,7 @@ struct glgfx_context* glgfx_context_create(struct glgfx_monitor* monitor) {
     };
 
     context->glx_pbuffer = glXCreatePbuffer(monitor->display, 
-					    monitor->fb_config[0],
+					    monitor->fbconfig,
 					    pb_attribs);
 
     if (context->glx_pbuffer == 0) {

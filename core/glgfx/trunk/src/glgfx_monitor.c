@@ -295,6 +295,13 @@ struct glgfx_monitor* glgfx_monitor_create_a(Display* display,
     return NULL;
   }
 
+  // Get a list of all available FBConfigs (used for GLX_EXT_texture_from_pixmap)
+
+  monitor->fbconfigs = glXGetFBConfigs(monitor->display, DefaultScreen(monitor->display), 
+				       &monitor->num_fbconfigs);
+
+
+  // Select one suitable FBConfig for our framebuffer
 
   static int const fb_attribs[] = { 
     GLX_RENDER_TYPE,   GLX_RGBA_BIT,
@@ -309,21 +316,24 @@ struct glgfx_monitor* glgfx_monitor_create_a(Display* display,
     None
   };
 
-  monitor->fb_config = glXChooseFBConfig(monitor->display, 
-					 DefaultScreen(monitor->display), 
-					 fb_attribs, 
-					 &monitor->fb_configs);
+  int num_configs;
+  GLXFBConfig* configs = glXChooseFBConfig(monitor->display, 
+					   DefaultScreen(monitor->display), 
+					   fb_attribs, 
+					   &num_configs);
 
-  D(BUG("Found %d suitable FBConfigs\n", monitor->fb_configs));
+  D(BUG("Found %d suitable FBConfigs\n", num_configs));
 
-  if (monitor->fb_configs == 0) {
+  if (num_configs == 0) {
     BUG("Unable to get a sane FBConfig for display %s!\n", monitor->name);
     glgfx_monitor_destroy(monitor);
     return NULL;
   }
 
+  monitor->fbconfig = configs[0];
+  XFree(configs);
 
-  monitor->vinfo = glXGetVisualFromFBConfig(monitor->display, monitor->fb_config[0]);
+  monitor->vinfo = glXGetVisualFromFBConfig(monitor->display, monitor->fbconfig);
 
   if (monitor->vinfo == NULL) {
     BUG("Unable to get a GL visual for display %s!\n", monitor->name);
@@ -381,7 +391,7 @@ struct glgfx_monitor* glgfx_monitor_create_a(Display* display,
   }
 
   monitor->glx_window = glXCreateWindow(monitor->display, 
-					monitor->fb_config[0],
+					monitor->fbconfig,
 					monitor->window,
 					NULL);
   
@@ -501,8 +511,8 @@ void glgfx_monitor_destroy(struct glgfx_monitor* monitor) {
     XFreeCursor(monitor->display, monitor->cursor);
   }
   
-  if (monitor->fb_config != NULL) {
-    XFree(monitor->fb_config);
+  if (monitor->fbconfigs != NULL) {
+    XFree(monitor->fbconfigs);
   }
 
   if (monitor->vinfo != NULL) {
@@ -680,7 +690,7 @@ struct glgfx_context* glgfx_monitor_createcontext(struct glgfx_monitor* monitor)
   context->monitor = monitor;
 
   context->glx_context = glXCreateNewContext(
-    monitor->display, monitor->fb_config[0], GLX_RGBA_TYPE,
+    monitor->display, monitor->fbconfig, GLX_RGBA_TYPE,
     monitor->friend != NULL ? monitor->friend->main_context->glx_context : NULL,
     True);
 

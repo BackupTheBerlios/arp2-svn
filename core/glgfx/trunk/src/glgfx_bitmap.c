@@ -46,9 +46,9 @@ static enum glgfx_pixel_format format_from_visualid(struct glgfx_monitor* monito
 
   int i;
 
-  for (i = 0; i < monitor->fb_configs; ++i) {
+  for (i = 0; i < monitor->num_fbconfigs; ++i) {
     XVisualInfo* visinfo = glXGetVisualFromFBConfig(monitor->display, 
-						    monitor->fb_config[i]);
+						    monitor->fbconfigs[i]);
     
     if (visinfo == NULL) {
       continue;
@@ -62,30 +62,30 @@ static enum glgfx_pixel_format format_from_visualid(struct glgfx_monitor* monito
     XFree(visinfo);
 
     int value;
-    glXGetFBConfigAttrib(monitor->display, monitor->fb_config[i],
+    glXGetFBConfigAttrib(monitor->display, monitor->fbconfigs[i],
 			 GLX_DRAWABLE_TYPE, &value);
     
     if ((value & GLX_PIXMAP_BIT) == 0) {
       continue;
     }
 
-    glXGetFBConfigAttrib(monitor->display, monitor->fb_config[i],
+    glXGetFBConfigAttrib(monitor->display, monitor->fbconfigs[i],
 			 GLX_BIND_TO_TEXTURE_TARGETS_EXT, &value);
     if ((value & GLX_TEXTURE_RECTANGLE_BIT_EXT) == 0) {
       continue;
     }
 
-    glXGetFBConfigAttrib(monitor->display, monitor->fb_config[i],
+    glXGetFBConfigAttrib(monitor->display, monitor->fbconfigs[i],
                               GLX_BIND_TO_TEXTURE_RGBA_EXT, &value);
     if (value == 0) {
-      glXGetFBConfigAttrib(monitor->display, monitor->fb_config[i],
+      glXGetFBConfigAttrib(monitor->display, monitor->fbconfigs[i],
                                   GLX_BIND_TO_TEXTURE_RGB_EXT, &value);
       if (value == 0) {
 	continue;
       }
     }
 
-    glXGetFBConfigAttrib(monitor->display, monitor->fb_config[i],
+    glXGetFBConfigAttrib(monitor->display, monitor->fbconfigs[i],
 			 GLX_Y_INVERTED_EXT, &value);
     *y_inverted = value;
 
@@ -184,6 +184,15 @@ void glgfx_bitmap_destroy(struct glgfx_bitmap* bitmap) {
     free(bitmap->buffer);
   }
   glDeleteTextures(1, &bitmap->texture);
+  
+  if (bitmap->glx_pixmap != None) {
+    glXReleaseTexImageEXT(context->monitor->display,
+			  bitmap->glx_pixmap,
+			  GLX_FRONT_LEFT_EXT);
+    glXDestroyPixmap(context->monitor->display, 
+		     bitmap->glx_pixmap);
+  }
+
   g_list_foreach(bitmap->cliprects, free_cliprect, NULL);
   free(bitmap);
 
@@ -608,6 +617,8 @@ bool glgfx_bitmap_setattrs_a(struct glgfx_bitmap* bitmap,
 	  glXReleaseTexImageEXT(context->monitor->display,
 				bitmap->glx_pixmap,
 				GLX_FRONT_LEFT_EXT);
+	  glXDestroyPixmap(context->monitor->display, 
+			   bitmap->glx_pixmap);
 	  // TODO: DestroyGLXPixmap?
 	  bitmap->glx_pixmap = None;
 	}
@@ -685,14 +696,14 @@ bool glgfx_bitmap_setattrs_a(struct glgfx_bitmap* bitmap,
 
     if (bitmap->pixmap != None) {
       int pixmap_attribs[] = { GLX_TEXTURE_TARGET_EXT, GLX_TEXTURE_RECTANGLE_EXT, None };
-      bitmap->glx_pixmap = glXCreatePixmap(context->monitor->display, 
-					   context->monitor->fb_config[bitmap->fbconfig_index],
-					   bitmap->pixmap, pixmap_attribs);      
+      bitmap->glx_pixmap = glXCreatePixmap(context->monitor->display,
+					   context->monitor->fbconfigs[bitmap->fbconfig_index],
+					   bitmap->pixmap, pixmap_attribs);
       
-/*       glXBindTexImageEXT(context->monitor->display, */
-/* 			 bitmap->glx_pixmap, */
-/* 			 GLX_FRONT_LEFT_EXT, */
-/* 			 NULL); */
+      glXBindTexImageEXT(context->monitor->display,
+			 bitmap->glx_pixmap,
+			 GLX_FRONT_LEFT_EXT,
+			 NULL);
     }
     else {
       glTexImage2D(bitmap->texture_target, 0,

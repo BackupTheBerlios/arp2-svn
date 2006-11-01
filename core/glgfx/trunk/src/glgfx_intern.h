@@ -101,8 +101,9 @@ struct glgfx_monitor {
 
     Display*                display;
     bool                    display_opened;
-    GLXFBConfig*            fb_config;
-    int                     fb_configs;
+    GLXFBConfig*            fbconfigs;
+    int                     num_fbconfigs;
+    GLXFBConfig             fbconfig;
     XVisualInfo*            vinfo;
     Window                  window;
     Window                  xparent;
