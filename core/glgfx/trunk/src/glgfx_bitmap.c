@@ -34,12 +34,13 @@ static enum glgfx_pixel_format select_format(int bits,
   return fmt;
 }
 
-static enum glgfx_pixel_format format_from_visualid(struct glgfx_monitor* monitor, 
-						    VisualID id,
-						    int* fbconfig_index,
-						    bool* y_inverted) {
-  *fbconfig_index = -1;
-  *y_inverted = false;
+static bool format_from_visualid(struct glgfx_bitmap* bitmap,
+				 struct glgfx_monitor* monitor, 
+				 VisualID id) {
+  bitmap->format         = glgfx_pixel_format_unknown;
+  bitmap->texture_format = -1;
+  bitmap->fbconfig_index = -1;
+  bitmap->y_inverted     = false;
 
   XVisualInfo template = {
     visualid : id
@@ -78,23 +79,29 @@ static enum glgfx_pixel_format format_from_visualid(struct glgfx_monitor* monito
 
     glXGetFBConfigAttrib(monitor->display, monitor->fbconfigs[i],
                               GLX_BIND_TO_TEXTURE_RGBA_EXT, &value);
-    if (value == 0) {
+    if (value != 0) {
+      bitmap->texture_format = GLX_TEXTURE_FORMAT_RGBA_EXT;
+    }
+    else {
       glXGetFBConfigAttrib(monitor->display, monitor->fbconfigs[i],
                                   GLX_BIND_TO_TEXTURE_RGB_EXT, &value);
-      if (value == 0) {
+      if (value != 0) {
+	bitmap->texture_format = GLX_TEXTURE_FORMAT_RGB_EXT;
+      }
+      else {
 	continue;
       }
     }
 
     glXGetFBConfigAttrib(monitor->display, monitor->fbconfigs[i],
 			 GLX_Y_INVERTED_EXT, &value);
-    *y_inverted = value;
+    bitmap->y_inverted = value;
 
-    *fbconfig_index = i;
+    bitmap->fbconfig_index = i;
     break;
   }
 
-  if (*fbconfig_index == -1) {
+  if (bitmap->fbconfig_index == -1) {
     BUG("Unable to find suitable FBConfig for visualid %lx\n", (long) id);
   }
 
@@ -102,17 +109,17 @@ static enum glgfx_pixel_format format_from_visualid(struct glgfx_monitor* monito
   XVisualInfo* vinfo = XGetVisualInfo(monitor->display, VisualIDMask, &template, &items);
 
   if (vinfo == NULL) {
-    return glgfx_pixel_format_unknown;
+    return false;
   }
 
   if (items != 1) {
     BUG("XGetVisualInfo returned more than one XVisualInfo??\n");
     XFree(vinfo);
-    return glgfx_pixel_format_unknown;
+    return false;
   }
 
-  printf("masks: %08lx %08lx %08lx\n", vinfo->red_mask, vinfo->green_mask, vinfo->blue_mask);
-  printf("fbconfig index: %d (inv: %d)\n", *fbconfig_index, *y_inverted);
+/*   printf("masks: %08lx %08lx %08lx\n", vinfo->red_mask, vinfo->green_mask, vinfo->blue_mask); */
+/*   printf("fbconfig index: %d (inv: %d)\n", bitmap->fbconfig_index, bitmap->y_inverted); */
 
   struct glgfx_tagitem const px_tags[] = {
     { glgfx_pixel_attr_rgb,       true              },
@@ -122,7 +129,8 @@ static enum glgfx_pixel_format format_from_visualid(struct glgfx_monitor* monito
     { glgfx_tag_end,              0                 }
   };
 
-  return glgfx_pixel_getformat_a(px_tags);
+  bitmap->format = glgfx_pixel_getformat_a(px_tags);
+  return true;
 }
 
 
@@ -624,9 +632,7 @@ bool glgfx_bitmap_setattrs_a(struct glgfx_bitmap* bitmap,
 	if (tag->data != (intptr_t) bitmap->visualid || 
 	    bitmap->format == glgfx_pixel_format_unknown) {
 	  bitmap->visualid = tag->data;
-	  bitmap->format = format_from_visualid(context->monitor, bitmap->visualid,
-						&bitmap->fbconfig_index,
-						&bitmap->y_inverted);
+	  format_from_visualid(bitmap, context->monitor, bitmap->visualid);
 	  recreate = true;
 	}
 	break;
@@ -804,11 +810,15 @@ void glgfx_bitmap_bindtex(struct glgfx_bitmap* bitmap, int channel) {
   if (bitmap->pixmap != None) {
     struct glgfx_context* context = glgfx_context_getcurrent();
 
-    int pixmap_attribs[] = { GLX_TEXTURE_TARGET_EXT, GLX_TEXTURE_RECTANGLE_EXT, None };
+    int pixmap_attribs[] = { GLX_TEXTURE_TARGET_EXT, GLX_TEXTURE_RECTANGLE_EXT,
+			     GLX_TEXTURE_FORMAT_EXT, bitmap->texture_format,
+			     None };
+
     bitmap->glx_pixmap = glXCreatePixmap(context->monitor->display,
 					 context->monitor->fbconfigs[bitmap->fbconfig_index],
 					 bitmap->pixmap, pixmap_attribs);
-      
+
+
     glXBindTexImageEXT(context->monitor->display,
 		       bitmap->glx_pixmap,
 		       GLX_FRONT_LEFT_EXT,
@@ -825,14 +835,11 @@ void glgfx_bitmap_unbindtex(struct glgfx_bitmap* bitmap, int channel, bool force
   if (bitmap->glx_pixmap != None) {
     struct glgfx_context* context = glgfx_context_getcurrent();
 
-    printf("1: bitmap->texture %s a texture\n", glIsTexture(bitmap->texture) ? "is" : "isn't");
     glXReleaseTexImageEXT(context->monitor->display,
 			  bitmap->glx_pixmap,
 			  GLX_FRONT_LEFT_EXT);
-    printf("2: bitmap->texture %s a texture\n", glIsTexture(bitmap->texture) ? "is" : "isn't");
     glXDestroyPixmap(context->monitor->display, 
 		     bitmap->glx_pixmap);
-    printf("3: bitmap->texture %s a texture\n", glIsTexture(bitmap->texture) ? "is" : "isn't");
     bitmap->glx_pixmap = None;
   }
 

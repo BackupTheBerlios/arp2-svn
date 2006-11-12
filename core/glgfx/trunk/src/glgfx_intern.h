@@ -166,6 +166,7 @@ struct glgfx_bitmap {
     Pixmap                  pixmap;
     GLXPixmap               glx_pixmap;
     VisualID                visualid;
+    int                     texture_format;
     int                     fbconfig_index;
     bool                    y_inverted;
 
