@@ -567,6 +567,7 @@ bool glgfx_bitmap_setattrs_a(struct glgfx_bitmap* bitmap,
   struct glgfx_context* context = glgfx_context_getcurrent();
   struct glgfx_tagitem const* tag;
   struct glgfx_bitmap* friend = NULL;
+  size_t bits = 0;
   bool rc = true;
   
   bool recreate = false;
@@ -614,16 +615,6 @@ bool glgfx_bitmap_setattrs_a(struct glgfx_bitmap* bitmap,
 	break;
 
       case glgfx_bitmap_attr_pixmap:
-	if (bitmap->glx_pixmap != None) {
-	  glXReleaseTexImageEXT(context->monitor->display,
-				bitmap->glx_pixmap,
-				GLX_FRONT_LEFT_EXT);
-	  glXDestroyPixmap(context->monitor->display, 
-			   bitmap->glx_pixmap);
-	  // TODO: DestroyGLXPixmap?
-	  bitmap->glx_pixmap = None;
-	}
-
 	bitmap->pixmap = tag->data;
 	recreate = true;
 	break;
@@ -695,18 +686,7 @@ bool glgfx_bitmap_setattrs_a(struct glgfx_bitmap* bitmap,
 
     glgfx_context_bindtex(context, 0, bitmap, false);
 
-    if (bitmap->pixmap != None) {
-      int pixmap_attribs[] = { GLX_TEXTURE_TARGET_EXT, GLX_TEXTURE_RECTANGLE_EXT, None };
-      bitmap->glx_pixmap = glXCreatePixmap(context->monitor->display,
-					   context->monitor->fbconfigs[bitmap->fbconfig_index],
-					   bitmap->pixmap, pixmap_attribs);
-      
-      glXBindTexImageEXT(context->monitor->display,
-			 bitmap->glx_pixmap,
-			 GLX_FRONT_LEFT_EXT,
-			 NULL);
-    }
-    else {
+    if (bitmap->pixmap == None) {
       glTexImage2D(bitmap->texture_target, 0,
 		   formats[bitmap->format].internal_format,
 		   bitmap->width, bitmap->height, 0,
@@ -820,12 +800,41 @@ void glgfx_bitmap_bindtex(struct glgfx_bitmap* bitmap, int channel) {
 
   glActiveTexture(GL_TEXTURE0 + channel * TEXUNITS_PER_CHANNEL);
   glBindTexture(bitmap->texture_target, bitmap->texture);
+
+  if (bitmap->pixmap != None) {
+    struct glgfx_context* context = glgfx_context_getcurrent();
+
+    int pixmap_attribs[] = { GLX_TEXTURE_TARGET_EXT, GLX_TEXTURE_RECTANGLE_EXT, None };
+    bitmap->glx_pixmap = glXCreatePixmap(context->monitor->display,
+					 context->monitor->fbconfigs[bitmap->fbconfig_index],
+					 bitmap->pixmap, pixmap_attribs);
+      
+    glXBindTexImageEXT(context->monitor->display,
+		       bitmap->glx_pixmap,
+		       GLX_FRONT_LEFT_EXT,
+		       NULL);
+  }
+
   GLGFX_CHECKERROR();
 }
 
 
 void glgfx_bitmap_unbindtex(struct glgfx_bitmap* bitmap, int channel, bool force) {
   assert (bitmap != NULL);
+
+  if (bitmap->glx_pixmap != None) {
+    struct glgfx_context* context = glgfx_context_getcurrent();
+
+    printf("1: bitmap->texture %s a texture\n", glIsTexture(bitmap->texture) ? "is" : "isn't");
+    glXReleaseTexImageEXT(context->monitor->display,
+			  bitmap->glx_pixmap,
+			  GLX_FRONT_LEFT_EXT);
+    printf("2: bitmap->texture %s a texture\n", glIsTexture(bitmap->texture) ? "is" : "isn't");
+    glXDestroyPixmap(context->monitor->display, 
+		     bitmap->glx_pixmap);
+    printf("3: bitmap->texture %s a texture\n", glIsTexture(bitmap->texture) ? "is" : "isn't");
+    bitmap->glx_pixmap = None;
+  }
 
   if (force) {
     glActiveTexture(GL_TEXTURE1 + channel * TEXUNITS_PER_CHANNEL);
