@@ -351,8 +351,6 @@ bool glgfx_context_unbindfbo(struct glgfx_context* context) {
 }
 
 
-#define TEXUNITS_PER_CHANNEL 2
-
 GLenum glgfx_context_bindtex(struct glgfx_context* context,
 			     int channel,
 			     struct glgfx_bitmap* bitmap,
@@ -362,38 +360,17 @@ GLenum glgfx_context_bindtex(struct glgfx_context* context,
     return 0;
   }
 
-  if (/* bitmap->has extra bitmaps*/ false) {
-    glActiveTexture(GL_TEXTURE1 + channel * TEXUNITS_PER_CHANNEL);
-
-    if (context->tex_bitmap[channel] != bitmap) {
-      /* glBindTexture(bitmap->texture_target, bitmap->secondary_texture); */
-      GLGFX_CHECKERROR();
-    }
-  }
-
-  glActiveTexture(GL_TEXTURE0 + channel * TEXUNITS_PER_CHANNEL);
-
   if (context->tex_bitmap[channel] != bitmap) {
-    glBindTexture(bitmap->texture_target, bitmap->texture);
-    GLGFX_CHECKERROR();
+    if (context->tex_bitmap[channel] != NULL) {
+      // "Unbind" (not forcing; often a no-op) the previously bound bitmap
+      glgfx_bitmap_unbindtex(context->tex_bitmap[channel], channel, false);
+    }
+
+    glgfx_bitmap_bindtex(bitmap, channel);
     context->tex_bitmap[channel] = bitmap;
   }
 
-  GLint filter =  interpolate ? GL_LINEAR : GL_NEAREST;
-  
-  if (bitmap->format == glgfx_pixel_format_r32g32b32a32f) {
-    // Currently, there's no hardware support for FP32 filtering.
-    // TODO: Detect support for it run-time?
-    filter = GL_NEAREST;
-  }
-
-  if (bitmap->texture_filter != filter) {
-    glTexParameteri(bitmap->texture_target, GL_TEXTURE_MIN_FILTER, filter);
-    glTexParameteri(bitmap->texture_target, GL_TEXTURE_MAG_FILTER, filter);
-    GLGFX_CHECKERROR();
-
-    bitmap->texture_filter = filter;
-  }
+  glgfx_bitmap_setfilter(context->tex_bitmap[channel], interpolate ? GL_LINEAR : GL_NEAREST);
 
   return GL_TEXTURE0 + channel * TEXUNITS_PER_CHANNEL;
 }
@@ -406,12 +383,7 @@ bool glgfx_context_unbindtex(struct glgfx_context* context, int channel) {
   }
 
   if (context->tex_bitmap[channel] != NULL) {
-    glActiveTexture(GL_TEXTURE1 + channel * TEXUNITS_PER_CHANNEL);
-    glBindTexture(context->tex_bitmap[channel]->texture_target, 0);
-
-    glActiveTexture(GL_TEXTURE0 + channel * TEXUNITS_PER_CHANNEL);
-    glBindTexture(context->tex_bitmap[channel]->texture_target, 0);
-
+    glgfx_bitmap_unbindtex(context->tex_bitmap[channel], channel, true);
     context->tex_bitmap[channel] = NULL;
   }
 

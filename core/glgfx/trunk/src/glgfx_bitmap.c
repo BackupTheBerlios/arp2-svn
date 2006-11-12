@@ -1,5 +1,6 @@
 
 #include "glgfx-config.h"
+#include <assert.h>
 #include <errno.h>
 #include <stdlib.h>
 #include <GL/gl.h>
@@ -804,6 +805,52 @@ bool glgfx_bitmap_getattr(struct glgfx_bitmap* bm,
 
   pthread_mutex_unlock(&glgfx_mutex);
   return rc;
+}
+
+
+void glgfx_bitmap_bindtex(struct glgfx_bitmap* bitmap, int channel) {
+  assert (bitmap != NULL);
+
+/*   if (bitmap->has extra bitmaps) { */
+/*     glActiveTexture(GL_TEXTURE1 + channel * TEXUNITS_PER_CHANNEL); */
+
+/*     glBindTexture(bitmap->texture_target, bitmap->secondary_texture); */
+/*     GLGFX_CHECKERROR(); */
+/*   } */
+
+  glActiveTexture(GL_TEXTURE0 + channel * TEXUNITS_PER_CHANNEL);
+  glBindTexture(bitmap->texture_target, bitmap->texture);
+  GLGFX_CHECKERROR();
+}
+
+
+void glgfx_bitmap_unbindtex(struct glgfx_bitmap* bitmap, int channel, bool force) {
+  assert (bitmap != NULL);
+
+  if (force) {
+    glActiveTexture(GL_TEXTURE1 + channel * TEXUNITS_PER_CHANNEL);
+    glBindTexture(bitmap->texture_target, 0);
+
+    glActiveTexture(GL_TEXTURE0 + channel * TEXUNITS_PER_CHANNEL);
+    glBindTexture(bitmap->texture_target, 0);
+  }
+}
+
+
+void glgfx_bitmap_setfilter(struct glgfx_bitmap* bitmap, GLint filter) {
+  if (bitmap->format == glgfx_pixel_format_r32g32b32a32f) {
+    // Currently, there's no hardware support for FP32 filtering.
+    // TODO: Detect support for it run-time?
+    filter = GL_NEAREST;
+  }
+
+  if (bitmap->texture_filter != filter) {
+    glTexParameteri(bitmap->texture_target, GL_TEXTURE_MIN_FILTER, filter);
+    glTexParameteri(bitmap->texture_target, GL_TEXTURE_MAG_FILTER, filter);
+    GLGFX_CHECKERROR();
+
+    bitmap->texture_filter = filter;
+  }
 }
 
 

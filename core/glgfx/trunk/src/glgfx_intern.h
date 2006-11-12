@@ -70,6 +70,7 @@ struct glgfx_bitmap;
 struct glgfx_shader;
 
 #define GLGFX_MAX_RENDER_TARGETS 4
+#define TEXUNITS_PER_CHANNEL 2
 
 struct glgfx_context {
     struct glgfx_node       node;
@@ -305,6 +306,10 @@ bool glgfx_viewport_render(struct glgfx_viewport* viewport,
 			   struct glgfx_hook* mode_hook,
 			   bool front_to_back);
 bool glgfx_sprite_render(struct glgfx_sprite* sprite);
+
+void glgfx_bitmap_setfilter(struct glgfx_bitmap* bitmap, GLint filter);
+void glgfx_bitmap_bindtex(struct glgfx_bitmap* bitmap, int channel);
+void glgfx_bitmap_unbindtex(struct glgfx_bitmap* bitmap, int channel, bool force);
 
 void glgfx_context_forget(struct glgfx_bitmap const* bitmap/* , bool unbind */);
 GLenum glgfx_context_bindtex(struct glgfx_context* context, 
