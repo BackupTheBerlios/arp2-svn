@@ -161,7 +161,6 @@ struct glgfx_bitmap {
 //    struct glgfx_monitor*   monitor;
     int                     width;
     int                     height;
-    int                     bits;
     enum glgfx_pixel_format format;
 
     Pixmap                  pixmap;

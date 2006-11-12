@@ -600,7 +600,7 @@ bool glgfx_bitmap_setattrs_a(struct glgfx_bitmap* bitmap,
 	break;
 
       case glgfx_bitmap_attr_bits:
-	bitmap->bits = tag->data;
+	bits = tag->data;
 	recreate = true;
 	break;
 
@@ -641,7 +641,7 @@ bool glgfx_bitmap_setattrs_a(struct glgfx_bitmap* bitmap,
     }
   }
 
-  bitmap->format            = select_format(bitmap->bits, friend, bitmap->format);
+  bitmap->format            = select_format(bits, friend, bitmap->format);
   bitmap->pbo_size          = glgfx_texture_size(bitmap->width, bitmap->height, bitmap->format);
   bitmap->pbo_bytes_per_row = glgfx_texture_size(bitmap->width, 1, bitmap->format);
 
