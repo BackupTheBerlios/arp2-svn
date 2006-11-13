@@ -38,15 +38,6 @@ struct window {
 
 struct window* create_window(struct screen* screen, Window id) {
   
-
-/*   printf("*** %d, %d %dx%dx%d b:%d %s\n",  */
-/* 	 attrs.x, attrs.y,  */
-/* 	 attrs.width, attrs.height, attrs.depth, */
-/* 	 attrs.border_width,  */
-/* 	 (attrs.map_state == IsViewable ? "IsViewable" :  */
-/* 	  attrs.map_state == IsUnviewable ? "IsUnviewable" : */
-/* 	  attrs.map_state == IsUnmapped ? "IsUnmapped" : "Unknown")); */
-
   struct window* window = calloc(sizeof *window, 1);
 
   if (window != NULL) {
@@ -59,6 +50,15 @@ struct window* create_window(struct screen* screen, Window id) {
       free(window);
       return NULL;
     }
+
+
+  printf("*** %d, %d %dx%dx%d b:%d %s\n",
+	 window->attrs.x, window->attrs.y,
+	 window->attrs.width, window->attrs.height, window->attrs.depth,
+	 window->attrs.border_width,
+	 (window->attrs.map_state == IsViewable ? "IsViewable" :
+	  window->attrs.map_state == IsUnviewable ? "IsUnviewable" :
+	  window->attrs.map_state == IsUnmapped ? "IsUnmapped" : "Unknown"));
 
     window->pixmap = XCompositeNameWindowPixmap(screen->display, id);
 /*     window->pixmap = XCreatePixmap(screen->display, window->window, 1000, 1000, 24); */
@@ -108,8 +108,8 @@ void add_window(struct screen* screen, struct window* window) {
   assert (window->rasinfo == NULL);
 
   window->rasinfo = glgfx_viewport_addbitmap(screen->viewport, window->bitmap,
-					     glgfx_rasinfo_attr_x, window->attrs.x,
-					     glgfx_rasinfo_attr_y, window->attrs.y,
+					     glgfx_rasinfo_attr_x, -window->attrs.x,
+					     glgfx_rasinfo_attr_y, -window->attrs.y,
 					     glgfx_tag_end);
 
   if (window->rasinfo != NULL) {
