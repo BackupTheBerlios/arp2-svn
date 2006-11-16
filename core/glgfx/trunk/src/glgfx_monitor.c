@@ -370,8 +370,10 @@ struct glgfx_monitor* glgfx_monitor_create_a(Display* display,
 				monitor->vinfo->screen);
 
   monitor->window = XCreateWindow(monitor->display,
-				  RootWindow(monitor->display,
-					     monitor->vinfo->screen),
+				  (monitor->xparent != None ? 
+				   monitor->xparent :
+				   RootWindow(monitor->display,
+					      monitor->vinfo->screen)),
 				  0, 0,
 				  monitor->mode.hdisplay,
 				  monitor->mode.vdisplay,
@@ -455,9 +457,9 @@ struct glgfx_monitor* glgfx_monitor_create_a(Display* display,
     }
   }
 
-  if (monitor->xparent != None) {
-    XReparentWindow(monitor->display, monitor->window, monitor->xparent, 0, 0);
-  }
+/*   if (monitor->xparent != None) { */
+/*     XReparentWindow(monitor->display, monitor->window, monitor->xparent, 0, 0); */
+/*   } */
 
   go_fullscreen(monitor, monitor->fullscreen);
 
