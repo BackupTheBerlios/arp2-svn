@@ -880,7 +880,7 @@ static unsigned long render_func(struct glgfx_hook* hook,
 }
 
 bool glgfx_monitor_render(struct glgfx_monitor* monitor) {
-  static const bool late_sprites = false;
+  static const bool late_sprites = true;
 
   if (monitor == NULL || monitor->view == NULL) {
     errno = EINVAL;
@@ -1001,17 +1001,15 @@ bool glgfx_monitor_render(struct glgfx_monitor* monitor) {
   glgfx_monitor_waittof(monitor);
 
   if (has_changed) {
-    glgfx_monitor_swapbuffers(monitor);
-
     if (late_sprites) {
-      glDrawBuffer(GL_FRONT);
-
       pthread_mutex_lock(&glgfx_mutex);
       glgfx_view_rendersprites(monitor->view);
       pthread_mutex_unlock(&glgfx_mutex);
     }
 
     glDisable(GL_BLEND);
+
+    glgfx_monitor_swapbuffers(monitor);
   }
 
   return true;
