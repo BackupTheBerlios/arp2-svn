@@ -464,13 +464,6 @@ struct glgfx_monitor* glgfx_monitor_create_a(Display* display,
   go_fullscreen(monitor, monitor->fullscreen);
 
   XMapRaised(monitor->display, monitor->window);
-  XSelectInput(monitor->display, monitor->window,
-	       (ButtonPressMask |
-		ButtonReleaseMask |
-		ButtonMotionMask |
-		PointerMotionMask |
-		KeyPressMask |
-		KeyReleaseMask));
   XFlush(monitor->display);
 
   XQueryPointer(monitor->display, monitor->window, &dummy_win, &dummy_win,
