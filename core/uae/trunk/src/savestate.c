@@ -47,7 +47,6 @@
 #include "sysconfig.h"
 #include "sysdeps.h"
 
-#include "config.h"
 #include "options.h"
 #include "memory.h"
 #include "zfile.h"
@@ -59,6 +58,7 @@
 #include "uae.h"
 #include "gui.h"
 #include "audio.h"
+#include "version.h"
 
 #ifndef _WIN32
 #define console_out printf

@@ -1,8 +1,8 @@
- /* 
+ /*
   * UAE - The Un*x Amiga Emulator
-  * 
+  *
   * Support for Linux/ALSA sound
-  * 
+  *
   * Copyright 1997 Bernd Schmidt
   * Copyright 2004 Heikki Orsila
   * Copyright 2006 Richard Drummond
@@ -16,7 +16,6 @@
 #include "sysconfig.h"
 #include "sysdeps.h"
 
-#include "config.h"
 #include "options.h"
 #include "memory.h"
 #include "events.h"
@@ -26,9 +25,10 @@
 
 #include <alsa/asoundlib.h>
 
-int sound_fd;
+char alsa_device[256];
+int  alsa_verbose;
+
 static int have_sound = 0;
-static unsigned long formats;
 
 uae_u16 sndbuffer[44100];
 uae_u16 *sndbufpt;
@@ -36,7 +36,7 @@ int sndbufsize;
 static int obtainedfreq;
 
 snd_pcm_t *alsa_playback_handle = 0;
-int alsa_to_frames_divisor = 4;
+int bytes_per_frame;
 
 void update_sound (int freq)
 {
@@ -69,7 +69,7 @@ void close_sound (void)
 
 static int open_sound(void)
 {
-  return snd_pcm_open (&alsa_playback_handle, "default", SND_PCM_STREAM_PLAYBACK, 0);
+  return snd_pcm_open (&alsa_playback_handle, alsa_device, SND_PCM_STREAM_PLAYBACK, 0);
 }
 
 /* Try to determine whether sound is available.  This is only for GUI purposes.  */
@@ -90,128 +90,185 @@ int setup_sound (void)
   return 1;
 }
 
+static int set_hw_params(snd_pcm_t *pcm,
+			 snd_pcm_hw_params_t *hw_params,
+			 unsigned int *rate,
+			 unsigned int channels,
+			 snd_pcm_format_t format,
+			 unsigned int *buffer_time,
+			 snd_pcm_uframes_t *buffer_frames,
+			 snd_pcm_uframes_t *period_frames)
+{
+    int err;
+    unsigned int periods = 2;
+
+    err = snd_pcm_hw_params_any (pcm, hw_params);
+    if (err < 0)
+	return err;
+    err = snd_pcm_hw_params_set_access (pcm, hw_params, SND_PCM_ACCESS_RW_INTERLEAVED);
+    if (err < 0)
+	return err;
+    err = snd_pcm_hw_params_set_format (pcm, hw_params, format);
+    if (err < 0)
+	return err;
+    err = snd_pcm_hw_params_set_channels (pcm, hw_params, channels);
+    if (err < 0)
+	return err;
+    err = snd_pcm_hw_params_set_rate_near (pcm, hw_params, rate, 0);
+    if (err < 0)
+	return err;
+    err = snd_pcm_hw_params_set_buffer_time_near (pcm, hw_params, buffer_time, NULL);
+    if (err < 0)
+	return err;
+    snd_pcm_hw_params_get_buffer_size (hw_params, buffer_frames);
+    err = snd_pcm_hw_params_set_periods_near (pcm, hw_params, &periods, NULL);
+    if (err < 0)
+       return err;
+    if (periods == 1)
+	return -EINVAL;
+    err = snd_pcm_hw_params(pcm, hw_params);
+
+    snd_pcm_hw_params_get_period_size (hw_params, period_frames, NULL);
+    return 0;
+}
+
+static int set_sw_params(snd_pcm_t *pcm,
+			 snd_pcm_sw_params_t *sw_params,
+			 snd_pcm_uframes_t buffer_frames,
+			 snd_pcm_uframes_t period_frames)
+{
+    int err;
+
+    err = snd_pcm_sw_params_current (pcm, sw_params);
+    if (err < 0)
+	return err;
+    err = snd_pcm_sw_params_set_start_threshold(pcm, sw_params, (buffer_frames / period_frames) * period_frames);
+    if (err < 0)
+	return err;
+    err = snd_pcm_sw_params_set_avail_min(pcm, sw_params, period_frames);
+    if (err < 0)
+	return err;
+    err = snd_pcm_sw_params_set_stop_threshold(pcm, sw_params, buffer_frames);
+    if (err < 0)
+	return err;
+    err = snd_pcm_sw_params_set_xfer_align(pcm, sw_params, 1);
+    if (err < 0)
+	return err;
+    err = snd_pcm_sw_params(pcm, sw_params);
+    if (err < 0)
+	return err;
+    return 0;
+}
+
 int init_sound (void)
 {
-  unsigned int rate;
-  unsigned int dspbits;
-  snd_pcm_format_t alsamode;
-  unsigned int channels;
-  int err;
-  snd_pcm_hw_params_t *hw_params;
-  snd_pcm_uframes_t period_frames;
-  unsigned int periods;
+    unsigned int rate;
+    snd_pcm_format_t format;
+    unsigned int channels;
+    unsigned int dspbits;
 
-  dspbits = currprefs.sound_bits;
-  channels = currprefs.sound_stereo ? 2 : 1;
-  rate    = currprefs.sound_freq;
+    snd_pcm_hw_params_t *hw_params = 0;
+    snd_pcm_sw_params_t *sw_params = 0;
+    snd_pcm_uframes_t    buffer_frames;
+    snd_pcm_uframes_t    period_frames;
+    unsigned int         buffer_time;
 
-  have_sound = 0;
-  alsa_playback_handle = 0;
-  if ((err = open_sound()) < 0) {
-    write_log ("Cannot open audio device: %s\n", snd_strerror (err));
-    goto nosound;
-  }
+    snd_output_t *alsa_out;
 
-  if (currprefs.sound_maxbsiz < 128 || currprefs.sound_maxbsiz > 16384) {
-    write_log ("Sound buffer size %d out of range.\n", currprefs.sound_maxbsiz);
-    currprefs.sound_maxbsiz = 8192;
-  }
-  sndbufsize = currprefs.sound_maxbsiz;
+    int err;
 
-  if ((err = snd_pcm_hw_params_malloc (&hw_params)) < 0) {
-    write_log ("Cannot allocate hardware parameter structure: %s.\n", snd_strerror (err));
-    goto nosound;
-  }
+    snd_output_stdio_attach (&alsa_out, stderr, 0);
 
-  if ((err = snd_pcm_hw_params_any (alsa_playback_handle, hw_params)) < 0) {
-    write_log ("Cannot initialize hardware parameter structure: %s.\n", snd_strerror (err));
-    goto nosound;
-  }
+    dspbits  = currprefs.sound_bits;
+    channels = currprefs.sound_stereo ? 2 : 1;
+    rate     = currprefs.sound_freq;
 
-  if ((err = snd_pcm_hw_params_set_access (alsa_playback_handle, hw_params, SND_PCM_ACCESS_RW_INTERLEAVED)) < 0) {
-    write_log ("Cannot set access type: %s.\n", snd_strerror (err));
-    goto nosound;
-  }
+    have_sound = 0;
+    alsa_playback_handle = 0;
+    if ((err = open_sound()) < 0) {
+	write_log ("Cannot open audio device: %s\n", snd_strerror (err));
+	goto nosound;
+    }
 
-  switch (dspbits) {
-  case 8:
-    alsamode = SND_PCM_FORMAT_S8;
-    break;
-  case 16:
-    alsamode = SND_PCM_FORMAT_S16;
-    break;
-  default:
-    write_log ("%d-bit samples not supported by UAE.\n", dspbits);
-    goto nosound;
-  }
+    buffer_time = currprefs.sound_latency * 1000;
+    if (buffer_time < 1000 || buffer_time > 500000)
+	buffer_time = 100000;
 
-  if ((err = snd_pcm_hw_params_set_format (alsa_playback_handle, hw_params, alsamode)) < 0) {
-    write_log ("Cannot set sample format: %s.\n", snd_strerror (err));
-    goto nosound;
-  }
+    if ((err = snd_pcm_hw_params_malloc (&hw_params)) < 0) {
+	write_log ("Cannot allocate hardware parameter structure: %s.\n", snd_strerror (err));
+	goto nosound;
+    }
+    if ((err = snd_pcm_sw_params_malloc (&sw_params)) < 0) {
+	write_log ("Cannot allocate software parameter structure: %s.\n", snd_strerror (err));
+	goto nosound;
+    }
 
-  if ((err = snd_pcm_hw_params_set_channels (alsa_playback_handle, hw_params, channels)) < 0) {
-    write_log ("Cannot set channel count: %s.\n", snd_strerror (err));
-    goto nosound;
-  }
+    switch (dspbits) {
+	case 8:
+	    format = SND_PCM_FORMAT_S8;
+	    break;
+	case 16:
+	    format = SND_PCM_FORMAT_S16;
+	    break;
+	default:
+	    write_log ("%d-bit samples not supported by UAE.\n", dspbits);
+	    goto nosound;
+    }
 
-  if ((err = snd_pcm_hw_params_set_rate_near (alsa_playback_handle, hw_params, &rate, 0)) < 0) {
-    write_log ("Cannot set sample rate: %s.\n", snd_strerror (err));
-    goto nosound;
-  }
-      
-  alsa_to_frames_divisor = channels * dspbits / 8;
-  period_frames = sndbufsize / alsa_to_frames_divisor;
-  if ((err = snd_pcm_hw_params_set_period_size_near (alsa_playback_handle, hw_params, &period_frames, 0)) < 0) {
-    write_log ("Cannot set period size near: %s.\n", snd_strerror (err));
-    goto nosound;
-  }
-  sndbufsize = period_frames * alsa_to_frames_divisor;
+    bytes_per_frame = dspbits / 8 * channels;
 
-  periods = 2;
-  if ((err = snd_pcm_hw_params_set_periods_near (alsa_playback_handle, hw_params, &periods, 0)) < 0) {
-    write_log ("Cannot set periods near: %s.\n", snd_strerror (err));
-    goto nosound;
-  }
+    if ((err = set_hw_params (alsa_playback_handle, hw_params, &rate, channels, format, &buffer_time, &buffer_frames, &period_frames)) < 0) {
+	write_log ("Cannot set hw parameters: %s.\n", snd_strerror (err));
+	goto nosound;
+    }
 
-  if ((err = snd_pcm_hw_params (alsa_playback_handle, hw_params)) < 0) {
-    write_log ("Cannot set parameters: %s.\n", snd_strerror (err));
-    goto nosound;
-  }
-      
-  snd_pcm_hw_params_free (hw_params);
-      
-  if ((err = snd_pcm_prepare (alsa_playback_handle)) < 0) {
-    write_log ("Cannot prepare audio interface for use: %s.\n", snd_strerror (err));
-    goto nosound;
-  }
+    if ((err = set_sw_params (alsa_playback_handle, sw_params, buffer_frames, period_frames)) < 0) {
+	write_log ("Cannot set sw parameters: %s.\n", snd_strerror (err));
+	goto nosound;
+    }
 
-  update_sound(vblank_hz );
-  obtainedfreq = currprefs.sound_freq;
-  
-  if (dspbits == 16) {
-    init_sound_table16 ();
-    sample_handler = currprefs.sound_stereo ? sample16s_handler : sample16_handler;
-  } else {
-    init_sound_table8 ();
-    sample_handler = currprefs.sound_stereo ? sample8s_handler : sample8_handler;
-  }
-  have_sound = 1;
-  sound_available = 1;
-  write_log ("Sound driver found and configured for %d bits at %d Hz, buffer is %d bytes\n", dspbits, rate, sndbufsize);
+    sndbufsize = period_frames * bytes_per_frame;
+    snd_pcm_hw_params_free (hw_params);
+    snd_pcm_sw_params_free (sw_params);
 
-  sndbufpt = sndbuffer;
+    if ((err = snd_pcm_prepare (alsa_playback_handle)) < 0) {
+	write_log ("Cannot prepare audio interface for use: %s.\n", snd_strerror (err));
+	goto nosound;
+    }
 
-#ifdef FRAME_RATE_HACK
-  vsynctime = vsynctime * 9 / 10;
-#endif
+    update_sound(vblank_hz );
+    obtainedfreq = currprefs.sound_freq;
 
-  return 1;
+    if (dspbits == 16) {
+	init_sound_table16 ();
+	sample_handler = currprefs.sound_stereo ? sample16s_handler : sample16_handler;
+    } else {
+	init_sound_table8 ();
+	sample_handler = currprefs.sound_stereo ? sample8s_handler : sample8_handler;
+    }
+    have_sound = 1;
+    sound_available = 1;
+
+    write_log ("ALSA: Using device '%s'.\n", alsa_device);
+    write_log ("ALSA: Sound configured for %d bits at %d Hz. Buffer length is %u us, period size %d bytes.\n",
+	       dspbits, rate, buffer_time, period_frames * bytes_per_frame);
+
+    if (alsa_verbose)
+	snd_pcm_dump (alsa_playback_handle, alsa_out);
+
+    sndbufpt = sndbuffer;
+
+    return 1;
 
  nosound:
-  have_sound = 0;
-  close_sound();
-  return 0;
+    have_sound = 0;
+    if (hw_params)
+	snd_pcm_hw_params_free (hw_params);
+    if (sw_params)
+	snd_pcm_sw_params_free (sw_params);
+
+    close_sound ();
+    return 0;
 }
 
 void reset_sound (void)
@@ -232,4 +289,25 @@ void resume_sound (void)
 
 void sound_volume (int dir)
 {
+}
+
+/*
+ * Handle audio specific cfgfile options
+ */
+void audio_default_options (struct uae_prefs *p)
+{
+    strncpy (alsa_device, "default", 256);
+    alsa_verbose = 0;
+}
+
+void audio_save_options (FILE *f, const struct uae_prefs *p)
+{
+    cfgfile_write (f, "alsa.device=%s\n", alsa_device);
+    cfgfile_write (f, "alsa.verbose=%s\n", alsa_verbose ? "true" : "false");    
+}
+
+int audio_parse_option (struct uae_prefs *p, const char *option, const char *value)
+{
+    return (cfgfile_string (option, value, "device",   alsa_device, 256)
+	 || cfgfile_yesno  (option, value, "verbose", &alsa_verbose));
 }

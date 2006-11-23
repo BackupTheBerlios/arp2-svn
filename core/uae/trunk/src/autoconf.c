@@ -10,7 +10,6 @@
 #include "sysconfig.h"
 #include "sysdeps.h"
 
-#include "config.h"
 #include "options.h"
 #include "uae.h"
 #include "memory.h"
@@ -19,6 +18,7 @@
 #include "newcpu.h"
 #include "autoconf.h"
 #include "traps.h"
+#include "version.h"
 
 /* Commonly used autoconfig strings */
 
@@ -135,7 +135,7 @@ void dl (uae_u32 data)
  * backward.  store pointer at current address
  */
 
-uae_u32 ds (char *str)
+uae_u32 ds (const char *str)
 {
     int len = strlen (str) + 1;
 

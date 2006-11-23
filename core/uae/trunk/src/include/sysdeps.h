@@ -482,7 +482,7 @@ extern void write_log (const char *, ...) __attribute__ ((format (printf, 1, 2))
 extern void write_log (const char *, ...);
 #endif
 extern void flush_log (void);
-extern void write_dlog (const char *, ...);
+extern void set_logfile_standard (const char *logfile_name);
 
 extern void console_out (const char *, ...);
 extern void console_flush (void);

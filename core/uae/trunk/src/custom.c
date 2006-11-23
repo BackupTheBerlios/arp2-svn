@@ -23,7 +23,6 @@
 #include <ctype.h>
 #include <assert.h>
 
-#include "config.h"
 #include "options.h"
 #include "uae.h"
 #include "gensound.h"
@@ -31,6 +30,7 @@
 #include "events.h"
 #include "memory.h"
 #include "custom.h"
+#include "custom_private.h"
 #include "newcpu.h"
 #include "cia.h"
 #include "disk.h"
@@ -386,13 +386,18 @@ STATIC_INLINE unsigned int current_hpos (void)
 
 STATIC_INLINE uae_u8 *pfield_xlateptr (uaecptr plpt, int bytecount)
 {
-    if (!chipmem_bank.check (plpt, bytecount)) {
+    plpt -= chipmem_start & chipmem_mask;
+    plpt &= chipmem_mask;
+    if ((plpt + bytecount) <= allocated_chipmem)
+	return chipmemory + plpt;
+    else {
 	static int count = 0;
-	if (!count)
-	    count++, write_log ("Warning: Bad playfield pointer\n");
-	return NULL;
+	if (!count) {
+	    count++;
+	    write_log ("Warning: Bad playfield pointer\n");
+	}
+	return 0;
     }
-    return chipmem_bank.xlateaddr (plpt);
 }
 
 STATIC_INLINE void docols (struct color_entry *colentry)
@@ -1194,13 +1199,13 @@ STATIC_INLINE void long_fetch_aga (int plane, int nwords, int weird_number_of_bi
 }
 #endif
 
-static void long_fetch_ecs_0 (int hpos, int nwords, int dma) { long_fetch_ecs (hpos, nwords, 0, dma); }
-static void long_fetch_ecs_1 (int hpos, int nwords, int dma) { long_fetch_ecs (hpos, nwords, 1, dma); }
+static void NOINLINE long_fetch_ecs_0 (int hpos, int nwords, int dma) { long_fetch_ecs (hpos, nwords, 0, dma); }
+static void NOINLINE long_fetch_ecs_1 (int hpos, int nwords, int dma) { long_fetch_ecs (hpos, nwords, 1, dma); }
 #ifdef AGA
-static void long_fetch_aga_1_0 (int hpos, int nwords, int dma) { long_fetch_aga (hpos, nwords, 0, 1, dma); }
-static void long_fetch_aga_1_1 (int hpos, int nwords, int dma) { long_fetch_aga (hpos, nwords, 1, 1, dma); }
-static void long_fetch_aga_2_0 (int hpos, int nwords, int dma) { long_fetch_aga (hpos, nwords, 0, 2, dma); }
-static void long_fetch_aga_2_1 (int hpos, int nwords, int dma) { long_fetch_aga (hpos, nwords, 1, 2, dma); }
+static void NOINLINE long_fetch_aga_1_0 (int hpos, int nwords, int dma) { long_fetch_aga (hpos, nwords, 0, 1, dma); }
+static void NOINLINE long_fetch_aga_1_1 (int hpos, int nwords, int dma) { long_fetch_aga (hpos, nwords, 1, 1, dma); }
+static void NOINLINE long_fetch_aga_2_0 (int hpos, int nwords, int dma) { long_fetch_aga (hpos, nwords, 0, 2, dma); }
+static void NOINLINE long_fetch_aga_2_1 (int hpos, int nwords, int dma) { long_fetch_aga (hpos, nwords, 1, 2, dma); }
 #endif
 
 static void do_long_fetch (int hpos, int nwords, int dma, int fm)
@@ -3421,7 +3426,7 @@ static int isagnus[]= {
     0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 };
 
-static void dump_copper (char *error, unsigned int until_hpos)
+static void dump_copper (const char *error, unsigned int until_hpos)
 {
     static int warned = 10;
 
@@ -4643,7 +4648,8 @@ static int allocate_sprite_tables (void)
     return 1;
 }
 
-uae_u32 mousehack_helper (TrapContext *);
+/* FIXME */
+extern uae_u32 REGPARAM2 mousehack_helper (struct TrapContext *);
 
 int custom_init (void)
 {

@@ -29,8 +29,8 @@ guint cputypepanel_get_type ()
     static guint cputypepanel_type = 0;
 
     if (!cputypepanel_type) {
-	GtkTypeInfo cputypepanel_info = {
-	    "CpuTypePanel",
+	static const GtkTypeInfo cputypepanel_info = {
+	    (char *) "CpuTypePanel",
 	    sizeof (CpuTypePanel),
 	    sizeof (CpuTypePanelClass),
 	    (GtkClassInitFunc) cputypepanel_class_init,
@@ -50,7 +50,7 @@ enum {
     LAST_SIGNAL
 };
 
-static gint cputypepanel_signals[LAST_SIGNAL] = { 0 };
+static guint cputypepanel_signals[LAST_SIGNAL];
 
 static void cputypepanel_class_init (CpuTypePanelClass *class)
 {
@@ -59,7 +59,7 @@ static void cputypepanel_class_init (CpuTypePanelClass *class)
 				   cputypepanel_signals,
 				   "cputype-changed",
 				   "addr24bit-changed",
-				   0);
+				   (void*)0);
     class->cputypepanel = NULL;
 }
 

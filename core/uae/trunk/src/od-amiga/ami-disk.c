@@ -53,8 +53,8 @@
 
 /****************************************************************************/
 
-char *amiga_dev_path  = "DEV:";
-char *ixemul_dev_path = "/dev/";
+const char *amiga_dev_path  = "DEV:";
+const char *ixemul_dev_path = "/dev/";
 
 int readdevice (char *name, char *dst);
 void initpseudodevices (void);
@@ -65,13 +65,13 @@ static void myDoIO(struct IOStdReq *ioreq, LONG CMD, LONG FLAGS, LONG OFFSET,
 
 /****************************************************************************/
 
-static char *pseudo_dev_path = "T:DEV";
+static const char *pseudo_dev_path = "T:DEV";
 
 static char pseudo_dev_created  = 0;
 static char pseudo_dev_assigned = 0;
 static char dfx_done[4];
 
-static int device_exists(char *device_name, int device_unit);
+static int device_exists (const char *device_name, int device_unit);
 static int dev_inhibit(char *dev,int on);
 static void set_req(int ok);
 
@@ -176,7 +176,7 @@ static void set_req(int ok)
 /*
  * checks if a device exists
  */
-static int device_exists(char *device_name, int device_unit)
+static int device_exists (const char *device_name, int device_unit)
 {
     struct IOStdReq *ioreq  = NULL;
     struct MsgPort  *port   = NULL;
@@ -373,8 +373,8 @@ static void myDoIO(struct IOStdReq *ioreq, LONG CMD, LONG FLAGS, LONG OFFSET,
  */
 static int dev_inhibit (char *dev, int on)
 {
-    unsigned char   buff[10];
-    unsigned char  *s;
+    char  buff[10];
+    char *s;
     struct MsgPort *DevPort;
 
     if (!*dev)

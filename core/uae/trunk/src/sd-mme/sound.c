@@ -1,15 +1,15 @@
- /* 
+ /*
   * UAE - The Un*x Amiga Emulator
-  * 
+  *
   * Support for Digital Unix/MME
-  * 
+  *
   * Copyright 1997 Marcus Sundberg
   */
 
 #define MME_SOUND_C
 #include "sysconfig.h"
 #include "sysdeps.h"
-#include "config.h"
+
 #include "options.h"
 #include "memory.h"
 #include "events.h"
@@ -89,15 +89,15 @@ int init_sound (void)
 	fprintf(stderr, "Sound buffer size %d out of range.\n", currprefs.sound_maxbsiz);
 	currprefs.sound_maxbsiz = 8192;
     }
-    
+
     sndbufsize = currprefs.sound_maxbsiz;
 
     dspbits = currprefs.sound_bits;
 
     rate = currprefs.sound_freq;
-    
+
     channels = 1;
-    
+
     if((waveformat = (LPPCMWAVEFORMAT)
 	mmeAllocMem(sizeof(PCMWAVEFORMAT))) == NULL ) {
 	fprintf(stderr, "Failed to allocate PCMWAVEFORMAT struct\n");
@@ -107,13 +107,13 @@ int init_sound (void)
     waveformat->wf.nChannels = channels;
     waveformat->wBitsPerSample = dspbits;
     waveformat->wf.wFormatTag = WAVE_FORMAT_PCM;
-   
+
     bytes_per_sample = waveformat->wf.nChannels *
 	(waveformat->wBitsPerSample/8);
     waveformat->wf.nBlockAlign = bytes_per_sample;
     waveformat->wf.nAvgBytesPerSec = bytes_per_sample *
 	waveformat->wf.nSamplesPerSec;
-   
+
     /* Open the audio device with desired rate/format */
     status = waveOutOpen( &mme_handle,
 			  WAVE_MAPPER,
@@ -122,12 +122,12 @@ int init_sound (void)
 			  (unsigned int)NULL,
 			  CALLBACK_FUNCTION | WAVE_OPEN_SHAREABLE );
     mmeFreeMem(waveformat);
-   
+
     if(status != MMSYSERR_NOERROR) {
 	fprintf(stderr, "waveOutOpen failed - status = %d\n", status);
 	return 0;
     }
-   
+
     /* Allocate wave header for use in write */
     if((WaveHeader = (LPWAVEHDR)
 	mmeAllocMem(sizeof(WAVEHDR))) == NULL ) {
@@ -179,4 +179,20 @@ __inline__ void check_sound_buffers (void)
     if (waveOutWrite(mme_handle, WaveHeader,
 		     sizeof(WAVEHDR)) == MMSYSERR_NOERROR)
 	mme_free_bufs++;
+}
+
+/*
+ * Handle audio specific cfgfile options
+ */
+void audio_default_options (struct uae_prefs *p)
+{
+}
+
+void audio_save_options (FILE *f, const struct uae_prefs *p)
+{
+}
+
+int audio_parse_option (struct uae_prefs *p, const char *option, const char *value)
+{
+    return 0;
 }

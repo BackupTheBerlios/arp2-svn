@@ -273,7 +273,7 @@ extern void chipmem_bput_ce2 (uaecptr, uae_u32) REGPARAM;
 #define MAPPED_MALLOC_FAILED   ((uae_u8*) -1)
 #define MAPPED_MALLOC_UNKNOWN  ((uae_u32) -1)
 
-extern uae_u8 *mapped_malloc (size_t, char *, uae_u32);
+extern uae_u8 *mapped_malloc (size_t, const char *, uae_u32);
 extern void mapped_free (uae_u8 *);
 extern void clearexec (void);
 extern void mapkick (void);

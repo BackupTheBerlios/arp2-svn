@@ -137,7 +137,7 @@ static int enforcer_decode_hunk_and_offset (char *buf, uae_u32 pc)
 
 		if (pc >= address && pc < address + size) {
 		    uae_u32 name, offset;
-		    char *native_name;
+		    const char *native_name;
 
 		    offset = pc - address - 4;
 		    name = get_long (node + 8); /* ln_Name */
@@ -170,7 +170,7 @@ static void enforcer_display_hit (const char *addressmode, uae_u32 pc, uaecptr a
     uae_u32 sysbase;
     uae_u32 this_task;
     uae_u32 task_name;
-    char *native_task_name;
+    const char *native_task_name;
     int i, j;
     static char buf[256], instrcode[256];
     static char lines[INSTRUCTIONLINES/2][256];

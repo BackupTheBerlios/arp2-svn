@@ -75,9 +75,11 @@ noinst_HEADERS = \
 	include/blitter.h	include/blkdev.h	\
 	include/blomcall.h				\
 	include/bsdsocket.h 	include/caps.h		\
-	include/catweasel.h	include/cia.h		\
+	include/catweasel.h     include/cdrom.h         \
+	include/cia.h		                        \
 	include/commpipe.h	include/compemu.h	\
 	include/cpu_prefetch.h  include/custom.h	\
+	include/custom_private.h                        \
 	include/crc32.h					\
 	include/debug.h		include/disk.h 		\
 	include/drawing.h 	include/driveclick.h	\
@@ -102,6 +104,7 @@ noinst_HEADERS = \
 	include/traps.h                                 \
 	include/tui.h		include/uae.h		\
 	include/uaeexe.h	include/unzip.h		\
+	include/version.h                               \
 	include/xwin.h		include/zfile.h		\
 	targets/t-amiga.h	targets/t-beos.h        \
 	targets/t-unix.h

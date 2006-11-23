@@ -10,7 +10,6 @@
 #include "sysconfig.h"
 #include "sysdeps.h"
 
-#include "config.h"
 #include "options.h"
 #include "machdep/m68k.h"
 
@@ -22,11 +21,11 @@ void machdep_init (void)
 /*
  * Handle processor-specific cfgfile options
  */
-void machdep_save_options (FILE *f, struct uae_prefs *p)
+void machdep_save_options (FILE *f, const struct uae_prefs *p)
 {
 }
 
-int machdep_parse_option (struct uae_prefs *p, char *option, char *value)
+int machdep_parse_option (struct uae_prefs *p, const char *option, const char *value)
 {
     return 0;
 }

@@ -33,7 +33,6 @@
 #include <ctype.h>
 #include <assert.h>
 
-#include "config.h"
 #include "options.h"
 #include "threaddep/thread.h"
 #include "uae.h"
@@ -799,19 +798,19 @@ STATIC_INLINE void draw_sprites_1 (struct sprite_entry *e, int ham, int dualpf,
 /* See comments above.  Do not touch if you don't know what's going on.
  * (We do _not_ want the following to be inlined themselves).  */
 /* lores bitplane, lores sprites */
-static void draw_sprites_normal_sp_lo_nat (struct sprite_entry *e) { draw_sprites_1	(e, 0, 0, 0, 0, 0, 0); }
-static void draw_sprites_normal_dp_lo_nat (struct sprite_entry *e) { draw_sprites_1	(e, 0, 1, 0, 0, 0, 0); }
-static void draw_sprites_ham_sp_lo_nat (struct sprite_entry *e) { draw_sprites_1	(e, 1, 0, 0, 0, 0, 0); }
-static void draw_sprites_normal_sp_lo_at (struct sprite_entry *e) { draw_sprites_1	(e, 0, 0, 0, 0, 1, 0); }
-static void draw_sprites_normal_dp_lo_at (struct sprite_entry *e) { draw_sprites_1	(e, 0, 1, 0, 0, 1, 0); }
-static void draw_sprites_ham_sp_lo_at (struct sprite_entry *e) { draw_sprites_1		(e, 1, 0, 0, 0, 1, 0); }
+static void NOINLINE draw_sprites_normal_sp_lo_nat (struct sprite_entry *e) { draw_sprites_1	(e, 0, 0, 0, 0, 0, 0); }
+static void NOINLINE draw_sprites_normal_dp_lo_nat (struct sprite_entry *e) { draw_sprites_1	(e, 0, 1, 0, 0, 0, 0); }
+static void NOINLINE draw_sprites_ham_sp_lo_nat (struct sprite_entry *e) { draw_sprites_1	(e, 1, 0, 0, 0, 0, 0); }
+static void NOINLINE draw_sprites_normal_sp_lo_at (struct sprite_entry *e) { draw_sprites_1	(e, 0, 0, 0, 0, 1, 0); }
+static void NOINLINE draw_sprites_normal_dp_lo_at (struct sprite_entry *e) { draw_sprites_1	(e, 0, 1, 0, 0, 1, 0); }
+static void NOINLINE draw_sprites_ham_sp_lo_at (struct sprite_entry *e) { draw_sprites_1		(e, 1, 0, 0, 0, 1, 0); }
 /* hires bitplane, lores sprites */
-static void draw_sprites_normal_sp_hi_nat (struct sprite_entry *e) { draw_sprites_1	(e, 0, 0, 1, 0, 0, 0); }
-static void draw_sprites_normal_dp_hi_nat (struct sprite_entry *e) { draw_sprites_1	(e, 0, 1, 1, 0, 0, 0); }
-static void draw_sprites_ham_sp_hi_nat (struct sprite_entry *e) { draw_sprites_1	(e, 1, 0, 1, 0, 0, 0); }
-static void draw_sprites_normal_sp_hi_at (struct sprite_entry *e) { draw_sprites_1	(e, 0, 0, 1, 0, 1, 0); }
-static void draw_sprites_normal_dp_hi_at (struct sprite_entry *e) { draw_sprites_1	(e, 0, 1, 1, 0, 1, 0); }
-static void draw_sprites_ham_sp_hi_at (struct sprite_entry *e) { draw_sprites_1		(e, 1, 0, 1, 0, 1, 0); }
+static void NOINLINE draw_sprites_normal_sp_hi_nat (struct sprite_entry *e) { draw_sprites_1	(e, 0, 0, 1, 0, 0, 0); }
+static void NOINLINE draw_sprites_normal_dp_hi_nat (struct sprite_entry *e) { draw_sprites_1	(e, 0, 1, 1, 0, 0, 0); }
+static void NOINLINE draw_sprites_ham_sp_hi_nat (struct sprite_entry *e) { draw_sprites_1	(e, 1, 0, 1, 0, 0, 0); }
+static void NOINLINE draw_sprites_normal_sp_hi_at (struct sprite_entry *e) { draw_sprites_1	(e, 0, 0, 1, 0, 1, 0); }
+static void NOINLINE draw_sprites_normal_dp_hi_at (struct sprite_entry *e) { draw_sprites_1	(e, 0, 1, 1, 0, 1, 0); }
+static void NOINLINE draw_sprites_ham_sp_hi_at (struct sprite_entry *e) { draw_sprites_1		(e, 1, 0, 1, 0, 1, 0); }
 
 #ifdef AGA
 /* not very optimized */
@@ -1649,7 +1648,7 @@ static int td_pos = (TD_RIGHT|TD_BOTTOM);
 
 #define TD_BORDER 0x333
 
-static char *numbers = { /* ugly  0123456789CHD% */
+static const char *numbers = { /* ugly  0123456789CHD% */
 "+++++++--++++-+++++++++++++++++-++++++++++++++++++++++++++++++++++++++++++++-++++++-++++----++---+"
 "+xxxxx+--+xx+-+xxxxx++xxxxx++x+-+x++xxxxx++xxxxx++xxxxx++xxxxx++xxxxx++xxxx+-+x++x+-+xxx++-+xx+-+x"
 "+x+++x+--++x+-+++++x++++++x++x+++x++x++++++x++++++++++x++x+++x++x+++x++x++++-+x++x+-+x++x+--+x++x+"

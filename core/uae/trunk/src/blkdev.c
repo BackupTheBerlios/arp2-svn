@@ -10,8 +10,6 @@
 #include "options.h"
 #include "memory.h"
 
-#include "config.h"
-
 #include "blkdev.h"
 
 static struct device_functions *device_func[2];

@@ -1,15 +1,14 @@
- /* 
+ /*
   * UAE - The Un*x Amiga Emulator
-  * 
+  *
   * Support for the Silicon Graphics Audio Library (AL)
-  * 
+  *
   * Copyright 1998 Ari Heikkinen
   */
 
 #include "sysconfig.h"
 #include "sysdeps.h"
 
-#include "config.h"
 #include "options.h"
 #include "memory.h"
 #include "events.h"
@@ -161,4 +160,20 @@ void close_sound(void)
 	if (al_port)
 		alClosePort(al_port);
 	printf("CloseSound ok\n");
+}
+
+/*
+ * Handle audio specific cfgfile options
+ */
+void audio_default_options (struct uae_prefs *p)
+{
+}
+
+void audio_save_options (FILE *f, const struct uae_prefs *p)
+{
+}
+
+int audio_parse_option (struct uae_prefs *p, const char *option, const char *value)
+{
+    return 0;
 }

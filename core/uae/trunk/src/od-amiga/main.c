@@ -1,7 +1,7 @@
 /*
- * UAE - The Un*x Amiga Emulator
+ * E-UAE - The portable Amiga emulator
  *
- * Copyright 2004-2005 Richard Drummond
+ * Copyright 2004-2006 Richard Drummond
  *
  * Start-up and support functions for Amiga target
  */
@@ -9,7 +9,6 @@
 #include "sysconfig.h"
 #include "sysdeps.h"
 
-#include "config.h"
 #include "options.h"
 #include "uae.h"
 #include "xwin.h"
@@ -42,9 +41,6 @@ unsigned int __stack = MIN_STACK_SIZE;
 //unsigned int __stack_size = MIN_STACK_SIZE;
 # endif
 #endif
-
-static int fromWB;
-
 
 struct Device *TimerBase;
 #ifdef __amigaos4__
@@ -83,20 +79,30 @@ static void init_libs (void)
 #endif
 }
 
+static int fromWB;
+static FILE *logfile;
+
 /*
  * Amiga-specific main entry
  */
 int main (int argc, char *argv[])
-{    
+{
     fromWB = argc == 0;
 
+    if (fromWB)
+	set_logfile ("T:E-UAE.log");
+
     init_libs ();
-   
+
 #ifdef USE_SDL
-    init_sdl();
+    init_sdl ();
 #endif
 
     real_main (argc, argv);
+
+    if (fromWB)
+	set_logfile (0);
+
     return 0;
 }
 
@@ -126,31 +132,15 @@ void setup_brkhandler (void)
 #endif
 }
 
-void write_log_amigaos (const char *format, ...)
-{
-    if (!fromWB) {
-	va_list parms;
-
-	va_start (parms,format);
-	vfprintf (stderr, format, parms);
-	va_end (parms);
-    }
-}
-
-void flush_log_amigaos (void)
-{
-    if (!fromWB)
-	fflush (stderr);
-}
 
 /*
  * Handle target-specific cfgfile options
  */
-void target_save_options (FILE *f, struct uae_prefs *p)
+void target_save_options (FILE *f, const struct uae_prefs *p)
 {
 }
 
-int target_parse_option (struct uae_prefs *p, char *option, char *value)
+int target_parse_option (struct uae_prefs *p, const char *option, const char *value)
 {
     return 0;
 }

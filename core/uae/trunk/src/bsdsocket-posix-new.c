@@ -80,7 +80,6 @@ uae_u32 bsdthr_Connect_2 (SB);
 uae_u32 bsdthr_WaitSelect (SB);
 uae_u32 bsdthr_Wait (SB);
 void clearsockabort (SB);
-static void *bsdlib_threadfunc (SB);
 
 static uae_sem_t sem_queue;
 
@@ -857,8 +856,10 @@ uae_u32 bsdthr_blockingstuff (uae_u32 (*tryfunc)(SB), SB)
 }
 
 
-static void *bsdlib_threadfunc (SB)
+static void *bsdlib_threadfunc (void *arg)
 {
+    struct socketbase *sb = (struct socketbase *) arg;
+
     DEBUG_LOG ("THREAD_START\n");
 
     while (1) {

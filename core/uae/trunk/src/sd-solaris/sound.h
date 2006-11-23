@@ -1,8 +1,8 @@
- /* 
+ /*
   * UAE - The Un*x Amiga Emulator
-  * 
+  *
   * Support for Solaris sound
-  * 
+  *
   * Copyright 1996, 1997 Manfred Thole
   */
 
@@ -23,6 +23,8 @@ STATIC_INLINE void check_sound_buffers (void)
 	flush_sound_buffer();
     }
 }
+
+#define AUDIO_NAME "solaris"
 
 #define PUT_SOUND_BYTE(b) do { *(uae_u8 *)sndbufpt = b; sndbufpt = (uae_u16 *)(((uae_u8 *)sndbufpt) + 1); } while (0)
 #define PUT_SOUND_WORD(b) do { *(uae_u16 *)sndbufpt = b; sndbufpt = (uae_u16 *)(((uae_u8 *)sndbufpt) + 2); } while (0)

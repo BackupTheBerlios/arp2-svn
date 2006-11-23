@@ -77,7 +77,7 @@ const char *get_xkb_keycodes (Display *display)
     if (rulesfile) {
 	XkbRF_RulesPtr rules;
 
-	if ((rules = XkbRF_Load (rulesfile, "", True, True))) {
+	if ((rules = XkbRF_Load (rulesfile, 0, True, True))) {
 	    XkbComponentNamesRec names;
 
 	    XkbRF_GetComponents (rules, &vd, &names);

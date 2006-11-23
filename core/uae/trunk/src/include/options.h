@@ -1,4 +1,3 @@
-
  /*
   * UAE - The Un*x Amiga Emulator
   *
@@ -7,10 +6,6 @@
   * Copyright 1995, 1996 Ed Hanway
   * Copyright 1995-2001 Bernd Schmidt
   */
-
-#define UAEMAJOR 0
-#define UAEMINOR 8
-#define UAESUBREV 28
 
 typedef enum { KBD_LANG_US, KBD_LANG_DK, KBD_LANG_DE, KBD_LANG_SE, KBD_LANG_FR, KBD_LANG_IT, KBD_LANG_ES } KbdLang;
 
@@ -77,7 +72,7 @@ struct uae_prefs {
     int sound_mixed_stereo;
     int sound_bits;
     int sound_freq;
-    int sound_maxbsiz;
+    int sound_latency;
     int sound_interpol;
     int sound_adjust;
     int sound_volume;
@@ -271,34 +266,39 @@ struct uae_prefs {
 
 /* Contains the filename of .uaerc */
 extern char optionsfile[];
-extern void save_options (FILE *, struct uae_prefs *, int);
-extern void cfgfile_write (FILE *f, char *format,...);
+extern void save_options (FILE *, const struct uae_prefs *, int);
+extern void cfgfile_write (FILE *f, const char *format,...);
 
 extern void default_prefs (struct uae_prefs *, int);
 extern void discard_prefs (struct uae_prefs *, int);
 
 int parse_cmdline_option (struct uae_prefs *, char, char *);
 
-extern int cfgfile_yesno (char *option, char *value, char *name, int *location);
-extern int cfgfile_intval (char *option, char *value, char *name, int *location, int scale);
-extern int cfgfile_strval (char *option, char *value, char *name, int *location, const char *table[], int more);
-extern int cfgfile_string (char *option, char *value, char *name, char *location, int maxsz);
+extern int cfgfile_yesno  (const char *option, const char *value, const char *name, int *location);
+extern int cfgfile_intval (const char *option, const char *value, const char *name, int *location, int scale);
+extern int cfgfile_strval (const char *option, const char *value, const char *name, int *location, const char *table[], int more);
+extern int cfgfile_string (const char *option, const char *value, const char *name, char *location, int maxsz);
 extern char *cfgfile_subst_path (const char *path, const char *subst, const char *file);
+extern void cfgfile_subst_home (char *path, unsigned int maxlen);
 
-extern int  machdep_parse_option (struct uae_prefs *, char *option, char *value);
-extern void machdep_save_options (FILE *, struct uae_prefs *);
+extern int  machdep_parse_option (struct uae_prefs *, const char *option, const char *value);
+extern void machdep_save_options (FILE *, const struct uae_prefs *);
 extern void machdep_default_options (struct uae_prefs *);
 
-extern int  target_parse_option (struct uae_prefs *, char *option, char *value);
-extern void target_save_options (FILE *, struct uae_prefs *);
+extern int  target_parse_option (struct uae_prefs *, const char *option, const char *value);
+extern void target_save_options (FILE *, const struct uae_prefs *);
 extern void target_default_options (struct uae_prefs *);
 
-extern int  gfx_parse_option (struct uae_prefs *, char *option, char *value);
-extern void gfx_save_options (FILE *, struct uae_prefs *);
+extern int  gfx_parse_option (struct uae_prefs *, const char *option, const char *value);
+extern void gfx_save_options (FILE *, const struct uae_prefs *);
 extern void gfx_default_options (struct uae_prefs *);
 
+extern void audio_default_options (struct uae_prefs *p);
+extern void audio_save_options (FILE *f, const struct uae_prefs *p);
+extern int  audio_parse_option (struct uae_prefs *p, const char *option, const char *value);
+
 extern int cfgfile_load (struct uae_prefs *, const char *filename, int *);
-extern int cfgfile_save (struct uae_prefs *, const char *filename, int);
+extern int cfgfile_save (const struct uae_prefs *, const char *filename, int);
 extern void cfgfile_parse_line (struct uae_prefs *p, char *, int);
 extern int cfgfile_parse_option (struct uae_prefs *p, char *option, char *value, int);
 extern int cfgfile_get_description (const char *filename, char *description, int*);

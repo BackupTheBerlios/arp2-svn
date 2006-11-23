@@ -9,7 +9,6 @@
 #include "sysconfig.h"
 #include "sysdeps.h"
 
-#include "config.h"
 #include "options.h"
 #include "uae.h"
 #include "memory.h"
@@ -1214,7 +1213,7 @@ static int load_kickstart (void)
 
 #ifndef NATMEM_OFFSET
 
-uae_u8 *mapped_malloc (size_t s, char *file, uae_u32 __address)
+uae_u8 *mapped_malloc (size_t s, const char *file, uae_u32 __address)
 {
     uae_u8* addr = malloc (s);
 
@@ -1380,7 +1379,7 @@ static void delete_mirror (uae_u32 start, uae_u32 size) {
 }
 
 
-uae_u8 *mapped_malloc (size_t s, char *file, uae_u32 address) {
+uae_u8 *mapped_malloc (size_t s, const char *file, uae_u32 address) {
     int fd;
     uae_u8* mem;
     char shm_file[128];

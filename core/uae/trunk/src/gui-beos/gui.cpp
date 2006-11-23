@@ -10,7 +10,6 @@ extern "C" {
 #include "sysconfig.h"
 #include "sysdeps.h"
 
-#include "config.h"
 #include "options.h"
 #include "gui.h"
 #include "xwin.h"

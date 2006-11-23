@@ -27,8 +27,8 @@ guint floppyfileentry_get_type ()
     static guint floppyfileentry_type = 0;
 
     if (!floppyfileentry_type) {
-	GtkTypeInfo floppyfileentry_info = {
-	    "FloppyFileEntry",
+	static const GtkTypeInfo floppyfileentry_info = {
+	    (char *) "FloppyFileEntry",
 	    sizeof (FloppyFileEntry),
 	    sizeof (FloppyFileEntryClass),
 	    (GtkClassInitFunc) floppyfileentry_class_init,
@@ -47,7 +47,7 @@ enum {
     LAST_SIGNAL
 };
 
-static gint floppyfileentry_signals[LAST_SIGNAL] = { 0 };
+static guint floppyfileentry_signals[LAST_SIGNAL];
 
 static void floppyfileentry_class_init (FloppyFileEntryClass *class)
 {
@@ -55,7 +55,7 @@ static void floppyfileentry_class_init (FloppyFileEntryClass *class)
 				   GTK_STRUCT_OFFSET (FloppyFileEntryClass, floppyfileentry),
 				   floppyfileentry_signals,
 				   "disc-changed",
-				   0);
+				   (void *)0);
 
     class->floppyfileentry = NULL;
 }

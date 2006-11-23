@@ -27,6 +27,7 @@
 
 #define write_log write_log_standard
 #define flush_log flush_log_standard
+#define set_logfile set_logfile_standard
 
 #ifdef __APPLE__
 # define SLEEP_DONT_BUSY_WAIT

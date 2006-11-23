@@ -10,7 +10,7 @@ extern uae_u32 addr (int);
 extern void db (uae_u8);
 extern void dw (uae_u16);
 extern void dl (uae_u32);
-extern uae_u32 ds (char *);
+extern uae_u32 ds (const char *);
 extern void calltrap (uae_u32);
 extern void org (uae_u32);
 extern uae_u32 here (void);
@@ -42,15 +42,15 @@ extern uaecptr filesys_initcode;
 
 extern int nr_units (struct uaedev_mount_info *mountinfo);
 extern int is_hardfile (struct uaedev_mount_info *mountinfo, int unit_no);
-extern char *set_filesys_unit (struct uaedev_mount_info *mountinfo, int,
+extern const char *set_filesys_unit (struct uaedev_mount_info *mountinfo, int,
 			       char *devname, char *volname, char *rootdir, int readonly,
 			       int secs, int surfaces, int reserved,
 			       int blocksize, int bootpri, char *filesysdir);
-extern char *add_filesys_unit (struct uaedev_mount_info *mountinfo,
+extern const char *add_filesys_unit (struct uaedev_mount_info *mountinfo,
 			       char *devname, char *volname, char *rootdir, int readonly,
 			       int secs, int surfaces, int reserved,
 			       int blocksize, int bootpri, char *filesysdir);
-extern char *get_filesys_unit (struct uaedev_mount_info *mountinfo, int nr,
+extern const char *get_filesys_unit (struct uaedev_mount_info *mountinfo, int nr,
 			       char **devname, char **volame, char **rootdir, int *readonly,
 			       int *secspertrack, int *surfaces, int *reserved,
 			       int *cylinders, uae_u64 *size, int *blocksize, int *bootpri, char **filesysdir);

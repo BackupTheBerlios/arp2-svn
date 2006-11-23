@@ -1,6 +1,310 @@
+2006-11-23  Martin Blom  <martin@blom.org>
+
+	* Merged e-uae-0.8.29-WIP3.
+
+2006-07-31 01:51  evi1rich
+
+	* src/compemu_raw_x86.c: Work-around for compiling new JIT SEGV
+	  handler when GNUSOURCE isn't defined.  Better solution needed.
+
+2006-07-31 00:22  evi1rich
+
+	* configure.in: Updated version number for WIP3 release.
+
+2006-07-31 00:22  evi1rich
+
+	* README: Updated README for WIP3 release.
+
+2006-07-30 23:52  evi1rich
+
+	* src/gui-gtk/gtkui.c: In the Gtk+ UI's about page, when building
+	  against Gtk+ 2.x, don't hack GDK to set font size, but instead
+	  use the Gtk+ label widget's text markup functionality - which is
+	  much cleaner.
+
+2006-07-30 23:31  evi1rich
+
+	* src/: compemu_raw_x86.c, compemu_support.c: Tried to clean up the
+	  JIT's natmem fault handler and make it a little more portable.
+
+2006-07-30 23:29  evi1rich
+
+	* src/caps/caps.c: Fixed failure to build CAPS support on 68k
+	  Amigas.
+
+2006-07-27 22:45  evi1rich
+
+	* configure.in: Some tweaks to the configure script so that the
+	  behaviour when passing CFLAGS to configure is more predictable.
+	  Note that, now, if you pass CFLAGS, you must include your desired
+	  optimization level: for now, the configure script no longer
+	  defaults to setting -O2 in this case. If you don't set CFLAGS
+	  yourself, then you'll get the autotools default, which is -g -O2.
+
+2006-07-27 21:26  evi1rich
+
+	* configure.in: Removal of config.h header broke configure. Fixed.
+
+2006-07-26 16:36  evi1rich
+
+	* Makefile.am, config.h, src/akiko.c, src/ar.c, src/audio.c,
+	  src/autoconf.c, src/blitter.c, src/blkdev.c, src/bsdsocket.c,
+	  src/catweasel.c, src/cdrom.c, src/cfgfile.c, src/cia.c,
+	  src/compemu_fpp.c, src/compemu_support.c, src/custom.c,
+	  src/debug.c, src/disk.c, src/drawing.c, src/driveclick.c,
+	  src/ersatz.c, src/events.c, src/expansion.c, src/filesys.c,
+	  src/fpp.c, src/fsdb.c, src/genblitter.c, src/gencomp.c,
+	  src/gencpu.c, src/gengenblitter.c, src/hardfile.c,
+	  src/inputdevice.c, src/keybuf.c, src/main.c, src/memory.c,
+	  src/misc.c, src/native2amiga.c, src/newcpu.c, src/picasso96.c,
+	  src/savestate.c, src/scsiemul.c, src/serial.c, src/svgancui.c,
+	  src/traps.c, src/tui.c, src/uaeexe.c, src/uaelib.c, src/zfile.c,
+	  src/gfx-amigaos/ami-win.c, src/gfx-beos/be-Input.cpp,
+	  src/gfx-beos/be-UAE.cpp, src/gfx-beos/be-Window.cpp,
+	  src/gfx-curses/ncurses.c, src/gfx-sdl/sdlgfx.c,
+	  src/gfx-svga/svga.c, src/gfx-x11/xwin.c, src/gui-beos/gui.cpp,
+	  src/gui-cocoa/cocoaui.m, src/gui-gtk/gtkui.c,
+	  src/gui-muirexx/ami-gui.c, src/gui-muirexx/ami-rexx.c,
+	  src/gui-none/nogui.c, src/jd-amigainput/joystick.c,
+	  src/jd-amigaos/joystick.c, src/jd-beos/joystick.cpp,
+	  src/jd-linuxold/joystick.c, src/jd-none/joystick.c,
+	  src/jd-sdl/joystick.c, src/md-68k/support.c,
+	  src/md-generic/support.c, src/md-i386-gcc/support.c,
+	  src/md-ppc/support.c, src/md-ppc-gcc/support.c,
+	  src/od-amiga/main.c, src/od-beos/main.cpp, src/od-generic/main.c,
+	  src/od-macosx/main.m, src/od-win32/bsdsock.c,
+	  src/od-win32/hardfile_win32.c, src/od-win32/main.c,
+	  src/sd-af/sound.c, src/sd-alsa/sound.c, src/sd-amigaos/sound.c,
+	  src/sd-beos/sound.cpp, src/sd-file/sound.c, src/sd-mme/sound.c,
+	  src/sd-none/sound.c, src/sd-sdl/sound.c, src/sd-sgi/sound.c,
+	  src/sd-solaris/sound.c, src/sd-uss/sound.c: Removed obsolete
+	  header config.h.
+
+2006-07-26 15:56  evi1rich
+
+	* src/include/version.h: Checked in new version header.
+
+2006-07-26 15:55  evi1rich
+
+	* src/: Makefile.am, autoconf.c, cfgfile.c, main.c, savestate.c,
+	  tui.c, gfx-amigaos/ami-win.c, gui-gtk/gtkui.c,
+	  gui-muirexx/ami-rexx.c, include/options.h: Factored out
+	  version/revision information from options header into a new
+	  header. The idea here is (eventually) to collect all
+	  version/revision info in one place and not to have files
+	  unnecessarily depend on the options header.
+
+2006-07-25 23:36  evi1rich
+
+	* src/gfx-amigaos/ami-win.c: Earlier clean-up patch broke searching
+	  for best RTG mode in AmigaOS gfx driver. Fixed.
+
+2006-07-25 22:05  evi1rich
+
+	* src/gfx-amigaos/ami-win.c: Fix for building AmigaOS gfx driver
+	  with internal debugger/monitor disabled.
+
+2006-07-25 22:03  evi1rich
+
+	* src/cia.c: Don't build TOD hack if the function get_timeofday()
+	  isn't available. Should add configure support to disable this.
+
+2006-07-25 21:23  evi1rich
+
+	* src/sd-amigaos/sound.h: Fix for building AmigaOS sound driver
+	  without AHI support.
+
+2006-07-20 14:00  evi1rich
+
+	* docs/configuration.txt: Updated configuration manual.
+
+2006-07-18 01:23  evi1rich
+
+	* src/gui-gtk/: led.c, led.h: Fixed up Gtk+ LED widget to be a real
+	  widget and render via GDK. This should fix rendering problems
+	  when switching Gtk+ themes.
+
+2006-07-12 22:53  evi1rich
+
+	* src/gui-none/nogui.c: A fix for building without a config GUI.
+
+2006-07-12 22:52  evi1rich
+
+	* src/sd-none/sound.h: A fix for building without sound with the
+	  new sound_latency= config option.
+
+2006-07-11 01:06  evi1rich
+
+	* src/Makefile.am: Forgot to add recently-added headers to dist
+	  tarball. Fixed.
+
+2006-07-11 00:35  evi1rich
+
+	* src/gui-cocoa/cocoaui.m: In Cocoa UI, don't restore full-screen
+	  mode after opening a disk-insert dialog. This works around a
+	  problem for now that needs a full solution.
+
+2006-07-08 00:56  evi1rich
+
+	* src/: custom.c, inputdevice.c, include/inputdevice.h: Previous
+	  clean-up fix broke when compiling objc code on OS X. Work-around
+	  for now, but a cleaner solution needed.
+
+2006-07-08 00:21  evi1rich
+
+	* src/include/cdrom.h: Missed this file in the last patch.
+
+2006-07-08 00:19  evi1rich
+
+	* src/: akiko.c, bsdsocket-posix-new.c, cdrom.c, custom.c, disk.c,
+	  driveclick.c, inputdevice.c, main.c, newcpu.c, scsiemul.c,
+	  traps.c, gfx-amigaos/ami-win.c, gfx-x11/x11keys.c,
+	  gfx-x11/xwin.c, gui-muirexx/ami-gui.c, gui-muirexx/ami-rexx.c,
+	  include/inputdevice.h, od-amiga/ami-disk.c,
+	  od-amiga/blkdev-amiga.c: A whole bunch of code clean-up.
+
+2006-07-07 22:57  evi1rich
+
+	* src/sd-amigaos/: sound.c, sound.h: Fixed up AmigaOS sound driver
+	  wrt config file changes.
+
+2006-07-07 03:17  evi1rich
+
+	* src/: audio.c, cfgfile.c, include/options.h, sd-alsa/sound.c,
+	  sd-alsa/sound.h, sd-sdl/sound.c, sd-sdl/sound.h, sd-uss/sound.c,
+	  sd-uss/sound.h: Obsoleted sound_max_buff option and replaced it
+	  with sound_latency (which specifies the size of the audio buffer
+	  to use in milliseconds). Updated ALSA, SDL and OSS sound drivers
+	  accordingly. Other sound drivers are broken with change and
+	  require fixing.
+
+2006-07-06 01:43  evi1rich
+
+	* src/sd-alsa/sound.c: Added ALSA-specific config options. The
+	  option alsa.device= specifies the ALSA device to use (the default
+	  is 'default') and alsa.verbose will dump extra information about
+	  the ALSA configuration for debugging purposes.
+
+2006-07-06 00:57  evi1rich
+
+	* src/: cfgfile.c, include/options.h, sd-af/sound.c, sd-af/sound.h,
+	  sd-alsa/sound.c, sd-alsa/sound.h, sd-amigaos/sound.c,
+	  sd-amigaos/sound.h, sd-beos/sound.cpp, sd-beos/sound.h,
+	  sd-file/sound.c, sd-file/sound.h, sd-mme/sound.c, sd-mme/sound.h,
+	  sd-none/sound.c, sd-none/sound.h, sd-sdl/sound.c, sd-sdl/sound.h,
+	  sd-sgi/sound.c, sd-sgi/sound.h, sd-solaris/sound.c,
+	  sd-solaris/sound.h, sd-uss/sound.c, sd-uss/sound.h: Added support
+	  for audio driver-specific cfgfile options.
+
+2006-07-05 23:37  evi1rich
+
+	* src/: cfgfile.c, gfx-amigaos/ami-win.c, gfx-beos/be-Window.cpp,
+	  gfx-curses/ncurses.c, gfx-sdl/sdlgfx.c, gfx-svga/svga.c,
+	  gfx-x11/xwin.c, include/options.h, md-68k/support.c,
+	  md-generic/support.c, md-i386-gcc/support.c,
+	  md-ppc-gcc/support.c, od-amiga/main.c, od-beos/main.cpp,
+	  od-generic/main.c, od-macosx/main.m, od-win32/main.c:
+	  Strengthened config file API.
+
+2006-07-04 01:27  evi1rich
+
+	* src/sleep.c: Reduced busy-waiting threshold from 10 ms to 5 ms.
+	  Recent Linux 2.6.x kernels configured with HZ=250 cannot reliably
+	  sleep with a less than 5 ms latency.
+
+2006-07-04 01:23  evi1rich
+
+	* configure.in: Fix for configure script option --enable-profiling
+	  when cross-compiling.
+
+2006-07-01 02:22  evi1rich
+
+	* src/: audio.c, blitter.c, custom.c, disk.c, drawing.c,
+	  genblitter.c, include/custom_private.h: Various peformance tweaks
+	  for the custom chip emulation, including allowing direct access
+	  to chip memory.
+
+2006-06-19 09:05  evi1rich
+
+	* src/od-macosx/main.m: On OS X, set default log file to
+	  '~/Library/Logs/E-UAE.log' when started from the Finder. Thanks
+	  to Daniel Pimley for the suggestion.
+
+2006-06-19 09:03  evi1rich
+
+	* src/: cfgfile.c, include/options.h: Export new function
+	  cfgfile_subst_home() from cfgfile.c to expand '~' in an arbitrary
+	  file path.
+
+2006-06-19 08:07  evi1rich
+
+	* src/: writelog.c, include/sysdeps.h, od-amiga/main.c,
+	  targets/t-amiga.h, targets/t-beos.h, targets/t-unix.h: Added
+	  support for redirecting logfile output to a default file. On
+	  AmigaOS and clones, the log output now goes to T:E-UAE.log if
+	  E-UAE is started from Worbench rather than a shell.
+
+2006-06-19 08:03  evi1rich
+
+	* configure.in: Fixes for building against Cocoa on OS X.
+
+2006-06-17 02:22  evi1rich
+
+	* configure.in: Fixed typo in config script that caused CFLAGS to
+	  be polluted when building on OSX without SDL.
+
+2006-06-15 01:08  evi1rich
+
+	* src/gui-gtk/: chipsetspeedpanel.c, chipsettypepanel.c,
+	  chooserwidget.c, cpuspeedpanel.c, cputypepanel.c,
+	  floppyfileentry.c, led.c, util.c, util.h: Cleaned up some
+	  warnings and valgrind hits in Gtk+ UI.
+
+2006-06-15 00:46  evi1rich
+
+	* src/sd-alsa/sound.c: In the ALSA driver, configure buffer size in
+	  time rather than number of frames. This appears to be much more
+	  reliable. As a consequence, the prefs sound_max_buff option is
+	  interpreted for now by the ALSA driver as the buffer size
+	  (latency) in microseconds. It's about we fixed/replaced this
+	  option at the config level!
+
+2006-06-14 22:27  evi1rich
+
+	* src/: gencomp.c, gencpu.c: More -Wwrite-strings fixes.
+
+2006-06-14 11:26  evi1rich
+
+	* src/: ar.c, autoconf.c, cfgfile.c, custom.c, disk.c, drawing.c,
+	  enforcer.c, filesys.c, inputdevice.c, memory.c, serial.c,
+	  zfile.c, gui-gtk/gtkui.c, include/autoconf.h, include/memory.h,
+	  include/options.h: Code clean-up to allow compilation on GCC with
+	  -Wwrite-strings.
+
+2006-06-12 23:26  evi1rich
+
+	* src/sd-alsa/: sound.c, sound.h: Another attempt at making the
+	  ALSA sound driver perform better.
+
 2006-06-06  Martin Blom  <martin@blom.org>
 
 	* Merged e-uae-0.8.29-WIP2.
+
+2006-05-05 02:05  evi1rich
+
+	* src/od-generic/memory.c: Removed superfluous header includes from
+	  Unix JIT cache-allocation functions. This should fix the problems
+	  building on OS X/Intel.
+
+2006-05-05 01:38  evi1rich
+
+	* src/gfx-sdl/rawkeys.c: Fix for SDL raw-key support on OS X/Intel.
+
+2006-05-04 10:15  evi1rich
+
+	* src/gui-gtk/util.h: The Gtk+ GUI could segfault on 64-bit
+	  systems. Fixed. Thanks to Ulrich Schwenk for reporting the
+	  problem.
 
 2006-05-03 01:15  tag E-UAE-0_8_29-WIP2
 

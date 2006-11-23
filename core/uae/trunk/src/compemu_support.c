@@ -5,7 +5,6 @@
 #define setzflg_uses_bsf 0
 #include "sysconfig.h"
 #include "sysdeps.h"
-#include "config.h"
 #include "options.h"
 #include "events.h"
 #include "include/memory.h"
@@ -5614,25 +5613,21 @@ void build_comp(void)
     raw_init_cpu();
 #ifdef NATMEM_OFFSET
     write_log ("JIT: Setting signal handler\n");
-#ifndef _WIN32
-#ifdef HAVE_SIGACTION
+# ifndef _WIN32
     {
-	struct sigaction sa;
-	sa.sa_handler = vec;
-	sa.sa_flags = 0;
+	struct sigaction act;
+	act.sa_sigaction = vec;
+	sigemptyset (&act.sa_mask);
+	act.sa_flags = SA_SIGINFO;
 #ifdef SA_RESTART
-	sa.sa_flags = SA_RESTART;
+	act.sa_flags = SA_RESTART;
 #endif
 #ifdef SA_ONSTACK
-	sa.sa_flags |= SA_ONSTACK;
+	act.sa_flags |= SA_ONSTACK;
 #endif
-	sigemptyset (&sa.sa_mask);
-	sigaction (SIGSEGV, &sa, NULL);
+	sigaction (SIGSEGV, &act, NULL);
     }
-#else
-    signal(SIGSEGV,vec);
-#endif
-#endif
+# endif
 #endif
     write_log ("JIT: Building Compiler function table\n");
     for (opcode = 0; opcode < 65536; opcode++) {

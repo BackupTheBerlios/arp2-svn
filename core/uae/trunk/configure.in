@@ -4,8 +4,8 @@ dnl
 dnl Updated, re-written and generally mauled 2003 Richard Drummond
 
 AC_PREREQ(2.55)
-AC_INIT(E-UAE, 0.8.29-WIP2, ,e-uae)
-AC_CONFIG_SRCDIR([config.h])
+AC_INIT(E-UAE, 0.8.29-WIP3, ,e-uae)
+AC_CONFIG_SRCDIR([bootstrap.sh])
 AM_CONFIG_HEADER([src/sysconfig.h])
 AC_CANONICAL_TARGET
 AM_INIT_AUTOMAKE(1.7 dist-bzip2 foreign)
@@ -14,18 +14,13 @@ dnl
 dnl  Checks for programs.
 dnl
 
-dnl This is a hack to stop GCC always adding the -g option to CFLAGS
-SAVE_CFLAGS=$CFLAGS
-CFLAGS="$CFLAGS -DDUMMY"
 AC_PROG_CC
-CFLAGS=$SAVE_CFLAGS
-
 AC_PROG_CPP
 AC_PROG_CXX
 AS_PROG_OBJC
 AM_PROG_AS
 AC_PROG_MAKE_SET
-AC_PROG_RANLIB
+AC_PROG_LIBTOOL
 AC_CHECK_TOOL(AR, ar)
 AC_PROG_INSTALL
 AC_PATH_PROG(MAKEDEPPRG, makedepend, not-found)
@@ -381,13 +376,13 @@ dnl
 if [[ "x$HAVEGCC27" = "xyes" -a "$HOST_CPU" = "i386" ]]; then
   SAVECFLAGS=$CFLAGS
   CFLAGS="$CFLAGS -mno-schedule-prologue"
-  AC_TRY_COMPILE(,int main(){return 0;}, NO_SCHED_CFLAGS="-mno-schedule-prologue")
+  AC_TRY_COMPILE(,int main(){return 0;}, OPTIMIZE_CFLAGS="$OPTIMIZE_CFLAGS -mno-schedule-prologue")
   CFLAGS=$SAVECFLAGS
 fi
 if [[ "x$HAVEGCC27" = "xyes" -a "$HOST_CPU" = "i386" ]]; then
   SAVECFLAGS=$CFLAGS
   CFLAGS="$CFLAGS -mpreferred-stack-boundary=2"
-  AC_TRY_COMPILE(,int main(){return 0;}, SAVECFLAGS=$CFLAGS)
+  AC_TRY_COMPILE(,int main(){return 0;}, OPTIMIZE_CFLAGS="$OPTIMIZE_CFLAGS -mpreferred-stack-boundary=2")
   CFLAGS=$SAVECFLAGS
 fi
 dnl If GCC supports exceptions, we don't want them.
@@ -395,11 +390,8 @@ dnl
 if [[ "x$HAVEGCC27" = "xyes" -a "$HOST_CPU" = "i386" ]]; then
   SAVECFLAGS=$CFLAGS
   CFLAGS="$CFLAGS -fno-exceptions"
-  NOEXCEPTIONS=no
-  AC_TRY_COMPILE(,int main(){return 0;}, NOEXCEPTIONS=yes)
-  if [[ "x$NOEXCEPTIONS" = "xno" ]]; then
-    CFLAGS=$SAVECFLAGS
-  fi
+  AC_TRY_COMPILE(,int main(){return 0;}, OPTIMIZE_CFLAGS="$OPTIMIZE_CFLAGS -fno-exceptions")
+  CFLAGS=$SAVECFLAGS
 fi
 
 dnl on OS X, we don't want position-independent code, so
@@ -577,6 +569,14 @@ AC_ARG_WITH(curses,
   AS_HELP_STRING([--with-curses], [Use ncurses library for graphics]),
   [WANT_NCURSES=$withval], [])
 
+AC_ARG_WITH(glgfx,
+  AS_HELP_STRING([--with-glgfx], [Use glgfx library for graphics and input]),
+  [WANT_GLGFX=$withval], [])
+AC_ARG_WITH(glgfx-prefix,
+  AS_HELP_STRING([--with-glgfx-prefix], [Absolute path to where glgfx is installed (optional)]),
+  [CPPFLAGS="$CPPFLAGS -I$withval/include"
+   LIBS="$LIBS -L$withval/lib"], [])
+
 AC_ARG_WITH(cocoa-gui,
   AS_HELP_STRING([--with-cocoa-gui], [Use Cocoa for GUI on OS X]),
   [WANT_COCOA_UI=$withval], [])
@@ -667,7 +667,7 @@ if [[ "x$WANT_SDL" != "xno" ]]; then
     AC_MSG_RESULT(no)
     HAVE_SDL=no)
 
-    CPPFLAGFS="$SAVE_CPPFLAGS"
+    CPPFLAGS="$SAVE_CPPFLAGS"
     LIBS="$SAVE_LIBS"
   else
     AM_PATH_SDL(1.2.0,HAVE_SDL=yes,HAVE_SDL=no)
@@ -683,12 +683,12 @@ fi
 
 if test $ac_cv_prog_gcc = yes; then
   WARNING_CFLAGS="$WARNING_CFLAGS -Wall -Wno-unused -Wno-format -W -Wmissing-prototypes -Wstrict-prototypes"
-  OPTIMIZE_CFLAGS="$OPTIMIZE_CFLAGS -O2 -fomit-frame-pointer"
+  OPTIMIZE_CFLAGS="$OPTIMIZE_CFLAGS -fomit-frame-pointer"
 fi
 
 if [[ "x$DO_PROFILING" = "xyes" ]]; then
-  if [[ "x$CC" = "xgcc" ]]; then
-    OPTIMIZE_CFLAGS="-O"
+  if [[ "x$HAVE_GCC27" = "xyes" ]]; then
+    OPTIMIZE_CFLAGS=""
     DEBUG_CFLAGS="-g -fno-inline -fno-omit-frame-pointer -pg -DUSE_PROFILING"
     LDFLAGS="-pg"
   else
@@ -861,6 +861,23 @@ if [[ "x$WANT_NCURSES" = "xyes" ]]; then
  else
   AC_MSG_WARN([ncurses support wanted, but libncurses could not be found])
  fi
+fi
+
+
+dnl  Check whether we want glgfx
+dnl
+if [[ "x$WANT_GLGFX" = "xyes" ]]; then
+  AC_CHECK_HEADERS(glgfx.h, [HAVE_GLGFX_H=yes], [HAVE_GLGFX_H=no])
+  if [[ "x$HAVE_GLGFX_H" = "xyes" ]]; then
+    GFX_LIBS="-lglgfx"
+    GFX_CFLAGS=""
+    GFX_DEP=gfx-glgfx
+    GFX_NAME=GLGFX
+  else
+    AC_MSG_WARN([glgfx support wanted, but libglgfx could not be found])
+    WANT_GLGFX=no
+    NR_ERRORS=`expr $NR_ERRORS + 1`
+  fi
 fi
 
 
@@ -1080,7 +1097,8 @@ else
   if [[ "$HOST_OS" = "darwin" ]]; then
     if [[ "x$WANT_COCOA_UI" != "xno" -o "x$HAVE_GTK" = "xno" ]]; then
       GUI_DEP=gui-cocoa
-      GUI_LIBS=
+      GUI_CFLAGS="$CFLAGS -DNO_MAIN_IN_MAIN_C"
+      GUI_LIBS="-framework Cocoa"
       GUI_NAME="Cocoa"
     fi
   fi
@@ -1509,6 +1527,7 @@ AC_CONFIG_FILES([Makefile
 		 src/gfx-sdl/Makefile
 		 src/gfx-curses/Makefile
 		 src/gfx-svga/Makefile
+		 src/gfx-glgfx/Makefile
 		 src/sd-af/Makefile
 		 src/sd-alsa/Makefile
 		 src/sd-amigaos/Makefile

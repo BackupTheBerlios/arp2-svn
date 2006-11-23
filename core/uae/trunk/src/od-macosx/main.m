@@ -16,7 +16,6 @@
 #import "sysconfig.h"
 #import "sysdeps.h"
 
-#import "config.h"
 #import "options.h"
 #import "uae.h"
 
@@ -258,10 +257,12 @@ extern NSString *finderLaunchFilename;
 
 #ifdef USE_SDL
     setenv ("SDL_ENABLEAPPEVENTS", "1", 1);
+
+
+    if (init_sdl ()) 
 #endif
-
-    if (init_sdl ()) {
-
+    {
+      
 	/* Hand off to main application code */
 	real_main (gArgc, gArgv);
     }
@@ -280,11 +281,16 @@ extern NSString *finderLaunchFilename;
 /* Main entry point to executable - should *not* be SDL_main! */
 int main (int argc, char **argv)
 {
+    char logfile_path[MAX_PATH] = "~/Library/Logs/E-UAE.log";
+
     /* Copy the arguments into a global variable */
     /* This is passed if we are launched by double-clicking */
     if (argc >= 2 && strncmp (argv[1], "-psn", 4) == 0 ) {
 	gArgc = 1;
 	gFinderLaunch = YES;
+        gFinderLaunch = YES;
+        cfgfile_subst_home (logfile_path, MAX_PATH);
+        set_logfile (logfile_path);
     } else {
 	gArgc = argc;
 	gFinderLaunch = NO;
@@ -306,11 +312,11 @@ void setup_brkhandler (void)
 /*
  * Handle target-specific cfgfile options
  */
-void target_save_options (FILE *f, struct uae_prefs *p)
+void target_save_options (FILE *f, const struct uae_prefs *p)
 {
 }
 
-int target_parse_option (struct uae_prefs *p, char *option, char *value)
+int target_parse_option (struct uae_prefs *p, const char *option, const char *value)
 {
     return 0;
 }

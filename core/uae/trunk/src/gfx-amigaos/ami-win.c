@@ -31,6 +31,8 @@
 # endif
 #endif
 
+//#define DEBUG
+
 /****************************************************************************/
 
 #include <exec/execbase.h>
@@ -79,7 +81,6 @@
 /****************************************************************************/
 
 #include "uae.h"
-#include "config.h"
 #include "options.h"
 #include "custom.h"
 #include "xwin.h"
@@ -90,6 +91,7 @@
 #include "gui.h"
 #include "debug.h"
 #include "hotkeys.h"
+#include "version.h"
 
 #define BitMap Picasso96BitMap  /* Argh! */
 #include "picasso96.h"
@@ -112,7 +114,7 @@ static int use_approx_color;
 
 extern xcolnr xcolors[4096];
 
-static char *oldpixbuf;
+static uae_u8 *oldpixbuf;
 
 /* Values for amiga_screen_type */
 enum {
@@ -196,24 +198,6 @@ extern void appw_events(void);
 
 extern int ievent_alive;
 
-
-/****************************************************************************/
-/* This is because on powerup, calling 68k CopyMem is too slow              */
-
-#ifdef CopyMem
-#undef CopyMem
-#endif
-
-#define CopyMem(src,dst,len) myCopyMem(src,dst,len)
-STATIC_INLINE void myCopyMem (void *src, void *dst, int len)
-{
-    char *s = src;
-    char *d = dst;
-
-    if (len)
-        do *d++=*s++; while (--len);
-}
-
 /***************************************************************************
  *
  * Default hotkeys
@@ -258,13 +242,13 @@ extern UBYTE cidx[4][8*4096];
  */
 STATIC_INLINE void flush_line_planar_nodither (struct vidbuf_description *gfxinfo, int line_no)
 {
-    int   xs      = 0;
-    int   len     = gfxinfo->width;
-    int   yoffset = line_no * gfxinfo->rowbytes;
-    char *src;
-    char *dst;
-    char *newp = gfxinfo->bufmem + yoffset;
-    char *oldp = oldpixbuf + yoffset;
+    int     xs      = 0;
+    int     len     = gfxinfo->width;
+    int     yoffset = line_no * gfxinfo->rowbytes;
+    uae_u8 *src;
+    uae_u8 *dst;
+    uae_u8 *newp = gfxinfo->bufmem + yoffset;
+    uae_u8 *oldp = oldpixbuf + yoffset;
 
     /* Find first pixel changed on this line */
     while (*newp++ == *oldp++) {
@@ -281,7 +265,7 @@ STATIC_INLINE void flush_line_planar_nodither (struct vidbuf_description *gfxinf
 	;
 
     len = 1 + (oldp - dst);
-    xs  = src - (char *)(gfxinfo->bufmem + yoffset);
+    xs  = src - (uae_u8 *)(gfxinfo->bufmem + yoffset);
 
     /* Copy changed pixels to delta buffer */
     CopyMem (src, dst, len);
@@ -306,9 +290,9 @@ static void flush_block_planar_nodither (struct vidbuf_description *gfxinfo, int
  */
 STATIC_INLINE void flush_line_planar_dither (struct vidbuf_description *gfxinfo, int line_no)
 {
-    int   xs      = 0;
-    int   len     = gfxinfo->width;
-    int   yoffset = line_no * gfxinfo->rowbytes;
+    int      xs      = 0;
+    int      len     = gfxinfo->width;
+    int      yoffset = line_no * gfxinfo->rowbytes;
     uae_u16 *src;
     uae_u16 *dst;
     uae_u16 *newp = (uae_u16 *)(gfxinfo->bufmem + yoffset);
@@ -354,8 +338,8 @@ static void flush_block_planar_dither (struct vidbuf_description *gfxinfo, int f
  */
 STATIC_INLINE void flush_line_ham (struct vidbuf_description *gfxinfo, int line_no)
 {
-    int   len = gfxinfo->width;
-    char *src = gfxinfo->bufmem + (line_no * gfxinfo->rowbytes);
+    int     len = gfxinfo->width;
+    uae_u8 *src = gfxinfo->bufmem + (line_no * gfxinfo->rowbytes);
 
     ham_conv ((void*) src, Line, len);
     WritePixelLine8 (RP, 0, line_no, len, Line, TempRPort);
@@ -883,12 +867,16 @@ static ULONG find_rtg_mode (ULONG *width, ULONG *height, ULONG depth)
     ULONG mode           = INVALID_ID;
 
     ULONG best_mode      = INVALID_ID;
-    ULONG best_width     = (ULONG)-1;
-    ULONG best_height    = (ULONG)-1;
+    ULONG best_width     = (ULONG) -1L;
+    ULONG best_height    = (ULONG) -1L;
 
     ULONG largest_mode   = INVALID_ID;
     ULONG largest_width  = 0;
     ULONG largest_height = 0;
+
+#ifdef DEBUG
+    write_log ("Looking for RTG mode: w:%ld h:%ld d:%d\n", width, height, depth);
+#endif
 
     if (CyberGfxBase) {
 	while ((mode = NextDisplayInfo (mode)) != (ULONG)INVALID_ID) {
@@ -897,14 +885,14 @@ static ULONG find_rtg_mode (ULONG *width, ULONG *height, ULONG depth)
 		ULONG cheight = GetCyberIDAttr (CYBRIDATTR_HEIGHT, mode);
 		ULONG cdepth  = GetCyberIDAttr (CYBRIDATTR_DEPTH, mode);
 #ifdef DEBUG
-		write_log ("Checking mode:%08x w:%d h:%d d:%d\n", mode, cwidth, cheight, cdepth);
+		write_log ("Checking mode:%08x w:%d h:%d d:%d -> ", mode, cwidth, cheight, cdepth);
 #endif
 		if (cdepth == depth) {
 		    /*
 		     * If this mode has the largest screen size we've seen so far,
 		     * remember it, just in case we don't find one big enough
 		     */
-		    if (cheight > largest_height && cwidth > largest_width) {
+		    if (cheight >= largest_height && cwidth >= largest_width) {
 			largest_mode   = mode;
 			largest_width  = cwidth;
 			largest_height = cheight;
@@ -914,24 +902,42 @@ static ULONG find_rtg_mode (ULONG *width, ULONG *height, ULONG depth)
 		     * Is it large enough for our requirements?
 		     */
 		    if (cwidth >= *width && cheight >= *height) {
+#ifdef DEBUG
+			write_log ("large enough\n");
+#endif
 			/*
 			 * Yes. Is it the best fit that we've seen so far?
 			 */
-			if (cwidth < best_width && cheight < best_height) {
+			if (cwidth <= best_width && cheight <= best_height) {
 			    best_width  = cwidth;
 			    best_height = cheight;
 			    best_mode   = mode;
 			}
 		    }
+#ifdef DEBUG
+		    else
+			write_log ("too small\n");
+#endif
+
 		} /* if (cdepth == depth) */
+#ifdef DEBUG
+		else
+		    write_log ("wrong depth\n");
+#endif
 	    } /* if (IsCyberModeID (mode)) */
 	} /* while */
 
 	if (best_mode != (ULONG)INVALID_ID) {
+#ifdef DEBUG
+	    write_log ("Found match!\n");
+#endif
 	    /* We found a match. Return it */
 	    *height = best_height;
 	    *width  = best_width;
 	} else if (largest_mode != (ULONG)INVALID_ID) {
+#ifdef DEBUG
+	    write_log ("No match found!\n");
+#endif
 	    /* We didn't find a large enough mode. Return the largest
 	     * mode found at the depth - if we found one */
 	    best_mode = largest_mode;
@@ -960,8 +966,8 @@ static int setup_customscreen (void)
 	CUSTOMSCREEN
     };
 
-    LONG  width  = gfxvidinfo.width;
-    LONG  height = gfxvidinfo.height;
+    ULONG width  = gfxvidinfo.width;
+    ULONG height = gfxvidinfo.height;
     ULONG depth  = 0; // FIXME: Need to add some way of letting user specify preferred depth
     ULONG mode   = INVALID_ID;
     struct Screen *screen;
@@ -996,9 +1002,9 @@ static int setup_customscreen (void)
 #endif
 
     /* If the screen is larger than requested, centre UAE's display */
-    if (width > gfxvidinfo.width)
+    if (width > (ULONG) gfxvidinfo.width)
 	XOffset = (width - gfxvidinfo.width) / 2;
-    if (height > gfxvidinfo.height)
+    if (height > (ULONG) gfxvidinfo.height)
 	YOffset = (height - gfxvidinfo.height) / 2;
 
     do {
@@ -1617,7 +1623,7 @@ int graphics_init (void)
 	 * display buffer
 	 */
 	gfxvidinfo.rowbytes = gfxvidinfo.pixbytes * gfxvidinfo.width;
-	gfxvidinfo.bufmem   = (char *) calloc (gfxvidinfo.rowbytes, gfxvidinfo.height + 1);
+	gfxvidinfo.bufmem   = (uae_u8 *) calloc (gfxvidinfo.rowbytes, gfxvidinfo.height + 1);
 	/*									       ^^^ */
 	/*				       This is because DitherLine may read one extra row */
     }
@@ -1629,7 +1635,7 @@ int graphics_init (void)
 
 
     if (use_delta_buffer) {
-	oldpixbuf = (char *)calloc (gfxvidinfo.rowbytes, gfxvidinfo.height);
+	oldpixbuf = (uae_u8 *) calloc (gfxvidinfo.rowbytes, gfxvidinfo.height);
 	if (!oldpixbuf) {
 	    write_log ("AMIGFX: Not enough memory for oldpixbuf.\n");
 	    return 0;
@@ -1760,6 +1766,7 @@ void handle_events(void)
     save_frame();      /* possibly save frame    */
 #endif
 
+#ifdef DEBUGGER
     /*
      * This is a hack to simulate ^C as is seems that break_handler
      * is lost when system() is called.
@@ -1768,6 +1775,7 @@ void handle_events(void)
 		(SIGBREAKF_CTRL_C|SIGBREAKF_CTRL_D)) {
 	activate_debugger ();
     }
+#endif
 
     while ((msg = (struct IntuiMessage*) GetMsg (W->UserPort))) {
 	class     = msg->Class;
@@ -1788,7 +1796,7 @@ void handle_events(void)
 	    case IDCMP_REFRESHWINDOW:
 		if (use_delta_buffer) {
 		    /* hack: this forces refresh */
-		    char *ptr = oldpixbuf;
+		    uae_u8 *ptr = oldpixbuf;
 		    int i, len = gfxvidinfo.width;
 		    len *= gfxvidinfo.pixbytes;
 		    for (i=0; i < currprefs.gfx_height_win; ++i) {
@@ -2010,7 +2018,7 @@ static void set_title (void)
     } else SetWindowTitles(W, title, (char*)-1);
 #endif
 
-    char *title = inhibit_frame ? WINDOW_TITLE " (Display off)" : WINDOW_TITLE;
+    const char *title = inhibit_frame ? WINDOW_TITLE " (Display off)" : WINDOW_TITLE;
     SetWindowTitles (W, title, (char*)-1);
 }
 
@@ -2516,7 +2524,7 @@ void gfx_default_options (struct uae_prefs *p)
     p->amiga_use_grey        = 0;
 }
 
-void gfx_save_options (FILE *f, struct uae_prefs *p)
+void gfx_save_options (FILE *f, const struct uae_prefs *p)
 {
     cfgfile_write (f, GFX_NAME ".screen_type=%s\n",  screen_type[p->amiga_screen_type]);
     cfgfile_write (f, GFX_NAME ".publicscreen=%s\n", p->amiga_publicscreen);
@@ -2524,7 +2532,7 @@ void gfx_save_options (FILE *f, struct uae_prefs *p)
     cfgfile_write (f, GFX_NAME ".use_grey=%s\n",     p->amiga_use_grey ? "true" : "false");
 }
 
-int gfx_parse_option (struct uae_prefs *p, char *option, char *value)
+int gfx_parse_option (struct uae_prefs *p, const char *option, const char *value)
 {
     return (cfgfile_yesno  (option, value, "use_dither",   &p->amiga_use_dither)
 	 || cfgfile_yesno  (option, value, "use_grey",	 &p->amiga_use_grey)

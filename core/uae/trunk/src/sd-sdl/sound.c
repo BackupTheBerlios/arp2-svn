@@ -4,13 +4,12 @@
   * Support for SDL sound
   *
   * Copyright 1997 Bernd Schmidt
-  * Copyright 2003 Richard Drummond
+  * Copyright 2003-2006 Richard Drummond
   */
 
 #include "sysconfig.h"
 #include "sysdeps.h"
 
-#include "config.h"
 #include "options.h"
 #include "custom.h"
 #include "gensound.h"
@@ -89,20 +88,13 @@ void update_sound (int freq)
 int setup_sound (void)
 {
     int success = 0;
-    int size = currprefs.sound_maxbsiz;
 
     if (SDL_InitSubSystem (SDL_INIT_AUDIO) == 0) {
 	spec.freq = currprefs.sound_freq;
 	spec.format = currprefs.sound_bits == 8 ? AUDIO_U8 : AUDIO_S16SYS;
 	spec.channels = currprefs.sound_stereo ? 2 : 1;
 	spec.callback = dummy_callback;
-	size >>= spec.channels - 1;
-	size >>= 1;
-	while (size & (size - 1))
-	    size &= size - 1;
-	if (size < 512)
-	    size = 512;
-	spec.samples = size;
+	spec.samples  = spec.freq * currprefs.sound_latency / 1000;
 	spec.callback = sound_callback;
 	spec.userdata = 0;
 
@@ -122,24 +114,10 @@ int setup_sound (void)
 
 static int open_sound (void)
 {
-    int size = currprefs.sound_maxbsiz;
-
     spec.freq = currprefs.sound_freq;
     spec.format = currprefs.sound_bits == 8 ? AUDIO_U8 : AUDIO_S16SYS;
     spec.channels = currprefs.sound_stereo ? 2 : 1;
-    /* Always interpret buffer size as number of samples, not as actual
-       buffer size.  Of course, since 8192 is the default, we'll have to
-       scale that to a sane value (assuming that otherwise 16 bits and
-       stereo would have been enabled and we'd have done the shift by
-       two anyway).  */
-//    size >>= 2;
-    size >>= spec.channels - 1;
-    size >>= currprefs.sound_bits == 8 ? 0 : 1;
-    while (size & (size - 1))
-	size &= size - 1;
-    if (size < 512)
-	size = 512;
-    spec.samples = size;
+    spec.samples  = spec.freq * currprefs.sound_latency / 1000;
     spec.callback = sound_callback;
     spec.userdata = 0;
 
@@ -161,10 +139,10 @@ static int open_sound (void)
     update_sound(vblank_hz);
     sound_available = 1;
     obtainedfreq = currprefs.sound_freq;
-    write_log ("SDL sound driver found and configured for %d bits at %d Hz, buffer is %d samples\n",
-	currprefs.sound_bits, spec.freq, spec.samples);
-    sndbufpt = sndbuffer;
-    sndbufsize = size * currprefs.sound_bits / 8 * spec.channels;
+    sndbufsize = spec.samples * currprefs.sound_bits / 8 * spec.channels;
+    write_log ("SDL sound driver found and configured for %d bits at %d Hz, buffer is %d ms (%d bytes).\n",
+	currprefs.sound_bits, spec.freq, spec.samples * 1000 / spec.freq, sndbufsize);
+   sndbufpt = sndbuffer;
 
     return 1;
 }
@@ -254,4 +232,20 @@ void reset_sound (void)
 
 void sound_volume (int dir)
 {
+}
+
+/*
+ * Handle audio specific cfgfile options
+ */
+void audio_default_options (struct uae_prefs *p)
+{
+}
+
+void audio_save_options (FILE *f, const struct uae_prefs *p)
+{
+}
+
+int audio_parse_option (struct uae_prefs *p, const char *option, const char *value)
+{
+    return 0;
 }

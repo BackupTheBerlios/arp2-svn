@@ -21,7 +21,6 @@
 #include "sysconfig.h"
 #include "sysdeps.h"
 
-#include "config.h"
 #include "options.h"
 #include "keyboard.h"
 #include "keybuf.h"
@@ -31,6 +30,7 @@
 #include "memory.h"
 #include "events.h"
 #include "newcpu.h"
+#include "traps.h"
 #include "inputdevice.h"
 #include "uae.h"
 #include "picasso96.h"
@@ -50,8 +50,8 @@
 #define DIR_DOWN 8
 
 struct inputevent {
-    char *confname;
-    char *name;
+    const char *confname;
+    const char *name;
     int allow_mask;
     int type;
     int unit;
@@ -89,7 +89,7 @@ struct inputevent {
 #define ID_FLAG_AUTOFIRE 1
 
 #define DEFEVENT(A, B, C, D, E, F) {#A, B, C, D, E, F },
-struct inputevent events[] = {
+const struct inputevent events[] = {
 {0, 0, AM_K, 0, 0, 0},
 #include "inputevents.def"
 {0, 0, 0, 0, 0, 0}
@@ -368,7 +368,7 @@ static void clear_id (struct uae_input_device *id)
 void read_inputdevice_config (struct uae_prefs *pr, const char *option, const char *value)
 {
     struct uae_input_device *id = 0;
-    struct inputevent *ie;
+    const struct inputevent *ie;
     int devnum, num, button = 0, joystick, flags, i, subnum, idnum, keynum = 0;
     int mask;
     const char *p, *p2;
@@ -525,7 +525,10 @@ int mousehack_alive (void)
     return ievent_alive > 0;
 }
 
-uae_u32 REGPARAM2 mousehack_helper (struct regstruct *regs)
+/* FIXME */
+extern uae_u32 REGPARAM2 mousehack_helper (struct TrapContext *);
+
+uae_u32 REGPARAM2 mousehack_helper (TrapContext *context)
 {
     int mousexpos, mouseypos;
 
@@ -542,7 +545,7 @@ uae_u32 REGPARAM2 mousehack_helper (struct regstruct *regs)
 	mousexpos = coord_native_to_amiga_x (lastmx);
     }
 
-    switch (m68k_dreg (regs, 0)) {
+    switch (m68k_dreg (&context->regs, 0)) {
     case 0:
 	return ievent_alive ? -1 : needmousehack ();
     case 1:
@@ -1185,7 +1188,7 @@ void inputdevice_handle_inputcode (void)
 
 void handle_input_event (int nr, int state, int max, int autofire)
 {
-    struct inputevent *ie;
+    const struct inputevent *ie;
     int joy;
 
     if (nr <= 0)
@@ -1413,7 +1416,7 @@ static void scanevents (struct uae_prefs *p)
 {
     unsigned int i;
     int j, k, ei;
-    struct inputevent *e;
+    const struct inputevent *e;
     unsigned int n_joy = idev[IDTYPE_JOYSTICK].get_num();
     unsigned int n_mouse = idev[IDTYPE_MOUSE].get_num();
 
@@ -1916,7 +1919,7 @@ int inputdevice_iterate (int devnum, int num, char *name, int *af)
 {
     const struct inputdevice_functions *idf = getidf (devnum);
     static int id_iterator;
-    struct inputevent *ie;
+    const struct inputevent *ie;
     int mask, data, flags, type;
     int devindex = inputdevice_get_device_index (devnum);
     char *custom;
@@ -1947,7 +1950,7 @@ int inputdevice_iterate (int devnum, int num, char *name, int *af)
 	    mask |= AM_K;
 	}
 	if (ie->allow_mask & AM_INFO) {
-	    struct inputevent *ie2 = ie + 1;
+	    const struct inputevent *ie2 = ie + 1;
 	    while (!(ie2->allow_mask & AM_INFO)) {
 		if (is_event_used (idf, devindex, ie2 - ie, -1)) {
 		    ie2++;
@@ -2087,7 +2090,7 @@ void inputdevice_swap_ports (struct uae_prefs *p, int devnum)
     const struct inputdevice_functions *idf = getidf (devnum);
     struct uae_input_device *uid = get_uid (idf, inputdevice_get_device_index (devnum));
     int i, j, k, event, unit;
-    struct inputevent *ie, *ie2;
+    const struct inputevent *ie, *ie2;
 
     for (i = 0; i < MAX_INPUT_DEVICE_EVENTS; i++) {
 	for (j = 0; j < MAX_INPUT_SUB_EVENT; j++) {

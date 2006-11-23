@@ -4,7 +4,7 @@
   * ami-rexx.c
   *
   * Copyright 1996 Samuel Devulder.
-  * Copyright 2004 Richar Drummond
+  * Copyright 2004-2006 Richard Drummond
   *
   * History:
   *     05/09/97: Added UAEEXE support.
@@ -46,7 +46,6 @@
 #include "sysconfig.h"
 #include "sysdeps.h"
 #include "uae.h"
-#include "config.h"
 #include "options.h"
 #include "memory.h"
 #include "custom.h"
@@ -57,6 +56,7 @@
 #include "xwin.h"
 #include "drawing.h"
 #include "debug.h"
+#include "version.h"
 
 #include <ctype.h>
 
@@ -514,8 +514,8 @@ static int ADDRESS (const char *hostname, const char *cmd)
     if ((RexxPort = (void *)FindPort (hostname))) {
 	if ((ReplyPort = (void *)CreateMsgPort ())) {
 	    if ((HostMsg = CreateRexxMsg (ReplyPort, NULL, hostname))) {
-		int len = strlen (cmd); /* holger: trick for powerup */
-		if ((HostMsg->rm_Args[0] = CreateArgstring ((UBYTE*)cmd, len))) {
+		unsigned int len = strlen (cmd); /* holger: trick for powerup */
+		if ((HostMsg->rm_Args[0] = CreateArgstring ((char *)cmd, len))) {
 		    HostMsg->rm_Action = RXCOMM | RXFF_RESULT;
 		    PutMsg (RexxPort, (void*)HostMsg);
 		    WaitPort (ReplyPort);

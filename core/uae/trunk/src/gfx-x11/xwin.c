@@ -21,7 +21,6 @@
 
 #include <ctype.h>
 
-#include "config.h"
 #include "options.h"
 #include "uae.h"
 #include "memory.h"
@@ -769,8 +768,8 @@ static void graphics_subinit (void)
     XSetIconName (display, mywin, "UAE Screen");
 
     /* set class hint */
-    classhint.res_name = "UAE";
-    classhint.res_class = "UAEScreen";
+    classhint.res_name  = (char *)"UAE";
+    classhint.res_class = (char *)"UAEScreen";
     XSetClassHint(display, mywin, &classhint);
 
     hints = XAllocWMHints();
@@ -1769,14 +1768,14 @@ void setcapslockstate (int state)
 /*
  * Handle gfx cfgfile options
  */
-void gfx_save_options (FILE *f, struct uae_prefs *p)
+void gfx_save_options (FILE *f, const struct uae_prefs *p)
 {
     fprintf (f, "x11.low_bandwidth=%s\n", p->x11_use_low_bandwidth ? "true" : "false");
     fprintf (f, "x11.use_mitshm=%s\n",    p->x11_use_mitshm ? "true" : "false");
     fprintf (f, "x11.map_raw_keys=%s\n",  p->map_raw_keys ? "true" : "false");
 }
 
-int gfx_parse_option (struct uae_prefs *p, char *option, char *value)
+int gfx_parse_option (struct uae_prefs *p, const char *option, const char *value)
 {
     return (cfgfile_yesno (option, value, "low_bandwidth", &p->x11_use_low_bandwidth)
 	 || cfgfile_yesno (option, value, "use_mitshm",    &p->x11_use_mitshm)

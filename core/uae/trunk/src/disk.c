@@ -1,4 +1,4 @@
-/*
+ /*
   * UAE - The Un*x Amiga Emulator
   *
   * Floppy disk emulation
@@ -15,11 +15,11 @@
 #include "sysdeps.h"
 
 #include "uae.h"
-#include "config.h"
 #include "options.h"
 #include "memory.h"
 #include "events.h"
 #include "custom.h"
+#include "custom_private.h"
 #include "ersatz.h"
 #include "disk.h"
 #include "gui.h"
@@ -432,9 +432,9 @@ static int createimagefromexe (struct zfile *src, struct zfile *dst)
     int blocks, extensionblocks;
     int totalblocks;
     int fblock1, dblock1;
-    char *fname1 = "runme.exe";
-    char *fname2 = "startup-sequence";
-    char *dirname1 = "s";
+    const char *fname1 = "runme.exe";
+    const char *fname2 = "startup-sequence";
+    const char *dirname1 = "s";
     struct zfile *ss;
 
     memset (bitmap, 0, sizeof (bitmap));
@@ -1579,7 +1579,7 @@ void disk_creatediskfile (char *name, int type, drive_type adftype)
     int i, l, file_size, tracks, track_len;
     uae_u8 *chunk = NULL;
     uae_u8 tmp[3*4];
-    char *disk_name = "empty";
+    const char *disk_name = "empty";
 
     if (type == 1)
 	tracks = 2 * 83;
@@ -2178,6 +2178,8 @@ static void disk_doupdate_predict (drive * drv, unsigned int startcycle)
     uae_u32 tword = word;
     unsigned int mfmpos = drv->mfmpos;
     int indexhack = drv->indexhack;
+    int is_empty       = drive_empty (drv);
+    int is_unformatted = unformatted (drv);
 
     diskevent_flag = 0;
     while (startcycle < (maxhpos << 8) && !diskevent_flag) {
@@ -2185,8 +2187,8 @@ static void disk_doupdate_predict (drive * drv, unsigned int startcycle)
 	    updatetrackspeed (drv, mfmpos);
 	if (dskdmaen != 3) {
 	    tword <<= 1;
-	    if (!drive_empty (drv)) {
-		if (unformatted (drv))
+	    if (!is_empty) {
+		if (is_unformatted)
 		    tword |= (rand() & 0x1000) ? 1 : 0;
 		else
 		    tword |= getonebit (drv->bigmfmbuf, mfmpos);
@@ -2254,12 +2256,16 @@ static void disk_doupdate_read (drive * drv, int floppybits)
     mfmbuf[6] = 0x4444;
     mfmbuf[7] = 0x4444;
 */
+
+    int is_empty       = drive_empty (drv);
+    int is_unformatted = unformatted (drv);
+
     while (floppybits >= drv->trackspeed) {
 	if (drv->tracktiming[0])
 	    updatetrackspeed (drv, drv->mfmpos);
 	word <<= 1;
-        if (!drive_empty (drv)) {
-	    if (unformatted (drv))
+        if (!is_empty) {
+	    if (is_unformatted)
 		word |= (rand() & 0x1000) ? 1 : 0;
 	    else
 		word |= getonebit (drv->bigmfmbuf, drv->mfmpos);
@@ -2278,7 +2284,7 @@ static void disk_doupdate_read (drive * drv, int floppybits)
 	}
 	if (bitoffset == 15 && dma_enable && dskdmaen == 2 && dsklength >= 0) {
 	    if (dsklength > 0) {
-		put_word (dskpt, word);
+	        do_chipmem_wput (dskpt, word);
 		dskpt += 2;
 #ifdef CPUEMU_6
 		cycle_line[7] |= CYCLE_MISC;
@@ -2721,7 +2727,8 @@ int DISK_examine_image (struct uae_prefs *p, int num, uae_u32 *crc32)
     unsigned int drvsec;
     unsigned int ret, i;
     drive *drv = &floppy[num];
-    uae_u32 dos, crc, crc2;
+    uae_u32 dos = 0;
+    uae_u32 crc, crc2;
 
     ret = 0;
     drv->cyl = 0;

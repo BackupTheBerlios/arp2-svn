@@ -37,10 +37,10 @@ static void generate_func(void)
     unsigned int i;
     printf("#include \"sysconfig.h\"\n");
     printf("#include \"sysdeps.h\"\n");
-    printf("#include \"config.h\"\n");
     printf("#include \"options.h\"\n");
-    printf("#include \"custom.h\"\n");
     printf("#include \"memory.h\"\n");
+    printf("#include \"custom.h\"\n");
+    printf("#include \"custom_private.h\"\n");
     printf("#include \"blitter.h\"\n");
     printf("#include \"blitfunc.h\"\n\n");
 
@@ -209,7 +209,6 @@ static void generate_table(void)
     unsigned int i;
     printf("#include \"sysconfig.h\"\n");
     printf("#include \"sysdeps.h\"\n");
-    printf("#include \"config.h\"\n");
     printf("#include \"options.h\"\n");
     printf("#include \"custom.h\"\n");
     printf("#include \"memory.h\"\n");

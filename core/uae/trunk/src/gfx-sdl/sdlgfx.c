@@ -21,7 +21,6 @@
 #include <SDL.h>
 #include <SDL_endian.h>
 
-#include "config.h"
 #include "options.h"
 #include "uae.h"
 #include "xwin.h"
@@ -1367,12 +1366,12 @@ void gfx_default_options (struct uae_prefs *p)
         p->map_raw_keys = 0;
 }
 
-void gfx_save_options (FILE *f, struct uae_prefs *p)
+void gfx_save_options (FILE *f, const struct uae_prefs *p)
 {
     cfgfile_write (f, GFX_NAME ".map_raw_keys=%s\n", p->map_raw_keys ? "true" : "false");
 }
 
-int gfx_parse_option (struct uae_prefs *p, char *option, char *value)
+int gfx_parse_option (struct uae_prefs *p, const char *option, const char *value)
 {
     int result = (cfgfile_yesno (option, value, "map_raw_keys", &p->map_raw_keys));
 

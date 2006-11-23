@@ -10,7 +10,6 @@
 #include "sysconfig.h"
 #include "sysdeps.h"
 
-#include "config.h"
 #include "options.h"
 #include "zfile.h"
 #include "unzip.h"
@@ -352,9 +351,9 @@ static struct zfile *dms (struct zfile *z)
 }
 #endif
 
-static char *ignoreextensions[] =
+static const char *ignoreextensions[] =
     { ".gif", ".jpg", ".png", ".xml", ".pdf", ".txt", 0 };
-static char *diskimageextensions[] =
+static const char *diskimageextensions[] =
     { ".adf", ".adz", ".ipf", ".fdi", 0 };
 
 static int isdiskimage (char *name)
