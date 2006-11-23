@@ -1,12 +1,14 @@
-$(dirname $0)/configure --prefix=/opt/arp2 \
-	--disable-aga --enable-cdtv --disable-cd32 \
-	--with-glgfx --with-glgfx-prefix=/opt/arp2 \
-	--disable-audio \
+$(dirname $0)/configure --prefix=/lib/arp2 \
+        --disable-profiling \
+	--enable-aga --enable-cdtv --enable-cd32 \
+	--with-glgfx --with-glgfx-prefix=/lib/arp2 \
+	--enable-audio \
 	--disable-fdi --without-caps \
 	--enable-cycle-exact-cpu --enable-compatible-cpu --enable-jit \
 	--enable-natmem=0 --with-program-base=0x08000000 --enable-blomcall \
 	--enable-autoconfig \
 	--enable-scsi-device  --with-libscg-includedir=/usr/include/schily/ \
+        --disable-state-saving \
 	--disable-enforcer --disable-action-replay \
-	--disable-bsdsock --disable-bsdsock-new \
+	--enable-bsdsock  \
 	--enable-threads --disable-ui 
