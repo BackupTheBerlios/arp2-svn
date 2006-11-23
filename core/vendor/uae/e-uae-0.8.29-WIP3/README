@@ -1,0 +1,177 @@
+E-UAE 0.8.29-WIP3
+=================
+
+This is a fork of UAE, the Ubiquitous Amiga Emulator, with an emulation core
+based on WinUAE. It attempts to bring many of the great features of WinUAE
+to non-Windows platforms. This version now finally has a name, E-UAE, since
+that's what everybody was calling it anyway. The 'E' can stand for anything
+you fancy. Experimental, extreme, exciting, egalitarian, eggplant, . . .
+
+Currently it will build and run (with a varying degree of supported
+features) on Linux and other Unices, Mac OS X, BeOS, AmigaOS itself
+(either for 68k machines or PPC machines with OS4.0) and the AmigaOS clones
+AROS and MorphOS. OS X requires either LibSDL or an X server for graphics
+output, but native graphics are supported on AmigaOS and BeOS, although, at
+the moment, SDL may be preferred on BeOS since the native driver lacks
+support for the P96 emulation.
+
+E-UAE is open-source software and is made available under the terms of the
+GPL. See the COPYING file included with the E-UAE archive for details.
+
+E-UAE is based on the work of dozens of contributors including Bernd Schmidt
+(the original author and maintainer of UAE), Bernie Meyer (the author of the
+x86 JIT compiler), Toni Wilen (the current maintainer of WinUAE), and many
+more.
+
+To make full use of E-UAE you will need access to an image of some version
+of the Amiga Kickstart ROM (although UAE does include a ROM emulation which
+may work with some old games). The Amiga Kickstart ROMs are copyrighted
+material and may not be freely distributed (so don't ask me for a copy). If
+you don't have an Amiga from which you can legally make a ROM image, a
+selection of ROM images are available for purchase online from Cloanto
+(publishers of the Amiga Forever distribution). See
+http://www.amigaforever.com/
+
+
+What's new since 0.8.28
+=======================
+
+General
+-------
+* Many core emulation changes and fixes merged from WinUAE 1.2.
+* Fixed support for autoscroll screens in the P96 emulation.
+* Re-written support for emulator traps (including a new portable method to
+  call host code from 68k code, replacing the old 'stack magic' method).
+* Hence, the 'old' bsdsocket emulation has been entirely replaced by the
+  'new' bsdsocket emulation - which should now work on any Unix-like system.
+* Improved translation of OCS/ECS colours to host colours (thanks to Francesco
+  Pretto and Toni Wilen for this).
+* Support for hardfiles larger than 2 GB (thanks to Martin Blom).
+* JIT support for NX-enabled CPUs (thanks to Martin Blom).
+* Emulator snapshots (state saving/loading) supported.
+* Fixed expansion of '~' in config file paths (thanks to Martin Steigerwald
+  for reporting this).
+* Optimized rendering of Amiga screens to 8-bit and 16-bit screens.
+* Many other minor optimizations for the Amiga chipset emulation.
+* Fixes for building with GCC 4.1.
+* Raplaced the 'sound_max_buff=' configuration option replaced with the more
+  easily understood and more portable option 'sound_latency=' which
+  specifies the length of the audio buffer to use in microseconds.
+
+SDL
+---
+* The SDL display driver now tries to use video memory if possible for the
+  Amiga display (the new rendering optimizations make this feasible now).
+  This applies to the X11 DGA SDL display driver, AmigaOS SDL in full-screen
+  mode, etc.
+* Preliminary support for double-buffered output (thanks to fari mueller for
+  keeping up the pressure).
+* 'hide_cursor=<bool>' option now supported (thanks to kadi for the idea).
+
+X11
+---
+* 'x11.hide_cursor=<bool>' option replaced with 'hide_cursor=<bool>'.
+
+Gtk+
+----
+* Fixed problems on 64-bit platforms and rendering bugs with the LED widget.
+
+Linux
+-----
+* Reduced latency issues with ALSA sound driver (problems may still exist if
+  ALSA's dmix plugin is being used).
+* Added option to specify which ALSA device to output to instead of using
+  the 'default' device.
+
+OS X
+----
+* Simplified build scripts when compiling on OS X.
+* E-UAE is now a Cocoa App bundle.
+* Log output is directed to a file ~/Library/Logs/E-UAE.log when E-UAE is
+  started from Finder rather than simply being dropped (thanks to Daniel
+  Pimley for the idea).
+
+AmigaOS (and clones)
+--------------------
+* Fixed support for 32-bit big-endian screen modes.
+* Fixed a fault in the AHI sound driver when exiting.
+* Now supports capsimage.device 1.2.
+* Added requester for loading and saving state files.
+* Log output is directed to a file T:E-UAE.log when E-UAE is started from
+  the Workbench rather than simply being dropped.
+
+Still to do
+===========
+
+The following features of WinUAE are not yet supported:
+
+* Serial and parallel port emulation.
+* AHI soundcard emulation.
+* Catweasel support.
+* OpenGL rendering and graphics filters.
+* Floppy drive sounds.
+* Everything else that I've forgotten about.
+
+In the pipeline for the full 0.8.29 release
+-------------------------------------------
+
+* Load/save state dialogs for Gtk+, Cocoa and BeOS.
+* Rework handling of default floppy/rom/hardfile paths (again, ta to Mr
+  Pimley for the prompt).
+* Add DGA 2.0 support to X11 driver (for fari, again. ;-).
+* Further build script improvements.
+* (maybe) Transition from CVS to SVN repostories.
+* (maybe) Replace libscg for SCSI emulation support on Linux, OS X and BeOS with
+  native methods.
+* (maybe) Add OpenGL renderer.
+* Possibly more, but I ain't telling just yet. ;-)
+
+Known problems
+==============
+
+Some significant misfeatures that I know about and am/will be working to fix
+(eventually):
+
+* Only platforms supporting the GTK+ toolkit have a useable configuration
+  GUI (and the GTK+ GUI is still incomplete).
+* JIT direct memory access only works on Linux/x86 and, by default, you may
+  only emulate up to 32MB of direct ZIII RAM; select more than that and the
+  JIT will fall back on indirect memory access and hence will be slower.
+  This is due to a system limit on the size of a POSIX shared memory
+  segment. You can overcome this limit my modifying the value of the procfs
+  setting, /proc/sys/kernel/shmmax.
+* Virtual filesystem doesn't support platforms which use UTF-8 for filenames
+  (e.g., OS X, Linux with a UTF-8 locale, etc.). Filenames with characters
+  outside of the core ASCII range will be mangled.
+* Full documentation is lacking.
+
+
+Using E-UAE
+===========
+
+Documentation is a work-in-progress. See the docs directory.
+
+
+Compiling E-UAE yourself
+========================
+
+See the docs/compiling.txt file for more information about building E-UAE.
+
+
+CVS
+===
+
+Details about how to access the CVS repository containing the current
+development version of E-UAE can be found at:
+
+http://sourceforge.net/cvs/?group_id=109723
+
+
+Contact
+=======
+
+See http://www.freelists.org/list/uae for details of a mailing list
+discussing problems with and development of E-UAE.
+
+Send bug reports, comments, patches, etc. to the above list or to:
+Richard Drummond <uae@rcdrummond.net>
