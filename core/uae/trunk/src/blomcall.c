@@ -48,10 +48,10 @@
 #define limited_cycles(x) ((x) < 113 ? (x) : 113)
 
 #if defined (__i386__)
-# define get_jmpbuf_sp(jb) ((uintptr_t) ((jb)[0]->__jmpbuf[JB_SP]))
+//# define get_jmpbuf_sp(jb) ((uintptr_t) ((jb)[0]->__jmpbuf[JB_SP]))
 # define get_sigctx_sp(bc) ((uintptr_t) ((bc)->uc.uc_mcontext.esp))
 #elif defined (__x86_64__)
-# define get_jmpbuf_sp(jb) ((uintptr_t) ((jb)[0]->__jmpbuf[JB_RSP]))
+//# define get_jmpbuf_sp(jb) ((uintptr_t) ((jb)[0]->__jmpbuf[JB_RSP]))
 # define get_sigctx_sp(bc) ((uintptr_t) ((bc)->uc.uc_mcontext.rsp))
 #else
 # error Unsupported architecture!
@@ -259,6 +259,20 @@ uae_u32 REGPARAM2 __blomcall_callfunc68k(uae_u32 args[16], fptype fp[8], uae_u32
   // Set emulation address
   m68k_setpc(blomcall_ctx->regs, addr);
   fill_prefetch_slow(blomcall_ctx->regs);
+
+  // Since glibc now mangles the JB_*SP member, we can't use that to
+  // fetch the stack pointer anymore, so we have to use inline
+  // assembly and wish for luck. :-(
+#if defined (__i386__)
+  __asm volatile ("movl %%esp, %0" : : "m" (blomcall_ctx->stack_pointer));
+#elif defined (__x86_64__)
+  __asm volatile ("movq %%rsp, %0" : : "m" (blomcall_ctx->stack_pointer));
+#else
+# error Unsupported architecture!
+#endif
+  blomcall_ctx->stack_pointer -= 32; // Assume the sigsetjmp() won't
+				     // use more than 32 bytes or
+				     // stack. I deserve to die.
 
   // Save return address in m68kjmp ...
   if (sigsetjmp (blomcall_ctx->m68kjmp, 0) == 0) {
@@ -605,7 +619,8 @@ unsigned long REGPARAM2 blomcall_ops (uae_u32 opcode, struct regstruct* regs) {
 	}
 	else {
 	  // Restore stack frame contents and go back after m68k call
-	  uae_u8* sp = (uae_u8*) get_jmpbuf_sp(&blomcall_ctx->m68kjmp) - RED_ZONE_SIZE;
+//	  uae_u8* sp = (uae_u8*) get_jmpbuf_sp(&blomcall_ctx->m68kjmp) - RED_ZONE_SIZE;
+	  uae_u8* sp = (uae_u8*) blomcall_ctx->stack_pointer - RED_ZONE_SIZE;
 
 	  memcpy(sp, blomcall_ctx->saved_stack, blomcall_ctx->saved_stack_bytes);
 	  siglongjmp(blomcall_ctx->m68kjmp, 1);
@@ -629,7 +644,7 @@ unsigned long REGPARAM2 blomcall_ops (uae_u32 opcode, struct regstruct* regs) {
 	// most likely be wrong!
 
 #if defined (__i386__)
-	__asm__ __volatile__ ("		\n\
+	__asm__ volatile ("		\n\
 		mov   %0,%%esp		\n\
 		push  %6		\n\
 		push  $0		\n\
@@ -651,7 +666,7 @@ unsigned long REGPARAM2 blomcall_ops (uae_u32 opcode, struct regstruct* regs) {
 				"memory", "eax", "ecx", "edx");
 
 #elif defined (__x86_64__)
-	__asm__ __volatile__ ("		\n\
+	__asm__ volatile ("		\n\
 		mov   %0,%%esp		\n\
 		push  %6		\n\
 		xor   %%edx,%%edx	\n\
@@ -708,7 +723,8 @@ unsigned long REGPARAM2 blomcall_ops (uae_u32 opcode, struct regstruct* regs) {
       // Native code called blomcall_callfunc68k()
       
       uae_u8* a7 = (uae_u8*) (uintptr_t) m68k_areg(blomcall_ctx->regs, 7);
-      uae_u8* sp = (uae_u8*) get_jmpbuf_sp(&blomcall_ctx->m68kjmp) - RED_ZONE_SIZE;
+//      uae_u8* sp = (uae_u8*) get_jmpbuf_sp(&blomcall_ctx->m68kjmp) - RED_ZONE_SIZE;
+      uae_u8* sp = (uae_u8*) blomcall_ctx->stack_pointer - RED_ZONE_SIZE;
 
       // a7 has been set up by the assembly code and
       // __blomcall_callfunc68k() so it's the same as the native stack

@@ -39,6 +39,7 @@ struct blomcall_context {
     uae_u32           saved_regs[16];
     fptype            saved_fpregs[8];
     uae_u8            saved_stack[128+RED_ZONE_SIZE];
+    void*             stack_pointer;
     struct kernel_ucontext uc;
     struct _fpstate        fp;
     sigjmp_buf        emuljmp;
