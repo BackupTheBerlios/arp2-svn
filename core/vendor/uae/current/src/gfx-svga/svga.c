@@ -16,7 +16,6 @@
 #include <vgamouse.h>
 #include <vgakeyboard.h>
 
-#include "config.h"
 #include "options.h"
 #include "threaddep/thread.h"
 #include "uae.h"
@@ -915,12 +914,12 @@ void unlockscr (void)
 {
 }
 
-void target_save_options (FILE *f, struct uae_prefs *p)
+void gfx_save_options (FILE *f, const struct uae_prefs *p)
 {
     fprintf (f, "svga.no_linear=%s\n", p->svga_no_linear ? "true" : "false");
 }
 
-int target_parse_option (struct uae_prefs *p, char *option, char *value)
+int gfx_parse_option (struct uae_prefs *p, const char *option, const char *value)
 {
     return (cfgfile_yesno (option, value, "no_linear", &p->svga_no_linear));
 }

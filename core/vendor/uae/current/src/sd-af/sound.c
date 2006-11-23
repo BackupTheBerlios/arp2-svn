@@ -1,15 +1,14 @@
- /* 
+ /*
   * UAE - The Un*x Amiga Emulator
-  * 
+  *
   * Support for the AF sound system
-  * 
+  *
   * Copyright 1996 Marcus Sundberg
   */
 
 #include "sysconfig.h"
 #include "sysdeps.h"
 
-#include "config.h"
 #include "options.h"
 #include "memory.h"
 #include "custom.h"
@@ -36,13 +35,13 @@ int init_sound (void)
     AFSetACAttributes   attributes;
     AFDeviceDescriptor *aDev;
     int                 device;
-    
+
     aud = AFOpenAudioConn(NULL);
     have_sound = !(aud == NULL);
     if (!have_sound) {
 	return 0;
     }
-    
+
     for(device = 0; device < ANumberOfAudioDevices(aud); device++) {
 	aDev = AAudioDeviceDescriptor(aud, device);
 	rate = aDev->playSampleFreq;
@@ -55,7 +54,7 @@ int init_sound (void)
     if (device == ANumberOfAudioDevices(aud)) {
 	return 0;
     }
-    
+
     attributes.type = LIN16;
     ac = AFCreateAC(aud, device, ACEncodingType, &attributes);
     aftime = AFGetTime(ac);
@@ -68,4 +67,20 @@ int init_sound (void)
     sound_available = 1;
     printf ("Sound driver found and configured for %d bits at %d Hz, buffer is %d bytes\n", 16, rate, sndbufsize);
     return 1;
+}
+
+/*
+ * Handle audio specific cfgfile options
+ */
+void audio_default_options (struct uae_prefs *p)
+{
+}
+
+void audio_save_options (FILE *f, const struct uae_prefs *p)
+{
+}
+
+int audio_parse_option (struct uae_prefs *p, const char *option, const char *value)
+{
+    return 0;
 }

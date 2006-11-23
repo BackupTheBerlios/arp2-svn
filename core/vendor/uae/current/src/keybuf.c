@@ -16,7 +16,6 @@
 #include "sysdeps.h"
 #include <assert.h>
 
-#include "config.h"
 #include "options.h"
 #include "keybuf.h"
 #include "keyboard.h"

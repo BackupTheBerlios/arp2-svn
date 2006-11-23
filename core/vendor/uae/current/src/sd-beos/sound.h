@@ -19,6 +19,8 @@ STATIC_INLINE void check_sound_buffers (void)
     }
 }
 
+#define AUDIO_NAME "beos"
+
 #define PUT_SOUND_BYTE(b) do { *(uae_u8 *)sndbufpt = b; sndbufpt = (uae_u16 *)(((uae_u8 *)sndbufpt) + 1); } while (0)
 #define PUT_SOUND_WORD(b) do { *(uae_u16 *)sndbufpt = b; sndbufpt = (uae_u16 *)(((uae_u8 *)sndbufpt) + 2); } while (0)
 #define PUT_SOUND_BYTE_LEFT(b) PUT_SOUND_BYTE(b)

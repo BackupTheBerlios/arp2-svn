@@ -23,7 +23,6 @@
 
 /****************************************************************************/
 
-#include "config.h"
 #include "options.h"
 #include "uae.h"
 #include "custom.h"
@@ -865,12 +864,12 @@ void gfx_default_options (struct uae_prefs *p)
     p->curses_reverse_video = 0;
 }
 
-void gfx_save_options (FILE *f, struct uae_prefs *p)
+void gfx_save_options (FILE *f, const struct uae_prefs *p)
 {
     fprintf (f, "curses.reverse_video=%s\n", p->curses_reverse_video ? "true" : "false");
 }
 
-int gfx_parse_option (struct uae_prefs *p, char *option, char *value)
+int gfx_parse_option (struct uae_prefs *p, const char *option, const char *value)
 {
     return (cfgfile_yesno (option, value, "reverse_video", &p->curses_reverse_video));
 }

@@ -1,8 +1,8 @@
- /* 
+ /*
   * UAE - The Un*x Amiga Emulator
-  * 
+  *
   * Support for Linux/USS sound
-  * 
+  *
   * Copyright 1997 Bernd Schmidt
   */
 
@@ -21,6 +21,8 @@ static __inline__ void check_sound_buffers (void)
 	sndbuf_written += sndbufsize;
     }
 }
+
+#define AUDIO_NAME "fileaudio"
 
 #define PUT_SOUND_BYTE(b) do { *(uae_u8 *)sndbufpt = b; sndbufpt = (uae_u16 *)(((uae_u8 *)sndbufpt) + 1); } while (0)
 #define PUT_SOUND_WORD(b) do { *(uae_u16 *)sndbufpt = b; sndbufpt = (uae_u16 *)(((uae_u8 *)sndbufpt) + 2); } while (0)

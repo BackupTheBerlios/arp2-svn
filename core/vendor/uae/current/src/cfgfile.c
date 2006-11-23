@@ -12,7 +12,6 @@
 
 #include <ctype.h>
 
-#include "config.h"
 #include "options.h"
 #include "uae.h"
 #include "autoconf.h"
@@ -21,8 +20,10 @@
 #include "inputdevice.h"
 #include "gfxfilter.h"
 #include "gfxdep/gfx.h"
+#include "sounddep/sound.h"
 #include "savestate.h"
 #include "memory.h"
+#include "version.h"
 
 #define CONFIG_BLEN 2560
 
@@ -77,7 +78,7 @@ static const struct cfg_lines opttable[] =
     {"sound_frequency", "" },
     {"sound_bits", "" },
     {"sound_channels", "" },
-    {"sound_max_buff", "" },
+    {"sound_latency", "" },
 #ifdef JIT
     {"comp_trustbyte", "How to access bytes in compiler (direct/indirect/indirectKS/afterPic" },
     {"comp_trustword", "How to access words in compiler (direct/indirect/indirectKS/afterPic" },
@@ -147,7 +148,7 @@ static const char *obsolete[] = {
     "gfx_immediate_blits","gfx_ntsc","win32",
     "sound_pri_cutoff", "sound_pri_time",
     "avoid_dga", "override_dga_address", "avoid_vid",
-    "fast_copper",
+    "fast_copper", "sound_max_buf",
     0 };
 
 #define UNEXPANDED "$(FILE_PATH)"
@@ -192,7 +193,12 @@ static void subst_home (char *f, int n)
     }
 }
 
-void cfgfile_write (FILE *f, char *format,...)
+void cfgfile_subst_home (char *path, unsigned int maxlen)
+{
+    subst_home (path, maxlen);
+}
+
+void cfgfile_write (FILE *f, const char *format,...)
 {
     va_list parms;
     char tmp[CONFIG_BLEN];
@@ -203,7 +209,7 @@ void cfgfile_write (FILE *f, char *format,...)
     va_end (parms);
 }
 
-void save_options (FILE *f, struct uae_prefs *p, int type)
+void save_options (FILE *f, const struct uae_prefs *p, int type)
 {
     struct strlist *sl;
     char *str;
@@ -247,6 +253,7 @@ void save_options (FILE *f, struct uae_prefs *p, int type)
     machdep_save_options (f, p);
     target_save_options (f, p);
     gfx_save_options (f, p);
+    audio_save_options (f, p);
 
     cfgfile_write (f, "use_gui=%s\n", guimode1[p->start_gui]);
 #ifdef DEBUGGER
@@ -271,7 +278,6 @@ void save_options (FILE *f, struct uae_prefs *p, int type)
 #endif
     cfgfile_write (f, "kickshifter=%s\n", p->kickshifter ? "true" : "false");
 
-    p->nr_floppies = 4;
     for (i = 0; i < 4; i++) {
 	str = cfgfile_subst_path (p->path_floppy, UNEXPANDED, p->df[i]);
 	cfgfile_write (f, "floppy%d=%s\n", i, str);
@@ -282,8 +288,6 @@ void save_options (FILE *f, struct uae_prefs *p, int type)
 	if (p->dfxclick[i] < 0 && p->dfxclickexternal[i][0])
 	    cfgfile_write (f, "floppy%dsoundext=%s\n", i, p->dfxclickexternal[i]);
 #endif
-	if (p->dfxtype[i] < 0 && p->nr_floppies > i)
-	    p->nr_floppies = i;
     }
     for (i = 0; i < MAX_SPARE_DRIVES; i++) {
 	if (p->dfxlist[i][0])
@@ -310,11 +314,11 @@ void save_options (FILE *f, struct uae_prefs *p, int type)
     cfgfile_write (f, "sound_stereo_separation=%d\n", p->sound_stereo_separation);
     cfgfile_write (f, "sound_stereo_mixing_delay=%d\n", p->sound_mixed_stereo >= 0 ? p->sound_mixed_stereo : 0);
 
-    cfgfile_write (f, "sound_max_buff=%d\n", p->sound_maxbsiz);
     cfgfile_write (f, "sound_frequency=%d\n", p->sound_freq);
     cfgfile_write (f, "sound_interpol=%s\n", interpolmode[p->sound_interpol]);
     cfgfile_write (f, "sound_adjust=%d\n", p->sound_adjust);
     cfgfile_write (f, "sound_volume=%d\n", p->sound_volume);
+    cfgfile_write (f, "sound_latency=%d\n", p->sound_latency);
 
 #ifdef JIT
     cfgfile_write (f, "comp_trustbyte=%s\n", compmode[p->comptrustbyte]);
@@ -473,7 +477,7 @@ void save_options (FILE *f, struct uae_prefs *p, int type)
     /* Don't write gfxlib/gfx_test_speed options.  */
 }
 
-int cfgfile_yesno (char *option, char *value, char *name, int *location)
+int cfgfile_yesno (const char *option, const char *value, const char *name, int *location)
 {
     if (strcmp (option, name) != 0)
 	return 0;
@@ -488,7 +492,7 @@ int cfgfile_yesno (char *option, char *value, char *name, int *location)
     return 1;
 }
 
-int cfgfile_intval (char *option, char *value, char *name, int *location, int scale)
+int cfgfile_intval (const char *option, const char *value, const char *name, int *location, int scale)
 {
     int base = 10;
     char *endptr;
@@ -504,7 +508,7 @@ int cfgfile_intval (char *option, char *value, char *name, int *location, int sc
     return 1;
 }
 
-int cfgfile_strval (char *option, char *value, char *name, int *location, const char *table[], int more)
+int cfgfile_strval (const char *option, const char *value, const char *name, int *location, const char *table[], int more)
 {
     int val;
     if (strcmp (option, name) != 0)
@@ -521,7 +525,7 @@ int cfgfile_strval (char *option, char *value, char *name, int *location, const 
     return 1;
 }
 
-int cfgfile_string (char *option, char *value, char *name, char *location, int maxsz)
+int cfgfile_string (const char *option, const char *value, const char *name, char *location, int maxsz)
 {
     if (strcmp (option, name) != 0)
 	return 0;
@@ -643,6 +647,8 @@ static int cfgfile_parse_host (struct uae_prefs *p, char *option, char *value)
 	    return machdep_parse_option (p, option, value);
 	if (strcmp (section, GFX_NAME) == 0)
 	    return gfx_parse_option (p, option, value);
+	if (strcmp (section, AUDIO_NAME) == 0)
+	    return audio_parse_option (p, option, value);
 
 	return 0;
     }
@@ -657,7 +663,7 @@ static int cfgfile_parse_host (struct uae_prefs *p, char *option, char *value)
 	}
     }
 
-    if (cfgfile_intval (option, value, "sound_max_buff", &p->sound_maxbsiz, 1)
+    if (cfgfile_intval (option, value, "sound_latency", &p->sound_latency, 1)
 	|| cfgfile_intval (option, value, "sound_bits", &p->sound_bits, 1)
 	|| cfgfile_intval (option, value, "sound_frequency", &p->sound_freq, 1)
 	|| cfgfile_intval (option, value, "sound_adjust", &p->sound_adjust, 1)
@@ -1047,7 +1053,6 @@ static int cfgfile_parse_hardware (struct uae_prefs *p, char *option, char *valu
 	int secs, heads, reserved, bs, ro;
 	char *aname, *root;
 	char *tmpp = strchr (value, ',');
-	char *str;
 
 	if (config_newfilesystem)
 	    return 1;
@@ -1085,17 +1090,22 @@ static int cfgfile_parse_hardware (struct uae_prefs *p, char *option, char *valu
 	    root = value;
 	    aname = 0;
 	}
-	str = cfgfile_subst_path (UNEXPANDED, p->path_hardfile, root);
-	tmpp = 0;
 #ifdef FILESYS
-	tmpp = add_filesys_unit (currprefs.mountinfo, 0, aname, str, ro, secs,
-				 heads, reserved, bs, 0, 0);
-#endif
-	free (str);
-	if (tmpp)
-	    write_log ("Error: %s\n", tmpp);
-	return 1;
+	{
+	    const char *err_msg;
+	    char *str;
 
+	    str = cfgfile_subst_path (UNEXPANDED, p->path_hardfile, root);
+	    err_msg = add_filesys_unit (currprefs.mountinfo, 0, aname, str, ro, secs,
+					heads, reserved, bs, 0, 0);
+
+	    if (err_msg)
+		write_log ("Error: %s\n", tmpp);
+
+	    free (str);
+        }
+#endif
+	return 1;
     }
 
     if (strcmp (option, "filesystem2") == 0
@@ -1104,7 +1114,6 @@ static int cfgfile_parse_hardware (struct uae_prefs *p, char *option, char *valu
 	int secs, heads, reserved, bs, ro, bp;
 	char *dname, *aname, *root, *fs;
 	char *tmpp = strchr (value, ',');
-	char *str;
 
 	config_newfilesystem = 1;
 	if (tmpp == 0)
@@ -1163,15 +1172,21 @@ static int cfgfile_parse_hardware (struct uae_prefs *p, char *option, char *valu
 		    *tmpp = 0;
 	    }
 	}
-	str = cfgfile_subst_path (UNEXPANDED, p->path_hardfile, root);
-	tmpp = 0;
 #ifdef FILESYS
-	tmpp = add_filesys_unit (currprefs.mountinfo, dname, aname, str, ro, secs,
-				 heads, reserved, bs, bp, fs);
+	{
+	    const char *err_msg;
+	    char *str;
+
+	    str = cfgfile_subst_path (UNEXPANDED, p->path_hardfile, root);
+	    err_msg = add_filesys_unit (currprefs.mountinfo, dname, aname, str, ro, secs,
+					heads, reserved, bs, bp, fs);
+
+	    if (err_msg)
+		write_log ("Error: %s\n", tmpp);
+
+	    free (str);
+        }
 #endif
-	free (str);
-	if (tmpp)
-	    write_log ("Error: %s\n", tmpp);
 	return 1;
 
       invalid_fs:
@@ -1421,7 +1436,7 @@ int cfgfile_load (struct uae_prefs *p, const char *filename, int *type)
     return cfgfile_load_2 (p, filename, 1, type);
 }
 
-int cfgfile_save (struct uae_prefs *p, const char *filename, int type)
+int cfgfile_save (const struct uae_prefs *p, const char *filename, int type)
 {
     FILE *fh = fopen (filename, "w");
     write_log ("save config '%s'\n", filename);
@@ -1536,8 +1551,8 @@ static void parse_sound_spec (struct uae_prefs *p, char *spec)
 	p->sound_bits = atoi (x2);
     if (x3)
 	p->sound_freq = atoi (x3);
-    if (x4)
-	p->sound_maxbsiz = atoi (x4);
+//    if (x4)
+//	p->sound_maxbsiz = atoi (x4);
     free (x0);
     return;
 }
@@ -1581,7 +1596,7 @@ bad:
     p->jport1 = v1;
 }
 
-static void parse_filesys_spec (int readonly, char *spec)
+static void parse_filesys_spec (int readonly, const char *spec)
 {
     char buf[256];
     char *s2;
@@ -1600,10 +1615,15 @@ static void parse_filesys_spec (int readonly, char *spec)
 #endif
 	s2 = 0;
 #ifdef FILESYS
-	s2 = add_filesys_unit (currprefs.mountinfo, 0, buf, s2, readonly, 0, 0, 0, 0, 0, 0);
+	{
+	    const char *err;
+
+	    err = add_filesys_unit (currprefs.mountinfo, 0, buf, s2, readonly, 0, 0, 0, 0, 0, 0);
+
+	    if (err)
+		write_log ("%s\n", s2);
+	}
 #endif
-	if (s2)
-	    write_log ("%s\n", s2);
     } else {
 	write_log ("Usage: [-m | -M] VOLNAME:mount_point\n");
     }
@@ -1630,12 +1650,15 @@ static void parse_hardfile_spec (char *spec)
     if (x4 == NULL)
 	goto argh;
     *x4++ = '\0';
-    x4 = 0;
 #ifdef FILESYS
-    x4 = add_filesys_unit (currprefs.mountinfo, 0, 0, x4, 0, atoi (x0), atoi (x1), atoi (x2), atoi (x3), 0, 0);
+    {
+       const char *err_msg;
+       err_msg = add_filesys_unit (currprefs.mountinfo, 0, 0, x4, 0, atoi (x0), atoi (x1), atoi (x2), atoi (x3), 0, 0);
+
+       if (err_msg)
+           write_log ("%s\n", err_msg);
+    }
 #endif
-    if (x4)
-	write_log ("%s\n", x4);
 
     free (x0);
     return;
@@ -1892,8 +1915,6 @@ static void default_prefs_mini (struct uae_prefs *p, int type)
     p->bogomem_size = 0x00080000;
 }
 
-#include "sounddep/sound.h"
-
 void default_prefs (struct uae_prefs *p, int type)
 {
     memset (p, 0, sizeof (*p));
@@ -1923,7 +1944,7 @@ void default_prefs (struct uae_prefs *p, int type)
     p->sound_mixed_stereo = 0;
     p->sound_bits = DEFAULT_SOUND_BITS;
     p->sound_freq = DEFAULT_SOUND_FREQ;
-    p->sound_maxbsiz = DEFAULT_SOUND_MAXB;
+    p->sound_latency = DEFAULT_SOUND_LATENCY;
     p->sound_interpol = 0;
 
 #ifdef JIT
@@ -1971,6 +1992,7 @@ void default_prefs (struct uae_prefs *p, int type)
     machdep_default_options (p);
     target_default_options (p);
     gfx_default_options (p);
+    audio_default_options (p);
 
     p->immediate_blits = 0;
     p->collision_level = 2;

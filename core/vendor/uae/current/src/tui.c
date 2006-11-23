@@ -13,7 +13,6 @@
 #include <stdio.h>
 #include <ctype.h>
 
-#include "config.h"
 #include "options.h"
 #include "threaddep/thread.h"
 #include "uae.h"
@@ -25,6 +24,7 @@
 #include "tui.h"
 #include "gui.h"
 #include "memory.h"
+#include "version.h"
 
 #define MAX_MENU_HEIGHT 15
 #define OPTION_COLUMN 3

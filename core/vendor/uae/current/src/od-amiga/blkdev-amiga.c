@@ -3,7 +3,7 @@
   *
   * SCSI layer back-end for AmigaOS hosts
   *
-  * Copyright 2005 Richard Drummond
+  * Copyright 2005-2006 Richard Drummond
   *           2005 Sigbjørn Skjæret (68k/MorphOS device-scanning)
   */
 
@@ -190,7 +190,7 @@ static int execscsicmd (struct IOContext *ioc, const uae_u8 *cmd_data, int cmd_l
 
     gui_cd_led (1);
 
-    error = DoIO ((struct IOReq *)ioreq);
+    error = DoIO ((struct IORequest *)ioreq);
 
     DEBUG_LOG ("SCSIDEV: result: %d\n", error);
     DEBUG_LOG ("SCSIDEV: actual: %d\n", cmd->scsi_Actual);
@@ -280,7 +280,7 @@ static int execscsicmd_direct (int unitnum, uaecptr acmd)
 
     DEBUG_LOG ("SCSIDEV: sending command: 0x%2x\n", cmd->scsi_Command[0]);
 
-    io_error = DoIO ((struct IOReq *)ioreq);
+    io_error = DoIO ((struct IORequest *)ioreq);
 
     DEBUG_LOG ("SCSIDEV: error: %d actual %d\n", io_error, cmd->scsi_Actual);
 
@@ -308,10 +308,10 @@ static int check_device (const char *device, int unit)
 	memset (inqbuf, 0, sizeof inqbuf);
 
 	if (execscsicmd (&ioc, INQUIRY_CMD, sizeof INQUIRY_CMD, inqbuf, sizeof inqbuf, &outlen) == 0) {
-	    int         type     =  inqbuf[0] & 0x1F;
-	    const char *vendor   = &inqbuf[8];
-	    const char *prod_id  = &inqbuf[16];
-	    const char *prod_rev = &inqbuf[32];
+	    int         type     =                 inqbuf[0] & 0x1F;
+	    const char *vendor   = (const char *) &inqbuf[8];
+	    const char *prod_id  = (const char *) &inqbuf[16];
+	    const char *prod_rev = (const char *) &inqbuf[32];
 
 	    write_log ("%-16.16s %3d: '%-8.8s' '%-16.16s' '%-4.4s' %s\n",
                        device, unit, vendor, prod_id, prod_rev, type == 5 ? "CD-ROM" : "");

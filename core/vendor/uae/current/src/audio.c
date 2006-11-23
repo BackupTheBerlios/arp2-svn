@@ -11,10 +11,10 @@
 #include "sysconfig.h"
 #include "sysdeps.h"
 
-#include "config.h"
 #include "options.h"
 #include "memory.h"
 #include "custom.h"
+#include "custom_private.h"
 #include "newcpu.h"
 #include "gensound.h"
 #include "sounddep/sound.h"
@@ -888,7 +888,7 @@ STATIC_INLINE int sound_prefs_changed (void)
 	    || changed_prefs.sound_stereo != currprefs.sound_stereo
 	    || changed_prefs.sound_stereo_separation != currprefs.sound_stereo_separation
 	    || changed_prefs.sound_mixed_stereo != currprefs.sound_mixed_stereo
-	    || changed_prefs.sound_maxbsiz != currprefs.sound_maxbsiz
+	    || changed_prefs.sound_latency != currprefs.sound_latency
 	    || changed_prefs.sound_freq != currprefs.sound_freq
 #if defined HAVE_8BIT_AUDIO_SUPPORT || defined HAVE_ULAW_AUDIO_SUPPORT
 	    || changed_prefs.sound_bits != currprefs.sound_bits
@@ -919,7 +919,7 @@ void check_prefs_changed_audio (void)
 #if defined HAVE_8BIT_AUDIO_SUPPORT || defined HAVE_ULAW_AUDIO_SUPPORT
 	currprefs.sound_bits = changed_prefs.sound_bits;
 #endif
-	currprefs.sound_maxbsiz = changed_prefs.sound_maxbsiz;
+	currprefs.sound_latency = changed_prefs.sound_latency;
 	currprefs.sound_volume = changed_prefs.sound_volume;
 	if (currprefs.produce_sound >= 2) {
 	    if (!init_audio ()) {

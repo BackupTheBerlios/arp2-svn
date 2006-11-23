@@ -1,8 +1,8 @@
- /* 
+ /*
   * UAE - The Un*x Amiga Emulator
-  * 
+  *
   * Support for the Silicon Graphics Audio Library (AL)
-  * 
+  *
   * Copyright 1998 Ari Heikkinen
   */
 
@@ -22,6 +22,8 @@ static __inline__ void check_sound_buffers(void)
 		sndbufpt = sndbuffer;
 	}
 }
+
+#define AUDIO_NAME "sgi"
 
 #define PUT_SOUND_BYTE(b) ( *(uae_u8 *)sndbufpt++ = (b) )
 #define PUT_SOUND_WORD(b) ( *(uae_u16 *)sndbufpt++ = (b) )

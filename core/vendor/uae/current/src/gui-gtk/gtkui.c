@@ -17,7 +17,6 @@
 #include "sysconfig.h"
 #include "sysdeps.h"
 
-#include "config.h"
 #include "options.h"
 #include "uae.h"
 #include "memory.h"
@@ -35,6 +34,7 @@
 #include "inputdevice.h"
 #include "xwin.h"
 #include "picasso96.h"
+#include "version.h"
 
 #include <gtk/gtk.h>
 #include <gdk/gdk.h>
@@ -438,7 +438,7 @@ static void set_hd_state (void)
 	uae_u64 size;
 	int     cylinders, readonly;
 	char   *devname, *volname, *rootdir, *filesysdir;
-	char   *failure;
+	const char *failure;
 
 	/* We always use currprefs.mountinfo for the GUI.  The filesystem
 	   code makes a private copy which is updated every reset.  */
@@ -1696,7 +1696,7 @@ static void did_hdchange (void)
     uae_u64 size;
     int cylinders, readonly;
     char *devname, *volname, *rootdir, *filesysdir;
-    char *failure;
+    const char *failure;
 
     failure = get_filesys_unit (currprefs.mountinfo, selected_hd_row,
 				&devname, &volname, &rootdir, &readonly,
@@ -1802,32 +1802,33 @@ static void make_hd_widgets (GtkWidget *dvbox)
 static void make_about_widgets (GtkWidget *dvbox)
 {
     GtkWidget *thing;
-    GtkStyle *style;
-    GdkFont *font, *old_font;
-    char t[20];
+
+#if GTK_MAJOR_VERSION >= 2
+    const char title[] = "<span font_desc=\"Sans 24\">" UAE_VERSION_STRING " </span>";
+#else
+    const char title[] = UAE_VERSION_STRING;
+#endif
 
     add_empty_vbox (dvbox);
 
-    sprintf (t, PACKAGE_NAME " %d.%d.%d", UAEMAJOR, UAEMINOR, UAESUBREV);
-    thing = gtk_label_new (t);
-    gtk_widget_show (thing);
-    add_centered_to_vbox (dvbox, thing);
 #if GTK_MAJOR_VERSION >= 2
-    style = gtk_style_copy (GTK_WIDGET (thing)->style);
-    pango_font_description_free (style->font_desc);
-    style->font_desc = pango_font_description_from_string ("Sans 24");
-    gtk_widget_set_style (thing, style);
+    thing = gtk_label_new (NULL);
+    gtk_label_set_markup (GTK_LABEL (thing), title);
 #else
-    font = gdk_font_load ("-*-helvetica-medium-r-normal--*-240-*-*-*-*-*-*");
-    if (font) {
-	style = gtk_style_copy (GTK_WIDGET (thing)->style);
-	gdk_font_unref (style->font);
-	gdk_font_ref (font);
-	style->font = font;
-	gtk_widget_set_style (thing, style);
-    }
+    thing = gtk_label_new (title);
+    {	
+	GdkFont *font = gdk_font_load ("-*-helvetica-medium-r-normal--*-240-*-*-*-*-*-*");
+	if (font) {
+	    GtkStyle *style = gtk_style_copy (GTK_WIDGET (thing)->style);
+	    gdk_font_unref (style->font);
+	    gdk_font_ref (font);
+	    style->font = font;
+	    gtk_widget_set_style (thing, style);
+	}
+    }   
 #endif
     gtk_widget_show (thing);
+    add_centered_to_vbox (dvbox, thing);
 
 #ifdef PACKAGE_VERSION
     thing = gtk_label_new ("Version " PACKAGE_VERSION );

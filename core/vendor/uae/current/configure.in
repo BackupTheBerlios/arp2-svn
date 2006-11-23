@@ -4,8 +4,8 @@ dnl
 dnl Updated, re-written and generally mauled 2003 Richard Drummond
 
 AC_PREREQ(2.55)
-AC_INIT(E-UAE, 0.8.29-WIP2, ,e-uae)
-AC_CONFIG_SRCDIR([config.h])
+AC_INIT(E-UAE, 0.8.29-WIP3, ,e-uae)
+AC_CONFIG_SRCDIR([bootstrap.sh])
 AM_CONFIG_HEADER([src/sysconfig.h])
 AC_CANONICAL_TARGET
 AM_INIT_AUTOMAKE(1.7 dist-bzip2 foreign)
@@ -14,12 +14,7 @@ dnl
 dnl  Checks for programs.
 dnl
 
-dnl This is a hack to stop GCC always adding the -g option to CFLAGS
-SAVE_CFLAGS=$CFLAGS
-CFLAGS="$CFLAGS -DDUMMY"
 AC_PROG_CC
-CFLAGS=$SAVE_CFLAGS
-
 AC_PROG_CPP
 AC_PROG_CXX
 AS_PROG_OBJC
@@ -380,13 +375,13 @@ dnl
 if [[ "x$HAVEGCC27" = "xyes" -a "$HOST_CPU" = "i386" ]]; then
   SAVECFLAGS=$CFLAGS
   CFLAGS="$CFLAGS -mno-schedule-prologue"
-  AC_TRY_COMPILE(,int main(){return 0;}, NO_SCHED_CFLAGS="-mno-schedule-prologue")
+  AC_TRY_COMPILE(,int main(){return 0;}, OPTIMIZE_CFLAGS="$OPTIMIZE_CFLAGS -mno-schedule-prologue")
   CFLAGS=$SAVECFLAGS
 fi
 if [[ "x$HAVEGCC27" = "xyes" -a "$HOST_CPU" = "i386" ]]; then
   SAVECFLAGS=$CFLAGS
   CFLAGS="$CFLAGS -mpreferred-stack-boundary=2"
-  AC_TRY_COMPILE(,int main(){return 0;}, SAVECFLAGS=$CFLAGS)
+  AC_TRY_COMPILE(,int main(){return 0;}, OPTIMIZE_CFLAGS="$OPTIMIZE_CFLAGS -mpreferred-stack-boundary=2")
   CFLAGS=$SAVECFLAGS
 fi
 dnl If GCC supports exceptions, we don't want them.
@@ -394,11 +389,8 @@ dnl
 if [[ "x$HAVEGCC27" = "xyes" -a "$HOST_CPU" = "i386" ]]; then
   SAVECFLAGS=$CFLAGS
   CFLAGS="$CFLAGS -fno-exceptions"
-  NOEXCEPTIONS=no
-  AC_TRY_COMPILE(,int main(){return 0;}, NOEXCEPTIONS=yes)
-  if [[ "x$NOEXCEPTIONS" = "xno" ]]; then
-    CFLAGS=$SAVECFLAGS
-  fi
+  AC_TRY_COMPILE(,int main(){return 0;}, OPTIMIZE_CFLAGS="$OPTIMIZE_CFLAGS -fno-exceptions")
+  CFLAGS=$SAVECFLAGS
 fi
 
 dnl on OS X, we don't want position-independent code, so
@@ -663,7 +655,7 @@ if [[ "x$WANT_SDL" != "xno" ]]; then
     AC_MSG_RESULT(no)
     HAVE_SDL=no)
 
-    CPPFLAGFS="$SAVE_CPPFLAGS"
+    CPPFLAGS="$SAVE_CPPFLAGS"
     LIBS="$SAVE_LIBS"
   else
     AM_PATH_SDL(1.2.0,HAVE_SDL=yes,HAVE_SDL=no)
@@ -679,12 +671,12 @@ fi
 
 if test $ac_cv_prog_gcc = yes; then
   WARNING_CFLAGS="$WARNING_CFLAGS -Wall -Wno-unused -Wno-format -W -Wmissing-prototypes -Wstrict-prototypes"
-  OPTIMIZE_CFLAGS="$OPTIMIZE_CFLAGS -O2 -fomit-frame-pointer"
+  OPTIMIZE_CFLAGS="$OPTIMIZE_CFLAGS -fomit-frame-pointer"
 fi
 
 if [[ "x$DO_PROFILING" = "xyes" ]]; then
-  if [[ "x$CC" = "xgcc" ]]; then
-    OPTIMIZE_CFLAGS="-O"
+  if [[ "x$HAVE_GCC27" = "xyes" ]]; then
+    OPTIMIZE_CFLAGS=""
     DEBUG_CFLAGS="-g -fno-inline -fno-omit-frame-pointer -pg -DUSE_PROFILING"
     LDFLAGS="-pg"
   else
@@ -1025,7 +1017,8 @@ else
   if [[ "$HOST_OS" = "darwin" ]]; then
     if [[ "x$WANT_COCOA_UI" != "xno" -o "x$HAVE_GTK" = "xno" ]]; then
       GUI_DEP=gui-cocoa
-      GUI_LIBS=
+      GUI_CFLAGS="$CFLAGS -DNO_MAIN_IN_MAIN_C"
+      GUI_LIBS="-framework Cocoa"
       GUI_NAME="Cocoa"
     fi
   fi

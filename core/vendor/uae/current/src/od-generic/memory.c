@@ -14,9 +14,6 @@
 #ifdef JIT
 
 #include <sys/mman.h>
-#include <malloc.h>
-#include <stdlib.h>
-#include <unistd.h>
 
 /*
  * Allocate executable memory for JIT cache

@@ -27,7 +27,6 @@
 #include "sysconfig.h"
 #include "sysdeps.h"
 
-#include "config.h"
 #include "threaddep/thread.h"
 #include "options.h"
 #include "uae.h"
@@ -199,7 +198,7 @@ static void close_filesys_unit (UnitInfo *uip)
     uip->rootdir = 0;
 }
 
-char *get_filesys_unit (struct uaedev_mount_info *mountinfo, int nr,
+const char *get_filesys_unit (struct uaedev_mount_info *mountinfo, int nr,
 			char **devname, char **volname, char **rootdir, int *readonly,
 			int *secspertrack, int *surfaces, int *reserved,
 			int *cylinders, uae_u64 *size, int *blocksize, int *bootpri, char **filesysdir)
@@ -230,7 +229,7 @@ char *get_filesys_unit (struct uaedev_mount_info *mountinfo, int nr,
     return 0;
 }
 
-static char *set_filesys_unit_1 (struct uaedev_mount_info *mountinfo, int nr,
+static const char *set_filesys_unit_1 (struct uaedev_mount_info *mountinfo, int nr,
 				 char *devname, char *volname, char *rootdir, int readonly,
 				 int secspertrack, int surfaces, int reserved,
 				 int blocksize, int bootpri, char *filesysdir)
@@ -322,12 +321,12 @@ static char *set_filesys_unit_1 (struct uaedev_mount_info *mountinfo, int nr,
     return 0;
 }
 
-char *set_filesys_unit (struct uaedev_mount_info *mountinfo, int nr,
+const char *set_filesys_unit (struct uaedev_mount_info *mountinfo, int nr,
 			char *devname, char *volname, char *rootdir, int readonly,
 			int secspertrack, int surfaces, int reserved,
 			int blocksize, int bootpri, char *filesysdir)
 {
-    char *result;
+    const char *result;
     UnitInfo ui = mountinfo->ui[nr];
 
     hdf_close (&ui.hf);
@@ -341,12 +340,12 @@ char *set_filesys_unit (struct uaedev_mount_info *mountinfo, int nr,
     return result;
 }
 
-char *add_filesys_unit (struct uaedev_mount_info *mountinfo,
+const char *add_filesys_unit (struct uaedev_mount_info *mountinfo,
 			char *devname, char *volname, char *rootdir, int readonly,
 			int secspertrack, int surfaces, int reserved,
 			int blocksize, int bootpri, char *filesysdir)
 {
-    char *retval;
+    const char *retval;
     int nr = mountinfo->num_units;
     UnitInfo *uip = mountinfo->ui + nr;
 
@@ -991,7 +990,6 @@ static char *get_nname (Unit *unit, a_inode *base, char *rel,
 			char **modified_rel)
 {
     char *found;
-    char *p = 0;
 
     aino_test (base);
 
@@ -1329,7 +1327,7 @@ static uae_u32 REGPARAM2 startup_handler (TrapContext *context)
     if (i == current_mountinfo->num_units
 	|| access (current_mountinfo->ui[i].rootdir, R_OK) != 0)
     {
-	write_log ("Failed attempt to mount device\n", devname);
+	write_log ("Failed attempt to mount device:%s\n", devname);
 	put_long (pkt + dp_Res1, DOS_FALSE);
 	put_long (pkt + dp_Res2, ERROR_DEVICE_NOT_MOUNTED);
 	return 1;
@@ -1650,7 +1648,6 @@ static void notify_check (Unit *unit, a_inode *a)
     Notify *n;
     int hash = notifyhash (a->aname);
     for (n = unit->notifyhash[hash]; n; n = n->next) {
-	uaecptr nr = n->notifyrequest;
 	if (same_aname(n->partname, a->aname)) {
 	    uae_u32 err;
 	    a_inode *a2 = find_aino (unit, 0, n->fullname, &err);
@@ -1661,7 +1658,6 @@ static void notify_check (Unit *unit, a_inode *a)
     if (a->parent) {
 	hash = notifyhash (a->parent->aname);
 	for (n = unit->notifyhash[hash]; n; n = n->next) {
-	    uaecptr nr = n->notifyrequest;
 	    if (same_aname(n->partname, a->parent->aname)) {
 		uae_u32 err;
 		a_inode *a2 = find_aino (unit, 0, n->fullname, &err);
@@ -2052,7 +2048,7 @@ get_fileinfo (Unit *unit, dpacket packet, uaecptr info, a_inode *aino)
     struct stat statbuf;
     long days, mins, ticks;
     int i, n;
-    char *x;
+    const char *x;
 
     /* No error checks - this had better work. */
     stat (aino->nname, &statbuf);
@@ -3824,7 +3820,7 @@ static unsigned int rl (uae_u8 *p)
     return (p[0] << 24) | (p[1] << 16) | (p[2] << 8) | (p[3]);
 }
 
-static int rdb_checksum (char *id, uae_u8 *p, int block)
+static int rdb_checksum (const char *id, uae_u8 *p, int block)
 {
     uae_u32 sum = 0;
     int i, blocksize;

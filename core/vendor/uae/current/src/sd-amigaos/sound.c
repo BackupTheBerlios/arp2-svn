@@ -4,13 +4,12 @@
   * Support for Amiga audio.device sound
   *
   * Copyright 1996, 1997, 1998 Samuel Devulder, Holger Jakob (AHI).
-  * Copyright 2004-2005 Richard Drummond
+  * Copyright 2004-2006 Richard Drummond
   */
 
 #include "sysconfig.h"
 #include "sysdeps.h"
 
-#include "config.h"
 #include "options.h"
 #include "memory.h"
 #include "events.h"
@@ -74,7 +73,7 @@ int setup_sound (void)
     return 1;
 }
 
-static char *open_AHI (void)
+static const char *open_AHI (void)
 {
 #ifdef USE_AHIDEVICE
     if ((AHImp = CreateMsgPort())) {
@@ -158,8 +157,8 @@ int init_sound (void)
     /* too complex ? No it is only the allocation of a single channel ! */
     /* it would have been far less painfull if AmigaOS provided a */
     /* SOUND: device handler */
-    int   rate;
-    char *devname = NULL;
+    int rate;
+    const char *devname = NULL;
 
     atexit (close_sound); /* if only amiga os had resource tracking */
 
@@ -167,13 +166,6 @@ int init_sound (void)
     clockval = get_clockval ();
     if (clockval == 0)
 	goto fail;
-
-    /* check buffsize */
-    if (currprefs.sound_maxbsiz < 2 || currprefs.sound_maxbsiz > (256 * 1024)) {
-	write_log ("Sound buffer size %d out of range.\n", currprefs.sound_maxbsiz);
-	changed_prefs.sound_maxbsiz = currprefs.sound_maxbsiz = 8192;
-    }
-    sndbufsize = (currprefs.sound_maxbsiz + 1) & ~1;
 
     /* check freq */
     if (!currprefs.sound_freq)
@@ -185,6 +177,7 @@ int init_sound (void)
     rate   = currprefs.sound_freq;
     period = (uae_u16)(clockval / rate);
 
+
     devname = open_AHI ();
     if (devname)
 	ahiopen = 1;
@@ -193,6 +186,11 @@ int init_sound (void)
 
     if (!ahiopen) {
 	/* Use the plain old audio.device */
+
+	/* We support only 8-bit mono sound */
+	changed_prefs.sound_stereo = currprefs.sound_stereo = 0;
+	changed_prefs.sound_bits = currprefs.sound_bits = 8;
+
 	/* setup the stuff */
 	AudioMP = CreateMsgPort ();
 	if (!AudioMP)
@@ -211,6 +209,10 @@ int init_sound (void)
 	    goto fail;
 	devopen = 1;
     }
+
+    /* calculate buffer size */
+    sndbufsize = rate * currprefs.sound_latency * (currprefs.sound_bits / 8) * (currprefs.sound_stereo ? 2 : 1) / 1000;
+    sndbufsize = (sndbufsize + 1) & ~1;
 
     /* get the buffers */
     if (ahiopen) {
@@ -235,19 +237,12 @@ int init_sound (void)
     cia->ciapra |= (1 << CIAB_LED);
 #endif
 
-    if (ahiopen) {
-	if (currprefs.sound_bits == 16) {
-	    init_sound_table16 ();
-	    sample_handler = currprefs.sound_stereo ? sample16s_handler : sample16_handler;
-	} else {
-	    init_sound_table8 ();
-	    sample_handler = currprefs.sound_stereo ? sample8s_handler : sample8_handler;
-	}
+    if (currprefs.sound_bits == 16) {
+	init_sound_table16 ();
+	sample_handler = currprefs.sound_stereo ? sample16s_handler : sample16_handler;
     } else {
-	changed_prefs.sound_stereo = currprefs.sound_stereo = 0;
-	changed_prefs.sound_bits = currprefs.sound_bits = 8;
 	init_sound_table8 ();
-	sample_handler = sample8_handler;
+	sample_handler = currprefs.sound_stereo ? sample8s_handler : sample8_handler;
     }
 
     have_sound = 1;
@@ -316,4 +311,20 @@ void reset_sound (void)
 
 void sound_volume (int dir)
 {
+}
+
+/*
+ * Handle audio specific cfgfile options
+ */
+void audio_default_options (struct uae_prefs *p)
+{
+}
+
+void audio_save_options (FILE *f, const struct uae_prefs *p)
+{
+}
+
+int audio_parse_option (struct uae_prefs *p, const char *option, const char *value)
+{
+    return 0;
 }

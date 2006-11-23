@@ -111,7 +111,7 @@ static void cpulimit (void)
     printf ("#ifndef CPUEMU_68000_ONLY\n");
 }
 
-static void returncycles (char *s, int cycles)
+static void returncycles (const char *s, int cycles)
 {
     if (using_ce) return;
     printf ("%sreturn %d * %d;\n", s, cycles, CYCLE_UNIT / 2);
@@ -121,12 +121,12 @@ static void addcycles (int cycles)
     if (!using_ce) return;
     printf ("\tdo_cycles_ce (%d * %d);\n", cycles, CYCLE_UNIT / 2);
 }
-static void addcycles2 (char *s, int cycles)
+static void addcycles2 (const char *s, int cycles)
 {
     if (!using_ce) return;
     printf ("%sdo_cycles_ce (%d * %d);\n", s, cycles, CYCLE_UNIT / 2);
 }
-static void addcycles3 (char *s)
+static void addcycles3 (const char *s)
 {
     if (!using_ce) return;
     printf ("%sif (cycles > 0) do_cycles_ce (cycles);\n", s);
@@ -186,7 +186,7 @@ static const char *bit_mask (int size)
     return 0;
 }
 
-static void gen_nextilong (char *type, char *name, int norefill)
+static void gen_nextilong (const char *type, const char *name, int norefill)
 {
     int r = m68k_pc_offset;
     m68k_pc_offset += 4;
@@ -377,7 +377,7 @@ static void sync_m68k_pc (void)
 /* getv == 1: fetch data; getv != 0: check for odd address. If movem != 0,
  * the calling routine handles Apdi and Aipi modes.
  * gb-- movem == 2 means the same thing but for a MOVE16 instruction */
-static void genamode (amodes mode, char *reg, wordsizes size, char *name, int getv, int movem, int flags)
+static void genamode (amodes mode, const char *reg, wordsizes size, const char *name, int getv, int movem, int flags)
 {
     char namea[100];
     int m68k_pc_offset_last = m68k_pc_offset;
@@ -611,7 +611,7 @@ static void genamode (amodes mode, char *reg, wordsizes size, char *name, int ge
 	}
 }
 
-static void genastore_2 (char *from, amodes mode, char *reg, wordsizes size, char *to, int store_dir)
+static void genastore_2 (const char *from, amodes mode, const char *reg, wordsizes size, const char *to, int store_dir)
 {
     switch (mode) {
      case Dreg:
@@ -716,11 +716,11 @@ static void genastore_2 (char *from, amodes mode, char *reg, wordsizes size, cha
     }
 }
 
-static void genastore (char *from, amodes mode, char *reg, wordsizes size, char *to)
+static void genastore (const char *from, amodes mode, const char *reg, wordsizes size, const char *to)
 {
     genastore_2 (from, mode, reg, size, to, 0);
 }
-static void genastore_rev (char *from, amodes mode, char *reg, wordsizes size, char *to)
+static void genastore_rev (const char *from, amodes mode, const char *reg, wordsizes size, const char *to)
 {
     genastore_2 (from, mode, reg, size, to, 1);
 }
@@ -865,7 +865,7 @@ typedef enum
 }
 flagtypes;
 
-static void genflags_normal (flagtypes type, wordsizes size, char *value, char *src, char *dst)
+static void genflags_normal (flagtypes type, wordsizes size, const char *value, const char *src, const char *dst)
 {
     char vstr[100], sstr[100], dstr[100];
     char usstr[100], udstr[100];
@@ -1006,7 +1006,7 @@ static void genflags_normal (flagtypes type, wordsizes size, char *value, char *
     }
 }
 
-static void genflags (flagtypes type, wordsizes size, char *value, char *src, char *dst)
+static void genflags (flagtypes type, wordsizes size, const char *value, const char *src, const char *dst)
 {
     /* Temporarily deleted 68k/ARM flag optimizations.  I'd prefer to have
        them in the appropriate m68k.h files and use just one copy of this
@@ -2866,7 +2866,6 @@ static void generate_includes (FILE * f)
 {
     fprintf (f, "#include \"sysconfig.h\"\n");
     fprintf (f, "#include \"sysdeps.h\"\n");
-    fprintf (f, "#include \"config.h\"\n");
     fprintf (f, "#include \"options.h\"\n");
     fprintf (f, "#include \"memory.h\"\n");
     fprintf (f, "#include \"custom.h\"\n");

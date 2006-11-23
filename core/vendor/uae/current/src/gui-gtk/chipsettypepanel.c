@@ -34,8 +34,8 @@ guint chipsettypepanel_get_type (void)
     static guint chipsettypepanel_type = 0;
 
     if (!chipsettypepanel_type) {
-	GtkTypeInfo chipsettypepanel_info = {
-	    "ChipsetTypePanel",
+	static const GtkTypeInfo chipsettypepanel_info = {
+	    (char *) "ChipsetTypePanel",
 	    sizeof (ChipsetTypePanel),
 	    sizeof (ChipsetTypePanelClass),
 	    (GtkClassInitFunc) chipsettypepanel_class_init,
@@ -54,7 +54,7 @@ enum {
     LAST_SIGNAL
 };
 
-static gint chipsettypepanel_signals[LAST_SIGNAL] = { 0 };
+static guint chipsettypepanel_signals[LAST_SIGNAL];
 
 static void chipsettypepanel_class_init (ChipsetTypePanelClass *class)
 {
@@ -62,7 +62,7 @@ static void chipsettypepanel_class_init (ChipsetTypePanelClass *class)
 				   GTK_STRUCT_OFFSET (ChipsetTypePanelClass, chipsettypepanel),
 				   chipsettypepanel_signals,
 				   "chipset-changed",
-				   0);
+				   (void*)0);
     class->chipsettypepanel = NULL;
 }
 

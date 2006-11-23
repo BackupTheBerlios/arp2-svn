@@ -10,7 +10,6 @@
 #include "sysdeps.h"
 #include <assert.h>
 
-#include "config.h"
 #include "options.h"
 #include "threaddep/thread.h"
 #include "uae.h"
@@ -41,6 +40,8 @@
 #include "akiko.h"
 #include "savestate.h"
 #include "hrtimer.h"
+#include "sleep.h"
+#include "version.h"
 
 #ifdef USE_SDL
 #include "SDL.h"

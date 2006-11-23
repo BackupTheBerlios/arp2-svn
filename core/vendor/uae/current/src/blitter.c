@@ -15,11 +15,11 @@
 #include "sysconfig.h"
 #include "sysdeps.h"
 
-#include "config.h"
 #include "options.h"
 #include "uae.h"
 #include "memory.h"
 #include "custom.h"
+#include "custom_private.h"
 #include "events.h"
 #include "newcpu.h"
 #include "blitter.h"

@@ -46,7 +46,7 @@ static const struct sdl_raw_keymap keymaps[] = {
     { SDLGFX_DRIVER_X11,     "x11pc",  x11pc_keymap,  x11pc_hotkeys,  0},
     { SDLGFX_DRIVER_DGA,     "x11pc",  x11pc_keymap,  x11pc_hotkeys,  0},
 #endif
-#if (defined __powerpc__ || defined __ppc__) && defined __APPLE__
+#if defined __APPLE__
     { SDLGFX_DRIVER_QUARTZ,  "quartz", quartz_keymap, quartz_hotkeys, quartz_modkeytable},
 #endif
 #ifdef __BEOS__

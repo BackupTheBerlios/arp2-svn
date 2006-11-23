@@ -9,7 +9,6 @@
 #include "sysconfig.h"
 #include "sysdeps.h"
 
-#include "config.h"
 #include "options.h"
 #include "uae.h"
 #include "memory.h"
@@ -1203,7 +1202,7 @@ static int load_kickstart (void)
 
 #ifndef NATMEM_OFFSET
 
-uae_u8 *mapped_malloc (size_t s, char *file)
+uae_u8 *mapped_malloc (size_t s, const char *file)
 {
     return malloc (s);
 }
@@ -1358,7 +1357,7 @@ static void add_shmmaps (uae_u32 start, addrbank *what)
  * direct memory access will be disabled and memory allocated via
  * malloc().
  */
-uae_u8 *mapped_malloc (size_t s, char *file)
+uae_u8 *mapped_malloc (size_t s, const char *file)
 {
     int id;
     void *answer;

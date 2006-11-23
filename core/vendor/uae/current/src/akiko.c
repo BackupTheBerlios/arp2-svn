@@ -14,7 +14,6 @@
 #include "sysconfig.h"
 #include "sysdeps.h"
 
-#include "config.h"
 #include "options.h"
 #include "memory.h"
 #include "custom.h"
@@ -27,6 +26,7 @@
 #include "akiko.h"
 #include "gui.h"
 #include "sleep.h"
+#include "cdrom.h"
 
 #define AKIKO_DEBUG_NVRAM 0
 #define AKIKO_DEBUG_IO 0
@@ -835,8 +835,6 @@ static void cdrom_run_command_run (void)
 	cdrom_result_buffer[1] |= 0x80;
     cdrom_return_data (len);
 }
-
-extern void encode_l2 (uae_u8 *p, int address);
 
 static uae_sem_t akiko_sem;
 

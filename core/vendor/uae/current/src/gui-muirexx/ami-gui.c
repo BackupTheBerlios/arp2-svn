@@ -11,7 +11,6 @@
 #include "sysconfig.h"
 #include "sysdeps.h"
 
-#include "config.h"
 #include "options.h"
 #include "gui.h"
 #include "disk.h"
@@ -440,9 +439,9 @@ void gui_message (const char *format,...)
 
     req.es_StructSize   = sizeof req;
     req.es_Flags        = 0;
-    req.es_Title        = (UBYTE *) PACKAGE_NAME " Information";
-    req.es_TextFormat   = (UBYTE *) msg;
-    req.es_GadgetFormat = (UBYTE *) "Okay";
+    req.es_Title        = (char *) PACKAGE_NAME " Information";
+    req.es_TextFormat   = (char *) msg;
+    req.es_GadgetFormat = (char *) "Okay";
     EasyRequest (win, &req, NULL, NULL);
 
     write_log (msg);

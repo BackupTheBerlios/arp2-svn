@@ -9,7 +9,6 @@
 #include "sysconfig.h"
 #include "sysdeps.h"
 
-#include "config.h"
 #include "options.h"
 #include "gui.h"
 
@@ -77,10 +76,6 @@ void gui_cd_led (int led)
 }
 
 void gui_filename (int num, const char *name)
-{
-}
-
-static void getline (char *p)
 {
 }
 

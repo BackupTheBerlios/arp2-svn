@@ -147,7 +147,6 @@
 #include "sysconfig.h"
 #include "sysdeps.h"
 
-#include "config.h"
 #include "options.h"
 #include "uae.h"
 #include "memory.h"
@@ -1205,7 +1204,7 @@ static void action_replay_unsetbanks (void)
 /* param to allow us to unload the cart. Currently we know it is safe if we are doing a reset to unload it.*/
 int action_replay_unload(int in_memory_reset)
 {
-	char* state[] =
+	static const char *state[] =
 	{
 		"ACTION_REPLAY_WAIT_PC",
 		"ACTION_REPLAY_INACTIVE",

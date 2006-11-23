@@ -3,11 +3,9 @@
  * which desparately needs to be tidied up
  */
 
-#include "config.h"
 #include "sysconfig.h"
-
 #include "sysdeps.h"
-#include "config.h"
+
 #include "options.h"
 #include "memory.h"
 #include "custom.h"

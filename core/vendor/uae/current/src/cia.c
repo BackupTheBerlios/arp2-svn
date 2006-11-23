@@ -12,7 +12,6 @@
 #include "sysdeps.h"
 #include <assert.h>
 
-#include "config.h"
 #include "options.h"
 #include "events.h"
 #include "memory.h"
@@ -42,7 +41,10 @@
 //#define CIA_DEBUG_W
 //#define DONGLE_DEBUG
 
-#define TOD_HACK
+/* FIXME: Add configure support to enable this. */
+#ifdef HAVE_GETTIMEOFDAY
+# define TOD_HACK
+#endif
 
 #define DIV10 (10 * CYCLE_UNIT / 2) /* Yes, a bad identifier. */
 

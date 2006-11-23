@@ -12,7 +12,6 @@
 #include "sysconfig.h"
 #include "sysdeps.h"
 
-#include "config.h"
 #include "options.h"
 #include "gui.h"
 #include "inputdevice.h"
@@ -304,8 +303,10 @@ extern BOOL gFinderLaunch; /* Set to YES by SDLMain.m if app launched from the f
 // Called when a floppy selection panel ended
 - (void)openPanelDidEnd:(NSOpenPanel *)sheet returnCode:(int)returnCode contextInfo:(void *)contextInfo
 {
+#if 0 // This currently breaks
     restoreFullscreen();
-    
+#endif
+
     if (returnCode != NSOKButton) return;
     
     int drive = [((NSString*)contextInfo) intValue];

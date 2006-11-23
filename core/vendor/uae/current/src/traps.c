@@ -13,7 +13,6 @@
 #include "sysconfig.h"
 #include "sysdeps.h"
 
-#include "config.h"
 #include "options.h"
 #include "memory.h"
 #include "custom.h"
@@ -136,7 +135,7 @@ void REGPARAM2 m68k_handle_trap (unsigned int trap_num, struct regstruct *regs)
 	    trap_HandleExtendedTrap (trap->handler, has_retval);
 	} else {
 	    /* Handle simple trap */
-	    retval = (trap->handler) (regs);
+	    retval = (trap->handler) ((TrapContext *)regs);
 
 	    if (has_retval)
 		m68k_dreg (regs, 0) = retval;

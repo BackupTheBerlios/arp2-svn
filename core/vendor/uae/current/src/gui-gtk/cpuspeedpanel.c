@@ -30,8 +30,8 @@ guint cpuspeedpanel_get_type ()
     static guint cpuspeedpanel_type = 0;
 
     if (!cpuspeedpanel_type) {
-	GtkTypeInfo cpuspeedpanel_info = {
-	    "CpuSpeedPanel",
+	static const GtkTypeInfo cpuspeedpanel_info = {
+	    (char *) "CpuSpeedPanel",
 	    sizeof (CpuSpeedPanel),
 	    sizeof (CpuSpeedPanelClass),
 	    (GtkClassInitFunc) cpuspeedpanel_class_init,
@@ -52,7 +52,7 @@ enum {
     LAST_SIGNAL
 };
 
-static guint cpuspeedpanel_signals[LAST_SIGNAL] = { 0 };
+static guint cpuspeedpanel_signals[LAST_SIGNAL];
 
 static void cpuspeedpanel_class_init (CpuSpeedPanelClass *class)
 {
@@ -62,7 +62,7 @@ static void cpuspeedpanel_class_init (CpuSpeedPanelClass *class)
 				   "cpuspeed-changed",
 				   "cpuidle-changed",
 				   "dontbusywait-changed",
-				   0);
+				   (void *)0);
     class->cpuspeedpanel = NULL;
 }
 

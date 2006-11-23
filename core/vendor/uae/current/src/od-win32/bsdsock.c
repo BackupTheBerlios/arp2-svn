@@ -18,7 +18,6 @@
 #include <stddef.h>
 #include <process.h>
 
-#include "config.h"   
 #include "options.h"
 #include "include/memory.h"
 #include "custom.h"

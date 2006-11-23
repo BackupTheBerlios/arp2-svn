@@ -29,7 +29,7 @@
  * We should probably determine the threshhold at run-time, but a constant value
  * works well enough
  */
-#define SLEEP_BUSY_THRESHOLD	 10
+#define SLEEP_BUSY_THRESHOLD	 5
 
 /*
  * Sleep for ms milliseconds either using an appropriate sleep routine on the

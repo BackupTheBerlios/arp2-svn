@@ -1,10 +1,16 @@
-/* led.h */
+ /*
+  * E-UAE - The portable Amiga Emulator
+  *
+  * Custom Gtk+ LED widget
+  *
+  * Copyright 2004 Martin Garton
+  * Copyright 2006 Richard Drummond
+  */
 
 #ifndef __LED_H__
 #define __LED_H__
 
 #include <gdk/gdk.h>
-#include <gtk/gtkmisc.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -21,15 +27,15 @@ static const GdkColor LED_OFF = {0, 0x1111, 0x1111, 0x1111};
 
 struct _Led
 {
-    GtkMisc widget;
-    GdkColor color;
+    GtkWidget  widget;
+
+    GdkGC     *gc;
+    GdkColor   color;
 };
 
 struct _LedClass
 {
   GtkWidgetClass parent_class;
-
-  //void (* led) (Led *led );
 };
 
 guint			led_get_type	(void);

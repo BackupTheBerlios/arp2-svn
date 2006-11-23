@@ -1,15 +1,14 @@
- /* 
+ /*
   * UAE - The Un*x Amiga Emulator
-  * 
+  *
   * Support for Linux/USS sound
-  * 
+  *
   * Copyright 1997 Bernd Schmidt
   */
 
 #include "sysconfig.h"
 #include "sysdeps.h"
 
-#include "config.h"
 #include "options.h"
 #include "memory.h"
 #include "custom.h"
@@ -43,10 +42,10 @@ void close_sound(void)
     int t;
     uae_u32 v;
     char buf[4];
-    
+
     if (!have_sound)
 	return;
-    
+
     t = 0;
     v = sndbuf_written;
     buf[t] = v & 255;
@@ -134,4 +133,20 @@ int init_sound (void)
 	    currprefs.sound_bits, currprefs.sound_freq, sndbufsize);
     sndbufpt = sndbuffer;
     return 1;
+}
+
+/*
+ * Handle audio specific cfgfile options
+ */
+void audio_default_options (struct uae_prefs *p)
+{
+}
+
+void audio_save_options (FILE *f, const struct uae_prefs *p)
+{
+}
+
+int audio_parse_option (struct uae_prefs *p, const char *option, const char *value)
+{
+    return 0;
 }

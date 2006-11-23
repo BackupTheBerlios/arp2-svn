@@ -14,7 +14,6 @@
 #include "sysconfig.h"
 #include "sysdeps.h"
 
-#include "config.h"
 #include "uae.h"
 #include "threaddep/thread.h"
 #include "options.h"
@@ -158,7 +157,7 @@ static struct priv_devstruct *getpdevstruct (uaecptr request)
     return &pdevst[i];
 }
 
-static char *getdevname (int type)
+static const char *getdevname (int type)
 {
     switch (type) {
 	case UAEDEV_SCSI_ID:

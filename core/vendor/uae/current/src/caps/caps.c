@@ -336,6 +336,7 @@ LONG CAPSGetVersionInfo (struct CapsVersionInfo *pi, CapsULong flag)
 #else
 #if defined __GNUC__ && !defined __amigaos4__
 #include <inline/capsimage.h>
+static struct Device *CapsImageBase;
 #endif
 #endif
 

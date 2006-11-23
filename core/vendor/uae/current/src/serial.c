@@ -11,7 +11,6 @@
 #include "sysconfig.h"
 #include "sysdeps.h"
 
-#include "config.h"
 #include "options.h"
 #include "uae.h"
 #include "memory.h"
@@ -306,7 +305,7 @@ void serial_flush_buffer (void)
 
 static uae_u8 oldserbits;
 
-static void serial_status_debug (char *s)
+static void serial_status_debug (const char *s)
 {
 #if SERIALHSDEBUG > 1
     write_log ("%s: DTR=%d RTS=%d CD=%d CTS=%d DSR=%d\n", s,

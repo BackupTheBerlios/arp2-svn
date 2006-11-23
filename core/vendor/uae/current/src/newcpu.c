@@ -9,7 +9,6 @@
 #include "sysconfig.h"
 #include "sysdeps.h"
 
-#include "config.h"
 #include "options.h"
 #include "events.h"
 #include "uae.h"
@@ -29,10 +28,6 @@
 #ifdef JIT
 extern uae_u8* compiled_code;
 #include "compemu.h"
-#else
-/* Need to have these somewhere */
-static void build_comp (void) {}
-void check_prefs_changed_comp (void) {}
 #endif
 
 #define f_out fprintf
@@ -358,9 +353,11 @@ void init_m68k (void)
 
     build_cpufunctbl ();
 
+#ifdef JIT
     /* We need to check whether NATMEM settings have changed
      * before starting the CPU */
     check_prefs_changed_comp ();
+#endif
 }
 
 struct regstruct regs;

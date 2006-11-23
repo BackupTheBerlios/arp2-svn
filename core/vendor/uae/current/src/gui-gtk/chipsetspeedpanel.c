@@ -35,8 +35,8 @@ guint chipsetspeedpanel_get_type (void)
     static guint chipsetspeedpanel_type = 0;
 
     if (!chipsetspeedpanel_type) {
-	GtkTypeInfo chipsetspeedpanel_info = {
-	    "ChipsetSpeedPanel",
+	static const GtkTypeInfo chipsetspeedpanel_info = {
+	    (char *) "ChipsetSpeedPanel",
 	    sizeof (ChipsetSpeedPanel),
 	    sizeof (ChipsetSpeedPanelClass),
 	    (GtkClassInitFunc) chipsetspeedpanel_class_init,
@@ -57,7 +57,7 @@ enum {
     LAST_SIGNAL
 };
 
-static gint chipsetspeedpanel_signals[LAST_SIGNAL] = { 0 };
+static guint chipsetspeedpanel_signals[LAST_SIGNAL];
 
 static void chipsetspeedpanel_class_init (ChipsetSpeedPanelClass *class)
 {
@@ -67,7 +67,7 @@ static void chipsetspeedpanel_class_init (ChipsetSpeedPanelClass *class)
 				   "framerate-changed",
 				   "sprite-collisions-changed",
 				   "immediate-blits-changed",
-				   0);
+				   (void*)0);
     class->chipsetspeedpanel = NULL;
 }
 
