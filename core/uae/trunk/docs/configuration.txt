@@ -339,6 +339,12 @@ cart_file=<path>
   from an Action Replay cartridge.
 
 
+arp2_rom_file=<path>
+
+  If UAE was compiled with support for the ARP2 ROM card, this is the
+  ROM image to load.
+
+
 kickshifter=<boolean> (default=false)
 
   If enabled, the Kickstart ROM image will be patched after it is loaded into

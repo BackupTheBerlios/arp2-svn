@@ -539,6 +539,7 @@ AC_ARG_ENABLE(jit,             AS_HELP_STRING([--enable-jit],             [Enabl
 AC_ARG_ENABLE(natmem,          AS_HELP_STRING([--enable-natmem],          [Enable JIT direct memory support (default auto)]),         [NATMEM=$enableval],[])
 AC_ARG_ENABLE(noflags,	       AS_HELP_STRING([--enable-noflags],         [Enable noflags support in JIT (default no)]),              [NOFLAGS=$enableval],[])
 AC_ARG_ENABLE(bcall,           AS_HELP_STRING([--enable-bcall],           [Enable multitasking x86/x86_64 calls (default no)]),       [WANT_BCALL=$enableval],[])
+AC_ARG_ENABLE(arp2rom,         AS_HELP_STRING([--enable-arp2rom],         [Enable ARP2 ROM card (default no)]),                       [WANT_ARP2ROM=$enableval],[])
 AC_ARG_ENABLE(threads,         AS_HELP_STRING([--enable-threads],         [Enable thread support (default auto)]),                    [WANT_THREADS=$enableval],[])
 AC_ARG_ENABLE(autoconfig,      AS_HELP_STRING([--enable-autoconfig],      [Enable emulaton of autoconfig devices (default auto)]),    [WANT_AUTOCONFIG=$enableval],[])
 AC_ARG_ENABLE(scsi-device,     AS_HELP_STRING([--enable-scsi-device],     [Enable emulaton of SCSI devices (default no)]),            [WANT_SCSIEMU=$enableval],[])
@@ -818,6 +819,23 @@ if [[ "x$HAVE_GCC27" = "xyes" ]]; then
   fi
 else
   AC_MSG_RESULT([no2])
+fi
+
+dnl
+dnl  Check whether to build support for ARP2 ROM card
+dnl
+AC_MSG_CHECKING([whether to enable ARP2 ROM card])
+if [[ "x$WANT_ARP2ROM" != "xno" ]]; then
+  if [[ "x$WANT_AUTOCONFIG" != "xno" -a "x$WANT_BCALL" != "xno" ]]; then
+    AC_MSG_RESULT(yes)
+    UAE_DEFINES="$UAE_DEFINES -DARP2ROM"
+    ARP2ROMOBJS=arp2rom.o
+  else
+    AC_MSG_RESULT(no)
+    AC_MSG_WARN([Autoconfig/BJMP support not enabled, so ARP2 ROM card cannot be enabled])
+  fi
+else
+  AC_MSG_RESULT(no)
 fi
 
 dnl
@@ -1578,6 +1596,7 @@ AC_SUBST(SCSIOBJS)
 AC_SUBST(CDOBJS)
 AC_SUBST(DEBUGOBJS)
 AC_SUBST(FILESYSOBJS)
+AC_SUBST(ARP2ROMOBJS)
 AC_SUBST(BLOMCALLOBJS)
 AC_SUBST(BSDSOCKOBJS)
 AC_SUBST(UAE_RSRCFILE)

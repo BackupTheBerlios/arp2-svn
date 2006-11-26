@@ -152,6 +152,9 @@ struct uae_prefs {
 #ifdef ACTION_REPLAY
     char cartfile[256];
 #endif
+#ifdef ARP2ROM
+    char arp2romfile[256];
+#endif
     char prtname[256];
     char sername[256];
 #ifndef WIN32

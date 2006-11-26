@@ -71,6 +71,7 @@ dist_noinst_DATA = \
 
 noinst_HEADERS = \
 	include/akiko.h		include/ar.h		\
+	include/arp2rom.h				\
 	include/audio.h		include/autoconf.h	\
 	include/blitter.h	include/blkdev.h	\
 	include/blomcall.h				\
@@ -127,7 +128,7 @@ uae_SOURCES = \
 	missing.c readcpu.c writelog.c
 
 EXTRA_uae_SOURCES = \
-	blomcall.c bsdsocket.c bsdsocket-posix-new.c build68k.c catweasel.c cdrom.c \
+	arp2rom.c blomcall.c bsdsocket.c bsdsocket-posix-new.c build68k.c catweasel.c cdrom.c \
 	compemu_fpp.c compemu_optimizer.c compemu_optimizer_x86.c \
 	compemu_raw_x86.c compemu_support.c \
 	debug.c identify.c filesys.c fsdb.c fsdb_unix.c fsusage.c genblitter.c \
@@ -150,6 +151,7 @@ uae_DEPENDENCIES = \
 	cpustbl.o cpudefs.o		\
 	libcpuemu.a			\
 	@FILESYSOBJS@ 			\
+	@ARP2ROMOBJS@			\
 	@BLOMCALLOBJS@			\
 	@BSDSOCKOBJS@			\
 	@SCSIOBJS@			\
@@ -175,6 +177,7 @@ uae_LDADD = \
 	cpustbl.o cpudefs.o		\
 	libcpuemu.a			\
 	@FILESYSOBJS@			\
+	@ARP2ROMOBJS@			\
 	@BLOMCALLOBJS@			\
 	@BSDSOCKOBJS@			\
 	@SCSIOBJS@			\

@@ -102,6 +102,9 @@ static const struct cfg_lines opttable[] =
 #ifdef ACTION_REPLAY
     {"cart_file", "Freezer cartridge ROM image file." },
 #endif
+#ifdef ARP2ROM
+    {"arp2_rom_file", "ARP2 ROM image file." },
+#endif
     {"floppy0", "Diskfile for drive 0" },
     {"floppy1", "Diskfile for drive 1" },
     {"floppy2", "Diskfile for drive 2" },
@@ -274,6 +277,11 @@ void save_options (FILE *f, const struct uae_prefs *p, int type)
 #ifdef ACTION_REPLAY
     str = cfgfile_subst_path (p->path_rom, UNEXPANDED, p->cartfile);
     cfgfile_write (f, "cart_file=%s\n", str);
+    free (str);
+#endif
+#ifdef ARP2ROM
+    str = cfgfile_subst_path (p->path_rom, UNEXPANDED, p->arp2romfile);
+    cfgfile_write (f, "arp2_rom_file=%s\n", str);
     free (str);
 #endif
     cfgfile_write (f, "kickshifter=%s\n", p->kickshifter ? "true" : "false");
@@ -987,6 +995,9 @@ static int cfgfile_parse_hardware (struct uae_prefs *p, char *option, char *valu
 	|| cfgfile_string (option, value, "flash_file", p->flashfile, 256)
 #ifdef ACTION_REPLAY
 	|| cfgfile_string (option, value, "cart_file", p->cartfile, 256)
+#endif
+#ifdef ARP2ROM
+	|| cfgfile_string (option, value, "arp2_rom_file", p->arp2romfile, 256)
 #endif
 #ifndef WIN32
 	|| cfgfile_string (option, value, "scsi_device", p->scsi_device, 256)
@@ -2023,6 +2034,9 @@ void default_prefs (struct uae_prefs *p, int type)
     strcpy (p->flashfile, "");
 #ifdef ACTION_REPLAY
     strcpy (p->cartfile, "");
+#endif
+#ifdef ARP2ROM
+    strcpy (p->arp2romfile, "");
 #endif
 
     strcpy (p->path_rom,       TARGET_ROM_PATH);
