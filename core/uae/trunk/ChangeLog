@@ -1,3 +1,9 @@
+2006-12-03  Martin Blom  <martin@blom.org>
+
+	* src/blomcall.c, src/include/blomcall.h, src/table68k: Changed
+	op-code numbers to $FE00, $FE05 and $FEFF, in order not to
+	conflict with MorphOS' reserved $FFxx range.
+
 2006-11-23  Martin Blom  <martin@blom.org>
 
 	* Merged e-uae-0.8.29-WIP3.

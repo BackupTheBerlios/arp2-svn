@@ -305,7 +305,7 @@ uae_u32 REGPARAM2 __blomcall_callfunc68k(uae_u32 args[16], fptype fp[8], uae_u32
 //
 // 1) Store the native stack pointer in a7. This is the only part
 //    that really requires assembly code.
-// 2) Check if the opcode at <addr> is BJMP/BJMPNR/... (byteswapped!)
+// 2) Check if the opcode at <addr> is BJMP/BJMPNR/... 
 //    * If so, fetch the address after the opcode, byteswap and
 //      jump directly to the native function, with <args>
 //      (%eax/%rdi) and stack intact.
@@ -332,7 +332,7 @@ __asm ("						\n\
 blomcall_calllib68k: 					\n\
 	add	(8+6)*4(%eax),%ecx 			\n\
 	mov	%esp,(8+7)*4(%eax) 			\n\
-	cmpb	$0xff,(%ecx)				\n\
+	cmpb	$0xfe,(%ecx)				\n\
 	jne	__blomcall_callfunc68k		 	\n\
 	mov	2(%ecx),%ecx				\n\
 	bswap	%ecx					\n\
@@ -343,7 +343,7 @@ blomcall_calllib68k: 					\n\
 	.type	blomcall_callfunc68k,@function		\n\
 blomcall_callfunc68k: 					\n\
 	mov	%esp,(8+7)*4(%eax) 			\n\
-	cmpb	$0xff,(%ecx)				\n\
+	cmpb	$0xfe,(%ecx)				\n\
 	jne	__blomcall_callfunc68k		 	\n\
 	mov	2(%ecx),%ecx				\n\
 	bswap	%ecx					\n\
@@ -361,7 +361,7 @@ __asm ("						\n\
 blomcall_calllib68k: 					\n\
 	add	(8+6)*4(%rdi),%edx 			\n\
 	mov	%esp,(8+7)*4(%rdi) 			\n\
-	cmpb	$0xff,(%rdx)				\n\
+	cmpb	$0xfe,(%rdx)				\n\
 	jne	__blomcall_callfunc68k		 	\n\
 	mov	2(%rdx),%edx				\n\
 	bswap	%edx					\n\
@@ -372,7 +372,7 @@ blomcall_calllib68k: 					\n\
 	.type	blomcall_callfunc68k,@function	 	\n\
 blomcall_callfunc68k: 					\n\
 	mov	%esp,(8+7)*4(%rdi) 			\n\
-	cmpb	$0xff,(%rdx)				\n\
+	cmpb	$0xfe,(%rdx)				\n\
 	jne	__blomcall_callfunc68k		 	\n\
 	mov	2(%rdx),%edx				\n\
 	bswap	%edx					\n\

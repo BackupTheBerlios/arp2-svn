@@ -259,7 +259,9 @@
 1111 0110 00ss sSSS:40:-----:-----:12: MOVE16   s[Aind],L
 1111 0110 00dd dDDD:40:-----:-----:12: MOVE16   L,d[Aipi-Aind]
 
-% blomcall instructions
-1111 1111 1000 0000:00://///://///:80: BJMP     #2
-1111 1111 1000 0101:00://///://///:80: BJMPNR   #2
-1111 1111 1111 1111:00:-----:-----:00: BRESUME
+% $FExx: blomcall instructions
+1111 1110 0000 0000:00://///://///:80: BJMP     #2
+1111 1110 0000 0101:00://///://///:80: BJMPNR   #2
+1111 1110 1111 1111:00:-----:-----:00: BRESUME
+
+% $FFxx reserverd for future MorphOS emulation

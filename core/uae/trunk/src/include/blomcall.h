@@ -1,8 +1,8 @@
 
 enum {
-  OP_BJMP   = 0xff80,
-  OP_BJMPNR = 0xff85,
-  OP_BRESUME = 0xffff
+  OP_BJMP    = 0xfe00,
+  OP_BJMPNR  = 0xfe05,
+  OP_BRESUME = 0xfeff
 };
 
 
@@ -60,8 +60,8 @@ void blomcall_destroy(void);
 int blomcall_reset(void);
 unsigned long blomcall_ops(uae_u32 opcode, struct regstruct *regs) REGPARAM;
 
-#define bjmp(a)   do { dw(0xff80); dl(a); } while 0
-#define bjmpnr(a) do { dw(0xff85); dl(a); } while 0
+#define bjmp(a)   do { dw(OP_BJMP); dl(a); } while 0
+#define bjmpnr(a) do { dw(OP_BJMPNR); dl(a); } while 0
 
 uae_u32 blomcall_calllib68k(uae_u32 args[16], fptype fp[8], uae_u32 offset) REGPARAM;
 uae_u32 blomcall_callfunc68k(uae_u32 args[16], fptype fp[8], uae_u32 addr) REGPARAM;
