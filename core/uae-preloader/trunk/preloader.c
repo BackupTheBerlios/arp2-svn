@@ -17,7 +17,7 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
 /*
@@ -76,7 +76,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
-#include <sys/stat.h>
+#ifdef HAVE_SYS_STAT_H
+# include <sys/stat.h>
+#endif
 #include <fcntl.h>
 #ifdef HAVE_SYS_MMAN_H
 # include <sys/mman.h>
@@ -114,7 +116,10 @@
 
 static struct wine_preload_info preload_info[] =
 {
-    { (void *)0x00000000, 0xa0000000 },  /* 2.5 GB amiga memory space leaves 512 for UAE, libs, opengl etc */
+    { (void *)0x00000000, 0x08000000 },  /* 128 MB amiga memory space */
+                                         /* 128 MB hole for UAE */
+    { (void *)0x10000000, 0x70000000 },  /* 1.8 GB amiga memory space */
+                                         /* That leaves 1.0 GB for libs, opengl etc */
     { 0, 0 }                             /* end of list */
 };
 
@@ -135,6 +140,10 @@ static struct wine_preload_info preload_info[] =
 #define AT_SYSINFO_EHDR 33
 #endif
 
+#ifndef DT_GNU_HASH
+#define DT_GNU_HASH 0x6ffffef5
+#endif
+
 static unsigned int page_size, page_mask;
 static char *preloader_start, *preloader_end;
 
@@ -151,6 +160,39 @@ struct wld_link_map {
 
 
 /*
+ * The __bb_init_func is an empty function only called when file is
+ * compiled with gcc flags "-fprofile-arcs -ftest-coverage".  This
+ * function is normally provided by libc's startup files, but since we
+ * build the preloader with "-nostartfiles -nodefaultlibs", we have to
+ * provide our own (empty) version, otherwise linker fails.
+ */
+void __bb_init_func(void) { return; }
+
+/* similar to the above but for -fstack-protector */
+void *__stack_chk_guard = 0;
+void __stack_chk_fail(void) { return; }
+
+/* data for setting up the glibc-style thread-local storage in %gs */
+
+static int thread_data[256];
+
+struct
+{
+    /* this is the kernel modify_ldt struct */
+    unsigned int  entry_number;
+    unsigned long base_addr;
+    unsigned int  limit;
+    unsigned int  seg_32bit : 1;
+    unsigned int  contents : 2;
+    unsigned int  read_exec_only : 1;
+    unsigned int  limit_in_pages : 1;
+    unsigned int  seg_not_present : 1;
+    unsigned int  useable : 1;
+    unsigned int  garbage : 25;
+} thread_ldt = { -1, (unsigned long)thread_data, 0xfffff, 1, 0, 0, 1, 0, 1, 0 };
+
+
+/*
  * The _start function is the entry and exit point of this program
  *
  *  It calls wld_start, passing a pointer to the args it receives
@@ -159,8 +201,18 @@ struct wld_link_map {
 void _start();
 extern char _end[];
 __ASM_GLOBAL_FUNC(_start,
-                  "\tmovl %esp,%eax\n"
-                  "\tleal -128(%esp),%esp\n"  /* allocate some space for extra aux values */
+                  "\tmovl $243,%eax\n"        /* SYS_set_thread_area */
+                  "\tmovl $thread_ldt,%ebx\n"
+                  "\tint $0x80\n"             /* allocate gs segment */
+                  "\torl %eax,%eax\n"
+                  "\tjl 1f\n"
+                  "\tmovl thread_ldt,%eax\n"  /* thread_ldt.entry_number */
+                  "\tshl $3,%eax\n"
+                  "\torl $3,%eax\n"
+                  "\tmov %ax,%gs\n"
+                  "\tmov %ax,%fs\n"           /* set %fs too so libwine can retrieve it later on */
+                  "1:\tmovl %esp,%eax\n"
+                  "\tleal -136(%esp),%esp\n"  /* allocate some space for extra aux values */
                   "\tpushl %eax\n"            /* orig stack pointer */
                   "\tpushl %esp\n"            /* ptr to orig stack pointer */
                   "\tcall wld_start\n"
@@ -170,6 +222,7 @@ __ASM_GLOBAL_FUNC(_start,
                   "\txor %eax,%eax\n"
                   "\txor %ecx,%ecx\n"
                   "\txor %edx,%edx\n"
+                  "\tmov %ax,%gs\n"           /* clear %gs again */
                   "\tret\n")
 
 /* wrappers for Linux system calls */
@@ -276,6 +329,14 @@ static inline gid_t wld_getegid(void)
     gid_t ret;
     __asm__( "int $0x80" : "=a" (ret) : "0" (SYS_getegid) );
     return ret;
+}
+
+static inline int wld_prctl( int code, int arg )
+{
+    int ret;
+    __asm__ __volatile__( "pushl %%ebx; movl %2,%%ebx; int $0x80; popl %%ebx"
+                          : "=a" (ret) : "0" (SYS_prctl), "r" (code), "c" (arg) );
+    return SYSCALL_RET(ret);
 }
 
 
@@ -728,16 +789,38 @@ static void map_so_lib( const char *name, struct wld_link_map *l)
 }
 
 
+static unsigned int elf_hash( const char *name )
+{
+    unsigned int hi, hash = 0;
+    while (*name)
+    {
+        hash = (hash << 4) + (unsigned char)*name++;
+        hi = hash & 0xf0000000;
+        hash ^= hi;
+        hash ^= hi >> 24;
+    }
+    return hash;
+}
+
+static unsigned int gnu_hash( const char *name )
+{
+    unsigned int h = 5381;
+    while (*name) h = h * 33 + (unsigned char)*name++;
+    return h;
+}
+
 /*
  * Find a symbol in the symbol table of the executable loaded
  */
-static void *find_symbol( const ElfW(Phdr) *phdr, int num, const char *var )
+static void *find_symbol( const ElfW(Phdr) *phdr, int num, const char *var, int type )
 {
     const ElfW(Dyn) *dyn = NULL;
     const ElfW(Phdr) *ph;
     const ElfW(Sym) *symtab = NULL;
+    const Elf_Symndx *hashtab = NULL;
+    const Elf32_Word *gnu_hashtab = NULL;
     const char *strings = NULL;
-    uint32_t i, symtabend = 0;
+    Elf_Symndx idx;
 
     /* check the values */
 #ifdef DUMP_SYMS
@@ -768,7 +851,9 @@ static void *find_symbol( const ElfW(Phdr) *phdr, int num, const char *var )
         if( dyn->d_tag == DT_SYMTAB )
             symtab = (const ElfW(Sym) *)dyn->d_un.d_ptr;
         if( dyn->d_tag == DT_HASH )
-            symtabend = *((const uint32_t *)dyn->d_un.d_ptr + 1);
+            hashtab = (const Elf_Symndx *)dyn->d_un.d_ptr;
+        if( dyn->d_tag == DT_GNU_HASH )
+            gnu_hashtab = (const Elf32_Word *)dyn->d_un.d_ptr;
 #ifdef DUMP_SYMS
         wld_printf("%x %x\n", dyn->d_tag, dyn->d_un.d_ptr );
 #endif
@@ -777,18 +862,46 @@ static void *find_symbol( const ElfW(Phdr) *phdr, int num, const char *var )
 
     if( (!symtab) || (!strings) ) return NULL;
 
-    for (i = 0; i < symtabend; i++)
+    if (gnu_hashtab)  /* new style hash table */
     {
-        if( ( ELF32_ST_BIND(symtab[i].st_info) == STT_OBJECT ) &&
-            ( 0 == wld_strcmp( strings+symtab[i].st_name, var ) ) )
+        const unsigned int hash   = gnu_hash(var);
+        const Elf32_Word nbuckets = gnu_hashtab[0];
+        const Elf32_Word symbias  = gnu_hashtab[1];
+        const Elf32_Word nwords   = gnu_hashtab[2];
+        const ElfW(Addr) *bitmask = (const ElfW(Addr) *)(gnu_hashtab + 4);
+        const Elf32_Word *buckets = (const Elf32_Word *)(bitmask + nwords);
+        const Elf32_Word *chains  = buckets + nbuckets - symbias;
+
+        if (!(idx = buckets[hash % nbuckets])) return NULL;
+        do
         {
-#ifdef DUMP_SYMS
-            wld_printf("Found %s -> %x\n", strings+symtab[i].st_name, symtab[i].st_value );
-#endif
-            return (void*)symtab[i].st_value;
+            if ((chains[idx] & ~1u) == (hash & ~1u) &&
+                symtab[idx].st_info == ELF32_ST_INFO( STB_GLOBAL, type ) &&
+                !wld_strcmp( strings + symtab[idx].st_name, var ))
+                goto found;
+        } while (!(chains[idx++] & 1u));
+    }
+    else if (hashtab)  /* old style hash table */
+    {
+        const unsigned int hash   = elf_hash(var);
+        const Elf_Symndx nbuckets = hashtab[0];
+        const Elf_Symndx *buckets = hashtab + 2;
+        const Elf_Symndx *chains  = buckets + nbuckets;
+
+        for (idx = buckets[hash % nbuckets]; idx != STN_UNDEF; idx = chains[idx])
+        {
+            if (symtab[idx].st_info == ELF32_ST_INFO( STB_GLOBAL, type ) &&
+                !wld_strcmp( strings + symtab[idx].st_name, var ))
+                goto found;
         }
     }
     return NULL;
+
+found:
+#ifdef DUMP_SYMS
+    wld_printf("Found %s -> %x\n", strings + symtab[idx].st_name, symtab[idx].st_value );
+#endif
+    return (void *)symtab[idx].st_value;
 }
 
 /*
@@ -830,6 +943,12 @@ static void preload_reserve( const char *str )
         start = end = NULL;
     }
 
+    /* check for overlap with low memory area */
+    if ((char *)end <= (char *)preload_info[0].addr + preload_info[0].size)
+        start = end = NULL;
+    else if ((char *)start < (char *)preload_info[0].addr + preload_info[0].size)
+        start = (char *)preload_info[0].addr + preload_info[0].size;
+
     /* entry 2 is for the PE exe */
     preload_info[2].addr = start;
     preload_info[2].size = (char *)end - (char *)start;
@@ -861,6 +980,26 @@ static int is_in_preload_range( const ElfW(auxv_t) *av, int type )
     }
     return 0;
 }
+
+/* set the process name if supported */
+static void set_process_name( int argc, char *argv[] )
+{
+    unsigned int i, off;
+    char *p, *name, *end;
+
+    /* set the process short name */
+    for (p = name = argv[1]; *p; p++) if (p[0] == '/' && p[1]) name = p + 1;
+    if (wld_prctl( 15 /* PR_SET_NAME */, (int)name ) == -1) return;
+
+    /* find the end of the argv array and move everything down */
+    end = argv[argc - 1];
+    while (*end) end++;
+    off = argv[1] - argv[0];
+    for (p = argv[1]; p <= end; p++) *(p - off) = *p;
+    wld_memset( end - off, 0, off );
+    for (i = 1; i < argc; i++) argv[i] -= off;
+}
+
 
 /*
  *  wld_start
@@ -912,6 +1051,10 @@ void* wld_start( void **stack )
         wld_mmap( preload_info[i].addr, preload_info[i].size,
                   PROT_NONE, MAP_FIXED | MAP_PRIVATE | MAP_ANON | MAP_NORESERVE, -1, 0 );
 
+    /* add an executable page at the top of the address space to defeat
+     * broken no-exec protections that play with the code selector limit */
+    wld_mprotect( (char *)0x80000000 - page_size, page_size, PROT_EXEC | PROT_READ );
+
     /* load the main binary */
     map_so_lib( argv[1], &main_binary_map );
 
@@ -921,7 +1064,7 @@ void* wld_start( void **stack )
 
     /* store pointer to the preload info into the appropriate main binary variable */
     wine_main_preload_info = find_symbol( main_binary_map.l_phdr, main_binary_map.l_phnum,
-                                          "uae_main_preload_info" );
+                                          "uae_main_preload_info", STT_OBJECT );
     if (wine_main_preload_info) *wine_main_preload_info = preload_info;
     else wld_printf( "uae_main_preload_info not found\n" );
 
@@ -947,6 +1090,7 @@ void* wld_start( void **stack )
     delete_av[i].a_type = AT_NULL;
 
     /* get rid of first argument */
+    set_process_name( *pargc, argv );
     pargc[1] = pargc[0] - 1;
     *stack = pargc + 1;
 

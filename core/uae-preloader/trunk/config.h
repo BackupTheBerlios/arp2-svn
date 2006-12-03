@@ -1,4 +1,5 @@
 #define HAVE_SYS_MMAN_H
+#define HAVE_SYS_STAT_H
 #define HAVE_SYS_SYSCALL_H
 #define HAVE_UNISTD_H
 #define HAVE_ELF_H
