@@ -256,6 +256,9 @@ uae_u32 REGPARAM2 __blomcall_callfunc68k(uae_u32 args[16], fptype fp[8], uae_u32
     memcpy(blomcall_ctx->regs->fp, fp, 8*4);
   }
 
+  // Save errno
+  blomcall_ctx->saved_errno = errno;
+
   // Set emulation address
   m68k_setpc(blomcall_ctx->regs, addr);
   fill_prefetch_slow(blomcall_ctx->regs);
@@ -285,6 +288,9 @@ uae_u32 REGPARAM2 __blomcall_callfunc68k(uae_u32 args[16], fptype fp[8], uae_u32
 
   // Now we're back from emulation again
   pthread_sigmask(SIG_UNBLOCK, &blomcall_usr1sigset, NULL);
+
+  // Restore errno
+  errno = blomcall_ctx->saved_errno;
 
   // Transfer UAE's register array back to caller, then restore it
   memcpy(args, blomcall_ctx->regs->regs, 16*4);
@@ -418,6 +424,9 @@ static void blomcall_timer_handler(int x, siginfo_t* si, void* extra) {
   blomcall_ctx->uc = *uc;
   blomcall_ctx->fp = *uc->uc_mcontext.fpstate;
 
+  // Save errno
+  blomcall_ctx->saved_errno = errno;
+
   // SIGUSR1 already blocked, since we're in a signal handler
   // pthread_sigmask(SIG_BLOCK, &blomcall_usr1sigset, NULL);
   siglongjmp(blomcall_ctx->emuljmp, 2);
@@ -434,6 +443,9 @@ static void blomcall_resume_handler(int x, siginfo_t* si, void* extra) {
   *uc = blomcall_ctx->uc;
   *fpp = blomcall_ctx->fp;
   uc->uc_mcontext.fpstate = fpp;
+
+  // Restore errno
+  errno = blomcall_ctx->saved_errno;
 }
 
 

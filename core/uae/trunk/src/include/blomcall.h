@@ -34,6 +34,7 @@ struct blomcall_context {
     uae_u16           saved_stack_bytes;
     uae_u32	      rts_pc;
     uae_u32	      rts_a7;
+    uae_u32	      saved_errno;
     struct regstruct* regs;
     uae_u64           magic;
     uae_u32           saved_regs[16];
