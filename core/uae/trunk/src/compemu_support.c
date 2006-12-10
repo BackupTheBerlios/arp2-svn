@@ -5620,7 +5620,7 @@ void build_comp(void)
 	sigemptyset (&act.sa_mask);
 	act.sa_flags = SA_SIGINFO;
 #ifdef SA_RESTART
-	act.sa_flags = SA_RESTART;
+	act.sa_flags |= SA_RESTART;
 #endif
 #ifdef SA_ONSTACK
 	act.sa_flags |= SA_ONSTACK;
