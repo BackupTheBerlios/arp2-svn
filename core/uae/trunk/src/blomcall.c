@@ -604,7 +604,7 @@ unsigned long REGPARAM2 blomcall_ops (uae_u32 opcode, struct regstruct* regs) {
     // TODO: Cache and reuse used contexts
     blomcall_ctx = malloc (sizeof (struct blomcall_context));
 
-    blomcall_ctx->op_resume         = OP_BRESUME;
+    blomcall_ctx->op_resume         = bswap_16(OP_BRESUME);
     blomcall_ctx->saved_stack_bytes = 0;
     blomcall_ctx->magic             = BRESUME_MAGIC;
     blomcall_ctx->rts_pc            = get_long(m68k_areg(regs, 7));
