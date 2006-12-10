@@ -449,6 +449,8 @@ NATMEM=no
 NOFLAGS=no
 WANT_DGA=no
 WANT_VIDMODE=no
+WANT_BCALL=no
+WANT_ARP2ROM=no
 WANT_THREADS=dunno
 NEED_THREAD_SUPPORT=no
 WANT_AUTOCONFIG=dunno
@@ -812,13 +814,13 @@ if [[ "x$HAVE_GCC27" = "xyes" ]]; then
       abs_top_builddir=`[[ -z "$ac_top_builddir" ]] || cd "$ac_top_builddir"; pwd`
       UAE_LDFLAGS="$UAE_LDFLAGS -Wl,--script=$abs_top_builddir/program-base.lds"
     else
-      AC_MSG_RESULT([no3])
+      AC_MSG_RESULT([no])
     fi
   else
-    AC_MSG_RESULT([no1])
+    AC_MSG_RESULT([no (need GNU ld)])
   fi
 else
-  AC_MSG_RESULT([no2])
+  AC_MSG_RESULT([no (need gcc 3+)])
 fi
 
 dnl
