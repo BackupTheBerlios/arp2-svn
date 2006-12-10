@@ -1,0 +1,129 @@
+
+It's just a subset of Knuth's MMIX ISA. See
+<URL:http://www-cs-faculty.stanford.edu/%7Eknuth/mmix-news.html> for
+further information.
+
+Rx/Ry/Rz	64-bit register (0-7 only!)
+s(x)		x, signed
+u(x)		x, unsigned
+imm8		8-bit immediate constant
+imm16h		16-bit immediate constant, high 8 bits
+imm16l		16-bit immediate constant, low 8 bits
+imm24h		24-bit immediate constant, high 8 bits
+imm24m		24-bit immediate constant, middle 8 bits
+imm24l		24-bit immediate constant, low 8 bits
+M1[x]		8-bit word at memory address x
+M2[x]		16-bit word at memory address (x & 0xffff...fffe)
+M4[x]		32-bit word at memory address (x & 0xffff...fffc)
+M8[x]		64-bit word at memory address (x & 0xffff...fff8)
+:0-7		Bits 0-7
+
+[name]	[op]	[a1]	[a2]	[a3]	[func]
+
+ADDU	22	Rx	Ry	Rz	u(Rx) = u(Ry) + u(Rz)
+ADDUI	23	Rx	Ry	imm8	u(Rx) = u(Ry) + u(imm8)
+SUBU	26	Rx	Ry	Rz	u(Rx) = u(Ry) - u(Rz)
+SUBUI	27	Rx	Ry	imm8	u(Rx) = u(Ry) - u(imm8)
+
+CMP	30	Rx	Ry	Rz	s(Rx) = ((s(Ry) > s(Rz)) - 
+						 (s(Ry) < s(Rz)))
+CMPI	31	Rx	Ry	imm8	s(Rx) = ((s(Ry) > u(imm8)) - 
+						 (s(Ry) < u(imm8)))
+CMPU	32	Rx	Ry	Rz	s(Rx) = ((u(Ry) > u(Rz)) - 
+						 (u(Ry) < u(Rz)))
+CMPUI	33	Rx	Ry	imm8	s(Rx) = ((u(Ry) > u(imm8)) - 
+						 (u(Ry) < u(imm8)))
+
+NEGU	36	Rx	imm8	Rz	u(Rx) = u(imm8) - u(Rz)
+NEGUI	37	Rx	imm8	imm8	u(Rx) = u(imm8) - u(imm8)
+
+SLU	3a	Rx	Ry	Rz	u(Rx) = u(Ry) << u(Rz)
+SLUI	3b	Rx	Ry	imm8	u(Rx) = u(Ry) << u(imm8)
+SRU	3e	Rx	Ry	Rz	u(Rx) = u(Ry) >> u(Rz)
+SRUI	3f	Rx	Ry	imm8	u(Rx) = u(Ry) >> u(imm8)
+
+BZ	42	Rx	imm16h	imm16l	if u(Rx) == 0 then @ += 4*imm16
+BZB	43	Rx	imm16h	imm16l	if u(Rx) == 0 then 
+					   @ += 4*(imm16 - (2 << 16))
+BNZ	4a	Rx	imm16h	imm16l	if u(Rx) != 0 then @ += 4*imm16
+BNZB	4b	Rx	imm16h	imm16l	if u(Rx) != 0 then 
+					   @ += 4*(imm16 - (2 << 16))
+
+LDBU	82	Rx	Ry	Rz	u(Rx) = u(M1[u(Ry) + u(Rz)])
+LDBUI	83	Rx	Ry	imm8	u(Rx) = u(M1[u(Ry) + u(imm8)])
+LDWU	86	Rx	Ry	Rz	u(Rx) = u(M2[u(Ry) + u(Rz)])
+LDWUI	87	Rx	Ry	imm8	u(Rx) = u(M2[u(Ry) + u(imm8)])
+LDTU	8a	Rx	Ry	Rz	u(Rx) = u(M4[u(Ry) + u(Rz)])
+LDTUI	8b	Rx	Ry	imm8	u(Rx) = u(M4[u(Ry) + u(imm8)])
+LDOU	8e	Rx	Ry	Rz	u(Rx) = u(M8[u(Ry) + u(Rz)])
+LDOUI	8f	Rx	Ry	imm8	u(Rx) = u(M8[u(Ry) + u(imm8)])
+
+STBU	a2	Rx	Ry	Rz	u(M1[u(Ry) + u(Rz)])   = u(Rx:0-7)
+STBUI	a3	Rx	Ry	imm8	u(M1[u(Ry) + u(imm8)]) = u(Rx:0-7)
+STWU	a6	Rx	Ry	Rz	u(M2[u(Ry) + u(Rz)])   = u(Rx:0-15)
+STWUI	a7	Rx	Ry	imm8	u(M2[u(Ry) + u(imm8)]) = u(Rx:0-15)
+STTU	aa	Rx	Ry	Rz	u(M4[u(Ry) + u(Rz)])   = u(Rx:0-31)
+STTUI	ab	Rx	Ry	imm8	u(M4[u(Ry) + u(imm8)]) = u(Rx:0-31)
+STOU	ae	Rx	Ry	Rz	u(M8[u(Ry) + u(Rz)])   = u(Rx)
+STOUI	af	Rx	Ry	imm8	u(M8[u(Ry) + u(imm8)]) = u(Rx)
+
+OR	c0	Rx	Ry	Rz	u(Rx) = u(Ry) | u(Rz)
+ORI	c1	Rx	Ry	imm8	u(Rx) = u(Ry) | u(imm8)
+XOR	c6	Rx	Ry	Rz	u(Rx) = u(Ry) ^ u(Rz)
+XORI	c7	Rx	Ry	imm8	u(Rx) = u(Ry) ^ u(imm8)
+AND	c8	Rx	Ry	Rz	u(Rx) = u(Ry) & u(Rz)
+ANDI	c9	Rx	Ry	imm8	u(Rx) = u(Ry) & u(imm8)
+
+MOR	dc	Rx	Ry	Rz	u(Rx) = [Read ref. or impl. below]
+MORI	dd	Rx	Ry	imm8	u(Rx) = [Read ref. or impl. below]
+MXOR	de	Rx	Ry	Rz	u(Rx) = [Read ref. or impl. below]
+MXORI	df	Rx	Ry	imm8	u(Rx) = [Read ref. or impl. below]
+
+SETH	e0	Rx	imm16h	imm16l	u(Rx) = u(imm16) << 48
+SETMH	e1	Rx	imm16h	imm16l	u(Rx) = u(imm16) << 32
+SETML	e2	Rx	imm16h	imm16l	u(Rx) = u(imm16) << 16
+SETL	e3	Rx	imm16h	imm16l	u(Rx) = u(imm16)
+
+INCH	e4	Rx	imm16h	imm16l	u(Rx) = u(Rx) + u(imm16) << 48
+INCMH	e5	Rx	imm16h	imm16l	u(Rx) = u(Rx) + u(imm16) << 32
+INCML	e6	Rx	imm16h	imm16l	u(Rx) = u(Rx) + u(imm16) << 16
+INCL	e7	Rx	imm16h	imm16l	u(Rx) = u(Rx) + u(imm16)
+
+JMP	f0	imm24h	imm24m	imm24l	@ +=  4*imm24
+JMPB	f1	imm24h	imm24m	imm24l	@ +=  4*(imm24 - (2 << 24))
+
+POP	f8	imm8	0	0	[Pop all but imm8 locals, return]
+
+
+
+Actually, all MMIX instructions except floating point instructions,
+bdif, wdif, tdif, odif, sadd, are implemented. Overflow is never
+generated.
+
+Out of the special registers, only rJ and rM have a meaning.
+
+
+
+-----
+@ The last bitwise subroutine we need is the most interesting:
+It implements \MMIX's \.{MOR} and \.{MXOR} operations.
+
+@<Subr...@>=
+octa bool_mult @,@,@[ARGS((octa,octa,bool))@];@+@t}\6{@>
+octa bool_mult(y,z,xor)
+  octa y,z; /* the operands */
+  bool xor; /* do we do xor instead of or? */
+{
+  octa o,x;
+  register tetra a,b,c;
+  register int k;
+  for (k=0,o=y,x=zero_octa;o.h||o.l;k++,o=shift_right(o,8,1))
+    if (o.l&0xff) {
+      a=((z.h>>k)&0x01010101)*0xff;
+      b=((z.l>>k)&0x01010101)*0xff;
+      c=(o.l&0xff)*0x01010101;
+      if (xor) x.h^=a&c, x.l^=b&c;
+      else x.h|=a&c, x.l|=b&c;
+    }
+  return x;
+}  
