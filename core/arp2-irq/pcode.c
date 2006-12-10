@@ -30,7 +30,7 @@ enum special_register {
 #define TMP	(255)
 
 #define GLOBAL(s, r) ((s)->g[32 + (r) - (256-GLOBALS)])
-#define LOCAL(s, r)  (((uint64_t*) (s)->g[rO])[(r)])
+#define LOCAL(s, r)  (((uint64_t*) (uintptr_t) (s)->g[rO])[(r)])
 
 struct state {
     uint64_t          g[32+GLOBALS];		// Global registers (special+normal)
@@ -345,7 +345,7 @@ static enum pcode_error execute_op(struct state* state, uint64_t* pc) {
 
   state->ops->kprintf(state->ops,
 		      "Executing instruction at %p: %02x%02x%02x%02x\n",
-		      (void*) *pc, op, ox, oy, oz);
+		      (void*) (uintptr_t) *pc, op, ox, oy, oz);
 
   // Default source arguments
 
@@ -489,8 +489,9 @@ static enum pcode_error execute_op(struct state* state, uint64_t* pc) {
       *r = (z == 0 ? 0 : (int64_t) y / (int64_t) z);
       break;
 
-    case 0x1e ... 0x1f:				// div/divi
+    case 0x1e ... 0x1f:				// divu/divui
       *r = (z == 0 ? 0 : y / z);
+      state->g[rR] = (z == 0 ? y : y % z);
       break;
 
 

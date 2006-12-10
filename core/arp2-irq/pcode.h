@@ -132,7 +132,7 @@ void pcode_delete(pcode_handle handle);
    * TRAP has predefined meaning. MMIX-sim's stdio traps are not
    supported.
 
-   * The only supported special registers are: rG, rL, rJ, rO and rM.
+   * The only supported special registers are: rG, rJ, rL, rM, rO and rR.
    rS is set but never actually modified.
 */
 

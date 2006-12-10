@@ -17,6 +17,22 @@ long sub(long a, long b) {
   return a - b;
 }
 
+long mul(long a, long b) {
+  return a * b;
+}
+
+long div(long a, long b) {
+  return a / b;
+}
+
+long udiv(unsigned long a, unsigned long b) {
+  return a / b;
+}
+
+long mod(long a, long b) {
+  return a % b;
+}
+
 long neg(long a) {
   return -a;
 }
@@ -50,6 +66,10 @@ void test() {
   if (or(0x80,0x100) != 0x180)     __asm("trap 0,0,6");
   if (andn(0x180,0x100) != 0x100)  __asm("trap 0,0,7");
   if (orn(0x80,0x100) != ~0x100)   __asm("trap 0,0,8");
+  if (mul(10,11) != 110)           __asm("trap 0,0,9");
+  if (div(10,-2) != -5)            __asm("trap 0,0,10");
+  if (udiv(10,-2) != 0)            __asm("trap 0,0,11");
+  if (mod(10,3) != 1)              __asm("trap 0,0,12");
 }
 
 int init(struct Locals* l) {
