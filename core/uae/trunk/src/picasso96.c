@@ -2928,7 +2928,7 @@ static uae_u8 REGPARAM2 *gfxmem_xlate (uaecptr addr)
 addrbank gfxmem_bank = {
     gfxmem_lget, gfxmem_wget, gfxmem_bget,
     gfxmem_lput, gfxmem_wput, gfxmem_bput,
-    gfxmem_xlate, gfxmem_check, MAPPED_MALLOC_FAILED
+    gfxmem_xlate, gfxmem_check, NULL
 };
 
 int picasso_display_mode_index (uae_u32 x, uae_u32 y, uae_u32 d)

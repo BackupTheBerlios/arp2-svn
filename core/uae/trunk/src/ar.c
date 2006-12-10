@@ -265,7 +265,7 @@ static uae_u8 REGPARAM2 *hrtmem_xlate (uaecptr addr)
 addrbank hrtmem_bank = {
     hrtmem_lget, hrtmem_wget, hrtmem_bget,
     hrtmem_lput, hrtmem_wput, hrtmem_bput,
-    hrtmem_xlate, hrtmem_check, MAPPED_MALLOC_FAILED
+    hrtmem_xlate, hrtmem_check, NULL
 };
 
 static void copyfromamiga (uae_u8 *dst, uaecptr src, int len)
@@ -666,12 +666,12 @@ static uae_u8 REGPARAM2 *arrom_xlate (uaecptr addr)
 static addrbank arrom_bank = {
     arrom_lget, arrom_wget, arrom_bget,
     arrom_lput, arrom_wput, arrom_bput,
-    arrom_xlate, arrom_check, MAPPED_MALLOC_FAILED
+    arrom_xlate, arrom_check, NULL
 };
 static addrbank arram_bank = {
     arram_lget, arram_wget, arram_bget,
     arram_lput, arram_wput, arram_bput,
-    arram_xlate, arram_check, MAPPED_MALLOC_FAILED
+    arram_xlate, arram_check, NULL
 };
 
 static void action_replay_unmap_banks()
@@ -1479,7 +1479,7 @@ int hrtmon_load(int activate)
     zfile_fclose (f);
     hrtmon_configure((HRTCFG*)hrtmemory);
     hrtmon_reloc((uae_u32*)hrtmemory,/*(uae_u32*)*/header);
-    hrtmem_bank.baseaddr = hrtmemory ? hrtmemory : MAPPED_MALLOC_FAILED;
+    hrtmem_bank.baseaddr = hrtmemory;
     hrtmon_flag = ACTION_REPLAY_IDLE;
     if(!activate) hrtmon_flag = ACTION_REPLAY_INACTIVE;
     write_log("HRTMon installed at %08.8X, size %08.8X\n",hrtmem_start, hrtmem_size);

@@ -190,7 +190,7 @@ static void expamem_bput (uaecptr, uae_u32) REGPARAM;
 addrbank expamem_bank = {
     expamem_lget, expamem_wget, expamem_bget,
     expamem_lput, expamem_wput, expamem_bput,
-    default_xlate, default_check, MAPPED_MALLOC_FAILED
+    default_xlate, default_check, NULL
 };
 
 static uae_u32 REGPARAM2 expamem_lget (uaecptr addr)
@@ -408,7 +408,7 @@ static uae_u8 REGPARAM2 *fastmem_xlate (uaecptr addr)
 addrbank fastmem_bank = {
     fastmem_lget, fastmem_wget, fastmem_bget,
     fastmem_lput, fastmem_wput, fastmem_bput,
-    fastmem_xlate, fastmem_check, MAPPED_MALLOC_FAILED
+    fastmem_xlate, fastmem_check, NULL
 };
 
 
@@ -499,7 +499,7 @@ static uae_u8 REGPARAM2 *catweasel_xlate (uaecptr addr)
 static addrbank catweasel_bank = {
     catweasel_lget, catweasel_wget, catweasel_bget,
     catweasel_lput, catweasel_wput, catweasel_bput,
-    catweasel_xlate, catweasel_check, MAPPED_MALLOC_FAILED
+    catweasel_xlate, catweasel_check, NULL
 };
 
 static void expamem_map_catweasel (void)
@@ -668,7 +668,7 @@ static void REGPARAM2 dmac_bput (uaecptr addr, uae_u32 b)
 addrbank dmac_bank = {
     dmac_lget, dmac_wget, dmac_bget,
     dmac_lput, dmac_wput, dmac_bput,
-    default_xlate, default_check, MAPPED_MALLOC_FAILED
+    default_xlate, default_check, NULL
 };
 
 #endif
@@ -756,7 +756,7 @@ static void REGPARAM2 filesys_bput (uaecptr addr, uae_u32 b)
 static addrbank filesys_bank = {
     filesys_lget, filesys_wget, filesys_bget,
     filesys_lput, filesys_wput, filesys_bput,
-    default_xlate, default_check, MAPPED_MALLOC_FAILED
+    default_xlate, default_check, NULL
 };
 
 #endif // FILESYS
@@ -846,7 +846,7 @@ static uae_u8 REGPARAM2 *z3fastmem_xlate (uaecptr addr)
 addrbank z3fastmem_bank = {
     z3fastmem_lget, z3fastmem_wget, z3fastmem_bget,
     z3fastmem_lput, z3fastmem_wput, z3fastmem_bput,
-    z3fastmem_xlate, z3fastmem_check, MAPPED_MALLOC_FAILED
+    z3fastmem_xlate, z3fastmem_check, NULL
 };
 
 /* Z3-based UAEGFX-card */
@@ -1121,10 +1121,8 @@ static void allocate_expamem (void)
 	fastmem_mask = allocated_fastmem - 1;
 
 	if (allocated_fastmem) {
-	    fastmemory = mapped_malloc (allocated_fastmem, "fast",
-					MAPPED_MALLOC_UNKNOWN);
-	    if (fastmemory == MAPPED_MALLOC_FAILED) {
-		fastmemory = 0;
+	    fastmemory = mapped_malloc (allocated_fastmem, "fast");
+	    if (fastmemory == 0) {
 		write_log ("Out of memory for fastmem card.\n");
 		allocated_fastmem = 0;
 	    }
@@ -1140,10 +1138,11 @@ static void allocate_expamem (void)
 	z3fastmem_mask = allocated_z3fastmem - 1;
 
 	if (allocated_z3fastmem) {
-	    z3fastmem = mapped_malloc (allocated_z3fastmem, "z3",
-				       0x10000000);
-	    if (z3fastmem == MAPPED_MALLOC_FAILED) {
-		z3fastmem = 0;
+	    // Allocate memory directly at the expected location, since
+	    // this memory block can use a lot of the the available address space
+	    // for 32-bit applications.
+	    z3fastmem = mapped_malloc_at (allocated_z3fastmem, "z3", 0x10000000);
+	    if (z3fastmem == 0) {
 		write_log ("Out of memory for 32 bit fast memory.\n");
 		allocated_z3fastmem = 0;
 	    }
@@ -1159,10 +1158,8 @@ static void allocate_expamem (void)
 	gfxmem_mask = allocated_gfxmem - 1;
 
 	if (allocated_gfxmem) {
-	    gfxmemory = mapped_malloc (allocated_gfxmem, "gfx",
-				       MAPPED_MALLOC_UNKNOWN);
-	    if (gfxmemory == MAPPED_MALLOC_FAILED) {
-		gfxmemory = 0;
+	    gfxmemory = mapped_malloc (allocated_gfxmem, "gfx");
+	    if (gfxmemory == 0) {
 		write_log ("Out of memory for graphics card memory\n");
 		allocated_gfxmem = 0;
 	    }
@@ -1170,8 +1167,8 @@ static void allocate_expamem (void)
 	clearexec ();
     }
 
-    z3fastmem_bank.baseaddr = z3fastmem ? z3fastmem : MAPPED_MALLOC_FAILED;
-    fastmem_bank.baseaddr = fastmemory ? fastmemory : MAPPED_MALLOC_FAILED;
+    z3fastmem_bank.baseaddr = z3fastmem;
+    fastmem_bank.baseaddr = fastmemory;
 
 #ifdef SAVESTATE
     if (savestate_state == STATE_RESTORE) {
@@ -1296,14 +1293,12 @@ void expansion_init (void)
     allocate_expamem ();
 
 #ifdef FILESYS
-    filesysory = (uae_u8 *) mapped_malloc (0x10000, "filesys",
-					   MAPPED_MALLOC_UNKNOWN);
-    if (filesysory == MAPPED_MALLOC_FAILED) {
-	filesysory = 0;
+    filesysory = (uae_u8 *) mapped_malloc (0x10000, "filesys");
+    if (!filesysory) {
 	write_log ("virtual memory exhausted (filesysory)!\n");
 	exit (0);
     }
-    filesys_bank.baseaddr = (uae_u8*) (filesysory ? filesysory : MAPPED_MALLOC_FAILED);
+    filesys_bank.baseaddr = (uae_u8*)filesysory;
 #endif
 }
 

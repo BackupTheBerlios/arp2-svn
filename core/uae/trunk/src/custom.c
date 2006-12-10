@@ -4700,7 +4700,7 @@ static void custom_bput (uaecptr, uae_u32) REGPARAM;
 addrbank custom_bank = {
     custom_lget, custom_wget, custom_bget,
     custom_lput, custom_wput, custom_bput,
-    default_xlate, default_check, MAPPED_MALLOC_FAILED
+    default_xlate, default_check, NULL
 };
 
 STATIC_INLINE uae_u32 REGPARAM2 custom_wget_1 (uaecptr addr, int noput)

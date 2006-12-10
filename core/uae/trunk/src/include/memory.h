@@ -81,7 +81,7 @@ typedef struct {
     /* For those banks that refer to real memory, we can save the whole trouble
        of going through function calls, and instead simply grab the memory
        ourselves. This holds the memory address where the start of memory is
-       for this particular bank, else MAPPED_MALLOC_FAILED. */
+       for this particular bank. */
     uae_u8 *baseaddr;
 } addrbank;
 
@@ -127,7 +127,7 @@ extern uae_u8 *baseaddr[MEMORY_BANKS];
 #ifdef JIT
 # define put_mem_bank(addr, b, realstart) do { \
     (mem_banks[bankindex(addr)] = (b)); \
-    if ((b)->baseaddr != MAPPED_MALLOC_FAILED) \
+    if ((b)->baseaddr) \
         baseaddr[bankindex(addr)] = (b)->baseaddr - (realstart); \
     else \
         baseaddr[bankindex(addr)] = (uae_u8*)(((long)b)+1); \
@@ -270,10 +270,10 @@ extern void chipmem_wput_ce2 (uaecptr, uae_u32) REGPARAM;
 extern void chipmem_bput_ce2 (uaecptr, uae_u32) REGPARAM;
 
 
-#define MAPPED_MALLOC_FAILED   ((uae_u8*) -1)
 #define MAPPED_MALLOC_UNKNOWN  ((uae_u32) -1)
 
-extern uae_u8 *mapped_malloc (size_t, const char *, uae_u32);
+extern uae_u8 *mapped_malloc (size_t, const char *);
+extern uae_u8 *mapped_malloc_at (size_t, const char *, uae_u32);
 extern void mapped_free (uae_u8 *);
 extern void clearexec (void);
 extern void mapkick (void);

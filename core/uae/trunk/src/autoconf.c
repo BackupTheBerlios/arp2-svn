@@ -42,7 +42,7 @@ static uae_u8 *rtarea_xlate (uaecptr) REGPARAM;
 addrbank rtarea_bank = {
     rtarea_lget, rtarea_wget, rtarea_bget,
     rtarea_lput, rtarea_wput, rtarea_bput,
-    rtarea_xlate, default_check, MAPPED_MALLOC_FAILED
+    rtarea_xlate, default_check, NULL
 };
 
 uae_u8 REGPARAM2 *rtarea_xlate (uaecptr addr)
@@ -184,13 +184,12 @@ static uae_u32 REGPARAM2 uae_puts (TrapContext *context)
 
 static void rtarea_init_mem (void)
 {
-    rtarea = mapped_malloc (0x10000, "rtarea", RTAREA_BASE);
-    if (rtarea == MAPPED_MALLOC_FAILED) {
-	rtarea = 0;
+    rtarea = mapped_malloc (0x10000, "rtarea");
+    if (!rtarea) {
 	write_log ("virtual memory exhausted (rtarea)!\n");
 	abort ();
     }
-    rtarea_bank.baseaddr = rtarea ? rtarea : MAPPED_MALLOC_FAILED;
+    rtarea_bank.baseaddr = rtarea;
 }
 
 void rtarea_init (void)

@@ -135,7 +135,7 @@ static uae_u8 REGPARAM2 *arp2rom_xlate (uaecptr addr)
 addrbank arp2rom_bank = {
     arp2rom_lget, arp2rom_wget, arp2rom_bget,
     arp2rom_lput, arp2rom_wput, arp2rom_bput,
-    arp2rom_xlate, arp2rom_check, MAPPED_MALLOC_FAILED
+    arp2rom_xlate, arp2rom_check, NULL
 };
 
 
@@ -163,9 +163,9 @@ int arp2rom_init (void) {
   for (arp2rom_size = 65536; arp2rom_size < size; arp2rom_size *= 2);
   arp2rom_mask = arp2rom_size - 1;
 
-  arp2rom = mapped_malloc (arp2rom_size, "ARP2 ROM image", MAPPED_MALLOC_UNKNOWN);
+  arp2rom = mapped_malloc (arp2rom_size, "ARP2 ROM image");
 
-  if (arp2rom == MAPPED_MALLOC_FAILED) {
+  if (arp2rom == NULL) {
     write_log ("ARP2 ROM: Out of memory for ROM image (%d KB)\n", arp2rom_size / 1024);
     arp2rom = 0;
     arp2rom_free ();
