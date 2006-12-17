@@ -831,7 +831,7 @@ if [[ "x$WANT_ARP2ROM" != "xno" ]]; then
   if [[ "x$WANT_AUTOCONFIG" != "xno" -a "x$WANT_BCALL" != "xno" ]]; then
     AC_MSG_RESULT(yes)
     UAE_DEFINES="$UAE_DEFINES -DARP2ROM"
-    ARP2ROMOBJS=arp2rom.o
+    ARP2ROMOBJS="arp2rom.o arp2sys.o"
   else
     AC_MSG_RESULT(no)
     AC_MSG_WARN([Autoconfig/BJMP support not enabled, so ARP2 ROM card cannot be enabled])

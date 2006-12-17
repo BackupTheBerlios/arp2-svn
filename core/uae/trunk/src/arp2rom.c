@@ -24,6 +24,7 @@
 #include "newcpu.h"
 #include "zfile.h"
 #include "arp2rom.h"
+#include "arp2sys.h"
 
 #include <sys/mman.h>
 
@@ -356,7 +357,8 @@ static void loadseg_reloc(uae_u32 base) {
 
 int arp2rom_init(void) {
   arp2rom_size = arp2rom_mask = arp2rom_start = 0;
-  return 1;
+
+  return arp2sys_init();
 }
 
 
@@ -382,9 +384,6 @@ int arp2rom_reset(void) {
   rom_size = loadseg_check_size(image_file);
   is_supported_loadseg = (rom_size != 0);
 
-  write_log("ARP2 ROM: ROM image is %s LoadSeg() module, %ld bytes large\n",
-	    is_supported_loadseg ? "a supported" : "an unsupported",(long) rom_size);
-
   zfile_fseek(image_file, 0, SEEK_END);
   image_size = zfile_ftell(image_file);
   zfile_fseek(image_file, 0, SEEK_SET);
@@ -404,6 +403,10 @@ int arp2rom_reset(void) {
   else {
     rom_size = image_size;
   }
+
+  write_log("ARP2 ROM: ROM image is a %s, %ld bytes large\n", 
+	    is_supported_loadseg ? "LoadSeg() module" : "binary ROM image",
+	    (long) rom_size);
      
   // Calculate Zorro card memory size and allocate ROM
 
@@ -445,6 +448,10 @@ int arp2rom_reset(void) {
   }
 
   // Patch ROM with syscall vectors
+  if (!arp2sys_reset(arp2rom)) {
+    arp2rom_free();
+    return 0;
+  }
 
   // Write-protect ROM
 //  mprotect(arp2rom, arp2rom_size, PROT_READ | PROT_EXEC);
@@ -453,6 +460,8 @@ int arp2rom_reset(void) {
 }
 
 void arp2rom_free(void) {
+  arp2sys_free();
+
   if (arp2rom != NULL) {
     mapped_free(arp2rom);
   }
