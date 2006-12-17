@@ -975,20 +975,13 @@ static void expamem_init_filesys (void)
 
 static void expamem_map_arp2rom (void)
 {
-    uaecptr a;
-
-    arp2rom_start = ((expamem_hi | (expamem_lo >> 4)) << 16);
-    map_banks (&arp2rom_bank, arp2rom_start >> 16, arp2rom_size >> 16, arp2rom_size);
-    write_log ("ARP2 ROM: mapped ROM @$%lx: %d KB.\n",  arp2rom_start, arp2rom_size / 1024);
+    arp2rom_map((expamem_hi | (expamem_lo >> 4)) << 16);
 }
 
 static void expamem_init_arp2rom (void)
 {
     expamem_init_clear();
-
-    // Map in ROM at expamem, but never more than 64 KiB.
-    memcpy (expamem, arp2rom, (arp2rom_mask & 0xFFFF) + 1);
-    write_log ("ARP2 ROM: configuring ROM @$e80000: %d KB.\n", ((arp2rom_mask & 0xFFFF) + 1) / 1024);
+    arp2rom_config(expamem);
 }
 
 #endif
@@ -1246,7 +1239,7 @@ void expamem_reset (void)
     }
 #endif
 #ifdef ARP2ROM
-    if (arp2rom_init ()) {
+    if (arp2rom_reset ()) {
 	card_init[cardno] = expamem_init_arp2rom;
 	card_map[cardno++] = expamem_map_arp2rom;
     }
@@ -1285,7 +1278,7 @@ void expansion_init (void)
     filesysory = 0;
 #endif
 #ifdef ARP2ROM
-    arp2rom_size = arp2rom_mask = arp2rom_start = 0;
+    arp2rom_init();
 #endif
     z3fastmem_mask = z3fastmem_start = 0;
     z3fastmem = 0;
