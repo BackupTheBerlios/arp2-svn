@@ -12,6 +12,9 @@
 
 #ifdef ARP2ROM
 
+#ifndef __linux
+# error Unsupported
+#endif
 
 /*** Include prototypes for all functions we export **************************/
 
@@ -88,18 +91,82 @@ typedef struct {
 }* regptr;
 
 
-typedef void* aptr;
 typedef char* strptr;
-typedef const void* const_aptr;
+typedef void* aptr;
 typedef const char* const_strptr;
-typedef uae_s32 arp2_pid_t;
+typedef const void* const_aptr;
+
 typedef uae_s32 arp2_clock_t;
-typedef uae_u32 arp2_uid_t;
+typedef uae_s32 arp2_mqd_t;
+typedef uae_s32 arp2_pid_t;
+typedef uae_s32 arp2_time_t;
 typedef uae_u32 arp2_gid_t;
+typedef uae_u32 arp2_id_t;
 typedef uae_u32 arp2_mode_t;
 typedef uae_u32 arp2_priority_which_t;
-typedef uae_u32 arp2_id_t;
+typedef uae_u32 arp2_uid_t;
 typedef uae_u64 arp2_dev_t;
+
+struct arp2_mq_attr {
+    uae_s32 mq_flags;
+    uae_s32 mq_maxmsg;
+    uae_s32 mq_msgsize;
+    uae_s32 mq_curmsgs;
+    uae_s32 __pad[4];
+};
+
+struct arp2_sched_param {
+    uae_s32 sched_priority;
+};
+
+struct arp2_utsname {
+    uae_u8 sysname[65];
+    uae_u8 nodename[65];
+    uae_u8 release[65];
+    uae_u8 version[65];
+    uae_u8 machine[65];
+    uae_u8 domainname[65];
+};
+
+struct arp2_timespec {
+    arp2_time_t tv_sec;
+    uae_s32     tv_nsec;
+};
+
+struct arp2_timeval {
+    arp2_time_t tv_sec;
+    uae_s32     tv_usec;
+};
+
+#define COPY_sched_param(s,d) (d).sched_priority = BE32((s).sched_priority)
+
+#define COPY_mq_attr(s,d) \
+  (d).mq_flags = BE32((s).mq_flags);		\
+  (d).mq_maxmsg = BE32((s).mq_maxmsg);		\
+  (d).mq_msgsize = BE32((s).mq_msgsize);	\
+  (d).mq_curmsgs = BE32((s).mq_curmsgs)
+
+#define COPY_timespec(s,d) \
+  (d).tv_sec = BE32((s).tv_sec);		\
+  (d).tv_nsec = BE32((s).tv_nsec)
+
+#define COPY_timeval(s,d) \
+  (d).tv_sec = BE32((s).tv_sec);		\
+  (d).tv_usec = BE32((s).tv_usec)
+
+
+
+#define GET(struct_name, src, name)					\
+  struct struct_name name ## _struct, *name = NULL;			\
+  if (src != NULL) {							\
+    COPY_ ## struct_name(*src, name ## _struct);			\
+    name = & name ## _struct;						\
+  }
+
+#define PUT(struct_name, dst, name)					\
+  if (dst != NULL) {							\
+    COPY_ ## struct_name(name, *dst);					\
+  }
 
 /* union arp2_sigval { */
 /*     uae_s32 sival_int; */
@@ -107,8 +174,115 @@ typedef uae_u64 arp2_dev_t;
 /* }; */
 
 
-/*** The actual syscall wrappers *********************************************/
+static void unimplemented(void) {
+  write_log("Unimplemented arp2-syscall vector called!\n");
+  abort();
+}
 
+#define arp2sys_sync_file_range unimplemented
+#define arp2sys_vmsplice unimplemented
+#define arp2sys_splice unimplemented
+#define arp2sys_tee unimplemented
+#define arp2sys_openat unimplemented
+//#define arp2sys_mq_open unimplemented
+//#define arp2sys_mq_close unimplemented
+//#define arp2sys_mq_getattr unimplemented
+//#define arp2sys_mq_setattr unimplemented
+//#define arp2sys_mq_unlink unimplemented
+#define arp2sys_mq_notify unimplemented
+//#define arp2sys_mq_receive unimplemented
+//#define arp2sys_mq_send unimplemented
+//#define arp2sys_mq_timedreceive unimplemented
+//#define arp2sys_mq_timedsend unimplemented
+#define arp2sys_poll unimplemented
+#define arp2sys_ppoll unimplemented
+#define arp2sys_clone unimplemented
+#define arp2sys_unshare unimplemented
+//#define arp2sys_sched_setparam unimplemented
+//#define arp2sys_sched_getparam unimplemented
+//#define arp2sys_sched_setscheduler unimplemented
+#define arp2sys_sched_rr_get_interval unimplemented
+#define arp2sys_sched_setaffinity unimplemented
+#define arp2sys_sched_getaffinity unimplemented
+#define arp2sys_sigprocmask unimplemented
+#define arp2sys_sigsuspend unimplemented
+#define arp2sys_sigaction unimplemented
+#define arp2sys_sigpending unimplemented
+#define arp2sys_sigwait unimplemented
+#define arp2sys_sigwaitinfo unimplemented
+#define arp2sys_sigtimedwait unimplemented
+#define arp2sys_sigaltstack unimplemented
+#define arp2sys_renameat unimplemented
+//#define arp2sys_time unimplemented
+#define arp2sys_nanosleep unimplemented
+#define arp2sys_clock_getres unimplemented
+#define arp2sys_clock_gettime unimplemented
+#define arp2sys_clock_settime unimplemented
+#define arp2sys_clock_nanosleep unimplemented
+#define arp2sys_clock_getcpuclockid unimplemented
+#define arp2sys_timer_create unimplemented
+#define arp2sys_timer_delete unimplemented
+#define arp2sys_timer_settime unimplemented
+#define arp2sys_timer_gettime unimplemented
+#define arp2sys_timer_getoverrun unimplemented
+#define arp2sys_eaccess unimplemented
+#define arp2sys_faccessat unimplemented
+#define arp2sys_pipe unimplemented
+#define arp2sys_fchownat unimplemented
+#define arp2sys_execve unimplemented
+#define arp2sys_execv unimplemented
+#define arp2sys_execvp unimplemented
+#define arp2sys_getgroups unimplemented
+#define arp2sys_setgroups unimplemented
+#define arp2sys_getresuid unimplemented
+#define arp2sys_getresgid unimplemented
+#define arp2sys_linkat unimplemented
+#define arp2sys_symlinkat unimplemented
+#define arp2sys_readlinkat unimplemented
+#define arp2sys_unlinkat unimplemented
+#define arp2sys_profil unimplemented
+#define arp2sys_getdents unimplemented
+#define arp2sys_utime unimplemented
+#define arp2sys_epoll_ctl unimplemented
+#define arp2sys_epoll_wait unimplemented
+#define arp2sys_getrlimit64 unimplemented
+#define arp2sys_setrlimit64 unimplemented
+#define arp2sys_getrusage unimplemented
+#define arp2sys_select unimplemented
+#define arp2sys_pselect unimplemented
+#define arp2sys_stat unimplemented
+#define arp2sys_fstat unimplemented
+#define arp2sys_fstatat unimplemented
+#define arp2sys_lstat unimplemented
+#define arp2sys_fchmodat unimplemented
+#define arp2sys_mkdirat unimplemented
+#define arp2sys_mknodat unimplemented
+#define arp2sys_mkfifoat unimplemented
+#define arp2sys_statfs unimplemented
+#define arp2sys_fstatfs unimplemented
+#define arp2sys_statvfs unimplemented
+#define arp2sys_fstatvfs unimplemented
+#define arp2sys_sysinfo unimplemented
+/* #define arp2sys_gettimeofday unimplemented */
+/* #define arp2sys_settimeofday unimplemented */
+#define arp2sys_adjtime unimplemented
+#define arp2sys_getitimer unimplemented
+#define arp2sys_setitimer unimplemented
+#define arp2sys_utimes unimplemented
+#define arp2sys_lutimes unimplemented
+#define arp2sys_futimes unimplemented
+#define arp2sys_futimesat unimplemented
+#define arp2sys_times unimplemented
+#define arp2sys_readv unimplemented
+#define arp2sys_writev unimplemented
+//#define arp2sys_uname unimplemented
+#define arp2sys_wait unimplemented
+#define arp2sys_waitid unimplemented
+#define arp2sys_wait3 unimplemented
+#define arp2sys_wait4 unimplemented
+
+
+/*** The actual syscall wrappers *********************************************/
 
 uae_s32
 arp2sys_readahead(regptr _regs) REGPARAM;
@@ -252,61 +426,72 @@ REGPARAM2 arp2sys_posix_fallocate(regptr _regs)
   return posix_fallocate(___fd, ___offset, ___len);
 }
 
-/* arp2_mqd_t */
-/* arp2sys_mq_open(regptr _regs) REGPARAM; */
+arp2_mqd_t
+arp2sys_mq_open(regptr _regs) REGPARAM;
 
-/* arp2_mqd_t */
-/* REGPARAM2 arp2sys_mq_open(regptr _regs) */
-/* { */
-/*   const_strptr ___name = (const_strptr) _regs->a0; */
-/*   uae_s32 ___oflag = (uae_s32) _regs->d0; */
-/*   arp2_mode_t ___mode = (arp2_mode_t) _regs->d1; */
-/*   struct arp2_mq_attr* ___attr = (struct arp2_mq_attr*) _regs->a1; */
-/*   return mq_open(___name, ___oflag, ___mode, ___attr); */
-/* } */
+arp2_mqd_t
+REGPARAM2 arp2sys_mq_open(regptr _regs)
+{
+  const_strptr ___name = (const_strptr) _regs->a0;
+  uae_s32 ___oflag = (uae_s32) _regs->d0;
+  arp2_mode_t ___mode = (arp2_mode_t) _regs->d1;
+  struct arp2_mq_attr* ___attr = (struct arp2_mq_attr*) _regs->a1;
 
-/* uae_s32 */
-/* arp2sys_mq_close(regptr _regs) REGPARAM; */
+  GET(mq_attr, ___attr, attr);
+  return mq_open(___name, ___oflag, ___mode, attr);
+}
 
-/* uae_s32 */
-/* REGPARAM2 arp2sys_mq_close(regptr _regs) */
-/* { */
-/*   arp2_mqd_t ___mqdes = (arp2_mqd_t) _regs->d0; */
-/*   return mq_close(___mqdes); */
-/* } */
+uae_s32
+arp2sys_mq_close(regptr _regs) REGPARAM;
 
-/* uae_s32 */
-/* arp2sys_mq_getattr(regptr _regs) REGPARAM; */
+uae_s32
+REGPARAM2 arp2sys_mq_close(regptr _regs)
+{
+  arp2_mqd_t ___mqdes = (arp2_mqd_t) _regs->d0;
+  return mq_close(___mqdes);
+}
 
-/* uae_s32 */
-/* REGPARAM2 arp2sys_mq_getattr(regptr _regs) */
-/* { */
-/*   arp2_mqd_t ___mqdes = (arp2_mqd_t) _regs->d0; */
-/*   struct arp2_mq_attr* ___mqstat = (struct arp2_mq_attr*) _regs->a0; */
-/*   return mq_getattr(___mqdes, ___mqstat); */
-/* } */
+uae_s32
+arp2sys_mq_getattr(regptr _regs) REGPARAM;
 
-/* uae_s32 */
-/* arp2sys_mq_setattr(regptr _regs) REGPARAM; */
+uae_s32
+REGPARAM2 arp2sys_mq_getattr(regptr _regs)
+{
+  arp2_mqd_t ___mqdes = (arp2_mqd_t) _regs->d0;
+  struct arp2_mq_attr* ___mqstat = (struct arp2_mq_attr*) _regs->a0;
 
-/* uae_s32 */
-/* REGPARAM2 arp2sys_mq_setattr(regptr _regs) */
-/* { */
-/*   arp2_mqd_t ___mqdes = (arp2_mqd_t) _regs->d0; */
-/*   const struct arp2_mq_attr* ___mqstat = (const struct arp2_mq_attr*) _regs->a0; */
-/*   struct arp2_mq_attr* ___omqstat = (struct arp2_mq_attr*) _regs->a1; */
-/*   return mq_setattr(___mqdes, ___mqstat, ___omqstat); */
-/* } */
+  struct mq_attr mqstat;
+  uae_u32 rc = mq_getattr(___mqdes, &mqstat);
+  PUT(mq_attr, ___mqstat, mqstat);
+  return rc;
+}
 
-/* uae_s32 */
-/* arp2sys_mq_unlink(regptr _regs) REGPARAM; */
+uae_s32
+arp2sys_mq_setattr(regptr _regs) REGPARAM;
 
-/* uae_s32 */
-/* REGPARAM2 arp2sys_mq_unlink(regptr _regs) */
-/* { */
-/*   const_strptr ___name = (const_strptr) _regs->a0; */
-/*   return mq_unlink(___name); */
-/* } */
+uae_s32
+REGPARAM2 arp2sys_mq_setattr(regptr _regs)
+{
+  arp2_mqd_t ___mqdes = (arp2_mqd_t) _regs->d0;
+  const struct arp2_mq_attr* ___mqstat = (const struct arp2_mq_attr*) _regs->a0;
+  struct arp2_mq_attr* ___omqstat = (struct arp2_mq_attr*) _regs->a1;
+
+  GET(mq_attr, ___mqstat, mqstat);
+  struct mq_attr omqstat;
+  uae_u32 rc = mq_setattr(___mqdes, mqstat, &omqstat);
+  PUT(mq_attr, ___omqstat, omqstat);
+  return rc;
+}
+
+uae_s32
+arp2sys_mq_unlink(regptr _regs) REGPARAM;
+
+uae_s32
+REGPARAM2 arp2sys_mq_unlink(regptr _regs)
+{
+  const_strptr ___name = (const_strptr) _regs->a0;
+  return mq_unlink(___name);
+}
 
 /* uae_s32 */
 /* arp2sys_mq_notify(regptr _regs) REGPARAM; */
@@ -319,59 +504,74 @@ REGPARAM2 arp2sys_posix_fallocate(regptr _regs)
 /*   return mq_notify(___mqdes, ___notification); */
 /* } */
 
-/* uae_s32 */
-/* arp2sys_mq_receive(regptr _regs) REGPARAM; */
+uae_s32
+arp2sys_mq_receive(regptr _regs) REGPARAM;
 
-/* uae_s32 */
-/* REGPARAM2 arp2sys_mq_receive(regptr _regs) */
-/* { */
-/*   arp2_mqd_t ___mqdes = (arp2_mqd_t) _regs->d0; */
-/*   uae_s8* ___msg_ptr = (uae_s8*) _regs->a0; */
-/*   uae_u32 ___msg_len = (uae_u32) _regs->d1; */
-/*   uae_u32* ___msg_prio = (uae_u32*) _regs->a1; */
-/*   return mq_receive(___mqdes, ___msg_ptr, ___msg_len, ___msg_prio); */
-/* } */
+uae_s32
+REGPARAM2 arp2sys_mq_receive(regptr _regs)
+{
+  arp2_mqd_t ___mqdes = (arp2_mqd_t) _regs->d0;
+  uae_s8* ___msg_ptr = (uae_s8*) _regs->a0;
+  uae_u32 ___msg_len = (uae_u32) _regs->d1;
+  uae_u32* ___msg_prio = (uae_u32*) _regs->a1;
 
-/* uae_s32 */
-/* arp2sys_mq_send(regptr _regs) REGPARAM; */
+  unsigned msg_prio;
+  uae_u32 rc = mq_receive(___mqdes, ___msg_ptr, ___msg_len, &msg_prio);
+  if (___msg_prio != NULL) {
+    *___msg_prio = BE32(msg_prio);
+  }
+  return rc;
+}
 
-/* uae_s32 */
-/* REGPARAM2 arp2sys_mq_send(regptr _regs) */
-/* { */
-/*   arp2_mqd_t ___mqdes = (arp2_mqd_t) _regs->d0; */
-/*   const uae_s8* ___msg_ptr = (const uae_s8*) _regs->a0; */
-/*   uae_u32 ___msg_len = (uae_u32) _regs->d1; */
-/*   uae_u32 ___msg_prio = (uae_u32) _regs->d2; */
-/*   return mq_send(___mqdes, ___msg_ptr, ___msg_len, ___msg_prio); */
-/* } */
+uae_s32
+arp2sys_mq_send(regptr _regs) REGPARAM;
 
-/* uae_s32 */
-/* arp2sys_mq_timedreceive(regptr _regs) REGPARAM; */
+uae_s32
+REGPARAM2 arp2sys_mq_send(regptr _regs)
+{
+  arp2_mqd_t ___mqdes = (arp2_mqd_t) _regs->d0;
+  const uae_s8* ___msg_ptr = (const uae_s8*) _regs->a0;
+  uae_u32 ___msg_len = (uae_u32) _regs->d1;
+  uae_u32 ___msg_prio = (uae_u32) _regs->d2;
+  return mq_send(___mqdes, ___msg_ptr, ___msg_len, ___msg_prio);
+}
 
-/* uae_s32 */
-/* REGPARAM2 arp2sys_mq_timedreceive(regptr _regs) */
-/* { */
-/*   arp2_mqd_t ___mqdes = (arp2_mqd_t) _regs->d0; */
-/*   uae_s8* ___msg_ptr = (uae_s8*) _regs->a0; */
-/*   uae_u32 ___msg_len = (uae_u32) _regs->d1; */
-/*   uae_u32* ___msg_prio = (uae_u32*) _regs->a1; */
-/*   const struct arp2_timespec* ___abs_timeout = (const struct arp2_timespec*) _regs->a2; */
-/*   return mq_timedreceive(___mqdes, ___msg_ptr, ___msg_len, ___msg_prio, ___abs_timeout); */
-/* } */
+uae_s32
+arp2sys_mq_timedreceive(regptr _regs) REGPARAM;
 
-/* uae_s32 */
-/* arp2sys_mq_timedsend(regptr _regs) REGPARAM; */
+uae_s32
+REGPARAM2 arp2sys_mq_timedreceive(regptr _regs)
+{
+  arp2_mqd_t ___mqdes = (arp2_mqd_t) _regs->d0;
+  uae_s8* ___msg_ptr = (uae_s8*) _regs->a0;
+  uae_u32 ___msg_len = (uae_u32) _regs->d1;
+  uae_u32* ___msg_prio = (uae_u32*) _regs->a1;
+  const struct arp2_timespec* ___abs_timeout = (const struct arp2_timespec*) _regs->a2;
 
-/* uae_s32 */
-/* REGPARAM2 arp2sys_mq_timedsend(regptr _regs) */
-/* { */
-/*   arp2_mqd_t ___mqdes = (arp2_mqd_t) _regs->d0; */
-/*   const uae_s8* ___msg_ptr = (const uae_s8*) _regs->a0; */
-/*   uae_u32 ___msg_len = (uae_u32) _regs->d1; */
-/*   uae_u32 ___msg_prio = (uae_u32) _regs->d2; */
-/*   const struct arp2_timespec* ___abs_timeout = (const struct arp2_timespec*) _regs->a1; */
-/*   return mq_timedsend(___mqdes, ___msg_ptr, ___msg_len, ___msg_prio, ___abs_timeout); */
-/* } */
+  GET(timespec, ___abs_timeout, abs_timeout);
+  unsigned msg_prio;
+  uae_u32 rc = mq_timedreceive(___mqdes, ___msg_ptr, ___msg_len, &msg_prio, abs_timeout);
+  if (___msg_prio != NULL) {
+    *___msg_prio = BE32(msg_prio);
+  }
+  return rc;
+}
+
+uae_s32
+arp2sys_mq_timedsend(regptr _regs) REGPARAM;
+
+uae_s32
+REGPARAM2 arp2sys_mq_timedsend(regptr _regs)
+{
+  arp2_mqd_t ___mqdes = (arp2_mqd_t) _regs->d0;
+  const uae_s8* ___msg_ptr = (const uae_s8*) _regs->a0;
+  uae_u32 ___msg_len = (uae_u32) _regs->d1;
+  uae_u32 ___msg_prio = (uae_u32) _regs->d2;
+  const struct arp2_timespec* ___abs_timeout = (const struct arp2_timespec*) _regs->a1;
+
+  GET(timespec, ___abs_timeout, abs_timeout);
+  return mq_timedsend(___mqdes, ___msg_ptr, ___msg_len, ___msg_prio, abs_timeout);
+}
 
 /* uae_s32 */
 /* arp2sys_poll(regptr _regs) REGPARAM; */
@@ -423,39 +623,47 @@ REGPARAM2 arp2sys_posix_fallocate(regptr _regs)
 /*   return unshare(___flags); */
 /* } */
 
-/* uae_s32 */
-/* arp2sys_sched_setparam(regptr _regs) REGPARAM; */
+uae_s32
+arp2sys_sched_setparam(regptr _regs) REGPARAM;
 
-/* uae_s32 */
-/* REGPARAM2 arp2sys_sched_setparam(regptr _regs) */
-/* { */
-/*   arp2_pid_t ___pid = (arp2_pid_t) _regs->d0; */
-/*   const struct arp2_sched_param* ___param = (const struct arp2_sched_param*) _regs->a0; */
-/*   return sched_setparam(___pid, ___param); */
-/* } */
+uae_s32
+REGPARAM2 arp2sys_sched_setparam(regptr _regs)
+{
+  arp2_pid_t ___pid = (arp2_pid_t) _regs->d0;
+  const struct arp2_sched_param* ___param = (const struct arp2_sched_param*) _regs->a0;
 
-/* uae_s32 */
-/* arp2sys_sched_getparam(regptr _regs) REGPARAM; */
+  GET(sched_param, ___param, param);
+  return sched_setparam(___pid, param);
+}
 
-/* uae_s32 */
-/* REGPARAM2 arp2sys_sched_getparam(regptr _regs) */
-/* { */
-/*   arp2_pid_t ___pid = (arp2_pid_t) _regs->d0; */
-/*   struct arp2_sched_param* ___param = (struct arp2_sched_param*) _regs->a0; */
-/*   return sched_getparam(___pid, ___param); */
-/* } */
+uae_s32
+arp2sys_sched_getparam(regptr _regs) REGPARAM;
 
-/* uae_s32 */
-/* arp2sys_sched_setscheduler(regptr _regs) REGPARAM; */
+uae_s32
+REGPARAM2 arp2sys_sched_getparam(regptr _regs)
+{
+  arp2_pid_t ___pid = (arp2_pid_t) _regs->d0;
+  struct arp2_sched_param* ___param = (struct arp2_sched_param*) _regs->a0;
 
-/* uae_s32 */
-/* REGPARAM2 arp2sys_sched_setscheduler(regptr _regs) */
-/* { */
-/*   arp2_pid_t ___pid = (arp2_pid_t) _regs->d0; */
-/*   uae_s32 ___policy = (uae_s32) _regs->d1; */
-/*   const struct arp2_sched_param* ___param = (const struct arp2_sched_param*) _regs->a0; */
-/*   return sched_setscheduler(___pid, ___policy, ___param); */
-/* } */
+  struct sched_param param;
+  uae_s32 rc =  sched_getparam(___pid, &param);
+  PUT(sched_param, ___param, param);
+  return rc;
+}
+
+uae_s32
+arp2sys_sched_setscheduler(regptr _regs) REGPARAM;
+
+uae_s32
+REGPARAM2 arp2sys_sched_setscheduler(regptr _regs)
+{
+  arp2_pid_t ___pid = (arp2_pid_t) _regs->d0;
+  uae_s32 ___policy = (uae_s32) _regs->d1;
+  const struct arp2_sched_param* ___param = (const struct arp2_sched_param*) _regs->a0;
+
+  GET(sched_param, ___param, param);
+  return sched_setscheduler(___pid, ___policy, param);
+}
 
 uae_s32
 arp2sys_sched_getscheduler(regptr _regs) REGPARAM;
@@ -650,8 +858,9 @@ REGPARAM2 arp2sys_sigqueue(regptr _regs)
   arp2_pid_t ___pid = (arp2_pid_t) _regs->d0;
   uae_s32 ___sig = (uae_s32) _regs->d1;
 /*   const union arp2_sigval ___val = (const union arp2_sigval) _regs->d2; */
-  union sigval ___val = { _regs->d2 };
 #warning Make sure this is right
+  union sigval ___val;
+  ___val.sival_ptr = (void*) _regs->d2;
   return sigqueue(___pid, ___sig, ___val);
 }
 
@@ -710,15 +919,23 @@ REGPARAM2 arp2sys_clock(regptr _regs)
   return clock();
 }
 
-/* arp2_time_t */
-/* arp2sys_time(regptr _regs) REGPARAM; */
+arp2_time_t
+arp2sys_time(regptr _regs) REGPARAM;
 
-/* arp2_time_t */
-/* REGPARAM2 arp2sys_time(regptr _regs) */
-/* { */
-/*   arp2_time_t* ___time = (arp2_time_t*) _regs->a0; */
-/*   return time(___time); */
-/* } */
+arp2_time_t
+REGPARAM2 arp2sys_time(regptr _regs)
+{
+  arp2_time_t rc;
+  arp2_time_t* ___time = (arp2_time_t*) _regs->a0;
+
+  rc = time(NULL);
+
+  if (___time != NULL) {
+    *___time = BE32(rc);
+  }
+
+  return rc;
+}
 
 /* uae_s32 */
 /* arp2sys_nanosleep(regptr _regs) REGPARAM; */
@@ -2738,27 +2955,33 @@ REGPARAM2 arp2sys_get_avphys_pages(regptr _regs)
   return get_avphys_pages();
 }
 
-/* uae_s32 */
-/* arp2sys_gettimeofday(regptr _regs) REGPARAM; */
+uae_s32
+arp2sys_gettimeofday(regptr _regs) REGPARAM;
 
-/* uae_s32 */
-/* REGPARAM2 arp2sys_gettimeofday(regptr _regs) */
-/* { */
-/*   struct arp2_timeval* ___tv = (struct arp2_timeval*) _regs->a0; */
-/*   struct arp2_timezone* ___tz = (struct arp2_timezone*) _regs->a1; */
-/*   return gettimeofday(___tv, ___tz); */
-/* } */
+uae_s32
+REGPARAM2 arp2sys_gettimeofday(regptr _regs)
+{
+  struct arp2_timeval* ___tv = (struct arp2_timeval*) _regs->a0;
+  struct arp2_timezone* ___tz = (struct arp2_timezone*) _regs->a1;
 
-/* uae_s32 */
-/* arp2sys_settimeofday(regptr _regs) REGPARAM; */
+  struct timeval tv;
+  uae_s32 rc = gettimeofday(&tv, NULL);
+  PUT(timeval, ___tv, tv);
+  return rc;
+}
 
-/* uae_s32 */
-/* REGPARAM2 arp2sys_settimeofday(regptr _regs) */
-/* { */
-/*   const struct arp2_timeval* ___tv = (const struct arp2_timeval*) _regs->a0; */
-/*   const struct arp2_timezone* ___tz = (const struct arp2_timezone*) _regs->a1; */
-/*   return settimeofday(___tv, ___tz); */
-/* } */
+uae_s32
+arp2sys_settimeofday(regptr _regs) REGPARAM;
+
+uae_s32
+REGPARAM2 arp2sys_settimeofday(regptr _regs)
+{
+  const struct arp2_timeval* ___tv = (const struct arp2_timeval*) _regs->a0;
+  const struct arp2_timezone* ___tz = (const struct arp2_timezone*) _regs->a1;
+
+  GET(timeval, ___tv, tv);
+  return settimeofday(tv, NULL);
+}
 
 /* uae_s32 */
 /* arp2sys_adjtime(regptr _regs) REGPARAM; */
@@ -2873,15 +3096,25 @@ REGPARAM2 arp2sys_get_avphys_pages(regptr _regs)
 /*   return writev(___fd, ___iovec, ___count); */
 /* } */
 
-/* uae_s32 */
-/* arp2sys_uname(regptr _regs) REGPARAM; */
+uae_s32
+arp2sys_uname(regptr _regs) REGPARAM;
 
-/* uae_s32 */
-/* REGPARAM2 arp2sys_uname(regptr _regs) */
-/* { */
-/*   struct arp2_utsname* ___name = (struct arp2_utsname*) _regs->a0; */
-/*   return uname(___name); */
-/* } */
+uae_s32
+REGPARAM2 arp2sys_uname(regptr _regs)
+{
+  struct arp2_utsname* ___name = (struct arp2_utsname*) _regs->a0;
+  
+  uae_s32 rc;
+  struct utsname name;
+  rc =  uname(&name);
+  strcpy(___name->sysname, name.sysname);
+  strcpy(___name->nodename, name.nodename);
+  strcpy(___name->release, name.release);
+  strcpy(___name->version, name.version);
+  strcpy(___name->machine, name.machine);
+  strcpy(___name->domainname, name.domainname);
+  return rc;
+}
 
 /* arp2_pid_t */
 /* arp2sys_wait(regptr _regs) REGPARAM; */
@@ -2934,115 +3167,6 @@ REGPARAM2 arp2sys_get_avphys_pages(regptr _regs)
 
 /*** A NULL-terminated array of function pointers to the syscall wrappers ****/
 
-void unimplemented() {
-  write_log("Unimplemented arp2-syscall vector called!\n");
-  abort();
-}
-
-#define arp2sys_sync_file_range unimplemented
-#define arp2sys_vmsplice unimplemented
-#define arp2sys_splice unimplemented
-#define arp2sys_tee unimplemented
-#define arp2sys_openat unimplemented
-#define arp2sys_mq_open unimplemented
-#define arp2sys_mq_close unimplemented
-#define arp2sys_mq_getattr unimplemented
-#define arp2sys_mq_setattr unimplemented
-#define arp2sys_mq_unlink unimplemented
-#define arp2sys_mq_notify unimplemented
-#define arp2sys_mq_receive unimplemented
-#define arp2sys_mq_send unimplemented
-#define arp2sys_mq_timedreceive unimplemented
-#define arp2sys_mq_timedsend unimplemented
-#define arp2sys_poll unimplemented
-#define arp2sys_ppoll unimplemented
-#define arp2sys_clone unimplemented
-#define arp2sys_unshare unimplemented
-#define arp2sys_sched_setparam unimplemented
-#define arp2sys_sched_getparam unimplemented
-#define arp2sys_sched_setscheduler unimplemented
-#define arp2sys_ched_yield unimplemented
-#define arp2sys_sched_rr_get_interval unimplemented
-#define arp2sys_sched_setaffinity unimplemented
-#define arp2sys_sched_getaffinity unimplemented
-#define arp2sys_sigprocmask unimplemented
-#define arp2sys_sigsuspend unimplemented
-#define arp2sys_sigaction unimplemented
-#define arp2sys_sigpending unimplemented
-#define arp2sys_sigwait unimplemented
-#define arp2sys_sigwaitinfo unimplemented
-#define arp2sys_sigtimedwait unimplemented
-#define arp2sys_sigaltstack unimplemented
-#define arp2sys_renameat unimplemented
-#define arp2sys_time unimplemented
-#define arp2sys_nanosleep unimplemented
-#define arp2sys_clock_getres unimplemented
-#define arp2sys_clock_gettime unimplemented
-#define arp2sys_clock_settime unimplemented
-#define arp2sys_clock_nanosleep unimplemented
-#define arp2sys_clock_getcpuclockid unimplemented
-#define arp2sys_timer_create unimplemented
-#define arp2sys_timer_delete unimplemented
-#define arp2sys_timer_settime unimplemented
-#define arp2sys_timer_gettime unimplemented
-#define arp2sys_timer_getoverrun unimplemented
-#define arp2sys_eaccess unimplemented
-#define arp2sys_faccessat unimplemented
-#define arp2sys_pipe unimplemented
-#define arp2sys_fchownat unimplemented
-#define arp2sys_execve unimplemented
-#define arp2sys_execv unimplemented
-#define arp2sys_execvp unimplemented
-#define arp2sys_getgroups unimplemented
-#define arp2sys_setgroups unimplemented
-#define arp2sys_getresuid unimplemented
-#define arp2sys_getresgid unimplemented
-#define arp2sys_linkat unimplemented
-#define arp2sys_symlinkat unimplemented
-#define arp2sys_readlinkat unimplemented
-#define arp2sys_unlinkat unimplemented
-#define arp2sys_profil unimplemented
-#define arp2sys_getdents unimplemented
-#define arp2sys_utime unimplemented
-#define arp2sys_epoll_ctl unimplemented
-#define arp2sys_epoll_wait unimplemented
-#define arp2sys_getrlimit64 unimplemented
-#define arp2sys_setrlimit64 unimplemented
-#define arp2sys_getrusage unimplemented
-#define arp2sys_select unimplemented
-#define arp2sys_pselect unimplemented
-#define arp2sys_stat unimplemented
-#define arp2sys_fstat unimplemented
-#define arp2sys_fstatat unimplemented
-#define arp2sys_lstat unimplemented
-#define arp2sys_fchmodat unimplemented
-#define arp2sys_mkdirat unimplemented
-#define arp2sys_mknodat unimplemented
-#define arp2sys_mkfifoat unimplemented
-#define arp2sys_statfs unimplemented
-#define arp2sys_fstatfs unimplemented
-#define arp2sys_statvfs unimplemented
-#define arp2sys_fstatvfs unimplemented
-#define arp2sys_sysinfo unimplemented
-#define arp2sys_gettimeofday unimplemented
-#define arp2sys_settimeofday unimplemented
-#define arp2sys_adjtime unimplemented
-#define arp2sys_getitimer unimplemented
-#define arp2sys_setitimer unimplemented
-#define arp2sys_utimes unimplemented
-#define arp2sys_lutimes unimplemented
-#define arp2sys_futimes unimplemented
-#define arp2sys_futimesat unimplemented
-#define arp2sys_times unimplemented
-#define arp2sys_readv unimplemented
-#define arp2sys_writev unimplemented
-#define arp2sys_uname unimplemented
-#define arp2sys_wait unimplemented
-#define arp2sys_waitid unimplemented
-#define arp2sys_wait3 unimplemented
-#define arp2sys_wait4 unimplemented
-
-
 void* const arp2sys_functions[251] = {
   arp2sys_sync_file_range,
   arp2sys_vmsplice,
@@ -3072,7 +3196,7 @@ void* const arp2sys_functions[251] = {
   arp2sys_sched_getparam,
   arp2sys_sched_setscheduler,
   arp2sys_sched_getscheduler,
-  arp2sys_ched_yield,
+  arp2sys_sched_yield,
   arp2sys_sched_get_priority_max,
   arp2sys_sched_get_priority_min,
   arp2sys_sched_rr_get_interval,
