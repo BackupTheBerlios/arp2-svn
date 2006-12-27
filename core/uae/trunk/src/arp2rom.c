@@ -76,7 +76,8 @@ uae_u32 REGPARAM2 arp2rom_lget(uaecptr addr)
 /*     special_mem |= S_READ; */
 /* #endif */
 #ifdef ARP2ROM_DEBUG
-    write_log("ARP2 ROM: arp2rom_lget 0x%08x, PC=%p => ", addr, m68k_getpc(&regs));
+    write_log("ARP2 ROM: arp2rom_lget 0x%08x, PC=%p => ", 
+	      addr, m68k_getpc(&regs));
 #endif
     addr -= arp2rom_start & arp2rom_mask;
     addr &= arp2rom_mask;
@@ -94,7 +95,8 @@ uae_u32 REGPARAM2 arp2rom_wget(uaecptr addr)
 /*     special_mem |= S_READ; */
 /* #endif */
 #ifdef ARP2ROM_DEBUG
-    write_log("ARP2 ROM: arp2rom_wget 0x%08x, PC=%p => ", addr, m68k_getpc(&regs));
+    write_log("ARP2 ROM: arp2rom_wget 0x%08x, PC=%p => ", 
+	      addr, m68k_getpc(&regs));
 #endif
     addr -= arp2rom_start & arp2rom_mask;
     addr &= arp2rom_mask;
@@ -111,7 +113,8 @@ uae_u32 REGPARAM2 arp2rom_bget(uaecptr addr)
 /*     special_mem |= S_READ; */
 /* #endif */
 #ifdef ARP2ROM_DEBUG
-    write_log("ARP2 ROM: arp2rom_bget 0x%08x, PC=%p => ", addr, m68k_getpc(&regs));
+    write_log("ARP2 ROM: arp2rom_bget 0x%08x, PC=%p => ", 
+	      addr, m68k_getpc(&regs));
 #endif
     addr -= arp2rom_start & arp2rom_mask;
     addr &= arp2rom_mask;
@@ -240,7 +243,8 @@ static int loadseg_check_size(struct zfile* image_file) {
       loadseg_segments[i].size_spec = BE32(loadseg_segments[i].size_spec);
 
       if ((loadseg_segments[i].size_spec &(HUNKF_CHIP | HUNKF_FAST)) != 0) {
-	write_log("ARP2 ROM: LoadSeg() hunks must load into MEMF_ANY memory.\n");
+	write_log("ARP2 ROM: LoadSeg() hunks must load "
+		  "into MEMF_ANY memory.\n");
 	return 0;
       }
 
@@ -272,7 +276,8 @@ static int loadseg_load(void) {
 	int     size  = longs * sizeof (uae_u32);
 
 	if (segment >= segments) {
-	  write_log("ARP2 ROM: Illegal LoadSeg() code/data hunk: %08x.\n", type);
+	  write_log("ARP2 ROM: Illegal LoadSeg() code/data hunk: %08x.\n", 
+		    type);
 	  return 0;
 	}
 
@@ -285,7 +290,8 @@ static int loadseg_load(void) {
 	  index += 2;
 	}
 
-	rom_index += loadseg_segments[segment].size_spec & ~(HUNKF_CHIP | HUNKF_FAST);
+	rom_index += (loadseg_segments[segment].size_spec & 
+		      ~(HUNKF_CHIP | HUNKF_FAST));
 	++segment;
 	break;
       }
@@ -293,11 +299,13 @@ static int loadseg_load(void) {
       case HUNK_RELOC32: {
 	++index;
 
-	while (index < loadseg_image_words && BE32(loadseg_image[index] != 0)) {
+	while (index < loadseg_image_words && 
+	       BE32(loadseg_image[index] != 0)) {
 	  int s = BE32(loadseg_image[index + 1]);
 	  
 	  if (s >= segments) {
-	    write_log("ARP2 ROM: Illegal LoadSeg() RELOC32 reference to hunk %d.\n", s);
+	    write_log("ARP2 ROM: Illegal LoadSeg() RELOC32 "
+		      "reference to hunk %d.\n", s);
 	    return 0;
 	  }
 	  
@@ -313,7 +321,8 @@ static int loadseg_load(void) {
       case HUNK_SYMBOL: {
 	++index;
 
-	while (index < loadseg_image_words && BE32(loadseg_image[index] != 0)) {
+	while (index < loadseg_image_words && 
+	       BE32(loadseg_image[index] != 0)) {
 	  index += 2 + BE32(loadseg_image[index]);
 	}
 
@@ -348,7 +357,8 @@ static void loadseg_reloc(uae_u32 base) {
       mempos[0] = BE32(BE32(mempos[0]) + base);
     }
 
-    rom_index += loadseg_segments[segment].size_spec & ~(HUNKF_CHIP | HUNKF_FAST);
+    rom_index += (loadseg_segments[segment].size_spec & 
+		  ~(HUNKF_CHIP | HUNKF_FAST));
   }
 }
 
@@ -375,7 +385,8 @@ int arp2rom_reset(void) {
   image_file = zfile_fopen(currprefs.arp2romfile,"rb");
 
   if (image_file == NULL) {
-    write_log("ARP2 ROM: Failed to open ROM image '%s'\n", currprefs.arp2romfile);
+    write_log("ARP2 ROM: Failed to open ROM image '%s'\n", 
+	      currprefs.arp2romfile);
     return 0;
   }
 
@@ -410,7 +421,10 @@ int arp2rom_reset(void) {
      
   // Calculate Zorro card memory size and allocate ROM
 
-  for(arp2rom_size = 65536; arp2rom_size <(uae_u32) rom_size; arp2rom_size *= 2);
+  for(arp2rom_size = 65536; 
+      arp2rom_size < (uae_u32) rom_size; 
+      arp2rom_size *= 2);
+
   arp2rom_mask = arp2rom_size - 1;
 
   arp2rom = mapped_malloc(arp2rom_size, "ARP2 ROM image");
@@ -427,7 +441,8 @@ int arp2rom_reset(void) {
 
   // Read in ROM image
 
-  int read_size = zfile_fread(is_supported_loadseg ? (uae_u8*) loadseg_image : arp2rom, 
+  int read_size = zfile_fread((is_supported_loadseg ? 
+			       (uae_u8*) loadseg_image : arp2rom),
 			      1, image_size, image_file);
     
   if (read_size != image_size) {
@@ -494,13 +509,15 @@ void arp2rom_map(uae_u32 start) {
   }
 
   arp2rom_start = start;
-  map_banks(&arp2rom_bank, arp2rom_start >> 16, arp2rom_size >> 16, arp2rom_size);
+  map_banks(&arp2rom_bank, arp2rom_start >> 16, 
+	    arp2rom_size >> 16, arp2rom_size);
 
   if (loadseg_image != NULL) {
     loadseg_reloc(arp2rom_start);
   }
 
-  write_log("ARP2 ROM: Mapped ROM @$%lx: %d KB.\n",  arp2rom_start, arp2rom_size / 1024);
+  write_log("ARP2 ROM: Mapped ROM @$%lx: %d KB.\n",  
+	    arp2rom_start, arp2rom_size / 1024);
 }
 
 
