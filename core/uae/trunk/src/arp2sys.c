@@ -26,6 +26,7 @@
 
 #include <dlfcn.h>
 #include <fcntl.h>
+#include <grp.h>
 #include <mqueue.h>
 #include <poll.h>
 #include <sched.h>
@@ -153,6 +154,7 @@ typedef uae_s32 arp2_pid_t;
 typedef uae_s32 arp2_time_t;
 typedef uae_u32 arp2_gid_t;
 typedef uae_u32 arp2_id_t;
+typedef uae_u32 arp2_idtype_t;
 typedef uae_u32 arp2_mode_t;
 typedef uae_u32 arp2_priority_which_t;
 typedef uae_u32 arp2_uid_t;
@@ -198,39 +200,147 @@ struct arp2_timeval {
 };
 
 
-#define COPY_dirent(s,d) \
-  (d).d_ino = BE64((s).d_ino);			\
-  (d).d_off = BE64((s).d_off);			\
-  (d).d_reclen = BE16((s).d_reclen);
+typedef union arp2_sigval {
+    uae_s32 sival_int;
+    uae_u32 sival_ptr;
+} arp2_sigval_t;
 
-#define COPY_sched_param(s,d) (d).sched_priority = BE32((s).sched_priority)
+
+#undef si_pid
+#undef si_uid
+#undef si_tid
+#undef si_overrun
+#undef si_sigval
+#undef si_status
+#undef si_utime
+#undef si_stime
+#undef si_addr
+#undef si_band
+#undef si_fd
+
+typedef struct arp2_siginfo {
+    uae_s32 si_signo;
+    uae_s32 si_errno;
+
+    uae_s32 si_code;
+
+    union {
+        uae_s32 _pad[((128 / sizeof (uae_s32)) - 4)];
+
+        struct {
+            arp2_pid_t si_pid;
+            arp2_uid_t si_uid;
+        } _kill;
+
+        struct {
+            uae_s32 si_tid;
+            uae_s32 si_overrun;
+            arp2_sigval_t si_sigval;
+        } _timer;
+
+        struct {
+            arp2_pid_t si_pid;
+            arp2_uid_t si_uid;
+            arp2_sigval_t si_sigval;
+        } _rt;
+
+        struct {
+            arp2_pid_t si_pid;
+            arp2_uid_t si_uid;
+            uae_s32 si_status;
+            arp2_clock_t si_utime;
+            arp2_clock_t si_stime;
+        } _sigchld;
+
+        struct {
+            uae_u32 si_addr;
+        } _sigfault;
+
+        struct {
+            uae_s32  si_band;
+            uae_s32 si_fd;
+        } _sigpoll;
+    } _sifields;
+} arp2_siginfo_t;
+
+typedef struct arp2_sigset {
+    uae_u8 __val[1024 / (8 * sizeof (uae_u8))];
+} arp2_sigset_t;
+
+typedef struct arp2_cpu {
+    uae_u8 __val[1024 / (8 * sizeof (uae_u8))];
+} arp2_cpu_set_t;
+
+struct sigset {
+    sigset_t ss;
+};
+
+struct cpu_set {
+    cpu_set_t cs;
+};
+
+
+#define COPY_dirent(s,d) \
+  d.d_ino = BE64(s.d_ino);			\
+  d.d_off = BE64(s.d_off);			\
+  d.d_reclen = BE16(s.d_reclen);
+
+#define COPY_sched_param(s,d) \
+  d.sched_priority = BE32(s.sched_priority)
 
 #define COPY_mq_attr(s,d) \
-  (d).mq_flags = BE32((s).mq_flags);		\
-  (d).mq_maxmsg = BE32((s).mq_maxmsg);		\
-  (d).mq_msgsize = BE32((s).mq_msgsize);	\
-  (d).mq_curmsgs = BE32((s).mq_curmsgs)
+  d.mq_flags = BE32(s.mq_flags);		\
+  d.mq_maxmsg = BE32(s.mq_maxmsg);		\
+  d.mq_msgsize = BE32(s.mq_msgsize);		\
+  d.mq_curmsgs = BE32(s.mq_curmsgs)
 
 #define COPY_timespec(s,d) \
-  (d).tv_sec = BE32((s).tv_sec);		\
-  (d).tv_nsec = BE32((s).tv_nsec)
+  d.tv_sec = BE32(s.tv_sec);			\
+  d.tv_nsec = BE32(s.tv_nsec)
 
 #define COPY_timeval(s,d) \
-  (d).tv_sec = BE32((s).tv_sec);		\
-  (d).tv_usec = BE32((s).tv_usec)
+  d.tv_sec = BE32(s.tv_sec);			\
+  d.tv_usec = BE32(s.tv_usec)
 
+// FIXME: use UQUAD for si_addr?
+#define COPY_siginfo(s,d) \
+  d.si_signo = BE32(s.si_signo);		\
+  d.si_errno = BE32(s.si_errno);		\
+  d.si_code = BE32(s.si_code);			\
+  switch (d.si_signo) {				\
+    case SIGILL: case SIGFPE:			\
+    case SIGSEGV: case SIGBUS:			\
+      d._sifields._sigfault.si_addr = BE32((uae_u32) (uintptr_t) s._sifields._sigfault.si_addr); \
+      break;					\
+    default: {					\
+      size_t i;					\
+      for (i = 0; i < sizeof (s._sifields._pad) / sizeof (s._sifields._pad[0]); ++i) { \
+	d._sifields._pad[i] = BE32(d._sifields._pad[i]);	\
+      }						\
+      break;					\
+    }						\
+  }
+
+
+#ifndef WORDS_BIGENDIAN
+    // Binary compatibe
+# define COPY_sigset(s,d) memcpy(&d, &s, sizeof (d));
+# define COPY_cpu_set(s,d) memcpy(&d, &s, sizeof (d));
+#else
+# error sigset_t and cpu_set_t unimplemented for big endian
+#endif
 
 
 #define GET(struct_name, src, name)					\
   struct struct_name name ## _struct, *name = NULL;			\
   if (src != NULL) {							\
-    COPY_ ## struct_name(*src, name ## _struct);			\
+    COPY_ ## struct_name((*src), (name ## _struct));			\
     name = & name ## _struct;						\
   }
 
 #define PUT(struct_name, dst, name)					\
   if (dst != NULL) {							\
-    COPY_ ## struct_name(name, *dst);					\
+    COPY_ ## struct_name((name), (*dst));				\
   }
 
 /* union arp2_sigval { */
@@ -267,15 +377,15 @@ static void unimplemented(void) {
 //#define arp2sys_sched_getparam unimplemented
 //#define arp2sys_sched_setscheduler unimplemented
 //#define arp2sys_sched_rr_get_interval unimplemented
-#define arp2sys_sched_setaffinity unimplemented
-#define arp2sys_sched_getaffinity unimplemented
-#define arp2sys_sigprocmask unimplemented
-#define arp2sys_sigsuspend unimplemented
+/* #define arp2sys_sched_setaffinity unimplemented */
+/* #define arp2sys_sched_getaffinity unimplemented */
+/* #define arp2sys_sigprocmask unimplemented */
+/* #define arp2sys_sigsuspend unimplemented */
 #define arp2sys_sigaction unimplemented
-#define arp2sys_sigpending unimplemented
-#define arp2sys_sigwait unimplemented
-#define arp2sys_sigwaitinfo unimplemented
-#define arp2sys_sigtimedwait unimplemented
+/* #define arp2sys_sigpending unimplemented */
+/* #define arp2sys_sigwait unimplemented */
+/* #define arp2sys_sigwaitinfo unimplemented */
+/* #define arp2sys_sigtimedwait unimplemented */
 #define arp2sys_sigaltstack unimplemented
 #define arp2sys_renameat unimplemented
 //#define arp2sys_time unimplemented
@@ -297,8 +407,8 @@ static void unimplemented(void) {
 #define arp2sys_execve unimplemented
 #define arp2sys_execv unimplemented
 #define arp2sys_execvp unimplemented
-#define arp2sys_getgroups unimplemented
-#define arp2sys_setgroups unimplemented
+/* #define arp2sys_getgroups unimplemented */
+/* #define arp2sys_setgroups unimplemented */
 //#define arp2sys_getresuid unimplemented
 //#define arp2sys_getresgid unimplemented
 #define arp2sys_linkat unimplemented
@@ -341,8 +451,8 @@ static void unimplemented(void) {
 #define arp2sys_readv unimplemented
 #define arp2sys_writev unimplemented
 //#define arp2sys_uname unimplemented
-#define arp2sys_wait unimplemented
-#define arp2sys_waitid unimplemented
+/* #define arp2sys_wait unimplemented */
+//#define arp2sys_waitid unimplemented
 #define arp2sys_wait3 unimplemented
 #define arp2sys_wait4 unimplemented
 
@@ -448,9 +558,6 @@ REGPARAM2 arp2sys_open(regptr _regs)
   const_strptr ___pathname = (const_strptr) (uintptr_t) _regs->a0;
   uae_s32 ___flags = (uae_s32) _regs->d0;
   uae_u32 ___mode = (uae_u32) _regs->d1;
-
-  printf("***** open %s %x %x\n", ___pathname, ___flags, ___mode);
-
   uae_u32 rc = open(___pathname, ___flags, ___mode);
   set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
   return rc;
@@ -597,9 +704,9 @@ REGPARAM2 arp2sys_mq_unlink(regptr _regs)
 /*   arp2_mqd_t ___mqdes = (arp2_mqd_t) _regs->d0; */
 /*   const struct arp2_sigevent* ___notification = (const struct arp2_sigevent*) (uintptr_t) _regs->a0; */
 /*   uae_u32 rc = mq_notify(___mqdes, ___notification); */
-/*   set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
-  return rc;
-} */
+/*   set_io_err((struct sysresbase*) (uintptr_t) _regs->a6); */
+/*   return rc; */
+/* } */
 
 uae_s32
 arp2sys_mq_receive(regptr _regs) REGPARAM;
@@ -844,33 +951,50 @@ REGPARAM2 arp2sys_sched_rr_get_interval(regptr _regs)
   return rc;
 }
 
-/* uae_s32 */
-/* arp2sys_sched_setaffinity(regptr _regs) REGPARAM; */
+uae_s32
+arp2sys_sched_setaffinity(regptr _regs) REGPARAM;
 
-/* uae_s32 */
-/* REGPARAM2 arp2sys_sched_setaffinity(regptr _regs) */
-/* { */
-/*   arp2_pid_t ___pid = (arp2_pid_t) _regs->d0; */
-/*   uae_u32 ___cpusetsize = (uae_u32) _regs->d1; */
-/*   const arp2_cpu_set_t* ___cpuset = (const arp2_cpu_set_t*) (uintptr_t) _regs->a0; */
-/*   uae_u32 rc = sched_setaffinity(___pid, ___cpusetsize, ___cpuset); */
-/*   set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+uae_s32
+REGPARAM2 arp2sys_sched_setaffinity(regptr _regs)
+{
+  arp2_pid_t ___pid = (arp2_pid_t) _regs->d0;
+  uae_u32 ___cpusetsize = (uae_u32) _regs->d1;
+  const arp2_cpu_set_t* ___cpuset = (const arp2_cpu_set_t*) (uintptr_t) _regs->a0;
+  uae_u32 rc;
+  if (___cpusetsize == sizeof (arp2_cpu_set_t)) {
+    GET(cpu_set, ___cpuset, cpuset);
+    rc = sched_setaffinity(___pid, ___cpusetsize, (cpu_set_t*) cpuset);
+  }
+  else {
+    rc = -1;
+    errno = EINVAL;
+  }
+  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
   return rc;
-} */
+}
 
-/* uae_s32 */
-/* arp2sys_sched_getaffinity(regptr _regs) REGPARAM; */
+uae_s32
+arp2sys_sched_getaffinity(regptr _regs) REGPARAM;
 
-/* uae_s32 */
-/* REGPARAM2 arp2sys_sched_getaffinity(regptr _regs) */
-/* { */
-/*   arp2_pid_t ___pid = (arp2_pid_t) _regs->d0; */
-/*   uae_u32 ___cpusetsize = (uae_u32) _regs->d1; */
-/*   arp2_cpu_set_t* ___cpuset = (arp2_cpu_set_t*) (uintptr_t) _regs->a0; */
-/*   uae_u32 rc = sched_getaffinity(___pid, ___cpusetsize, ___cpuset); */
-/*   set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+uae_s32
+REGPARAM2 arp2sys_sched_getaffinity(regptr _regs)
+{
+  arp2_pid_t ___pid = (arp2_pid_t) _regs->d0;
+  uae_u32 ___cpusetsize = (uae_u32) _regs->d1;
+  arp2_cpu_set_t* ___cpuset = (arp2_cpu_set_t*) (uintptr_t) _regs->a0;
+  cpu_set_t cpuset;
+  uae_u32 rc;
+  if (___cpusetsize == sizeof (arp2_cpu_set_t)) {
+    rc = sched_getaffinity(___pid, ___cpusetsize, &cpuset);
+    PUT(cpu_set, ___cpuset, cpuset);
+  }
+  else {
+    rc = -1;
+    errno = EINVAL;
+  }
+  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
   return rc;
-} */
+}
 
 uae_s32
 arp2sys_kill(regptr _regs) REGPARAM;
@@ -910,31 +1034,35 @@ REGPARAM2 arp2sys_raise(regptr _regs)
   return rc;
 }
 
-/* uae_s32 */
-/* arp2sys_sigprocmask(regptr _regs) REGPARAM; */
+uae_s32
+arp2sys_sigprocmask(regptr _regs) REGPARAM;
 
-/* uae_s32 */
-/* REGPARAM2 arp2sys_sigprocmask(regptr _regs) */
-/* { */
-/*   uae_s32 ___how = (uae_s32) _regs->d0; */
-/*   const arp2_sigset_t* ___set = (const arp2_sigset_t*) (uintptr_t) _regs->a0; */
-/*   arp2_sigset_t* ___oldset = (arp2_sigset_t*) (uintptr_t) _regs->a1; */
-/*   uae_u32 rc = sigprocmask(___how, ___set, ___oldset); */
-/*   set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+uae_s32
+REGPARAM2 arp2sys_sigprocmask(regptr _regs)
+{
+  uae_s32 ___how = (uae_s32) _regs->d0;
+  const arp2_sigset_t* ___set = (const arp2_sigset_t*) (uintptr_t) _regs->a0;
+  arp2_sigset_t* ___oldset = (arp2_sigset_t*) (uintptr_t) _regs->a1;
+  GET(sigset, ___set, set);
+  struct sigset oldset;
+  uae_u32 rc = sigprocmask(___how, (sigset_t*) set, (sigset_t*) &oldset);
+  PUT(sigset, ___oldset, oldset);
+  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
   return rc;
-} */
+}
 
-/* uae_s32 */
-/* arp2sys_sigsuspend(regptr _regs) REGPARAM; */
+uae_s32
+arp2sys_sigsuspend(regptr _regs) REGPARAM;
 
-/* uae_s32 */
-/* REGPARAM2 arp2sys_sigsuspend(regptr _regs) */
-/* { */
-/*   const arp2_sigset_t* ___set = (const arp2_sigset_t*) (uintptr_t) _regs->a0; */
-/*   uae_u32 rc = sigsuspend(___set); */
-/*   set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+uae_s32
+REGPARAM2 arp2sys_sigsuspend(regptr _regs)
+{
+  const arp2_sigset_t* ___set = (const arp2_sigset_t*) (uintptr_t) _regs->a0;
+  GET(sigset, ___set, set);
+  uae_u32 rc = sigsuspend((sigset_t*) set);
+  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
   return rc;
-} */
+}
 
 /* uae_s32 */
 /* arp2sys_sigaction(regptr _regs) REGPARAM; */
@@ -950,57 +1078,71 @@ REGPARAM2 arp2sys_raise(regptr _regs)
   return rc;
 } */
 
-/* uae_s32 */
-/* arp2sys_sigpending(regptr _regs) REGPARAM; */
+uae_s32
+arp2sys_sigpending(regptr _regs) REGPARAM;
 
-/* uae_s32 */
-/* REGPARAM2 arp2sys_sigpending(regptr _regs) */
-/* { */
-/*   arp2_sigset_t* ___set = (arp2_sigset_t*) (uintptr_t) _regs->a0; */
-/*   uae_u32 rc = sigpending(___set); */
-/*   set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+uae_s32
+REGPARAM2 arp2sys_sigpending(regptr _regs)
+{
+  arp2_sigset_t* ___set = (arp2_sigset_t*) (uintptr_t) _regs->a0;
+  struct sigset set;
+  uae_u32 rc = sigpending((sigset_t*) &set);
+  PUT(sigset, ___set, set);
+  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
   return rc;
-} */
+}
 
-/* uae_s32 */
-/* arp2sys_sigwait(regptr _regs) REGPARAM; */
+uae_s32
+arp2sys_sigwait(regptr _regs) REGPARAM;
 
-/* uae_s32 */
-/* REGPARAM2 arp2sys_sigwait(regptr _regs) */
-/* { */
-/*   const arp2_sigset_t* ___set = (const arp2_sigset_t*) (uintptr_t) _regs->a0; */
-/*   uae_s32* ___sig = (uae_s32*) (uintptr_t) (uintptr_t) _regs->d0; */
-/*   uae_u32 rc = sigwait(___set, ___sig); */
-/*   set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+uae_s32
+REGPARAM2 arp2sys_sigwait(regptr _regs)
+{
+  const arp2_sigset_t* ___set = (const arp2_sigset_t*) (uintptr_t) _regs->a0;
+  uae_s32* ___sig = (uae_s32*) (uintptr_t) (uintptr_t) _regs->d0;
+  GET(sigset, ___set, set);
+  int sig;
+  uae_u32 rc = sigwait((sigset_t*) set, &sig);
+  if (___sig != NULL) {
+    *___sig = BE32(sig);
+  }
+  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
   return rc;
-} */
+}
 
-/* uae_s32 */
-/* arp2sys_sigwaitinfo(regptr _regs) REGPARAM; */
+uae_s32
+arp2sys_sigwaitinfo(regptr _regs) REGPARAM;
 
-/* uae_s32 */
-/* REGPARAM2 arp2sys_sigwaitinfo(regptr _regs) */
-/* { */
-/*   const arp2_sigset_t* ___set = (const arp2_sigset_t*) (uintptr_t) _regs->a0; */
-/*   arp2_siginfo_t* ___info = (arp2_siginfo_t*) (uintptr_t) _regs->a1; */
-/*   uae_u32 rc = sigwaitinfo(___set, ___info); */
-/*   set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+uae_s32
+REGPARAM2 arp2sys_sigwaitinfo(regptr _regs)
+{
+  const arp2_sigset_t* ___set = (const arp2_sigset_t*) (uintptr_t) _regs->a0;
+  arp2_siginfo_t* ___info = (arp2_siginfo_t*) (uintptr_t) _regs->a1;
+  GET(sigset, ___set, set);
+  struct siginfo info;
+  uae_u32 rc = sigwaitinfo((sigset_t*) set, &info);
+  PUT(siginfo, ___info, info)
+  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
   return rc;
-} */
+}
 
-/* uae_s32 */
-/* arp2sys_sigtimedwait(regptr _regs) REGPARAM; */
+uae_s32
+arp2sys_sigtimedwait(regptr _regs) REGPARAM;
 
-/* uae_s32 */
-/* REGPARAM2 arp2sys_sigtimedwait(regptr _regs) */
-/* { */
-/*   const arp2_sigset_t* ___set = (const arp2_sigset_t*) (uintptr_t) _regs->a0; */
-/*   arp2_siginfo_t* ___info = (arp2_siginfo_t*) (uintptr_t) _regs->a1; */
-/*   const struct arp2_timespec* ___timeout = (const struct arp2_timespec*) (uintptr_t) _regs->a2; */
-/*   uae_u32 rc = sigtimedwait(___set, ___info, ___timeout); */
-/*   set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+uae_s32
+REGPARAM2 arp2sys_sigtimedwait(regptr _regs)
+{
+  const arp2_sigset_t* ___set = (const arp2_sigset_t*) (uintptr_t) _regs->a0;
+  arp2_siginfo_t* ___info = (arp2_siginfo_t*) (uintptr_t) _regs->a1;
+  const struct arp2_timespec* ___timeout = (const struct arp2_timespec*) (uintptr_t) _regs->a2;
+  GET(sigset, ___set, set);
+  GET(timespec, ___timeout, timeout);
+  struct siginfo info;
+  uae_u32 rc = sigtimedwait((sigset_t*) set, &info, timeout);
+  PUT(siginfo, ___info, info)
+  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
   return rc;
-} */
+}
 
 uae_s32
 arp2sys_sigqueue(regptr _regs) REGPARAM;
@@ -1193,7 +1335,9 @@ REGPARAM2 arp2sys_clock_getcpuclockid(regptr _regs)
 
   clockid_t clock_id;
   uae_u32 rc = clock_getcpuclockid(___pid, &clock_id);
-  *___clock_id = BE32(clock_id);
+  if (___clock_id != NULL) {
+    *___clock_id = BE32(clock_id);
+  }
   set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
   return rc;
 }
@@ -1813,31 +1957,45 @@ REGPARAM2 arp2sys_getegid(regptr _regs)
   return rc;
 }
 
-/* uae_s32 */
-/* arp2sys_getgroups(regptr _regs) REGPARAM; */
+uae_s32
+arp2sys_getgroups(regptr _regs) REGPARAM;
 
-/* uae_s32 */
-/* REGPARAM2 arp2sys_getgroups(regptr _regs) */
-/* { */
-/*   uae_s32 ___size = (uae_s32) _regs->d0; */
-/*   arp2_gid_t* ___list = (arp2_gid_t*) (uintptr_t) _regs->a0; */
-/*   uae_u32 rc = getgroups(___size, ___list); */
-/*   set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+uae_s32
+REGPARAM2 arp2sys_getgroups(regptr _regs)
+{
+  uae_s32 ___size = (uae_s32) _regs->d0;
+  arp2_gid_t* ___list = (arp2_gid_t*) (uintptr_t) _regs->a0;
+  gid_t list[___size];
+  uae_u32 rc = getgroups(___size, list);
+  if (___list != NULL) {
+    int i;
+    for (i = 0; i < ___size; ++i) {
+      ___list[i] = BE32(list[i]);
+    }
+  }
+  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
   return rc;
-} */
+}
 
-/* uae_s32 */
-/* arp2sys_setgroups(regptr _regs) REGPARAM; */
+uae_s32
+arp2sys_setgroups(regptr _regs) REGPARAM;
 
-/* uae_s32 */
-/* REGPARAM2 arp2sys_setgroups(regptr _regs) */
-/* { */
-/*   uae_u32 ___n = (uae_u32) _regs->d0; */
-/*   const arp2_gid_t* ___groups = (const arp2_gid_t*) (uintptr_t) _regs->a0; */
-/*   uae_u32 rc = setgroups(___n, ___groups); */
-/*   set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+uae_s32
+REGPARAM2 arp2sys_setgroups(regptr _regs)
+{
+  uae_u32 ___n = (uae_u32) _regs->d0;
+  const arp2_gid_t* ___groups = (const arp2_gid_t*) (uintptr_t) _regs->a0;
+  gid_t groups[___n];
+  if (___groups != NULL) {
+    size_t i;
+    for (i = 0; i < ___n; ++i) {
+      groups[i] = BE32(___groups[i]);
+    }
+  }
+  uae_u32 rc = setgroups(___n, groups);
+  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
   return rc;
-} */
+}
 
 uae_s32
 arp2sys_group_member(regptr _regs) REGPARAM;
@@ -2500,7 +2658,7 @@ REGPARAM2 arp2sys_getdents(regptr _regs)
     uae_u32 i;
     for (i = 0; i < rc; /* not here */) {
       struct dirent64* dirp = (struct dirent64*) ((uae_u8*) ___dirp + i);
-      COPY_dirent(*dirp, *dirp);
+      COPY_dirent((*dirp), (*dirp));
       i += dirp->d_reclen;
     }
   }
@@ -3724,32 +3882,38 @@ REGPARAM2 arp2sys_uname(regptr _regs)
   return rc;
 }
 
-/* arp2_pid_t */
-/* arp2sys_wait(regptr _regs) REGPARAM; */
+arp2_pid_t
+arp2sys_wait(regptr _regs) REGPARAM;
 
-/* arp2_pid_t */
-/* REGPARAM2 arp2sys_wait(regptr _regs) */
-/* { */
-/*   uae_s32* ___stat_loc = (uae_s32*) (uintptr_t) (uintptr_t) _regs->a0; */
-/*   uae_u32 rc = wait(___stat_loc); */
-/*   set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+arp2_pid_t
+REGPARAM2 arp2sys_wait(regptr _regs)
+{
+  uae_s32* ___stat_loc = (uae_s32*) (uintptr_t) (uintptr_t) _regs->a0;
+  int stat_loc;
+  uae_u32 rc = wait(&stat_loc);
+  if (___stat_loc != NULL) {
+    *___stat_loc = BE32(stat_loc);
+  }
+  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
   return rc;
-} */
+}
 
-/* uae_s32 */
-/* arp2sys_waitid(regptr _regs) REGPARAM; */
+uae_s32
+arp2sys_waitid(regptr _regs) REGPARAM;
 
-/* uae_s32 */
-/* REGPARAM2 arp2sys_waitid(regptr _regs) */
-/* { */
-/*   arp2_idtype_t ___idtype = (arp2_idtype_t) _regs->d0; */
-/*   arp2_id_t ___id = (arp2_id_t) _regs->d1; */
-/*   arp2_siginfo_t* ___infop = (arp2_siginfo_t*) (uintptr_t) _regs->a0; */
-/*   uae_s32 ___options = (uae_s32) _regs->d2; */
-/*   uae_u32 rc = waitid(___idtype, ___id, ___infop, ___options); */
-/*   set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+uae_s32
+REGPARAM2 arp2sys_waitid(regptr _regs)
+{
+  arp2_idtype_t ___idtype = (arp2_idtype_t) _regs->d0;
+  arp2_id_t ___id = (arp2_id_t) _regs->d1;
+  arp2_siginfo_t* ___infop = (arp2_siginfo_t*) (uintptr_t) _regs->a0;
+  uae_s32 ___options = (uae_s32) _regs->d2;
+  struct siginfo infop;
+  uae_u32 rc = waitid(___idtype, ___id, &infop, ___options);
+  PUT(siginfo, ___infop, infop);
+  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
   return rc;
-} */
+}
 
 /* arp2_pid_t */
 /* arp2sys_wait3(regptr _regs) REGPARAM; */
@@ -4054,6 +4218,9 @@ int arp2sys_reset(uae_u8* arp2rom) {
 
     // struct arp2_dirent must match struct dirent64 exactly!
     assert (sizeof (struct arp2_dirent) == sizeof (struct dirent64));
+    assert (sizeof (struct arp2_siginfo) == sizeof (struct siginfo));
+    assert (sizeof (arp2_sigset_t) == sizeof (sigset_t));
+    assert (sizeof (arp2_cpu_set_t) == sizeof (cpu_set_t));
 
     for (i = 0; arp2sys_functions[i] != 0; ++i) {
       assert (IS_32BIT(arp2sys_functions[i]));
