@@ -439,3 +439,7 @@ Ixxx instead of xxxBase per default.
 =item
 
 Minor bug fixes from AROS.
+
+=item B<1.5 (????-??-??)>
+
+Fixed a multi-line comment bug in the FD output mode.
