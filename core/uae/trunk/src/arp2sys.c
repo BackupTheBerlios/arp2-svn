@@ -16,12 +16,15 @@
 # error Unsupported
 #endif
 
+#define IS_32BIT(x) ((((uae_u64) (uintptr_t) (x)) & 0xffffffff00000000ULL) == 0)
+
 /*** Include prototypes for all functions we export **************************/
 
 #ifndef _GNU_SOURCE
 # define _GNU_SOURCE
 #endif
 
+#include <dlfcn.h>
 #include <fcntl.h>
 #include <mqueue.h>
 #include <poll.h>
@@ -54,6 +57,8 @@
 #include <sys/wait.h>
 #include <stdlib.h>
 
+#include <sys/syscall.h>
+
 #undef S_WRITE	// Defined in <sys/mount.h>
 
 #include "sysconfig.h"
@@ -68,9 +73,13 @@
 
 
 #ifdef WORDS_BIGENDIAN
+# define BE16(x) (x)
 # define BE32(x) (x)
+# define BE64(x) (x)
 #else
+# define BE16(x) bswap_16(x)
 # define BE32(x) bswap_32(x)
+# define BE64(x) bswap_64(x)
 #endif
 
 
@@ -149,6 +158,14 @@ typedef uae_u32 arp2_priority_which_t;
 typedef uae_u32 arp2_uid_t;
 typedef uae_u64 arp2_dev_t;
 
+struct arp2_dirent {
+    uae_u64  d_ino;
+    uae_s64  d_off;
+    uae_u16  d_reclen;
+    uae_u8   d_type;
+    uae_u8   d_name[256];
+};
+
 struct arp2_mq_attr {
     uae_s32 mq_flags;
     uae_s32 mq_maxmsg;
@@ -181,7 +198,10 @@ struct arp2_timeval {
 };
 
 
-
+#define COPY_dirent(s,d) \
+  (d).d_ino = BE64((s).d_ino);			\
+  (d).d_off = BE64((s).d_off);			\
+  (d).d_reclen = BE16((s).d_reclen);
 
 #define COPY_sched_param(s,d) (d).sched_priority = BE32((s).sched_priority)
 
@@ -286,7 +306,7 @@ static void unimplemented(void) {
 #define arp2sys_readlinkat unimplemented
 #define arp2sys_unlinkat unimplemented
 //#define arp2sys_profil unimplemented
-#define arp2sys_getdents unimplemented
+//#define arp2sys_getdents unimplemented
 #define arp2sys_utime unimplemented
 #define arp2sys_epoll_ctl unimplemented
 #define arp2sys_epoll_wait unimplemented
@@ -1070,11 +1090,8 @@ arp2sys_time(regptr _regs) REGPARAM;
 arp2_time_t
 REGPARAM2 arp2sys_time(regptr _regs)
 {
-  arp2_time_t rc;
   arp2_time_t* ___time = (arp2_time_t*) (uintptr_t) _regs->a0;
-
-  rc = time(NULL);
-
+  arp2_time_t rc = time(NULL);
   if (___time != NULL) {
     *___time = BE32(rc);
   }
@@ -2435,6 +2452,10 @@ REGPARAM2 arp2sys_sbrk(regptr _regs)
 {
   uae_s32 ___increment = (uae_s32) _regs->d0;
   aptr rc = sbrk(___increment);
+  if (rc != (aptr) -1 && !IS_32BIT(rc)) {
+    errno = ENOMEM;
+    rc = (aptr) -1;
+  }
   set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
   return rc;
 }
@@ -2465,19 +2486,27 @@ REGPARAM2 arp2sys_fdatasync(regptr _regs)
   return rc;
 }
 
-/* uae_s32 */
-/* arp2sys_getdents(regptr _regs) REGPARAM; */
+uae_s32
+arp2sys_getdents(regptr _regs) REGPARAM;
 
-/* uae_s32 */
-/* REGPARAM2 arp2sys_getdents(regptr _regs) */
-/* { */
-/*   uae_u32 ___fd = (uae_u32) _regs->d0; */
-/*   struct arp2_dirent* ___dirp = (struct arp2_dirent*) (uintptr_t) _regs->a0; */
-/*   uae_u32 ___count = (uae_u32) _regs->d1; */
-/*   uae_u32 rc = getdents(___fd, ___dirp, ___count); */
-/*   set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+uae_s32
+REGPARAM2 arp2sys_getdents(regptr _regs)
+{
+  uae_u32 ___fd = (uae_u32) _regs->d0;
+  struct arp2_dirent* ___dirp = (struct arp2_dirent*) (uintptr_t) _regs->a0;
+  uae_u32 ___count = (uae_u32) _regs->d1;
+  uae_u32 rc = syscall(__NR_getdents64, (int) ___fd, (void*) ___dirp, (size_t) ___count);
+  if (rc > 0) {
+    uae_u32 i;
+    for (i = 0; i < rc; /* not here */) {
+      struct dirent64* dirp = (struct dirent64*) ((uae_u8*) ___dirp + i);
+      COPY_dirent(*dirp, *dirp);
+      i += dirp->d_reclen;
+    }
+  }
+  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
   return rc;
-} */
+}
 
 /* uae_s32 */
 /* arp2sys_utime(regptr _regs) REGPARAM; */
@@ -2811,7 +2840,16 @@ REGPARAM2 arp2sys_mmap(regptr _regs)
   uae_s32 ___flags = (uae_s32) _regs->d2;
   uae_s32 ___fd = (uae_s32) _regs->d3;
   uae_s64 ___offset = ((uae_s64) _regs->d4 << 32) | ((uae_u32) _regs->d5);
+#ifdef MAP_32BIT
+  // Place mapping in 32-bit memory
+  ___flags |= MAP_32BIT;
+#endif
   aptr rc = mmap(___start, ___length, ___prot, ___flags, ___fd, ___offset);
+  if (rc != MAP_FAILED && !IS_32BIT(rc)) {
+    munmap(rc, ___length);
+    errno = ENOMEM;
+    rc = MAP_FAILED;
+  }
   set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
   return rc;
 }
@@ -2959,6 +2997,11 @@ REGPARAM2 arp2sys_mremap(regptr _regs)
   uae_u32 ___new_size = (uae_u32) _regs->d1;
   uae_s32 ___flags = (uae_s32) _regs->d2;
   aptr rc = mremap(___old_address, ___old_size, ___new_size, ___flags);
+  if (rc != MAP_FAILED && !IS_32BIT(rc)) {
+    munmap(rc, ___new_size);
+    errno = ENOMEM;
+    rc = MAP_FAILED;
+  }
   set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
   return rc;
 }
@@ -4009,8 +4052,11 @@ int arp2sys_reset(uae_u8* arp2rom) {
     int i;
     write_log("ARP2 ROM: arp2sys patching ROM image\n");
 
+    // struct arp2_dirent must match struct dirent64 exactly!
+    assert (sizeof (struct arp2_dirent) == sizeof (struct dirent64));
+
     for (i = 0; arp2sys_functions[i] != 0; ++i) {
-      assert ((((uae_u64) (uintptr_t) arp2sys_functions[i]) & 0xffffffff00000000ULL) == 0);
+      assert (IS_32BIT(arp2sys_functions[i]));
       
       rom[1024+i] = BE32((uae_u32) (uintptr_t) arp2sys_functions[i]);
     }
