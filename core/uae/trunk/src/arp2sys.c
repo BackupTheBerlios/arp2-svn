@@ -309,9 +309,13 @@ typedef struct arp2_sigset {
     uae_u8 __val[1024 / (8 * sizeof (uae_u8))];
 } arp2_sigset_t;
 
-typedef struct arp2_cpu {
+typedef struct arp2_cpu_set {
     uae_u8 __val[1024 / (8 * sizeof (uae_u8))];
 } arp2_cpu_set_t;
+
+typedef struct arp2_fd_set {
+    uae_u8 __val[1024 / (8 * sizeof (uae_u8))];
+} arp2_fd_set;
 
 struct sigset {
     sigset_t ss;
@@ -319,6 +323,10 @@ struct sigset {
 
 struct cpu_set {
     cpu_set_t cs;
+};
+
+struct fd_set {
+    fd_set fs;
 };
 
 struct timeval2 {
@@ -416,6 +424,12 @@ struct arp2_rlimit {
     arp2_rlim_t rlim_cur;
     arp2_rlim_t rlim_max;
  };
+
+struct arp2_iovec {
+    uae_u32 iov_base;
+    uae_u32 iov_len;
+};
+
 
 
 // FIXME: Will only work m68k->native, not the other way around, on 64-bit hosts
@@ -587,8 +601,9 @@ struct arp2_rlimit {
     // Binary compatibe
 # define COPY_sigset(s,d) memcpy(&d, &s, sizeof (d));
 # define COPY_cpu_set(s,d) memcpy(&d, &s, sizeof (d));
+# define COPY_fd_set(s,d) memcpy(&d, &s, sizeof (d));
 #else
-# error sigset_t and cpu_set_t unimplemented for big endian
+# error sigset_t, cpu_set_t and fd_set unimplemented for big endian
 #endif
 
 
@@ -624,21 +639,6 @@ REGPARAM2 unimplemented(regptr _regs)
 }
 
 
-#define arp2sys_poll unimplemented
-#define arp2sys_ppoll unimplemented
-#define arp2sys_clone unimplemented
-#define arp2sys_execve unimplemented
-#define arp2sys_execv unimplemented
-#define arp2sys_execvp unimplemented
-#define arp2sys_epoll_ctl unimplemented
-#define arp2sys_epoll_wait unimplemented
-#define arp2sys_select unimplemented
-#define arp2sys_pselect unimplemented
-#define arp2sys_readv unimplemented
-#define arp2sys_writev unimplemented
-
-
-
 // Not supported yet
 #define arp2sys_sigaction unimplemented
 #define arp2sys_sigaltstack unimplemented
@@ -670,6 +670,12 @@ REGPARAM2 unimplemented(regptr _regs)
 #define arp2sys_splice unimplemented
 #define arp2sys_tee unimplemented
 #define arp2sys_unshare unimplemented
+
+// Not supported yet
+#define arp2sys_poll unimplemented
+#define arp2sys_ppoll unimplemented
+#define arp2sys_epoll_ctl unimplemented
+#define arp2sys_epoll_wait unimplemented
 
 
 /*** The actual syscall wrappers *********************************************/
@@ -1027,23 +1033,33 @@ REGPARAM2 arp2sys_mq_timedsend(regptr _regs)
   return rc;
 } */
 
-/* uae_s32 */
-/* arp2sys_clone(regptr _regs) REGPARAM; */
+uae_s32
+arp2sys_clone(regptr _regs) REGPARAM;
 
-/* uae_s32 */
-/* REGPARAM2 arp2sys_clone(regptr _regs) */
-/* { */
-/*   uae_s32 (*___fn) (aptr arg) = (uae_s32 (*)(aptr arg)) _regs->a0; */
-/*   aptr ___child_stack = (aptr) (uintptr_t) _regs->a1; */
-/*   uae_s32 ___flags = (uae_s32) _regs->d0; */
-/*   aptr ___arg = (aptr) (uintptr_t) _regs->a2; */
-/*   arp2_pid_t* ___ptid = (arp2_pid_t*) (uintptr_t) _regs->d1; */
-/*   struct arp2_user_desc* ___tls = (struct arp2_user_desc*) (uintptr_t) _regs->d2; */
-/*   arp2_pid_t* ___ctid = (arp2_pid_t*) (uintptr_t) _regs->d3; */
-/*   uae_u32 rc = clone(___fn, ___child_stack, ___flags, ___arg, ___ptid, ___tls, ___ctid); */
-/*   set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+uae_s32
+REGPARAM2 arp2sys_clone(regptr _regs)
+{
+  uae_s32 (*___fn) (aptr arg) = (uae_s32 (*)(aptr arg)) (uintptr_t) _regs->a0;
+  aptr ___child_stack = (aptr) (uintptr_t) _regs->a1;
+  uae_s32 ___flags = (uae_s32) _regs->d0;
+  aptr ___arg = (aptr) (uintptr_t) _regs->a2;
+  arp2_pid_t* ___ptid = (arp2_pid_t*) (uintptr_t) _regs->d1;
+  struct arp2_user_desc* ___tls = (struct arp2_user_desc*) (uintptr_t) _regs->d2;
+  arp2_pid_t* ___ctid = (arp2_pid_t*) (uintptr_t) _regs->d3;
+#warning Use clone() arguments ptid, tls, ctid
+//  uae_u32 rc = clone(___fn, ___child_stack, ___flags, ___arg, &ptid, ___tls, &ctid);
+  uae_u32 rc = clone(___fn, ___child_stack, ___flags, ___arg);
+
+/*   if (___flags & CLONE_PARENT_SETTID) { */
+/*     *___ptid = BE32(ptid); */
+/*   } */
+/*   if (___flags & CLONE_CHILD_SETTID) { */
+/*     *___ctid = BE32(ctid); */
+/*   } */
+
+  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
   return rc;
-} */
+}
 
 /* uae_s32 */
 /* arp2sys_unshare(regptr _regs) REGPARAM; */
@@ -1920,45 +1936,69 @@ REGPARAM2 arp2sys_dup2(regptr _regs)
   return rc;
 }
 
-/* uae_s32 */
-/* arp2sys_execve(regptr _regs) REGPARAM; */
+uae_s32
+arp2sys_execve(regptr _regs) REGPARAM;
 
-/* uae_s32 */
-/* REGPARAM2 arp2sys_execve(regptr _regs) */
-/* { */
-/*   const_strptr ___path = (const_strptr) (uintptr_t) _regs->a0; */
-/*   strptr const* ___argv = (strptr const*) (uintptr_t) _regs->a1; */
-/*   strptr const* ___envp = (strptr const*) (uintptr_t) _regs->a2; */
-/*   uae_u32 rc = execve(___path, ___argv, ___envp); */
-/*   set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+uae_s32
+REGPARAM2 arp2sys_execve(regptr _regs)
+{
+  const_strptr ___path = (const_strptr) (uintptr_t) _regs->a0;
+  uae_u32 const* ___argv = (uae_u32 const*) (uintptr_t) _regs->a1;
+  uae_u32 const* ___envp = (uae_u32 const*) (uintptr_t) _regs->a2;
+
+  int na, ne;
+  for (na = 0; ___argv[na] != 0; ++na);
+  for (ne = 0; ___envp[ne] != 0; ++ne);
+  
+  char* argv[na+1];
+  char* envp[ne+1];
+
+  while (na-- >= 0) argv[na] = (char*) (uintptr_t) BE32(___argv[na]);
+  while (ne-- >= 0) envp[ne] = (char*) (uintptr_t) BE32(___envp[ne]);
+
+
+  uae_u32 rc = execve(___path, argv, envp);
+  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
   return rc;
-} */
+}
 
-/* uae_s32 */
-/* arp2sys_execv(regptr _regs) REGPARAM; */
+uae_s32
+arp2sys_execv(regptr _regs) REGPARAM;
 
-/* uae_s32 */
-/* REGPARAM2 arp2sys_execv(regptr _regs) */
-/* { */
-/*   const_strptr ___path = (const_strptr) (uintptr_t) _regs->a0; */
-/*   strptr const* ___argv = (strptr const*) (uintptr_t) _regs->a1; */
-/*   uae_u32 rc = execv(___path, ___argv); */
-/*   set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+uae_s32
+REGPARAM2 arp2sys_execv(regptr _regs)
+{
+  const_strptr ___path = (const_strptr) (uintptr_t) _regs->a0;
+  uae_u32 const* ___argv = (uae_u32 const*) (uintptr_t) _regs->a1;
+
+  int na;
+  for (na = 0; ___argv[na] != 0; ++na);
+  char* argv[na+1];
+  while (na-- >= 0) argv[na] = (char*) (uintptr_t) BE32(___argv[na]);
+
+  uae_u32 rc = execv(___path, argv);
+  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
   return rc;
-} */
+}
 
-/* uae_s32 */
-/* arp2sys_execvp(regptr _regs) REGPARAM; */
+uae_s32
+arp2sys_execvp(regptr _regs) REGPARAM;
 
-/* uae_s32 */
-/* REGPARAM2 arp2sys_execvp(regptr _regs) */
-/* { */
-/*   const_strptr ___file = (const_strptr) (uintptr_t) _regs->a0; */
-/*   strptr const* ___argv = (strptr const*) (uintptr_t) _regs->a1; */
-/*   uae_u32 rc = execvp(___file, ___argv); */
-/*   set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+uae_s32
+REGPARAM2 arp2sys_execvp(regptr _regs)
+{
+  const_strptr ___file = (const_strptr) (uintptr_t) _regs->a0;
+  uae_u32 const* ___argv = (uae_u32 const*) (uintptr_t) _regs->a1;
+
+  int na;
+  for (na = 0; ___argv[na] != 0; ++na);
+  char* argv[na+1];
+  while (na-- >= 0) argv[na] = (char*) (uintptr_t) BE32(___argv[na]);
+
+  uae_u32 rc = execvp(___file, argv);
+  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
   return rc;
-} */
+}
 
 uae_s32
 arp2sys_nice(regptr _regs) REGPARAM;
@@ -3523,38 +3563,55 @@ REGPARAM2 arp2sys_setpriority(regptr _regs)
   return rc;
 }
 
-/* uae_s32 */
-/* arp2sys_select(regptr _regs) REGPARAM; */
+uae_s32
+arp2sys_select(regptr _regs) REGPARAM;
 
-/* uae_s32 */
-/* REGPARAM2 arp2sys_select(regptr _regs) */
-/* { */
-/*   uae_s32 ___nfds = (uae_s32) _regs->d0; */
-/*   arp2_fd_set* ___readfds = (arp2_fd_set*) (uintptr_t) _regs->a0; */
-/*   arp2_fd_set* ___writefds = (arp2_fd_set*) (uintptr_t) _regs->a1; */
-/*   arp2_fd_set* ___exceptfds = (arp2_fd_set*) (uintptr_t) _regs->a2; */
-/*   struct arp2_timeval* ___timeout = (struct arp2_timeval*) (uintptr_t) _regs->a3; */
-/*   uae_u32 rc = select(___nfds, ___readfds, ___writefds, ___exceptfds, ___timeout); */
-/*   set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+uae_s32
+REGPARAM2 arp2sys_select(regptr _regs)
+{
+  uae_s32 ___nfds = (uae_s32) _regs->d0;
+  arp2_fd_set* ___readfds = (arp2_fd_set*) (uintptr_t) _regs->a0;
+  arp2_fd_set* ___writefds = (arp2_fd_set*) (uintptr_t) _regs->a1;
+  arp2_fd_set* ___exceptfds = (arp2_fd_set*) (uintptr_t) _regs->a2;
+  struct arp2_timeval* ___timeout = (struct arp2_timeval*) (uintptr_t) _regs->a3;
+  GET(timeval, ___timeout, timeout);
+
+#ifdef WORDS_BIGENDIAN
+# error Fix this casting crap
+#endif
+
+  uae_u32 rc = select(___nfds, (fd_set*) ___readfds, (fd_set*) ___writefds, (fd_set*)___exceptfds,
+		      timeout);
+  if (___timeout != NULL) {
+    COPY_timeval((*timeout), (*___timeout));
+  }
+  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
   return rc;
-} */
+}
 
-/* uae_s32 */
-/* arp2sys_pselect(regptr _regs) REGPARAM; */
+uae_s32
+arp2sys_pselect(regptr _regs) REGPARAM;
 
-/* uae_s32 */
-/* REGPARAM2 arp2sys_pselect(regptr _regs) */
-/* { */
-/*   uae_s32 ___nfds = (uae_s32) _regs->d0; */
-/*   arp2_fd_set* ___readfds = (arp2_fd_set*) (uintptr_t) _regs->a0; */
-/*   arp2_fd_set* ___writefds = (arp2_fd_set*) (uintptr_t) _regs->a1; */
-/*   arp2_fd_set* ___exceptfds = (arp2_fd_set*) (uintptr_t) _regs->a2; */
-/*   const struct arp2_timespec* ___timeout = (const struct arp2_timespec*) (uintptr_t) _regs->a3; */
-/*   const arp2_sigset_t* ___sigmask = (const arp2_sigset_t*) (uintptr_t) _regs->a4; */
-/*   uae_u32 rc = pselect(___nfds, ___readfds, ___writefds, ___exceptfds, ___timeout, ___sigmask); */
-/*   set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+uae_s32
+REGPARAM2 arp2sys_pselect(regptr _regs)
+{
+  uae_s32 ___nfds = (uae_s32) _regs->d0;
+  arp2_fd_set* ___readfds = (arp2_fd_set*) (uintptr_t) _regs->a0;
+  arp2_fd_set* ___writefds = (arp2_fd_set*) (uintptr_t) _regs->a1;
+  arp2_fd_set* ___exceptfds = (arp2_fd_set*) (uintptr_t) _regs->a2;
+  const struct arp2_timespec* ___timeout = (const struct arp2_timespec*) (uintptr_t) _regs->a3;
+  const arp2_sigset_t* ___sigmask = (const arp2_sigset_t*) (uintptr_t) _regs->a4;
+  GET(timespec, ___timeout, timeout);
+
+#ifdef WORDS_BIGENDIAN
+# error Fix this casting crap
+#endif
+
+  uae_u32 rc = pselect(___nfds, (fd_set*) ___readfds, (fd_set*) ___writefds, 
+		       (fd_set*) ___exceptfds, timeout, (sigset_t*) ___sigmask);
+  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
   return rc;
-} */
+}
 
 uae_s32
 arp2sys_stat(regptr _regs) REGPARAM;
@@ -4078,33 +4135,49 @@ REGPARAM2 arp2sys_times(regptr _regs)
   return rc;
 }
 
-/* uae_s32 */
-/* arp2sys_readv(regptr _regs) REGPARAM; */
+uae_s32
+arp2sys_readv(regptr _regs) REGPARAM;
 
-/* uae_s32 */
-/* REGPARAM2 arp2sys_readv(regptr _regs) */
-/* { */
-/*   uae_s32 ___fd = (uae_s32) _regs->d0; */
-/*   const struct arp2_iovec* ___iovec = (const struct arp2_iovec*) (uintptr_t) _regs->a0; */
-/*   uae_s32 ___count = (uae_s32) _regs->d1; */
-/*   uae_u32 rc = readv(___fd, ___iovec, ___count); */
-/*   set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+uae_s32
+REGPARAM2 arp2sys_readv(regptr _regs)
+{
+  uae_s32 ___fd = (uae_s32) _regs->d0;
+  const struct arp2_iovec* ___iovec = (const struct arp2_iovec*) (uintptr_t) _regs->a0;
+  uae_s32 ___count = (uae_s32) _regs->d1;
+
+  int nv;
+  struct iovec iovec[___count];
+  for (nv = 0; nv < ___count; ++nv) {
+    iovec[nv].iov_base = (void*) (uintptr_t) BE32(___iovec[nv].iov_base);
+    iovec[nv].iov_len = BE32(___iovec[nv].iov_len);
+  }
+
+  uae_u32 rc = readv(___fd, iovec, ___count);
+  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
   return rc;
-} */
+}
 
-/* uae_s32 */
-/* arp2sys_writev(regptr _regs) REGPARAM; */
+uae_s32
+arp2sys_writev(regptr _regs) REGPARAM;
 
-/* uae_s32 */
-/* REGPARAM2 arp2sys_writev(regptr _regs) */
-/* { */
-/*   uae_s32 ___fd = (uae_s32) _regs->d0; */
-/*   const struct arp2_iovec* ___iovec = (const struct arp2_iovec*) (uintptr_t) _regs->a0; */
-/*   uae_s32 ___count = (uae_s32) _regs->d1; */
-/*   uae_u32 rc = writev(___fd, ___iovec, ___count); */
-/*   set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+uae_s32
+REGPARAM2 arp2sys_writev(regptr _regs)
+{
+  uae_s32 ___fd = (uae_s32) _regs->d0;
+  const struct arp2_iovec* ___iovec = (const struct arp2_iovec*) (uintptr_t) _regs->a0;
+  uae_s32 ___count = (uae_s32) _regs->d1;
+
+  int nv;
+  struct iovec iovec[___count];
+  for (nv = 0; nv < ___count; ++nv) {
+    iovec[nv].iov_base = (void*) (uintptr_t) BE32(___iovec[nv].iov_base);
+    iovec[nv].iov_len = BE32(___iovec[nv].iov_len);
+  }
+
+  uae_u32 rc = writev(___fd, iovec, ___count);
+  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
   return rc;
-} */
+}
 
 uae_s32
 arp2sys_uname(regptr _regs) REGPARAM;
@@ -4477,6 +4550,7 @@ int arp2sys_reset(uae_u8* arp2rom) {
     assert (sizeof (struct arp2_siginfo) == sizeof (struct siginfo));
     assert (sizeof (arp2_sigset_t) == sizeof (sigset_t));
     assert (sizeof (arp2_cpu_set_t) == sizeof (cpu_set_t));
+    assert (sizeof (arp2_fd_set) == sizeof (fd_set));
 
     for (i = 0; arp2sys_functions[i] != 0; ++i) {
       assert (IS_32BIT(arp2sys_functions[i]));
