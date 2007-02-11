@@ -591,6 +591,13 @@ unsigned long REGPARAM2 blomcall_qops (uae_u32 opcode, struct regstruct* regs) {
   // Pop return address
   m68k_areg(regs, 7) += 4;
 
+#if 1
+  blomcall_func* fn = (blomcall_func*) newpc;
+
+  rc = fn(regs->regs, regs->fp);
+
+#else
+
 #if defined (__i386__)
   __asm__ volatile ("			\n\
 		mov   %%esp,%%esi	\n\
@@ -620,6 +627,8 @@ unsigned long REGPARAM2 blomcall_qops (uae_u32 opcode, struct regstruct* regs) {
 
 #else
 # error Unsupported architecture!
+#endif
+
 #endif
 
   if (opcode == OP_BJMPQ) {
