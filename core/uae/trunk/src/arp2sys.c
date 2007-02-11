@@ -3242,12 +3242,12 @@ REGPARAM2 arp2sys_mmap(regptr _regs)
   uae_s32 ___prot = (uae_s32) _regs->d1;
   uae_s32 ___flags = (uae_s32) _regs->d2;
   uae_s32 ___fd = (uae_s32) _regs->d3;
-  uae_s64 ___offset = ((uae_s64) _regs->d4 << 32) | ((uae_u32) _regs->d5);
+  uae_u64 ___offset = ((uae_u64) _regs->d4 << 32) | ((uae_u32) _regs->d5);
 #ifdef MAP_32BIT
   // Place mapping in 32-bit memory
   ___flags |= MAP_32BIT;
 #endif
-  aptr rc = mmap(___start, ___length, ___prot, ___flags, ___fd, ___offset);
+  aptr rc = mmap64(___start, ___length, ___prot, ___flags, ___fd, ___offset);
   if (rc != MAP_FAILED && !IS_32BIT(rc)) {
     munmap(rc, ___length);
     errno = ENOMEM;
