@@ -2846,6 +2846,12 @@ static void gen_opcode (unsigned long int opcode)
 	sync_m68k_pc ();
 	printf ("\tmmu_op (opcode, regs, extra);\n");
 	break;
+    case i_BJMPQ:
+    case i_BJMPNRQ:
+	printf ("\tblomcall_qops(opcode, regs);\n");
+	m68k_pc_offset = 0;
+	fill_prefetch_full ();
+	break;
     case i_BJMP:
     case i_BJMPNR:
     case i_BRESUME:

@@ -2849,7 +2849,9 @@ gen_opcode (unsigned long int opcode)
 	failure;
 	break;
      case i_BJMP:
+     case i_BJMPQ:
      case i_BJMPNR:
+     case i_BJMPNRQ:
      case i_BRESUME:
 	isjump;
 	failure;

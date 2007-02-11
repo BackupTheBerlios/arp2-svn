@@ -261,7 +261,11 @@
 
 % $FExx: blomcall instructions
 1111 1110 0000 0000:00://///://///:80: BJMP     #2
+1111 1110 0000 0001:00://///://///:80: BJMPQ    #2
 1111 1110 0000 0101:00://///://///:80: BJMPNR   #2
-1111 1110 1111 1111:00:-----:-----:00: BRESUME
+1111 1110 0000 0110:00://///://///:80: BJMPNRQ  #2
 
-% $FFxx reserverd for future MorphOS emulation
+% $FF00-$FFF0 reserverd for future MorphOS emulation
+
+% $FFFx: "special" blomcall instructions
+1111 1111 1111 1111:00:-----:-----:00: BRESUME

@@ -1,8 +1,11 @@
 
 enum {
   OP_BJMP    = 0xfe00,
+  OP_BJMPQ   = 0xfe01,
   OP_BJMPNR  = 0xfe05,
-  OP_BRESUME = 0xfeff
+  OP_BJMPNRQ = 0xfe06,
+
+  OP_BRESUME = 0xffff
 };
 
 
@@ -59,6 +62,7 @@ struct blomcall_segment {
 int blomcall_init (void);
 void blomcall_destroy(void);
 int blomcall_reset(void);
+unsigned long blomcall_qops(uae_u32 opcode, struct regstruct *regs) REGPARAM;
 unsigned long blomcall_ops(uae_u32 opcode, struct regstruct *regs) REGPARAM;
 
 #define bjmp(a)   do { dw(OP_BJMP); dl(a); } while 0

@@ -16,7 +16,9 @@
   */
 
 
+#ifndef _GNU_SOURCE
 #define _GNU_SOURCE
+#endif
 
 #include <inttypes.h>
 #include <pthread.h>
@@ -572,10 +574,64 @@ void blomcall_destroy(void) {
 
 /*** Opcode handling *********************************************************/
 
+unsigned long REGPARAM2 blomcall_qops (uae_u32 opcode, struct regstruct* regs) {
+  uae_u32 rts_pc = get_long(m68k_areg(regs, 7));
+  void* newpc = (void*) (uintptr_t) get_long(m68k_getpc(regs) + 2);
+  uae_u64 rc;
+
+  // Sanity check
+  if (!blomcall_enable) {
+    return op_illg (opcode, regs);
+  }
+
+  // Pop return address
+  m68k_areg(regs, 7) += 4;
+
+#if defined (__i386__)
+  __asm__ volatile ("			\n\
+		mov   %%esp,%%esi	\n\
+		mov   %1,%%esp		\n\
+		call  *%4		\n\
+		mov   %%esi,%%esp"
+		    : "=A" (rc) :
+		      "r" /* 1 */ (m68k_areg(regs, 7)),
+		      "a" /* 2 */ (regs->regs),
+		      "d" /* 3 */ (regs->fp),
+		      "r" /* 4 */ (newpc) :
+		      "cc", /* "memory", */ /* "eax", */ "ecx" /*, "edx" */, "esi" );
+
+#elif defined (__x86_64__)
+  __asm__ volatile ("			\n\
+		mov   %%rsp,%%r12	\n\
+		mov   %1,%%esp		\n\
+		call  *%4		\n\
+		mov   %%r12,%%rsp"
+		    : "=A" (rc) :
+		      "r" /* 1 */ (m68k_areg(regs, 7)),
+		      "D" /* 2 */ (regs->regs),
+		      "S" /* 3 */ (regs->fp),
+		      "r" /* 4 */ (newpc) :
+		      "cc", /* "memory",  */"rcx", "rdx", /* "rsi", "rdi", */
+		      "r8", "r9", "r10", "r11", "r12");
+
+#else
+# error Unsupported architecture!
+#endif
+
+  if (opcode == OP_BJMPQ) {
+    m68k_dreg (regs, 0) = (uae_u32) rc;          // eax -> d0
+    m68k_dreg (regs, 1) = (uae_u32) (rc >> 32);  // edx -> d1
+  }
+
+  m68k_setpc(regs, rts_pc);
+  fill_prefetch_slow(regs);
+  return 4;
+}
+
 unsigned long REGPARAM2 blomcall_ops (uae_u32 opcode, struct regstruct* regs) {
   static unsigned long remaining_cycles = 0;
+  static uae_u64 start_time = 0;
   unsigned long cycles;
-  uae_u64 start_time;
   uae_u64 call_time;
   uae_u8* ix86addr;
 
@@ -590,34 +646,48 @@ unsigned long REGPARAM2 blomcall_ops (uae_u32 opcode, struct regstruct* regs) {
     return op_illg (opcode, regs);
   }
 
-  start_time = read_processor_time ();
-  
-  if (opcode == OP_BRESUME) {
-    blomcall_ctx = (void*) (uintptr_t) m68k_getpc(regs);
+  switch (opcode) {
+    case OP_BJMP:
+    case OP_BJMPNR: {
+      start_time = read_processor_time ();
 
-    assert (blomcall_ctx->magic == BRESUME_MAGIC &&
-	    blomcall_ctx->saved_stack_bytes <= sizeof (blomcall_ctx->saved_stack));
-  }
-  else {
-    uae_u32 bcctx;
+      uae_u32 bcctx;
 
-    // TODO: Cache and reuse used contexts
-    blomcall_ctx = malloc (sizeof (struct blomcall_context));
+      // TODO: Cache and reuse used contexts
+      blomcall_ctx = malloc (sizeof (struct blomcall_context));
 
-    blomcall_ctx->op_resume         = bswap_16(OP_BRESUME);
-    blomcall_ctx->saved_stack_bytes = 0;
-    blomcall_ctx->magic             = BRESUME_MAGIC;
-    blomcall_ctx->rts_pc            = get_long(m68k_areg(regs, 7));
-    blomcall_ctx->rts_a7            = m68k_areg(regs, 7) + 4;
-    blomcall_ctx->regs              = regs;
+      blomcall_ctx->op_resume         = bswap_16(OP_BRESUME);
+      blomcall_ctx->saved_stack_bytes = 0;
+      blomcall_ctx->magic             = BRESUME_MAGIC;
+      blomcall_ctx->rts_pc            = get_long(m68k_areg(regs, 7));
+      blomcall_ctx->rts_a7            = m68k_areg(regs, 7) + 4;
+      blomcall_ctx->regs              = regs;
 
-    m68k_areg(regs, 7) = blomcall_ctx->rts_a7;
+      m68k_areg(regs, 7) = blomcall_ctx->rts_a7;
 
-    // Make sure the emulation can access this address
-    assert ((((uae_u64) (uintptr_t) blomcall_ctx) & 0xffffffff00000000ULL) == 0);
+      // Make sure the emulation can access this address
+      assert ((((uae_u64) (uintptr_t) blomcall_ctx) & 0xffffffff00000000ULL) == 0);
 
-    bcctx = ((uae_u32) (uintptr_t) blomcall_ctx) & 0xffff0000;
-    put_mem_bank (bcctx, &directmem_bank, 0);
+      bcctx = ((uae_u32) (uintptr_t) blomcall_ctx) & 0xffff0000;
+      put_mem_bank (bcctx, &directmem_bank, 0);
+      break;
+    }
+
+    case OP_BRESUME: {
+      start_time = read_processor_time ();
+
+      blomcall_ctx = (void*) (uintptr_t) m68k_getpc(regs);
+
+      assert (blomcall_ctx->magic == BRESUME_MAGIC &&
+	      blomcall_ctx->saved_stack_bytes <= sizeof (blomcall_ctx->saved_stack));
+      break;
+    }
+
+    case OP_BJMPQ:
+    case OP_BJMPNRQ:
+    default:
+      // Something is really wrong if we get here
+      abort();
   }
 
   switch (sigsetjmp(blomcall_ctx->emuljmp, 0)) {
