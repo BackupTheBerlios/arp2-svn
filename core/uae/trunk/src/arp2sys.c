@@ -501,7 +501,7 @@ struct arp2_iovec {
       break;					\
     default: {					\
       size_t i;					\
-      for (i = 0; i < sizeof (s._sifields._pad) / sizeof (s._sifields._pad[0]); ++i) { \
+      for (i = 0; i < 6; ++i) { 		\
 	d._sifields._pad[i] = BE32(d._sifields._pad[i]);	\
       }						\
       break;					\
@@ -4547,7 +4547,6 @@ int arp2sys_reset(uae_u8* arp2rom) {
 
     // struct arp2_dirent must match struct dirent64 exactly!
     assert (sizeof (struct arp2_dirent) == sizeof (struct dirent64));
-    assert (sizeof (struct arp2_siginfo) == sizeof (struct siginfo));
     assert (sizeof (arp2_sigset_t) == sizeof (sigset_t));
     assert (sizeof (arp2_cpu_set_t) == sizeof (cpu_set_t));
     assert (sizeof (arp2_fd_set) == sizeof (fd_set));
