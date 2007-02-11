@@ -408,7 +408,7 @@ static void REGPARAM2 __attribute__((used)) __blomcall_exit(uae_u32 rc)
   // tst.l d0 -- so interrupt handlers work without extra glue code
   CLEAR_CZNV (&blomcall_ctx->regs->ccrflags);
   SET_ZFLG (&blomcall_ctx->regs->ccrflags, rc == 0);
-  SET_NFLG (&blomcall_ctx->regs->ccrflags, rc < 0);
+  SET_NFLG (&blomcall_ctx->regs->ccrflags, (uae_s32) rc < 0);
 
   pthread_sigmask(SIG_BLOCK, &blomcall_usr1sigset, NULL);
   siglongjmp(blomcall_ctx->emuljmp, 1);
