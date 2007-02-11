@@ -59,6 +59,7 @@
 #include <stdlib.h>
 
 #include <sys/syscall.h>
+#include <pthread.h>
 
 #undef S_WRITE	// Defined in <sys/mount.h>
 
@@ -70,7 +71,9 @@
 #include "memory.h"
 #include "custom.h"
 #include "newcpu.h"
+#include "blomcall.h"
 #include "arp2sys.h"
+#include "lists.h"
 
 
 #ifdef WORDS_BIGENDIAN
@@ -86,7 +89,7 @@
 
 /*** BJMP register argument definition ***************************************/
 
-typedef struct {
+typedef struct regs {
     uae_u32 d0;
     uae_u32 d1;
     uae_u32 d2;
@@ -106,38 +109,81 @@ typedef struct {
 }* regptr;
 
 
-/*** SetIoErr() emulation ****************************************************/
+/*** AmigaOS glue ************************************************************/
 
-#define NT_PROCESS 0x0d
+#define NT_PROCESS	0x0d
+#define SIGF_SINGLE	0x10
+
+#define INTF_SETCLR	0x8000
+#define INTF_EXTER	0x2000
+
+#define LVO_SetSignal	-306
+#define LVO_Wait	-318
+#define LVO_Signal	-324
+
 
 struct sysresbase {
-    uae_u8	_junk[36];
-    uae_u32	sysbase;	// At offset 36
+    uae_u8     _junk[36];
+    uae_u32    sysbase;        // At offset 36
 };
 
 
 struct execbase {
-    uae_u8	_junk[276];
-    uae_u32	thistask;	// At offset 276
+    uae_u8     _junk[276];
+    uae_u32    thistask;       // At offset 276
 };
 
 
 struct process {
-    uae_u8	_junk[8];
-    uae_u8	ln_type;	// At offset 8
-    uae_u8	_more[139];
-    uae_u32	pr_result2;	// At offset 148
+    uae_u8     _junk[8];
+    uae_u8     ln_type;        // At offset 8
+    uae_u8     _more[139];
+    uae_u32    pr_result2;     // At offset 148
 };
 
 
-static void set_io_err(struct sysresbase* sys) {
-  struct execbase*   exec = (struct execbase*) (uintptr_t) BE32(sys->sysbase);
+static inline void clear_signal(struct execbase* exec) {
+  struct regs regs;
+  
+  regs.d0 = 0;
+  regs.d1 = SIGF_SINGLE;
+  regs.a6 = (uae_u32) (uintptr_t) exec;
+
+  blomcall_calllib68k((uae_u32*) &regs, NULL, LVO_SetSignal);
+}
+
+
+static inline void wait_signal(struct execbase* exec) {
+  struct regs regs;
+  
+  regs.d0 = SIGF_SINGLE;
+  regs.a6 = (uae_u32) (uintptr_t) exec;
+
+  blomcall_calllib68k((uae_u32*) &regs, NULL, LVO_Wait);
+}
+
+
+static inline void set_signal(struct process* proc, struct execbase* exec) {
+  struct regs regs;
+  
+  regs.d0 = SIGF_SINGLE;
+  regs.a1 = (uae_u32) (uintptr_t) proc;
+  regs.a6 = (uae_u32) (uintptr_t) exec;
+
+  puts("LVO_Signal\n");
+  blomcall_calllib68k((uae_u32*) &regs, NULL, LVO_Signal);
+}
+
+
+static void set_io_err(int code, struct sysresbase* sysresbase) {
+  struct execbase*   exec = (struct execbase*) (uintptr_t) BE32(sysresbase->sysbase);
   struct process*    pr   = (struct process*) (uintptr_t) BE32(exec->thistask);
 
   if (pr->ln_type == NT_PROCESS) {
-    pr->pr_result2 = BE32(errno == 0 ? 0 : 1000 + errno);
+    pr->pr_result2 = BE32(code == 0 ? 0 : 1000 + code);
   }
 }
+
 
 
 /*** arp2-syscall.resource types *********************************************/
@@ -146,6 +192,8 @@ typedef char* strptr;
 typedef void* aptr;
 typedef const char* const_strptr;
 typedef const void* const_aptr;
+
+typedef uae_u32 aptr32;
 
 typedef uae_s32 arp2_clock_t;
 typedef uae_s32 arp2_clockid_t;
@@ -625,6 +673,324 @@ struct arp2_iovec {
 /* }; */
 
 
+
+
+/*** Threaded syscall support code *******************************************/
+
+struct workload {
+    struct node     node;
+    struct regs     regs;
+    blomcall_func*  func;
+    struct process* owner;
+    int             cancelled;
+};
+
+struct worker_thread {
+    struct node node;
+    pthread_t   thread;
+};
+
+static int worker_quit = 0;
+static int worker_availcnt = 0;
+static int worker_result_ready = 0;
+
+static pthread_mutex_t worker_mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t  worker_cond  = PTHREAD_COND_INITIALIZER;
+
+static struct list worker_threads;
+
+static struct list workload_waiting;
+static struct list workload_processing;
+static struct list workload_ready;
+static struct list workload_done;
+
+
+/** The worker thread function.
+ *
+ *  This function waits on worker_cond until there is a workload to
+ *  process in the workload_waiting list. During processing, the
+ *  workload will be put in the workload_processing list and once
+ *  completed, it will be moved to the workload_ready list and the
+ *  "INT6" signal will be asserted so arp2sys_hsync_handler() asserts
+ *  EXTER (unless the workload has been cancelled, in which case the
+ *  workload is moved directly to the workload_done list.
+ *
+ *  If worker_quit is set to true, this function will remove the
+ *  worker_thread struct from the worker_threads list and exit.
+ *
+ *  @param arg A pointer to this thread's worker_thread struct.
+ *
+ *  @return Always NULL.
+ */
+
+static void* worker_entry(void* arg) {
+  struct worker_thread* worker_thread = (struct worker_thread*) arg;
+
+  pthread_mutex_lock(&worker_mutex);
+
+  while (!worker_quit) {
+    // Fetch a workload
+    struct workload* workload = (struct workload*) list_remhead(&workload_waiting);
+
+    if (workload == NULL) {
+      pthread_cond_wait(&worker_cond, &worker_mutex);
+    }
+    else {
+      // Execute workload
+      list_addtail(&workload_processing, &workload->node);
+
+      --worker_availcnt;
+      pthread_mutex_unlock(&worker_mutex);
+
+      workload->regs.d0 = workload->func((uae_u32*) &workload->regs, NULL);
+      pthread_mutex_lock(&worker_mutex);
+      ++worker_availcnt;
+
+      if (workload->cancelled) {
+	// Return workload to workload cache
+	list_remove(&workload->node);
+	list_addtail(&workload_done, &workload->node);
+      }
+      else {
+	// Queue result
+	list_remove(&workload->node);
+	list_addtail(&workload_ready, &workload->node);
+
+	// Make AmigaOS fetch it (see arp2sys_arp2_inthandler() and
+	// arp2sys_hsync_handler() below)
+	worker_result_ready = 1;
+      }
+    }
+  }
+
+  // Remove me from the worker thread list
+  list_remove(&worker_thread->node);
+
+  pthread_mutex_unlock(&worker_mutex);
+  return NULL;
+}
+
+
+/** Add a workload to a free worker thread.
+ *
+ *  Queues a workload for processing. If no free worker thread is
+ *  available, create a new one (workers can be busy forever).
+ *
+ *  @param regs The register array used for in- and output parameters.
+ *
+ *  @param func The actual function to be called by the worker thread.
+ *
+ *  @param owner A Task pointer used to identify the workload.
+ */
+
+static void workload_add(regptr regs, blomcall_func* func, struct process* owner) {
+  struct workload* workload;
+
+  pthread_mutex_lock(&worker_mutex);
+
+  // Create a new or reuse an old workload struct
+  workload = (struct workload*) list_remhead(&workload_done);
+
+  if (workload == NULL) {
+    workload = malloc(sizeof *workload);
+  }
+
+  // Set up workload and add it to the waiting list
+  workload->regs      = *regs;
+  workload->func      = func;
+  workload->owner     = owner;
+  workload->cancelled = 0;
+
+  list_addtail(&workload_waiting, &workload->node);
+
+  // Create a new worker thread if there are none ready
+  if (worker_availcnt == 0) {
+    struct worker_thread* worker_thread = malloc (sizeof *worker_thread);
+    sigset_t usr1sigset;
+
+    // Creating threads from a BJMP context is a bit tricky ...
+    sigemptyset(&usr1sigset);
+    sigaddset(&usr1sigset, SIGUSR1);
+
+    pthread_sigmask(SIG_BLOCK, &usr1sigset, NULL);
+
+    if (pthread_create(&worker_thread->thread, NULL, worker_entry, worker_thread) == 0) {
+      list_addtail(&worker_threads, &worker_thread->node);
+    }
+    else {
+      abort();
+    }
+
+    pthread_sigmask(SIG_UNBLOCK, &usr1sigset, NULL);
+
+    ++worker_availcnt;
+  }
+
+  // Make one of the worker threads wake up
+  pthread_cond_signal(&worker_cond);
+
+  pthread_mutex_unlock(&worker_mutex);
+}
+
+
+/** Return a workload started by a specified process.
+ *
+ *  Unlinks a specified workload and returns the result. If there are
+ *  more loads ready, send the first owner task a SIGF_SINGLE signal
+ *  to wake it up.
+ *
+ *  @param regs Will be loaded with the workload result.
+ *
+ *  @param exec A copy of SysBase (for calling Signal()).
+ *
+ *  @param owner The Task pointer that identifies the wanted workload.
+ *
+ *  @result true of the workload was found, else 0.
+ */
+
+static int workload_get(regptr regs, struct execbase* exec, struct process* owner) {
+  struct workload* workload = NULL;
+  int              rc = 0;
+
+  pthread_mutex_lock(&worker_mutex);
+
+  LIST_FOR(&workload_ready, workload) {
+    if (workload->owner == owner) {
+      *regs = workload->regs;
+
+      // Return workload to workload cache
+      list_remove(&workload->node);
+      list_addtail(&workload_done, &workload->node);
+      rc = 1;
+      break;
+    }
+  }
+
+  // Wake up next ready task, if any
+  if (!list_isempty(&workload_ready)) {
+    set_signal(((struct workload*) workload_ready.head)->owner, exec);
+  }
+
+  pthread_mutex_unlock(&worker_mutex);
+
+  return rc;
+}
+
+
+/** Execute a workload without appearing to busywait from AmigaOS'
+ *  point of view.
+ *
+ *  Queues the workload to a free worker thread and goes to sleep (the
+ *  AmigaOS way, using Wait()), waiting for a SIGF_SINGLE signal. Once
+ *  woken up, fetch the result of the completed workload and return.
+ *
+ *  @param regs The register set to work on (contains both input and
+ *  output parameters).
+ *
+ *  @param func A function that will be called by the worker thread.
+ *
+ *  @result A copy of regs->d0. pr_Result2 will be set too, if the
+ *  caller was a Process.
+ */
+
+static uae_u32 workload_run(regptr regs, blomcall_func* func) {
+  struct sysresbase* sysresbase = (struct sysresbase*) (uintptr_t) regs->a6;
+  struct execbase*   exec = (struct execbase*) (uintptr_t) BE32(sysresbase->sysbase);
+  struct process*    pr   = (struct process*) (uintptr_t) BE32(exec->thistask);
+
+  clear_signal(exec);
+
+  workload_add(regs, func, pr);
+  
+  do {
+    wait_signal(exec);
+  }
+  while (!workload_get(regs, exec, pr));
+
+  set_io_err(regs->a0, (struct sysresbase*) (uintptr_t) regs->a6);
+
+  return regs->d0;
+}
+
+
+/** The native part of the interrupt handler.
+ *
+ *  Releases the "INT6" signal, which stops arp2sys_hsync_handler()
+ *  from asserting EXTER.
+ *
+ *  arp2sys_arp2_inthandler is a "quick" call, since it's called from
+ *  Exec's interrupt context, which has a rather tiny stack. This *
+ *  implies that it must NOT make any calls back to the m68k *
+ *  emulation.
+ *
+ *  @return A pointer to a Task that should be sent a SIGF_SINGLE
+ *  signal, or NULL if this interrupt was not for us.
+ */
+
+uae_u32
+arp2sys_arp2_inthandler(regptr _regs) REGPARAM;
+
+uae_u32
+REGPARAM2 arp2sys_arp2_inthandler(regptr _regs)
+{
+  uae_u32 rc = 0;
+
+  pthread_mutex_lock(&worker_mutex);
+
+  if (worker_result_ready) {
+    // Release "INT6" signal
+    worker_result_ready = 0;
+
+    // New workloads are added
+    rc = (uae_u32) (uintptr_t) ((struct workload*) workload_ready.head)->owner;
+  }
+
+  pthread_mutex_unlock(&worker_mutex);
+
+  return rc;
+}
+
+
+/**  An AmigaOS wrapper for workload_run().
+  *
+  *  Makes the functionality provied by workload_run available to
+  *  AmigaOS programs. Useful for calling "dlopen'ed" objects or
+  *  for taking advantage of multi-core processors.
+  */
+
+uae_u32
+arp2sys_arp2_run(regptr _regs) REGPARAM;
+
+uae_u32
+REGPARAM2 arp2sys_arp2_run(regptr _regs)
+{
+  regptr ___regs = (regptr) (uintptr_t) _regs->a0;
+  aptr ___native_func = (aptr) (uintptr_t) _regs->a1;
+  uae_u32 rc;
+
+  struct regs regs;
+
+  uae_u32* m68k   = (uae_u32*) ___regs;
+  uae_u32* native = (uae_u32*) &regs;
+
+  int i;
+
+  for (i = 0; i < 16; ++i) {
+    native[i] = BE32(m68k[i]);
+  }
+
+  rc = workload_run(&regs, ___native_func);
+
+  for (i = 0; i < 16; ++i) {
+    m68k[i] = BE32(native[i]);
+  }
+
+  return rc;
+}
+
+
+/*** Unimplemented syscall wrappers ******************************************/
+
 uae_s32
 unimplemented(regptr _regs) REGPARAM;
 
@@ -634,7 +1000,7 @@ REGPARAM2 unimplemented(regptr _regs)
   write_log("Unimplemented arp2-syscall vector called!\n");
 
   errno = ENOSYS;
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return -1;
 }
 
@@ -690,7 +1056,7 @@ REGPARAM2 arp2sys_readahead(regptr _regs)
   uae_u64 ___offset = ((uae_u64) _regs->d1 << 32) | ((uae_u32) _regs->d2);
   uae_u32 ___count = (uae_u32) _regs->d3;
   uae_u32 rc = readahead(___fd, ___offset, ___count);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -705,7 +1071,7 @@ REGPARAM2 arp2sys_readahead(regptr _regs)
 /*   uae_u64 ___to = (uae_u64) _regs->d3; */
 /*   uae_u32 ___flags = (uae_u32) _regs->d5; */
 /*   uae_u32 rc = sync_file_range(___fd, ___from, ___to, ___flags); */
-/*   set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+/*   _regs->a0 = errno;
   return rc;
 } */
 
@@ -720,7 +1086,7 @@ REGPARAM2 arp2sys_readahead(regptr _regs)
 /*   uae_u32 ___count = (uae_u32) _regs->d1; */
 /*   uae_u32 ___flags = (uae_u32) _regs->d2; */
 /*   uae_u32 rc = vmsplice(___fdout, ___iov, ___count, ___flags); */
-/*   set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+/*   _regs->a0 = errno;
   return rc;
 } */
 
@@ -737,7 +1103,7 @@ REGPARAM2 arp2sys_readahead(regptr _regs)
 /*   uae_u32 ___len = (uae_u32) _regs->d2; */
 /*   uae_u32 ___flags = (uae_u32) _regs->d3; */
 /*   uae_u32 rc = splice(___fdin, ___offin, ___fdout, ___offout, ___len, ___flags); */
-/*   set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+/*   _regs->a0 = errno;
   return rc;
 } */
 
@@ -752,7 +1118,7 @@ REGPARAM2 arp2sys_readahead(regptr _regs)
 /*   uae_u32 ___len = (uae_u32) _regs->d2; */
 /*   uae_u32 ___flags = (uae_u32) _regs->d3; */
 /*   uae_u32 rc = tee(___fdin, ___fdout, ___len, ___flags); */
-/*   set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+/*   _regs->a0 = errno;
   return rc;
 } */
 
@@ -766,7 +1132,7 @@ REGPARAM2 arp2sys_fcntl(regptr _regs)
   uae_s32 ___cmd = (uae_s32) _regs->d1;
   uae_s32 ___arg = (uae_s32) _regs->a0;
   uae_u32 rc = fcntl(___fd, ___cmd, ___arg);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -780,7 +1146,7 @@ REGPARAM2 arp2sys_open(regptr _regs)
   uae_s32 ___flags = (uae_s32) _regs->d0;
   uae_u32 ___mode = (uae_u32) _regs->d1;
   uae_u32 rc = open(___pathname, ___flags, ___mode);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -795,7 +1161,7 @@ REGPARAM2 arp2sys_open(regptr _regs)
 /*   uae_s32 ___flags = (uae_s32) _regs->d1; */
 /*   uae_u32 ___mode = (uae_u32) _regs->d2; */
 /*   uae_u32 rc = openat(___fd, ___pathname, ___flags, ___mode); */
-/*   set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+/*   _regs->a0 = errno;
   return rc;
 } */
 
@@ -808,7 +1174,7 @@ REGPARAM2 arp2sys_creat(regptr _regs)
   const_strptr ___pathname = (const_strptr) (uintptr_t) _regs->a0;
   uae_u32 ___mode = (uae_u32) _regs->d0;
   uae_u32 rc = creat(___pathname, ___mode);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -823,7 +1189,7 @@ REGPARAM2 arp2sys_posix_fadvise(regptr _regs)
   uae_u64 ___len = (uae_u64) _regs->d3;
   uae_s32 ___advise = (uae_s32) _regs->d5;
   uae_u32 rc = posix_fadvise(___fd, ___offset, ___len, ___advise);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -837,7 +1203,7 @@ REGPARAM2 arp2sys_posix_fallocate(regptr _regs)
   uae_u64 ___offset = (uae_u64) _regs->d1;
   uae_u64 ___len = (uae_u64) _regs->d3;
   uae_u32 rc = posix_fallocate(___fd, ___offset, ___len);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -854,7 +1220,7 @@ REGPARAM2 arp2sys_mq_open(regptr _regs)
 
   GET(mq_attr, ___attr, attr);
   uae_u32 rc = mq_open(___name, ___oflag, ___mode, attr);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -866,7 +1232,7 @@ REGPARAM2 arp2sys_mq_close(regptr _regs)
 {
   arp2_mqd_t ___mqdes = (arp2_mqd_t) _regs->d0;
   uae_u32 rc = mq_close(___mqdes);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -882,7 +1248,7 @@ REGPARAM2 arp2sys_mq_getattr(regptr _regs)
   struct mq_attr mqstat;
   uae_u32 rc = mq_getattr(___mqdes, &mqstat);
   PUT(mq_attr, ___mqstat, mqstat);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -900,7 +1266,7 @@ REGPARAM2 arp2sys_mq_setattr(regptr _regs)
   struct mq_attr omqstat;
   uae_u32 rc = mq_setattr(___mqdes, mqstat, &omqstat);
   PUT(mq_attr, ___omqstat, omqstat);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -912,7 +1278,7 @@ REGPARAM2 arp2sys_mq_unlink(regptr _regs)
 {
   const_strptr ___name = (const_strptr) (uintptr_t) _regs->a0;
   uae_u32 rc = mq_unlink(___name);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -926,7 +1292,7 @@ REGPARAM2 arp2sys_mq_notify(regptr _regs)
   const struct arp2_sigevent* ___notification = (const struct arp2_sigevent*) (uintptr_t) _regs->a0;
   GET(sigevent, ___notification, notification);
   uae_u32 rc = mq_notify(___mqdes, notification);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -946,7 +1312,7 @@ REGPARAM2 arp2sys_mq_receive(regptr _regs)
   if (___msg_prio != NULL) {
     *___msg_prio = BE32(msg_prio);
   }
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -961,7 +1327,7 @@ REGPARAM2 arp2sys_mq_send(regptr _regs)
   uae_u32 ___msg_len = (uae_u32) _regs->d1;
   uae_u32 ___msg_prio = (uae_u32) _regs->d2;
   uae_u32 rc = mq_send(___mqdes, ___msg_ptr, ___msg_len, ___msg_prio);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -983,7 +1349,7 @@ REGPARAM2 arp2sys_mq_timedreceive(regptr _regs)
   if (___msg_prio != NULL) {
     *___msg_prio = BE32(msg_prio);
   }
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -1001,7 +1367,7 @@ REGPARAM2 arp2sys_mq_timedsend(regptr _regs)
 
   GET(timespec, ___abs_timeout, abs_timeout);
   uae_u32 rc = mq_timedsend(___mqdes, ___msg_ptr, ___msg_len, ___msg_prio, abs_timeout);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -1014,7 +1380,7 @@ REGPARAM2 arp2sys_mq_timedsend(regptr _regs)
 /*   struct arp2_pollfd* ___fds = (struct arp2_pollfd*) (uintptr_t) _regs->a0; */
 /*   uae_u32 ___nfds = (uae_u32) _regs->d0; */
 /*   uae_u32 rc = poll(___fds, ___nfds); */
-/*   set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+/*   _regs->a0 = errno;
   return rc;
 } */
 
@@ -1029,7 +1395,7 @@ REGPARAM2 arp2sys_mq_timedsend(regptr _regs)
 /*   const struct arp2_timespec* ___timeout = (const struct arp2_timespec*) (uintptr_t) _regs->a1; */
 /*   const arp2_sigset_t* ___sigmask = (const arp2_sigset_t*) (uintptr_t) _regs->a2; */
 /*   uae_u32 rc = ppoll(___fds, ___nfds, ___timeout, ___sigmask); */
-/*   set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+/*   _regs->a0 = errno;
   return rc;
 } */
 
@@ -1057,7 +1423,7 @@ REGPARAM2 arp2sys_clone(regptr _regs)
 /*     *___ctid = BE32(ctid); */
 /*   } */
 
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -1069,7 +1435,7 @@ REGPARAM2 arp2sys_clone(regptr _regs)
 /* { */
 /*   uae_s32 ___flags = (uae_s32) _regs->d0; */
 /*   uae_u32 rc = unshare(___flags); */
-/*   set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+/*   _regs->a0 = errno;
   return rc;
 } */
 
@@ -1084,7 +1450,7 @@ REGPARAM2 arp2sys_sched_setparam(regptr _regs)
 
   GET(sched_param, ___param, param);
   uae_u32 rc = sched_setparam(___pid, param);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -1100,7 +1466,7 @@ REGPARAM2 arp2sys_sched_getparam(regptr _regs)
   struct sched_param param;
   uae_s32 rc =  sched_getparam(___pid, &param);
   PUT(sched_param, ___param, param);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -1116,7 +1482,7 @@ REGPARAM2 arp2sys_sched_setscheduler(regptr _regs)
 
   GET(sched_param, ___param, param);
   uae_u32 rc = sched_setscheduler(___pid, ___policy, param);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -1128,7 +1494,7 @@ REGPARAM2 arp2sys_sched_getscheduler(regptr _regs)
 {
   arp2_pid_t ___pid = (arp2_pid_t) _regs->d0;
   uae_u32 rc = sched_getscheduler(___pid);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -1139,7 +1505,7 @@ uae_s32
 REGPARAM2 arp2sys_sched_yield(regptr _regs)
 {
   uae_u32 rc = sched_yield();
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -1151,7 +1517,7 @@ REGPARAM2 arp2sys_sched_get_priority_max(regptr _regs)
 {
   uae_s32 ___algorithm = (uae_s32) _regs->d0;
   uae_u32 rc = sched_get_priority_max(___algorithm);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -1163,7 +1529,7 @@ REGPARAM2 arp2sys_sched_get_priority_min(regptr _regs)
 {
   uae_s32 ___algorithm = (uae_s32) _regs->d0;
   uae_u32 rc = sched_get_priority_min(___algorithm);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -1179,7 +1545,7 @@ REGPARAM2 arp2sys_sched_rr_get_interval(regptr _regs)
   struct timespec t;
   uae_u32 rc = sched_rr_get_interval(___pid, &t);
   PUT(timespec, ___t, t);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -1201,7 +1567,7 @@ REGPARAM2 arp2sys_sched_setaffinity(regptr _regs)
     rc = -1;
     errno = EINVAL;
   }
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -1224,7 +1590,7 @@ REGPARAM2 arp2sys_sched_getaffinity(regptr _regs)
     rc = -1;
     errno = EINVAL;
   }
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -1237,7 +1603,7 @@ REGPARAM2 arp2sys_kill(regptr _regs)
   arp2_pid_t ___pid = (arp2_pid_t) _regs->d0;
   uae_s32 ___sig = (uae_s32) _regs->d1;
   uae_u32 rc = kill(___pid, ___sig);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -1250,7 +1616,7 @@ REGPARAM2 arp2sys_killpg(regptr _regs)
   arp2_pid_t ___pgrp = (arp2_pid_t) _regs->d0;
   uae_s32 ___sig = (uae_s32) _regs->d1;
   uae_u32 rc = killpg(___pgrp, ___sig);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -1262,7 +1628,7 @@ REGPARAM2 arp2sys_raise(regptr _regs)
 {
   uae_s32 ___sig = (uae_s32) _regs->d0;
   uae_u32 rc = raise(___sig);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -1279,7 +1645,7 @@ REGPARAM2 arp2sys_sigprocmask(regptr _regs)
   struct sigset oldset;
   uae_u32 rc = sigprocmask(___how, (sigset_t*) set, (sigset_t*) &oldset);
   PUT(sigset, ___oldset, oldset);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -1292,7 +1658,7 @@ REGPARAM2 arp2sys_sigsuspend(regptr _regs)
   const arp2_sigset_t* ___set = (const arp2_sigset_t*) (uintptr_t) _regs->a0;
   GET(sigset, ___set, set);
   uae_u32 rc = sigsuspend((sigset_t*) set);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -1306,7 +1672,7 @@ REGPARAM2 arp2sys_sigsuspend(regptr _regs)
 /*   const struct arp2_sigaction* ___act = (const struct arp2_sigaction*) (uintptr_t) _regs->a0; */
 /*   struct arp2_sigaction* ___oldact = (struct arp2_sigaction*) (uintptr_t) _regs->a1; */
 /*   uae_u32 rc = sigaction(___sig, ___act, ___oldact); */
-/*   set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+/*   _regs->a0 = errno;
   return rc;
 } */
 
@@ -1320,7 +1686,7 @@ REGPARAM2 arp2sys_sigpending(regptr _regs)
   struct sigset set;
   uae_u32 rc = sigpending((sigset_t*) &set);
   PUT(sigset, ___set, set);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -1338,7 +1704,7 @@ REGPARAM2 arp2sys_sigwait(regptr _regs)
   if (___sig != NULL) {
     *___sig = BE32(sig);
   }
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -1354,7 +1720,7 @@ REGPARAM2 arp2sys_sigwaitinfo(regptr _regs)
   struct siginfo info;
   uae_u32 rc = sigwaitinfo((sigset_t*) set, &info);
   PUT(siginfo, ___info, info)
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -1372,7 +1738,7 @@ REGPARAM2 arp2sys_sigtimedwait(regptr _regs)
   struct siginfo info;
   uae_u32 rc = sigtimedwait((sigset_t*) set, &info, timeout);
   PUT(siginfo, ___info, info)
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -1389,7 +1755,7 @@ REGPARAM2 arp2sys_sigqueue(regptr _regs)
   union sigval ___val;
   ___val.sival_ptr = (void*) (uintptr_t) _regs->d2;
   uae_u32 rc = sigqueue(___pid, ___sig, ___val);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -1402,7 +1768,7 @@ REGPARAM2 arp2sys_siginterrupt(regptr _regs)
   uae_s32 ___sig = (uae_s32) _regs->d0;
   uae_s32 ___interrupt = (uae_s32) _regs->d1;
   uae_u32 rc = siginterrupt(___sig, ___interrupt);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -1415,7 +1781,7 @@ REGPARAM2 arp2sys_siginterrupt(regptr _regs)
 /*   const struct arp2_sigaltstack* ___ss = (const struct arp2_sigaltstack*) (uintptr_t) _regs->a0; */
 /*   struct arp2_sigaltstack* ___oss = (struct arp2_sigaltstack*) (uintptr_t) _regs->a1; */
 /*   uae_u32 rc = sigaltstack(___ss, ___oss); */
-/*   set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+/*   _regs->a0 = errno;
   return rc;
 } */
 
@@ -1428,7 +1794,7 @@ REGPARAM2 arp2sys_rename(regptr _regs)
   const_strptr ___old = (const_strptr) (uintptr_t) _regs->a0;
   const_strptr ___new = (const_strptr) (uintptr_t) _regs->a1;
   uae_u32 rc = rename(___old, ___new);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -1443,7 +1809,7 @@ REGPARAM2 arp2sys_rename(regptr _regs)
 /*   uae_s32 ___newfd = (uae_s32) _regs->d1; */
 /*   const_strptr ___new = (const_strptr) (uintptr_t) _regs->a1; */
 /*   uae_u32 rc = renameat(___oldfd, ___old, ___newfd, ___new); */
-/*   set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+/*   _regs->a0 = errno;
   return rc;
 } */
 
@@ -1454,7 +1820,7 @@ arp2_clock_t
 REGPARAM2 arp2sys_clock(regptr _regs)
 {
   uae_u32 rc = clock();
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -1469,7 +1835,7 @@ REGPARAM2 arp2sys_time(regptr _regs)
   if (___time != NULL) {
     *___time = BE32(rc);
   }
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -1486,7 +1852,7 @@ REGPARAM2 arp2sys_nanosleep(regptr _regs)
   struct timespec remaining;
   uae_u32 rc = nanosleep(requested_time, &remaining);
   PUT(timespec, ___remaining, remaining)
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -1502,7 +1868,7 @@ REGPARAM2 arp2sys_clock_getres(regptr _regs)
   struct timespec res;
   uae_u32 rc = clock_getres(___clock_id, &res);
   PUT(timespec, ___res, res);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -1518,7 +1884,7 @@ REGPARAM2 arp2sys_clock_gettime(regptr _regs)
   struct timespec tp;
   uae_u32 rc = clock_gettime(___clock_id, &tp);
   PUT(timespec, ___tp, tp);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -1533,7 +1899,7 @@ REGPARAM2 arp2sys_clock_settime(regptr _regs)
 
   GET(timespec, ___tp, tp);
   uae_u32 rc = clock_settime(___clock_id, tp);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -1552,7 +1918,7 @@ REGPARAM2 arp2sys_clock_nanosleep(regptr _regs)
   struct timespec rem;
   uae_u32 rc = clock_nanosleep(___clock_id, ___flags, req, &rem);
   PUT(timespec, ___rem, rem)
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -1570,7 +1936,7 @@ REGPARAM2 arp2sys_clock_getcpuclockid(regptr _regs)
   if (___clock_id != NULL) {
     *___clock_id = BE32(clock_id);
   }
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -1584,7 +1950,7 @@ REGPARAM2 arp2sys_clock_getcpuclockid(regptr _regs)
 /*   struct arp2_sigevent* ___evp = (struct arp2_sigevent*) (uintptr_t) _regs->a0; */
 /*   arp2_timer_t* ___timerid = (arp2_timer_t*) (uintptr_t) _regs->a1; */
 /*   uae_u32 rc = timer_create(___clock_id, ___evp, ___timerid); */
-/*   set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+/*   _regs->a0 = errno;
   return rc;
 } */
 
@@ -1596,7 +1962,7 @@ REGPARAM2 arp2sys_clock_getcpuclockid(regptr _regs)
 /* { */
 /*   arp2_timer_t ___timerid = (arp2_timer_t) _regs->a0; */
 /*   uae_u32 rc = timer_delete(___timerid); */
-/*   set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+/*   _regs->a0 = errno;
   return rc;
 } */
 
@@ -1611,7 +1977,7 @@ REGPARAM2 arp2sys_clock_getcpuclockid(regptr _regs)
 /*   const struct arp2_itimerspec* ___value = (const struct arp2_itimerspec*) (uintptr_t) _regs->a1; */
 /*   struct arp2_itimerspec* ___ovalue = (struct arp2_itimerspec*) (uintptr_t) _regs->a2; */
 /*   uae_u32 rc = timer_settime(___timerid, ___flags, ___value, ___ovalue); */
-/*   set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+/*   _regs->a0 = errno;
   return rc;
 } */
 
@@ -1624,7 +1990,7 @@ REGPARAM2 arp2sys_clock_getcpuclockid(regptr _regs)
 /*   arp2_timer_t ___timerid = (arp2_timer_t) _regs->a0; */
 /*   struct arp2_itimerspec* ___value = (struct arp2_itimerspec*) (uintptr_t) _regs->a1; */
 /*   uae_u32 rc = timer_gettime(___timerid, ___value); */
-/*   set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+/*   _regs->a0 = errno;
   return rc;
 } */
 
@@ -1636,7 +2002,7 @@ REGPARAM2 arp2sys_clock_getcpuclockid(regptr _regs)
 /* { */
 /*   arp2_timer_t ___timerid = (arp2_timer_t) _regs->a0; */
 /*   uae_u32 rc = timer_getoverrun(___timerid); */
-/*   set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+/*   _regs->a0 = errno;
   return rc;
 } */
 
@@ -1649,7 +2015,7 @@ REGPARAM2 arp2sys_access(regptr _regs)
   const_strptr ___name = (const_strptr) (uintptr_t) _regs->a0;
   uae_s32 ___type = (uae_s32) _regs->d0;
   uae_u32 rc = access(___name, ___type);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -1662,7 +2028,7 @@ REGPARAM2 arp2sys_euidaccess(regptr _regs)
   const_strptr ___name = (const_strptr) (uintptr_t) _regs->a0;
   uae_s32 ___type = (uae_s32) _regs->d0;
   uae_u32 rc = euidaccess(___name, ___type);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -1677,22 +2043,23 @@ REGPARAM2 arp2sys_euidaccess(regptr _regs)
 /*   uae_s32 ___type = (uae_s32) _regs->d1; */
 /*   uae_s32 ___flag = (uae_s32) _regs->d2; */
 /*   uae_u32 rc = faccessat(___fd, ___file, ___type, ___flag); */
-/*   set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+/*   _regs->a0 = errno;
   return rc;
 } */
 
-uae_s64
+uae_s32
 arp2sys_lseek(regptr _regs) REGPARAM;
 
-uae_s64
+uae_s32
 REGPARAM2 arp2sys_lseek(regptr _regs)
 {
   uae_s32 ___fd = (uae_s32) _regs->d0;
   uae_s64 ___offset = ((uae_s64) _regs->d1 << 32) | ((uae_u32) _regs->d2);
   uae_s32 ___whence = (uae_s32) _regs->d3;
-  uae_u32 rc = lseek(___fd, ___offset, ___whence);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
-  return rc;
+  uae_s64 rc = lseek(___fd, ___offset, ___whence);
+  _regs->a0 = errno;
+  _regs->d1 = rc >> 32;
+  return (uae_s32) rc;
 }
 
 uae_s32
@@ -1703,7 +2070,7 @@ REGPARAM2 arp2sys_close(regptr _regs)
 {
   uae_s32 ___fd = (uae_s32) _regs->d0;
   uae_u32 rc = close(___fd);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -1717,7 +2084,7 @@ REGPARAM2 arp2sys_read(regptr _regs)
   aptr ___buf = (aptr) (uintptr_t) _regs->a0;
   uae_u32 ___count = (uae_u32) _regs->d1;
   uae_u32 rc = read(___fd, ___buf, ___count);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -1731,7 +2098,7 @@ REGPARAM2 arp2sys_write(regptr _regs)
   const_aptr ___buf = (const_aptr) (uintptr_t) _regs->a0;
   uae_u32 ___count = (uae_u32) _regs->d1;
   uae_u32 rc = write(___fd, ___buf, ___count);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -1746,7 +2113,7 @@ REGPARAM2 arp2sys_pread(regptr _regs)
   uae_u32 ___nbytes = (uae_u32) _regs->d1;
   uae_u64 ___offset = (uae_u64) _regs->d2;
   uae_u32 rc = pread(___fd, ___buf, ___nbytes, ___offset);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -1761,7 +2128,7 @@ REGPARAM2 arp2sys_pwrite(regptr _regs)
   uae_u32 ___n = (uae_u32) _regs->d1;
   uae_u64 ___offset = (uae_u64) _regs->d2;
   uae_u32 rc = pwrite(___fd, ___buf, ___n, ___offset);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -1777,7 +2144,7 @@ REGPARAM2 arp2sys_pipe(regptr _regs)
   uae_u32 rc = pipe(pipedes);
   ___pipedes[0] = BE32(pipedes[0]);
   ___pipedes[1] = BE32(pipedes[1]);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -1789,7 +2156,7 @@ REGPARAM2 arp2sys_alarm(regptr _regs)
 {
   uae_u32 ___seconds = (uae_u32) _regs->d0;
   uae_u32 rc = alarm(___seconds);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -1801,7 +2168,7 @@ REGPARAM2 arp2sys_sleep(regptr _regs)
 {
   uae_u32 ___seconds = (uae_u32) _regs->d0;
   uae_u32 rc = sleep(___seconds);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -1812,7 +2179,7 @@ uae_s32
 REGPARAM2 arp2sys_pause(regptr _regs)
 {
   uae_u32 rc = pause();
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -1826,7 +2193,7 @@ REGPARAM2 arp2sys_chown(regptr _regs)
   arp2_uid_t ___owner = (arp2_uid_t) _regs->d0;
   arp2_gid_t ___group = (arp2_gid_t) _regs->d1;
   uae_u32 rc = chown(___file, ___owner, ___group);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -1840,7 +2207,7 @@ REGPARAM2 arp2sys_fchown(regptr _regs)
   arp2_uid_t ___owner = (arp2_uid_t) _regs->d1;
   arp2_gid_t ___group = (arp2_gid_t) _regs->d2;
   uae_u32 rc = fchown(___fd, ___owner, ___group);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -1854,7 +2221,7 @@ REGPARAM2 arp2sys_lchown(regptr _regs)
   arp2_uid_t ___owner = (arp2_uid_t) _regs->d0;
   arp2_gid_t ___group = (arp2_gid_t) _regs->d1;
   uae_u32 rc = lchown(___file, ___owner, ___group);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -1870,7 +2237,7 @@ REGPARAM2 arp2sys_lchown(regptr _regs)
 /*   arp2_gid_t ___group = (arp2_gid_t) _regs->d2; */
 /*   uae_s32 ___flag = (uae_s32) _regs->d3; */
 /*   uae_u32 rc = fchownat(___fd, ___file, ___owner, ___group, ___flag); */
-/*   set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+/*   _regs->a0 = errno;
   return rc;
 } */
 
@@ -1882,7 +2249,7 @@ REGPARAM2 arp2sys_chdir(regptr _regs)
 {
   const_strptr ___path = (const_strptr) (uintptr_t) _regs->a0;
   uae_u32 rc = chdir(___path);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -1894,7 +2261,7 @@ REGPARAM2 arp2sys_fchdir(regptr _regs)
 {
   uae_s32 ___fd = (uae_s32) _regs->d0;
   uae_u32 rc = fchdir(___fd);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -1907,7 +2274,7 @@ REGPARAM2 arp2sys_getcwd(regptr _regs)
   strptr ___buf = (strptr) (uintptr_t) _regs->a0;
   uae_u32 ___size = (uae_u32) _regs->d0;
   strptr rc = getcwd(___buf, ___size);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -1919,7 +2286,7 @@ REGPARAM2 arp2sys_dup(regptr _regs)
 {
   uae_s32 ___fd = (uae_s32) _regs->d0;
   uae_u32 rc = dup(___fd);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -1932,7 +2299,7 @@ REGPARAM2 arp2sys_dup2(regptr _regs)
   uae_s32 ___fd = (uae_s32) _regs->d0;
   uae_s32 ___fd2 = (uae_s32) _regs->d1;
   uae_u32 rc = dup2(___fd, ___fd2);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -1958,7 +2325,7 @@ REGPARAM2 arp2sys_execve(regptr _regs)
 
 
   uae_u32 rc = execve(___path, argv, envp);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -1977,7 +2344,7 @@ REGPARAM2 arp2sys_execv(regptr _regs)
   while (na-- >= 0) argv[na] = (char*) (uintptr_t) BE32(___argv[na]);
 
   uae_u32 rc = execv(___path, argv);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -1996,7 +2363,7 @@ REGPARAM2 arp2sys_execvp(regptr _regs)
   while (na-- >= 0) argv[na] = (char*) (uintptr_t) BE32(___argv[na]);
 
   uae_u32 rc = execvp(___file, argv);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2008,7 +2375,7 @@ REGPARAM2 arp2sys_nice(regptr _regs)
 {
   uae_s32 ___inc = (uae_s32) _regs->d0;
   uae_u32 rc = nice(___inc);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2021,7 +2388,7 @@ REGPARAM2 arp2sys_pathconf(regptr _regs)
   const_strptr ___path = (const_strptr) (uintptr_t) _regs->a0;
   uae_s32 ___name = (uae_s32) _regs->d0;
   uae_u32 rc = pathconf(___path, ___name);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2034,7 +2401,7 @@ REGPARAM2 arp2sys_fpathconf(regptr _regs)
   uae_s32 ___fd = (uae_s32) _regs->d0;
   uae_s32 ___name = (uae_s32) _regs->d1;
   uae_u32 rc = fpathconf(___fd, ___name);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2046,7 +2413,7 @@ REGPARAM2 arp2sys_sysconf(regptr _regs)
 {
   uae_s32 ___name = (uae_s32) _regs->d0;
   uae_u32 rc = sysconf(___name);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2060,7 +2427,7 @@ REGPARAM2 arp2sys_confstr(regptr _regs)
   strptr ___buf = (strptr) (uintptr_t) _regs->a0;
   uae_u32 ___len = (uae_u32) _regs->d1;
   uae_u32 rc = confstr(___name, ___buf, ___len);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2071,7 +2438,7 @@ arp2_pid_t
 REGPARAM2 arp2sys_getpid(regptr _regs)
 {
   uae_u32 rc = getpid();
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2082,7 +2449,7 @@ arp2_pid_t
 REGPARAM2 arp2sys_getppid(regptr _regs)
 {
   uae_u32 rc = getppid();
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2093,7 +2460,7 @@ arp2_pid_t
 REGPARAM2 arp2sys_getpgrp(regptr _regs)
 {
   uae_u32 rc = getpgrp();
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2105,7 +2472,7 @@ REGPARAM2 arp2sys_getpgid(regptr _regs)
 {
   arp2_pid_t ___pid = (arp2_pid_t) _regs->d0;
   uae_u32 rc = getpgid(___pid);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2118,7 +2485,7 @@ REGPARAM2 arp2sys_setpgid(regptr _regs)
   arp2_pid_t ___pid = (arp2_pid_t) _regs->d0;
   arp2_pid_t ___pgid = (arp2_pid_t) _regs->d1;
   uae_u32 rc = setpgid(___pid, ___pgid);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2129,7 +2496,7 @@ uae_s32
 REGPARAM2 arp2sys_setpgrp(regptr _regs)
 {
   uae_u32 rc = setpgrp();
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2140,7 +2507,7 @@ arp2_pid_t
 REGPARAM2 arp2sys_setsid(regptr _regs)
 {
   uae_u32 rc = setsid();
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2152,7 +2519,7 @@ REGPARAM2 arp2sys_getsid(regptr _regs)
 {
   arp2_pid_t ___pid = (arp2_pid_t) _regs->d0;
   uae_u32 rc = getsid(___pid);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2163,7 +2530,7 @@ arp2_uid_t
 REGPARAM2 arp2sys_getuid(regptr _regs)
 {
   uae_u32 rc = getuid();
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2174,7 +2541,7 @@ arp2_uid_t
 REGPARAM2 arp2sys_geteuid(regptr _regs)
 {
   uae_u32 rc = geteuid();
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2185,7 +2552,7 @@ arp2_gid_t
 REGPARAM2 arp2sys_getgid(regptr _regs)
 {
   uae_u32 rc = getgid();
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2196,7 +2563,7 @@ arp2_gid_t
 REGPARAM2 arp2sys_getegid(regptr _regs)
 {
   uae_u32 rc = getegid();
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2216,7 +2583,7 @@ REGPARAM2 arp2sys_getgroups(regptr _regs)
       ___list[i] = BE32(list[i]);
     }
   }
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2236,7 +2603,7 @@ REGPARAM2 arp2sys_setgroups(regptr _regs)
     }
   }
   uae_u32 rc = setgroups(___n, groups);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2248,7 +2615,7 @@ REGPARAM2 arp2sys_group_member(regptr _regs)
 {
   arp2_gid_t ___gid = (arp2_gid_t) _regs->d0;
   uae_u32 rc = group_member(___gid);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2260,7 +2627,7 @@ REGPARAM2 arp2sys_setuid(regptr _regs)
 {
   arp2_uid_t ___uid = (arp2_uid_t) _regs->d0;
   uae_u32 rc = setuid(___uid);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2273,7 +2640,7 @@ REGPARAM2 arp2sys_setreuid(regptr _regs)
   arp2_uid_t ___ruid = (arp2_uid_t) _regs->d0;
   arp2_uid_t ___euid = (arp2_uid_t) _regs->d1;
   uae_u32 rc = setreuid(___ruid, ___euid);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2285,7 +2652,7 @@ REGPARAM2 arp2sys_seteuid(regptr _regs)
 {
   arp2_uid_t ___uid = (arp2_uid_t) _regs->d0;
   uae_u32 rc = seteuid(___uid);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2297,7 +2664,7 @@ REGPARAM2 arp2sys_setgid(regptr _regs)
 {
   arp2_gid_t ___gid = (arp2_gid_t) _regs->d0;
   uae_u32 rc = setgid(___gid);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2310,7 +2677,7 @@ REGPARAM2 arp2sys_setregid(regptr _regs)
   arp2_gid_t ___rgid = (arp2_gid_t) _regs->d0;
   arp2_gid_t ___egid = (arp2_gid_t) _regs->d1;
   uae_u32 rc = setregid(___rgid, ___egid);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2322,7 +2689,7 @@ REGPARAM2 arp2sys_setegid(regptr _regs)
 {
   arp2_gid_t ___gid = (arp2_gid_t) _regs->d0;
   uae_u32 rc = setegid(___gid);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2341,7 +2708,7 @@ REGPARAM2 arp2sys_getresuid(regptr _regs)
   *___ruid = BE32(ruid);
   *___euid = BE32(euid);
   *___suid = BE32(suid);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2360,7 +2727,7 @@ REGPARAM2 arp2sys_getresgid(regptr _regs)
   *___rgid = BE32(rgid);
   *___egid = BE32(egid);
   *___sgid = BE32(sgid);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2374,7 +2741,7 @@ REGPARAM2 arp2sys_setresuid(regptr _regs)
   arp2_uid_t ___euid = (arp2_uid_t) _regs->d1;
   arp2_uid_t ___suid = (arp2_uid_t) _regs->d2;
   uae_u32 rc = setresuid(___ruid, ___euid, ___suid);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2388,7 +2755,7 @@ REGPARAM2 arp2sys_setresgid(regptr _regs)
   arp2_gid_t ___egid = (arp2_gid_t) _regs->d1;
   arp2_gid_t ___sgid = (arp2_gid_t) _regs->d2;
   uae_u32 rc = setresgid(___rgid, ___egid, ___sgid);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2399,7 +2766,7 @@ arp2_pid_t
 REGPARAM2 arp2sys_fork(regptr _regs)
 {
   uae_u32 rc = fork();
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2410,7 +2777,7 @@ arp2_pid_t
 REGPARAM2 arp2sys_vfork(regptr _regs)
 {
   uae_u32 rc = vfork();
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2424,7 +2791,7 @@ REGPARAM2 arp2sys_ttyname_r(regptr _regs)
   strptr ___buf = (strptr) (uintptr_t) _regs->a0;
   uae_u32 ___buflen = (uae_u32) _regs->d1;
   uae_u32 rc = ttyname_r(___fd, ___buf, ___buflen);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2436,7 +2803,7 @@ REGPARAM2 arp2sys_isatty(regptr _regs)
 {
   uae_s32 ___fd = (uae_s32) _regs->d0;
   uae_u32 rc = isatty(___fd);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2449,7 +2816,7 @@ REGPARAM2 arp2sys_link(regptr _regs)
   const_strptr ___from = (const_strptr) (uintptr_t) _regs->a0;
   const_strptr ___to = (const_strptr) (uintptr_t) _regs->a1;
   uae_u32 rc = link(___from, ___to);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2465,7 +2832,7 @@ REGPARAM2 arp2sys_link(regptr _regs)
 /*   const_strptr ___to = (const_strptr) (uintptr_t) _regs->a1; */
 /*   uae_s32 ___flags = (uae_s32) _regs->d2; */
 /*   uae_u32 rc = linkat(___fromfd, ___from, ___tofd, ___to, ___flags); */
-/*   set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+/*   _regs->a0 = errno;
   return rc;
 } */
 
@@ -2478,7 +2845,7 @@ REGPARAM2 arp2sys_symlink(regptr _regs)
   const_strptr ___from = (const_strptr) (uintptr_t) _regs->a0;
   const_strptr ___to = (const_strptr) (uintptr_t) _regs->a1;
   uae_u32 rc = symlink(___from, ___to);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2492,7 +2859,7 @@ REGPARAM2 arp2sys_readlink(regptr _regs)
   strptr ___buf = (strptr) (uintptr_t) _regs->a1;
   uae_u32 ___len = (uae_u32) _regs->d0;
   uae_u32 rc = readlink(___path, ___buf, ___len);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2506,7 +2873,7 @@ REGPARAM2 arp2sys_readlink(regptr _regs)
 /*   uae_s32 ___tofd = (uae_s32) _regs->d0; */
 /*   const_strptr ___to = (const_strptr) (uintptr_t) _regs->a1; */
 /*   uae_u32 rc = symlinkat(___from, ___tofd, ___to); */
-/*   set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+/*   _regs->a0 = errno;
   return rc;
 } */
 
@@ -2521,7 +2888,7 @@ REGPARAM2 arp2sys_readlink(regptr _regs)
 /*   strptr ___buf = (strptr) (uintptr_t) _regs->a1; */
 /*   uae_u32 ___len = (uae_u32) _regs->d1; */
 /*   uae_u32 rc = readlinkat(___fd, ___path, ___buf, ___len); */
-/*   set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+/*   _regs->a0 = errno;
   return rc;
 } */
 
@@ -2533,7 +2900,7 @@ REGPARAM2 arp2sys_unlink(regptr _regs)
 {
   const_strptr ___name = (const_strptr) (uintptr_t) _regs->a0;
   uae_u32 rc = unlink(___name);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2547,7 +2914,7 @@ REGPARAM2 arp2sys_unlink(regptr _regs)
 /*   const_strptr ___name = (const_strptr) (uintptr_t) _regs->a0; */
 /*   uae_s32 ___flag = (uae_s32) _regs->d1; */
 /*   uae_u32 rc = unlinkat(___fd, ___name, ___flag); */
-/*   set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+/*   _regs->a0 = errno;
   return rc;
 } */
 
@@ -2559,7 +2926,7 @@ REGPARAM2 arp2sys_rmdir(regptr _regs)
 {
   const_strptr ___path = (const_strptr) (uintptr_t) _regs->a0;
   uae_u32 rc = rmdir(___path);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2571,7 +2938,7 @@ REGPARAM2 arp2sys_tcgetpgrp(regptr _regs)
 {
   uae_s32 ___fd = (uae_s32) _regs->d0;
   uae_u32 rc = tcgetpgrp(___fd);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2584,7 +2951,7 @@ REGPARAM2 arp2sys_tcsetpgrp(regptr _regs)
   uae_s32 ___fd = (uae_s32) _regs->d0;
   arp2_pid_t ___pgrp_id = (arp2_pid_t) _regs->d1;
   uae_u32 rc = tcsetpgrp(___fd, ___pgrp_id);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2597,7 +2964,7 @@ REGPARAM2 arp2sys_getlogin_r(regptr _regs)
   strptr ___name = (strptr) (uintptr_t) _regs->a0;
   uae_u32 ___name_len = (uae_u32) _regs->d0;
   uae_u32 rc = getlogin_r(___name, ___name_len);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2609,7 +2976,7 @@ REGPARAM2 arp2sys_setlogin(regptr _regs)
 {
   const_strptr ___name = (const_strptr) (uintptr_t) _regs->a0;
   uae_u32 rc = setlogin(___name);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2622,7 +2989,7 @@ REGPARAM2 arp2sys_gethostname(regptr _regs)
   strptr ___name = (strptr) (uintptr_t) _regs->a0;
   uae_u32 ___len = (uae_u32) _regs->d0;
   uae_u32 rc = gethostname(___name, ___len);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2635,7 +3002,7 @@ REGPARAM2 arp2sys_sethostname(regptr _regs)
   const_strptr ___name = (const_strptr) (uintptr_t) _regs->a0;
   uae_u32 ___len = (uae_u32) _regs->d0;
   uae_u32 rc = sethostname(___name, ___len);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2647,7 +3014,7 @@ REGPARAM2 arp2sys_sethostid(regptr _regs)
 {
   uae_s32 ___id = (uae_s32) _regs->d0;
   uae_u32 rc = sethostid(___id);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2660,7 +3027,7 @@ REGPARAM2 arp2sys_getdomainname(regptr _regs)
   strptr ___name = (strptr) (uintptr_t) _regs->a0;
   uae_u32 ___len = (uae_u32) _regs->d0;
   uae_u32 rc = getdomainname(___name, ___len);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2673,7 +3040,7 @@ REGPARAM2 arp2sys_setdomainname(regptr _regs)
   const_strptr ___name = (const_strptr) (uintptr_t) _regs->a0;
   uae_u32 ___len = (uae_u32) _regs->d0;
   uae_u32 rc = setdomainname(___name, ___len);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2684,7 +3051,7 @@ uae_s32
 REGPARAM2 arp2sys_vhangup(regptr _regs)
 {
   uae_u32 rc = vhangup();
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2696,7 +3063,7 @@ REGPARAM2 arp2sys_revoke(regptr _regs)
 {
   const_strptr ___file = (const_strptr) (uintptr_t) _regs->a0;
   uae_u32 rc = revoke(___file);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2712,7 +3079,7 @@ REGPARAM2 arp2sys_profil(regptr _regs)
   uae_u32 ___scale = (uae_u32) _regs->d2;
 #warning There is no way to convert buffer to big-endian!
   uae_u32 rc = profil(___sample_buffer, ___size, ___offset, ___scale);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2724,7 +3091,7 @@ REGPARAM2 arp2sys_acct(regptr _regs)
 {
   const_strptr ___name = (const_strptr) (uintptr_t) _regs->a0;
   uae_u32 rc = acct(___name);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2737,7 +3104,7 @@ REGPARAM2 arp2sys_daemon(regptr _regs)
   uae_s32 ___nochdir = (uae_s32) _regs->d0;
   uae_s32 ___noclose = (uae_s32) _regs->d1;
   uae_u32 rc = daemon(___nochdir, ___noclose);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2749,7 +3116,7 @@ REGPARAM2 arp2sys_chroot(regptr _regs)
 {
   const_strptr ___path = (const_strptr) (uintptr_t) _regs->a0;
   uae_u32 rc = chroot(___path);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2761,7 +3128,7 @@ REGPARAM2 arp2sys_fsync(regptr _regs)
 {
   uae_s32 ___fd = (uae_s32) _regs->d0;
   uae_u32 rc = fsync(___fd);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2772,7 +3139,7 @@ uae_s32
 REGPARAM2 arp2sys_gethostid(regptr _regs)
 {
   uae_u32 rc = gethostid();
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2792,7 +3159,7 @@ uae_s32
 REGPARAM2 arp2sys_getpagesize(regptr _regs)
 {
   uae_u32 rc = getpagesize();
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2803,7 +3170,7 @@ uae_s32
 REGPARAM2 arp2sys_getdtablesize(regptr _regs)
 {
   uae_u32 rc = getdtablesize();
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2816,7 +3183,7 @@ REGPARAM2 arp2sys_truncate(regptr _regs)
   const_strptr ___file = (const_strptr) (uintptr_t) _regs->a0;
   uae_u64 ___length = (uae_u64) _regs->d0;
   uae_u32 rc = truncate(___file, ___length);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2829,7 +3196,7 @@ REGPARAM2 arp2sys_ftruncate(regptr _regs)
   uae_s32 ___fd = (uae_s32) _regs->d0;
   uae_u64 ___length = (uae_u64) _regs->d1;
   uae_u32 rc = ftruncate(___fd, ___length);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2841,14 +3208,14 @@ REGPARAM2 arp2sys_brk(regptr _regs)
 {
   aptr ___end_data_segment = (aptr) (uintptr_t) _regs->a0;
   uae_u32 rc = brk(___end_data_segment);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
-aptr
+aptr32
 arp2sys_sbrk(regptr _regs) REGPARAM;
 
-aptr
+aptr32
 REGPARAM2 arp2sys_sbrk(regptr _regs)
 {
   uae_s32 ___increment = (uae_s32) _regs->d0;
@@ -2857,8 +3224,8 @@ REGPARAM2 arp2sys_sbrk(regptr _regs)
     errno = ENOMEM;
     rc = (aptr) -1;
   }
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
-  return rc;
+  _regs->a0 = errno;
+  return (aptr32) (uintptr_t) rc;
 }
 
 uae_s32
@@ -2871,7 +3238,7 @@ REGPARAM2 arp2sys_lockf(regptr _regs)
   uae_s32 ___cmd = (uae_s32) _regs->d1;
   uae_u64 ___len = (uae_u64) _regs->d2;
   uae_u32 rc = lockf(___fd, ___cmd, ___len);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2883,7 +3250,7 @@ REGPARAM2 arp2sys_fdatasync(regptr _regs)
 {
   uae_s32 ___fildes = (uae_s32) _regs->d0;
   uae_u32 rc = fdatasync(___fildes);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2905,7 +3272,7 @@ REGPARAM2 arp2sys_getdents(regptr _regs)
       i += dirp->d_reclen;
     }
   }
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2920,7 +3287,7 @@ REGPARAM2 arp2sys_utime(regptr _regs)
 
   GET(utimbuf, ___file_times, file_times);
   uae_u32 rc = utime(___file, file_times);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2936,7 +3303,7 @@ REGPARAM2 arp2sys_setxattr(regptr _regs)
   uae_u32 ___size = (uae_u32) _regs->d0;
   uae_s32 ___flags = (uae_s32) _regs->d1;
   uae_u32 rc = setxattr(___path, ___name, ___value, ___size, ___flags);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2952,7 +3319,7 @@ REGPARAM2 arp2sys_lsetxattr(regptr _regs)
   uae_u32 ___size = (uae_u32) _regs->d0;
   uae_s32 ___flags = (uae_s32) _regs->d1;
   uae_u32 rc = lsetxattr(___path, ___name, ___value, ___size, ___flags);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2968,7 +3335,7 @@ REGPARAM2 arp2sys_fsetxattr(regptr _regs)
   uae_u32 ___size = (uae_u32) _regs->d1;
   uae_s32 ___flags = (uae_s32) _regs->d2;
   uae_u32 rc = fsetxattr(___filedes, ___name, ___value, ___size, ___flags);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2983,7 +3350,7 @@ REGPARAM2 arp2sys_getxattr(regptr _regs)
   aptr ___value = (aptr) (uintptr_t) _regs->a2;
   uae_u32 ___size = (uae_u32) _regs->d0;
   uae_u32 rc = getxattr(___path, ___name, ___value, ___size);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -2998,7 +3365,7 @@ REGPARAM2 arp2sys_lgetxattr(regptr _regs)
   aptr ___value = (aptr) (uintptr_t) _regs->a2;
   uae_u32 ___size = (uae_u32) _regs->d0;
   uae_u32 rc = lgetxattr(___path, ___name, ___value, ___size);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -3013,7 +3380,7 @@ REGPARAM2 arp2sys_fgetxattr(regptr _regs)
   aptr ___value = (aptr) (uintptr_t) _regs->a1;
   uae_u32 ___size = (uae_u32) _regs->d1;
   uae_u32 rc = fgetxattr(___filedes, ___name, ___value, ___size);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -3027,7 +3394,7 @@ REGPARAM2 arp2sys_listxattr(regptr _regs)
   strptr ___list = (strptr) (uintptr_t) _regs->a1;
   uae_u32 ___size = (uae_u32) _regs->d0;
   uae_u32 rc = listxattr(___path, ___list, ___size);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -3041,7 +3408,7 @@ REGPARAM2 arp2sys_llistxattr(regptr _regs)
   strptr ___list = (strptr) (uintptr_t) _regs->a1;
   uae_u32 ___size = (uae_u32) _regs->d0;
   uae_u32 rc = llistxattr(___path, ___list, ___size);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -3055,7 +3422,7 @@ REGPARAM2 arp2sys_flistxattr(regptr _regs)
   strptr ___list = (strptr) (uintptr_t) _regs->a0;
   uae_u32 ___size = (uae_u32) _regs->d1;
   uae_u32 rc = flistxattr(___filedes, ___list, ___size);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -3068,7 +3435,7 @@ REGPARAM2 arp2sys_removexattr(regptr _regs)
   const_strptr ___path = (const_strptr) (uintptr_t) _regs->a0;
   const_strptr ___name = (const_strptr) (uintptr_t) _regs->a1;
   uae_u32 rc = removexattr(___path, ___name);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -3081,7 +3448,7 @@ REGPARAM2 arp2sys_lremovexattr(regptr _regs)
   const_strptr ___path = (const_strptr) (uintptr_t) _regs->a0;
   const_strptr ___name = (const_strptr) (uintptr_t) _regs->a1;
   uae_u32 rc = lremovexattr(___path, ___name);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -3094,7 +3461,7 @@ REGPARAM2 arp2sys_fremovexattr(regptr _regs)
   uae_s32 ___filedes = (uae_s32) _regs->d0;
   const_strptr ___name = (const_strptr) (uintptr_t) _regs->a0;
   uae_u32 rc = fremovexattr(___filedes, ___name);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -3106,7 +3473,7 @@ REGPARAM2 arp2sys_epoll_create(regptr _regs)
 {
   uae_s32 ___size = (uae_s32) _regs->d0;
   uae_u32 rc = epoll_create(___size);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -3121,7 +3488,7 @@ REGPARAM2 arp2sys_epoll_create(regptr _regs)
 /*   uae_s32 ___fd = (uae_s32) _regs->d2; */
 /*   struct arp2_epoll_event* ___event = (struct arp2_epoll_event*) (uintptr_t) _regs->a0; */
 /*   uae_u32 rc = epoll_ctl(___epfd, ___op, ___fd, ___event); */
-/*   set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+/*   _regs->a0 = errno;
   return rc;
 } */
 
@@ -3136,7 +3503,7 @@ REGPARAM2 arp2sys_epoll_create(regptr _regs)
 /*   uae_s32 ___maxevents = (uae_s32) _regs->d1; */
 /*   uae_s32 ___timeout = (uae_s32) _regs->d2; */
 /*   uae_u32 rc = epoll_wait(___epfd, ___events, ___maxevents, ___timeout); */
-/*   set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+/*   _regs->a0 = errno;
   return rc;
 } */
 
@@ -3149,7 +3516,7 @@ REGPARAM2 arp2sys_flock(regptr _regs)
   uae_s32 ___fd = (uae_s32) _regs->d0;
   uae_s32 ___operation = (uae_s32) _regs->d1;
   uae_u32 rc = flock(___fd, ___operation);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -3161,7 +3528,7 @@ REGPARAM2 arp2sys_setfsuid(regptr _regs)
 {
   arp2_uid_t ___uid = (arp2_uid_t) _regs->d0;
   uae_u32 rc = setfsuid(___uid);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -3173,7 +3540,7 @@ REGPARAM2 arp2sys_setfsgid(regptr _regs)
 {
   arp2_gid_t ___gid = (arp2_gid_t) _regs->d0;
   uae_u32 rc = setfsgid(___gid);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -3187,7 +3554,7 @@ REGPARAM2 arp2sys_ioperm(regptr _regs)
   uae_u32 ___num = (uae_u32) _regs->d1;
   uae_s32 ___turn_on = (uae_s32) _regs->d2;
   uae_u32 rc = ioperm(___from, ___num, ___turn_on);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -3199,7 +3566,7 @@ REGPARAM2 arp2sys_iopl(regptr _regs)
 {
   uae_s32 ___level = (uae_s32) _regs->d0;
   uae_u32 rc = iopl(___level);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -3213,7 +3580,7 @@ REGPARAM2 arp2sys_ioctl(regptr _regs)
   uae_u32 ___request = (uae_u32) _regs->d1;
   aptr ___arg = (aptr) (uintptr_t) _regs->a0;
   uae_u32 rc = ioctl(___fd, ___request, ___arg);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -3227,14 +3594,14 @@ REGPARAM2 arp2sys_klogctl(regptr _regs)
   strptr ___bufp = (strptr) (uintptr_t) _regs->a0;
   uae_s32 ___len = (uae_s32) _regs->d1;
   uae_u32 rc = klogctl(___type, ___bufp, ___len);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
-aptr
+aptr32
 arp2sys_mmap(regptr _regs) REGPARAM;
 
-aptr
+aptr32
 REGPARAM2 arp2sys_mmap(regptr _regs)
 {
   aptr ___start = (aptr) (uintptr_t) _regs->a0;
@@ -3253,8 +3620,8 @@ REGPARAM2 arp2sys_mmap(regptr _regs)
     errno = ENOMEM;
     rc = MAP_FAILED;
   }
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
-  return rc;
+  _regs->a0 = errno;
+  return (aptr32) (uintptr_t) rc;
 }
 
 uae_s32
@@ -3266,7 +3633,7 @@ REGPARAM2 arp2sys_munmap(regptr _regs)
   aptr ___start = (aptr) (uintptr_t) _regs->a0;
   uae_u32 ___length = (uae_u32) _regs->d0;
   uae_u32 rc = munmap(___start, ___length);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -3280,7 +3647,7 @@ REGPARAM2 arp2sys_mprotect(regptr _regs)
   uae_u32 ___len = (uae_u32) _regs->d0;
   uae_s32 ___prot = (uae_s32) _regs->d1;
   uae_u32 rc = mprotect((void*) ___addr, ___len, ___prot);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -3294,7 +3661,7 @@ REGPARAM2 arp2sys_msync(regptr _regs)
   uae_u32 ___length = (uae_u32) _regs->d0;
   uae_s32 ___flags = (uae_s32) _regs->d1;
   uae_u32 rc = msync(___start, ___length, ___flags);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -3308,7 +3675,7 @@ REGPARAM2 arp2sys_madvise(regptr _regs)
   uae_u32 ___length = (uae_u32) _regs->d0;
   uae_s32 ___advice = (uae_s32) _regs->d1;
   uae_u32 rc = madvise(___start, ___length, ___advice);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -3322,7 +3689,7 @@ REGPARAM2 arp2sys_posix_madvise(regptr _regs)
   uae_u32 ___length = (uae_u32) _regs->d0;
   uae_s32 ___advice = (uae_s32) _regs->d1;
   uae_u32 rc = posix_madvise(___start, ___length, ___advice);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -3335,7 +3702,7 @@ REGPARAM2 arp2sys_mlock(regptr _regs)
   const_aptr ___addr = (const_aptr) (uintptr_t) _regs->a0;
   uae_u32 ___len = (uae_u32) _regs->d0;
   uae_u32 rc = mlock(___addr, ___len);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -3348,7 +3715,7 @@ REGPARAM2 arp2sys_munlock(regptr _regs)
   const_aptr ___addr = (const_aptr) (uintptr_t) _regs->a0;
   uae_u32 ___len = (uae_u32) _regs->d0;
   uae_u32 rc = munlock(___addr, ___len);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -3360,7 +3727,7 @@ REGPARAM2 arp2sys_mlockall(regptr _regs)
 {
   uae_s32 ___flags = (uae_s32) _regs->d0;
   uae_u32 rc = mlockall(___flags);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -3371,7 +3738,7 @@ uae_s32
 REGPARAM2 arp2sys_munlockall(regptr _regs)
 {
   uae_u32 rc = munlockall();
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -3385,14 +3752,14 @@ REGPARAM2 arp2sys_mincore(regptr _regs)
   uae_u32 ___length = (uae_u32) _regs->d0;
   uae_u8* ___vec = (uae_u8*) (uintptr_t) _regs->a1;
   uae_u32 rc = mincore(___start, ___length, ___vec);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
-aptr
+aptr32
 arp2sys_mremap(regptr _regs) REGPARAM;
 
-aptr
+aptr32
 REGPARAM2 arp2sys_mremap(regptr _regs)
 {
   aptr ___old_address = (aptr) (uintptr_t) _regs->a0;
@@ -3405,8 +3772,8 @@ REGPARAM2 arp2sys_mremap(regptr _regs)
     errno = ENOMEM;
     rc = MAP_FAILED;
   }
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
-  return rc;
+  _regs->a0 = errno;
+  return (aptr32) (uintptr_t) rc;
 }
 
 uae_s32
@@ -3421,7 +3788,7 @@ REGPARAM2 arp2sys_remap_file_pages(regptr _regs)
   uae_u32 ___pgoff = (uae_u32) _regs->d2;
   uae_s32 ___flags = (uae_s32) _regs->d3;
   uae_u32 rc = remap_file_pages(___start, ___size, ___prot, ___pgoff, ___flags);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -3435,7 +3802,7 @@ REGPARAM2 arp2sys_shm_open(regptr _regs)
   uae_s32 ___oflag = (uae_s32) _regs->d0;
   arp2_mode_t ___mode = (arp2_mode_t) _regs->d1;
   uae_u32 rc = shm_open(___name, ___oflag, ___mode);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -3447,7 +3814,7 @@ REGPARAM2 arp2sys_shm_unlink(regptr _regs)
 {
   const_strptr ___name = (const_strptr) (uintptr_t) _regs->a0;
   uae_u32 rc = shm_unlink(___name);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -3463,7 +3830,7 @@ REGPARAM2 arp2sys_mount(regptr _regs)
   uae_u32 ___rwflag = (uae_u32) _regs->d0;
   const_aptr ___data = (const_aptr) (uintptr_t) _regs->a3;
   uae_u32 rc = mount(___special_file, ___dir, ___fstype, ___rwflag, ___data);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -3475,7 +3842,7 @@ REGPARAM2 arp2sys_umount(regptr _regs)
 {
   const_strptr ___special_file = (const_strptr) (uintptr_t) _regs->a0;
   uae_u32 rc = umount(___special_file);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -3488,7 +3855,7 @@ REGPARAM2 arp2sys_umount2(regptr _regs)
   const_strptr ___special_file = (const_strptr) (uintptr_t) _regs->a0;
   uae_s32 ___flags = (uae_s32) _regs->d0;
   uae_u32 rc = umount2(___special_file, ___flags);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -3503,7 +3870,7 @@ REGPARAM2 arp2sys_getrlimit(regptr _regs)
   struct rlimit64 rlimits;
   uae_u32 rc = getrlimit64(___resource, &rlimits);
   PUT(rlimit64, ___rlimits, rlimits);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -3517,7 +3884,7 @@ REGPARAM2 arp2sys_setrlimit(regptr _regs)
   const struct arp2_rlimit* ___rlimits = (const struct arp2_rlimit*) (uintptr_t) _regs->a0;
   GET(rlimit64, ___rlimits, rlimits);
   uae_u32 rc = setrlimit64(___resource, rlimits);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -3532,7 +3899,7 @@ REGPARAM2 arp2sys_getrusage(regptr _regs)
   struct rusage usage;
   uae_u32 rc = getrusage(___who, &usage);
   PUT(rusage, ___usage, usage);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -3545,7 +3912,7 @@ REGPARAM2 arp2sys_getpriority(regptr _regs)
   arp2_priority_which_t ___which = (arp2_priority_which_t) _regs->d0;
   arp2_id_t ___who = (arp2_id_t) _regs->d1;
   uae_u32 rc = getpriority(___which, ___who);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -3559,7 +3926,7 @@ REGPARAM2 arp2sys_setpriority(regptr _regs)
   arp2_id_t ___who = (arp2_id_t) _regs->d1;
   uae_s32 ___prio = (uae_s32) _regs->d2;
   uae_u32 rc = setpriority(___which, ___who, ___prio);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -3585,7 +3952,7 @@ REGPARAM2 arp2sys_select(regptr _regs)
   if (___timeout != NULL) {
     COPY_timeval((*timeout), (*___timeout));
   }
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -3609,7 +3976,7 @@ REGPARAM2 arp2sys_pselect(regptr _regs)
 
   uae_u32 rc = pselect(___nfds, (fd_set*) ___readfds, (fd_set*) ___writefds, 
 		       (fd_set*) ___exceptfds, timeout, (sigset_t*) ___sigmask);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -3624,7 +3991,7 @@ REGPARAM2 arp2sys_stat(regptr _regs)
   struct stat64 buf;
   uae_u32 rc = stat64(___path, &buf);
   PUT(stat64, ___buf, buf);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -3639,7 +4006,7 @@ REGPARAM2 arp2sys_fstat(regptr _regs)
   struct stat64 buf;
   uae_u32 rc = fstat64(___fd, &buf);
   PUT(stat64, ___buf, buf);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -3654,7 +4021,7 @@ REGPARAM2 arp2sys_fstat(regptr _regs)
 /*   struct arp2_stat* ___buf = (struct arp2_stat*) (uintptr_t) _regs->a1; */
 /*   uae_s32 ___flag = (uae_s32) _regs->d1; */
 /*   uae_u32 rc = fstatat64(___fd, ___file, ___buf, ___flag); */
-/*   set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+/*   _regs->a0 = errno;
   return rc;
 } */
 
@@ -3669,7 +4036,7 @@ REGPARAM2 arp2sys_lstat(regptr _regs)
   struct stat64 buf;
   uae_u32 rc = lstat64(___path, &buf);
   PUT(stat64, ___buf, buf);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -3682,7 +4049,7 @@ REGPARAM2 arp2sys_chmod(regptr _regs)
   const_strptr ___file = (const_strptr) (uintptr_t) _regs->a0;
   arp2_mode_t ___mode = (arp2_mode_t) _regs->d0;
   uae_u32 rc = chmod(___file, ___mode);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -3695,7 +4062,7 @@ REGPARAM2 arp2sys_lchmod(regptr _regs)
   const_strptr ___file = (const_strptr) (uintptr_t) _regs->a0;
   arp2_mode_t ___mode = (arp2_mode_t) _regs->d0;
   uae_u32 rc = lchmod(___file, ___mode);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -3708,7 +4075,7 @@ REGPARAM2 arp2sys_fchmod(regptr _regs)
   uae_s32 ___fd = (uae_s32) _regs->d0;
   arp2_mode_t ___mode = (arp2_mode_t) _regs->d1;
   uae_u32 rc = fchmod(___fd, ___mode);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -3723,7 +4090,7 @@ REGPARAM2 arp2sys_fchmod(regptr _regs)
 /*   arp2_mode_t ___mode = (arp2_mode_t) _regs->d1; */
 /*   uae_s32 ___flag = (uae_s32) _regs->d2; */
 /*   uae_u32 rc = fchmodat(___fd, ___file, ___mode, ___flag); */
-/*   set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+/*   _regs->a0 = errno;
   return rc;
 } */
 
@@ -3735,7 +4102,7 @@ REGPARAM2 arp2sys_umask(regptr _regs)
 {
   arp2_mode_t ___mask = (arp2_mode_t) _regs->d0;
   uae_u32 rc = umask(___mask);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -3750,7 +4117,7 @@ REGPARAM2 arp2sys_getumask(regptr _regs)
   arp2_mode_t mask = umask(0);
   umask(mask);
   uae_u32 rc = mask;
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -3763,7 +4130,7 @@ REGPARAM2 arp2sys_mkdir(regptr _regs)
   const_strptr ___path = (const_strptr) (uintptr_t) _regs->a0;
   arp2_mode_t ___mode = (arp2_mode_t) _regs->d0;
   uae_u32 rc = mkdir(___path, ___mode);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -3777,7 +4144,7 @@ REGPARAM2 arp2sys_mkdir(regptr _regs)
 /*   const_strptr ___path = (const_strptr) (uintptr_t) _regs->a0; */
 /*   arp2_mode_t ___mode = (arp2_mode_t) _regs->d1; */
 /*   uae_u32 rc = mkdirat(___fd, ___path, ___mode); */
-/*   set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+/*   _regs->a0 = errno;
   return rc;
 } */
 
@@ -3791,7 +4158,7 @@ REGPARAM2 arp2sys_mknod(regptr _regs)
   arp2_mode_t ___mode = (arp2_mode_t) _regs->d0;
   arp2_dev_t ___dev = ((arp2_dev_t) _regs->d1 << 32) | ((uae_u32) _regs->d2);
   uae_u32 rc = mknod(___path, ___mode, ___dev);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -3806,7 +4173,7 @@ REGPARAM2 arp2sys_mknod(regptr _regs)
 /*   arp2_mode_t ___mode = (arp2_mode_t) _regs->d1; */
 /*   arp2_dev_t ___dev = ((arp2_dev_t) _regs->d2 << 32) | ((uae_u32) _regs->d3); */
 /*   uae_u32 rc = mknodat(___fd, ___path, ___mode, ___dev); */
-/*   set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+/*   _regs->a0 = errno;
   return rc;
 } */
 
@@ -3819,7 +4186,7 @@ REGPARAM2 arp2sys_mkfifo(regptr _regs)
   const_strptr ___path = (const_strptr) (uintptr_t) _regs->a0;
   arp2_mode_t ___mode = (arp2_mode_t) _regs->d0;
   uae_u32 rc = mkfifo(___path, ___mode);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -3833,7 +4200,7 @@ REGPARAM2 arp2sys_mkfifo(regptr _regs)
 /*   const_strptr ___path = (const_strptr) (uintptr_t) _regs->a0; */
 /*   arp2_mode_t ___mode = (arp2_mode_t) _regs->d1; */
 /*   uae_u32 rc = mkfifoat(___fd, ___path, ___mode); */
-/*   set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+/*   _regs->a0 = errno;
   return rc;
 } */
 
@@ -3848,7 +4215,7 @@ REGPARAM2 arp2sys_statfs(regptr _regs)
   struct statfs64 buf;
   uae_u32 rc = statfs64(___file, &buf);
   PUT(statfs64, ___buf, buf);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -3863,7 +4230,7 @@ REGPARAM2 arp2sys_fstatfs(regptr _regs)
   struct statfs64 buf;
   uae_u32 rc = fstatfs64(___fildes, &buf);
   PUT(statfs64, ___buf, buf);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -3878,7 +4245,7 @@ REGPARAM2 arp2sys_statvfs(regptr _regs)
   struct statvfs64 buf;
   uae_u32 rc = statvfs64(___file, &buf);
   PUT(statvfs64, ___buf, buf);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -3893,7 +4260,7 @@ REGPARAM2 arp2sys_fstatvfs(regptr _regs)
   struct statvfs64 buf;
   uae_u32 rc = fstatvfs64(___fildes, &buf);
   PUT(statvfs64, ___buf, buf);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -3906,7 +4273,7 @@ REGPARAM2 arp2sys_swapon(regptr _regs)
   const_strptr ___path = (const_strptr) (uintptr_t) _regs->a0;
   uae_s32 ___flags = (uae_s32) _regs->d0;
   uae_u32 rc = swapon(___path, ___flags);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -3918,7 +4285,7 @@ REGPARAM2 arp2sys_swapoff(regptr _regs)
 {
   const_strptr ___path = (const_strptr) (uintptr_t) _regs->a0;
   uae_u32 rc = swapoff(___path);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -3932,7 +4299,7 @@ REGPARAM2 arp2sys_sysinfo(regptr _regs)
   struct sysinfo info;
   uae_u32 rc = sysinfo(&info);
   PUT(sysinfo, ___info, info);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -3943,7 +4310,7 @@ uae_s32
 REGPARAM2 arp2sys_get_nprocs_conf(regptr _regs)
 {
   uae_u32 rc = get_nprocs_conf();
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -3954,7 +4321,7 @@ uae_s32
 REGPARAM2 arp2sys_get_nprocs(regptr _regs)
 {
   uae_u32 rc = get_nprocs();
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -3965,7 +4332,7 @@ uae_s32
 REGPARAM2 arp2sys_get_phys_pages(regptr _regs)
 {
   uae_u32 rc = get_phys_pages();
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -3976,7 +4343,7 @@ uae_s32
 REGPARAM2 arp2sys_get_avphys_pages(regptr _regs)
 {
   uae_u32 rc = get_avphys_pages();
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -3992,7 +4359,7 @@ REGPARAM2 arp2sys_gettimeofday(regptr _regs)
   struct timeval tv;
   uae_s32 rc = gettimeofday(&tv, NULL);
   PUT(timeval, ___tv, tv);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -4007,7 +4374,7 @@ REGPARAM2 arp2sys_settimeofday(regptr _regs)
 
   GET(timeval, ___tv, tv);
   uae_u32 rc = settimeofday(tv, NULL);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -4024,7 +4391,7 @@ REGPARAM2 arp2sys_adjtime(regptr _regs)
   struct timeval olddelta;
   uae_u32 rc = adjtime(delta, &olddelta);
   PUT(timeval, ___olddelta, olddelta);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -4040,7 +4407,7 @@ REGPARAM2 arp2sys_getitimer(regptr _regs)
   struct itimerval value;
   uae_u32 rc = getitimer(___which, &value);
   PUT(itimerval, ___value, value);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -4058,7 +4425,7 @@ REGPARAM2 arp2sys_setitimer(regptr _regs)
   struct itimerval old;
   uae_u32 rc = setitimer(___which, new, &old);
   PUT(itimerval, ___old, old);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -4073,7 +4440,7 @@ REGPARAM2 arp2sys_utimes(regptr _regs)
   
   GET(timeval2, ___tvp, tvp);
   uae_u32 rc = utimes(___file, tvp->timeval);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -4088,7 +4455,7 @@ REGPARAM2 arp2sys_lutimes(regptr _regs)
 
   GET(timeval2, ___tvp, tvp);
   uae_u32 rc = lutimes(___file, tvp->timeval);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -4103,7 +4470,7 @@ REGPARAM2 arp2sys_futimes(regptr _regs)
 
   GET(timeval2, ___tvp, tvp);
   uae_u32 rc = futimes(___fd, tvp->timeval);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -4117,7 +4484,7 @@ REGPARAM2 arp2sys_futimes(regptr _regs)
 /*   const_strptr ___file = (const_strptr) (uintptr_t) _regs->a0; */
 /*   const struct arp2_timeval* ___tvp = (const struct arp2_timeval*) (uintptr_t) _regs->a1; */
 /*   uae_u32 rc = futimesat(___fd, ___file, ___tvp); */
-/*   set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+/*   _regs->a0 = errno;
   return rc;
 } */
 
@@ -4131,7 +4498,7 @@ REGPARAM2 arp2sys_times(regptr _regs)
   
   GET(tms, ___buffer, buffer);
   uae_u32 rc = times(buffer);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -4153,7 +4520,7 @@ REGPARAM2 arp2sys_readv(regptr _regs)
   }
 
   uae_u32 rc = readv(___fd, iovec, ___count);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -4175,7 +4542,7 @@ REGPARAM2 arp2sys_writev(regptr _regs)
   }
 
   uae_u32 rc = writev(___fd, iovec, ___count);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -4196,7 +4563,7 @@ REGPARAM2 arp2sys_uname(regptr _regs)
   strcpy((char*) ___name->version, name.version);
   strcpy((char*) ___name->machine, name.machine);
   strcpy((char*) ___name->domainname, name.domainname);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -4212,7 +4579,7 @@ REGPARAM2 arp2sys_wait(regptr _regs)
   if (___stat_loc != NULL) {
     *___stat_loc = BE32(stat_loc);
   }
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -4229,7 +4596,7 @@ REGPARAM2 arp2sys_waitid(regptr _regs)
   struct siginfo infop;
   uae_u32 rc = waitid(___idtype, ___id, &infop, ___options);
   PUT(siginfo, ___infop, infop);
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -4249,7 +4616,7 @@ REGPARAM2 arp2sys_wait3(regptr _regs)
   if (___stat_loc != NULL) {
     *___stat_loc = BE32(stat_loc);
   }
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
@@ -4270,263 +4637,546 @@ REGPARAM2 arp2sys_wait4(regptr _regs)
   if (___stat_loc != NULL) {
     *___stat_loc = BE32(stat_loc);
   }
-  set_io_err((struct sysresbase*) (uintptr_t) _regs->a6);
+  _regs->a0 = errno;
   return rc;
 }
 
 
+/*** Async wrappers **********************************************************/
+
+#define ASYNC_GW(name) \
+  static uae_u32 async_ ## name(regptr regs) REGPARAM;				\
+  static uae_u32 REGPARAM2 gw_ ## name(regptr regs) {				\
+    return workload_run(regs, (blomcall_func*) name);	\
+  }
+
+
+#define DIRECT_GW(name) \
+  static uae_u32 direct_ ## name(regptr regs) REGPARAM;				\
+  static uae_u32 REGPARAM2 gw_ ## name(regptr regs) {				\
+    uae_u32 rc = name(regs);							\
+    set_io_err(regs->a0, (struct sysresbase*) (uintptr_t) regs->a6);		\
+    return rc;									\
+  }
+
+// (The general idea is that function calls that might block should be
+// executed by a worker thread.)
+
+ASYNC_GW(arp2sys_readahead);
+ASYNC_GW(arp2sys_sync_file_range);
+ASYNC_GW(arp2sys_vmsplice);
+ASYNC_GW(arp2sys_splice);
+ASYNC_GW(arp2sys_tee);
+ASYNC_GW(arp2sys_fcntl);
+ASYNC_GW(arp2sys_open);
+ASYNC_GW(arp2sys_openat);
+ASYNC_GW(arp2sys_creat);
+ASYNC_GW(arp2sys_posix_fadvise);
+ASYNC_GW(arp2sys_posix_fallocate);
+ASYNC_GW(arp2sys_mq_open);
+ASYNC_GW(arp2sys_mq_close);
+ASYNC_GW(arp2sys_mq_getattr);
+ASYNC_GW(arp2sys_mq_setattr);
+ASYNC_GW(arp2sys_mq_unlink);
+ASYNC_GW(arp2sys_mq_notify);
+ASYNC_GW(arp2sys_mq_receive);
+ASYNC_GW(arp2sys_mq_send);
+ASYNC_GW(arp2sys_mq_timedreceive);
+ASYNC_GW(arp2sys_mq_timedsend);
+ASYNC_GW(arp2sys_poll);
+ASYNC_GW(arp2sys_ppoll);
+ASYNC_GW(arp2sys_clone);
+ASYNC_GW(arp2sys_unshare);
+DIRECT_GW(arp2sys_sched_setparam);
+DIRECT_GW(arp2sys_sched_getparam);
+DIRECT_GW(arp2sys_sched_setscheduler);
+DIRECT_GW(arp2sys_sched_getscheduler);
+DIRECT_GW(arp2sys_sched_yield);
+DIRECT_GW(arp2sys_sched_get_priority_max);
+DIRECT_GW(arp2sys_sched_get_priority_min);
+DIRECT_GW(arp2sys_sched_rr_get_interval);
+DIRECT_GW(arp2sys_sched_setaffinity);
+DIRECT_GW(arp2sys_sched_getaffinity);
+DIRECT_GW(arp2sys_kill);
+DIRECT_GW(arp2sys_killpg);
+DIRECT_GW(arp2sys_raise);
+DIRECT_GW(arp2sys_sigprocmask);
+DIRECT_GW(arp2sys_sigsuspend);
+DIRECT_GW(arp2sys_sigaction);
+DIRECT_GW(arp2sys_sigpending);
+DIRECT_GW(arp2sys_sigwait);
+DIRECT_GW(arp2sys_sigwaitinfo);
+DIRECT_GW(arp2sys_sigtimedwait);
+DIRECT_GW(arp2sys_sigqueue);
+DIRECT_GW(arp2sys_siginterrupt);
+DIRECT_GW(arp2sys_sigaltstack);
+ASYNC_GW(arp2sys_rename);
+ASYNC_GW(arp2sys_renameat);
+DIRECT_GW(arp2sys_clock);
+DIRECT_GW(arp2sys_time);
+ASYNC_GW(arp2sys_nanosleep);
+DIRECT_GW(arp2sys_clock_getres);
+DIRECT_GW(arp2sys_clock_gettime);
+DIRECT_GW(arp2sys_clock_settime);
+ASYNC_GW(arp2sys_clock_nanosleep);
+DIRECT_GW(arp2sys_clock_getcpuclockid);
+DIRECT_GW(arp2sys_timer_create);
+DIRECT_GW(arp2sys_timer_delete);
+DIRECT_GW(arp2sys_timer_settime);
+DIRECT_GW(arp2sys_timer_gettime);
+DIRECT_GW(arp2sys_timer_getoverrun);
+ASYNC_GW(arp2sys_access);
+ASYNC_GW(arp2sys_euidaccess);
+ASYNC_GW(arp2sys_faccessat);
+ASYNC_GW(arp2sys_lseek);
+ASYNC_GW(arp2sys_close);
+ASYNC_GW(arp2sys_read);
+ASYNC_GW(arp2sys_write);
+ASYNC_GW(arp2sys_pread);
+ASYNC_GW(arp2sys_pwrite);
+DIRECT_GW(arp2sys_pipe);
+DIRECT_GW(arp2sys_alarm);
+ASYNC_GW(arp2sys_sleep);
+ASYNC_GW(arp2sys_pause);
+ASYNC_GW(arp2sys_chown);
+ASYNC_GW(arp2sys_fchown);
+ASYNC_GW(arp2sys_lchown);
+ASYNC_GW(arp2sys_fchownat);
+ASYNC_GW(arp2sys_chdir);
+ASYNC_GW(arp2sys_fchdir);
+ASYNC_GW(arp2sys_getcwd);
+ASYNC_GW(arp2sys_dup);
+ASYNC_GW(arp2sys_dup2);
+ASYNC_GW(arp2sys_execve);
+ASYNC_GW(arp2sys_execv);
+ASYNC_GW(arp2sys_execvp);
+DIRECT_GW(arp2sys_nice);
+DIRECT_GW(arp2sys_pathconf);
+DIRECT_GW(arp2sys_fpathconf);
+DIRECT_GW(arp2sys_sysconf);
+DIRECT_GW(arp2sys_confstr);
+DIRECT_GW(arp2sys_getpid);
+DIRECT_GW(arp2sys_getppid);
+DIRECT_GW(arp2sys_getpgrp);
+DIRECT_GW(arp2sys_getpgid);
+DIRECT_GW(arp2sys_setpgid);
+DIRECT_GW(arp2sys_setpgrp);
+DIRECT_GW(arp2sys_setsid);
+DIRECT_GW(arp2sys_getsid);
+DIRECT_GW(arp2sys_getuid);
+DIRECT_GW(arp2sys_geteuid);
+DIRECT_GW(arp2sys_getgid);
+DIRECT_GW(arp2sys_getegid);
+DIRECT_GW(arp2sys_getgroups);
+DIRECT_GW(arp2sys_setgroups);
+DIRECT_GW(arp2sys_group_member);
+DIRECT_GW(arp2sys_setuid);
+DIRECT_GW(arp2sys_setreuid);
+DIRECT_GW(arp2sys_seteuid);
+DIRECT_GW(arp2sys_setgid);
+DIRECT_GW(arp2sys_setregid);
+DIRECT_GW(arp2sys_setegid);
+DIRECT_GW(arp2sys_getresuid);
+DIRECT_GW(arp2sys_getresgid);
+DIRECT_GW(arp2sys_setresuid);
+DIRECT_GW(arp2sys_setresgid);
+DIRECT_GW(arp2sys_fork);
+DIRECT_GW(arp2sys_vfork);
+DIRECT_GW(arp2sys_ttyname_r);
+DIRECT_GW(arp2sys_isatty);
+ASYNC_GW(arp2sys_link);
+ASYNC_GW(arp2sys_linkat);
+ASYNC_GW(arp2sys_symlink);
+ASYNC_GW(arp2sys_readlink);
+ASYNC_GW(arp2sys_symlinkat);
+ASYNC_GW(arp2sys_readlinkat);
+ASYNC_GW(arp2sys_unlink);
+ASYNC_GW(arp2sys_unlinkat);
+ASYNC_GW(arp2sys_rmdir);
+DIRECT_GW(arp2sys_tcgetpgrp);
+DIRECT_GW(arp2sys_tcsetpgrp);
+DIRECT_GW(arp2sys_getlogin_r);
+DIRECT_GW(arp2sys_setlogin);
+DIRECT_GW(arp2sys_gethostname);
+DIRECT_GW(arp2sys_sethostname);
+DIRECT_GW(arp2sys_sethostid);
+DIRECT_GW(arp2sys_getdomainname);
+DIRECT_GW(arp2sys_setdomainname);
+DIRECT_GW(arp2sys_vhangup);
+DIRECT_GW(arp2sys_revoke);
+DIRECT_GW(arp2sys_profil);
+DIRECT_GW(arp2sys_acct);
+DIRECT_GW(arp2sys_daemon);
+ASYNC_GW(arp2sys_chroot);
+ASYNC_GW(arp2sys_fsync);
+DIRECT_GW(arp2sys_gethostid);
+ASYNC_GW(arp2sys_sync);
+DIRECT_GW(arp2sys_getpagesize);
+DIRECT_GW(arp2sys_getdtablesize);
+ASYNC_GW(arp2sys_truncate);
+ASYNC_GW(arp2sys_ftruncate);
+DIRECT_GW(arp2sys_brk);
+DIRECT_GW(arp2sys_sbrk);
+ASYNC_GW(arp2sys_lockf);
+ASYNC_GW(arp2sys_fdatasync);
+ASYNC_GW(arp2sys_getdents);
+ASYNC_GW(arp2sys_utime);
+ASYNC_GW(arp2sys_setxattr);
+ASYNC_GW(arp2sys_lsetxattr);
+ASYNC_GW(arp2sys_fsetxattr);
+ASYNC_GW(arp2sys_getxattr);
+ASYNC_GW(arp2sys_lgetxattr);
+ASYNC_GW(arp2sys_fgetxattr);
+ASYNC_GW(arp2sys_listxattr);
+ASYNC_GW(arp2sys_llistxattr);
+ASYNC_GW(arp2sys_flistxattr);
+ASYNC_GW(arp2sys_removexattr);
+ASYNC_GW(arp2sys_lremovexattr);
+ASYNC_GW(arp2sys_fremovexattr);
+ASYNC_GW(arp2sys_epoll_create);
+ASYNC_GW(arp2sys_epoll_ctl);
+ASYNC_GW(arp2sys_epoll_wait);
+ASYNC_GW(arp2sys_flock);
+DIRECT_GW(arp2sys_setfsuid);
+DIRECT_GW(arp2sys_setfsgid);
+DIRECT_GW(arp2sys_ioperm);
+DIRECT_GW(arp2sys_iopl);
+ASYNC_GW(arp2sys_ioctl);
+ASYNC_GW(arp2sys_klogctl);
+ASYNC_GW(arp2sys_mmap);
+ASYNC_GW(arp2sys_munmap);
+ASYNC_GW(arp2sys_mprotect);
+ASYNC_GW(arp2sys_msync);
+ASYNC_GW(arp2sys_madvise);
+ASYNC_GW(arp2sys_posix_madvise);
+ASYNC_GW(arp2sys_mlock);
+ASYNC_GW(arp2sys_munlock);
+ASYNC_GW(arp2sys_mlockall);
+ASYNC_GW(arp2sys_munlockall);
+ASYNC_GW(arp2sys_mincore);
+ASYNC_GW(arp2sys_mremap);
+ASYNC_GW(arp2sys_remap_file_pages);
+ASYNC_GW(arp2sys_shm_open);
+ASYNC_GW(arp2sys_shm_unlink);
+ASYNC_GW(arp2sys_mount);
+ASYNC_GW(arp2sys_umount);
+ASYNC_GW(arp2sys_umount2);
+DIRECT_GW(arp2sys_getrlimit);
+DIRECT_GW(arp2sys_setrlimit);
+DIRECT_GW(arp2sys_getrusage);
+DIRECT_GW(arp2sys_getpriority);
+DIRECT_GW(arp2sys_setpriority);
+ASYNC_GW(arp2sys_select);
+ASYNC_GW(arp2sys_pselect);
+ASYNC_GW(arp2sys_stat);
+ASYNC_GW(arp2sys_fstat);
+ASYNC_GW(arp2sys_fstatat);
+ASYNC_GW(arp2sys_lstat);
+ASYNC_GW(arp2sys_chmod);
+ASYNC_GW(arp2sys_lchmod);
+ASYNC_GW(arp2sys_fchmod);
+ASYNC_GW(arp2sys_fchmodat);
+ASYNC_GW(arp2sys_umask);
+ASYNC_GW(arp2sys_getumask);
+ASYNC_GW(arp2sys_mkdir);
+ASYNC_GW(arp2sys_mkdirat);
+ASYNC_GW(arp2sys_mknod);
+ASYNC_GW(arp2sys_mknodat);
+ASYNC_GW(arp2sys_mkfifo);
+ASYNC_GW(arp2sys_mkfifoat);
+ASYNC_GW(arp2sys_statfs);
+ASYNC_GW(arp2sys_fstatfs);
+ASYNC_GW(arp2sys_statvfs);
+ASYNC_GW(arp2sys_fstatvfs);
+ASYNC_GW(arp2sys_swapon);
+ASYNC_GW(arp2sys_swapoff);
+DIRECT_GW(arp2sys_sysinfo);
+DIRECT_GW(arp2sys_get_nprocs_conf);
+DIRECT_GW(arp2sys_get_nprocs);
+DIRECT_GW(arp2sys_get_phys_pages);
+DIRECT_GW(arp2sys_get_avphys_pages);
+DIRECT_GW(arp2sys_gettimeofday);
+DIRECT_GW(arp2sys_settimeofday);
+DIRECT_GW(arp2sys_adjtime);
+DIRECT_GW(arp2sys_getitimer);
+DIRECT_GW(arp2sys_setitimer);
+ASYNC_GW(arp2sys_utimes);
+ASYNC_GW(arp2sys_lutimes);
+ASYNC_GW(arp2sys_futimes);
+ASYNC_GW(arp2sys_futimesat);
+DIRECT_GW(arp2sys_times);
+ASYNC_GW(arp2sys_readv);
+ASYNC_GW(arp2sys_writev);
+DIRECT_GW(arp2sys_uname);
+ASYNC_GW(arp2sys_wait);
+ASYNC_GW(arp2sys_waitid);
+ASYNC_GW(arp2sys_wait3);
+ASYNC_GW(arp2sys_wait4);
+
+
 /*** A NULL-terminated array of function pointers to the syscall wrappers ****/
 
-void* const arp2sys_functions[251] = {
-  arp2sys_sync_file_range,
-  arp2sys_vmsplice,
-  arp2sys_splice,
-  arp2sys_tee,
-  arp2sys_fcntl,
-  arp2sys_open,
-  arp2sys_openat,
-  arp2sys_creat,
-  arp2sys_posix_fadvise,
-  arp2sys_posix_fallocate,
-  arp2sys_mq_open,
-  arp2sys_mq_close,
-  arp2sys_mq_getattr,
-  arp2sys_mq_setattr,
-  arp2sys_mq_unlink,
-  arp2sys_mq_notify,
-  arp2sys_mq_receive,
-  arp2sys_mq_send,
-  arp2sys_mq_timedreceive,
-  arp2sys_mq_timedsend,
-  arp2sys_poll,
-  arp2sys_ppoll,
-  arp2sys_clone,
-  arp2sys_unshare,
-  arp2sys_sched_setparam,
-  arp2sys_sched_getparam,
-  arp2sys_sched_setscheduler,
-  arp2sys_sched_getscheduler,
-  arp2sys_sched_yield,
-  arp2sys_sched_get_priority_max,
-  arp2sys_sched_get_priority_min,
-  arp2sys_sched_rr_get_interval,
-  arp2sys_sched_setaffinity,
-  arp2sys_sched_getaffinity,
-  arp2sys_kill,
-  arp2sys_killpg,
-  arp2sys_raise,
-  arp2sys_sigprocmask,
-  arp2sys_sigsuspend,
-  arp2sys_sigaction,
-  arp2sys_sigpending,
-  arp2sys_sigwait,
-  arp2sys_sigwaitinfo,
-  arp2sys_sigtimedwait,
-  arp2sys_sigqueue,
-  arp2sys_siginterrupt,
-  arp2sys_sigaltstack,
-  arp2sys_rename,
-  arp2sys_renameat,
-  arp2sys_clock,
-  arp2sys_time,
-  arp2sys_nanosleep,
-  arp2sys_clock_getres,
-  arp2sys_clock_gettime,
-  arp2sys_clock_settime,
-  arp2sys_clock_nanosleep,
-  arp2sys_clock_getcpuclockid,
-  arp2sys_timer_create,
-  arp2sys_timer_delete,
-  arp2sys_timer_settime,
-  arp2sys_timer_gettime,
-  arp2sys_timer_getoverrun,
-  arp2sys_access,
-  arp2sys_euidaccess,
-  arp2sys_faccessat,
-  arp2sys_lseek,
-  arp2sys_close,
-  arp2sys_read,
-  arp2sys_write,
-  arp2sys_pread,
-  arp2sys_pwrite,
-  arp2sys_pipe,
-  arp2sys_alarm,
-  arp2sys_sleep,
-  arp2sys_pause,
-  arp2sys_chown,
-  arp2sys_fchown,
-  arp2sys_lchown,
-  arp2sys_fchownat,
-  arp2sys_chdir,
-  arp2sys_fchdir,
-  arp2sys_getcwd,
-  arp2sys_dup,
-  arp2sys_dup2,
-  arp2sys_execve,
-  arp2sys_execv,
-  arp2sys_execvp,
-  arp2sys_nice,
-  arp2sys_pathconf,
-  arp2sys_fpathconf,
-  arp2sys_sysconf,
-  arp2sys_confstr,
-  arp2sys_getpid,
-  arp2sys_getppid,
-  arp2sys_getpgrp,
-  arp2sys_getpgid,
-  arp2sys_setpgid,
-  arp2sys_setpgrp,
-  arp2sys_setsid,
-  arp2sys_getsid,
-  arp2sys_getuid,
-  arp2sys_geteuid,
-  arp2sys_getgid,
-  arp2sys_getegid,
-  arp2sys_getgroups,
-  arp2sys_setgroups,
-  arp2sys_group_member,
-  arp2sys_setuid,
-  arp2sys_setreuid,
-  arp2sys_seteuid,
-  arp2sys_setgid,
-  arp2sys_setregid,
-  arp2sys_setegid,
-  arp2sys_getresuid,
-  arp2sys_getresgid,
-  arp2sys_setresuid,
-  arp2sys_setresgid,
-  arp2sys_fork,
-  arp2sys_vfork,
-  arp2sys_ttyname_r,
-  arp2sys_isatty,
-  arp2sys_link,
-  arp2sys_linkat,
-  arp2sys_symlink,
-  arp2sys_readlink,
-  arp2sys_symlinkat,
-  arp2sys_readlinkat,
-  arp2sys_unlink,
-  arp2sys_unlinkat,
-  arp2sys_rmdir,
-  arp2sys_tcgetpgrp,
-  arp2sys_tcsetpgrp,
-  arp2sys_getlogin_r,
-  arp2sys_setlogin,
-  arp2sys_gethostname,
-  arp2sys_sethostname,
-  arp2sys_sethostid,
-  arp2sys_getdomainname,
-  arp2sys_setdomainname,
-  arp2sys_vhangup,
-  arp2sys_revoke,
-  arp2sys_profil,
-  arp2sys_acct,
-  arp2sys_daemon,
-  arp2sys_chroot,
-  arp2sys_fsync,
-  arp2sys_gethostid,
-  arp2sys_sync,
-  arp2sys_getpagesize,
-  arp2sys_getdtablesize,
-  arp2sys_truncate,
-  arp2sys_ftruncate,
-  arp2sys_brk,
-  arp2sys_sbrk,
-  arp2sys_lockf,
-  arp2sys_fdatasync,
-  arp2sys_getdents,
-  arp2sys_utime,
-  arp2sys_setxattr,
-  arp2sys_lsetxattr,
-  arp2sys_fsetxattr,
-  arp2sys_getxattr,
-  arp2sys_lgetxattr,
-  arp2sys_fgetxattr,
-  arp2sys_listxattr,
-  arp2sys_llistxattr,
-  arp2sys_flistxattr,
-  arp2sys_removexattr,
-  arp2sys_lremovexattr,
-  arp2sys_fremovexattr,
-  arp2sys_epoll_create,
-  arp2sys_epoll_ctl,
-  arp2sys_epoll_wait,
-  arp2sys_flock,
-  arp2sys_setfsuid,
-  arp2sys_setfsgid,
-  arp2sys_ioperm,
-  arp2sys_iopl,
-  arp2sys_ioctl,
-  arp2sys_klogctl,
-  arp2sys_mmap,
-  arp2sys_munmap,
-  arp2sys_mprotect,
-  arp2sys_msync,
-  arp2sys_madvise,
-  arp2sys_posix_madvise,
-  arp2sys_mlock,
-  arp2sys_munlock,
-  arp2sys_mlockall,
-  arp2sys_munlockall,
-  arp2sys_mincore,
-  arp2sys_mremap,
-  arp2sys_remap_file_pages,
-  arp2sys_shm_open,
-  arp2sys_shm_unlink,
-  arp2sys_mount,
-  arp2sys_umount,
-  arp2sys_umount2,
-  arp2sys_getrlimit,
-  arp2sys_setrlimit,
-  arp2sys_getrusage,
-  arp2sys_getpriority,
-  arp2sys_setpriority,
-  arp2sys_select,
-  arp2sys_pselect,
-  arp2sys_stat,
-  arp2sys_fstat,
-  arp2sys_fstatat,
-  arp2sys_lstat,
-  arp2sys_chmod,
-  arp2sys_lchmod,
-  arp2sys_fchmod,
-  arp2sys_fchmodat,
-  arp2sys_umask,
-  arp2sys_getumask,
-  arp2sys_mkdir,
-  arp2sys_mkdirat,
-  arp2sys_mknod,
-  arp2sys_mknodat,
-  arp2sys_mkfifo,
-  arp2sys_mkfifoat,
-  arp2sys_statfs,
-  arp2sys_fstatfs,
-  arp2sys_statvfs,
-  arp2sys_fstatvfs,
-  arp2sys_swapon,
-  arp2sys_swapoff,
-  arp2sys_sysinfo,
-  arp2sys_get_nprocs_conf,
-  arp2sys_get_nprocs,
-  arp2sys_get_phys_pages,
-  arp2sys_get_avphys_pages,
-  arp2sys_gettimeofday,
-  arp2sys_settimeofday,
-  arp2sys_adjtime,
-  arp2sys_getitimer,
-  arp2sys_setitimer,
-  arp2sys_utimes,
-  arp2sys_lutimes,
-  arp2sys_futimes,
-  arp2sys_futimesat,
-  arp2sys_times,
-  arp2sys_readv,
-  arp2sys_writev,
-  arp2sys_uname,
-  arp2sys_wait,
-  arp2sys_waitid,
-  arp2sys_wait3,
-  arp2sys_wait4,
+void* const arp2sys_functions[260+1] = {
+  arp2sys_arp2_inthandler + 1, // signal quick call
+  arp2sys_arp2_run,
+  unimplemented,
+  unimplemented,
+  unimplemented,
+  unimplemented,
+  unimplemented,
+  unimplemented,
+  unimplemented,
+  unimplemented,
+  gw_arp2sys_readahead,
+  gw_arp2sys_sync_file_range,
+  gw_arp2sys_vmsplice,
+  gw_arp2sys_splice,
+  gw_arp2sys_tee,
+  gw_arp2sys_fcntl,
+  gw_arp2sys_open,
+  gw_arp2sys_openat,
+  gw_arp2sys_creat,
+  gw_arp2sys_posix_fadvise,
+  gw_arp2sys_posix_fallocate,
+  gw_arp2sys_mq_open,
+  gw_arp2sys_mq_close,
+  gw_arp2sys_mq_getattr,
+  gw_arp2sys_mq_setattr,
+  gw_arp2sys_mq_unlink,
+  gw_arp2sys_mq_notify,
+  gw_arp2sys_mq_receive,
+  gw_arp2sys_mq_send,
+  gw_arp2sys_mq_timedreceive,
+  gw_arp2sys_mq_timedsend,
+  gw_arp2sys_poll,
+  gw_arp2sys_ppoll,
+  gw_arp2sys_clone,
+  gw_arp2sys_unshare,
+  gw_arp2sys_sched_setparam,
+  gw_arp2sys_sched_getparam,
+  gw_arp2sys_sched_setscheduler,
+  gw_arp2sys_sched_getscheduler,
+  gw_arp2sys_sched_yield,
+  gw_arp2sys_sched_get_priority_max,
+  gw_arp2sys_sched_get_priority_min,
+  gw_arp2sys_sched_rr_get_interval,
+  gw_arp2sys_sched_setaffinity,
+  gw_arp2sys_sched_getaffinity,
+  gw_arp2sys_kill,
+  gw_arp2sys_killpg,
+  gw_arp2sys_raise,
+  gw_arp2sys_sigprocmask,
+  gw_arp2sys_sigsuspend,
+  gw_arp2sys_sigaction,
+  gw_arp2sys_sigpending,
+  gw_arp2sys_sigwait,
+  gw_arp2sys_sigwaitinfo,
+  gw_arp2sys_sigtimedwait,
+  gw_arp2sys_sigqueue,
+  gw_arp2sys_siginterrupt,
+  gw_arp2sys_sigaltstack,
+  gw_arp2sys_rename,
+  gw_arp2sys_renameat,
+  gw_arp2sys_clock,
+  gw_arp2sys_time,
+  gw_arp2sys_nanosleep,
+  gw_arp2sys_clock_getres,
+  gw_arp2sys_clock_gettime,
+  gw_arp2sys_clock_settime,
+  gw_arp2sys_clock_nanosleep,
+  gw_arp2sys_clock_getcpuclockid,
+  gw_arp2sys_timer_create,
+  gw_arp2sys_timer_delete,
+  gw_arp2sys_timer_settime,
+  gw_arp2sys_timer_gettime,
+  gw_arp2sys_timer_getoverrun,
+  gw_arp2sys_access,
+  gw_arp2sys_euidaccess,
+  gw_arp2sys_faccessat,
+  gw_arp2sys_lseek,
+  gw_arp2sys_close,
+  gw_arp2sys_read,
+  gw_arp2sys_write,
+  gw_arp2sys_pread,
+  gw_arp2sys_pwrite,
+  gw_arp2sys_pipe,
+  gw_arp2sys_alarm,
+  gw_arp2sys_sleep,
+  gw_arp2sys_pause,
+  gw_arp2sys_chown,
+  gw_arp2sys_fchown,
+  gw_arp2sys_lchown,
+  gw_arp2sys_fchownat,
+  gw_arp2sys_chdir,
+  gw_arp2sys_fchdir,
+  gw_arp2sys_getcwd,
+  gw_arp2sys_dup,
+  gw_arp2sys_dup2,
+  gw_arp2sys_execve,
+  gw_arp2sys_execv,
+  gw_arp2sys_execvp,
+  gw_arp2sys_nice,
+  gw_arp2sys_pathconf,
+  gw_arp2sys_fpathconf,
+  gw_arp2sys_sysconf,
+  gw_arp2sys_confstr,
+  gw_arp2sys_getpid,
+  gw_arp2sys_getppid,
+  gw_arp2sys_getpgrp,
+  gw_arp2sys_getpgid,
+  gw_arp2sys_setpgid,
+  gw_arp2sys_setpgrp,
+  gw_arp2sys_setsid,
+  gw_arp2sys_getsid,
+  gw_arp2sys_getuid,
+  gw_arp2sys_geteuid,
+  gw_arp2sys_getgid,
+  gw_arp2sys_getegid,
+  gw_arp2sys_getgroups,
+  gw_arp2sys_setgroups,
+  gw_arp2sys_group_member,
+  gw_arp2sys_setuid,
+  gw_arp2sys_setreuid,
+  gw_arp2sys_seteuid,
+  gw_arp2sys_setgid,
+  gw_arp2sys_setregid,
+  gw_arp2sys_setegid,
+  gw_arp2sys_getresuid,
+  gw_arp2sys_getresgid,
+  gw_arp2sys_setresuid,
+  gw_arp2sys_setresgid,
+  gw_arp2sys_fork,
+  gw_arp2sys_vfork,
+  gw_arp2sys_ttyname_r,
+  gw_arp2sys_isatty,
+  gw_arp2sys_link,
+  gw_arp2sys_linkat,
+  gw_arp2sys_symlink,
+  gw_arp2sys_readlink,
+  gw_arp2sys_symlinkat,
+  gw_arp2sys_readlinkat,
+  gw_arp2sys_unlink,
+  gw_arp2sys_unlinkat,
+  gw_arp2sys_rmdir,
+  gw_arp2sys_tcgetpgrp,
+  gw_arp2sys_tcsetpgrp,
+  gw_arp2sys_getlogin_r,
+  gw_arp2sys_setlogin,
+  gw_arp2sys_gethostname,
+  gw_arp2sys_sethostname,
+  gw_arp2sys_sethostid,
+  gw_arp2sys_getdomainname,
+  gw_arp2sys_setdomainname,
+  gw_arp2sys_vhangup,
+  gw_arp2sys_revoke,
+  gw_arp2sys_profil,
+  gw_arp2sys_acct,
+  gw_arp2sys_daemon,
+  gw_arp2sys_chroot,
+  gw_arp2sys_fsync,
+  gw_arp2sys_gethostid,
+  gw_arp2sys_sync,
+  gw_arp2sys_getpagesize,
+  gw_arp2sys_getdtablesize,
+  gw_arp2sys_truncate,
+  gw_arp2sys_ftruncate,
+  gw_arp2sys_brk,
+  gw_arp2sys_sbrk,
+  gw_arp2sys_lockf,
+  gw_arp2sys_fdatasync,
+  gw_arp2sys_getdents,
+  gw_arp2sys_utime,
+  gw_arp2sys_setxattr,
+  gw_arp2sys_lsetxattr,
+  gw_arp2sys_fsetxattr,
+  gw_arp2sys_getxattr,
+  gw_arp2sys_lgetxattr,
+  gw_arp2sys_fgetxattr,
+  gw_arp2sys_listxattr,
+  gw_arp2sys_llistxattr,
+  gw_arp2sys_flistxattr,
+  gw_arp2sys_removexattr,
+  gw_arp2sys_lremovexattr,
+  gw_arp2sys_fremovexattr,
+  gw_arp2sys_epoll_create,
+  gw_arp2sys_epoll_ctl,
+  gw_arp2sys_epoll_wait,
+  gw_arp2sys_flock,
+  gw_arp2sys_setfsuid,
+  gw_arp2sys_setfsgid,
+  gw_arp2sys_ioperm,
+  gw_arp2sys_iopl,
+  gw_arp2sys_ioctl,
+  gw_arp2sys_klogctl,
+  gw_arp2sys_mmap,
+  gw_arp2sys_munmap,
+  gw_arp2sys_mprotect,
+  gw_arp2sys_msync,
+  gw_arp2sys_madvise,
+  gw_arp2sys_posix_madvise,
+  gw_arp2sys_mlock,
+  gw_arp2sys_munlock,
+  gw_arp2sys_mlockall,
+  gw_arp2sys_munlockall,
+  gw_arp2sys_mincore,
+  gw_arp2sys_mremap,
+  gw_arp2sys_remap_file_pages,
+  gw_arp2sys_shm_open,
+  gw_arp2sys_shm_unlink,
+  gw_arp2sys_mount,
+  gw_arp2sys_umount,
+  gw_arp2sys_umount2,
+  gw_arp2sys_getrlimit,
+  gw_arp2sys_setrlimit,
+  gw_arp2sys_getrusage,
+  gw_arp2sys_getpriority,
+  gw_arp2sys_setpriority,
+  gw_arp2sys_select,
+  gw_arp2sys_pselect,
+  gw_arp2sys_stat,
+  gw_arp2sys_fstat,
+  gw_arp2sys_fstatat,
+  gw_arp2sys_lstat,
+  gw_arp2sys_chmod,
+  gw_arp2sys_lchmod,
+  gw_arp2sys_fchmod,
+  gw_arp2sys_fchmodat,
+  gw_arp2sys_umask,
+  gw_arp2sys_getumask,
+  gw_arp2sys_mkdir,
+  gw_arp2sys_mkdirat,
+  gw_arp2sys_mknod,
+  gw_arp2sys_mknodat,
+  gw_arp2sys_mkfifo,
+  gw_arp2sys_mkfifoat,
+  gw_arp2sys_statfs,
+  gw_arp2sys_fstatfs,
+  gw_arp2sys_statvfs,
+  gw_arp2sys_fstatvfs,
+  gw_arp2sys_swapon,
+  gw_arp2sys_swapoff,
+  gw_arp2sys_sysinfo,
+  gw_arp2sys_get_nprocs_conf,
+  gw_arp2sys_get_nprocs,
+  gw_arp2sys_get_phys_pages,
+  gw_arp2sys_get_avphys_pages,
+  gw_arp2sys_gettimeofday,
+  gw_arp2sys_settimeofday,
+  gw_arp2sys_adjtime,
+  gw_arp2sys_getitimer,
+  gw_arp2sys_setitimer,
+  gw_arp2sys_utimes,
+  gw_arp2sys_lutimes,
+  gw_arp2sys_futimes,
+  gw_arp2sys_futimesat,
+  gw_arp2sys_times,
+  gw_arp2sys_readv,
+  gw_arp2sys_writev,
+  gw_arp2sys_uname,
+  gw_arp2sys_wait,
+  gw_arp2sys_waitid,
+  gw_arp2sys_wait3,
+  gw_arp2sys_wait4,
   NULL
 };
 
@@ -4534,6 +5184,12 @@ void* const arp2sys_functions[251] = {
 /*** Initialization and patching code ****************************************/
 
 int arp2sys_init(void) {
+  list_new(&worker_threads);
+  list_new(&workload_waiting);
+  list_new(&workload_processing);
+  list_new(&workload_ready);
+  list_new(&workload_done);
+
   return 1;
 }
 
@@ -4565,6 +5221,14 @@ int arp2sys_reset(uae_u8* arp2rom) {
 
 void arp2sys_free(void) {
   // Do what?
+}
+
+void arp2sys_hsync_handler(void) {
+  // Should not require mutex protection
+  if (worker_result_ready) {
+    // Assert EXTER while "INT6" signal is active
+    INTREQ(INTF_SETCLR | INTF_EXTER);
+  }
 }
 
 #endif

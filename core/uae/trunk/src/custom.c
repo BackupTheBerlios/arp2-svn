@@ -58,6 +58,10 @@
 #endif
 #include "hrtimer.h"
 
+#ifdef ARP2ROM
+# include "arp2sys.h"
+#endif
+
 static void uae_abort (const char *format,...)
 {
     va_list parms;
@@ -4296,6 +4300,10 @@ void hsync_handler (void)
     CIA_hsync_handler ();
 #ifdef CD32
     AKIKO_hsync_handler ();
+#endif
+
+#ifdef ARP2ROM
+    arp2sys_hsync_handler();
 #endif
 
 #ifdef PICASSO96
