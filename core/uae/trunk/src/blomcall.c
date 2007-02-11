@@ -38,6 +38,7 @@
 #include "memory.h"
 #include "custom.h"
 #include "newcpu.h"
+#include "machdep/m68kops.h"
 #include "blomcall.h"
 
 #if !defined(NATMEM_OFFSET) || NATMEM_OFFSET != 0
@@ -393,18 +394,18 @@ blomcall_exit: 						\n\
 	jmp	__blomcall_exit				\n\
 ");
 
-void blomcall_exit(uae_u64 rc) REGPARAM;
+void blomcall_exit(uae_u32 rc) REGPARAM;
 
 #else
 # error Unsupported architecture!
 #endif
 
-
-static void __blomcall_exit(uae_u64 rc) REGPARAM;
-static void REGPARAM2 __attribute__((used)) __blomcall_exit(uae_u64 rc)
+static void __blomcall_exit(uae_u32 rc) REGPARAM;
+static void REGPARAM2 __attribute__((used)) __blomcall_exit(uae_u32 rc)
 {
-  m68k_dreg (blomcall_ctx->regs, 0) = (uae_u32) rc;          // eax -> d0
-  m68k_dreg (blomcall_ctx->regs, 1) = (uae_u32) (rc >> 32);  // edx -> d1
+  m68k_dreg (blomcall_ctx->regs, 0) = rc;          // eax -> d0
+  optflag_testl(blomcall_ctx->regs, rc);
+//  SET_ZFLG (&blomcall_ctx->regs->ccrflags, rc == 0);
 
   pthread_sigmask(SIG_BLOCK, &blomcall_usr1sigset, NULL);
   siglongjmp(blomcall_ctx->emuljmp, 1);
@@ -577,7 +578,7 @@ void blomcall_destroy(void) {
 unsigned long REGPARAM2 blomcall_qops (uae_u32 opcode, struct regstruct* regs) {
   uae_u32 rts_pc = get_long(m68k_areg(regs, 7));
   void* newpc = (void*) (uintptr_t) get_long(m68k_getpc(regs) + 2);
-  uae_u64 rc;
+  uae_u32 rc;
 
   // Sanity check
   if (!blomcall_enable) {
@@ -593,7 +594,7 @@ unsigned long REGPARAM2 blomcall_qops (uae_u32 opcode, struct regstruct* regs) {
 		mov   %1,%%esp		\n\
 		call  *%4		\n\
 		mov   %%esi,%%esp"
-		    : "=A" (rc) :
+		    : "=a" (rc) :
 		      "r" /* 1 */ (m68k_areg(regs, 7)),
 		      "a" /* 2 */ (regs->regs),
 		      "d" /* 3 */ (regs->fp),
@@ -606,7 +607,7 @@ unsigned long REGPARAM2 blomcall_qops (uae_u32 opcode, struct regstruct* regs) {
 		mov   %1,%%esp		\n\
 		call  *%4		\n\
 		mov   %%r12,%%rsp"
-		    : "=A" (rc) :
+		    : "=a" (rc) :
 		      "r" /* 1 */ (m68k_areg(regs, 7)),
 		      "D" /* 2 */ (regs->regs),
 		      "S" /* 3 */ (regs->fp),
@@ -619,8 +620,7 @@ unsigned long REGPARAM2 blomcall_qops (uae_u32 opcode, struct regstruct* regs) {
 #endif
 
   if (opcode == OP_BJMPQ) {
-    m68k_dreg (regs, 0) = (uae_u32) rc;          // eax -> d0
-    m68k_dreg (regs, 1) = (uae_u32) (rc >> 32);  // edx -> d1
+    m68k_dreg (regs, 0) = rc;          // eax -> d0
   }
 
   m68k_setpc(regs, rts_pc);

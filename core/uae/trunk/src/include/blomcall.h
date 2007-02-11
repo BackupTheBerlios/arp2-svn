@@ -65,12 +65,12 @@ int blomcall_reset(void);
 unsigned long blomcall_qops(uae_u32 opcode, struct regstruct *regs) REGPARAM;
 unsigned long blomcall_ops(uae_u32 opcode, struct regstruct *regs) REGPARAM;
 
-#define bjmp(a)   do { dw(OP_BJMP); dl(a); } while 0
-#define bjmpnr(a) do { dw(OP_BJMPNR); dl(a); } while 0
-
 uae_u32 blomcall_calllib68k(uae_u32 args[16], fptype fp[8], uae_u32 offset) REGPARAM;
 uae_u32 blomcall_callfunc68k(uae_u32 args[16], fptype fp[8], uae_u32 addr) REGPARAM;
 
+typedef uae_u32 blomcall_func(uae_u32 args[16], fptype fp[8]) REGPARAM;
+
 #else
+# define blomcall_qops(opcode, regs) op_illg(opcode, regs)
 # define blomcall_ops(opcode, regs) op_illg(opcode, regs)
 #endif
