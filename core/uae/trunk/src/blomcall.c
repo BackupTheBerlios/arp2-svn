@@ -404,8 +404,11 @@ static void __blomcall_exit(uae_u32 rc) REGPARAM;
 static void REGPARAM2 __attribute__((used)) __blomcall_exit(uae_u32 rc)
 {
   m68k_dreg (blomcall_ctx->regs, 0) = rc;          // eax -> d0
-  optflag_testl(blomcall_ctx->regs, rc);
-//  SET_ZFLG (&blomcall_ctx->regs->ccrflags, rc == 0);
+
+  // tst.l d0 -- so interrupt handlers work without extra glue code
+  CLEAR_CZNV (&blomcall_ctx->regs->ccrflags);
+  SET_ZFLG (&blomcall_ctx->regs->ccrflags, rc == 0);
+  SET_NFLG (&blomcall_ctx->regs->ccrflags, rc < 0);
 
   pthread_sigmask(SIG_BLOCK, &blomcall_usr1sigset, NULL);
   siglongjmp(blomcall_ctx->emuljmp, 1);
