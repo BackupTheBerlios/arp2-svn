@@ -25,17 +25,25 @@
 #include <unistd.h>
 #include <fcntl.h>		/* open, close */
 #include <dirent.h>		/* opendir, closedir, readdir */
+#ifdef ENABLE_AMIGA
+#include <proto/dos.h>
+#else
 #include <fnmatch.h>
+#endif
 #include <errno.h>		/* errno */
 #include <stdio.h>
 
 #include <utime.h>
 #include <time.h>		/* ctime */
 
+#ifdef ENABLE_AMIGA
+#define DIRFD(a) amiga_get_dirfd(a)
+#else
 #if (defined(HAVE_DIRFD) || (HAVE_DECL_DIRFD == 1))
 #define DIRFD(a) (dirfd(a))
 #else
 #define DIRFD(a) ((a)->DIR_FD_MEMBER_NAME)
+#endif
 #endif
 
 /* TODO: Fix mntent-handling for solaris
@@ -139,7 +147,11 @@ dummy_statfs(struct dummy_statfs_t *buf)
 
 extern RDPDR_DEVICE g_rdpdr_device[];
 
+#ifdef ENABLE_AMIGA
+FILEINFO g_fileinfo[MAX_OPEN_FILES*2];
+#else
 FILEINFO g_fileinfo[MAX_OPEN_FILES];
+#endif
 BOOL g_notify_stamp = False;
 
 typedef struct
@@ -314,8 +326,10 @@ disk_enum_devices(uint32 * id, char *optarg)
 	char *pos2;
 	int count = 0;
 
+#ifndef ENABLE_AMIGA
 	/* skip the first colon */
 	optarg++;
+#endif
 	while ((pos = next_arg(optarg, ',')) && *id < RDPDR_MAX_DEVICES)
 	{
 		pos2 = next_arg(optarg, '=');
@@ -336,6 +350,23 @@ disk_enum_devices(uint32 * id, char *optarg)
 	return count;
 }
 
+#ifdef ENABLE_AMIGA
+int amiga_get_dirfd(DIR *dirp)
+{
+  int i;
+
+  for (i = MAX_OPEN_FILES ; i < MAX_OPEN_FILES*2 ; i++)
+  {
+    if (NULL == g_fileinfo[i].pdir)
+    {
+       return i - MAX_OPEN_FILES;
+    }
+  }
+
+  return MAX_OPEN_FILES;
+}
+#endif
+
 /* Opens or creates a file or directory */
 static NTSTATUS
 disk_create(uint32 device_id, uint32 accessmask, uint32 sharemode, uint32 create_disposition,
@@ -347,6 +378,22 @@ disk_create(uint32 device_id, uint32 accessmask, uint32 sharemode, uint32 create
 	char path[PATH_MAX];
 	struct stat filestat;
 
+#ifdef ENABLE_AMIGA
+	if (flags_and_attributes == 0x20 && filename && filename[0] == '/' && filename[1] == 0)
+	{
+		return STATUS_INVALID_PARAMETER;
+	}
+
+	if (strchr(filename, ':')) // filename:Zone.Identifier, directory:SummaryInformation:$DATA, etc.
+	{
+		return STATUS_NO_SUCH_FILE;
+	}
+
+	if (filename && filename[0] == '/')
+	{
+		filename++;
+	}
+#endif
 	handle = 0;
 	dirp = NULL;
 	flags = 0;
@@ -354,7 +401,12 @@ disk_create(uint32 device_id, uint32 accessmask, uint32 sharemode, uint32 create
 
 	if (*filename && filename[strlen(filename) - 1] == '/')
 		filename[strlen(filename) - 1] = 0;
+#ifdef ENABLE_AMIGA
+	strcpy(path, g_rdpdr_device[device_id].local_path);
+	AddPart(path, filename, 256);
+#else
 	sprintf(path, "%s%s", g_rdpdr_device[device_id].local_path, filename);
+#endif
 
 	switch (create_disposition)
 	{
@@ -471,9 +523,11 @@ disk_create(uint32 device_id, uint32 accessmask, uint32 sharemode, uint32 create
 			}
 		}
 
+#ifndef ENABLE_AMIGA
 		/* all read and writes of files should be non blocking */
 		if (fcntl(handle, F_SETFL, O_NONBLOCK) == -1)
 			perror("fcntl");
+#endif
 	}
 
 	if (handle >= MAX_OPEN_FILES)
@@ -483,6 +537,12 @@ disk_create(uint32 device_id, uint32 accessmask, uint32 sharemode, uint32 create
 		exit(1);
 	}
 
+#ifdef ENABLE_AMIGA
+	if (dirp)
+	{
+		handle += MAX_OPEN_FILES;
+	}
+#endif
 	if (dirp)
 		g_fileinfo[handle].pdir = dirp;
 	else
@@ -518,6 +578,9 @@ disk_close(NTHANDLE handle)
 			return STATUS_INVALID_HANDLE;
 		}
 
+#ifdef ENABLE_AMIGA
+		pfinfo->pdir = NULL;
+#endif
 		if (pfinfo->delete_on_close)
 			if (rmdir(pfinfo->path) < 0)
 			{
@@ -558,6 +621,13 @@ disk_read(NTHANDLE handle, uint8 * data, uint32 length, uint32 offset, uint32 * 
 	{
 		*result = 0;
 		return STATUS_SUCCESS;
+	}
+#endif
+#ifdef ENABLE_AMIGA
+	if (g_fileinfo[handle].flags_and_attributes & FILE_DIRECTORY_FILE)
+	{
+		*result = 0;
+		return STATUS_NOT_IMPLEMENTED;
 	}
 #endif
 
@@ -623,7 +693,11 @@ disk_query_information(NTHANDLE handle, uint32 info_class, STREAM out)
 	path = g_fileinfo[handle].path;
 
 	/* Get information about file */
+#ifdef ENABLE_AMIGA
+	if (stat(path, &filestat) != 0)
+#else
 	if (fstat(handle, &filestat) != 0)
+#endif
 	{
 		perror("stat");
 		out_uint8(out, 0);
@@ -786,8 +860,12 @@ disk_set_information(NTHANDLE handle, uint32 info_class, STREAM in, STREAM out)
 			printf("FileBasicInformation set access mode 0%o", mode);
 #endif
 
+#ifdef __amigaos4__
+#warning FixMe
+#else
 			if (fchmod(handle, mode))
 				return STATUS_ACCESS_DENIED;
+#endif
 
 			break;
 
@@ -807,8 +885,18 @@ disk_set_information(NTHANDLE handle, uint32 info_class, STREAM in, STREAM out)
 				return STATUS_INVALID_PARAMETER;
 			}
 
+#ifdef ENABLE_AMIGA
+			strcpy(fullpath, g_rdpdr_device[pfinfo->device_id].local_path);
+			if ('/' == newname[0])
+			{
+				AddPart(fullpath, &newname[1], 256);
+			} else {
+				AddPart(fullpath, newname, 256);
+			}
+#else
 			sprintf(fullpath, "%s%s", g_rdpdr_device[pfinfo->device_id].local_path,
 				newname);
+#endif
 
 			if (rename(pfinfo->path, fullpath) != 0)
 			{
@@ -910,6 +998,10 @@ disk_create_notify(NTHANDLE handle, uint32 info_class)
 
 	pfinfo = &(g_fileinfo[handle]);
 	pfinfo->info_class = info_class;
+#ifdef ENABLE_AMIGA
+	g_notify_stamp = False;
+	return STATUS_PENDING;
+#endif
 
 	ret = NotifyInfo(handle, info_class, &pfinfo->notify);
 
@@ -936,7 +1028,11 @@ NotifyInfo(NTHANDLE handle, uint32 info_class, NOTIFY * p)
 	DIR *dpr;
 
 	pfinfo = &(g_fileinfo[handle]);
+#ifdef ENABLE_AMIGA
+	if (stat(pfinfo->path, &buf) < 0)
+#else
 	if (fstat(handle, &buf) < 0)
+#endif
 	{
 		perror("NotifyInfo");
 		return STATUS_ACCESS_DENIED;
@@ -961,7 +1057,12 @@ NotifyInfo(NTHANDLE handle, uint32 info_class, NOTIFY * p)
 			continue;
 		p->num_entries++;
 		fullname = (char *) xmalloc(strlen(pfinfo->path) + strlen(dp->d_name) + 2);
+#ifdef ENABLE_AMIGA
+		strcpy(fullname, pfinfo->path);
+		AddPart(fullname, dp->d_name, strlen(pfinfo->path) + strlen(dp->d_name) + 2);
+#else
 		sprintf(fullname, "%s/%s", pfinfo->path, dp->d_name);
+#endif
 
 		if (!stat(fullname, &buf))
 		{
@@ -1107,6 +1208,38 @@ disk_query_volume_information(NTHANDLE handle, uint32 info_class, STREAM out)
 	}
 	return STATUS_SUCCESS;
 }
+
+#ifdef ENABLE_AMIGA
+static int fnmatch(const char *pattern, const char *string, int flags)
+{
+  if ('/' == *pattern)
+  {
+    pattern++;
+  }
+
+  if (!strcmp(string, "."))
+  {
+    return 1;
+  }
+
+  if (!strcmp(string, ".."))
+  {
+    return 1;
+  }
+
+  if (0 == pattern[0] || !strcmp(pattern, "*"))
+  {
+    return 0;
+  }
+
+  if (!strcmp(pattern, string))
+  {
+    return 0;
+  }
+
+  return 1;
+}
+#endif
 
 NTSTATUS
 disk_query_directory(NTHANDLE handle, uint32 info_class, char *pattern, STREAM out)

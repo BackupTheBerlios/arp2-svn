@@ -1,3 +1,9 @@
+2007-03-13  Jörg Strohmayer <nospam@gmx.de>
+
+	* Added $STACK: with minumum stack size of 512 KB.
+
+	* Added the AmigaOS disk.c changes from 1.4.1 in 1.5.0.
+
 2006-10-15  Martin Blom  <martin@blom.org>
 
 	* Released version 1.5.0 (15.10.2006).
