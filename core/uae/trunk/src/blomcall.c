@@ -67,8 +67,8 @@ static int                      blomcall_enable = 0;
 static timer_t                  blomcall_timer;
 static sigset_t                 blomcall_usr1sigset;
 static sigset_t                 blomcall_usr2sigset;
-static struct blomcall_context* blomcall_ctx;
-static struct blomcall_segment* blomcall_segment;
+static __thread struct blomcall_context* blomcall_ctx     = NULL;
+static __thread struct blomcall_segment* blomcall_segment = NULL;
 
 #define SIGHANDLER_STACK_SIZE 65536 /* Remember that the UAE debugger
 				       runs on this stack too! */
@@ -400,9 +400,19 @@ void blomcall_exit(uae_u32 rc) REGPARAM;
 # error Unsupported architecture!
 #endif
 
+static void blomcall_exitnr(void)
+{
+  assert (blomcall_ctx != NULL);
+
+  pthread_sigmask(SIG_BLOCK, &blomcall_usr1sigset, NULL);
+  siglongjmp(blomcall_ctx->emuljmp, 1);
+}
+
 static void __blomcall_exit(uae_u32 rc) REGPARAM;
 static void REGPARAM2 __attribute__((used)) __blomcall_exit(uae_u32 rc)
 {
+  assert (blomcall_ctx != NULL);
+
   m68k_dreg (blomcall_ctx->regs, 0) = rc;          // eax -> d0
 
   // tst.l d0 -- so interrupt handlers work without extra glue code
@@ -410,17 +420,11 @@ static void REGPARAM2 __attribute__((used)) __blomcall_exit(uae_u32 rc)
   SET_ZFLG (&blomcall_ctx->regs->ccrflags, rc == 0);
   SET_NFLG (&blomcall_ctx->regs->ccrflags, (uae_s32) rc < 0);
 
-  pthread_sigmask(SIG_BLOCK, &blomcall_usr1sigset, NULL);
-  siglongjmp(blomcall_ctx->emuljmp, 1);
+  return blomcall_exitnr();
 }
 
 
-static void blomcall_exitnr(void)
-{
-  pthread_sigmask(SIG_BLOCK, &blomcall_usr1sigset, NULL);
-  siglongjmp(blomcall_ctx->emuljmp, 1);
-}
-
+/*** Signal handlers *********************************************************/
 
 static void blomcall_timer_handler(int x, siginfo_t* si, void* extra) {
   struct kernel_ucontext* uc = extra;
@@ -489,7 +493,7 @@ int blomcall_init (void) {
     return 0;
   }
   
-  // Block SIGUSR1 signals (from the timer)
+  // Block SIGUSR1 signals (from the timer) 
   sigemptyset(&blomcall_usr1sigset);
   sigaddset(&blomcall_usr1sigset, SIGUSR1);
   
