@@ -4,11 +4,11 @@ $(dirname $0)/configure --prefix=/lib/arp2 --program-prefix=sdl- \
 	--with-sdl-gfx --with-sdl-sound \
 	--enable-audio \
 	--disable-fdi --without-caps \
-	--enable-cycle-exact-cpu --enable-compatible-cpu --enable-jit \
+	--enable-cycle-exact-cpu --enable-compatible-cpu --disable-jit \
 	--enable-natmem=0 --with-program-base=0x08000000 \
         --enable-bcall --enable-arp2rom \
 	--enable-autoconfig \
 	--enable-scsi-device  --with-libscg-includedir=/usr/include/schily/ \
         --disable-state-saving \
 	--disable-enforcer --disable-action-replay \
-	--enable-bsdsock --enable-threads --disable-ui
+	--disable-bsdsock --enable-threads --disable-ui

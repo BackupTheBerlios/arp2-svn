@@ -11,4 +11,4 @@ $(dirname $0)/configure --prefix=/lib/arp2 \
 	--enable-scsi-device  --with-libscg-includedir=/usr/include/schily/ \
         --disable-state-saving \
 	--disable-enforcer --disable-action-replay \
-	--enable-bsdsock --enable-threads --disable-ui 
+	--enable-bsdsock --enable-threads --disable-ui
