@@ -25,6 +25,7 @@
 #include "zfile.h"
 #include "arp2rom.h"
 #include "arp2sys.h"
+#include "uae_endian.h"
 
 #include <sys/mman.h>
 
@@ -73,7 +74,7 @@ uae_u32 REGPARAM2 arp2rom_lget(uaecptr addr)
 {
     uae_u8 *m;
 /* #ifdef JIT */
-/*     special_mem |= S_READ; */
+/*     special_mem |= SPECIAL_MEM_READ; */
 /* #endif */
 #ifdef ARP2ROM_DEBUG
     write_log("ARP2 ROM: arp2rom_lget 0x%08x, PC=%p => ", 
@@ -92,7 +93,7 @@ uae_u32 REGPARAM2 arp2rom_wget(uaecptr addr)
 {
     uae_u8 *m;
 /* #ifdef JIT */
-/*     special_mem |= S_READ; */
+/*     special_mem |= SPECIAL_MEM_READ; */
 /* #endif */
 #ifdef ARP2ROM_DEBUG
     write_log("ARP2 ROM: arp2rom_wget 0x%08x, PC=%p => ", 
@@ -110,7 +111,7 @@ uae_u32 REGPARAM2 arp2rom_wget(uaecptr addr)
 uae_u32 REGPARAM2 arp2rom_bget(uaecptr addr)
 {
 /* #ifdef JIT */
-/*     special_mem |= S_READ; */
+/*     special_mem |= SPECIAL_MEM_READ; */
 /* #endif */
 #ifdef ARP2ROM_DEBUG
     write_log("ARP2 ROM: arp2rom_bget 0x%08x, PC=%p => ", 
@@ -127,7 +128,7 @@ uae_u32 REGPARAM2 arp2rom_bget(uaecptr addr)
 static void REGPARAM2 arp2rom_lput(uaecptr addr, uae_u32 l)
 {
 #ifdef JIT
-    special_mem |= S_WRITE;
+    special_mem |= SPECIAL_MEM_WRITE;
 #endif
     write_log("ARP2 ROM: arp2rom_lput 0x%08x into 0x%08x,  PC=%p\n", 
 	       l, addr, m68k_getpc(&regs));
@@ -136,7 +137,7 @@ static void REGPARAM2 arp2rom_lput(uaecptr addr, uae_u32 l)
 static void REGPARAM2 arp2rom_wput(uaecptr addr, uae_u32 w)
 {
 #ifdef JIT
-    special_mem |= S_WRITE;
+    special_mem |= SPECIAL_MEM_WRITE;
 #endif
     write_log("ARP2 ROM: arp2rom_wput 0x%04x into 0x%08x, PC=%p\n", 
 	       w & 0xffff, addr, m68k_getpc(&regs));
@@ -145,7 +146,7 @@ static void REGPARAM2 arp2rom_wput(uaecptr addr, uae_u32 w)
 static void REGPARAM2 arp2rom_bput(uaecptr addr, uae_u32 b)
 {
 #ifdef JIT
-    special_mem |= S_WRITE;
+    special_mem |= SPECIAL_MEM_WRITE;
 #endif
     write_log("ARP2 ROM: arp2rom_bput 0x%02x into 0x%08x, PC=%p\n", 
 	       b & 0xff, addr, m68k_getpc(&regs));

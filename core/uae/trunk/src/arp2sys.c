@@ -74,6 +74,7 @@
 #include "blomcall.h"
 #include "arp2sys.h"
 #include "lists.h"
+#include "uae_endian.h"
 
 
 #ifdef WORDS_BIGENDIAN

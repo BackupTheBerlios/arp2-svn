@@ -5,6 +5,5 @@ AM_CFLAGS    = @UAE_CFLAGS@
 noinst_LIBRARIES = libsnddep.a
 
 libsnddep_a_SOURCES = sound.c
-libsnddep_a_CPPFLAGS = @SDL_CFLAGS@
 
 noinst_HEADERS = sound.h

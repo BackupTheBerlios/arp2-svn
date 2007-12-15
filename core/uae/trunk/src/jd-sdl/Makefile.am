@@ -5,4 +5,3 @@ AM_CFLAGS    = @UAE_CFLAGS@
 noinst_LIBRARIES = libjoydep.a
 
 libjoydep_a_SOURCES = joystick.c
-libjoydep_a_CPPFLAGS = @SDL_CFLAGS@

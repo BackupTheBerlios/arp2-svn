@@ -30,6 +30,7 @@
 #include "uae_malloc.h"
 #include <ctype.h>
 
+#define CYCLE_UNIT 512  // #include "events.h"
 #include "readcpu.h"
 
 #define BOOL_TYPE "int"

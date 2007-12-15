@@ -372,9 +372,7 @@ void save_options (FILE *f, const struct uae_prefs *p, int type)
 #endif
 
 #ifdef ARP2ROM
-    str = cfgfile_subst_path (p->path_rom, UNEXPANDED, p->arp2romfile);
-    cfgfile_write (f, "arp2_rom_file=%s\n", str);
-    free (str);
+    cfgfile_write_file_option (f, "arp2_rom_file",          "rom_path", p->arp2romfile);
 #endif
 
     cfgfile_write (f, "kickshifter=%s\n", p->kickshifter ? "true" : "false");
@@ -1583,6 +1581,9 @@ static int cfgfile_load_2 (struct uae_prefs *p, const char *filename, int real, 
     subst (prefs_get_attr("rom_path"), p->romfile, sizeof p->romfile);
     subst (prefs_get_attr("rom_path"), p->romextfile, sizeof p->romextfile);
     subst (prefs_get_attr("rom_path"), p->keyfile, sizeof p->keyfile);
+#ifdef ARP2ROM
+    subst (prefs_get_attr("rom_path"), p->arp2romfile, sizeof p->arp2romfile);
+#endif
 
     return 1;
 }
