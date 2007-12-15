@@ -78,16 +78,16 @@ static unsigned long ciaatod, ciabtod, ciaatol, ciabtol, ciaaalarm, ciabalarm;
 static int ciaatlatch, ciabtlatch;
 static int oldled, oldovl;
 
-static unsigned int ciabpra;
-
 unsigned int gui_ledstate;
 
 static unsigned long ciaala, ciaalb, ciabla, ciablb;
 static int ciaatodon, ciabtodon;
 static unsigned int ciaapra, ciaaprb, ciaadra, ciaadrb, ciaasdr, ciaasdr_cnt;
-static unsigned int ciabprb, ciabdra, ciabdrb, ciabsdr, ciabsdr_cnt;
+static unsigned int ciabpra, ciabprb, ciabdra, ciabdrb, ciabsdr, ciabsdr_cnt;
 static unsigned int div10;
 static int kbstate, kback, ciaasdr_unread;
+static unsigned int sleepyhead = 0;
+
 #ifdef TOD_HACK
 static int tod_hack, tod_hack_delay;
 #endif
@@ -256,7 +256,7 @@ static void CIA_calctimers (void)
     }
     if ((ciaacrb & 0x61) == 0x41) {
 	/* Timer B will not get any pulses if Timer A is off. */
-	if (ciaatimea != (unsigned long)-1) {
+	if (ciaatimea != (unsigned long int)-1L) {
 	    /* If Timer A is in one-shot mode, and Timer B needs more than
 	     * one pulse, it will not underflow. */
 	    if (ciaatb == 0 || (ciaacra & 0x8) == 0) {
@@ -278,7 +278,7 @@ static void CIA_calctimers (void)
     }
     if ((ciabcrb & 0x61) == 0x41) {
 	/* Timer B will not get any pulses if Timer A is off. */
-	if (ciabtimea != (unsigned long)-1) {
+	if (ciabtimea != (unsigned long int)-1L) {
 	    /* If Timer A is in one-shot mode, and Timer B needs more than
 	     * one pulse, it will not underflow. */
 	    if (ciabtb == 0 || (ciabcra & 0x8) == 0) {
@@ -292,14 +292,14 @@ static void CIA_calctimers (void)
     if ((ciabcrb & 0x61) == 0x01) {
 	ciabtimeb = (DIV10 - div10) + DIV10 * ciabtb;
     }
-    eventtab[ev_cia].active = (ciaatimea != (unsigned long)-1 || ciaatimeb != (unsigned long)-1
-			       || ciabtimea != (unsigned long)-1 || ciabtimeb != (unsigned long)-1);
+    eventtab[ev_cia].active = (ciaatimea != (unsigned long int)-1 || ciaatimeb != (unsigned long int)-1
+			    || ciabtimea != (unsigned long int)-1 || ciabtimeb != (unsigned long int)-1);
     if (eventtab[ev_cia].active) {
 	unsigned long int ciatime = ~0L;
-	if (ciaatimea != (unsigned long)-1) ciatime = ciaatimea;
-	if (ciaatimeb != (unsigned long)-1 && ciaatimeb < ciatime) ciatime = ciaatimeb;
-	if (ciabtimea != (unsigned long)-1 && ciabtimea < ciatime) ciatime = ciabtimea;
-	if (ciabtimeb != (unsigned long)-1 && ciabtimeb < ciatime) ciatime = ciabtimeb;
+	if (ciaatimea != (unsigned long int)-1)                        ciatime = ciaatimea;
+	if (ciaatimeb != (unsigned long int)-1 && ciaatimeb < ciatime) ciatime = ciaatimeb;
+	if (ciabtimea != (unsigned long int)-1 && ciabtimea < ciatime) ciatime = ciabtimea;
+	if (ciabtimeb != (unsigned long int)-1 && ciabtimeb < ciatime) ciatime = ciabtimeb;
 	eventtab[ev_cia].evtime = ciatime + get_cycles ();
     }
     events_schedule();
@@ -323,31 +323,48 @@ static void cia_parallelack (void)
     RethinkICRA ();
 }
 
-static void ciab_checkalarm (void)
+static int checkalarm (unsigned long tod, unsigned long alarm, int inc)
 {
-    if (ciabtod != ciabalarm)
-	return;
-    ciabicr |= 4; RethinkICRB();
+    if (tod == alarm)
+	return 1;
+    if (!inc)
+	return 0;
+    /* emulate buggy TODMED counter.
+     * it counts: .. 29 2A 2B 2C 2D 2E 2F 20 30 31 32 ..
+     * (0F->00->10 only takes couple of cycles but it will trigger alarm..
+     */
+    if (tod & 0x000fff)
+	return 0;
+    if (((tod - 1) & 0xfff000) == alarm)
+	return 1;
+    return 0;
 }
 
-static void ciaa_checkalarm (void)
+STATIC_INLINE void ciab_checkalarm (int inc)
 {
-    if (ciaatod != ciaaalarm)
-	return;
-    ciaaicr |= 4; RethinkICRA();
+    if (checkalarm (ciabtod, ciabalarm, inc)) {
+	ciabicr |= 4;
+	RethinkICRB ();
+    }
+}
+
+STATIC_INLINE void ciaa_checkalarm (int inc)
+{
+    if (checkalarm (ciaatod, ciaaalarm, inc)) {
+	ciaaicr |= 4;
+	RethinkICRA ();
+    }
 }
 
 void CIA_hsync_handler (void)
 {
-    static unsigned int keytime = 0, sleepyhead = 0;
-
     if (ciabtodon) {
 	ciabtod++;
 	ciabtod &= 0xFFFFFF;
-	ciab_checkalarm ();
+	ciab_checkalarm (1);
     }
 
-    if (keys_available() && kback && (ciaacra & 0x40) == 0 && (++keytime & 15) == 0) {
+    if (keys_available() && kback && (ciaacra & 0x40) == 0 && (hsync_counter & 15) == 0) {
 	/*
 	 * This hack lets one possible ciaaicr cycle go by without any key
 	 * being read, for every cycle in which a key is pulled out of the
@@ -421,7 +438,7 @@ void CIA_vsync_handler ()
 		return; /* try not to count backwards */
 	    ciaatod = nt;
 	    ciaatod &= 0xffffff;
-	    ciaa_checkalarm ();
+	    ciaa_checkalarm (0);
 	    return;
 	}
     }
@@ -429,7 +446,7 @@ void CIA_vsync_handler ()
     if (ciaatodon) {
 	ciaatod++;
 	ciaatod &= 0xFFFFFF;
-	ciaa_checkalarm ();
+	ciaa_checkalarm (1);
     }
 }
 
@@ -553,8 +570,10 @@ static uae_u8 ReadCIAA (unsigned int addr)
 	else
 	    return (uae_u8)(ciaatod >> 8);
     case 10:
-	ciaatlatch = 1;
-	ciaatol = ciaatod; /* ??? only if not already latched? */
+	if (!ciaatlatch) { /* only if not already latched. A1200 confirmed. (TW) */
+	    ciaatlatch = 1;
+	    ciaatol = ciaatod;
+	}
 	return (uae_u8)(ciaatol >> 16);
     case 12:
 	if (ciaasdr_unread == 1)
@@ -649,8 +668,10 @@ static uae_u8 ReadCIAB (unsigned int addr)
 	else
 	    return (uae_u8)(ciabtod >> 8);
     case 10:
-	ciabtlatch = 1;
-	ciabtol = ciabtod;
+	if (!ciabtlatch) {
+	    ciabtlatch = 1;
+	    ciabtol = ciabtod;
+	}
 	return (uae_u8)(ciabtol >> 16);
     case 12:
 	return ciabsdr;
@@ -755,8 +776,7 @@ static void WriteCIAA (uae_u16 addr,uae_u8 val)
 	} else {
 	    ciaatod = (ciaatod & ~0xff) | val;
 	    ciaatodon = 1;
-	    ciaa_checkalarm ();
-
+	    ciaa_checkalarm (0);
 #ifdef TOD_HACK
 	    if (currprefs.tod_hack)
 		tod_hack_reset ();
@@ -768,7 +788,6 @@ static void WriteCIAA (uae_u16 addr,uae_u8 val)
 	    ciaaalarm = (ciaaalarm & ~0xff00) | (val << 8);
 	} else {
 	    ciaatod = (ciaatod & ~0xff00) | (val << 8);
-	    //ciaatodon = 0;
 	}
 	break;
     case 10:
@@ -900,7 +919,7 @@ static void WriteCIAB (uae_u16 addr,uae_u8 val)
 	} else {
 	    ciabtod = (ciabtod & ~0xff) | val;
 	    ciabtodon = 1;
-	    ciab_checkalarm ();
+	    ciab_checkalarm (0);
 	}
 	break;
     case 9:
@@ -908,7 +927,6 @@ static void WriteCIAB (uae_u16 addr,uae_u8 val)
 	    ciabalarm = (ciabalarm & ~0xff00) | (val << 8);
 	} else {
 	    ciabtod = (ciabtod & ~0xff00) | (val << 8);
-	    //ciabtodon = 0;
 	}
 	break;
     case 10:
@@ -953,6 +971,11 @@ static void WriteCIAB (uae_u16 addr,uae_u8 val)
     }
 }
 
+void CIA_inprec_prepare (void)
+{
+    sleepyhead = 0;
+}
+
 void CIA_reset (void)
 {
 #ifdef TOD_HACK
@@ -974,7 +997,7 @@ void CIA_reset (void)
 	ciaaicr = ciabicr = ciaaimask = ciabimask = 0;
 	ciaacra = ciaacrb = ciabcra = ciabcrb = 0x4; /* outmode = toggle; */
 	ciaala = ciaalb = ciabla = ciablb = ciaata = ciaatb = ciabta = ciabtb = 0xFFFF;
-	ciaaalarm = ciabalarm = 0; //currprefs.cpu_cycle_exact ? 0 : 0xffffff;
+	ciaaalarm = ciabalarm = 0;
 	ciabpra = 0x8C; ciabdra = 0;
 	div10 = 0;
 	ciaasdr_cnt = 0; ciaasdr = 0;
@@ -1042,7 +1065,6 @@ extern void akiko_lput (uaecptr addr, uae_u32 value) REGPARAM;
 /* e-clock is 10 CPU cycles, 6 cycles low, 4 high
  * data transfer happens during 4 high cycles
  */
-
 #define ECLOCK_DATA_CYCLE 4
 
 static void cia_wait_pre (void)
@@ -1073,7 +1095,7 @@ uae_u32 REGPARAM2 cia_bget (uaecptr addr)
     uae_u8 v;
 
 #ifdef JIT
-    special_mem |= S_READ;
+    special_mem |= SPECIAL_MEM_READ;
 #endif
 #ifdef CD32
     if (cd32_enabled && addr >= AKIKO_BASE && addr < AKIKO_BASE_END)
@@ -1110,7 +1132,7 @@ uae_u32 REGPARAM2 cia_wget (uaecptr addr)
     uae_u16 v;
 
 #ifdef JIT
-    special_mem |= S_READ;
+    special_mem |= SPECIAL_MEM_READ;
 #endif
 #ifdef CD32
     if (cd32_enabled && addr >= AKIKO_BASE && addr < AKIKO_BASE_END)
@@ -1145,7 +1167,7 @@ uae_u32 REGPARAM2 cia_lget (uaecptr addr)
 {
     uae_u32 v;
 #ifdef JIT
-    special_mem |= S_READ;
+    special_mem |= SPECIAL_MEM_READ;
 #endif
 #ifdef CD32
     if (cd32_enabled && addr >= AKIKO_BASE && addr < AKIKO_BASE_END)
@@ -1161,7 +1183,7 @@ void REGPARAM2 cia_bput (uaecptr addr, uae_u32 value)
     int r = (addr & 0xf00) >> 8;
 
 #ifdef JIT
-    special_mem |= S_WRITE;
+    special_mem |= SPECIAL_MEM_WRITE;
 #endif
 #ifdef CD32
     if (cd32_enabled && addr >= AKIKO_BASE && addr < AKIKO_BASE_END) {
@@ -1185,7 +1207,7 @@ void REGPARAM2 cia_wput (uaecptr addr, uae_u32 value)
 {
     int r = (addr & 0xf00) >> 8;
 #ifdef JIT
-    special_mem |= S_WRITE;
+    special_mem |= SPECIAL_MEM_WRITE;
 #endif
 #ifdef CD32
     if (cd32_enabled && addr >= AKIKO_BASE && addr < AKIKO_BASE_END) {
@@ -1208,7 +1230,7 @@ void REGPARAM2 cia_wput (uaecptr addr, uae_u32 value)
 void REGPARAM2 cia_lput (uaecptr addr, uae_u32 value)
 {
 #ifdef JIT
-    special_mem |= S_WRITE;
+    special_mem |= SPECIAL_MEM_WRITE;
 #endif
 #ifdef CD32
     if (cd32_enabled && addr >= AKIKO_BASE && addr < AKIKO_BASE_END) {
@@ -1302,7 +1324,7 @@ uae_u32 REGPARAM2 clock_bget (uaecptr addr)
 #endif
     ct = localtime (&t);
 #ifdef JIT
-    special_mem |= S_READ;
+    special_mem |= SPECIAL_MEM_READ;
 #endif
     switch (addr & 0x3f) {
     case 0x03: return ct->tm_sec % 10;
@@ -1340,7 +1362,7 @@ void REGPARAM2 clock_wput (uaecptr addr, uae_u32 value)
 void REGPARAM2 clock_bput (uaecptr addr, uae_u32 value)
 {
 #ifdef JIT
-    special_mem |= S_WRITE;
+    special_mem |= SPECIAL_MEM_WRITE;
 #endif
 #ifdef CDTV
     if (cdtv_enabled && addr >= 0xdc8000) {
@@ -1354,7 +1376,6 @@ void REGPARAM2 clock_bput (uaecptr addr, uae_u32 value)
     case 0x3f: clock_control_f = value; break;
     }
 }
-
 
 #ifdef SAVESTATE
 
@@ -1483,7 +1504,7 @@ uae_u8 *save_cia (unsigned int num, uae_u32 *len, uae_u8 *dstptr)
     save_u8 (b);
     b = (num ? ciabalarm : ciaaalarm);			/* alarm LO */
     save_u8 (b);
-    b = (num ? ciabalarm >> 8 : ciaaalarm >>8 );	/* alarm MED */
+    b = (num ? ciabalarm >> 8 : ciaaalarm >> 8);	/* alarm MED */
     save_u8 (b);
     b = (num ? ciabalarm >> 16 : ciaaalarm >> 16);	/* alarm HI */
     save_u8 (b);

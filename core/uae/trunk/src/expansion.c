@@ -18,6 +18,7 @@
 #include "custom.h"
 #include "newcpu.h"
 #include "autoconf.h"
+#include "filesys.h"
 #include "xwin.h"
 #include "picasso96.h"
 #include "savestate.h"
@@ -196,7 +197,7 @@ addrbank expamem_bank = {
 static uae_u32 REGPARAM2 expamem_lget (uaecptr addr)
 {
 #ifdef JIT
-    special_mem |= S_READ;
+    special_mem |= SPECIAL_MEM_READ;
 #endif
     write_log ("warning: READ.L from address $%lx \n", addr);
     return 0xfffffffful;
@@ -205,7 +206,7 @@ static uae_u32 REGPARAM2 expamem_lget (uaecptr addr)
 static uae_u32 REGPARAM2 expamem_wget (uaecptr addr)
 {
 #ifdef JIT
-    special_mem |= S_READ;
+    special_mem |= SPECIAL_MEM_READ;
 #endif
     write_log ("warning: READ.W from address $%lx \n", addr);
     return 0xffff;
@@ -214,7 +215,7 @@ static uae_u32 REGPARAM2 expamem_wget (uaecptr addr)
 static uae_u32 REGPARAM2 expamem_bget (uaecptr addr)
 {
 #ifdef JIT
-    special_mem |= S_READ;
+    special_mem |= SPECIAL_MEM_READ;
 #endif
     addr &= 0xFFFF;
     return expamem[addr];
@@ -223,7 +224,7 @@ static uae_u32 REGPARAM2 expamem_bget (uaecptr addr)
 static void REGPARAM2 expamem_write (uaecptr addr, uae_u32 value)
 {
 #ifdef JIT
-    special_mem |= S_WRITE;
+    special_mem |= SPECIAL_MEM_WRITE;
 #endif
     addr &= 0xffff;
     if (addr == 00 || addr == 02 || addr == 0x40 || addr == 0x42) {
@@ -243,7 +244,7 @@ static int REGPARAM2 expamem_type (void)
 static void REGPARAM2 expamem_lput (uaecptr addr, uae_u32 value)
 {
 #ifdef JIT
-    special_mem |= S_WRITE;
+    special_mem |= SPECIAL_MEM_WRITE;
 #endif
     write_log ("warning: WRITE.L to address $%lx : value $%lx\n", addr, value);
 }
@@ -251,7 +252,7 @@ static void REGPARAM2 expamem_lput (uaecptr addr, uae_u32 value)
 static void REGPARAM2 expamem_wput (uaecptr addr, uae_u32 value)
 {
 #ifdef JIT
-    special_mem |= S_WRITE;
+    special_mem |= SPECIAL_MEM_WRITE;
 #endif
     if (expamem_type() != zorroIII)
 	write_log ("warning: WRITE.W to address $%lx : value $%x\n", addr, value);
@@ -281,7 +282,7 @@ static void REGPARAM2 expamem_wput (uaecptr addr, uae_u32 value)
 static void REGPARAM2 expamem_bput (uaecptr addr, uae_u32 value)
 {
 #ifdef JIT
-    special_mem |= S_WRITE;
+    special_mem |= SPECIAL_MEM_WRITE;
 #endif
     switch (addr & 0xff) {
      case 0x30:
@@ -433,25 +434,25 @@ static uae_u32 catweasel_start;
 static uae_u32 REGPARAM2 catweasel_lget (uaecptr addr)
 {
 #ifdef JIT
-    special_mem |= S_READ;
+    special_mem |= SPECIAL_MEM_READ;
 #endif
-    write_log("catweasel_lget @%08.8X!\n",addr);
+    write_log ("catweasel_lget @%08.8X!\n",addr);
     return 0;
 }
 
 static uae_u32 REGPARAM2 catweasel_wget (uaecptr addr)
 {
 #ifdef JIT
-    special_mem |= S_READ;
+    special_mem |= SPECIAL_MEM_READ;
 #endif
-    write_log("catweasel_wget @%08.8X!\n",addr);
+    write_log ("catweasel_wget @%08.8X!\n",addr);
     return 0;
 }
 
 static uae_u32 REGPARAM2 catweasel_bget (uaecptr addr)
 {
 #ifdef JIT
-    special_mem |= S_READ;
+    special_mem |= SPECIAL_MEM_READ;
 #endif
     addr -= catweasel_start & catweasel_mask;
     addr &= catweasel_mask;
@@ -461,23 +462,23 @@ static uae_u32 REGPARAM2 catweasel_bget (uaecptr addr)
 static void REGPARAM2 catweasel_lput (uaecptr addr, uae_u32 l)
 {
 #ifdef JIT
-    special_mem |= S_WRITE;
+    special_mem |= SPECIAL_MEM_WRITE;
 #endif
-    write_log("catweasel_lput @%08.8X=%08.8X!\n",addr,l);
+    write_log ("catweasel_lput @%08.8X=%08.8X!\n",addr,l);
 }
 
 static void REGPARAM2 catweasel_wput (uaecptr addr, uae_u32 w)
 {
 #ifdef JIT
-    special_mem |= S_WRITE;
+    special_mem |= SPECIAL_MEM_WRITE;
 #endif
-    write_log("catweasel_wput @%08.8X=%04.4X!\n",addr,w);
+    write_log ("catweasel_wput @%08.8X=%04.4X!\n",addr,w);
 }
 
 static void REGPARAM2 catweasel_bput (uaecptr addr, uae_u32 b)
 {
 #ifdef JIT
-    special_mem |= S_WRITE;
+    special_mem |= SPECIAL_MEM_WRITE;
 #endif
     addr -= catweasel_start & catweasel_mask;
     addr &= catweasel_mask;
@@ -570,7 +571,7 @@ static void cdtv_interrupt (int v)
 uae_u32 REGPARAM2 dmac_lget (uaecptr addr)
 {
 #ifdef JIT
-    special_mem |= S_READ;
+    special_mem |= SPECIAL_MEM_READ;
 #endif
 #ifdef CDTV_DEBUG
     write_log ("dmac_lget %08.8X\n", addr);
@@ -581,7 +582,7 @@ uae_u32 REGPARAM2 dmac_lget (uaecptr addr)
 uae_u32 REGPARAM2 dmac_wget (uaecptr addr)
 {
 #ifdef JIT
-    special_mem |= S_READ;
+    special_mem |= SPECIAL_MEM_READ;
 #endif
 #ifdef CDTV_DEBUG
     write_log ("dmac_wget %08.8X PC=%X\n", addr, m68k_getpc (&regs));
@@ -592,7 +593,7 @@ uae_u32 REGPARAM2 dmac_wget (uaecptr addr)
 uae_u32 REGPARAM2 dmac_bget (uaecptr addr)
 {
 #ifdef JIT
-    special_mem |= S_READ;
+    special_mem |= SPECIAL_MEM_READ;
 #endif
 #ifdef CDTV_DEBUG
     write_log ("dmac_bget %08.8X PC=%X\n", addr, m68k_getpc (&regs));
@@ -610,7 +611,7 @@ uae_u32 REGPARAM2 dmac_bget (uaecptr addr)
 static void REGPARAM2 dmac_lput (uaecptr addr, uae_u32 l)
 {
 #ifdef JIT
-    special_mem |= S_WRITE;
+    special_mem |= SPECIAL_MEM_WRITE;
 #endif
 #ifdef CDTV_DEBUG
     write_log ("dmac_lput %08.8X = %08.8X\n", addr, l);
@@ -622,7 +623,7 @@ static void REGPARAM2 dmac_lput (uaecptr addr, uae_u32 l)
 static void REGPARAM2 dmac_wput (uaecptr addr, uae_u32 w)
 {
 #ifdef JIT
-    special_mem |= S_WRITE;
+    special_mem |= SPECIAL_MEM_WRITE;
 #endif
 #ifdef CDTV_DEBUG
     write_log ("dmac_wput %04.4X = %04.4X\n", addr, w & 65535);
@@ -634,7 +635,7 @@ static void REGPARAM2 dmac_wput (uaecptr addr, uae_u32 w)
 static void REGPARAM2 dmac_bput (uaecptr addr, uae_u32 b)
 {
 #ifdef JIT
-    special_mem |= S_WRITE;
+    special_mem |= SPECIAL_MEM_WRITE;
 #endif
 #ifdef CDTV_DEBUG
     write_log ("dmac_bput %08.8X = %02.2X PC=%X\n", addr, b & 255, m68k_getpc (&regs));
@@ -694,7 +695,7 @@ uae_u32 REGPARAM2 filesys_lget (uaecptr addr)
 {
     uae_u8 *m;
 #ifdef JIT
-    special_mem |= S_READ;
+    special_mem |= SPECIAL_MEM_READ;
 #endif
     addr -= filesys_start & 65535;
     addr &= 65535;
@@ -706,7 +707,7 @@ uae_u32 REGPARAM2 filesys_wget (uaecptr addr)
 {
     uae_u8 *m;
 #ifdef JIT
-    special_mem |= S_READ;
+    special_mem |= SPECIAL_MEM_READ;
 #endif
     addr -= filesys_start & 65535;
     addr &= 65535;
@@ -717,7 +718,7 @@ uae_u32 REGPARAM2 filesys_wget (uaecptr addr)
 uae_u32 REGPARAM2 filesys_bget (uaecptr addr)
 {
 #ifdef JIT
-    special_mem |= S_READ;
+    special_mem |= SPECIAL_MEM_READ;
 #endif
     addr -= filesys_start & 65535;
     addr &= 65535;
@@ -727,7 +728,7 @@ uae_u32 REGPARAM2 filesys_bget (uaecptr addr)
 static void REGPARAM2 filesys_lput (uaecptr addr, uae_u32 l)
 {
 #ifdef JIT
-    special_mem |= S_WRITE;
+    special_mem |= SPECIAL_MEM_WRITE;
 #endif
     write_log ("filesys_lput called PC=%p\n", m68k_getpc (&regs));
 }
@@ -735,7 +736,7 @@ static void REGPARAM2 filesys_lput (uaecptr addr, uae_u32 l)
 static void REGPARAM2 filesys_wput (uaecptr addr, uae_u32 w)
 {
 #ifdef JIT
-    special_mem |= S_WRITE;
+    special_mem |= SPECIAL_MEM_WRITE;
 #endif
     write_log ("filesys_wput called PC=%p\n", m68k_getpc (&regs));
 }
@@ -743,7 +744,7 @@ static void REGPARAM2 filesys_wput (uaecptr addr, uae_u32 w)
 static void REGPARAM2 filesys_bput (uaecptr addr, uae_u32 b)
 {
 #ifdef JIT
-    special_mem |= S_WRITE;
+    special_mem |= SPECIAL_MEM_WRITE;
 #endif
     write_log ("filesys_bput called. This usually means that you are using\n");
     write_log ("Kickstart 1.2. Please give UAE the \"-a\" option next time\n");
@@ -923,9 +924,9 @@ static void expamem_init_filesys (void)
 {
     /* struct DiagArea - the size has to be large enough to store several device ROMTags */
     uae_u8 diagarea[] = { 0x90, 0x00, /* da_Config, da_Flags */
-                          0x02, 0x00, /* da_Size */
-                          0x01, 0x00, /* da_DiagPoint */
-                          0x01, 0x06  /* da_BootPoint */
+			  0x02, 0x00, /* da_Size */
+			  0x01, 0x00, /* da_DiagPoint */
+			  0x01, 0x06  /* da_BootPoint */
     };
 
     expamem_init_clear();
@@ -996,7 +997,7 @@ static void expamem_map_z3fastmem (void)
 	unsigned int z3fs = ((expamem_hi | (expamem_lo >> 4)) << 16);
 
 	if (z3fastmem_start != z3fs) {
-		write_log("WARNING: Z3FAST mapping changed from $%lx to $%lx\n", z3fastmem_start, z3fs);
+		write_log ("WARNING: Z3FAST mapping changed from $%lx to $%lx\n", z3fastmem_start, z3fs);
 		map_banks(&dummy_bank, z3fastmem_start >> 16, currprefs.z3fastmem_size >> 16,
 			allocated_z3fastmem);
 		z3fastmem_start = z3fs;
@@ -1198,7 +1199,7 @@ void expamem_reset (void)
 
 #ifdef CDTV
     if (cdtv_enabled)
-        map_banks (&dmac_bank, dmac_start >> 16, 0x10000 >> 16, 0x10000);
+	map_banks (&dmac_bank, dmac_start >> 16, 0x10000 >> 16, 0x10000);
 #endif
 
     /* check if Kickstart version is below 1.3 */
@@ -1246,8 +1247,8 @@ void expamem_reset (void)
 #endif
 #ifdef CATWEASEL
     if (catweasel_init ()) {
-        card_init[cardno] = expamem_init_catweasel;
-        card_map[cardno++] = expamem_map_catweasel;
+	card_init[cardno] = expamem_init_catweasel;
+	card_map[cardno++] = expamem_map_catweasel;
     }
 #endif
     while (cardno < MAX_EXPANSION_BOARDS) {

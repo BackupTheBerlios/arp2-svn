@@ -5,7 +5,9 @@
   *
   * Copyright 1995 Ed Hanway
   * Copyright 1995, 1996, 1997 Bernd Schmidt
+  * Copyright 2006-2007 Richard Drummond
   */
+
 #include "sysconfig.h"
 #include "sysdeps.h"
 #include <assert.h>
@@ -13,9 +15,7 @@
 #include "options.h"
 #include "threaddep/thread.h"
 #include "uae.h"
-#include "gensound.h"
 #include "audio.h"
-#include "sounddep/sound.h"
 #include "events.h"
 #include "memory.h"
 #include "custom.h"
@@ -24,6 +24,7 @@
 #include "disk.h"
 #include "debug.h"
 #include "xwin.h"
+#include "drawing.h"
 #include "inputdevice.h"
 #include "keybuf.h"
 #include "gui.h"
@@ -52,41 +53,27 @@
 #include <sys/mman.h>
 #endif
 
-long int version = 256*65536L*UAEMAJOR + 65536L*UAEMINOR + UAESUBREV;
+#ifdef WIN32
+//FIXME: This shouldn't be necessary
+#include "windows.h"
+#endif
 
 struct uae_prefs currprefs, changed_prefs;
 
-int no_gui = 0;
-int joystickpresent = 0;
+static int restart_program;
+static char restart_config[256];
+static char optionsfile[256];
+
 int cloanto_rom = 0;
 
 int log_scsi;
 
 struct gui_info gui_data;
 
-#ifdef WIN32
-char warning_buffer[256];
-#endif
 
-char optionsfile[256];
-
-
-void discard_prefs (struct uae_prefs *p, int type)
-{
-    struct strlist **ps = &p->all_lines;
-    while (*ps) {
-	struct strlist *s = *ps;
-	*ps = s->next;
-	free (s->value);
-	free (s->option);
-	free (s);
-    }
-#ifdef FILESYS
-    filesys_cleanup ();
-    free_mountinfo (p->mountinfo);
-    p->mountinfo = alloc_mountinfo ();
-#endif
-}
+/*
+ * Random prefs-related junk that needs to go elsewhere.
+ */
 
 void fixup_prefs_dimensions (struct uae_prefs *prefs)
 {
@@ -166,7 +153,7 @@ static void fix_options (void)
 	write_log ("Can't use a graphics card or Zorro III fastmem when using a 24 bit\n"
 		 "address space - sorry.\n");
     }
-    if (currprefs.bogomem_size != 0 && currprefs.bogomem_size != 0x80000 && currprefs.bogomem_size != 0x100000 && currprefs.bogomem_size != 0x180000)
+    if (currprefs.bogomem_size != 0 && currprefs.bogomem_size != 0x80000 && currprefs.bogomem_size != 0x100000 && currprefs.bogomem_size != 0x1C0000)
     {
 	currprefs.bogomem_size = 0;
 	write_log ("Unsupported bogomem size!\n");
@@ -320,35 +307,6 @@ static void fix_options (void)
 	write_log ("Please use \"uae -h\" to get usage information.\n");
 }
 
-int quit_program = 0;
-static int restart_program;
-static char restart_config[256];
-
-void uae_reset (int hardreset)
-{
-    if (quit_program == 0) {
-	quit_program = -2;
-	if (hardreset)
-	    quit_program = -3;
-    }
-
-}
-
-void uae_quit (void)
-{
-    if (quit_program != -1)
-	quit_program = -1;
-}
-
-/* 0 = normal, 1 = nogui, -1 = disable nogui */
-void uae_restart (int opengui, char *cfgfile)
-{
-    uae_quit ();
-    restart_program = opengui > 0 ? 1 : (opengui == 0 ? 2 : 3);
-    restart_config[0] = 0;
-    if (cfgfile)
-	strcpy (restart_config, cfgfile);
-}
 
 #ifndef DONT_PARSE_CMDLINE
 
@@ -371,10 +329,11 @@ static void show_version_full (void)
 {
     write_log ("\n");
     show_version ();
-    write_log ("\nCopyright 1995-2002 Bernd Schmidt\n");
-    write_log ("          1999-2005 Toni Wilen\n");
-    write_log ("          2003-2005 Richard Drummond\n\n");
-    write_log ("See the source for a full list of contributors.\n");
+    write_log ("\nCopyright 2003-2007 Richard Drummond and contributors.\n");
+    write_log ("Based on source code from:\n");
+    write_log ("UAE    - copyright 1995-2002 Bernd Schmidt;\n");
+    write_log ("WinUAE - copyright 1999-2007 Toni Wilen.\n");
+    write_log ("See the source code for a full list of contributors.\n");
 
     write_log ("This is free software; see the file COPYING for copying conditions.  There is NO\n");
     write_log ("warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n");
@@ -390,8 +349,7 @@ static void parse_cmdline (int argc, char **argv)
 		i++;
 	} else if (strncmp (argv[i], "-config=", 8) == 0) {
 #ifdef FILESYS
-            free_mountinfo (currprefs.mountinfo);
-            currprefs.mountinfo = alloc_mountinfo ();
+	    free_mountinfo (currprefs.mountinfo);
 #endif
 	    if (cfgfile_load (&currprefs, argv[i] + 8, 0))
 		strcpy (optionsfile, argv[i] + 8);
@@ -402,8 +360,7 @@ static void parse_cmdline (int argc, char **argv)
 		write_log ("Missing argument for '-f' option.\n");
 	    } else {
 #ifdef FILESYS
-                free_mountinfo (currprefs.mountinfo);
-	        currprefs.mountinfo = alloc_mountinfo ();
+		free_mountinfo (currprefs.mountinfo);
 #endif
 		if (cfgfile_load (&currprefs, argv[++i], 0))
 		    strcpy (optionsfile, argv[i]);
@@ -463,7 +420,7 @@ static void parse_cmdline_and_init_file (int argc, char **argv)
 //	write_log ("failed to load config '%s'\n", optionsfile);
 #ifdef OPTIONS_IN_HOME
 	/* sam: if not found in $HOME then look in current directory */
-        char *saved_path = strdup (optionsfile);
+	char *saved_path = strdup (optionsfile);
 	strcpy (optionsfile, OPTIONSFILENAME);
 	if (! cfgfile_load (&currprefs, optionsfile, 0) ) {
 	    /* If not in current dir either, change path back to home
@@ -471,7 +428,7 @@ static void parse_cmdline_and_init_file (int argc, char **argv)
 	    strcpy (optionsfile, saved_path);
 	}
 
-        free (saved_path);
+	free (saved_path);
 #endif
     }
     fix_options ();
@@ -481,106 +438,132 @@ static void parse_cmdline_and_init_file (int argc, char **argv)
     fix_options ();
 }
 
-void reset_all_systems (void)
+/*
+ * Save the currently loaded configuration.
+ */
+void uae_save_config (void)
 {
-    init_eventtab ();
+    FILE *f;
+    char tmp[257];
 
-    memory_reset ();
-#ifdef BSDSOCKET
-    bsdlib_reset ();
-#endif
-#ifdef FILESYS
-    filesys_reset ();
-    filesys_start_threads ();
-    hardfile_reset ();
-#endif
-#ifdef SCSIEMU
-    scsidev_reset ();
-    scsidev_start_threads ();
-#endif
+    /* Back up the old file.  */
+    strcpy (tmp, optionsfile);
+    strcat (tmp, "~");
+    write_log ("Backing-up config file '%s' to '%s'\n", optionsfile, tmp);
+    rename (optionsfile, tmp);
+
+    write_log ("Writing new config file '%s'\n", optionsfile);
+    f = fopen (optionsfile, "w");
+    if (f == NULL) {
+	gui_message ("Error saving configuration file.!\n"); // FIXME - better error msg.
+	return;
+    }
+
+    // FIXME  - either fix this nonsense, or only allow config to be saved when emulator is stopped.
+    if (uae_get_state () == UAE_STATE_STOPPED)
+	save_options (f, &changed_prefs, 0);
+    else
+	save_options (f, &currprefs, 0);
+
+    fclose (f);
 }
 
-/* Okay, this stuff looks strange, but it is here to encourage people who
- * port UAE to re-use as much of this code as possible. Functions that you
- * should be using are do_start_program() and do_leave_program(), as well
- * as real_main(). Some OSes don't call main() (which is braindamaged IMHO,
- * but unfortunately very common), so you need to call real_main() from
- * whatever entry point you have. You may want to write your own versions
- * of start_program() and leave_program() if you need to do anything special.
- * Add #ifdefs around these as appropriate.
+
+/*
+ * A first cut at better state management...
  */
 
-void do_start_program (void)
+static int uae_state;
+static int uae_target_state;
+
+int uae_get_state (void)
 {
-    if (quit_program == -1)
-        return;
-    /* Do a reset on startup. Whether this is elegant is debatable. */
-    inputdevice_updateconfig (&currprefs);
-//    if (quit_program >= 0)
-        quit_program = 2;
-    m68k_go (1);
+    return uae_state;
 }
 
-void do_leave_program (void)
+static void set_state (int state)
 {
-    graphics_leave ();
-    inputdevice_close ();
-
-#ifdef SCSIEMU
-    scsidev_exit ();
-#endif
-    DISK_free ();
-    close_sound ();
-    dump_counts ();
-#ifdef SERIAL_PORT
-    serial_exit ();
-#endif
-#ifdef CD32
-    akiko_free ();
-#endif
-    if (! no_gui)
-	gui_exit ();
-
-#ifdef AUTOCONFIG
-    expansion_cleanup ();
-#endif
-#ifdef FILESYS
-    filesys_cleanup ();
-    rtarea_cleanup ();
-#endif
-#ifdef SAVESTATE
-    savestate_free ();
-#endif
-    memory_cleanup ();
-    cfgfile_addcfgparam (0);
+    uae_state = state;
+    gui_notify_state (state);
+    graphics_notify_state (state);
 }
 
-void start_program (void)
+int uae_state_change_pending (void)
 {
-    do_start_program ();
+    return uae_state != uae_target_state;
 }
 
-void leave_program (void)
+void uae_start (void)
 {
-    do_leave_program ();
+    uae_target_state = UAE_STATE_COLD_START;
 }
 
-static void real_main2 (int argc, char **argv)
+void uae_pause (void)
 {
-#if defined (NATMEM_OFFSET) && defined( _WIN32 ) && !defined( NO_WIN32_EXCEPTION_HANDLER )
-    extern int EvalException ( LPEXCEPTION_POINTERS blah, int n_except );
-    __try
-#endif
-    {
+    if (uae_target_state == UAE_STATE_RUNNING)
+	uae_target_state = UAE_STATE_PAUSED;
+}
 
+void uae_resume (void)
+{
+    if (uae_target_state == UAE_STATE_PAUSED)
+	uae_target_state = UAE_STATE_RUNNING;
+}
+
+void uae_quit (void)
+{
+    if (uae_target_state != UAE_STATE_QUITTING) {
+	uae_target_state = UAE_STATE_QUITTING;
+    }
+}
+
+void uae_stop (void)
+{
+    if (uae_target_state != UAE_STATE_QUITTING && uae_target_state != UAE_STATE_STOPPED) {
+	uae_target_state = UAE_STATE_STOPPED;
+	restart_config[0] = 0;
+    }
+}
+
+void uae_reset (int hard_reset)
+{
+    switch (uae_target_state) {
+	case UAE_STATE_QUITTING:
+	case UAE_STATE_STOPPED:
+	case UAE_STATE_COLD_START:
+	case UAE_STATE_WARM_START:
+	    /* Do nothing */
+	    break;
+	default:
+	    uae_target_state = hard_reset ? UAE_STATE_COLD_START : UAE_STATE_WARM_START;
+    }
+}
+
+/* This needs to be rethought */
+void uae_restart (int opengui, char *cfgfile)
+{
+    uae_stop ();
+    restart_program = opengui > 0 ? 1 : (opengui == 0 ? 2 : 3);
+    restart_config[0] = 0;
+    if (cfgfile)
+	strcpy (restart_config, cfgfile);
+}
+
+
+/*
+ * Early initialization of emulator, parsing of command-line options,
+ * and loading of config files, etc.
+ *
+ * TODO: Need better cohesion! Break this sucker up!
+ */
+static int do_preinit_machine (int argc, char **argv)
+{
     if (! graphics_setup ()) {
 	exit (1);
     }
-
     if (restart_config[0]) {
 #ifdef FILESYS
 	free_mountinfo (currprefs.mountinfo);
-        currprefs.mountinfo = alloc_mountinfo ();
 #endif
 	default_prefs (&currprefs, 0);
 	fix_options ();
@@ -596,48 +579,28 @@ static void real_main2 (int argc, char **argv)
 #endif
 
     if (restart_config[0])
-        parse_cmdline_and_init_file (argc, argv);
+	parse_cmdline_and_init_file (argc, argv);
     else
 	currprefs = changed_prefs;
 
     uae_inithrtimer ();
-    sleep_test ();
 
     machdep_init ();
 
-    if (! setup_sound ()) {
+    if (! audio_setup ()) {
 	write_log ("Sound driver unavailable: Sound output disabled\n");
 	currprefs.produce_sound = 0;
     }
     inputdevice_init ();
 
-    changed_prefs = currprefs;
-    no_gui = ! currprefs.start_gui;
+    return 1;
+}
 
-    if (restart_program == 2)
-	no_gui = 1;
-    else if (restart_program == 3)
-	no_gui = 0;
-
-    if (! no_gui) {
-	int err = gui_init ();
-	struct uaedev_mount_info *mi = currprefs.mountinfo;
-	currprefs = changed_prefs;
-	currprefs.mountinfo = mi;
-	if (err == -1) {
-	    write_log ("Failed to initialize the GUI\n");
-	    if (restart_program == 3) {
-	       restart_program = 0;
-	       return;
-	    }
-	} else if (err == -2) {
-	    restart_program = 0;
-	    return;
-	}
-    }
-
-    restart_program = 0;
-
+/*
+ * Initialization of emulator proper
+ */
+static int do_init_machine (void)
+{
 #ifdef JIT
     if (!(( currprefs.cpu_level >= 2 ) && ( currprefs.address_space_24 == 0 ) && ( currprefs.cachesize )))
 	canbang = 0;
@@ -647,8 +610,6 @@ static void real_main2 (int argc, char **argv)
     logging_init(); /* Yes, we call this twice - the first case handles when the user has loaded
 		       a config using the cmd-line.  This case handles loads through the GUI. */
 #endif
-    fix_options ();
-    changed_prefs = currprefs;
 
 #ifdef SAVESTATE
     savestate_init ();
@@ -704,15 +665,89 @@ static void real_main2 (int argc, char **argv)
 	    filesys_init (); /* New function, to do 'add_filesys_unit()' calls at start-up */
 #endif
 #endif
-	    if (sound_available && currprefs.produce_sound > 1 && ! init_audio ()) {
+	    if (sound_available && currprefs.produce_sound > 1 && ! audio_init ()) {
 		write_log ("Sound driver unavailable: Sound output disabled\n");
 		currprefs.produce_sound = 0;
 	    }
 
-	    start_program ();
+	    return 1;
 	}
     }
+    return 0;
+}
 
+/*
+ * Helper for reset method
+ */
+static void reset_all_systems (void)
+{
+    init_eventtab ();
+
+    memory_reset ();
+#ifdef BSDSOCKET
+    bsdlib_reset ();
+#endif
+#ifdef FILESYS
+    filesys_reset ();
+    filesys_start_threads ();
+    hardfile_reset ();
+#endif
+#ifdef SCSIEMU
+    scsidev_reset ();
+    scsidev_start_threads ();
+#endif
+}
+
+/*
+ * Reset emulator
+ */
+static void do_reset_machine (int hardreset)
+{
+#ifdef SAVESTATE
+    if (savestate_state == STATE_RESTORE)
+	restore_state (savestate_fname);
+    else if (savestate_state == STATE_REWIND)
+	savestate_rewind ();
+#endif
+    /* following three lines must not be reordered or
+     * fastram state restore breaks
+     */
+    reset_all_systems ();
+    customreset ();
+    m68k_reset ();
+    if (hardreset) {
+	memset (chipmemory, 0, allocated_chipmem);
+	write_log ("chipmem cleared\n");
+    }
+#ifdef SAVESTATE
+    /* We may have been restoring state, but we're done now.  */
+    if (savestate_state == STATE_RESTORE || savestate_state == STATE_REWIND)
+    {
+	map_overlay (1);
+	fill_prefetch_slow (&regs); /* compatibility with old state saves */
+    }
+    savestate_restore_finish ();
+#endif
+
+    fill_prefetch_slow (&regs);
+    if (currprefs.produce_sound == 0)
+	eventtab[ev_audio].active = 0;
+    handle_active_events ();
+
+    inputdevice_updateconfig (&currprefs);
+}
+
+/*
+ * Run emulator
+ */
+static void do_run_machine (void)
+{
+#if defined (NATMEM_OFFSET) && defined( _WIN32 ) && !defined( NO_WIN32_EXCEPTION_HANDLER )
+    extern int EvalException ( LPEXCEPTION_POINTERS blah, int n_except );
+    __try
+#endif
+    {
+	m68k_go (1);
     }
 #if defined (NATMEM_OFFSET) && defined( _WIN32 ) && !defined( NO_WIN32_EXCEPTION_HANDLER )
     __except( EvalException( GetExceptionInformation(), GetExceptionCode() ) )
@@ -722,7 +757,47 @@ static void real_main2 (int argc, char **argv)
 #endif
 }
 
+/*
+ * Exit emulator
+ */
+static void do_exit_machine (void)
+{
+    graphics_leave ();
+    inputdevice_close ();
 
+#ifdef SCSIEMU
+    scsidev_exit ();
+#endif
+    DISK_free ();
+    audio_close ();
+    dump_counts ();
+#ifdef SERIAL_PORT
+    serial_exit ();
+#endif
+#ifdef CD32
+    akiko_free ();
+#endif
+    gui_exit ();
+
+#ifdef AUTOCONFIG
+    expansion_cleanup ();
+#endif
+#ifdef FILESYS
+    filesys_cleanup ();
+    hardfile_cleanup ();
+    rtarea_cleanup ();
+#endif
+#ifdef SAVESTATE
+    savestate_free ();
+#endif
+    memory_cleanup ();
+    cfgfile_addcfgparam (0);
+}
+
+
+/*
+ * Here's where all the action takes place!
+ */
 void real_main (int argc, char **argv)
 {
     show_version ();
@@ -733,16 +808,139 @@ void real_main (int argc, char **argv)
     }
 #endif
 
+#ifdef FILESYS
+    currprefs.mountinfo = changed_prefs.mountinfo = &options_mountinfo;
+#endif
     restart_program = 1;
 #ifdef _WIN32
     sprintf (restart_config, "%sConfigurations\\", start_path);
 #endif
     strcat (restart_config, OPTIONSFILENAME);
-    while (restart_program) {
+
+    /* Initial state is stopped */
+    uae_target_state = UAE_STATE_STOPPED;
+
+    while (uae_target_state != UAE_STATE_QUITTING) {
+	int want_gui;
+
+	set_state (uae_target_state);
+
+	do_preinit_machine (argc, argv);
+
+	/* Should we open the GUI? TODO: This mess needs to go away */
+	want_gui = currprefs.start_gui;
+	if (restart_program == 2)
+	    want_gui = 0;
+	else if (restart_program == 3)
+	    want_gui = 1;
+
 	changed_prefs = currprefs;
-	real_main2 (argc, argv);
-        leave_program ();
-	quit_program = 0;
+
+
+	if (want_gui) {
+	    /* Handle GUI at start-up */
+	    int err = gui_open ();
+
+	    if (err >= 0) {
+		do {
+		    gui_handle_events ();
+
+		    uae_msleep (10);
+
+		} while (!uae_state_change_pending ());
+	    } else if (err == - 1) {
+		if (restart_program == 3) {
+		    restart_program = 0;
+		    uae_quit ();
+		}
+	    } else
+		uae_quit ();
+
+	    currprefs = changed_prefs;
+	    fix_options ();
+	    inputdevice_init ();
+	}
+
+	restart_program = 0;
+
+	if (uae_target_state == UAE_STATE_QUITTING)
+	    break;
+
+	uae_target_state = UAE_STATE_COLD_START;
+
+	/* Start emulator proper. */
+	if (!do_init_machine ())
+	    break;
+
+	while (uae_target_state != UAE_STATE_QUITTING && uae_target_state != UAE_STATE_STOPPED) {
+	    /* Reset */
+	    set_state (uae_target_state);
+	    do_reset_machine (uae_state == UAE_STATE_COLD_START);
+
+	    /* Running */
+	    uae_target_state = UAE_STATE_RUNNING;
+
+	    /*
+	     * Main Loop
+	     */
+	    do {
+		set_state (uae_target_state);
+
+		/* Run emulator. */
+		do_run_machine ();
+
+		if (uae_target_state == UAE_STATE_PAUSED) {
+		    /* Paused */
+		    set_state (uae_target_state);
+
+		    audio_pause ();
+
+		    /* While UAE is paused we have to handle
+		     * input events, etc. ourselves.
+		     */
+		    do {
+			gui_handle_events ();
+			handle_events ();
+
+			/* Manually pump input device */
+			inputdevicefunc_keyboard.read ();
+			inputdevicefunc_mouse.read ();
+			inputdevicefunc_joystick.read ();
+			inputdevice_handle_inputcode ();
+
+			/* Don't busy wait. */
+			uae_msleep (10);
+
+		    } while (!uae_state_change_pending ());
+
+		    audio_resume ();
+		}
+
+	    } while (uae_target_state == UAE_STATE_RUNNING);
+
+	    /*
+	     * End of Main Loop
+	     *
+	     * We're no longer running or paused.
+	     */
+
+	    set_inhibit_frame (IHF_QUIT_PROGRAM);
+
+#ifdef FILESYS
+	    /* Ensure any cached changes to virtual filesystem are flushed before
+	     * resetting or exitting. */
+	    filesys_prepare_reset ();
+#endif
+
+	} /* while (!QUITTING && !STOPPED) */
+
+	do_exit_machine ();
+
+	/* TODO: This stuff is a hack. What we need to do is
+	 * check whether a config GUI is available. If not,
+	 * then quit.
+	 */
+	restart_program = 3;
     }
     zfile_exit ();
 }
@@ -752,7 +950,7 @@ int init_sdl (void)
 {
     int result = (SDL_Init (SDL_INIT_TIMER | SDL_INIT_NOPARACHUTE /*| SDL_INIT_AUDIO*/) == 0);
     if (result)
-        atexit (SDL_Quit);
+	atexit (SDL_Quit);
 
     return result;
 }
@@ -770,6 +968,7 @@ int main (int argc, char **argv)
     }
 #endif
     init_sdl ();
+    gui_init (argc, argv);
     real_main (argc, argv);
 #ifdef BLOMCALL
     blomcall_destroy();

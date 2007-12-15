@@ -4766,4 +4766,3 @@
 	  src/dms/u_deep.c, src/dms/u_heavy.c, src/dms/u_init.c,
 	  src/dms/u_medium.c, src/dms/u_quick.c, src/dms/u_rle.c: Initial
 	  revision
-

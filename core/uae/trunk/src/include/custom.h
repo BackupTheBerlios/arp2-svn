@@ -37,6 +37,7 @@ extern int turbo_emulation;
 /* Set to 1 to leave out the current frame in average frame time calculation.
  * Useful if the debugger was active.  */
 extern int bogusframe;
+extern unsigned long hsync_counter;
 
 extern uae_u16 dmacon;
 extern uae_u16 intena,intreq;
@@ -166,6 +167,7 @@ STATIC_INLINE int GET_RES (uae_u16 con0)
 
 extern void fpscounter_reset (void);
 extern frame_time_t idletime;
+extern int lightpen_x, lightpen_y, lightpen_cx, lightpen_cy;
 
 struct customhack {
     uae_u16 v;

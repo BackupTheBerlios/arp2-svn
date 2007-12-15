@@ -4,7 +4,7 @@
   * Support for BeOS sound
   *
   * Copyright 1996, 1997 Christian Bauer
-  * Copyright 2003-2004 Richard Drummond
+  * Copyright 2003-2007 Richard Drummond
   */
 
 extern uae_u16 *sndbuffer;
@@ -15,7 +15,7 @@ extern void finish_sound_buffer (void);
 STATIC_INLINE void check_sound_buffers (void)
 {
     if ((char *)sndbufpt - (char *)sndbuffer >= sndbufsize) {
-    	finish_sound_buffer ();
+	finish_sound_buffer ();
     }
 }
 
@@ -31,9 +31,8 @@ STATIC_INLINE void check_sound_buffers (void)
 #define SOUND16_BASE_VAL 0
 #define SOUND8_BASE_VAL 128
 
-#define DEFAULT_SOUND_MAXB 8192
-#define DEFAULT_SOUND_MINB 8192
 #define DEFAULT_SOUND_BITS 16
 #define DEFAULT_SOUND_FREQ 44100
+#define DEFAULT_SOUND_LATENCY 100
 #define HAVE_STEREO_SUPPORT
 #define HAVE_8BIT_AUDIO_SUPPORT

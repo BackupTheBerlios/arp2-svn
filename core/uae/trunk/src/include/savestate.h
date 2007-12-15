@@ -47,6 +47,7 @@ extern char *restore_string_func (const uae_u8 **);
 /* save, restore and initialize routines for Amiga's subsystems */
 
 extern const uae_u8 *restore_cpu (const uae_u8 *src);
+extern       void    restore_cpu_finish (void);
 extern       uae_u8 *save_cpu    (uae_u32 *len, uae_u8 *dstpr);
 
 extern const uae_u8 *restore_fpu (const uae_u8 *src);
@@ -72,6 +73,7 @@ extern       uae_u8 *save_custom_agacolors    (uae_u32 *len, uae_u8 *dstptr);
 
 extern const uae_u8 *restore_blitter (const uae_u8 *src);
 extern       uae_u8 *save_blitter    (uae_u32 *len, uae_u8 *dstptr);
+extern       void    restore_blitter_finish (void);
 
 extern const uae_u8 *restore_audio (unsigned int channel, const uae_u8 *src);
 extern       uae_u8 *save_audio    (unsigned int channel, uae_u32 *len, uae_u8 *dstptr);

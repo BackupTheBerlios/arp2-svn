@@ -51,7 +51,7 @@
 #include "custom.h"
 #include "newcpu.h"
 #include "disk.h"
-#include "gensound.h"
+#include "audio.h"
 #include "uaeexe.h"
 #include "xwin.h"
 #include "drawing.h"
@@ -90,7 +90,7 @@ void rexx_handle_events (void);
 
 /****************************************************************************/
 
-#if defined __GNUC__ && !defined __amigaos4__
+#if defined __GNUC__ && !defined __amigaos4__ && !defined __morphos__
 typedef struct RxsLib REXXBASE;
 #else
 typedef struct Library REXXBASE;
@@ -114,15 +114,12 @@ static int   matchnum   (const char **line);
 
 /****************************************************************************/
 
-extern int quit_program;                                 /* ami-gui.c */
 extern ULONG frame_num;                                  /* ami-win.c */
 
 /****************************************************************************/
 
 int rexx_init (void)
 {
-    quit_program = 0;
-
     RexxSysBase = (REXXBASE *) OpenLibrary ("rexxsyslib.library", 0L);
     if (!RexxSysBase) {
 	write_log ("Can't find rexxsyslib.library!\n");
@@ -230,8 +227,7 @@ static int INSERT (const char *line)
 
 static void QUIT (void)
 {
-    set_special (&regs, SPCFLAG_BRK);
-    quit_program = 1;
+    uae_quit ();
 }
 
 /****************************************************************************/
@@ -253,7 +249,7 @@ static int QUERY (const char *line)
     else if (matchstr (&line, "DISPLAY"))      res = inhibit_frame ? "0" : "1";
     else if (matchstr (&line, "FRAMERATE")) {
 	sprintf (RESULT, "%d", currprefs.gfx_framerate);
-        return RC_OK;
+	return RC_OK;
     } else if (matchstr (&line, "FRAMENUM")) {
 #ifdef USE_AMIGA_GFX
 	sprintf (RESULT, "%u", frame_num);
@@ -345,7 +341,7 @@ static int FAKEJOYSTICK (const char *line)
 /*    if     (matchstr(&line,"ON"))     changed_prefs.fake_joystick = 2;
     else if(matchstr(&line,"OFF"))    changed_prefs.fake_joystick = 0;
     else if(matchstr(&line,"TOGGLE")) changed_prefs.fake_joystick =
-                                      currprefs.fake_joystick?0:2;
+				      currprefs.fake_joystick?0:2;
     else return RC_ERROR;
     return RC_OK; */
 
@@ -628,7 +624,7 @@ static int matchnum (const char **line)
 
 #ifdef POWERUP
 /* sam: those function should be in the ppc version of the unexisting
-        libamiga.a */
+	libamiga.a */
 #define NEWLIST(l) ((l)->lh_Head = (struct Node *)&(l)->lh_Tail, \
 		    /*(l)->lh_Tail = NULL,*/ \
 		    (l)->lh_TailPred = (struct Node *)&(l)->lh_Head)

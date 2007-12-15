@@ -16,7 +16,6 @@
 #include "options.h"
 #include "threaddep/thread.h"
 #include "uae.h"
-#include "gensound.h"
 #include "joystick.h"
 #include "keybuf.h"
 #include "autoconf.h"
@@ -24,6 +23,7 @@
 #include "tui.h"
 #include "gui.h"
 #include "memory.h"
+#include "audio.h"
 #include "version.h"
 
 #define MAX_MENU_HEIGHT 15
@@ -267,7 +267,7 @@ static void print_configuration (void)
 	sprintf (tmp, "Picasso 96 %d MB", currprefs.gfxmem_size / 0x100000);
 	tui_puts(tmp);
     } else
- 	tui_puts ("Picasso 96 Off");
+	tui_puts ("Picasso 96 Off");
     y++;
 
     tui_gotoxy (OPTION_COLUMN, y++);
@@ -691,36 +691,12 @@ static int do_gui (int mode)
     return 0;
 }
 
-int gui_init (void)
+int gui_open (void)
 {
     return do_gui (1);
-}
-
-void gui_changesettings (void)
-{
-    struct uae_prefs oldprefs;
-    oldprefs = currprefs;
-
-    if (do_gui(0) == -2)
-	uae_quit ();
-    else {
-	changed_prefs = currprefs;
-	currprefs = oldprefs;
-	currprefs.jport0 = changed_prefs.jport0;
-	currprefs.jport1 = changed_prefs.jport1;
-	joystick_setting_changed ();
-    }
 }
 
 int gui_update (void)
 {
     return 0;
-}
-
-void gui_lock (void)
-{
-}
-
-void gui_unlock (void)
-{
 }

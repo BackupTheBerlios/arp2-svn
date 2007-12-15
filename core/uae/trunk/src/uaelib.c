@@ -24,15 +24,16 @@
 #include "traps.h"
 #include "disk.h"
 #include "debug.h"
-#include "gensound.h"
+#include "audio.h"
 #include "picasso96.h"
+#include "version.h"
 
 /*
  * Returns UAE Version
  */
 static uae_u32 emulib_GetVersion (void)
 {
-    return version;
+    return UAEVERSION;
 }
 
 /*
@@ -216,7 +217,7 @@ static uae_u32 emulib_GetUaeConfig (uaecptr place)
 {
     int i;
 
-    put_long (place, version);
+    put_long (place, UAEVERSION);
     put_long (place + 4, allocated_chipmem);
     put_long (place + 8, allocated_bogomem);
     put_long (place + 12, allocated_fastmem);
@@ -364,6 +365,7 @@ static uae_u32 REGPARAM2 uaelib_demux (TrapContext *context)
 #define ARG2 (get_long (m68k_areg (&context->regs, 7) + 12))
 #define ARG3 (get_long (m68k_areg (&context->regs, 7) + 16))
 #define ARG4 (get_long (m68k_areg (&context->regs, 7) + 20))
+#define ARG5 (get_long (m68k_areg (&context->regs, 7) + 24))
 
     switch (ARG0) {
      case 0: return emulib_GetVersion ();
@@ -402,7 +404,6 @@ static uae_u32 REGPARAM2 uaelib_demux (TrapContext *context)
      case 30: return picasso_BlitPattern (&context->regs);
      case 31: return picasso_InvertRect (&context->regs);
      case 32: return picasso_BlitPlanar2Direct (&context->regs);
-     case 34: return picasso_WaitVerticalSync (&context->regs);
      /* case 34: return picasso_WaitVerticalSync (); handled in asm-code */
      case 35: return allocated_gfxmem ? 1 : 0;
 #ifdef HARDWARE_SPRITE_EMULATION
@@ -418,6 +419,7 @@ static uae_u32 REGPARAM2 uaelib_demux (TrapContext *context)
 
      case 80: return currprefs.maprom ? currprefs.maprom : 0xffffffff;
      case 81: return cfgfile_uaelib (ARG1, ARG2, ARG3, ARG4);
+     case 82: return cfgfile_uaelib_modify (ARG1, ARG2, ARG3, ARG4, ARG5);
     }
     return 0;
 }
@@ -430,8 +432,8 @@ void emulib_install (void)
     uaecptr a = here ();
     org (RTAREA_BASE + 0xFF60);
 //    dw (0x4eb9);
-//    dw ((RTAREA_BASE >> 16) | get_word(RTAREA_BASE + 36));
-//    dw (get_word(RTAREA_BASE + 38) + 12);
+//    dw ((RTAREA_BASE >> 16) | get_word (RTAREA_BASE + 36));
+//    dw (get_word (RTAREA_BASE + 38) + 12);
     calltrap (define_trap (uaelib_demux, 0, ""));
     dw (RTS);
     org (a);

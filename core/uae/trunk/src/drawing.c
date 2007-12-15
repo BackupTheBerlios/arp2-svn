@@ -1,4 +1,3 @@
-
  /*
   * UAE - The Un*x Amiga Emulator
   *
@@ -34,13 +33,11 @@
 #include <assert.h>
 
 #include "options.h"
-#include "threaddep/thread.h"
 #include "uae.h"
 #include "memory.h"
 #include "custom.h"
 #include "newcpu.h"
 #include "xwin.h"
-#include "autoconf.h"
 #include "gui.h"
 #include "picasso96.h"
 #include "drawing.h"
@@ -57,7 +54,7 @@ int lores_factor, lores_shift;
    coordinates have a lower resolution (i.e. we're shrinking the image).  */
 static int res_shift;
 
-static int interlace_seen = 0;
+int interlace_seen;
 #define AUTO_LORES_FRAMES 10
 static int can_use_lores = 0;
 
@@ -77,8 +74,6 @@ static int dblpf_2nd1[256], dblpf_2nd2[256];
 static int dblpfofs[] = { 0, 2, 4, 8, 16, 32, 64, 128 };
 
 static int sprite_offs[256];
-
-static uae_u32 clxtab[256];
 
 /* Video buffer description structure. Filled in by the graphics system
  * dependent code. */
@@ -142,7 +137,7 @@ typedef void (*line_draw_func)(int, int);
 #define LINE_DONE_AS_PREVIOUS 8
 #define LINE_REMEMBERED_AS_PREVIOUS 9
 
-static char linestate[(MAXVPOS + 1)*2 + 1];
+static char linestate[(MAXVPOS + 1) * 2 + 1];
 
 uae_u8 line_data[(MAXVPOS + 1) * 2][MAX_PLANES * MAX_WORDS_PER_LINE * 2];
 
@@ -178,7 +173,6 @@ static int brdsprt, brdblank;
 int picasso_requested_on;
 int picasso_on;
 
-uae_sem_t gui_sem;
 int inhibit_frame;
 
 int framecnt = 0;
@@ -196,7 +190,7 @@ int coord_native_to_amiga_x (int x)
 {
     x += visible_left_border;
     x <<= (1 - lores_shift);
-    return x + 2*DISPLAY_LEFT_SHIFT - 2*DIW_DDF_OFFSET;
+    return x + 2 * DISPLAY_LEFT_SHIFT - 2 * DIW_DDF_OFFSET;
 }
 
 int coord_native_to_amiga_y (int y)
@@ -657,14 +651,6 @@ static void gen_pfield_tables (void)
 	dblpf_ind2[i] = i >= 128 ? i & 0x7F : (plane2 == 0 ? plane1 : plane2);
 
 	sprite_offs[i] = (i & 15) ? 0 : 2;
-
-	clxtab[i] = ((((i & 3) && (i & 12)) << 9)
-		     | (((i & 3) && (i & 48)) << 10)
-		     | (((i & 3) && (i & 192)) << 11)
-		     | (((i & 12) && (i & 48)) << 12)
-		     | (((i & 12) && (i & 192)) << 13)
-		     | (((i & 48) && (i & 192)) << 14));
-
     }
 }
 
@@ -675,7 +661,7 @@ static void gen_pfield_tables (void)
    function only pass in constant arguments (except for E).  This means
    that many of the if statements will go away completely after inlining.  */
 STATIC_INLINE void draw_sprites_1 (struct sprite_entry *e, int ham, int dualpf,
-				   int doubling, int skip, int has_attach, int aga)
+    int doubling, int skip, int has_attach, int aga)
 {
     int *shift_lookup = dualpf ? (bpldualpfpri ? dblpf_ms2 : dblpf_ms1) : dblpf_ms;
     uae_u16 *buf = spixels + e->first_pixel;
@@ -970,15 +956,15 @@ STATIC_INLINE void pfield_doline_1 (uae_u32 *pixels, int wordcount, int planes)
 
 /* See above for comments on inlining.  These functions should _not_
    be inlined themselves.  */
-static void pfield_doline_n1 (uae_u32 *data, int count) { pfield_doline_1 (data, count, 1); }
-static void pfield_doline_n2 (uae_u32 *data, int count) { pfield_doline_1 (data, count, 2); }
-static void pfield_doline_n3 (uae_u32 *data, int count) { pfield_doline_1 (data, count, 3); }
-static void pfield_doline_n4 (uae_u32 *data, int count) { pfield_doline_1 (data, count, 4); }
-static void pfield_doline_n5 (uae_u32 *data, int count) { pfield_doline_1 (data, count, 5); }
-static void pfield_doline_n6 (uae_u32 *data, int count) { pfield_doline_1 (data, count, 6); }
+static void NOINLINE pfield_doline_n1 (uae_u32 *data, int count) { pfield_doline_1 (data, count, 1); }
+static void NOINLINE pfield_doline_n2 (uae_u32 *data, int count) { pfield_doline_1 (data, count, 2); }
+static void NOINLINE pfield_doline_n3 (uae_u32 *data, int count) { pfield_doline_1 (data, count, 3); }
+static void NOINLINE pfield_doline_n4 (uae_u32 *data, int count) { pfield_doline_1 (data, count, 4); }
+static void NOINLINE pfield_doline_n5 (uae_u32 *data, int count) { pfield_doline_1 (data, count, 5); }
+static void NOINLINE pfield_doline_n6 (uae_u32 *data, int count) { pfield_doline_1 (data, count, 6); }
 #ifdef AGA
-static void pfield_doline_n7 (uae_u32 *data, int count) { pfield_doline_1 (data, count, 7); }
-static void pfield_doline_n8 (uae_u32 *data, int count) { pfield_doline_1 (data, count, 8); }
+static void NOINLINE pfield_doline_n7 (uae_u32 *data, int count) { pfield_doline_1 (data, count, 7); }
+static void NOINLINE pfield_doline_n8 (uae_u32 *data, int count) { pfield_doline_1 (data, count, 8); }
 #endif
 
 static void pfield_doline (int lineno)
@@ -1153,7 +1139,7 @@ STATIC_INLINE void do_flush_screen (int start, int stop)
     unlockscr ();
     if (start <= stop)
 	flush_screen (start, stop);
-    else if (currprefs.gfx_afullscreen && currprefs.gfx_vsync)
+    else if (is_vsync ())
 	flush_screen (0, 0); /* vsync mode */
 }
 
@@ -1221,22 +1207,22 @@ static void pfield_expand_dp_bplcon2 (int regno, int v)
     regno -= 0x1000;
     switch (regno)
     {
-        case 0x100:
-        dp_for_drawing->bplcon0 = v;
-        dp_for_drawing->bplres = GET_RES(v);
-        dp_for_drawing->nr_planes = GET_PLANES(v);
+	case 0x100:
+	dp_for_drawing->bplcon0 = v;
+	dp_for_drawing->bplres = GET_RES(v);
+	dp_for_drawing->nr_planes = GET_PLANES(v);
 	dp_for_drawing->ham_seen = !! (v & 0x800);
-        break;
-        case 0x104:
-        dp_for_drawing->bplcon2 = v;
-        break;
+	break;
+	case 0x104:
+	dp_for_drawing->bplcon2 = v;
+	break;
 #ifdef AGA
 	case 0x106:
-        dp_for_drawing->bplcon3 = v;
-        break;
-        case 0x108:
-        dp_for_drawing->bplcon4 = v;
-        break;
+	dp_for_drawing->bplcon3 = v;
+	break;
+	case 0x108:
+	dp_for_drawing->bplcon4 = v;
+	break;
 #endif
     }
     pfield_expand_dp_bplcon ();
@@ -1352,9 +1338,11 @@ STATIC_INLINE void pfield_draw_line (int lineno, int gfx_ypos, int follow_ypos)
     case LINE_AS_PREVIOUS:
 	dp_for_drawing--;
 	dip_for_drawing--;
+	linestate[lineno] = LINE_DONE_AS_PREVIOUS;
+	if (!dp_for_drawing->valid)
+	    return;
 	if (dp_for_drawing->plfleft == -1)
 	    border = 1;
-	linestate[lineno] = LINE_DONE_AS_PREVIOUS;
 	break;
 
     case LINE_DONE_AS_PREVIOUS:
@@ -1770,12 +1758,9 @@ static void draw_status_line (int line)
 	    num1 = idle / 100;
 	    num2 = (idle - num1 * 100) / 10;
 	    num3 = idle % 10;
-	    num4 = 13;
-	    am = 4;
-	    if (num1 == 0)
-		am = 3;
+	    num4 = num1 == 0 ? 13 : -1;
+	    am = 3;
 	}
-
 	c = xcolors[on ? on_rgb : off_rgb];
 	if (y == 0 || y == TD_TOTAL_HEIGHT - 1)
 	    c = xcolors[TD_BORDER];
@@ -1823,11 +1808,13 @@ void finish_drawing_frame (void)
 #endif
     for (i = 0; i < max_ypos_thisframe; i++) {
 	int where;
-	int i1 = i + min_ypos_for_screen;
+	int i1;
 	int line = i + thisframe_y_adjust_real;
 
 	if (linestate[line] == LINE_UNDECIDED)
 	    break;
+
+	i1 = i + min_ypos_for_screen;
 
 	where = amiga2aspect_line_map[i1];
 	if (where >= gfxvidinfo.height)
@@ -1838,8 +1825,8 @@ void finish_drawing_frame (void)
 	pfield_draw_line (line, where, amiga2aspect_line_map[i1 + 1]);
     }
     if (currprefs.leds_on_screen) {
-	for (i = 0; i < TD_TOTAL_HEIGHT; i++) {
-	    int line = gfxvidinfo.height - TD_TOTAL_HEIGHT + i;
+	int line = gfxvidinfo.height - TD_TOTAL_HEIGHT;
+	for (i = TD_TOTAL_HEIGHT; i--; line++) {
 	    draw_status_line (line);
 	    do_flush_line (line);
 	}
@@ -1902,10 +1889,11 @@ void vsync_handle_redraw (int long_frame, int lof_changed)
     last_redraw_point++;
     if (lof_changed || ! interlace_seen || last_redraw_point >= 2 || long_frame) {
 	last_redraw_point = 0;
-	interlace_seen = 0;
 
 	if (framecnt == 0)
 	    finish_drawing_frame ();
+
+	interlace_seen = 0;
 
 	/* At this point, we have finished both the hardware and the
 	 * drawing frame. Essentially, we are outside of all loops and
@@ -1925,20 +1913,15 @@ void vsync_handle_redraw (int long_frame, int lof_changed)
 	}
 #endif
 
-	if (quit_program < 0) {
-	    quit_program = -quit_program;
-	    set_inhibit_frame (IHF_QUIT_PROGRAM);
+	if (uae_state_change_pending ()) {
 	    set_special (&regs, SPCFLAG_BRK);
-#ifdef FILESYS
-	    filesys_prepare_reset ();
-#endif
+	    init_drawing_frame ();
 	    return;
 	}
 
 #ifdef SAVESTATE
 	savestate_capture (0);
 #endif
-
 	count_frame ();
 	check_picasso ();
 
@@ -1963,7 +1946,7 @@ void vsync_handle_redraw (int long_frame, int lof_changed)
 	if (framecnt == 0)
 	    init_drawing_frame ();
     } else {
-	if (currprefs.gfx_afullscreen && currprefs.gfx_vsync)
+	if (is_vsync ())
 	    flush_screen (0, 0); /* vsync mode */
     }
     gui_hd_led (0);
@@ -1976,6 +1959,7 @@ void vsync_handle_redraw (int long_frame, int lof_changed)
 void hsync_record_line_state (int lineno, enum nln_how how, int changed)
 {
     char *state;
+
     if (framecnt != 0)
 	return;
 
@@ -2011,41 +1995,6 @@ void hsync_record_line_state (int lineno, enum nln_how how, int changed)
     }
 }
 
-static void dummy_flush_line (struct vidbuf_description *gfxinfo, int line_no)
-{
-}
-
-static void dummy_flush_block (struct vidbuf_description *gfxinfo, int first_line, int last_line)
-{
-}
-
-static void dummy_flush_screen (struct vidbuf_description *gfxinfo, int first_line, int last_line)
-{
-}
-
-static void dummy_flush_clear_screen (struct vidbuf_description *gfxinfo)
-{
-}
-
-static int  dummy_lock (struct vidbuf_description *gfxinfo)
-{
-    return 1;
-}
-
-static void dummy_unlock (struct vidbuf_description *gfxinfo)
-{
-}
-
-static void gfxbuffer_reset (void)
-{
-    gfxvidinfo.flush_line         = dummy_flush_line;
-    gfxvidinfo.flush_block        = dummy_flush_block;
-    gfxvidinfo.flush_screen       = dummy_flush_screen;
-    gfxvidinfo.flush_clear_screen = dummy_flush_clear_screen;
-    gfxvidinfo.lockscr            = dummy_lock;
-    gfxvidinfo.unlockscr          = dummy_unlock;
-}
-
 void notice_interlace_seen (void)
 {
     interlace_seen = 1;
@@ -2059,7 +2008,7 @@ void reset_drawing (void)
 
     lores_reset ();
 
-    for (i = 0; i < sizeof linestate / sizeof *linestate; i++)
+    for (i = sizeof linestate / sizeof *linestate; i--;)
 	linestate[i] = LINE_UNDECIDED;
 
     init_aspect_maps ();
@@ -2073,30 +2022,27 @@ void reset_drawing (void)
 
     init_drawing_frame ();
 
-    flush_clear_screen ();
     notice_screen_contents_lost ();
 }
 
 void drawing_init (void)
 {
-    /* hack alert! */
-    static int int_called_once = 0;
-
-    gen_pfield_tables();
-
-    uae_sem_init (&gui_sem, 0, 1);
+    gen_pfield_tables ();
 
 #ifdef PICASSO96
     InitPicasso96 ();
     picasso_on = 0;
     picasso_requested_on = 0;
+
+    /* FIXME: Ensure native screen is displayed, not picasso screen. The shouldn't
+     * be necessary here, but at the moment it's required if UAE is reset when
+     * displaying a P96 screen.
+     */
     gfx_set_picasso_state (0);
 #endif
-    xlinebuffer = gfxvidinfo.bufmem;
+
     inhibit_frame = 0;
 
-    if (!int_called_once++)
-        gfxbuffer_reset ();
-
+    /* Removing this call can break restoring from saved state. */
     reset_drawing ();
 }

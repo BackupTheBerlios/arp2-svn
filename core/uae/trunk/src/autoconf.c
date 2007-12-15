@@ -29,7 +29,7 @@ uaecptr EXPANSION_cddevice;
 
 /* ROM tag area memory access */
 
-static uae_u8 *rtarea;
+uae_u8 *rtarea;
 
 static uae_u32 rtarea_lget (uaecptr) REGPARAM;
 static uae_u32 rtarea_wget (uaecptr) REGPARAM;
@@ -54,7 +54,7 @@ uae_u8 REGPARAM2 *rtarea_xlate (uaecptr addr)
 uae_u32 REGPARAM2 rtarea_lget (uaecptr addr)
 {
 #ifdef JIT
-    special_mem |= S_READ;
+    special_mem |= SPECIAL_MEM_READ;
 #endif
     addr &= 0xFFFF;
     return (uae_u32)(rtarea_wget (addr) << 16) + rtarea_wget (addr+2);
@@ -63,7 +63,7 @@ uae_u32 REGPARAM2 rtarea_lget (uaecptr addr)
 uae_u32 REGPARAM2 rtarea_wget (uaecptr addr)
 {
 #ifdef JIT
-    special_mem |= S_READ;
+    special_mem |= SPECIAL_MEM_READ;
 #endif
     addr &= 0xFFFF;
     return (rtarea[addr]<<8) + rtarea[addr+1];
@@ -72,7 +72,7 @@ uae_u32 REGPARAM2 rtarea_wget (uaecptr addr)
 uae_u32 REGPARAM2 rtarea_bget (uaecptr addr)
 {
 #ifdef JIT
-    special_mem |= S_READ;
+    special_mem |= SPECIAL_MEM_READ;
 #endif
     addr &= 0xFFFF;
     return rtarea[addr];
@@ -81,21 +81,21 @@ uae_u32 REGPARAM2 rtarea_bget (uaecptr addr)
 void REGPARAM2 rtarea_lput (uaecptr addr, uae_u32 value)
 {
 #ifdef JIT
-    special_mem |= S_WRITE;
+    special_mem |= SPECIAL_MEM_WRITE;
 #endif
 }
 
 void REGPARAM2 rtarea_wput (uaecptr addr, uae_u32 value)
 {
 #ifdef JIT
-    special_mem |= S_WRITE;
+    special_mem |= SPECIAL_MEM_WRITE;
 #endif
 }
 
 void REGPARAM2 rtarea_bput (uaecptr addr, uae_u32 value)
 {
 #ifdef JIT
-    special_mem |= S_WRITE;
+    special_mem |= SPECIAL_MEM_WRITE;
 #endif
 }
 

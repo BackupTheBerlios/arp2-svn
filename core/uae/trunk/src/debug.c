@@ -23,12 +23,13 @@
 #include "cia.h"
 #include "xwin.h"
 #include "identify.h"
-#include "gensound.h"
 #include "disk.h"
 #include "savestate.h"
 #include "autoconf.h"
+#include "filesys.h"
 #include "akiko.h"
 #include "inputdevice.h"
+#include "audio.h"
 
 static int debugger_active;
 static uaecptr skipaddr_start, skipaddr_end;
@@ -72,8 +73,8 @@ void activate_debugger (void)
 	    if (is_fullscreen ()) {
 		write_log ("Cannot activate debugger in full-screen mode\n");
 		return;
-            }
-        }
+	    }
+	}
 
 	if (logfile)
 	    fclose (logfile);
@@ -144,7 +145,7 @@ static void debug_help (void)
 static void ignore_ws (const char **c)
 {
     while (**c && isspace (**c))
-        (*c)++;
+	(*c)++;
 }
 
 static uae_u32 readint (const char **c);
@@ -1526,8 +1527,8 @@ static void debug_1 (void)
 	case 'o':
 	{
 	    if (copper_debugger(&inptr)) {
-	        debugger_active = 0;
-	        debugging = 0;
+		debugger_active = 0;
+		debugging = 0;
 		return;
 	    }
 	    break;
@@ -1660,7 +1661,7 @@ void debug (void)
     }
 
     inputdevice_unacquire ();
-    pause_sound ();
+    audio_pause ();
     do_skip = 0;
     skipaddr_start = 0xffffffff;
     skipaddr_end = 0xffffffff;
@@ -1682,9 +1683,9 @@ void debug (void)
 
 #ifdef SAVESTATE
     if (!debug_rewind
-#ifdef JIT	
+#ifdef JIT
 	&& !currprefs.cachesize
-#endif	
+#endif
 #ifdef FILESYS
 	&& nr_units (currprefs.mountinfo) == 0
 #endif
@@ -1701,6 +1702,6 @@ void debug (void)
 	set_special (&regs, SPCFLAG_BRK);
 	debugging = 1;
     }
-    resume_sound ();
+    audio_resume ();
     inputdevice_acquire ();
 }

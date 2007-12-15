@@ -7,10 +7,24 @@
  */
 
 #include "sysconfig.h"
-#include "sysdeps.h"
+#include <stdlib.h>
+#include "uae_string.h"
+#include "uae_types.h"
+#include "uae_malloc.h"
+#include "writelog.h"
 #include <ctype.h>
 
 #include "readcpu.h"
+
+/*
+ * You can specify numbers from 0 to 5 here. It is possible that higher
+ * numbers will make the CPU emulation slightly faster, but if the setting
+ * is too high, you will run out of memory while compiling.
+ * Best to leave this as it is.
+ */
+#ifndef CPU_EMU_SIZE
+# define CPU_EMU_SIZE 0
+#endif
 
 int nr_cpuop_funcs;
 
@@ -560,7 +574,7 @@ static void build_insn (int insn)
 	    case 'R': destreg = bitval[bitR]; dstgather = 1; dstpos = bitpos[bitR]; break;
 	    default: abort();
 	    }
-            if (dstpos < 0 || dstpos >= 32)
+	    if (dstpos < 0 || dstpos >= 32)
 		abort ();
 	    break;
 	case 'A':
@@ -571,7 +585,7 @@ static void build_insn (int insn)
 	    case 'x': destreg = 0; dstgather = 0; dstpos = 0; break;
 	    default: abort();
 	    }
-            if (dstpos < 0 || dstpos >= 32)
+	    if (dstpos < 0 || dstpos >= 32)
 		abort ();
 	    switch (opcstr[pos]) {
 	    case 'p': destmode = Apdi; pos++; break;

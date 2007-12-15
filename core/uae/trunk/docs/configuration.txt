@@ -230,6 +230,13 @@ cachesize=<n> (default=0)
   1024 and 8192 (i.e., 1 to 8 MB of cache) should allow the best performance.
 
 
+compfpu=<boolean>
+
+  If true, translate m68k FPU instructions to native FPU instructions.
+  If false, interpret FPU instructions. Only applies if a CPU with a
+  floating-point unit is selected.
+
+
 Chipset options
 ===============
 
@@ -375,12 +382,18 @@ chipmem_size=<n> (default=1, that is, 512 KB)
 bogomem_size=<n> (default=2, that is, 512 KB)
 
   Emulate <n> * 256 KB of "Slow" memory. The valid range of values for <n>
-  is 0, 2, 4 and 6, that is 0 KB, 512 KB, 1 MB and 1.5 MB, respectively.
+  is 0, 2, 4 and 7, that is 0 KB, 512 KB, 1 MB and 1.8 MB,
+  respectively. If AGA emulation is enabled, then the maximum is 1 MB.
 
   "Slow" memory is the type of memory provided by the A500 trapdoor slot.
   It cannot be accessed by the Amiga chipset like Chip memory, but, unlike
   Fast memory, this memory cannot be accessed by the CPU when the custom
   chipset is busy - hence the term "Slow".
+
+  Some old games and demos may require this type of memory. If E-UAE
+  reports strange exceptions occuring when booting a floppy or weird
+  accesses to custom chip registers, then try adding some "Slow" memory.
+  Really old games may fail when "Slow" memory is added.
 
 
 fastmem_size=<n> (default=0)
@@ -766,6 +779,7 @@ sound_interpol=<type> (default=none)
   none - no interpolation.
   rh   - 'rh' method of interpolation is used.
   crux - 'crux' method of interpolation is used.
+  sinc - 'sinc' meethod of interpolation is used.
 
 
 Input device options
@@ -888,6 +902,12 @@ sdl.map_raw_keys=<bool> (default=false)
   to poorer support for international keyboard layouts (see
   docs/keyboard.txt).
 
+sdl.use_gl=<bool> (default=false)
+
+  If true, the SDL driver uses OpenGL for display output. Depending on your
+  OpenGL driver this may increase or decrease the speed of emulation.
+  Note: This setting does not enable a OpenGL emulation for Amiga (e.g. Warp3D)
+  but simply uses an OpenGL texture for the 2D Amiga and Picasso96 display.
 
 AmigaOS-specific options
 ========================

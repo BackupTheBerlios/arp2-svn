@@ -5,6 +5,7 @@
   * This still needs some thought before it's complete...
   *
   * Copyright 1998 Brian King, Bernd Schmidt
+  * Copyright 2006 Richard Drummond
   */
 
 #include "sysconfig.h"
@@ -14,7 +15,7 @@
 
 #include "options.h"
 #include "uae.h"
-#include "autoconf.h"
+#include "filesys.h"
 #include "events.h"
 #include "custom.h"
 #include "inputdevice.h"
@@ -23,6 +24,7 @@
 #include "sounddep/sound.h"
 #include "savestate.h"
 #include "memory.h"
+#include "newcpu.h"
 #include "version.h"
 
 #define CONFIG_BLEN 2560
@@ -36,6 +38,9 @@ struct cfg_lines
 {
     const char *config_label, *config_help;
 };
+
+/* For formatting help output - should be done dynamically */
+#define MAX_OPTION_KEY_LEN  23
 
 static const struct cfg_lines opttable[] =
 {
@@ -87,7 +92,6 @@ static const struct cfg_lines opttable[] =
     {"comp_fpu", "Whether to provide JIT FPU emulation" },
     {"compforcesettings", "Whether to force the JIT compiler settings" },
     {"cachesize", "How many MB to use to buffer translated instructions"},
-    {"avoid_cmov", "Set to yes on machines that lack the CMOV instruction" },
 #endif
     {"parallel_on_demand", "" },
     {"serial_on_demand", "" },
@@ -136,7 +140,7 @@ static const char *soundmode2[] = { "none", "interrupts", "good", "best", 0 };
 static const char *centermode1[] = { "none", "simple", "smart", 0 };
 static const char *centermode2[] = { "false", "true", "smart", 0 };
 static const char *stereomode[] = { "mono", "stereo", "4ch", "mixed", 0 };
-static const char *interpolmode[] = { "none", "rh", "crux", 0 };
+static const char *interpolmode[] = { "none", "rh", "crux", "sinc", 0 };
 static const char *collmode[] = { "none", "sprites", "playfields", "full", 0 };
 static const char *compmode[] = { "direct", "indirect", "indirectKS", "afterPic", 0 };
 static const char *flushmode[]   = { "soft", "hard", 0 };
@@ -150,11 +154,91 @@ static const char *obsolete[] = {
     "accuracy","gfx_opengl","gfx_32bit_blits","32bit_blits",
     "gfx_immediate_blits","gfx_ntsc","win32",
     "sound_pri_cutoff", "sound_pri_time",
-    "avoid_dga", "override_dga_address", "avoid_vid",
+    "avoid_dga", "override_dga_address", "avoid_vid", "avoid_cmov",
+    "comp_midopt", "comp_lowopt",
     "fast_copper", "sound_max_buf",
     0 };
 
 #define UNEXPANDED "$(FILE_PATH)"
+
+
+/*
+ * The beginnings of a less brittle, more easily maintainable way of handling
+ * prefs options.
+ *
+ * We maintain a key/value table of options.
+ *
+ * TODO:
+ *  Make this a hash table.
+ *  Add change notification.
+ *  Support other value data types.
+ *  Migrate more options.
+ */
+
+typedef struct {
+    const char *key;
+    int         target_specific;
+    const char *value;
+    const char *help;
+} prefs_attr_t;
+
+static prefs_attr_t prefs_attr_table[] = {
+    {"floppy_path",            1, 0, "Default directory for floppy disk images"},
+    {"rom_path",               1, 0, "Default directory for ROM images"},
+    {"hardfile_path",          1, 0, "Default directory for hardfiles and filesystems"},
+    {"savestate_path",         1, 0, "Default directory for saved-state images"},
+    {0,                        0, 0, 0}
+};
+
+static prefs_attr_t *lookup_attr (const char *key)
+{
+    prefs_attr_t *attr = &prefs_attr_table[0];
+
+    while (attr->key) {
+	if (0 == strcmp (key, attr->key))
+	    return attr;
+	attr++;
+    }
+    return 0;
+}
+
+static void prefs_dump_help (void)
+{
+    prefs_attr_t *attr = &prefs_attr_table[0];
+
+    while (attr->key) {
+	int width = -MAX_OPTION_KEY_LEN;
+	if (attr->target_specific) {
+	    width += strlen (TARGET_NAME) + 1;
+	    write_log ("%s.", TARGET_NAME);
+	}
+	write_log ("%*s: %s.\n", width, attr->key, attr->help ? attr->help : "");
+	attr++;
+    }
+}
+
+void prefs_set_attr (const char *key, const char *value)
+{
+    prefs_attr_t *attr = lookup_attr (key);
+
+    if (attr) {
+	if (attr->value)
+	    free ((void *)attr->value);
+	attr->value = value;
+    }
+}
+
+const char *prefs_get_attr (const char *key)
+{
+    prefs_attr_t *attr = lookup_attr (key);
+
+    if (attr)
+	return attr->value;
+    else
+	return 0;
+}
+
+
 
 static int match_string (const char *table[], const char *str)
 {
@@ -212,12 +296,39 @@ void cfgfile_write (FILE *f, const char *format,...)
     va_end (parms);
 }
 
+static void cfgfile_write_path_option (FILE *f, const char *key)
+{
+    const char *home = getenv ("HOME");
+    const char *path = prefs_get_attr (key);
+    char *out_path = 0;
+
+    if (path)
+	out_path = cfgfile_subst_path (home, "~", path);
+
+    cfgfile_write (f, "%s.%s=%s\n", TARGET_NAME, key, out_path ? out_path : "");
+
+    if (out_path)
+	free (out_path);
+}
+
+static void cfgfile_write_file_option (FILE *f, const char *option, const char *subst_key, const char *value)
+{
+    const char *subst_path = prefs_get_attr (subst_key);
+    char *out_path = 0;
+
+    if (subst_path)
+	out_path = cfgfile_subst_path (subst_path, UNEXPANDED, value);
+
+    cfgfile_write (f, "%s=%s\n", option, out_path ? out_path : value);
+
+    if (out_path)
+	free (out_path);
+}
+
 void save_options (FILE *f, const struct uae_prefs *p, int type)
 {
     struct strlist *sl;
-    char *str;
     int i;
-    char *home = getenv ("HOME");
 
     cfgfile_write (f, "config_description=%s\n", p->description);
     cfgfile_write (f, "config_hardware=%s\n", (type & CONFIG_TYPE_HARDWARE) ? "true" : "false");
@@ -231,22 +342,11 @@ void save_options (FILE *f, const struct uae_prefs *p, int type)
 	    cfgfile_write (f, "%s=%s\n", sl->option, sl->value);
     }
 
-    str = cfgfile_subst_path (home, "~", p->path_rom);
-    cfgfile_write (f, "%s.rom_path=%s\n", TARGET_NAME, str);
-    free (str);
-
-    str = cfgfile_subst_path (home, "~", p->path_floppy);
-    cfgfile_write (f, "%s.floppy_path=%s\n", TARGET_NAME, str);
-    free (str);
-
-    str = cfgfile_subst_path (home, "~", p->path_hardfile);
-    cfgfile_write (f, "%s.hardfile_path=%s\n", TARGET_NAME, str);
-    free (str);
-
+    cfgfile_write_path_option (f, "rom_path");
+    cfgfile_write_path_option (f, "floppy_path");
+    cfgfile_write_path_option (f, "hardfile_path");
 #ifdef SAVESTATE
-    str = cfgfile_subst_path (home, "~", p->path_savestate);
-    cfgfile_write (f, "%s.savestate_path=%s\n", TARGET_NAME, str);
-    free (str);
+    cfgfile_write_path_option (f, "savestate_path");
 #endif
 
 #ifndef _WIN32
@@ -262,34 +362,27 @@ void save_options (FILE *f, const struct uae_prefs *p, int type)
 #ifdef DEBUGGER
     cfgfile_write (f, "use_debugger=%s\n", p->start_debugger ? "true" : "false");
 #endif
-    str = cfgfile_subst_path (p->path_rom, UNEXPANDED, p->romfile);
-    cfgfile_write (f, "kickstart_rom_file=%s\n", str);
-    free (str);
-    str = cfgfile_subst_path (p->path_rom, UNEXPANDED, p->romextfile);
-    cfgfile_write (f, "kickstart_ext_rom_file=%s\n", str);
-    free (str);
-    str = cfgfile_subst_path (p->path_rom, UNEXPANDED, p->keyfile);
-    cfgfile_write (f, "kickstart_key_file=%s\n", str);
-    free (str);
-    str = cfgfile_subst_path (p->path_rom, UNEXPANDED, p->flashfile);
-    cfgfile_write (f, "flash_file=%s\n", str);
-    free (str);
+
+    cfgfile_write_file_option (f, "kickstart_rom_file",     "rom_path", p->romfile);
+    cfgfile_write_file_option (f, "kickstart_ext_rom_file", "rom_path", p->romextfile);
+    cfgfile_write_file_option (f, "kickstart_key_file",     "rom_path", p->keyfile);
+    cfgfile_write_file_option (f, "flash_file",             "rom_path", p->flashfile);
 #ifdef ACTION_REPLAY
-    str = cfgfile_subst_path (p->path_rom, UNEXPANDED, p->cartfile);
-    cfgfile_write (f, "cart_file=%s\n", str);
-    free (str);
+    cfgfile_write_file_option (f, "cart_file",              "rom_path", p->cartfile);
 #endif
+
 #ifdef ARP2ROM
     str = cfgfile_subst_path (p->path_rom, UNEXPANDED, p->arp2romfile);
     cfgfile_write (f, "arp2_rom_file=%s\n", str);
     free (str);
 #endif
+
     cfgfile_write (f, "kickshifter=%s\n", p->kickshifter ? "true" : "false");
 
     for (i = 0; i < 4; i++) {
-	str = cfgfile_subst_path (p->path_floppy, UNEXPANDED, p->df[i]);
-	cfgfile_write (f, "floppy%d=%s\n", i, str);
-	free (str);
+	char tmp_option[] = "floppy0";
+	tmp_option[6] = '0' + i;
+	cfgfile_write_file_option (f, tmp_option, "floppy_path", p->df[i]);
 	cfgfile_write (f, "floppy%dtype=%d\n", i, p->dfxtype[i]);
 #ifdef DRIVESOUND
 	cfgfile_write (f, "floppy%dsound=%d\n", i, p->dfxclick[i]);
@@ -340,9 +433,6 @@ void save_options (FILE *f, const struct uae_prefs *p, int type)
     cfgfile_write (f, "comp_flushmode=%s\n", flushmode[p->comp_hardflush]);
     cfgfile_write (f, "compforcesettings=%s\n", p->compforcesettings ? "true" : "false");
     cfgfile_write (f, "compfpu=%s\n", p->compfpu ? "true" : "false");
-    cfgfile_write (f, "comp_midopt=%s\n", p->comp_midopt ? "true" : "false");
-    cfgfile_write (f, "comp_lowopt=%s\n", p->comp_lowopt ? "true" : "false");
-    cfgfile_write (f, "avoid_cmov=%s\n", p->avoid_cmov ? "true" : "false" );
     cfgfile_write (f, "cachesize=%d\n", p->cachesize);
 #endif
 
@@ -389,7 +479,7 @@ void save_options (FILE *f, const struct uae_prefs *p, int type)
 #ifdef GFXFILTER
     if (p->gfx_filter > 0) {
 	int i = 0;
-        struct uae_filter *uf;
+	struct uae_filter *uf;
 	while (uaefilters[i].name) {
 	    uf = &uaefilters[i];
 	    if (uf->type == p->gfx_filter) {
@@ -410,7 +500,7 @@ void save_options (FILE *f, const struct uae_prefs *p, int type)
 	    i++;
 	}
     } else {
-        cfgfile_write (f, "gfx_filter=no\n");
+	cfgfile_write (f, "gfx_filter=no\n");
     }
 
     cfgfile_write (f, "gfx_filter_vert_zoom=%d\n", p->gfx_filter_vert_zoom);
@@ -476,9 +566,9 @@ void save_options (FILE *f, const struct uae_prefs *p, int type)
 #endif
 
 #ifdef FILESYS
-    write_filesys_config (currprefs.mountinfo, UNEXPANDED, p->path_hardfile, f);
+    write_filesys_config (currprefs.mountinfo, UNEXPANDED, prefs_get_attr ("hardfile_path"), f);
     if (p->filesys_no_uaefsdb)
-        cfgfile_write (f, "filesys_no_fsdb=%s\n", p->filesys_no_uaefsdb ? "true" : "false");
+	cfgfile_write (f, "filesys_no_fsdb=%s\n", p->filesys_no_uaefsdb ? "true" : "false");
 #endif
     write_inputdevice_config (p, f);
 
@@ -495,8 +585,10 @@ int cfgfile_yesno (const char *option, const char *value, const char *name, int 
     else if (strcasecmp (value, "no") == 0 || strcasecmp (value, "n") == 0
 	|| strcasecmp (value, "false") == 0 || strcasecmp (value, "f") == 0)
 	*location = 0;
-    else
+    else {
 	write_log ("Option `%s' requires a value of either `yes' or `no'.\n", option);
+	return -1;
+    }
     return 1;
 }
 
@@ -511,8 +603,10 @@ int cfgfile_intval (const char *option, const char *value, const char *name, int
 	value += 2, base = 16;
     *location = strtol (value, &endptr, base) * scale;
 
-    if (*endptr != '\0' || *value == '\0')
+    if (*endptr != '\0' || *value == '\0') {
 	write_log ("Option `%s' requires a numeric argument.\n", option);
+	return -1;
+    }
     return 1;
 }
 
@@ -527,7 +621,7 @@ int cfgfile_strval (const char *option, const char *value, const char *name, int
 	    return 0;
 
 	write_log ("Unknown value for option `%s'.\n", option);
-	return 1;
+	return -1;
     }
     *location = val;
     return 1;
@@ -540,6 +634,70 @@ int cfgfile_string (const char *option, const char *value, const char *name, cha
     strncpy (location, value, maxsz - 1);
     location[maxsz - 1] = '\0';
     return 1;
+}
+
+/*
+ * Duplicate the path 'src'. If 'src' begins with '~/' substitue
+ * the home directory.
+ *
+ * TODO: Clean this up.
+ * TODO: Collect path handling tools in one place and cleanly
+ * handle platform-specific differences.
+ */
+static const char *strdup_path_expand (const char *src)
+{
+    char *path = 0;
+    unsigned int srclen, destlen;
+    int need_separator = 0;
+    const char *home = getenv ("HOME");
+
+    srclen = strlen (src);
+
+    if (srclen > 0) {
+	if (src[srclen - 1] != '/' && src[srclen - 1] != '\\'
+#ifdef TARGET_AMIGAOS
+	    && src[srclen - 1] != ':'
+#endif
+	    ) {
+	    need_separator = 1;
+	}
+    }
+
+    destlen = srclen + need_separator;
+
+    if (src[0] == '~' && src[1] == '/' && home) {
+	destlen += srclen + strlen (home);
+	src++;
+	srclen--;
+    } else
+	home = 0;
+
+    path = malloc (destlen + 1); path[0]=0;
+
+    if (path) {
+	if (home)
+	    strcpy (path, home);
+
+	strcat (path, src);
+
+	if (need_separator)
+	    strcat (path, "/");
+    }
+
+    return path;
+}
+
+static int cfgfile_path (const char *option, const char *value, const char *key)
+{
+    if (strcmp (option, key) == 0) {
+	const char *path = strdup_path_expand (value);
+
+	if (path)
+	    prefs_set_attr (key, path);
+
+	return 1;
+    }
+    return 0;
 }
 
 static int getintval (char **p, int *result, int delim)
@@ -626,23 +784,15 @@ static int cfgfile_parse_host (struct uae_prefs *p, char *option, char *value)
 	*tmpp = '\0';
 	if (strcmp (section, TARGET_NAME) == 0) {
 	    /* We special case the various path options here.  */
-	    if (cfgfile_string (option, value, "rom_path", p->path_rom, 256)) {
-		subst_home (p->path_rom, sizeof p->path_rom);
+	    if (cfgfile_path (option, value, "rom_path"))
 		return 1;
-	    }
-	    if (cfgfile_string (option, value, "floppy_path", p->path_floppy, 256)) {
-		subst_home (p->path_floppy, sizeof p->path_floppy);
+	    if (cfgfile_path (option, value, "floppy_path"))
 		return 1;
-	    }
-	    if (cfgfile_string (option, value, "hardfile_path", p->path_hardfile, 256)) {
-		subst_home (p->path_hardfile, sizeof p->path_hardfile);
+	    if (cfgfile_path (option, value, "hardfile_path"))
 		return 1;
-	    }
 #ifdef SAVESTATE
-	    if (cfgfile_string (option, value, "savestate_path", p->path_savestate, 256)) {
-		subst_home (p->path_savestate, sizeof p->path_savestate);
+	    if (cfgfile_path (option, value, "savestate_path"))
 		return 1;
-	    }
 #endif
 #ifndef _WIN32
 	    if (cfgfile_intval (option, value, "cpu_idle", &p->cpu_idle, 1))
@@ -720,16 +870,11 @@ static int cfgfile_parse_host (struct uae_prefs *p, char *option, char *value)
 
     if    (cfgfile_string (option, value, "config_info", p->info, 256)
 	|| cfgfile_string (option, value, "config_description", p->description, 256))
-        return 1;
+	return 1;
 
 #ifdef DEBUGGER
     if    (cfgfile_yesno (option, value, "use_debugger", &p->start_debugger))
-        return 1;
-#endif
-
-#ifdef JIT
-    if    (cfgfile_yesno (option, value, "avoid_cmov", &p->avoid_cmov))
-        return 1;
+	return 1;
 #endif
 
     if    (cfgfile_yesno (option, value, "log_illegal_mem", &p->illegal_mem)
@@ -788,7 +933,7 @@ static int cfgfile_parse_host (struct uae_prefs *p, char *option, char *value)
 		    if (uf->x[0]) {
 			cfgfile_strval (option, value, "gfx_filter_mode", &p->gfx_filter_filtermode, filtermode1, 0);
 		    } else {
- 			int mt[4], j;
+			int mt[4], j;
 			i = 0;
 			if (uf->x[1]) mt[i++] = 1;
 			if (uf->x[2]) mt[i++] = 2;
@@ -904,7 +1049,7 @@ static int cfgfile_parse_host (struct uae_prefs *p, char *option, char *value)
     }
 
     if (cfgfile_string (option, value, "keyboard_leds", tmpbuf, sizeof (tmpbuf))) {
-        char *tmpp2 = tmpbuf;
+	char *tmpp2 = tmpbuf;
 	int i, num;
 	p->keyboard_leds[0] = p->keyboard_leds[1] = p->keyboard_leds[2] = 0;
 	p->keyboard_leds_in_use = 0;
@@ -921,11 +1066,11 @@ static int cfgfile_parse_host (struct uae_prefs *p, char *option, char *value)
 	    tmpp2 = tmpp;
 	    tmpp = strchr (tmpp2, ',');
 	    if (!tmpp)
-	        break;
+		break;
 	    *tmpp++= 0;
 	    if (num >= 0) {
-	        p->keyboard_leds[num] = match_string (kbleds, tmpp2);
-	        if (p->keyboard_leds[num]) p->keyboard_leds_in_use = 1;
+		p->keyboard_leds[num] = match_string (kbleds, tmpp2);
+		if (p->keyboard_leds[num]) p->keyboard_leds_in_use = 1;
 	    }
 	    tmpp2 = tmpp;
 	}
@@ -938,7 +1083,6 @@ static int cfgfile_parse_host (struct uae_prefs *p, char *option, char *value)
 static int cfgfile_parse_hardware (struct uae_prefs *p, char *option, char *value)
 {
     int tmpval, dummy, i;
-    char *section = 0;
     char tmpbuf[CONFIG_BLEN];
 
     if (cfgfile_yesno (option, value, "immediate_blits", &p->immediate_blits)
@@ -958,8 +1102,6 @@ static int cfgfile_parse_hardware (struct uae_prefs *p, char *option, char *valu
 	|| cfgfile_yesno (option, value, "comp_oldsegv", &p->comp_oldsegv)
 	|| cfgfile_yesno (option, value, "compforcesettings", &p->compforcesettings)
 	|| cfgfile_yesno (option, value, "compfpu", &p->compfpu)
-	|| cfgfile_yesno (option, value, "comp_midopt", &p->comp_midopt)
-	|| cfgfile_yesno (option, value, "comp_lowopt", &p->comp_lowopt)
 #endif
 	|| cfgfile_yesno (option, value, "scsi", &p->scsi))
 	return 1;
@@ -980,15 +1122,22 @@ static int cfgfile_parse_hardware (struct uae_prefs *p, char *option, char *valu
 	return 1;
 #ifdef JIT
     if (cfgfile_intval (option, value, "cachesize", &p->cachesize, 1)
-	|| cfgfile_strval (option, value, "comp_trustbyte", &p->comptrustbyte, compmode, 0)
-	|| cfgfile_strval (option, value, "comp_trustword", &p->comptrustword, compmode, 0)
-	|| cfgfile_strval (option, value, "comp_trustlong", &p->comptrustlong, compmode, 0)
+# ifdef NATMEM_OFFSET
+	|| cfgfile_strval (option, value, "comp_trustbyte",  &p->comptrustbyte,  compmode, 0)
+	|| cfgfile_strval (option, value, "comp_trustword",  &p->comptrustword,  compmode, 0)
+	|| cfgfile_strval (option, value, "comp_trustlong",  &p->comptrustlong,  compmode, 0)
 	|| cfgfile_strval (option, value, "comp_trustnaddr", &p->comptrustnaddr, compmode, 0)
+# else
+	|| cfgfile_strval (option, value, "comp_trustbyte",  &p->comptrustbyte,  compmode, 1)
+	|| cfgfile_strval (option, value, "comp_trustword",  &p->comptrustword,  compmode, 1)
+	|| cfgfile_strval (option, value, "comp_trustlong",  &p->comptrustlong,  compmode, 1)
+	|| cfgfile_strval (option, value, "comp_trustnaddr", &p->comptrustnaddr, compmode, 1)
+# endif
 	|| cfgfile_strval (option, value, "comp_flushmode", &p->comp_hardflush, flushmode, 0))
 	return 1;
 #endif
     if (cfgfile_strval (option, value, "collision_level", &p->collision_level, collmode, 0))
-        return 1;
+	return 1;
     if (cfgfile_string (option, value, "kickstart_rom_file", p->romfile, 256)
 	|| cfgfile_string (option, value, "kickstart_ext_rom_file", p->romextfile, 256)
 	|| cfgfile_string (option, value, "kickstart_key_file", p->keyfile, 256)
@@ -1044,7 +1193,7 @@ static int cfgfile_parse_hardware (struct uae_prefs *p, char *option, char *valu
     }
 
     if (cfgfile_intval (option, value, "cpu_speed", &p->m68k_speed, 1)) {
-        p->m68k_speed *= CYCLE_UNIT;
+	p->m68k_speed *= CYCLE_UNIT;
 	return 1;
     }
 
@@ -1053,7 +1202,7 @@ static int cfgfile_parse_hardware (struct uae_prefs *p, char *option, char *valu
 	    int factor = OFFICIAL_CYCLE_UNIT / CYCLE_UNIT;
 	    p->m68k_speed = (p->m68k_speed + factor - 1) / factor;
 	}
-        if (strcasecmp (value, "max") == 0)
+	if (strcasecmp (value, "max") == 0)
 	    p->m68k_speed = -1;
 	return 1;
     }
@@ -1106,15 +1255,15 @@ static int cfgfile_parse_hardware (struct uae_prefs *p, char *option, char *valu
 	    const char *err_msg;
 	    char *str;
 
-	    str = cfgfile_subst_path (UNEXPANDED, p->path_hardfile, root);
+	    str = cfgfile_subst_path (UNEXPANDED, prefs_get_attr ("hardfile_path"), root);
 	    err_msg = add_filesys_unit (currprefs.mountinfo, 0, aname, str, ro, secs,
-					heads, reserved, bs, 0, 0);
+					heads, reserved, bs, 0, 0, 0);
 
 	    if (err_msg)
-		write_log ("Error: %s\n", tmpp);
+		write_log ("Error: %s\n", err_msg);
 
 	    free (str);
-        }
+	}
 #endif
 	return 1;
     }
@@ -1178,7 +1327,7 @@ static int cfgfile_parse_hardware (struct uae_prefs *p, char *option, char *valu
 		goto invalid_fs;
 	    if (getintval2 (&tmpp, &bp, ',')) {
 		fs = tmpp;
-	        tmpp = strchr (tmpp, ',');
+		tmpp = strchr (tmpp, ',');
 		if (tmpp != 0)
 		    *tmpp = 0;
 	    }
@@ -1188,15 +1337,15 @@ static int cfgfile_parse_hardware (struct uae_prefs *p, char *option, char *valu
 	    const char *err_msg;
 	    char *str;
 
-	    str = cfgfile_subst_path (UNEXPANDED, p->path_hardfile, root);
+	    str = cfgfile_subst_path (UNEXPANDED, prefs_get_attr ("hardfile_path"), root);
 	    err_msg = add_filesys_unit (currprefs.mountinfo, dname, aname, str, ro, secs,
-					heads, reserved, bs, bp, fs);
+					heads, reserved, bs, bp, fs, 0);
 
 	    if (err_msg)
-		write_log ("Error: %s\n", tmpp);
+		write_log ("Error: %s\n", err_msg);
 
 	    free (str);
-        }
+	}
 #endif
 	return 1;
 
@@ -1227,7 +1376,7 @@ int cfgfile_parse_option (struct uae_prefs *p, char *option, char *value, int ty
     return 0;
 }
 
-static int separate_line (char *line, char *line1b, char *line2b)
+static int cfgfile_separate_line (char *line, char *line1b, char *line2b)
 {
     char *line1, *line2;
     int i;
@@ -1310,13 +1459,13 @@ void cfgfile_parse_line (struct uae_prefs *p, char *line, int type)
 {
     char line1b[CONFIG_BLEN], line2b[CONFIG_BLEN];
 
-    if (!separate_line (line, line1b, line2b))
+    if (!cfgfile_separate_line (line, line1b, line2b))
 	return;
     cfgfile_parse_separated_line (p, line1b, line2b, type);
     return;
 }
 
-static void subst (char *p, char *f, int n)
+static void subst (const char *p, char *f, int n)
 {
     char *str = cfgfile_subst_path (UNEXPANDED, p, f);
     strncpy (f, str, n - 1);
@@ -1382,7 +1531,7 @@ static int cfgfile_load_2 (struct uae_prefs *p, const char *filename, int real, 
     fh = fopen (filename, "r");
 #ifndef SINGLEFILE
     if (! fh) {
-        write_log ("failed\n");
+	write_log ("failed\n");
 	return 0;
     }
 #endif
@@ -1394,9 +1543,9 @@ static int cfgfile_load_2 (struct uae_prefs *p, const char *filename, int real, 
 	while (len > 0 && strcspn (line + len - 1, "\t \r\n") == 0)
 	    line[--len] = '\0';
 	if (strlen (line) > 0) {
-	    if (line[0] == '#')
+	    if (line[0] == '#' || line[0] == ';')
 		continue;
-	    if (!separate_line (line, line1b, line2b))
+	    if (!cfgfile_separate_line (line, line1b, line2b))
 		continue;
 	    type1 = type2 = 0;
 	    if (cfgfile_yesno (line1b, line2b, "config_hardware", &type1) ||
@@ -1428,16 +1577,12 @@ static int cfgfile_load_2 (struct uae_prefs *p, const char *filename, int real, 
 	cfgfile_parse_line (p, line, 0);
     }
 
-    subst_home (p->path_rom, sizeof p->path_rom);
-    subst_home (p->path_floppy, sizeof p->path_floppy);
-    subst_home (p->path_hardfile, sizeof p->path_hardfile);
-
     for (i = 0; i < 4; i++)
-	subst (p->path_floppy, p->df[i], sizeof p->df[i]);
+	subst (prefs_get_attr("floppy_path"), p->df[i], sizeof p->df[i]);
 
-    subst (p->path_rom, p->romfile, sizeof p->romfile);
-    subst (p->path_rom, p->romextfile, sizeof p->romextfile);
-    subst (p->path_rom, p->keyfile, sizeof p->keyfile);
+    subst (prefs_get_attr("rom_path"), p->romfile, sizeof p->romfile);
+    subst (prefs_get_attr("rom_path"), p->romextfile, sizeof p->romextfile);
+    subst (prefs_get_attr("rom_path"), p->keyfile, sizeof p->keyfile);
 
     return 1;
 }
@@ -1465,10 +1610,11 @@ int cfgfile_get_description (const char *filename, char *description, int *type)
 {
     int result = 0;
     struct uae_prefs *p = xmalloc (sizeof (struct uae_prefs));
-    strcpy (p->description, "");
+    p->description[0] = 0;
     if (cfgfile_load_2 (p, filename, 0, type)) {
 	result = 1;
-	strcpy (description, p->description);
+	if (description)
+	    strcpy (description, p->description);
     }
     free (p);
     return result;
@@ -1480,7 +1626,8 @@ void cfgfile_show_usage (void)
     write_log ("UAE Configuration Help:\n" \
 	       "=======================\n");
     for (i = 0; i < sizeof opttable / sizeof *opttable; i++)
-	write_log ("%s: %s\n", opttable[i].config_label, opttable[i].config_help);
+	write_log ("%*s: %s\n", -MAX_OPTION_KEY_LEN, opttable[i].config_label, opttable[i].config_help);
+    prefs_dump_help ();
 }
 
 /* This implements the old commandline option parsing.  I've re-added this
@@ -1629,7 +1776,7 @@ static void parse_filesys_spec (int readonly, const char *spec)
 	{
 	    const char *err;
 
-	    err = add_filesys_unit (currprefs.mountinfo, 0, buf, s2, readonly, 0, 0, 0, 0, 0, 0);
+	    err = add_filesys_unit (currprefs.mountinfo, 0, buf, s2, readonly, 0, 0, 0, 0, 0, 0, 0);
 
 	    if (err)
 		write_log ("%s\n", s2);
@@ -1664,10 +1811,10 @@ static void parse_hardfile_spec (char *spec)
 #ifdef FILESYS
     {
        const char *err_msg;
-       err_msg = add_filesys_unit (currprefs.mountinfo, 0, 0, x4, 0, atoi (x0), atoi (x1), atoi (x2), atoi (x3), 0, 0);
+       err_msg = add_filesys_unit (currprefs.mountinfo, 0, 0, x4, 0, atoi (x0), atoi (x1), atoi (x2), atoi (x3), 0, 0, 0);
 
        if (err_msg)
-           write_log ("%s\n", err_msg);
+	   write_log ("%s\n", err_msg);
     }
 #endif
 
@@ -1839,8 +1986,8 @@ int parse_cmdline_option (struct uae_prefs *p, char c, char *arg)
 	    p->color_mode = 0;
 	}
 #else
-        p->amiga_screen_type = atoi (arg);
-        if (p->amiga_screen_type < 0 || p->amiga_screen_type > 2) {
+	p->amiga_screen_type = atoi (arg);
+	if (p->amiga_screen_type < 0 || p->amiga_screen_type > 2) {
 	    write_log ("Bad screen-type selected. Defaulting to public screen.\n");
 	    p->amiga_screen_type = 2;
 	}
@@ -1870,7 +2017,7 @@ void cfgfile_addcfgparam (char *line)
 	temp_lines = 0;
 	return;
     }
-    if (!separate_line (line, line1b, line2b))
+    if (!cfgfile_separate_line (line, line1b, line2b))
 	return;
     u = xcalloc (sizeof (struct strlist), 1);
     u->option = my_strdup(line1b);
@@ -1879,8 +2026,247 @@ void cfgfile_addcfgparam (char *line)
     temp_lines = u;
 }
 
+unsigned int cmdlineparser (const char *s, char *outp[], unsigned int max)
+{
+    int j;
+    unsigned int cnt = 0;
+    int slash = 0;
+    int quote = 0;
+    char tmp1[MAX_DPATH];
+    const char *prev;
+    int doout;
 
-uae_u32 cfgfile_uaelib(int mode, uae_u32 name, uae_u32 dst, uae_u32 maxlen)
+    doout = 0;
+    prev = s;
+    j = 0;
+    while (cnt < max) {
+	char c = *s++;
+	if (!c)
+	    break;
+	if (c < 32)
+	    continue;
+	if (c == '\\')
+	    slash = 1;
+	if (!slash && c == '"') {
+	    if (quote) {
+		quote = 0;
+		doout = 1;
+	    } else {
+		quote = 1;
+		j = -1;
+	    }
+	}
+	if (!quote && c == ' ')
+	    doout = 1;
+	if (!doout) {
+	    if (j >= 0) {
+		tmp1[j] = c;
+		tmp1[j + 1] = 0;
+	    }
+	    j++;
+	}
+	if (doout) {
+	    outp[cnt++] = my_strdup (tmp1);
+	    tmp1[0] = 0;
+	    doout = 0;
+	    j = 0;
+	}
+	slash = 0;
+    }
+    if (j > 0 && cnt < max)
+	outp[cnt++] = my_strdup (tmp1);
+
+    return cnt;
+}
+
+#define UAELIB_MAX_PARSE 100
+
+uae_u32 cfgfile_modify (uae_u32 index, char *parms, uae_u32 size, char *out, uae_u32 outsize)
+{
+    char *p;
+    char *argc[UAELIB_MAX_PARSE];
+    unsigned int argv, i;
+    uae_u32 err;
+    uae_u8 zero = 0;
+    static FILE *configstore = 0;
+    static char *configsearch;
+    static int configsearchfound;
+
+    err = 0;
+    argv = 0;
+    p = 0;
+    if (index != 0xffffffff) {
+	if (!configstore) {
+	    err = 20;
+	    goto end;
+	}
+	if (configsearch) {
+	    char tmp[CONFIG_BLEN];
+	    unsigned int j = 0;
+	    char *in = configsearch;
+	    unsigned int inlen = strlen (configsearch);
+	    int joker = 0;
+
+	    if (in[inlen - 1] == '*') {
+		joker = 1;
+		inlen--;
+	    }
+
+	    for (;;) {
+		uae_u8 b = 0;
+
+		if (fread (&b, 1, 1, configstore) != 1) {
+		    err = 10;
+		    if (configsearch)
+			err = 5;
+		    if (configsearchfound)
+			err = 0;
+		    goto end;
+		}
+		if (j >= sizeof (tmp) - 1)
+		    j = sizeof (tmp) - 1;
+		if (b == 0) {
+		    err = 10;
+		    if (configsearch)
+			err = 5;
+		    if (configsearchfound)
+			err = 0;
+		    goto end;
+		}
+		if (b == '\n') {
+		    if (configsearch && !strncmp (tmp, in, inlen) &&
+			((inlen > 0 && strlen (tmp) > inlen && tmp[inlen] == '=') || (joker))) {
+			char *p;
+			if (joker)
+			    p = tmp - 1;
+			else
+			    p = strchr (tmp, '=');
+			if (p) {
+			    for (i = 0; i < outsize - 1; i++) {
+				uae_u8 b = *++p;
+				out[i] = b;
+				out[i + 1] = 0;
+				if (!b)
+				    break;
+			    }
+			}
+			err = 0xffffffff;
+			configsearchfound++;
+			goto end;
+		    }
+		    index--;
+		    j = 0;
+		} else {
+		    tmp[j++] = b;
+		    tmp[j] = 0;
+		}
+	    }
+	}
+	err = 0xffffffff;
+	for (i = 0; i < outsize - 1; i++) {
+	    uae_u8 b = 0;
+	    if (fread (&b, 1, 1, configstore) != 1)
+		err = 0;
+	    if (b == 0)
+		err = 0;
+	    if (b == '\n')
+		b = 0;
+	    out[i] = b;
+	    out[i + 1] = 0;
+	    if (!b)
+		break;
+	}
+	goto end;
+    }
+
+    if (size > 10000)
+	return 10;
+    argv = cmdlineparser (parms, argc, UAELIB_MAX_PARSE);
+
+    if (argv <= 1 && index == 0xffffffff) {
+	if (configstore) {
+	    fclose (configstore);
+	    configstore = 0;
+	}
+	free (configsearch);
+
+	configstore = fopen ("configstore", "w+");
+	configsearch = NULL;
+	if (argv > 0 && strlen (argc[0]) > 0)
+	    configsearch = my_strdup (argc[0]);
+	if (!configstore) {
+	    err = 20;
+	    goto end;
+	}
+	fseek (configstore, 0, SEEK_SET);
+	save_options (configstore, &currprefs, 0);
+	fwrite (&zero, 1, 1, configstore);
+	fseek (configstore, 0, SEEK_SET);
+	err = 0xffffffff;
+	configsearchfound = 0;
+	goto end;
+    }
+
+    for (i = 0; i < argv; i++) {
+	if (i + 2 <= argv) {
+	    if (!inputdevice_uaelib (argc[i], argc[i + 1])) {
+		if (!cfgfile_parse_option (&changed_prefs, argc[i], argc[i + 1], 0)) {
+		    err = 5;
+		    break;
+		}
+	    }
+	    set_special (&regs, SPCFLAG_BRK);
+	    i++;
+	}
+    }
+end:
+    for (i = 0; i < argv; i++)
+	free (argc[i]);
+    free (p);
+    return err;
+}
+
+uae_u32 cfgfile_uaelib_modify (uae_u32 index, uae_u32 parms, uae_u32 size, uae_u32 out, uae_u32 outsize)
+{
+    char *p, *parms_p = NULL, *out_p = NULL;
+    unsigned int i;
+    int ret;
+
+    put_byte (out, 0);
+    parms_p = xmalloc (size + 1);
+    if (!parms_p) {
+	ret = 10;
+	goto end;
+    }
+    out_p = xmalloc (outsize + 1);
+    if (!out_p) {
+	ret = 10;
+	goto end;
+    }
+    p = parms_p;
+    for (i = 0; i < size; i++) {
+	p[i] = get_byte (parms + i);
+	if (p[i] == 10 || p[i] == 13 || p[i] == 0)
+	    break;
+    }
+    p[i] = 0;
+    out_p[0] = 0;
+    ret = cfgfile_modify (index, parms_p, size, out_p, outsize);
+    p = out_p;
+    for (i = 0; i < outsize - 1; i++) {
+	uae_u8 b = *p++;
+	put_byte (out + i, b);
+	put_byte (out + i + 1, 0);
+	if (!b)
+	    break;
+    }
+end:
+    free (out_p);
+    free (parms_p);
+    return ret;
+}
+
+uae_u32 cfgfile_uaelib (int mode, uae_u32 name, uae_u32 dst, uae_u32 maxlen)
 {
     char tmp[CONFIG_BLEN];
     unsigned int i;
@@ -1903,11 +2289,11 @@ uae_u32 cfgfile_uaelib(int mode, uae_u32 name, uae_u32 dst, uae_u32 maxlen)
     }
 
     if (sl) {
-        for (i = 0; i < maxlen; i++) {
+	for (i = 0; i < maxlen; i++) {
 	    put_byte (dst + i, sl->value[i]);
 	    if (sl->value[i] == 0)
 		break;
-        }
+	}
 	return dst;
     }
     return 0;
@@ -1938,7 +2324,8 @@ void default_prefs (struct uae_prefs *p, int type)
 
     p->all_lines = 0;
     /* Note to porters: please don't change any of these options! UAE is supposed
-     * to behave identically on all platforms if possible. */
+     * to behave identically on all platforms if possible.
+     * (TW says: maybe it is time to update default config..) */
     p->illegal_mem = 0;
     p->use_serial = 0;
     p->serial_demand = 0;
@@ -1959,10 +2346,17 @@ void default_prefs (struct uae_prefs *p, int type)
     p->sound_interpol = 0;
 
 #ifdef JIT
+# ifdef NATMEM_OFFSET
     p->comptrustbyte = 0;
     p->comptrustword = 0;
     p->comptrustlong = 0;
     p->comptrustnaddr= 0;
+# else
+    p->comptrustbyte = 1;
+    p->comptrustword = 1;
+    p->comptrustlong = 1;
+    p->comptrustnaddr= 1;
+# endif
     p->compnf = 1;
     p->comp_hardflush = 0;
     p->comp_constjump = 1;
@@ -1970,9 +2364,6 @@ void default_prefs (struct uae_prefs *p, int type)
     p->compfpu = 1;
     p->compforcesettings = 0;
     p->cachesize = 0;
-    p->avoid_cmov = 0;
-    p->comp_midopt = 0;
-    p->comp_lowopt = 0;
     {
 	int i;
 	for (i = 0;i < 10; i++)
@@ -2039,17 +2430,11 @@ void default_prefs (struct uae_prefs *p, int type)
     strcpy (p->arp2romfile, "");
 #endif
 
-    strcpy (p->path_rom,       TARGET_ROM_PATH);
-    strcpy (p->path_floppy,    TARGET_FLOPPY_PATH);
-    strcpy (p->path_hardfile,  TARGET_HARDFILE_PATH);
-
-    subst_home (p->path_rom,       sizeof p->path_rom);
-    subst_home (p->path_floppy,    sizeof p->path_floppy);
-    subst_home (p->path_hardfile,  sizeof p->path_hardfile);
-
+    prefs_set_attr ("rom_path",       strdup_path_expand (TARGET_ROM_PATH));
+    prefs_set_attr ("floppy_path",    strdup_path_expand (TARGET_FLOPPY_PATH));
+    prefs_set_attr ("hardfile_path",  strdup_path_expand (TARGET_HARDFILE_PATH));
 #ifdef SAVESTATE
-    strcpy (p->path_savestate, TARGET_SAVESTATE_PATH);
-    subst_home (p->path_savestate, sizeof p->path_savestate);
+    prefs_set_attr ("savestate_path", strdup_path_expand (TARGET_SAVESTATE_PATH));
 #endif
 
     strcpy (p->prtname, DEFPRTNAME);
@@ -2087,7 +2472,7 @@ void default_prefs (struct uae_prefs *p, int type)
 #endif
 
 #ifdef FILESYS
-    p->mountinfo = alloc_mountinfo ();
+    p->mountinfo = &options_mountinfo;
 #endif
 
 #ifdef UAE_MINI

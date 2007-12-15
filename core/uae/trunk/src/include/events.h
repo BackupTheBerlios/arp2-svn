@@ -17,6 +17,22 @@
 #include "machdep/rpt.h"
 #include "hrtimer.h"
 
+/* Every Amiga hardware clock cycle takes this many "virtual" cycles.  This
+ * used to be hardcoded as 1, but using higher values allows us to time some
+ * stuff more precisely.
+ * 512 is the official value from now on - it can't change, unless we want
+ * _another_ config option "finegrain2_m68k_speed".
+ *
+ * We define this value here rather than in events.h so that gencpu.c sees
+ * it.
+ */
+#define CYCLE_UNIT 512
+
+/* This one is used by cfgfile.c.  We could reduce the CYCLE_UNIT back to 1,
+ * I'm not 100% sure this code is bug free yet.
+ */
+#define OFFICIAL_CYCLE_UNIT 512
+
 extern volatile frame_time_t vsynctime, vsyncmintime;
 extern void reset_frame_rate_hack (void);
 extern int rpt_available;
@@ -76,7 +92,7 @@ STATIC_INLINE void do_cycles (unsigned int cycles_to_add)
 	    vsyncmintime = rpt;
 	if (v < 0) {
 #ifdef JIT
-            pissoff = 3000 * CYCLE_UNIT;
+	    pissoff = 3000 * CYCLE_UNIT;
 #endif
 	    return;
 	}
@@ -113,7 +129,7 @@ STATIC_INLINE void cycles_do_special (void)
 {
 #ifdef JIT
     if (pissoff >= 0)
-        pissoff = -1;
+	pissoff = -1;
 #endif
 }
 

@@ -7,9 +7,11 @@
  */
 
 #include "sysconfig.h"
-#include "sysdeps.h"
-
+#include <stdio.h>
+#include <stdlib.h>
 #include <assert.h>
+#include "uae_string.h"
+#include "uae_types.h"
 #include <ctype.h>
 
 #include "readcpu.h"
@@ -57,7 +59,7 @@ int main(int argc, char **argv)
     int no_insns = 0;
 
     printf ("#include \"sysconfig.h\"\n");
-    printf ("#include \"sysdeps.h\"\n");
+    printf ("#include \"uae_types.h\"\n");
     printf ("#include \"readcpu.h\"\n");
     printf ("struct instr_def defs68k[] = {\n");
 #if 0

@@ -5,7 +5,7 @@
   *
   * Copyright 1997 Bernd Schmidt
   * Copyright 2004 Heikki Orsila
-  * Copyright 2006 Richard Drummond
+  * Copyright 2006-2007 Richard Drummond
   *
   * BUGS: certainly
   * TODO:
@@ -17,9 +17,6 @@
 #include "sysdeps.h"
 
 #include "options.h"
-#include "memory.h"
-#include "events.h"
-#include "custom.h"
 #include "gensound.h"
 #include "sounddep/sound.h"
 
@@ -33,31 +30,10 @@ static int have_sound = 0;
 uae_u16 sndbuffer[44100];
 uae_u16 *sndbufpt;
 int sndbufsize;
-static int obtainedfreq;
 
 snd_pcm_t *alsa_playback_handle = 0;
 int bytes_per_frame;
 
-void update_sound (int freq)
-{
-    int scaled_sample_evtime_orig;
-    static int lastfreq =0;
-
-    if (freq < 0)
-        freq = lastfreq;
-    lastfreq = freq;
-    if (have_sound) {
-	if (currprefs.gfx_vsync && currprefs.gfx_afullscreen) {
-	    if (currprefs.ntscmode)
-		scaled_sample_evtime_orig = (unsigned long)(MAXHPOS_NTSC * MAXVPOS_NTSC * freq * CYCLE_UNIT + obtainedfreq - 1) / obtainedfreq;
-	    else
-		scaled_sample_evtime_orig = (unsigned long)(MAXHPOS_PAL * MAXVPOS_PAL * freq * CYCLE_UNIT + obtainedfreq - 1) / obtainedfreq;
-	} else {
-	    scaled_sample_evtime_orig = (unsigned long)(312.0 * 50 * CYCLE_UNIT / (obtainedfreq  / 227.0));
-	}
-	scaled_sample_evtime = scaled_sample_evtime_orig;
-    }
-}
 
 void close_sound (void)
 {
@@ -236,7 +212,6 @@ int init_sound (void)
 	goto nosound;
     }
 
-    update_sound(vblank_hz );
     obtainedfreq = currprefs.sound_freq;
 
     if (dspbits == 16) {
@@ -303,7 +278,7 @@ void audio_default_options (struct uae_prefs *p)
 void audio_save_options (FILE *f, const struct uae_prefs *p)
 {
     cfgfile_write (f, "alsa.device=%s\n", alsa_device);
-    cfgfile_write (f, "alsa.verbose=%s\n", alsa_verbose ? "true" : "false");    
+    cfgfile_write (f, "alsa.verbose=%s\n", alsa_verbose ? "true" : "false");
 }
 
 int audio_parse_option (struct uae_prefs *p, const char *option, const char *value)

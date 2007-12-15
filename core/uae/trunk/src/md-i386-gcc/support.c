@@ -213,7 +213,7 @@ int machdep_inithrtimer (void)
 	    sigaction (SIGALRM, &sa, NULL);
 #endif
 
- 	    /* We want exact values... */
+	    /* We want exact values... */
 	    sync (); sync (); sync ();
 
 #ifdef USE_ALARM

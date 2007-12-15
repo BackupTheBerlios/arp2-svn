@@ -51,7 +51,7 @@
 #include "memory.h"
 #include "zfile.h"
 #include "ar.h"
-#include "autoconf.h"
+#include "filesys.h"
 #include "custom.h"
 #include "newcpu.h"
 #include "savestate.h"
@@ -258,8 +258,8 @@ static uae_u8 *restore_chunk (struct zfile *f, char *name, size_t *len, size_t *
     src = tmp;
     len2 = restore_u32 ();
     if (len2 < 12) {
-        *len = 0;
-        return 0;
+	*len = 0;
+	return 0;
     }
     len2 -= 4 + 4 + 4;
     *len = len2;
@@ -371,7 +371,7 @@ void restore_state (const char *filename)
     prevchunk[0] = 0;
     for (;;) {
 	chunk = restore_chunk (f, name, &len, &totallen, &filepos);
-        end = chunk;
+	end = chunk;
 	if (!strcmp (name, prevchunk))
 	    break;
 	strcpy (prevchunk, name);
@@ -476,6 +476,7 @@ void restore_state (const char *filename)
 		       name, len, end - chunk);
 	free (chunk);
     }
+    restore_blitter_finish ();
     return;
 
     error:
@@ -494,6 +495,7 @@ void savestate_restore_finish (void)
     zfile_fclose (savestate_file);
     savestate_file = 0;
     savestate_state = 0;
+    restore_cpu_finish ();
 }
 
 /* 1=compressed,2=not compressed,3=ram dump,4=audio dump */
@@ -607,12 +609,12 @@ void save_state (const char *filename, const char *description)
     save_chunk (f, dst, len, "DISK", 0);
     free (dst);
 
-    dst = save_custom (&len, 0, 0);
-    save_chunk (f, dst, len, "CHIP", 0);
-    free (dst);
-
     dst = save_blitter (&len, 0);
     save_chunk (f, dst, len, "BLIT", 0);
+    free (dst);
+
+    dst = save_custom (&len, 0, 0);
+    save_chunk (f, dst, len, "CHIP", 0);
     free (dst);
 
     dst = save_custom_agacolors (&len, 0);

@@ -50,9 +50,6 @@ struct {
   CapsLong (*CAPSGetVersionInfo)(struct CapsVersionInfo *pi, CapsULong flag);
 } capslib;
 
-#endif
-
-
 #ifdef HAVE_DLOPEN
 
 #include <dlfcn.h>
@@ -86,6 +83,7 @@ static int load_capslib (void)
     write_log ("Unable to open " CAPSLIB_NAME "\n.");
     return 0;
 }
+#endif // HAVE_DLOPEN
 
 #else
 
@@ -433,8 +431,8 @@ int caps_init (void)
 	if (noticed)
 	    return 0;
 	gui_message ("This disk image needs the C.A.P.S. plugin\n"
-	             "which is available from\n"
-	             "http//www.caps-project.org/download.shtml\n");
+		     "which is available from\n"
+		     "http//www.caps-project.org/download.shtml\n");
 	noticed = 1;
 	return 0;
     }

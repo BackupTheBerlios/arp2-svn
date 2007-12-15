@@ -3,7 +3,7 @@
 //
 //  BeOS port specific stuff
 //
-//  (c) 2004-2005 Richard Drummond
+//  (c) 2004-2007 Richard Drummond
 //  (c) 2000-2001 Axel Doerfler
 //  (c) 1999 Be/R4 Sound - Raphael Moll
 //  (c) 1998-1999 David Sowsy
@@ -135,8 +135,6 @@ static BPoint get_screen_centre (void)
 // UAE calls these functions to update the graphic display
 //**************************************************
 
-int pause_emulation;
-
 static int beos_lockscr (struct vidbuf_description *gfxinfo)
 {
     return 1;
@@ -186,10 +184,15 @@ UAEWindow::UAEWindow(BRect frame,bool useBitmap)
     gfxvidinfo.bufmem        = (uint8 *) fBitmap->Bits ();
     gfxvidinfo.rowbytes      =           fBitmap->BytesPerRow ();;
     gfxvidinfo.pixbytes      =           get_bytes_per_pixel (colorspace);
+    gfxvidinfo.lockscr       =           beos_lockscr;
+    gfxvidinfo.unlockscr     =           beos_unlockscr;
     gfxvidinfo.flush_block   =           beos_flush_block;
-    gfxvidinfo.maxblocklines =           gfxvidinfo.height;
+    gfxvidinfo.flush_screen  =           beos_flush_screen;
+    gfxvidinfo.maxblocklines =           MAXBLOCKLINES_MAX;
 
     memset (gfxvidinfo.bufmem, 0, fBitmap->BitsLength ());
+
+    reset_drawing();
 
     gWindowMode = kWindowBitmap;
 
@@ -546,14 +549,9 @@ int debuggable (void)
     return true;
 }
 
-int needmousehack (void)
-{
-    return true;
-}
-
 int mousehack_allowed (void)
 {
-    return true;
+    return false;
 }
 
 void toggle_mousegrab (void)
@@ -573,6 +571,15 @@ void toggle_fullscreen (void)
 int is_fullscreen (void)
 {
     return gWin->IsFullScreen ();
+}
+
+int is_vsync (void)
+{
+    return 0;
+}
+
+void graphics_notify_state (int state)
+{
 }
 
 void handle_events (void)

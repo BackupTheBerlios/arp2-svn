@@ -4,6 +4,7 @@
   * Support for Solaris sound
   *
   * Copyright 1996, 1997 Manfred Thole
+  * Copyright 2007       Richard Drummond
   */
 
 #include "sysconfig.h"
@@ -35,8 +36,6 @@
 #endif
 #endif
 
-static int obtainedfreq;
-
 int sndbufsize;
 int sound_fd;
 static int have_sound;
@@ -51,31 +50,10 @@ static void clearbuffer (void)
 void close_sound(void)
 {
     if (have_sound)
-	close(sound_fd);
+	close (sound_fd);
 }
 
-void update_sound (int freq)
-{
-    int scaled_sample_evtime_orig;
-    static int lastfreq =0;
-
-    if (freq < 0)
-        freq = lastfreq;
-    lastfreq = freq;
-    if (have_sound) {
-        if (currprefs.gfx_vsync && currprefs.gfx_afullscreen) {
-            if (currprefs.ntscmode)
-                scaled_sample_evtime_orig = (unsigned long)(MAXHPOS_NTSC * MAXVPOS_NTSC * freq * CYCLE_UNIT + obtainedfreq - 1) / obtainedfreq;
-        else
-            scaled_sample_evtime_orig = (unsigned long)(MAXHPOS_PAL * MAXVPOS_PAL * freq * CYCLE_UNIT + obtainedfreq - 1) / obtainedfreq;
-        } else {
-            scaled_sample_evtime_orig = (unsigned long)(312.0 * 50 * CYCLE_UNIT / (obtainedfreq  / 227.0));
-        }
-        scaled_sample_evtime = scaled_sample_evtime_orig;
-    }
-}
-
-int setup_sound(void)
+int setup_sound (void)
 {
     sound_fd = open ("/dev/audio", O_WRONLY);
     have_sound = !(sound_fd < 0);
@@ -92,11 +70,6 @@ int init_sound (void)
 
     struct audio_info sfd_info;
 
-    if (currprefs.sound_maxbsiz < 128 || currprefs.sound_maxbsiz > 44100) {
-	fprintf(stderr, "Sound buffer size %d out of range.\n", currprefs.sound_maxbsiz);
-	currprefs.sound_maxbsiz = 8192;
-    }
-
     rate = currprefs.sound_freq;
     dspbits = currprefs.sound_bits;
     AUDIO_INITINFO(&sfd_info);
@@ -104,12 +77,10 @@ int init_sound (void)
     sfd_info.play.channels = 1;
     sfd_info.play.precision = dspbits;
     sfd_info.play.encoding = (dspbits == 8 ) ? AUDIO_ENCODING_ULAW : AUDIO_ENCODING_LINEAR;
-    if (ioctl(sound_fd, AUDIO_SETINFO, &sfd_info)) {
-	fprintf(stderr, "Can't use sample rate %d with %d bits, %s!\n", rate, dspbits, (dspbits ==8) ? "ulaw" : "linear");
+    if (ioctl (sound_fd, AUDIO_SETINFO, &sfd_info)) {
+	write_log ("Can't use sample rate %d with %d bits, %s.\n", rate, dspbits, (dspbits == 8) ? "ulaw" : "linear");
 	return 0;
     }
-   /* scaled_sample_evtime = (unsigned long)MAXHPOS_PAL * MAXVPOS_PAL * VBLANK_HZ_PAL * CYCLE_UNIT / rate; */
-   /* scaled_sample_evtime_ok = 1; */
 
     init_sound_table16 ();
 
@@ -120,21 +91,24 @@ int init_sound (void)
 
     sndbufpt = sndbuffer;
     obtainedfreq = rate;
-    update_sound(vblank_hz);
+
     sound_available = 1;
-    sndbufsize = currprefs.sound_maxbsiz;
-    printf ("Sound driver found and configured for %d bits, %s at %d Hz, buffer is %d bytes\n", dspbits, (dspbits ==8) ? "ulaw" : "linear", rate, sndbufsize);
+    sndbufsize = rate * currprefs.sound_latency * (dspbits / 8) * (currprefs.sound_stereo ? 2 : 1) / 1000;
+    sndbufsize = (sndbufsize + 1) & ~1;
+
+    write_log ("Sound driver found and configured for %d bits, %s at %d Hz, buffer is %d bytes.\n",
+	       dspbits, (dspbits ==8) ? "ulaw" : "linear", rate, sndbufsize);
     return 1;
 }
 
 void reset_sound (void)
 {
-   clearbuffer();
+   clearbuffer ();
 }
 
 void pause_sound (void)
 {
-   clearbuffer();
+   clearbuffer ();
 }
 
 void resume_sound (void)

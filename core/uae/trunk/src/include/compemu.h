@@ -1,5 +1,3 @@
-#define USE_OPTIMIZER 0
-#define USE_LOW_OPTIMIZER 0
 #define USE_ALIAS 1
 #define USE_F_ALIAS 1
 #define USE_SOFT_FLUSH 1
@@ -55,13 +53,11 @@ extern void set_target(uae_u8* t);
 extern void freescratch(void);
 extern void build_comp(void);
 extern void set_cache_state(int enabled);
-extern int get_cache_state(void);
-extern uae_u32 get_jitted_size(void);
+
 #ifdef JIT
 extern void flush_icache(int n);
 #endif
-extern void alloc_cache(void);
-extern void compile_block(cpu_history* pc_hist, int blocklen, int totcyles);
+extern void compile_block (const cpu_history *pc_hist, int blocklen, int totcyles);
 extern int check_for_cache_miss(void);
 
 
@@ -197,7 +193,6 @@ typedef struct {
 } smallstate;
 
 extern bigstate live;
-extern int touchcnt;
 
 
 #define IMM uae_u32
@@ -225,16 +220,7 @@ extern int touchcnt;
 #define LOWFUNC(flags,mem,nargs,func,args) STATIC_INLINE void func args
 #define LENDFUNC(flags,mem,nargs,func,args)
 
-#if USE_OPTIMIZER
-#define REGALLOC_O 2
-#define PEEPHOLE_O 3 /* Has to be >= REGALLOC */
-#define DECLARE(func) extern void func; extern void do_##func
-#else
-#define REGALLOC_O 2000000
-#define PEEPHOLE_O 2000000
 #define DECLARE(func) extern void func
-#endif
-
 
 /* What we expose to the outside */
 DECLARE(bt_l_ri(R4 r, IMM i));
@@ -441,14 +427,20 @@ extern int failure;
 
 /* Convenience functions exposed to gencomp */
 extern uae_u32 m68k_pc_offset;
+
 extern void readbyte(int address, int dest, int tmp);
 extern void readword(int address, int dest, int tmp);
 extern void readlong(int address, int dest, int tmp);
-extern void writebyte(int address, int source, int tmp);
-extern void writeword(int address, int source, int tmp);
-extern void writelong(int address, int source, int tmp);
-extern void writeword_clobber(int address, int source, int tmp);
-extern void writelong_clobber(int address, int source, int tmp);
+
+extern void writebyte         (int address, int source, int tmp);
+extern void writeword_general (int address, int source, int tmp, int clobber);
+extern void writelong_general (int address, int source, int tmp, int clobber);
+
+#define writeword(address, source, tmp) writeword_general (address, source, tmp, 0)
+#define writelong(address, source, tmp) writelong_general (address, source, tmp, 0)
+#define writeword_clobber(address, source, tmp) writeword_general (address, source, tmp, 1)
+#define writelong_clobber(address, source, tmp) writelong_general (address, source, tmp, 1)
+
 extern void get_n_addr(int address, int dest, int tmp);
 extern void get_n_addr_jmp(int address, int dest, int tmp);
 extern void calc_disp_ea_020(int base, uae_u32 dp, int target, int tmp);
@@ -532,5 +524,3 @@ void comp_fbcc_opp (uae_u32 opcode);
 void comp_fsave_opp (uae_u32 opcode);
 void comp_frestore_opp (uae_u32 opcode);
 void comp_fpp_opp (uae_u32 opcode, uae_u16 extra);
-
-

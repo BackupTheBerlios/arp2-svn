@@ -33,7 +33,6 @@
 #include "keybuf.h"
 #include "disk.h"
 #include "debug.h"
-#include "gui.h"
 
 #ifdef HAVE_NCURSES_H
 #include <ncurses.h>
@@ -71,14 +70,11 @@ static int keydelay = 20;
 
 static void curses_exit(void);
 
-int pause_emulation;
-
 /****************************************************************************/
 
 static void curses_insert_disk (void)
 {
     curses_exit();
-    gui_changesettings();
     flush_screen(0,0);
 }
 
@@ -284,7 +280,7 @@ static void curses_init (void)
 	init_pair (7, COLOR_MAGENTA, COLOR_BLACK);
 	init_pair (8, COLOR_WHITE, COLOR_BLACK);
     }
-    printf ("curses_init: %d pairs available\n", COLOR_PAIRS);
+    write_log ("curses_init: %d pairs available\n", COLOR_PAIRS);
 
     cbreak(); noecho();
     nonl (); intrflush(stdscr, FALSE); keypad(stdscr, TRUE);
@@ -475,7 +471,7 @@ int graphics_init (void)
 
     gfxvidinfo.width = currprefs.gfx_width;
     gfxvidinfo.height = currprefs.gfx_height;
-    gfxvidinfo.maxblocklines = 1000;
+    gfxvidinfo.maxblocklines = MAXBLOCKLINES_MAX;
     gfxvidinfo.pixbytes = currprefs.color_mode < 2 ? 1 : 2;
     gfxvidinfo.rowbytes = gfxvidinfo.pixbytes * currprefs.gfx_width;
     gfxvidinfo.bufmem = (uae_u8 *)calloc(gfxvidinfo.rowbytes, currprefs.gfx_height+1);
@@ -492,7 +488,7 @@ int graphics_init (void)
 	break;
     }
     if(!gfxvidinfo.bufmem) {
-	write_log("Not enough memory.\n");
+	write_log ("Not enough memory.\n");
 	return 0;
     }
 
@@ -513,8 +509,11 @@ int graphics_init (void)
     for(i=0; i<256; i++)
 	keystate[i] = 0;
 
+    gfxvidinfo.lockscr = lockscr_curses;
+    gfxvidinfo.unlockscr = unlockscr_curses;
     gfxvidinfo.flush_line = flush_line_curses;
     gfxvidinfo.flush_block = flush_block_curses;
+    gfxvidinfo.flush_screen = flush_screen_curses;
 
     reset_drawing ();
 
@@ -552,6 +551,12 @@ static int keycode2amiga (int ch)
 
 /***************************************************************************/
 
+void graphics_notify_state (int state)
+{
+}
+
+/***************************************************************************/
+
 void handle_events (void)
 {
     int ch;
@@ -571,9 +576,9 @@ void handle_events (void)
 	    MEVENT ev;
 	    if(getmouse(&ev) == OK) {
 		int mousex = (ev.x * gfxvidinfo.width) / COLS;
-	        int mousey = (ev.y * gfxvidinfo.height) / LINES;
-                setmousestate (0, 0, mousex, 1);
-	        setmousestate (0, 1 ,mousey, 1);
+		int mousey = (ev.y * gfxvidinfo.height) / LINES;
+		setmousestate (0, 0, mousex, 1);
+		setmousestate (0, 1 ,mousey, 1);
 #if 0
 		if(ev.bstate & BUTTON1_PRESSED)  buttonstate[0] = keydelay;
 		if(ev.bstate & BUTTON1_RELEASED) buttonstate[0] = 0;
@@ -592,8 +597,10 @@ void handle_events (void)
 	if (ch == 16) --lastmy; /* ^P */
 	if (ch == 11) {buttonstate[0] = keydelay;ch = 0;} /* ^K */
 	if (ch == 25) {buttonstate[2] = keydelay;ch = 0;} /* ^Y */
-	if (ch == 15) uae_reset (); /* ^O */
-	if (ch == 17) uae_quit (); /* ^Q */
+#endif
+	if (ch == 15) uae_reset (0); /* ^O */
+	if (ch == 23) uae_stop ();   /* ^W (Note: ^Q won't work) */
+#if 0
 	if (ch == KEY_F(1)) {
 	  curses_insert_disk();
 	  ch = 0;
@@ -612,7 +619,6 @@ void handle_events (void)
 	    record_key(kc << 1);
 	}
     }
-    gui_handle_events();
 }
 
 /***************************************************************************/
@@ -642,19 +648,19 @@ int debuggable (void)
     return 1;
 }
 
-int needmousehack (void)
-{
-    return 1;
-}
-
 int mousehack_allowed (void)
 {
-    return 1;
+    return 0;
 }
 
 int is_fullscreen (void)
 {
     return 1;
+}
+
+int is_vsync (void)
+{
+    return 0;
 }
 
 void toggle_fullscreen (void)

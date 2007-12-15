@@ -3,11 +3,8 @@
   *
   * Hardfile emulation for *nix systems
   *
-  * Copyright 2003 Richard Drummond
+  * Copyright 2003-2006 Richard Drummond
   * Based on hardfile_win32.c
-  *
-  * Note: this is a rather naive implementation. Sophistication and 64-bit
-  * support still to come . . .
   */
 
 #include "sysconfig.h"
@@ -17,7 +14,7 @@
 
 //#define HDF_DEBUG
 #ifdef  HDF_DEBUG
-#define DEBUG_LOG write_log( "%s: ", __func__); write_log
+#define DEBUG_LOG write_log ( "%s: ", __func__); write_log
 #else
 #define DEBUG_LOG(...) do ; while(0)
 #endif
@@ -95,13 +92,13 @@ static void poscheck (struct hardfiledata *hfd, int len)
     }
 }
 
-int hdf_open (struct hardfiledata *hfd, char *name)
+int hdf_open (struct hardfiledata *hfd, const char *name)
 {
     int handle;
 
     DEBUG_LOG ("called with name=%s\n",name);
 
-   if ((handle = open(name, hfd->readonly ? O_RDONLY : O_RDWR)) != -1) {   
+   if ((handle = open (name, hfd->readonly ? O_RDONLY : O_RDWR)) != -1) {
 	int i;
 
 	hfd->handle = (void *) handle;
@@ -130,9 +127,14 @@ int hdf_open (struct hardfiledata *hfd, char *name)
     return 0;
 }
 
-extern int hdf_dup (struct hardfiledata *hfd, void *src)
+extern int hdf_dup (struct hardfiledata *dhfd, const struct hardfiledata *shfd)
 {
     DEBUG_LOG ("called\n");
+
+    if ((int)shfd->handle >= 0) {
+	dhfd->handle = (void *)dup ((int)shfd->handle);
+    }
+
     return 0;
 }
 
@@ -141,6 +143,7 @@ void hdf_close (struct hardfiledata *hfd)
     DEBUG_LOG ("called\n");
 
     close ((int)hfd->handle);
+    hfd->handle = (void *)-1;
 }
 
 int hdf_read (struct hardfiledata *hfd, void *buffer, uae_u64 offset, int len)

@@ -8,13 +8,18 @@
  */
 
 #include "sysconfig.h"
-#include "sysdeps.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdarg.h>
+#include <errno.h>
+#include <assert.h>
+#include <limits.h>
+#include "uae_string.h"
+#include "uae_types.h"
+#include "uae_malloc.h"
 #include <ctype.h>
 
 #include "readcpu.h"
-
-#include <stdio.h>
-#include <stdarg.h>
 
 #define BOOL_TYPE "int"
 #define failure global_failure=1
@@ -596,7 +601,7 @@ static void genmov16(uae_u32 opcode, struct instr *curi)
     comprintf("\tint dst=scratchie++;\n");
 
     if ((opcode & 0xfff8) == 0xf620) {
-    	/* MOVE16 (Ax)+,(Ay)+ */
+	/* MOVE16 (Ax)+,(Ay)+ */
 	comprintf("\tuae_u16 dstreg=((%s)>>12)&0x07;\n", gen_nextiword());
 	comprintf("\tmov_l_rr(src,8+srcreg);\n");
 	comprintf("\tmov_l_rr(dst,8+dstreg);\n");
@@ -614,7 +619,7 @@ static void genmov16(uae_u32 opcode, struct instr *curi)
 
 
     if ((opcode & 0xfff8) == 0xf620) {
-    	comprintf("\tif (srcreg != dstreg)\n");
+	comprintf("\tif (srcreg != dstreg)\n");
 	comprintf("\tadd_l_ri(srcreg+8,16);\n");
 	comprintf("\tadd_l_ri(dstreg+8,16);\n");
     } else if ((opcode & 0xfff8) == 0xf600)
@@ -1472,7 +1477,7 @@ gen_opcode (unsigned long int opcode)
      case i_BCLR:
      case i_BSET:
      case i_BTST:
-		 	genamode (curi->smode, "srcreg", curi->size, "src", 1, 0);
+			genamode (curi->smode, "srcreg", curi->size, "src", 1, 0);
 	genamode (curi->dmode, "dstreg", curi->size, "dst", 1, 0);
 	start_brace();
 	comprintf("\tint s=scratchie++;\n"
@@ -2644,7 +2649,7 @@ gen_opcode (unsigned long int opcode)
 		"} \n");
 	    start_brace();
 	}
- 	comprintf("\tdont_care_flags();\n");
+	comprintf("\tdont_care_flags();\n");
 	genamode (curi->smode, "srcreg", curi->size, "cnt", 1, 0);
 	genamode (curi->dmode, "dstreg", curi->size, "data", 1, 0);
 	start_brace ();

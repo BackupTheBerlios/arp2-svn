@@ -731,7 +731,6 @@ void handle_events (void)
 
     if (!screen_is_picasso && gui_requested) {
 	leave_graphics_mode ();
-	gui_changesettings ();
 	enter_graphics_mode (vgamode);
 	if (linear_mem != NULL && !need_dither)
 	    gfxvidinfo.bufmem = linear_mem;
@@ -750,7 +749,7 @@ int debuggable (void)
     return 0;
 }
 
-int needmousehack (void)
+int mousehack_allowed (void)
 {
     return 0;
 }
@@ -881,10 +880,6 @@ void gfx_set_picasso_modeinfo (int w, int h, int depth, int rgbfmt)
 	set_window_for_picasso ();
 }
 
-void gfx_set_picasso_baseaddr (uaecptr a)
-{
-}
-
 void gfx_set_picasso_state (int on)
 {
     if (on == screen_is_picasso)
@@ -905,12 +900,13 @@ void gfx_unlock_picasso (void)
 }
 #endif
 
-int lockscr (void)
+#error FIXME
+static int svga_lockscr (void)
 {
     return 1;
 }
 
-void unlockscr (void)
+static void svga_unlockscr (void)
 {
 }
 

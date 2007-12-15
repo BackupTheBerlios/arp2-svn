@@ -3,7 +3,7 @@
  *
  * MC68000 emulation - machine-dependent optimized operations
  *
- * (c) 2004-2005 Richard Drummond
+ * (c) 2004-2007 Richard Drummond
  */
 
 #ifndef EUAE_MACHDEP_M68KOPS_H
@@ -47,7 +47,7 @@
 		: "=m" ((regs)->ccrflags.cznv)		\
 		: "q" (v), "r" (regs)			\
 		: "eax", "cc"				\
-	);
+	)
 
 #define optflag_testb(regs, v)				\
 	asm ( 						\
@@ -60,7 +60,7 @@
 		: "=m" ((regs)->ccrflags.cznv)		\
 		: "q" (v), "r" (regs)			\
 		: "eax", "cc"				\
-	);
+	)
 
 /*
  * Add operations

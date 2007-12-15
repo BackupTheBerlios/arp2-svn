@@ -34,12 +34,4 @@
 #define DEFSERNAME "ser:"
 #define DEFPRTNAME "par:"
 
-#define write_log write_log_standard
-#define flush_log flush_log_standard
-#define set_logfile set_logfile_standard
-
 #define NO_MAIN_IN_MAIN_C
-
-#if defined __amigaos4__ || defined __morphos__
-# define SLEEP_DONT_BUSY_WAIT
-#endif
