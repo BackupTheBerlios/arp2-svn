@@ -240,7 +240,9 @@ void rtarea_init (void)
 
 void rtarea_cleanup (void)
 {
-    mapped_free(rtarea);
+    if (rtarea)
+        mapped_free(rtarea);
+    rtarea = 0;
 }
 
 volatile int uae_int_requested = 0;
