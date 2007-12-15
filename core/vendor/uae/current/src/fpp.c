@@ -4,6 +4,7 @@
   * MC68881 emulation
   *
   * Copyright 1996 Herman ten Brugge
+  * Modified 2005 Peter Keunecke
   */
 
 #define __USE_ISOC9X  /* We might be able to pick up a NaN */
@@ -641,9 +642,9 @@ STATIC_INLINE int fpp_cond (uae_u32 opcode, int contition)
 	return NotANumber || Z || !N;
     case 0x1c:
 #if 0
-        return NotANumber || (Z && N); /* This is wrong, compare 0x0c */
+	return NotANumber || (Z && N); /* This is wrong, compare 0x0c */
 #else
-        return NotANumber || (N && !Z);
+	return NotANumber || (N && !Z);
 #endif
     case 0x1d:
 	return NotANumber || Z || N;
@@ -1168,7 +1169,6 @@ void fpp_opp (uae_u32 opcode, struct regstruct *regs, uae_u16 extra)
 	    case 0x3b:
 		regs->fp[reg] = 1.0e256;
 		break;
-#if 0
 	    case 0x3c:
 		regs->fp[reg] = 1.0e512;
 		break;
@@ -1181,12 +1181,12 @@ void fpp_opp (uae_u32 opcode, struct regstruct *regs, uae_u16 extra)
 	    case 0x3f:
 		regs->fp[reg] = 1.0e4096;
 		break;
-#endif
 	    default:
 		m68k_setpc (regs, m68k_getpc (regs) - 4);
 		op_illg (opcode, regs);
-		break;
+		return;
 	    }
+	    MAKE_FPSR (regs, regs->fp[reg]); /* see Motorola 68k Manual */
 	    return;
 	}
 	if (get_fp_value (opcode, extra, &src) == 0) {
@@ -1195,194 +1195,167 @@ void fpp_opp (uae_u32 opcode, struct regstruct *regs, uae_u16 extra)
 	    return;
 	}
 	switch (extra & 0x7f) {
-	case 0x00:		/* FMOVE */
-	case 0x40:  /* Explicit rounding. This is just a quick fix. Same
-		     * for all other cases that have three choices */
-	case 0x44:
-	    regs->fp[reg] = src;
-	    /* Brian King was here.  <ea> to register needs FPSR updated.
-	     * See page 3-73 in Motorola 68K programmers reference manual.
-	     * %%%FPU */
+	case 0x00: /* FMOVE */
+	case 0x40: /* Explicit rounding. This is just a quick fix. */
+	case 0x44: /* Same for all other cases that have three choices */
+	    regs->fp[reg] = src;        /* Brian King was here. */
+	    /*<ea> to register needs FPSR updated. See Motorola 68K Manual. */
 	    if ((extra & 0x44) == 0x40)
 		fround (reg);
-	    MAKE_FPSR (regs, regs->fp[reg]);
 	    break;
-	case 0x01:		/* FINT */
+	case 0x01: /* FINT */
 	    /* need to take the current rounding mode into account */
- 	    regs->fp[reg] = (fptype) toint (get_rounding_mode (regs), src);
+	    regs->fp[reg] = (fptype) toint (get_rounding_mode (regs), src);
 	    break;
-	case 0x02:		/* FSINH */
+	case 0x02: /* FSINH */
 	    regs->fp[reg] = sinh (src);
-	    MAKE_FPSR (regs, regs->fp[reg]);
 	    break;
-	case 0x03:		/* FINTRZ */
-	    regs->fp[reg] = (int) src;
-	    MAKE_FPSR (regs, regs->fp[reg]);
+	case 0x03: /* FINTRZ */
+	    if (src >= 0.0)
+		regs->fp[reg] = floor (src);
+	    else
+		regs->fp[reg] = ceil (src);
 	    break;
-	case 0x04:		/* FSQRT */
+	case 0x04: /* FSQRT */
 	case 0x41:
 	case 0x45:
 	    regs->fp[reg] = sqrt (src);
 	    if ((extra & 0x44) == 0x40)
 		fround (reg);
-	    MAKE_FPSR (regs, regs->fp[reg]);
 	    break;
-	case 0x06:		/* FLOGNP1 */
+	case 0x06: /* FLOGNP1 */
 	    regs->fp[reg] = log (src + 1.0);
-	    MAKE_FPSR (regs, regs->fp[reg]);
 	    break;
-	case 0x08:		/* FETOXM1 */
+	case 0x08: /* FETOXM1 */
 	    regs->fp[reg] = exp (src) - 1.0;
-	    MAKE_FPSR (regs, regs->fp[reg]);
 	    break;
-	case 0x09:		/* FTANH */
+	case 0x09: /* FTANH */
 	    regs->fp[reg] = tanh (src);
-	    MAKE_FPSR (regs, regs->fp[reg]);
 	    break;
-	case 0x0a:		/* FATAN */
+	case 0x0a: /* FATAN */
 	    regs->fp[reg] = atan (src);
-	    MAKE_FPSR (regs, regs->fp[reg]);
 	    break;
-	case 0x0c:		/* FASIN */
+	case 0x0c: /* FASIN */
 	    regs->fp[reg] = asin (src);
-	    MAKE_FPSR (regs, regs->fp[reg]);
 	    break;
-	case 0x0d:		/* FATANH */
-#if 1				/* The BeBox doesn't have atanh, and it isn't in the HPUX libm either */
-	    regs->fp[reg] = log ((1 + src) / (1 - src)) / 2;
+	case 0x0d: /* FATANH */
+#if 1	/* The BeBox doesn't have atanh, and it isn't in the HPUX libm either */
+	    regs->fp[reg] = 0.5 * log ((1 + src) / (1 - src));
 #else
 	    regs->fp[reg] = atanh (src);
 #endif
-	    MAKE_FPSR (regs, regs->fp[reg]);
 	    break;
-	case 0x0e:		/* FSIN */
+	case 0x0e: /* FSIN */
 	    regs->fp[reg] = sin (src);
-	    MAKE_FPSR (regs, regs->fp[reg]);
 	    break;
-	case 0x0f:		/* FTAN */
+	case 0x0f: /* FTAN */
 	    regs->fp[reg] = tan (src);
-	    MAKE_FPSR (regs, regs->fp[reg]);
 	    break;
-	case 0x10:		/* FETOX */
+	case 0x10: /* FETOX */
 	    regs->fp[reg] = exp (src);
-	    MAKE_FPSR (regs, regs->fp[reg]);
 	    break;
-	case 0x11:		/* FTWOTOX */
+	case 0x11: /* FTWOTOX */
 	    regs->fp[reg] = pow (2.0, src);
-	    MAKE_FPSR (regs, regs->fp[reg]);
 	    break;
-	case 0x12:		/* FTENTOX */
+	case 0x12: /* FTENTOX */
 	    regs->fp[reg] = pow (10.0, src);
-	    MAKE_FPSR (regs, regs->fp[reg]);
 	    break;
-	case 0x14:		/* FLOGN */
+	case 0x14: /* FLOGN */
 	    regs->fp[reg] = log (src);
-	    MAKE_FPSR (regs, regs->fp[reg]);
 	    break;
-	case 0x15:		/* FLOG10 */
+	case 0x15: /* FLOG10 */
 	    regs->fp[reg] = log10 (src);
-	    MAKE_FPSR (regs, regs->fp[reg]);
 	    break;
-	case 0x16:		/* FLOG2 */
+	case 0x16: /* FLOG2 */
 	    regs->fp[reg] = log (src) / log (2.0);
-	    MAKE_FPSR (regs, regs->fp[reg]);
 	    break;
-	case 0x18:		/* FABS */
+	case 0x18: /* FABS */
 	case 0x58:
 	case 0x5c:
 	    regs->fp[reg] = src < 0 ? -src : src;
 	    if ((extra & 0x44) == 0x40)
 		fround (reg);
-	    MAKE_FPSR (regs, regs->fp[reg]);
 	    break;
-	case 0x19:		/* FCOSH */
+	case 0x19: /* FCOSH */
 	    regs->fp[reg] = cosh (src);
-	    MAKE_FPSR (regs, regs->fp[reg]);
 	    break;
-	case 0x1a:		/* FNEG */
+	case 0x1a: /* FNEG */
 	case 0x5a:
 	case 0x5e:
 	    regs->fp[reg] = -src;
 	    if ((extra & 0x44) == 0x40)
 		fround (reg);
-	    MAKE_FPSR (regs, regs->fp[reg]);
 	    break;
-	case 0x1c:		/* FACOS */
+	case 0x1c: /* FACOS */
 	    regs->fp[reg] = acos (src);
-	    MAKE_FPSR (regs, regs->fp[reg]);
 	    break;
-	case 0x1d:		/* FCOS */
+	case 0x1d: /* FCOS */
 	    regs->fp[reg] = cos (src);
-	    MAKE_FPSR (regs, regs->fp[reg]);
 	    break;
-	case 0x1e:		/* FGETEXP */
-	{
-	    int expon;
-	    frexp (src, &expon);
-	    regs->fp[reg] = (double) (expon - 1);
-	    MAKE_FPSR (regs, regs->fp[reg]);
-	}
-	break;
-	case 0x1f:		/* FGETMAN */
-	{
-	    int expon;
-	    regs->fp[reg] = frexp (src, &expon) * 2.0;
-	    MAKE_FPSR (regs, regs->fp[reg]);
-	}
-	break;
-	case 0x20:		/* FDIV */
+	case 0x1e: /* FGETEXP */
+	    {
+	      int expon;
+	      frexp (src, &expon);
+	      regs->fp[reg] = (double) (expon - 1);
+	    }
+	    break;
+	case 0x1f: /* FGETMAN */
+	    {
+	      int expon;
+	      regs->fp[reg] = frexp (src, &expon) * 2.0;
+	    }
+	    break;
+	case 0x20: /* FDIV */
 	case 0x60:
 	case 0x64:
 	    regs->fp[reg] /= src;
 	    if ((extra & 0x44) == 0x40)
 		fround (reg);
-	    MAKE_FPSR (regs, regs->fp[reg]);
 	    break;
-	case 0x21:		/* FMOD */
-	    regs->fp[reg] = regs->fp[reg] - (double) ((int) (regs->fp[reg] / src)) * src;
-	    MAKE_FPSR (regs, regs->fp[reg]);
+	case 0x21: /* FMOD */
+	    {
+	      fptype divi = regs->fp[reg] / src;
+
+	      if (divi >= 0.0)
+		regs->fp[reg] -= src * floor (divi);
+	      else
+		regs->fp[reg] -= src * ceil (divi);
+	    }
 	    break;
-	case 0x22:		/* FADD */
+	case 0x22: /* FADD */
 	case 0x62:
 	case 0x66:
 	    regs->fp[reg] += src;
 	    if ((extra & 0x44) == 0x40)
 		fround (reg);
-	    MAKE_FPSR (regs, regs->fp[reg]);
 	    break;
-	case 0x23:		/* FMUL */
+	case 0x23: /* FMUL */
 	case 0x63:
 	case 0x67:
 	    regs->fp[reg] *= src;
 	    if ((extra & 0x44) == 0x40)
 		fround (reg);
-	    MAKE_FPSR (regs, regs->fp[reg]);
 	    break;
-	case 0x24:		/* FSGLDIV */
+	case 0x24: /* FSGLDIV */
 	    regs->fp[reg] /= src;
-	    MAKE_FPSR (regs, regs->fp[reg]);
 	    break;
-	case 0x25:		/* FREM */
-	    regs->fp[reg] = regs->fp[reg] - (double) ((int) (regs->fp[reg] / src + 0.5)) * src;
-	    MAKE_FPSR (regs, regs->fp[reg]);
+	case 0x25: /* FREM */
+	    regs->fp[reg] -= src * floor ((regs->fp[reg] / src) + 0.5);
 	    break;
-	case 0x26:		/* FSCALE */
+	case 0x26: /* FSCALE */
 	    regs->fp[reg] *= exp (log (2.0) * src);
-	    MAKE_FPSR (regs, regs->fp[reg]);
 	    break;
-	case 0x27:		/* FSGLMUL */
+	case 0x27: /* FSGLMUL */
 	    regs->fp[reg] *= src;
-	    MAKE_FPSR (regs, regs->fp[reg]);
 	    break;
-	case 0x28:		/* FSUB */
+	case 0x28: /* FSUB */
 	case 0x68:
 	case 0x6c:
 	    regs->fp[reg] -= src;
 	    if ((extra & 0x44) == 0x40)
 		fround (reg);
-	    MAKE_FPSR (regs, regs->fp[reg]);
 	    break;
-	case 0x30:		/* FSINCOS */
+	case 0x30: /* FSINCOS */
 	case 0x31:
 	case 0x32:
 	case 0x33:
@@ -1390,26 +1363,26 @@ void fpp_opp (uae_u32 opcode, struct regstruct *regs, uae_u16 extra)
 	case 0x35:
 	case 0x36:
 	case 0x37:
-	    regs->fp[reg] = sin (src);
 	    regs->fp[extra & 7] = cos (src);
-	    MAKE_FPSR (regs, regs->fp[reg]);
+	    regs->fp[reg] = sin (src);
 	    break;
-	case 0x38:		/* FCMP */
-	{
-	    fptype tmp = regs->fp[reg] - src;
-	    regs->fpsr = 0;
-	    MAKE_FPSR (regs, tmp);
-	}
-	break;
-	case 0x3a:		/* FTST */
+	case 0x38: /* FCMP */
+	    {
+	      fptype tmp = regs->fp[reg] - src;
+	      regs->fpsr = 0;
+	      MAKE_FPSR (regs, tmp);
+	    }
+	    return;
+	case 0x3a: /* FTST */
 	    regs->fpsr = 0;
 	    MAKE_FPSR (regs, src);
-	    break;
+	    return;
 	default:
 	    m68k_setpc (regs, m68k_getpc (regs) - 4);
 	    op_illg (opcode, regs);
-	    break;
+	    return;
 	}
+	MAKE_FPSR (regs, regs->fp[reg]);
 	return;
     }
     m68k_setpc (regs, m68k_getpc (regs) - 4);
@@ -1450,23 +1423,24 @@ uae_u8 *save_fpu (uae_u32 *len, uae_u8 *dstptr)
     unsigned int model, i;
 
     *len = 0;
-    switch (currprefs.cpu_level) {
+    switch (currprefs.cpu_level)
+    {
 	case 3:
-	    model = 68881;
-	    break;
+	model = 68881;
+	break;
 	case 4:
-	    model = 68040;
-	    break;
+	model = 68040;
+	break;
 	case 6:
-	    model = 68060;
-	    break;
+	model = 68060;
+	break;
 	default:
-	    return 0;
+	return 0;
     }
     if (dstptr)
 	dstbak = dst = dstptr;
     else
-        dstbak = dst = malloc(4+4+8*10+4+4+4);
+	dstbak = dst = malloc(4+4+8*10+4+4+4);
     save_u32 (model);
     save_u32 (0);
     for (i = 0; i < 8; i++) {

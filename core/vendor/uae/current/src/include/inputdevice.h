@@ -28,7 +28,6 @@ struct inputdevice_functions {
 extern struct inputdevice_functions inputdevicefunc_joystick;
 extern struct inputdevice_functions inputdevicefunc_mouse;
 extern struct inputdevice_functions inputdevicefunc_keyboard;
-extern int pause_emulation;
 
 struct uae_input_device_kbr_default {
     int scancode;
@@ -81,7 +80,6 @@ extern uae_u8 handle_joystick_buttons (uae_u8);
 extern int getbuttonstate (int joy, int button);
 extern int getjoystate (int joy);
 
-extern int needmousehack (void);
 extern int mousehack_alive (void);
 extern int mousehack_allowed (void);
 
@@ -95,7 +93,7 @@ extern void inputdevice_updateconfig (struct uae_prefs *prefs);
 
 extern int inputdevice_translatekeycode (int keyboard, int scancode, int state);
 extern void inputdevice_setkeytranslation (struct uae_input_device_kbr_default *trans);
-extern void handle_input_event (int nr, int state, int max, int autofire);
+extern int handle_input_event (int nr, int state, int max, int autofire);
 extern void inputdevice_do_keyboard (int code, int state);
 void inputdevice_release_all_keys (void);
 

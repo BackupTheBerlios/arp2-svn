@@ -36,9 +36,9 @@
 /* libnix requires that we link against the swapstack.o module */
 unsigned int __stack = MIN_STACK_SIZE;
 #else
-# ifdef __amigaos4__
-// This breaks for some reason...
-//unsigned int __stack_size = MIN_STACK_SIZE;
+# if !defined __MORPHOS__ && !defined __AROS__
+/* clib2 minimum stack size. Use this on OS3.x and OS4.0. */
+unsigned int __stack_size = MIN_STACK_SIZE;
 # endif
 #endif
 

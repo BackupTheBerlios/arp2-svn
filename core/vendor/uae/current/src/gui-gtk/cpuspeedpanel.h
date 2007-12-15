@@ -29,7 +29,6 @@ struct _CpuSpeedPanel
     /* private */
     GtkWidget *speed_widget;
     GtkWidget *adjust_widget;
-    GtkWidget *dontbusywait_widget;
     GtkWidget *idleenabled_widget;
     GtkWidget *idlerate_widget;
     gboolean   idleenabled;
@@ -37,7 +36,6 @@ struct _CpuSpeedPanel
 
     /* properties */
     guint      cpuspeed;
-    gboolean   dontbusywait;
     guint      cpuidle;
 };
 
@@ -51,7 +49,6 @@ guint		cpuspeedpanel_get_type		(void);
 GtkWidget*	cpuspeedpanel_new		(void);
 void		cpuspeedpanel_set_cpuspeed	(CpuSpeedPanel *cspanel, gint cpuspeed);
 void		cpuspeedpanel_set_cpulevel	(CpuSpeedPanel *cspanel, guint cpulevel);
-void		cpuspeedpanel_set_dontbusywait	(CpuSpeedPanel *cspanel, gboolean dontbusywait);
 void		cpuspeedpanel_set_cpuidle	(CpuSpeedPanel *cspanel, guint cpuidle);
 
 # ifdef __cplusplus

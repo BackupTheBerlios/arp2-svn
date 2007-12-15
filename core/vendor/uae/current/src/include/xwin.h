@@ -14,7 +14,6 @@ typedef int (*allocfunc_type)(int, int, int, xcolnr *);
 extern xcolnr xcolors[4096];
 
 extern int debuggable (void);
-extern int needmousehack (void);
 extern void togglemouse (void);
 extern void LED (int);
 extern void screenshot (int);
@@ -70,6 +69,8 @@ struct vidbuf_description
 			* value than maxline here). */
 };
 
+#define MAXBLOCKLINES_MAX INT_MAX;
+
 extern struct vidbuf_description gfxvidinfo;
 
 
@@ -104,15 +105,17 @@ STATIC_INLINE void unlockscr (void)
     gfxvidinfo.unlockscr (&gfxvidinfo);
 }
 
-extern int  graphics_setup    (void);
-extern void graphics_leave    (void);
-extern int  graphics_init     (void);
-extern int  graphics_open     (void);
-extern void graphics_close    (void);
-extern void handle_events     (void);
-extern int  is_fullscreen     (void);
-extern void toggle_fullscreen (void);
-extern void toggle_mousegrab  (void);
+extern int  graphics_setup        (void);
+extern void graphics_leave        (void);
+extern int  graphics_init         (void);
+extern int  graphics_open         (void);
+extern void graphics_close        (void);
+extern void graphics_notify_state (int state);
+extern void handle_events         (void);
+extern int  is_fullscreen         (void);
+extern int  is_vsync              (void);
+extern void toggle_fullscreen     (void);
+extern void toggle_mousegrab      (void);
 
 
 /* For ports using tui.c, this should be built by graphics_setup(). */

@@ -12,13 +12,18 @@
 #include "options.h"
 #include "gui.h"
 
-static void sigchldhandler(int foo)
+
+void gui_init (int argc, char **argv)
 {
 }
 
-int gui_init (void)
+int gui_open (void)
 {
     return -1;
+}
+
+void gui_notify_state (int state)
+{
 }
 
 int gui_update (void)
@@ -83,28 +88,12 @@ void gui_handle_events (void)
 {
 }
 
-void gui_changesettings (void)
-{
-}
-
-void gui_update_gfx (void)
-{
-}
-
-void gui_lock (void)
-{
-}
-
-void gui_unlock (void)
-{
-}
-
 void gui_display(int shortcut)
 {
 }
 
 void gui_message (const char *format,...)
-{   
+{
        char msg[2048];
        va_list parms;
 

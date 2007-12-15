@@ -79,10 +79,7 @@ static const char *get_last_floppy_dir (void)
 	    atexit (free_last_floppy_dir);
 	}
 
-	len = strlen (currprefs.path_floppy);
-	last_floppy_dir = malloc (len + 1);
-	if (last_floppy_dir)
-	    strcpy (last_floppy_dir, currprefs.path_floppy);
+	last_floppy_dir = my_strdup (prefs_get_attr ("floppy_path"));
     }
     return last_floppy_dir;
 }
@@ -98,10 +95,7 @@ static const char *get_last_savestate_dir (void)
 	    atexit (free_last_savestate_dir);
 	}
 
-	len = strlen (currprefs.path_savestate);
-	last_savestate_dir = malloc (len + 1);
-	if (last_savestate_dir)
-	    strcpy (last_savestate_dir, currprefs.path_savestate);
+	last_savestate_dir = my_strdup (prefs_get_attr ("savestate_path"));
     }
     return last_savestate_dir;
 }
@@ -177,8 +171,8 @@ static void do_file_dialog (unsigned int type)
 	}
 #ifdef __amigaos4__
     } else {
-        IAsl->Obtain ();
-        release_asl = 1;
+	IAsl->Obtain ();
+	release_asl = 1;
 #endif
     }
 
@@ -210,7 +204,7 @@ static void do_file_dialog (unsigned int type)
 	    break;
 
 	case FILEDIALOG_SAVE_STATE:
-	    req_prompt = "Select file to save emulator state to\n";
+	    req_prompt = "Select file to save emulator state to";
 	    req_pattern = "#?.uss";
 	    req_lastdir = get_last_savestate_dir ();
 	    req_do_save = TRUE;
@@ -246,7 +240,7 @@ static void do_file_dialog (unsigned int type)
 	    strcat (path, "/");
 	strcat (path, FileRequest->fr_File);
 
-        /*
+	/*
 	 * Process selected file.
 	 */
 	switch (type) {
@@ -279,7 +273,7 @@ static void do_file_dialog (unsigned int type)
 
 #ifdef __amigaos4__
     if (release_asl)
-        IAsl->Release ();
+	IAsl->Release ();
 #endif
 
     return;
@@ -287,9 +281,15 @@ static void do_file_dialog (unsigned int type)
 
 /****************************************************************************/
 
+void gui_init (int argc, char **argv)
+{
+}
+
+/****************************************************************************/
+
 static int have_rexx = 0;
 
-int gui_init (void)
+int gui_open (void)
 {
     if (!have_rexx) {
 	have_rexx = rexx_init ();
@@ -335,6 +335,12 @@ void gui_handle_events (void)
 {
     if (have_rexx)
 	rexx_handle_events();
+}
+
+/****************************************************************************/
+
+void gui_notify_state (int state)
+{
 }
 
 /****************************************************************************/
@@ -386,18 +392,6 @@ void gui_fps (int fps, int idle)
 
 /****************************************************************************/
 
-void gui_lock (void)
-{
-}
-
-/****************************************************************************/
-
-void gui_unlock (void)
-{
-}
-
-/****************************************************************************/
-
 void gui_display (int shortcut)
 {
     switch (shortcut) {
@@ -445,10 +439,4 @@ void gui_message (const char *format,...)
     EasyRequest (win, &req, NULL, NULL);
 
     write_log (msg);
-}
-
-/****************************************************************************/
-
-void gui_update_gfx (void)
-{
 }

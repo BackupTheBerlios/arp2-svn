@@ -7,7 +7,12 @@
   * Copyright 2006 Richard Drummond
   */
 #include "sysconfig.h"
-#include "sysdeps.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdarg.h>
+#include "uae_string.h"
+#include "uae_types.h"
+#include "writelog.h"
 
 static FILE *logfile;
 
@@ -15,10 +20,10 @@ static FILE *logfile;
  * By default write-log and friends access the stderr stream.
  * This function allows you to specify a file to be used for logging
  * instead.
- * 
+ *
  * Call with NULL to close a previously opened log file.
  */
-void set_logfile_standard (const char *logfile_name)
+void set_logfile (const char *logfile_name)
 {
     if (logfile_name && strlen (logfile_name)) {
 	FILE *newfile = fopen (logfile_name, "w");
@@ -34,7 +39,7 @@ void set_logfile_standard (const char *logfile_name)
     }
 }
 
-void write_log_standard (const char *fmt, ...)
+void write_log (const char *fmt, ...)
 {
     va_list ap;
     va_start (ap, fmt);
@@ -57,7 +62,7 @@ void write_log_standard (const char *fmt, ...)
 #endif
 }
 
-void flush_log_standard (void)
+void flush_log (void)
 {
     fflush (logfile ? logfile : stderr);
 }

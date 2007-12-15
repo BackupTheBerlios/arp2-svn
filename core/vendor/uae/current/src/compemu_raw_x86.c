@@ -83,10 +83,8 @@ uae_u8 need_to_preserve[]={1,1,1,1,0,1,1,1};
  * Actual encoding of the instructions on the target CPU                 *
  *************************************************************************/
 
-static int have_cmov=0;  /* We need to generate different code if
-			    we don't have cmov */
-
-//#include "compemu_optimizer_x86.c"
+static int have_rat_stall; 	/* Partial registers stalls? */
+static int have_cmov;		/* We need to generate different code if we don't have cmov */
 
 STATIC_INLINE uae_u16 swap16 (uae_u16 x)
 {
@@ -1618,14 +1616,12 @@ LENDFUNC(WRITE,READ,0,raw_popfl,(void))
 
 STATIC_INLINE void raw_call_r(R4 r)
 {
-    lopt_emit_all();
     emit_byte(0xff);
     emit_byte(0xd0+r);
 }
 
 STATIC_INLINE void raw_jmp_r(R4 r)
 {
-    lopt_emit_all();
     emit_byte(0xff);
     emit_byte(0xe0+r);
 }
@@ -1640,7 +1636,6 @@ STATIC_INLINE void raw_jmp_m_indexed(uae_u32 base, uae_u32 r, uae_u32 m)
      case 8: mu=3; break;
      default: abort();
     }
-    lopt_emit_all();
     emit_byte(0xff);
     emit_byte(0x24);
     emit_byte(0x05+8*r+0x40*mu);
@@ -1649,7 +1644,6 @@ STATIC_INLINE void raw_jmp_m_indexed(uae_u32 base, uae_u32 r, uae_u32 m)
 
 STATIC_INLINE void raw_jmp_m(uae_u32 base)
 {
-    lopt_emit_all();
     emit_byte(0xff);
     emit_byte(0x25);
     emit_long(base);
@@ -1657,21 +1651,18 @@ STATIC_INLINE void raw_jmp_m(uae_u32 base)
 
 STATIC_INLINE void raw_call(uae_u32 t)
 {
-    lopt_emit_all();
     emit_byte(0xe8);
     emit_long(t-(uae_u32)target-4);
 }
 
 STATIC_INLINE void raw_jmp(uae_u32 t)
 {
-    lopt_emit_all();
     emit_byte(0xe9);
     emit_long(t-(uae_u32)target-4);
 }
 
 STATIC_INLINE void raw_jl(uae_u32 t)
 {
-    lopt_emit_all();
     emit_byte(0x0f);
     emit_byte(0x8c);
     emit_long(t-(uae_u32)target-4);
@@ -1679,7 +1670,6 @@ STATIC_INLINE void raw_jl(uae_u32 t)
 
 STATIC_INLINE void raw_jz(uae_u32 t)
 {
-    lopt_emit_all();
     emit_byte(0x0f);
     emit_byte(0x84);
     emit_long(t-(uae_u32)target-4);
@@ -1687,7 +1677,6 @@ STATIC_INLINE void raw_jz(uae_u32 t)
 
 STATIC_INLINE void raw_jnz(uae_u32 t)
 {
-    lopt_emit_all();
     emit_byte(0x0f);
     emit_byte(0x85);
     emit_long(t-(uae_u32)target-4);
@@ -1695,52 +1684,129 @@ STATIC_INLINE void raw_jnz(uae_u32 t)
 
 STATIC_INLINE void raw_jnz_l_oponly(void)
 {
-    lopt_emit_all();
     emit_byte(0x0f);
     emit_byte(0x85);
 }
 
 STATIC_INLINE void raw_jcc_l_oponly(int cc)
 {
-    lopt_emit_all();
     emit_byte(0x0f);
     emit_byte(0x80+cc);
 }
 
 STATIC_INLINE void raw_jnz_b_oponly(void)
 {
-    lopt_emit_all();
     emit_byte(0x75);
 }
 
 STATIC_INLINE void raw_jz_b_oponly(void)
 {
-    lopt_emit_all();
     emit_byte(0x74);
 }
 
 STATIC_INLINE void raw_jmp_l_oponly(void)
 {
-    lopt_emit_all();
     emit_byte(0xe9);
 }
 
 STATIC_INLINE void raw_jmp_b_oponly(void)
 {
-    lopt_emit_all();
     emit_byte(0xeb);
 }
 
 STATIC_INLINE void raw_ret(void)
 {
-    lopt_emit_all();
     emit_byte(0xc3);
 }
 
 STATIC_INLINE void raw_nop(void)
 {
-    lopt_emit_all();
     emit_byte(0x90);
+}
+
+STATIC_INLINE void raw_emit_nop_filler (int nbytes)
+{
+    /* Source: GNU Binutils 2.12.90.0.15 */
+    /* Various efficient no-op patterns for aligning code labels.
+       Note: Don't try to assemble the instructions in the comments.
+       0L and 0w are not legal.  */
+    static const uae_u8 f32_1[] =
+	{0x90};					/* nop			*/
+    static const uae_u8 f32_2[] =
+	{0x89,0xf6};				/* movl %esi,%esi	*/
+    static const uae_u8 f32_3[] =
+	{0x8d,0x76,0x00};			/* leal 0(%esi),%esi	*/
+    static const uae_u8 f32_4[] =
+	{0x8d,0x74,0x26,0x00};			/* leal 0(%esi,1),%esi	*/
+    static const uae_u8 f32_5[] =
+	{0x90,					/* nop			*/
+	 0x8d,0x74,0x26,0x00};			/* leal 0(%esi,1),%esi	*/
+    static const uae_u8 f32_6[] =
+	{0x8d,0xb6,0x00,0x00,0x00,0x00};	/* leal 0L(%esi),%esi	*/
+    static const uae_u8 f32_7[] =
+	{0x8d,0xb4,0x26,0x00,0x00,0x00,0x00};	/* leal 0L(%esi,1),%esi */
+    static const uae_u8 f32_8[] =
+	{0x90,					/* nop			*/
+	 0x8d,0xb4,0x26,0x00,0x00,0x00,0x00};	/* leal 0L(%esi,1),%esi */
+    static const uae_u8 f32_9[] =
+	{0x89,0xf6,				/* movl %esi,%esi	*/
+	 0x8d,0xbc,0x27,0x00,0x00,0x00,0x00};	/* leal 0L(%edi,1),%edi */
+    static const uae_u8 f32_10[] =
+	{0x8d,0x76,0x00,			/* leal 0(%esi),%esi	*/
+	 0x8d,0xbc,0x27,0x00,0x00,0x00,0x00};	/* leal 0L(%edi,1),%edi */
+    static const uae_u8 f32_11[] =
+	{0x8d,0x74,0x26,0x00,			/* leal 0(%esi,1),%esi	*/
+	 0x8d,0xbc,0x27,0x00,0x00,0x00,0x00};	/* leal 0L(%edi,1),%edi */
+    static const uae_u8 f32_12[] =
+	{0x8d,0xb6,0x00,0x00,0x00,0x00,		/* leal 0L(%esi),%esi	*/
+	 0x8d,0xbf,0x00,0x00,0x00,0x00};	/* leal 0L(%edi),%edi	*/
+    static const uae_u8 f32_13[] =
+	{0x8d,0xb6,0x00,0x00,0x00,0x00,		/* leal 0L(%esi),%esi	*/
+	 0x8d,0xbc,0x27,0x00,0x00,0x00,0x00};	/* leal 0L(%edi,1),%edi */
+    static const uae_u8 f32_14[] =
+	{0x8d,0xb4,0x26,0x00,0x00,0x00,0x00,	/* leal 0L(%esi,1),%esi */
+	 0x8d,0xbc,0x27,0x00,0x00,0x00,0x00};	/* leal 0L(%edi,1),%edi */
+    static const uae_u8 f32_15[] =
+	{0xeb,0x0d,0x90,0x90,0x90,0x90,0x90,	/* jmp .+15; lotsa nops	*/
+	 0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90};
+    static const uae_u8 f32_16[] =
+	{0xeb,0x0d,0x90,0x90,0x90,0x90,0x90,	/* jmp .+15; lotsa nops	*/
+	 0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90};
+    static const uae_u8 *const f32_patt[] = {
+	f32_1, f32_2, f32_3, f32_4, f32_5, f32_6, f32_7, f32_8,
+	f32_9, f32_10, f32_11, f32_12, f32_13, f32_14, f32_15
+    };
+    static const uae_u8 prefixes[4] = { 0x66, 0x66, 0x66, 0x66 };
+
+#if defined(__x86_64__)
+    /* The recommended way to pad 64bit code is to use NOPs preceded by
+       maximally four 0x66 prefixes.  Balance the size of nops.  */
+    if (nbytes > 0) {
+	int i;
+	int nnops = (nbytes + 3) / 4;
+	int len = nbytes / nnops;
+	int remains = nbytes - nnops * len;
+
+	for (i = 0; i < remains; i++) {
+	    emit_block (prefixes, len);
+	    raw_nop ();
+	}
+
+	for (; i < nnops; i++) {
+	    emit_block (prefixes, len - 1);
+	    raw_nop ();
+	}
+    }
+#else
+    int nloops = nbytes / 16;
+
+    while (nloops-- > 0)
+	emit_block (f32_16, sizeof (f32_16));
+
+    nbytes %= 16;
+    if (nbytes)
+	emit_block (f32_patt[nbytes - 1], nbytes);
+#endif
 }
 
 
@@ -1859,7 +1925,7 @@ int EvalException ( LPEXCEPTION_POINTERS blah, int n_except )
     int j;
 
     if( n_except != STATUS_ACCESS_VIOLATION || !canbang)
-        return EXCEPTION_CONTINUE_SEARCH;
+	return EXCEPTION_CONTINUE_SEARCH;
 
     pExceptRecord = blah->ExceptionRecord;
     pContext = blah->ContextRecord;
@@ -1989,20 +2055,20 @@ int EvalException ( LPEXCEPTION_POINTERS blah, int n_except )
 #ifdef JIT_DEBUG
 		    write_log ("JIT: Suspicious address 0x%x in SEGV handler.\n", addr);
 #endif
-	        }
+		}
 		if (dir==SIG_READ) {
 		    switch(size) {
-		    case 1: *((uae_u8*)pr)=get_byte(addr); break;
-		    case 2: *((uae_u16*)pr)=swap16(get_word(addr)); break;
-		    case 4: *((uae_u32*)pr)=swap32(get_long(addr)); break;
+		    case 1: *((uae_u8*)pr)=get_byte (addr); break;
+		    case 2: *((uae_u16*)pr)=swap16(get_word (addr)); break;
+		    case 4: *((uae_u32*)pr)=swap32(get_long (addr)); break;
 		    default: abort();
 		    }
 		}
 		else { /* write */
 		    switch(size) {
-		    case 1: put_byte(addr,*((uae_u8*)pr)); break;
-		    case 2: put_word(addr,swap16(*((uae_u16*)pr))); break;
-		    case 4: put_long(addr,swap32(*((uae_u32*)pr))); break;
+		    case 1: put_byte (addr,*((uae_u8*)pr)); break;
+		    case 2: put_word (addr,swap16(*((uae_u16*)pr))); break;
+		    case 4: put_long (addr,swap32(*((uae_u32*)pr))); break;
 		    default: abort();
 		    }
 		}
@@ -2025,7 +2091,7 @@ int EvalException ( LPEXCEPTION_POINTERS blah, int n_except )
 #ifdef JIT_DEBUG
 		    write_log ("JIT: Suspicious address 0x%x in SEGV handler.\n", addr);
 #endif
-	        }
+		}
 
 		target=(uae_u8*)pContext->Eip;
 		for (i=0;i<5;i++)
@@ -2043,17 +2109,17 @@ int EvalException ( LPEXCEPTION_POINTERS blah, int n_except )
 
 		if (dir==SIG_READ) {
 		    switch(size) {
-		    case 1: raw_mov_b_ri(r,get_byte(addr)); break;
-		    case 2: raw_mov_w_ri(r,swap16(get_word(addr))); break;
-		    case 4: raw_mov_l_ri(r,swap32(get_long(addr))); break;
+		    case 1: raw_mov_b_ri(r,get_byte (addr)); break;
+		    case 2: raw_mov_w_ri(r,swap16(get_word (addr))); break;
+		    case 4: raw_mov_l_ri(r,swap32(get_long (addr))); break;
 		    default: abort();
 		    }
 		}
 		else { /* write */
 		    switch(size) {
-		    case 1: put_byte(addr,*((uae_u8*)pr)); break;
-		    case 2: put_word(addr,swap16(*((uae_u16*)pr))); break;
-		    case 4: put_long(addr,swap32(*((uae_u32*)pr))); break;
+		    case 1: put_byte (addr,*((uae_u8*)pr)); break;
+		    case 2: put_word (addr,swap16(*((uae_u16*)pr))); break;
+		    case 4: put_long (addr,swap32(*((uae_u32*)pr))); break;
 		    default: abort();
 		    }
 		}
@@ -2119,7 +2185,7 @@ int EvalException ( LPEXCEPTION_POINTERS blah, int n_except )
 	}
     }
 #if 0
-    write_log("Please send the above info (starting at \"fault address\") to\n"
+    write_log ("Please send the above info (starting at \"fault address\") to\n"
 	   "bmeyer@csse.monash.edu.au\n"
 	   "This shouldn't happen ;-)\n");
 #endif
@@ -2415,7 +2481,7 @@ static void vec (int signum, struct siginfo *info, void *context)
 	    int j;
 	    write_log ("JIT: can't handle access!\n");
 	    for (j = 0 ; j < 10; j++)
-	        write_log ("JIT: instruction byte %2d is %02x\n", i, j[i]);
+		write_log ("JIT: instruction byte %2d is %02x\n", i, j[i]);
 	}
     } else {
 	write_log ("Caught illegal access to %08x at eip=%08x\n", addr, i);
@@ -2430,111 +2496,272 @@ static void vec (int signum, struct siginfo *info, void *context)
  * Checking for CPU features                                             *
  *************************************************************************/
 
-typedef struct {
-    uae_u32 eax;
-    uae_u32 ecx;
-    uae_u32 edx;
-    uae_u32 ebx;
-} x86_regs;
+struct cpuinfo_x86 {
+    uae_u8	x86;               // CPU family
+    uae_u8	x86_vendor;        // CPU vendor
+    uae_u8	x86_processor;     // CPU canonical processor type
+    uae_u8	x86_brand_id;      // CPU BrandID if supported, yield 0 otherwise
+    uae_u32	x86_hwcap;
+    uae_u8	x86_model;
+    uae_u8	x86_mask;
+    int		cpuid_level;       // Maximum supported CPUID level, -1=no CPUID
+    char	x86_vendor_id[16];
+};
+struct cpuinfo_x86 cpuinfo;
 
+enum {
+    X86_VENDOR_INTEL		= 0,
+    X86_VENDOR_CYRIX		= 1,
+    X86_VENDOR_AMD		= 2,
+    X86_VENDOR_UMC		= 3,
+    X86_VENDOR_NEXGEN		= 4,
+    X86_VENDOR_CENTAUR		= 5,
+    X86_VENDOR_RISE		= 6,
+    X86_VENDOR_TRANSMETA	= 7,
+    X86_VENDOR_NSC		= 8,
+    X86_VENDOR_UNKNOWN		= 0xff
+};
 
-/* This could be so much easier if it could make assumptions about the
-   compiler... */
+enum {
+    X86_PROCESSOR_I386,                       /* 80386 */
+    X86_PROCESSOR_I486,                       /* 80486DX, 80486SX, 80486DX[24] */
+    X86_PROCESSOR_PENTIUM,
+    X86_PROCESSOR_PENTIUMPRO,
+    X86_PROCESSOR_K6,
+    X86_PROCESSOR_ATHLON,
+    X86_PROCESSOR_PENTIUM4,
+    X86_PROCESSOR_X86_64,
+    X86_PROCESSOR_max
+};
 
-static uae_u32 cpuid_ptr;
-static uae_u32 cpuid_level;
+static const char * x86_processor_string_table[X86_PROCESSOR_max] = {
+    "80386",
+    "80486",
+    "Pentium",
+    "PentiumPro",
+    "K6",
+    "Athlon",
+    "Pentium4",
+    "x86-64"
+};
 
-static x86_regs cpuid(uae_u32 level)
+static const struct ptt {
+    const int align_loop;
+    const int align_loop_max_skip;
+    const int align_jump;
+    const int align_jump_max_skip;
+    const int align_func;
+}
+x86_alignments[X86_PROCESSOR_max] = {
+    {  4,  3,  4,  3,  4 },
+    { 16, 15, 16, 15, 16 },
+    { 16,  7, 16,  7, 16 },
+    { 16, 15, 16,  7, 16 },
+    { 32,  7, 32,  7, 32 },
+    { 16,  7, 16,  7, 16 },
+    {  0,  0,  0,  0,  0 },
+    { 16,  7, 16,  7, 16 }
+};
+
+static void x86_get_cpu_vendor (struct cpuinfo_x86 *c)
 {
-    x86_regs answer;
-    uae_u8 *cpuid_space;
-    void* tmp=get_target();
+    char *v = c->x86_vendor_id;
 
-    cpuid_ptr=(uae_u32)&answer;
-    cpuid_level=level;
-
-    cpuid_space = cache_alloc (256);
-    set_target(cpuid_space);
-    raw_push_l_r(0); /* eax */
-    raw_push_l_r(1); /* ecx */
-    raw_push_l_r(2); /* edx */
-    raw_push_l_r(3); /* ebx */
-    raw_push_l_r(7); /* edi */
-    raw_mov_l_rm(0,(uae_u32)&cpuid_level);
-    raw_cpuid(0);
-    raw_mov_l_rm(7,(uae_u32)&cpuid_ptr);
-    raw_mov_l_Rr(7,0,0);
-    raw_mov_l_Rr(7,1,4);
-    raw_mov_l_Rr(7,2,8);
-    raw_mov_l_Rr(7,3,12);
-    raw_pop_l_r(7);
-    raw_pop_l_r(3);
-    raw_pop_l_r(2);
-    raw_pop_l_r(1);
-    raw_pop_l_r(0);
-    raw_ret();
-    set_target(tmp);
-
-    ((compop_func*)cpuid_space)(0);
-    cache_free (cpuid_space);
-    return answer;
+	 if (!strcmp(v, "GenuineIntel"))
+	c->x86_vendor = X86_VENDOR_INTEL;
+    else if (!strcmp(v, "AuthenticAMD"))
+	c->x86_vendor = X86_VENDOR_AMD;
+    else if (!strcmp(v, "CyrixInstead"))
+	c->x86_vendor = X86_VENDOR_CYRIX;
+    else if (!strcmp(v, "Geode by NSC"))
+	c->x86_vendor = X86_VENDOR_NSC;
+    else if (!strcmp(v, "UMC UMC UMC "))
+	c->x86_vendor = X86_VENDOR_UMC;
+    else if (!strcmp(v, "CentaurHauls"))
+	c->x86_vendor = X86_VENDOR_CENTAUR;
+    else if (!strcmp(v, "NexGenDriven"))
+	c->x86_vendor = X86_VENDOR_NEXGEN;
+    else if (!strcmp(v, "RiseRiseRise"))
+	c->x86_vendor = X86_VENDOR_RISE;
+    else if (!strcmp(v, "GenuineTMx86") || !strcmp (v, "TransmetaCPU"))
+	c->x86_vendor = X86_VENDOR_TRANSMETA;
+    else
+	c->x86_vendor = X86_VENDOR_UNKNOWN;
 }
 
-static void raw_init_cpu(void)
+static void cpuid (uae_u32 op, uae_u32 *eax, uae_u32 *ebx, uae_u32 *ecx, uae_u32 *edx)
 {
-    x86_regs x;
-    uae_u32 maxlev;
+    const int CPUID_SPACE = 4096;
+    uae_u8 *cpuid_space;
+    uae_u8 *tmp;
+    static uae_u32 s_op, s_eax, s_ebx, s_ecx, s_edx;
 
-    x=cpuid(0);
-    maxlev=x.eax;
-    write_log ("JIT: Max CPUID level=%d Processor is %c%c%c%c%c%c%c%c%c%c%c%c\n",
-	      maxlev,
-	      x.ebx,
-	      x.ebx>>8,
-	      x.ebx>>16,
-	      x.ebx>>24,
-	      x.edx,
-	      x.edx>>8,
-	      x.edx>>16,
-	      x.edx>>24,
-	      x.ecx,
-	      x.ecx>>8,
-	      x.ecx>>16,
-	      x.ecx>>24
-	      );
-    have_rat_stall=(x.ecx==0x6c65746e);
+    cpuid_space = (uae_u8 *) cache_alloc (CPUID_SPACE);
+    if (cpuid_space == 0)
+	abort ();
 
-    if (maxlev>=1) {
-	x=cpuid(1);
-	if (x.edx&(1<<15))
-	    have_cmov=1;
+    tmp = get_target ();
+
+    s_op = op;
+    set_target (cpuid_space);
+    raw_push_l_r (0); /* eax */
+    raw_push_l_r (1); /* ecx */
+    raw_push_l_r (2); /* edx */
+    raw_push_l_r (3); /* ebx */
+    raw_mov_l_rm (0, (uae_uintptr) &s_op);
+    raw_cpuid (0);
+    raw_mov_l_mr ((uae_uintptr) &s_eax, 0);
+    raw_mov_l_mr ((uae_uintptr) &s_ebx, 3);
+    raw_mov_l_mr ((uae_uintptr) &s_ecx, 1);
+    raw_mov_l_mr ((uae_uintptr) &s_edx, 2);
+    raw_pop_l_r (3);
+    raw_pop_l_r (2);
+    raw_pop_l_r (1);
+    raw_pop_l_r (0);
+    raw_ret ();
+    set_target (tmp);
+
+    ((compop_func *) cpuid_space) (0);
+
+    if (eax != NULL) *eax = s_eax;
+    if (ebx != NULL) *ebx = s_ebx;
+    if (ecx != NULL) *ecx = s_ecx;
+    if (edx != NULL) *edx = s_edx;
+
+    cache_free (cpuid_space);
+}
+
+static void raw_init_cpu (void)
+{
+    struct cpuinfo_x86 *c = &cpuinfo;
+    uae_u32 xlvl;
+
+    /* Defaults */
+    c->x86_processor    = X86_PROCESSOR_max;
+    c->x86_vendor       = X86_VENDOR_UNKNOWN;
+    c->cpuid_level      = -1;                 /* CPUID not detected */
+    c->x86_model        =  0;
+    c->x86_mask         =  0;                 /* So far unknown... */
+    c->x86_vendor_id[0] = '\0';               /* Unset */
+    c->x86_hwcap        =  0;
+
+    /* Get vendor name */
+    c->x86_vendor_id[12] = '\0';
+    cpuid (0x00000000,
+	   (uae_u32 *) &c->cpuid_level,
+	   (uae_u32 *) &c->x86_vendor_id[0],
+	   (uae_u32 *) &c->x86_vendor_id[8],
+	   (uae_u32 *) &c->x86_vendor_id[4]);
+    x86_get_cpu_vendor (c);
+
+    /* Intel-defined flags: level 0x00000001 */
+    c->x86_brand_id = 0;
+    if (c->cpuid_level >= 0x00000001) {
+	uae_u32 tfms, brand_id;
+	cpuid (0x00000001, &tfms, &brand_id, NULL, &c->x86_hwcap);
+	c->x86 = (tfms >> 8) & 15;
+	if (c->x86 == 0xf)
+	    c->x86 += (tfms >> 20) & 0xff; /* extended family */
+	c->x86_model = (tfms >> 4) & 15;
+	if (c->x86_model == 0xf)
+	    c->x86_model |= (tfms >> 12) & 0xf0; /* extended model */
+	c->x86_brand_id = brand_id & 0xff;
+	c->x86_mask = tfms & 15;
+    } else {
+	/* Have CPUID level 0 only - unheard of */
+	c->x86 = 4;
     }
-    have_rat_stall=1;
+
+    /* AMD-defined flags: level 0x80000001 */
+    cpuid (0x80000000, &xlvl, NULL, NULL, NULL);
+    if ((xlvl & 0xffff0000) == 0x80000000) {
+	if (xlvl >= 0x80000001) {
+	    uae_u32 features, extra_features;
+	    cpuid (0x80000001, NULL, NULL, &extra_features, &features);
+	    if (features & (1 << 29)) {
+		/* Assume x86-64 if long mode is supported */
+		c->x86_processor = X86_PROCESSOR_X86_64;
+	    }
 #if 0
-    if (!have_cmov)
-	have_rat_stall=0;
+	    if (extra_features & (1 << 0))
+		have_lahf_lm = 1;
 #endif
-#if 0
-    write_log ("have_cmov=%d, avoid_cmov=%d, have_rat_stall=%d\n",
-	       have_cmov,currprefs.avoid_cmov,have_rat_stall);
-    if (currprefs.avoid_cmov) {
-	write_log("Disabling cmov use despite processor claiming to support it!\n");
-	have_cmov=0;
+	}
     }
-#else
-    /* Dear Bernie, I don't want to keep around options which are useless, and not
-       represented in the GUI anymore... Is this okay? */
-    write_log ("JIT: have_cmov=%d, have_rat_stall=%d\n", have_cmov, have_rat_stall);
+
+    /* Canonicalize processor ID */
+    switch (c->x86) {
+     case 3:
+	c->x86_processor = X86_PROCESSOR_I386;
+	break;
+     case 4:
+	c->x86_processor = X86_PROCESSOR_I486;
+	break;
+     case 5:
+	if (c->x86_vendor == X86_VENDOR_AMD)
+	    c->x86_processor = X86_PROCESSOR_K6;
+	else
+	    c->x86_processor = X86_PROCESSOR_PENTIUM;
+	break;
+     case 6:
+	if (c->x86_vendor == X86_VENDOR_AMD)
+	    c->x86_processor = X86_PROCESSOR_ATHLON;
+	else
+	    c->x86_processor = X86_PROCESSOR_PENTIUMPRO;
+	break;
+    case 15:
+	if (c->x86_processor == X86_PROCESSOR_max) {
+	    switch (c->x86_vendor) {
+	     case X86_VENDOR_INTEL:
+		c->x86_processor = X86_PROCESSOR_PENTIUM4;
+		break;
+	     case X86_VENDOR_AMD:
+		/* Assume a 32-bit Athlon processor if not in long mode */
+		c->x86_processor = X86_PROCESSOR_ATHLON;
+		break;
+	    }
+	}
+	break;
+      }
+    if (c->x86_processor == X86_PROCESSOR_max) {
+	c->x86_processor = X86_PROCESSOR_I386;
+	write_log ("Error: unknown processor type, assuming i386\n");
+	write_log ("  Family  : %d\n", c->x86);
+	write_log ("  Model   : %d\n", c->x86_model);
+	write_log ("  Mask    : %d\n", c->x86_mask);
+	write_log ("  Vendor  : %s [%d]\n", c->x86_vendor_id, c->x86_vendor);
+	if (c->x86_brand_id)
+	    write_log ("  BrandID : %02x\n", c->x86_brand_id);
+    }
+
+    /* Have CMOV support? */
+    have_cmov = c->x86_hwcap & (1 << 15);
+#if defined(__x86_64__)
+    if (!have_cmov) {
+	write_log ("x86-64 implementations are bound to have CMOV!\n");
+	abort ();
+    }
 #endif
-#if 0   /* For testing of non-cmov code! */
-    have_cmov=0;
+
+    /* Can the host CPU suffer from partial register stalls? */
+    have_rat_stall = (c->x86_vendor == X86_VENDOR_INTEL);
+#if 1
+    /* It appears that partial register writes are a bad idea even on
+     * AMD K7 cores, even though they are not supposed to have the
+     * dreaded rat stall. Why? Anyway, that's why we lie about it ;-) */
+    if (c->x86_processor == X86_PROCESSOR_ATHLON)
+	have_rat_stall = 1;
 #endif
-#if 0 /* It appears that partial register writes are a bad idea even on
-	 AMD K7 cores, even though they are not supposed to have the
-	 dreaded rat stall. Why? Anyway, that's why we lie about it ;-) */
-    if (have_cmov)
-      have_rat_stall=1;
-#endif
+
+    /* Alignments */
+    if (1) /*(tune_alignment)*/ {
+	align_loops = x86_alignments[c->x86_processor].align_loop;
+	align_jumps = x86_alignments[c->x86_processor].align_jump;
+    }
+
+    write_log ("Max CPUID level=%d Processor is %s [%s]\n",
+	       c->cpuid_level, c->x86_vendor_id,
+	       x86_processor_string_table[c->x86_processor]);
 }
 
 /*************************************************************************
@@ -3219,17 +3446,17 @@ STATIC_INLINE void raw_fflags_into_flags(int r)
     emit_byte(0xd9);
     emit_byte(0xc9+p); /* swap top two around */
     if (have_cmov) {
-            // gb-- fucomi is for P6 cores only, not K6-2 then...
+	    // gb-- fucomi is for P6 cores only, not K6-2 then...
     emit_byte(0xdb);
     emit_byte(0xe9+p); /* fucomi them */
     }
     else {
-            emit_byte(0xdd);
-            emit_byte(0xe1+p); /* fucom them */
-            emit_byte(0x9b);
-            emit_byte(0xdf);
-            emit_byte(0xe0); /* fstsw ax */
-            raw_sahf(0); /* sahf */
+	    emit_byte(0xdd);
+	    emit_byte(0xe1+p); /* fucom them */
+	    emit_byte(0x9b);
+	    emit_byte(0xdf);
+	    emit_byte(0xe0); /* fstsw ax */
+	    raw_sahf(0); /* sahf */
     }
     emit_byte(0xdd);
     emit_byte(0xd9+p);  /* store value back, and get rid of 0 */

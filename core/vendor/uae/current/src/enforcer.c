@@ -97,7 +97,7 @@ static uae_u8 *amiga2native (uae_u32 aptr, int size)
 *************************************************************/
 static int enforcer_decode_hunk_and_offset (char *buf, uae_u32 pc)
 {
-    uae_u32 sysbase = get_long(4);
+    uae_u32 sysbase = get_long (4);
     uae_u32 semaphore_list = sysbase + 532;
 
     /* First step is searching for the SegTracker semaphore */
@@ -151,7 +151,7 @@ static int enforcer_decode_hunk_and_offset (char *buf, uae_u32 pc)
 		    sprintf (buf, "----> %08lx - \"%s\" Hunk %04lx Offset %08lx\n", pc,
 			native_name, hunk, offset);
 		    return 1;
-	        }
+		}
 		seg_entry += 8;
 		hunk++;
 	    }
@@ -465,7 +465,7 @@ static int      dummy_check2   (uaecptr addr, uae_u32 size) REGPARAM;
 static uae_u32 REGPARAM2 dummy_lget2 (uaecptr addr)
 {
 #ifdef JIT
-    special_mem |= S_READ;
+    special_mem |= SPECIAL_MEM_READ;
 #endif
     enforcer_display_hit ("LONG READ from", GET_PC, addr);
     return 0xbadedeef;
@@ -478,7 +478,7 @@ static int warned_JIT_0xF10000 = 0;
 static uae_u32 REGPARAM2 dummy_wget2 (uaecptr addr)
 {
 #ifdef JIT
-    special_mem |= S_READ;
+    special_mem |= SPECIAL_MEM_READ;
 
     if (addr >= 0x00F10000 && addr <= 0x00F7FFFF) {
 	if (!warned_JIT_0xF10000) {
@@ -495,7 +495,7 @@ static uae_u32 REGPARAM2 dummy_wget2 (uaecptr addr)
 static uae_u32 REGPARAM2 dummy_bget2 (uaecptr addr)
 {
 #ifdef JIT
-    special_mem |= S_READ;
+    special_mem |= SPECIAL_MEM_READ;
 #endif
     enforcer_display_hit ("BYTE READ from", GET_PC, addr);
     return 0xbadedeef;
@@ -504,7 +504,7 @@ static uae_u32 REGPARAM2 dummy_bget2 (uaecptr addr)
 static void REGPARAM2 dummy_lput2 (uaecptr addr, uae_u32 l)
 {
 #ifdef JIT
-    special_mem |= S_WRITE;
+    special_mem |= SPECIAL_MEM_WRITE;
 #endif
     enforcer_display_hit ("LONG WRITE to", GET_PC, addr);
 }
@@ -512,7 +512,7 @@ static void REGPARAM2 dummy_lput2 (uaecptr addr, uae_u32 l)
 static void REGPARAM2 dummy_wput2 (uaecptr addr, uae_u32 w)
 {
 #ifdef JIT
-    special_mem |= S_WRITE;
+    special_mem |= SPECIAL_MEM_WRITE;
 #endif
     enforcer_display_hit ("WORD WRITE to", GET_PC, addr);
 }
@@ -520,7 +520,7 @@ static void REGPARAM2 dummy_wput2 (uaecptr addr, uae_u32 w)
 static void REGPARAM2 dummy_bput2 (uaecptr addr, uae_u32 b)
 {
 #ifdef JIT
-    special_mem |= S_WRITE;
+    special_mem |= SPECIAL_MEM_WRITE;
 #endif
     enforcer_display_hit ("BYTE WRITE to", GET_PC, addr);
 }
@@ -528,7 +528,7 @@ static void REGPARAM2 dummy_bput2 (uaecptr addr, uae_u32 b)
 static int REGPARAM2 dummy_check2 (uaecptr addr, uae_u32 size)
 {
 #ifdef JIT
-    special_mem |= S_READ;
+    special_mem |= SPECIAL_MEM_READ;
 #endif
     enforcer_display_hit ("CHECK from ", GET_PC, addr);
     return 0;

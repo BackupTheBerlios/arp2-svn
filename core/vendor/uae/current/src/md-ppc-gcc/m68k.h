@@ -4,7 +4,7 @@
   * MC68000 emulation - machine dependent bits
   *
   * Copyright 1996 Bernd Schmidt
-  * Copyright 2004-2005 Richard Drummond
+  * Copyright 2004-2007 Richard Drummond
   */
 
  /*
@@ -56,11 +56,11 @@ extern struct flag_struct regflags;
 #define FLAGVAL_V	(1 << FLAGBIT_V)
 #define FLAGVAL_X	(1 << FLAGBIT_X)
 
-#define SET_ZFLG(flags, y)	((flags)->cznv = ((flags)->cznv & ~FLAGVAL_Z) | (((y) & 1) << FLAGBIT_Z))
-#define SET_CFLG(flags, y)	((flags)->cznv = ((flags)->cznv & ~FLAGVAL_C) | (((y) & 1) << FLAGBIT_C))
-#define SET_VFLG(flags, y)	((flags)->cznv = ((flags)->cznv & ~FLAGVAL_V) | (((y) & 1) << FLAGBIT_V))
-#define SET_NFLG(flags, y)	((flags)->cznv = ((flags)->cznv & ~FLAGVAL_N) | (((y) & 1) << FLAGBIT_N))
-#define SET_XFLG(flags, y)	((flags)->x    = (y) << FLAGBIT_X)
+#define SET_ZFLG(flags, y)	((flags)->cznv = ((flags)->cznv & ~FLAGVAL_Z) | ((y) << FLAGBIT_Z))
+#define SET_CFLG(flags, y)	((flags)->cznv = ((flags)->cznv & ~FLAGVAL_C) | ((y) << FLAGBIT_C))
+#define SET_VFLG(flags, y)	((flags)->cznv = ((flags)->cznv & ~FLAGVAL_V) | ((y) << FLAGBIT_V))
+#define SET_NFLG(flags, y)	((flags)->cznv = ((flags)->cznv & ~FLAGVAL_N) | ((y) << FLAGBIT_N))
+#define SET_XFLG(flags, y)	((flags)->x    = ((y) << FLAGBIT_X))
 
 #define GET_ZFLG(flags)	(((flags)->cznv >> FLAGBIT_Z) & 1)
 #define GET_CFLG(flags)	(((flags)->cznv >> FLAGBIT_C) & 1)

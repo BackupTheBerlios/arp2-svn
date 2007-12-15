@@ -4,16 +4,13 @@
   * Support for Linux/USS sound
   *
   * Copyright 1997 Bernd Schmidt
-  * Copyright 2003 Richard Drummond
+  * Copyright 2003-2007 Richard Drummond
   */
 
 #include "sysconfig.h"
 #include "sysdeps.h"
 
 #include "options.h"
-#include "memory.h"
-#include "events.h"
-#include "custom.h"
 #include "gensound.h"
 #include "sounddep/sound.h"
 
@@ -34,7 +31,6 @@ static unsigned long formats;
 uae_u16 sndbuffer[44100];
 uae_u16 *sndbufpt;
 int sndbufsize;
-static int obtainedfreq;
 
 static int exact_log2 (int v)
 {
@@ -42,27 +38,6 @@ static int exact_log2 (int v)
     while ((v >>= 1) != 0)
 	l++;
     return l;
-}
-
-void update_sound (int freq)
-{
-    int scaled_sample_evtime_orig;
-    static int lastfreq =0;
-
-    if (freq < 0)
-        freq = lastfreq;
-    lastfreq = freq;
-    if (have_sound) {
-	if (currprefs.gfx_vsync && currprefs.gfx_afullscreen) {
-	    if (currprefs.ntscmode)
-		scaled_sample_evtime_orig = (unsigned long)(MAXHPOS_NTSC * MAXVPOS_NTSC * freq * CYCLE_UNIT + obtainedfreq - 1) / obtainedfreq;
-	    else
-		scaled_sample_evtime_orig = (unsigned long)(MAXHPOS_PAL * MAXVPOS_PAL * freq * CYCLE_UNIT + obtainedfreq - 1) / obtainedfreq;
-	} else {
-	    scaled_sample_evtime_orig = (unsigned long)(312.0 * 50 * CYCLE_UNIT / (obtainedfreq  / 227.0));
-	}
-	scaled_sample_evtime = scaled_sample_evtime_orig;
-    }
 }
 
 void close_sound (void)
@@ -146,8 +121,7 @@ int init_sound (void)
     tmp = 0x00040000 + exact_log2 (bufsize);
     ioctl (sound_fd, SNDCTL_DSP_SETFRAGMENT, &tmp);
     ioctl (sound_fd, SNDCTL_DSP_GETBLKSIZE, &sndbufsize);
-      
-    update_sound(vblank_hz );
+
     obtainedfreq = currprefs.sound_freq;
 
     if (dspbits == 16) {
@@ -166,10 +140,6 @@ int init_sound (void)
     printf ("Sound driver found and configured for %d bits at %d Hz, buffer is %d bytes (%d ms).\n",
 	    dspbits, rate, sndbufsize, sndbufsize * 1000 / (rate * dspbits / 8 * (currprefs.sound_stereo ? 2 : 1)));
     sndbufpt = sndbuffer;
-
-#ifdef FRAME_RATE_HACK
-    vsynctime = vsynctime * 9 / 10;
-#endif
 
     return 1;
 }

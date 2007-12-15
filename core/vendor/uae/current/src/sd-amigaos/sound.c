@@ -4,17 +4,13 @@
   * Support for Amiga audio.device sound
   *
   * Copyright 1996, 1997, 1998 Samuel Devulder, Holger Jakob (AHI).
-  * Copyright 2004-2006 Richard Drummond
+  * Copyright 2004-2007 Richard Drummond
   */
 
 #include "sysconfig.h"
 #include "sysdeps.h"
 
 #include "options.h"
-#include "memory.h"
-#include "events.h"
-#include "custom.h"
-#include "audio.h"
 #include "gensound.h"
 #include "sounddep/sound.h"
 
@@ -63,7 +59,6 @@ int bufidx, devopen, ahiopen;
 int have_sound;
 int clockval;
 int period;
-static int obtainedfreq;
 
 
 
@@ -82,7 +77,7 @@ static const char *open_AHI (void)
 	    AHIio[0]->ahir_Version = 4;
 
 	    if (!OpenDevice (AHINAME, 0, (struct IORequest *)AHIio[0], 0)) {
-	        if ((AHIio[1] = malloc (sizeof(struct AHIRequest)))) {
+		if ((AHIio[1] = malloc (sizeof(struct AHIRequest)))) {
 		    memcpy (AHIio[1], AHIio[0], sizeof(struct AHIRequest));
 		    return AHINAME;
 		}
@@ -111,28 +106,6 @@ static void close_AHI (void)
     AHIio[1] = NULL;
     linkio   = NULL;
 #endif
-}
-
-void update_sound (int freq)
-{
-    int scaled_sample_evtime_orig;
-    static int lastfreq =0;
-
-    if (freq < 0)
-	freq = lastfreq;
-    lastfreq = freq;
-
-    if (have_sound) {
-	if (currprefs.gfx_vsync && currprefs.gfx_afullscreen) {
-	    if (currprefs.ntscmode)
-		scaled_sample_evtime_orig = (unsigned long)(MAXHPOS_NTSC * MAXVPOS_NTSC * freq * CYCLE_UNIT + obtainedfreq - 1) / obtainedfreq;
-	else
-	    scaled_sample_evtime_orig = (unsigned long)(MAXHPOS_PAL * MAXVPOS_PAL * freq * CYCLE_UNIT + obtainedfreq - 1) / obtainedfreq;
-	} else {
-	    scaled_sample_evtime_orig = (unsigned long)(312.0 * 50 * CYCLE_UNIT / (obtainedfreq  / 227.0));
-	}
-	scaled_sample_evtime = scaled_sample_evtime_orig;
-    }
 }
 
 static int get_clockval (void)
@@ -220,9 +193,6 @@ int init_sound (void)
 	buffers[1] = (void*) AllocMem (sndbufsize,MEMF_PUBLIC | MEMF_CLEAR);
 	if (!buffers[0] || !buffers[1])
 	    goto fail;
-
-	/* reduce vsynctime a bit to give the sound emulation more room to breathe.*/
-	vsynctime = vsynctime * 9 / 10;
     } else {
 	buffers[0] = (void*) AllocMem (sndbufsize, MEMF_CHIP | MEMF_CLEAR);
 	buffers[1] = (void*) AllocMem (sndbufsize, MEMF_CHIP | MEMF_CLEAR);
@@ -247,7 +217,6 @@ int init_sound (void)
 
     have_sound = 1;
     obtainedfreq = rate;
-    update_sound (vblank_hz);
 
     write_log ("Sound driver found and configured for %d bits %s "
 	       "at %d Hz, buffer is %d bytes (%s)\n",

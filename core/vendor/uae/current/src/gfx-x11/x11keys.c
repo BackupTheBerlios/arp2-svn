@@ -26,7 +26,7 @@
 # include <X11/XKBlib.h>
 # include <X11/extensions/XKBrules.h>
 
-static const char xkb_rules_path[] = "/usr/X11R6/lib/X11/xkb/rules/";
+static const char xkb_rules_path[] = XKB_PATH;
 
 
 /*

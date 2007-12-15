@@ -8,7 +8,7 @@
   * Copyright 1998 Marcus Sundberg
   * DGA support by Kai Kollmorgen
   * X11/DGA merge, hotkeys and grabmouse by Marcus Sundberg
-  * Copyright 2003-2005 Richard Drummond
+  * Copyright 2003-2007 Richard Drummond
   */
 
 #include "sysconfig.h"
@@ -95,10 +95,12 @@ static Colormap cmap, cmap2;
 static int red_bits, green_bits, blue_bits;
 static int red_shift, green_shift, blue_shift;
 
+#ifdef USE_DGA_EXTENSION
 /* Kludge-O-Matic.
  * Unfortunately the X server loses colormap changes in DGA mode. Switching
  * back and forth between two identical colormaps fixes this problem.  */
 static int dga_colormap_installed;
+#endif
 
 static int need_dither;
 
@@ -123,6 +125,7 @@ static int x11_init_ok;
 static int dgaavail = 0, vidmodeavail = 0, shmavail = 0;
 static int dgamode;
 static int grabbed;
+static int mousehack;
 
 static int rawkeys_available;
 static struct uae_input_device_kbr_default *raw_keyboard;
@@ -131,8 +134,6 @@ void toggle_mousegrab (void);
 int xkeysym2amiga (int);
 struct uae_hotkeyseq *get_x11_default_hotkeys (void);
 const char *get_xkb_keycodes (Display *display);
-
-int pause_emulation;
 
 static int oldx, oldy;
 static int inwindow;
@@ -222,12 +223,12 @@ static int get_best_visual (Display *display, int screen, XVisualInfo *vi)
     } else if (XMatchVisualInfo (display, screen, 24, TrueColor,   vi)) {
     } else if (XMatchVisualInfo (display, screen, 32, TrueColor,   vi)) {
     } else if (XMatchVisualInfo (display, screen, 8,  PseudoColor, vi)) {
-        /* for our HP boxes */
+	/* for our HP boxes */
     } else if (XMatchVisualInfo (display, screen, 8,  GrayScale,   vi)) {
     } else if (XMatchVisualInfo (display, screen, 4,  PseudoColor, vi)) {
-        /* VGA16 server. Argh. */
+	/* VGA16 server. Argh. */
     } else if (XMatchVisualInfo (display, screen, 1,  StaticGray,  vi)) {
-        /* Mono server. Yuk */
+	/* Mono server. Yuk */
     } else {
 	write_log ("Can't obtain appropriate X visual.\n");
 	return 0;
@@ -322,7 +323,7 @@ static void enter_dga_mode (void)
     gfxvidinfo.bufmem = fb_addr;
     gfxvidinfo.linemem = 0;
     gfxvidinfo.emergmem = malloc (gfxvidinfo.rowbytes);
-    gfxvidinfo.maxblocklines = 10000;
+    gfxvidinfo.maxblocklines = MAXBLOCKLINES_MAX;
 }
 
 static void leave_dga_mode (void)
@@ -337,9 +338,26 @@ static void leave_dga_mode (void)
 }
 #endif
 
-static char *oldpixbuf;
 
+/*
+ * Dummy buffer methods.
+ */
+static int x11_lock (struct vidbuf_description *gfxinfo)
+{
+    return 1;
+}
 
+static void x11_unlock (struct vidbuf_description *gfxinfo)
+{
+}
+
+/*
+ * Flush screen method
+ */
+static void x11_flush_screen (struct vidbuf_description *gfxinfo, int first_line, int last_line)
+{
+    XSync (display, 0);
+}
 
 /*
  * Template for flush_line() buffer method in low-bandwith mode
@@ -358,7 +376,7 @@ static char *oldpixbuf;
     int      len;								\
     pixtype *newp = (pixtype *)gfxinfo->linemem;				\
     pixtype *oldp = (pixtype *)((uae_u8 *)ami_dinfo.image_mem +			\
-			        line_no * ami_dinfo.ximg->bytes_per_line);	\
+				line_no * ami_dinfo.ximg->bytes_per_line);	\
 										\
     /* Find first modified pixel on this line */				\
     while (newp[xs] == oldp[xs]) {						\
@@ -455,16 +473,6 @@ static void x11_flush_block_mitshm (struct vidbuf_description *gfxinfo, int firs
 		  0);
 }
 
-static void x11_flush_screen_mitshm (struct vidbuf_description *gfxinfo, int first_line, int last_line)
-{
-    XSync (display, 0);
-}
-
-
-static void x11_flush_clear_screen (struct vidbuf_description *gfxinfo)
-{
-    /* TODO */
-}
 
 STATIC_INLINE int bitsInMask (unsigned long mask)
 {
@@ -517,8 +525,6 @@ static int get_color (int r, int g, int b, xcolnr *cnp)
 
 static int init_colors (void)
 {
-    int i;
-
     if (visualInfo.VI_CLASS == TrueColor) {
 	red_bits = bitsInMask (visualInfo.red_mask);
 	green_bits = bitsInMask (visualInfo.green_mask);
@@ -732,7 +738,6 @@ static void init_dispinfo (struct disp_info *disp)
 
 static void graphics_subinit (void)
 {
-    int i, j;
     XSetWindowAttributes wattr;
     XClassHint classhint;
     XWMHints *hints;
@@ -765,7 +770,7 @@ static void graphics_subinit (void)
     XSetWMProtocols (display, mywin, &delete_win, 1);
     XSync (display, 0);
     XStoreName (display, mywin, PACKAGE_NAME);
-    XSetIconName (display, mywin, "UAE Screen");
+    XSetIconName (display, mywin, PACKAGE_NAME);
 
     /* set class hint */
     classhint.res_name  = (char *)"UAE";
@@ -801,13 +806,16 @@ static void graphics_subinit (void)
 
     picasso_vidinfo.extra_mem = 1;
 
-    gfxvidinfo.flush_clear_screen = x11_flush_clear_screen;
+    gfxvidinfo.flush_screen = x11_flush_screen;
+    gfxvidinfo.lockscr      = x11_lock;
+    gfxvidinfo.unlockscr    = x11_unlock;
+
 
     if (need_dither) {
 	gfxvidinfo.maxblocklines = 0;
 	gfxvidinfo.rowbytes = gfxvidinfo.pixbytes * currprefs.gfx_width_win;
 	gfxvidinfo.linemem = malloc (gfxvidinfo.rowbytes);
-        gfxvidinfo.flush_line  = x11_flush_line_dither;
+	gfxvidinfo.flush_line  = x11_flush_line_dither;
     } else if (! dgamode) {
 	gfxvidinfo.emergmem = 0;
 	gfxvidinfo.linemem = 0;
@@ -825,7 +833,6 @@ static void graphics_subinit (void)
 		    case 2  : gfxvidinfo.flush_line = x11_flush_line_lbw_16bit_mitshm; break;
 		    default : gfxvidinfo.flush_line = x11_flush_line_lbw_8bit_mitshm;  break;
 		}
-		gfxvidinfo.flush_screen = x11_flush_screen_mitshm;
 	    } else {
 		switch (gfxvidinfo.pixbytes) {
 		    case 4  : gfxvidinfo.flush_line = x11_flush_line_lbw_32bit; break;
@@ -834,12 +841,11 @@ static void graphics_subinit (void)
 		}
 	    }
 	} else {
-	    gfxvidinfo.maxblocklines = gfxvidinfo.height + 1;
+	    gfxvidinfo.maxblocklines = MAXBLOCKLINES_MAX;
 
-	    if (shmavail && currprefs.x11_use_mitshm) {
+	    if (shmavail && currprefs.x11_use_mitshm)
 		gfxvidinfo.flush_block  = x11_flush_block_mitshm;
-		gfxvidinfo.flush_screen = x11_flush_screen_mitshm;
-	    } else
+	    else
 		gfxvidinfo.flush_block  = x11_flush_block;
 	}
     }
@@ -866,12 +872,15 @@ static void graphics_subinit (void)
 	cursorOn = 1;
     }
 
+    mousehack = !dgamode;
+
     if (screen_is_picasso) {
 	picasso_has_invalid_lines = 0;
 	picasso_invalid_start = picasso_vidinfo.height + 1;
 	picasso_invalid_stop = -1;
 	memset (picasso_invalid_lines, 0, sizeof picasso_invalid_lines);
-    }
+    } else
+	reset_drawing ();
 
     inwindow = 0;
     inputdevice_release_all_keys ();
@@ -880,9 +889,6 @@ static void graphics_subinit (void)
 
 int graphics_init (void)
 {
-    int i,j;
-    XPixmapFormatValues *xpfvs;
-
     if (currprefs.x11_use_mitshm && ! shmavail) {
 	write_log ("MIT-SHM extension not supported by X server.\n");
     }
@@ -970,6 +976,8 @@ static void graphics_subshutdown (void)
 	free (gfxvidinfo.linemem);
     if (gfxvidinfo.emergmem != NULL)
 	free (gfxvidinfo.emergmem);
+
+    mousehack = 0;
 }
 
 void graphics_leave (void)
@@ -988,9 +996,8 @@ void graphics_leave (void)
     XFreeColormap (display, cmap);
     XFreeColormap (display, cmap2);
 
-#if 0
     XCloseDisplay (display);
-#endif
+
     dumpcustom ();
 }
 
@@ -998,10 +1005,12 @@ static struct timeval lastMotionTime;
 
 static int refresh_necessary = 0;
 
+void graphics_notify_state (int state)
+{
+}
+
 void handle_events (void)
 {
-    gui_handle_events ();
-
     for (;;) {
 	XEvent event;
 #if 0
@@ -1057,7 +1066,7 @@ void handle_events (void)
 		case 4:  if (state) record_key (0x7a << 1); break;
 		case 5:  if (state) record_key (0x7b << 1); break;
 	    }
-            if (buttonno >=0)
+	    if (buttonno >=0)
 		setmousebuttonstate(0, buttonno, state);
 	    break;
 	 }
@@ -1140,11 +1149,11 @@ void handle_events (void)
 	 case Expose:
 	    refresh_necessary = 1;
 	    break;
-         case ClientMessage:
-            if (((Atom)event.xclient.data.l[0]) == delete_win) {
-		uae_quit ();
-            }
-            break;
+	 case ClientMessage:
+	    if (((Atom)event.xclient.data.l[0]) == delete_win) {
+		uae_stop ();
+	    }
+	    break;
 	}
     }
 
@@ -1153,6 +1162,7 @@ void handle_events (void)
 	if (screen_is_picasso && refresh_necessary) {
 	    DO_PUTIMAGE (pic_dinfo.ximg, 0, 0, 0, 0,
 			 picasso_vidinfo.width, picasso_vidinfo.height);
+	    XFlush (display);
 	    refresh_necessary = 0;
 	    memset (picasso_invalid_lines, 0, sizeof picasso_invalid_lines);
 	} else if (screen_is_picasso && picasso_has_invalid_lines) {
@@ -1174,6 +1184,7 @@ void handle_events (void)
 		    strt = -1;
 		}
 	    }
+	    XFlush (display);
 	    if (strt != -1)
 		abort ();
 	}
@@ -1230,8 +1241,6 @@ int check_prefs_changed_gfx (void)
     currprefs.gfx_afullscreen = changed_prefs.gfx_afullscreen;
     currprefs.gfx_pfullscreen = changed_prefs.gfx_pfullscreen;
 
-    gui_update_gfx ();
-
     graphics_subinit ();
 
     if (! inwindow)
@@ -1250,33 +1259,11 @@ int debuggable (void)
     return 1;
 }
 
-int needmousehack (void)
-{
-    if (dgamode || grabbed)
-	return 0;
-    else
-	return 1;
-}
-
 int mousehack_allowed (void)
 {
-    return 1;
+    return mousehack;
 }
 
-void LED (int on)
-{
-#if 0 /* Maybe that is responsible for the joystick emulation problems on SunOS? */
-    static int last_on = -1;
-    XKeyboardControl control;
-
-    if (last_on == on)
-	return;
-    last_on = on;
-    control.led = 1; /* implementation defined */
-    control.led_mode = on ? LedModeOn : LedModeOff;
-    XChangeKeyboardControl(display, KBLed | KBLedMode, &control);
-#endif
-}
 
 #ifdef PICASSO96
 
@@ -1475,25 +1462,28 @@ void gfx_set_picasso_modeinfo (int w, int h, int depth, int rgbfmt)
 	set_window_for_picasso ();
 }
 
-void gfx_set_picasso_baseaddr (uaecptr a)
-{
-}
-
 void gfx_set_picasso_state (int on)
 {
     if (on == screen_is_picasso)
 	return;
+
+    /* We can get called by drawing_init() when there's
+     * no window opened yet... */
+    if (mywin == 0)
+	return
+
+    write_log ("set_picasso_state:%d\n", on);
     graphics_subshutdown ();
     screen_is_picasso = on;
     if (on) {
 	current_width = picasso_vidinfo.width;
 	current_height = picasso_vidinfo.height;
-        graphics_subinit ();
+	graphics_subinit ();
     } else {
 	current_width = gfxvidinfo.width;
 	current_height = gfxvidinfo.height;
-        graphics_subinit ();
-        reset_drawing ();
+	graphics_subinit ();
+	reset_drawing ();
     }
     if (on)
 	DX_SetPalette_real (0, 256);
@@ -1514,23 +1504,13 @@ void gfx_unlock_picasso (void)
 }
 #endif
 
-#if 0
-int lockscr (void)
-{
-    return 1;
-}
-
-void unlockscr (void)
-{
-}
-#endif
-
 void toggle_mousegrab (void)
 {
     if (grabbed) {
 	XUngrabPointer (display, CurrentTime);
 //	XUndefineCursor (display, mywin);
 	grabbed = 0;
+	mousehack = 1;
 	write_log ("Ungrabbed mouse\n");
     } else if (! dgamode) {
 	XGrabPointer (display, mywin, 1, 0, GrabModeAsync, GrabModeAsync,
@@ -1540,6 +1520,7 @@ void toggle_mousegrab (void)
 	XWarpPointer (display, None, mywin, 0, 0, 0, 0, oldx, oldy);
 	write_log ("Grabbed mouse\n");
 	grabbed = 1;
+	mousehack = 0;
     }
 }
 
@@ -1550,6 +1531,11 @@ int is_fullscreen (void)
 #else
     return 0;
 #endif
+}
+
+int is_vsync (void)
+{
+    return 0;
 }
 
 void toggle_fullscreen (void)
@@ -1615,10 +1601,10 @@ static unsigned int get_mouse_widget_num (unsigned int mouse)
 static int get_mouse_widget_first (unsigned int mouse, int type)
 {
     switch (type) {
-        case IDEV_WIDGET_BUTTON:
-            return FIRST_BUTTON;
-        case IDEV_WIDGET_AXIS:
-            return FIRST_AXIS;
+	case IDEV_WIDGET_BUTTON:
+	    return FIRST_BUTTON;
+	case IDEV_WIDGET_AXIS:
+	    return FIRST_AXIS;
     }
     return -1;
 }
@@ -1626,13 +1612,13 @@ static int get_mouse_widget_first (unsigned int mouse, int type)
 static int get_mouse_widget_type (unsigned int mouse, unsigned int num, char *name, uae_u32 *code)
 {
     if (num >= MAX_AXES && num < MAX_AXES + MAX_BUTTONS) {
-        if (name)
-            sprintf (name, "Button %d", num + 1 + MAX_AXES);
-        return IDEV_WIDGET_BUTTON;
+	if (name)
+	    sprintf (name, "Button %d", num + 1 + MAX_AXES);
+	return IDEV_WIDGET_BUTTON;
     } else if (num < MAX_AXES) {
-        if (name)
-            sprintf (name, "Axis %d", num + 1);
-        return IDEV_WIDGET_AXIS;
+	if (name)
+	    sprintf (name, "Axis %d", num + 1);
+	return IDEV_WIDGET_AXIS;
     }
     return IDEV_WIDGET_NONE;
 }

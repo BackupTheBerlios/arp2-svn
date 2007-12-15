@@ -1,11 +1,15 @@
  /*
   * UAE - The Un*x Amiga Emulator
   *
-  * OS specific functions
+  * Paula audio emulation
   *
   * Copyright 1995, 1996, 1997 Bernd Schmidt
   * Copyright 1996 Marcus Sundberg
   * Copyright 1996 Manfred Thole
+  * Copyright 2006 Toni Wilen
+  *
+  * new filter algorithm and anti&sinc interpolators by Antti S. Lankila
+  *
   */
 
 #include "sysconfig.h"
@@ -25,6 +29,8 @@
 #ifdef AVIOUTPUT
 # include "avioutput.h"
 #endif
+#include "sinctable.h"
+#include "gui.h" /* for gui_ledstate */
 
 #define MAX_EV ~0ul
 //#define DEBUG_AUDIO
@@ -37,6 +43,21 @@ static int debugchannel (unsigned int ch)
     if ((1 << ch) & DEBUG_CHANNEL_MASK) return 1;
     return 0;
 }
+
+/* periods less than this value are replaced by this value. */
+#define MIN_ALLOWED_PERIOD 16
+/* reserve ~20 extra slots in sinc queue for cpu volume or some such updates
+ * even at maximum period. This avoids sinc queue overflow on games like
+ * battle squadron that write these low period values and do cpu-based
+ * updates on paula registers, probably volume. */
+#define NUMBER_OF_CPU_UPDATES_ALLOWED 20
+
+#define SINC_QUEUE_LENGTH (SINC_QUEUE_MAX_AGE / MIN_ALLOWED_PERIOD + NUMBER_OF_CPU_UPDATES_ALLOWED)
+
+typedef struct {
+    int age;
+    int output;
+} sinc_queue_t;
 
 struct audio_channel_data {
     unsigned long adk_mask;
@@ -53,6 +74,9 @@ struct audio_channel_data {
     int len, wlen;
     uae_u16 dat, dat2;
     int request_word, request_word_skip;
+    int sinc_output_state;
+    sinc_queue_t sinc_queue[SINC_QUEUE_LENGTH];
+    int sinc_queue_length;
 };
 
 STATIC_INLINE unsigned int current_hpos (void)
@@ -66,10 +90,13 @@ int sound_available = 0;
 static int sound_table[64][256];
 #endif
 void (*sample_handler) (void);
+static void (*sample_prehandler) (unsigned long best_evtime);
 
-unsigned long sample_evtime, scaled_sample_evtime;
-
+static unsigned long scaled_sample_evtime;
 static unsigned long last_cycles, next_sample_evtime;
+
+unsigned int obtainedfreq;
+
 
 #ifndef MULTIPLICATION_PROFITABLE
 void init_sound_table16 (void)
@@ -151,6 +178,96 @@ STATIC_INLINE void put_sound_word_left (uae_u32	w)
 
 #define DO_CHANNEL(v, c) do { (v) &= audio_channel[c].adk_mask; data += v; } while (0);
 
+
+
+static void sinc_prehandler (unsigned long best_evtime)
+{
+    int i, j, output;
+    struct audio_channel_data *acd;
+
+    for (i = 0; i < 4; i++) {
+	acd = &audio_channel[i];
+	output = (acd->current_sample * acd->vol) & acd->adk_mask;
+
+	/* age the sinc queue and truncate it when necessary */
+	for (j = 0; j < acd->sinc_queue_length; j += 1) {
+	    acd->sinc_queue[j].age += best_evtime;
+	    if (acd->sinc_queue[j].age >= SINC_QUEUE_MAX_AGE) {
+		acd->sinc_queue_length = j;
+		break;
+	    }
+	}
+	/* if output state changes, record the state change and also
+	 * write data into sinc queue for mixing in the BLEP */
+	if (acd->sinc_output_state != output) {
+	    if (acd->sinc_queue_length > SINC_QUEUE_LENGTH - 1) {
+		write_log ("warning: sinc queue truncated. Last age: %d.\n",
+			   acd->sinc_queue[SINC_QUEUE_LENGTH-1].age);
+		acd->sinc_queue_length = SINC_QUEUE_LENGTH - 1;
+	    }
+	    /* make room for new and add the new value */
+	    memmove (&acd->sinc_queue[1], &acd->sinc_queue[0],
+		     sizeof(acd->sinc_queue[0]) * acd->sinc_queue_length);
+	    acd->sinc_queue_length += 1;
+	    acd->sinc_queue[0].age = best_evtime;
+	    acd->sinc_queue[0].output = output - acd->sinc_output_state;
+	    acd->sinc_output_state = output;
+	}
+    }
+}
+
+
+/* this interpolator performs BLEP mixing (bleps are shaped like integrated sinc
+ * functions) with a type of BLEP that matches the filtering configuration. */
+STATIC_INLINE void samplexx_sinc_handler (int *datasp)
+{
+    int i, n;
+    int const *winsinc;
+
+#if 1
+    /* Amiga 500 filter model is default for now. Put n=2 for A1200. */
+    n = 0;
+    if (gui_ledstate & 1) /* power led */
+	n += 1;
+#else
+    if (sound_use_filter_sinc) {
+	n = (sound_use_filter_sinc == FILTER_MODEL_A500) ? 0 : 2;
+	if (led_filter_on)
+	    n += 1;
+    } else {
+	n = 4;
+    }
+#endif
+    winsinc = winsinc_integral[n];
+
+    for (i = 0; i < 4; i += 1) {
+	int j, v;
+	struct audio_channel_data *acd = &audio_channel[i];
+	/* The sum rings with harmonic components up to infinity... */
+	int sum = acd->sinc_output_state << 17;
+	/* ...but we cancel them through mixing in BLEPs instead */
+	for (j = 0; j < acd->sinc_queue_length; j += 1)
+	    sum -= winsinc[acd->sinc_queue[j].age] * acd->sinc_queue[j].output;
+	v = sum >> 17;
+	if (v > 32767)
+	    v = 32767;
+	else if (v < -32768)
+	    v = -32768;
+	datasp[i] = v;
+    }
+}
+
+static void sample16i_sinc_handler (void)
+{
+    int datas[4], data1;
+
+    samplexx_sinc_handler (datas);
+    data1 = datas[0] + datas[3] + datas[1] + datas[2];
+    FINISH_DATA (data1, 16, 2);
+    PUT_SOUND_WORD_MONO (data1);
+    check_sound_buffers ();
+}
+
 void sample16_handler (void)
 {
     uae_u32 data0 = audio_channel[0].current_sample;
@@ -176,7 +293,7 @@ void sample16_handler (void)
     check_sound_buffers ();
 }
 
-void sample16i_rh_handler (void)
+static void sample16i_rh_handler (void)
 {
     unsigned long delta, ratio;
 
@@ -227,7 +344,7 @@ void sample16i_rh_handler (void)
     check_sound_buffers ();
 }
 
-void sample16i_crux_handler (void)
+static void sample16i_crux_handler (void)
 {
     uae_u32 data0 = audio_channel[0].current_sample;
     uae_u32 data1 = audio_channel[1].current_sample;
@@ -317,9 +434,9 @@ void sample8_handler (void)
     data0 += data2;
     data0 += data3;
     {
-        uae_u32 data = SBASEVAL8(2) + data0;
-        FINISH_DATA (data, 8, 2);
-        PUT_SOUND_BYTE (data);
+	uae_u32 data = SBASEVAL8(2) + data0;
+	FINISH_DATA (data, 8, 2);
+	PUT_SOUND_BYTE (data);
     }
     check_sound_buffers ();
 }
@@ -347,6 +464,20 @@ void sample16ss_handler (void)
     PUT_SOUND_WORD (data3 << 2);
     PUT_SOUND_WORD (data2 << 2);
 
+    check_sound_buffers ();
+}
+
+static void sample16si_sinc_handler (void)
+{
+    int datas[4], data1, data2;
+
+    samplexx_sinc_handler (datas);
+    data1 = datas[0] + datas[3];
+    data2 = datas[1] + datas[2];
+    FINISH_DATA (data1, 16, 1);
+    put_sound_word_left (data1);
+    FINISH_DATA (data2, 16, 1);
+    put_sound_word_right (data2);
     check_sound_buffers ();
 }
 
@@ -383,7 +514,7 @@ void sample16s_handler (void)
     check_sound_buffers ();
 }
 
-void sample16si_crux_handler (void)
+static void sample16si_crux_handler (void)
 {
     uae_u32 data0 = audio_channel[0].current_sample;
     uae_u32 data1 = audio_channel[1].current_sample;
@@ -460,7 +591,7 @@ void sample16si_crux_handler (void)
     check_sound_buffers ();
 }
 
-void sample16si_rh_handler (void)
+static void sample16si_rh_handler (void)
 {
     unsigned long delta, ratio;
 
@@ -537,15 +668,15 @@ void sample8s_handler (void)
 
     data0 += data3;
     {
-        uae_u32 data = SBASEVAL8(1) + data0;
-        FINISH_DATA (data, 8, 1);
-        PUT_SOUND_BYTE_RIGHT (data);
+	uae_u32 data = SBASEVAL8(1) + data0;
+	FINISH_DATA (data, 8, 1);
+	PUT_SOUND_BYTE_RIGHT (data);
     }
     data1 += data2;
     {
-        uae_u32 data = SBASEVAL8(1) + data1;
-        FINISH_DATA (data, 8, 1);
-        PUT_SOUND_BYTE_LEFT (data);
+	uae_u32 data = SBASEVAL8(1) + data1;
+	FINISH_DATA (data, 8, 1);
+	PUT_SOUND_BYTE_LEFT (data);
     }
     check_sound_buffers ();
 }
@@ -560,15 +691,19 @@ void sample8s_handler (void)
 
 void sample16s_handler (void)
 {
-    sample16_handler();
+    sample16_handler ();
 }
-void sample16si_crux_handler (void)
+static void sample16si_crux_handler (void)
 {
-    sample16i_crux_handler();
+    sample16i_crux_handler ();
 }
-void sample16si_rh_handler (void)
+static void sample16si_rh_handler (void)
 {
-    sample16i_rh_handler();
+    sample16i_rh_handler ();
+}
+static void sample16si_sinc_handler (void)
+{
+    sample16i_sinc_handler ();
 }
 #endif
 
@@ -636,6 +771,9 @@ void switch_audio_interpol (void)
     } else if (currprefs.sound_interpol == 1) {
 	changed_prefs.sound_interpol = 2;
 	write_log ("Interpol on: crux\n");
+    } else if (currprefs.sound_interpol == 2) {
+	changed_prefs.sound_interpol = 3;
+	write_log ("Interpol on: sinc\n");
     } else {
 	changed_prefs.sound_interpol = 0;
 	write_log ("Interpol off\n");
@@ -660,6 +798,25 @@ void schedule_audio (void)
 	}
     }
     eventtab[ev_audio].evtime = get_cycles () + best;
+}
+
+/*
+ * TODO: This function has been moved here from the audio back-end layer
+ * since it was common to all.
+ * Needs further cleaning up and a better name - or replacing entirely.
+ */
+void update_sound (unsigned int freq)
+{
+    if (obtainedfreq) {
+	if (is_vsync ()) {
+	    if (currprefs.ntscmode)
+		scaled_sample_evtime = (unsigned long)(MAXHPOS_NTSC * MAXVPOS_NTSC * freq * CYCLE_UNIT + obtainedfreq - 1) / obtainedfreq;
+	    else
+		scaled_sample_evtime = (unsigned long)(MAXHPOS_PAL * MAXVPOS_PAL * freq * CYCLE_UNIT + obtainedfreq - 1) / obtainedfreq;
+	} else {
+	    scaled_sample_evtime = (unsigned long)(312.0 * 50 * CYCLE_UNIT / (obtainedfreq  / 227.0));
+	}
+    }
 }
 
 static int isirq (unsigned int nr)
@@ -922,7 +1079,7 @@ void check_prefs_changed_audio (void)
 	currprefs.sound_latency = changed_prefs.sound_latency;
 	currprefs.sound_volume = changed_prefs.sound_volume;
 	if (currprefs.produce_sound >= 2) {
-	    if (!init_audio ()) {
+	    if (! audio_init ()) {
 		if (! sound_available) {
 		    write_log ("Sound is not supported.\n");
 		} else {
@@ -945,17 +1102,24 @@ void check_prefs_changed_audio (void)
     /* Select the right interpolation method.  */
     if (sample_handler == sample16_handler
 	|| sample_handler == sample16i_crux_handler
-	|| sample_handler == sample16i_rh_handler)
-	sample_handler = (currprefs.sound_interpol == 0 ? sample16_handler
+	|| sample_handler == sample16i_rh_handler
+	|| sample_handler == sample16i_sinc_handler) {
+	sample_handler =   (currprefs.sound_interpol == 0 ? sample16_handler
 			  : currprefs.sound_interpol == 1 ? sample16i_rh_handler
-			  : sample16i_crux_handler);
-    else if (sample_handler == sample16s_handler
+			  : currprefs.sound_interpol == 2 ? sample16i_crux_handler
+			  :                                 sample16i_sinc_handler);
+    } else if (sample_handler == sample16s_handler
 	     || sample_handler == sample16si_crux_handler
-	     || sample_handler == sample16si_rh_handler)
-	sample_handler = (currprefs.sound_interpol == 0 ? sample16s_handler
+	     || sample_handler == sample16si_rh_handler
+	     || sample_handler == sample16si_sinc_handler) {
+	sample_handler =   (currprefs.sound_interpol == 0 ? sample16s_handler
 			  : currprefs.sound_interpol == 1 ? sample16si_rh_handler
-			  : sample16si_crux_handler);
-
+			  : currprefs.sound_interpol == 2 ? sample16si_crux_handler
+			  :                                 sample16si_sinc_handler);
+    }
+    sample_prehandler = NULL;
+    if (sample_handler == sample16si_sinc_handler || sample_handler == sample16i_sinc_handler)
+	sample_prehandler = sinc_prehandler;
     if (currprefs.produce_sound == 0) {
 	eventtab[ev_audio].active = 0;
 	events_schedule ();
@@ -1000,11 +1164,14 @@ void update_audio (void)
 	n_cycles -= best_evtime;
 	if (currprefs.produce_sound > 1) {
 	    next_sample_evtime -= best_evtime;
+	    if (sample_prehandler)
+		sample_prehandler (best_evtime / CYCLE_UNIT);
 	    if (next_sample_evtime == 0) {
 		next_sample_evtime = scaled_sample_evtime;
 		(*sample_handler) ();
 	    }
 	}
+
 	if (audio_channel[0].evtime == 0)
 	    audio_handler (0, 1);
 	if (audio_channel[1].evtime == 0)
@@ -1075,7 +1242,7 @@ void audio_hsync (int dmaaction)
 #ifdef DEBUG_AUDIO
 	    if (debugchannel (nr))
 		write_log ("AUD%dDMA %d->%d (%d) LEN=%d/%d %08.8X\n", nr, cdp->dmaen, chan_ena,
-		    cdp->state, cdp->wlen, cdp->len, m68k_getpc());
+		    cdp->state, cdp->wlen, cdp->len, m68k_getpc ());
 #endif
 	    cdp->dmaen = chan_ena;
 	    if (cdp->dmaen)
@@ -1142,6 +1309,12 @@ void AUDxPER (unsigned int nr, uae_u16 v)
 
     if (per < maxhpos * CYCLE_UNIT / 2 && currprefs.produce_sound < 3)
 	per = maxhpos * CYCLE_UNIT / 2;
+    /* the sinc code registers paula output state changes, but has a finite
+     * buffer in which to do so. Hence, we forbid very low values; this should
+     * only limit the accurate rendering of supersonic sounds, which are
+     * filtered away on the sinc output path anyway. */
+    if (currprefs.produce_sound == 3 && sample_handler == sample16si_sinc_handler && per < MIN_ALLOWED_PERIOD * CYCLE_UNIT)
+	per = MIN_ALLOWED_PERIOD * CYCLE_UNIT;
 
    if (audio_channel[nr].per == PERIOD_MAX - 1 && per != PERIOD_MAX - 1) {
 	audio_channel[nr].evtime = CYCLE_UNIT;
@@ -1221,11 +1394,37 @@ void audio_update_adkmasks (void)
 #endif
 }
 
-int init_audio (void)
+int audio_setup (void)
 {
-    return init_sound ();
+    return setup_sound ();
 }
 
+int audio_init (void)
+{
+    int result = init_sound ();
+    update_sound (vblank_hz);
+    return result;
+}
+
+void audio_close (void)
+{
+    close_sound ();
+}
+
+void audio_pause (void)
+{
+    pause_sound ();
+}
+
+void audio_resume (void)
+{
+    resume_sound ();
+}
+
+void audio_volume (int volume)
+{
+    sound_volume (volume);
+}
 
 #ifdef SAVESTATE
 

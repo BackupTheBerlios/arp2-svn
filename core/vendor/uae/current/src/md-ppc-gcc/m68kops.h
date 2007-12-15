@@ -3,7 +3,7 @@
  *
  * MC68000 emulation - machine-dependent optimized operations
  *
- * (c) 2004-2005 Richard Drummond
+ * (c) 2004-2007 Richard Drummond
  *
  * Based on code from UAE
  * Copyright 1996 Bernd Schmidt

@@ -84,7 +84,7 @@ Confirmed blitter �formation by Toni Wilen
 
 1=BLTCON0 channel mask
 2=total cycles per blitted word
-3=steals all cycles if BLTNASTY=1 (always if A-channel is enabled. this is illogical..)
+[3=steals all cycles if BLTNASTY=1 (always if A-channel is enabled. this is illogical..)]
 4=total cycles per blitted word in fillmode
 5=cycle diagram (first cycle)
 6=main cycle diagram (ABCD=channels,-=idle cycle,x=idle cycle but bus allocated)
@@ -92,17 +92,17 @@ Confirmed blitter �formation by Toni Wilen
 1 234 5    6
 
 F 4*4*ABC- ABCD
-E 4*4*ABC- ABCx
+E 4*4*ABC- ABC-
 D 3*4 AB-  ABD
-C 3*4 AB-  ABx
+C 3*3 AB-  AB-
 B 3*3*AC-  ACD
-A 3*3*AC-  ACx
+A 2*2*AC   AC
 9 2*3 A-   AD
-8 2*3 A-   Ax
+8 2*2 A-   A-
 7 4 4 -BC- -BCD
 6 4 4 -BC- -BC-
 5 3 4 -B-  -BD
-4 3 4 -B-  -B-
+4 3 3 -B-  -B-
 3 3 3 -C-  -CD
 2 3 3 -C-  -C-
 1 2 3 -D   -D
@@ -115,7 +115,8 @@ NOTES: (BLTNASTY=1)
   Can someone explain this? Why does idle cycles need bus cycles?
 - Fill mode may add one extra real idle cycle.(depends on channel mask)
 - All blits with channel A enabled use all available bus cycles
-  (stops CPU accesses to Agnus bus if BLTNASTY=1)
+  (stops CPU accesses to Agnus bus if BLTNASTY=1) WTF? I did another test
+  and this can't be true... Maybe I am becoming crazy..
 - idle cycles (no A-channel enabled) are not "used" by blitter, they are freely
   available for CPU.
 
@@ -141,13 +142,13 @@ static const uae_s8 blit_cycle_diagram[][10] =
     { 2, 3, 0,2,4, 2,0 },	/* 5 */
     { 0, 4, 0,2,3,0 },		/* 6 */
     { 3, 4, 0,2,3,4, 2,3,0 },	/* 7 */
-    { 0, 2, 1,-1 },		/* 8 */
+    { 0, 2, 1,0 },		/* 8 */
     { 2, 2, 1,4, 1,0 },		/* 9 */
-    { 0, 3, 1,3,-1 },		/* A */
+    { 0, 2, 1,3 },		/* A */
     { 3, 3, 1,3,4, 1,3,0 },	/* B */
-    { 2, 3, 1,2,-1, 1,2 },	/* C */
+    { 2, 3, 1,2,0, 1,2 },	/* C */
     { 3, 3, 1,2,4, 1,2,0 },	/* D */
-    { 0, 4, 1,2,3,-1 },		/* E */
+    { 0, 3, 1,2,3 },		/* E */
     { 4, 4, 1,2,3,4, 1,2,3,0 }	/* F */
 };
 
@@ -156,20 +157,20 @@ static const uae_s8 blit_cycle_diagram[][10] =
 static const uae_s8 blit_cycle_diagram_fill[][10] =
 {
     { 0, 3, 0,5,0 },		/* 0 */
-    { 0, 3, 3,5,4 },		/* 1 */
+    { 0, 3, 0,5,4 },		/* 1 */
     { 0, 3, 0,3,0 },		/* 2 */
     { 2, 3, 3,5,4, 3,0 },	/* 3 */
-    { 0, 4, 0,2,5,0 },		/* 4 */
+    { 0, 3, 0,2,5 },		/* 4 */
     { 3, 4, 0,2,5,4, 2,0,0 },	/* 5 */
     { 0, 4, 2,3,5,0 },		/* 6 */
     { 3, 4, 2,3,5,4, 2,3,0 },	/* 7 */
-    { 0, 3, 1,5,-1 },		/* 8 */
+    { 0, 2, 1,5 },		/* 8 */
     { 2, 3, 1,5,4, 1,0},	/* 9 */
-    { 0, 3, 1,3,5, },		/* A */
+    { 0, 2, 1,3 },		/* A */
     { 3, 3, 1,3,4, 1,3,0 },	/* B */
-    { 2, 4, 1,2,5,-1, 1,2 },	/* C */
+    { 2, 3, 1,2,5, 1,2 },	/* C */
     { 3, 4, 1,2,5,4, 1,2,0 },	/* D */
-    { 0, 4, 1,2,3,-1 },		/* E */
+    { 0, 3, 1,2,3 },		/* E */
     { 4, 4, 1,2,3,4, 1,2,3,0 }	/* F */
 };
 
@@ -510,7 +511,7 @@ STATIC_INLINE void blitter_line_incy (void)
 
 static void blitter_line (void)
 {
-    uae_u16 blitahold = blinea >> blinea_shift;
+    uae_u16 blitahold = (blinea & blt_info.bltafwm) >> blinea_shift;
     uae_u16 blitbhold = blineb & 1 ? 0xFFFF : 0;
     uae_u16 blitchold = blt_info.bltcdat;
 
@@ -597,11 +598,11 @@ static void decide_blitter_line (unsigned int hpos)
 		    cycle_line[blit_last_hpos] |= CYCLE_BLITTER;
 		    if (blt_info.vblitsize == 0) {
 			bltdpt = bltcpt;
-		        blitter_done();
-		        return;
+			blitter_done();
+			return;
 		    }
 		}
-	        break;
+		break;
 	    }
 	    blit_last_hpos++;
 	}
@@ -638,13 +639,21 @@ static void actually_do_blit (void)
 
 void blitter_handler (void)
 {
+    static int blitter_stuck;
     if (!dmaen (DMA_BLITTER)) {
 	eventtab[ev_blitter].active = 1;
 	eventtab[ev_blitter].oldcycles = get_cycles ();
 	eventtab[ev_blitter].evtime = 10 * CYCLE_UNIT + get_cycles (); /* wait a little */
-	return; /* gotta come back later. */
+	blitter_stuck++;
+	if (blitter_stuck < 20000 || !currprefs.immediate_blits)
+	    return; /* gotta come back later. */
+	/* "free" blitter in immediate mode if it has been "stuck" ~3 frames
+	 * fixes some JIT game incompatibilities
+	 */
+	write_log ("Blitter force-unstuck!\n");
     }
-    if (blit_slowdown > 0) {
+    blitter_stuck = 0;
+    if (blit_slowdown > 0 && !currprefs.immediate_blits) {
 	eventtab[ev_blitter].active = 1;
 	eventtab[ev_blitter].oldcycles = get_cycles ();
 	eventtab[ev_blitter].evtime = blit_slowdown * CYCLE_UNIT + get_cycles ();
@@ -738,9 +747,10 @@ STATIC_INLINE int blitter_doddma (void)
 STATIC_INLINE void blitter_dodma (unsigned int ch)
 {
 
-    switch (ch) {
+    switch (ch)
+    {
 	case 1:
-        blt_info.bltadat = chipmem_wget (bltapt);
+	blt_info.bltadat = chipmem_wget (bltapt);
 	bltapt += blit_add;
 	break;
 	case 2:
@@ -918,7 +928,8 @@ static void blit_bltset (unsigned int con)
 
     if (blitline) {
 	if (blt_info.hblitsize != 2)
-	    write_log ("weird hblitsize in linemode: %d vsize=%d PC%=%x\n", blt_info.hblitsize, blt_info.vblitsize, m68k_getpc (&regs));
+	    write_log ("weird hblitsize in linemode: %d vsize=%d PC%=%x\n",
+		blt_info.hblitsize, blt_info.vblitsize, m68k_getpc (&regs));
 	blit_diag = blit_cycle_diagram_line;
     } else {
 	if (con & 2) {
@@ -929,7 +940,8 @@ static void blit_bltset (unsigned int con)
 		* negative effects. */
 		static int warn = 1;
 		if (warn)
-		    write_log ("warning: weird fill mode (further messages suppressed) PC=%x\n", m68k_getpc (&regs));
+		    write_log ("warning: weird fill mode (further messages suppressed) PC=%x\n",
+			m68k_getpc (&regs));
 		warn = 0;
 		blitife = 0;
 	    }
@@ -937,15 +949,15 @@ static void blit_bltset (unsigned int con)
 	if (blitfill && !blitdesc) {
 	    static int warn = 1;
 	    if (warn)
-		write_log ("warning: blitter fill without desc (further messages suppressed) PC=%x\n", m68k_getpc (&regs));
+		write_log ("warning: blitter fill without desc (further messages suppressed) PC=%x\n",
+		    m68k_getpc (&regs));
 	    warn = 0;
 	}
 	blit_diag = blitfill ? blit_cycle_diagram_fill[blit_ch] : blit_cycle_diagram[blit_ch];
     }
     if ((bltcon1 & 0x80) && (currprefs.chipset_mask & CSMASK_ECS_AGNUS))
-	write_log("warning: BLTCON1 DOFF-bit set\n");
+	write_log ("warning: ECS BLTCON1 DOFF-bit set\n");
 
-    ddat1use = ddat2use = 0;
     blit_dmacount = blit_dmacount2 = 0;
     blit_nod = 1;
     for (i = 0; i < blit_diag[1]; i++) {
@@ -1012,7 +1024,9 @@ void do_blitter (unsigned int hpos)
     blit_last_hpos = hpos;
 #endif
 
-    reset_blit (1|2);
+    blit_bltset (1|2);
+    blit_modset ();
+    ddat1use = ddat2use = 0;
 
     if (blitline) {
 	blitsing = bltcon1 & 0x2;
@@ -1031,7 +1045,7 @@ void do_blitter (unsigned int hpos)
     if (1) {
 	if (oldstate != BLT_done)
 	    write_log ("blitter was already active!\n");
-	write_log("blitstart: v=%03.3d h=%03.3d %dx%d %d (%d) d=%d f=%02.2X n=%d pc=%p l=%d dma=%d\n",
+	write_log ("blitstart: v=%03.3d h=%03.3d %dx%d %d (%d) d=%d f=%02.2X n=%d pc=%p l=%d dma=%4x\n",
 	    vpos, hpos, blt_info.hblitsize, blt_info.vblitsize, cycles, blit_ch,
 	    blitdesc ? 1 : 0, blitfill,
 	    dmaen(DMA_BLITPRI) ? 1 : 0, m68k_getpc (&regs), blitline, dmaen(DMA_BLITTER));
@@ -1075,12 +1089,13 @@ void do_blitter (unsigned int hpos)
     events_schedule();
 }
 
-
 void maybe_blit (unsigned int hpos, int hack)
 {
     static int warned;
 
     if (bltstate == BLT_done)
+	return;
+    if (savestate_state)
 	return;
 
     if (!warned && dmaen (DMA_BLITTER)) {
@@ -1097,15 +1112,13 @@ void maybe_blit (unsigned int hpos, int hack)
 	goto end;
     }
 
-    if (!eventtab[ev_blitter].active)
-	write_log ("FOO!!?\n");
     if (hack == 1 && get_cycles() < blit_firstline_cycles)
 	goto end;
 
     blitter_handler ();
 end:;
 #ifdef BLITTER_DEBUG
-	blitter_delayed_debug = 1;
+    blitter_delayed_debug = 1;
 #endif
 }
 
@@ -1157,7 +1170,6 @@ void blitter_slowdown (int ddfstrt, int ddfstop, unsigned int totalcycles, unsig
 #endif
 }
 
-
 #ifdef SAVESTATE
 
 const uae_u8 *restore_blitter (const uae_u8 *src)
@@ -1165,27 +1177,38 @@ const uae_u8 *restore_blitter (const uae_u8 *src)
     uae_u32 flags = restore_u32 ();
 
     bltstate = (flags & 1) ? BLT_init : BLT_done;
+    if (flags & 2) {
+	write_log ("blitter was force-finished when this statefile was saved\n");
+	write_log ("contact the author if restored program freezes\n");
+    }
+    return src;
+}
+
+void restore_blitter_finish (void)
+{
     if (bltstate == BLT_init) {
 	write_log ("blitter was started but DMA was inactive during save\n");
 	do_blitter (0);
     }
-    return src;
 }
 
 uae_u8 *save_blitter (uae_u32 *len, uae_u8 *dstptr)
 {
     uae_u8 *dstbak, *dst;
+    int forced;
 
+    forced = 0;
     if (bltstate != BLT_done && bltstate != BLT_init) {
-	write_log ("blitter was running, forcing immediate finish\n");
+	write_log ("blitter is active, forcing immediate finish\n");
 	 /* blitter is active just now but we don't have blitter state support yet */
 	blitter_force_finish ();
+	forced = 2;
     }
     if (dstptr)
 	dstbak = dst = dstptr;
     else
 	dstbak = dst = malloc (16);
-    save_u32 ((bltstate != BLT_done) ? 0 : 1);
+    save_u32 (((bltstate != BLT_done) ? 0 : 1) | forced);
     *len = dst - dstbak;
     return dstbak;
 }

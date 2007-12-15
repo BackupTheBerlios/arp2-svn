@@ -21,10 +21,39 @@ Just set the 'scsi=true' config option and away you go.
 Linux
 -----
 
-Using the SCSI emulation on Linux can be troublesome, depending on how your
-Linux system is set up. If cdrecord works on your set-up, then there's a
-good chance that the SCSI emulation will too since it uses cdrecord's SCSI
-transport layer, libscg. There are some points to be aware of, however.
+Starting with version 0.8.29, E-UAE's SCSI emulation can directly
+communicate with the Linux kernel's CD-ROM driver to access a single
+CD/DVD drive (it currently doesn't support multiple drives, unlike the
+libscg back-end).
+
+To use, simply specify the drive's device file with the configuration
+option 'scsi_device=' (as well as, obviously, 'scsi=true'. For example:
+
+scsi_device=/dev/hdc
+
+You should ensure that the account you use to run E-UAE has permission
+to access this device file.
+
+You may run into problems if your Linux distribution has the HAL
+daemon installed. This software continually polls your removable media
+drives to detect insertion/removal of discs, and this activity may
+interfere with E-UAE's SCSI emulation. A solution to this problem
+needs to be investigated.
+
+This Linux-native SCSI back-end is less well-tested than the libscg
+back-end. It has not been tested with real SCSI devices (only ATAPI
+devices) and depending on the bugginess of your Linux ATAPI driver
+and/or the firmware of your drive, problems may occur.
+
+
+Linux and libscg
+----------------
+
+Using the libscg-based SCSI emulation on Linux can be troublesome,
+depending on how your Linux system is set up. If cdrecord works on
+your set-up, then there's a good chance that the SCSI emulation will
+too since it uses cdrecord's SCSI transport layer, libscg. There are
+some points to be aware of, however.
 
 Firstly, you need a kernel module installed which support sending SCSI
 commands to your CD/DVD device. For real SCSI devices, this will be the sg

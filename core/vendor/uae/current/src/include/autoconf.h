@@ -40,48 +40,16 @@ extern uaecptr ROM_hardfile_resname, ROM_hardfile_resid;
 extern uaecptr ROM_hardfile_init;
 extern uaecptr filesys_initcode;
 
-extern int nr_units (struct uaedev_mount_info *mountinfo);
-extern int is_hardfile (struct uaedev_mount_info *mountinfo, int unit_no);
-extern const char *set_filesys_unit (struct uaedev_mount_info *mountinfo, int,
-			       char *devname, char *volname, char *rootdir, int readonly,
-			       int secs, int surfaces, int reserved,
-			       int blocksize, int bootpri, char *filesysdir);
-extern const char *add_filesys_unit (struct uaedev_mount_info *mountinfo,
-			       char *devname, char *volname, char *rootdir, int readonly,
-			       int secs, int surfaces, int reserved,
-			       int blocksize, int bootpri, char *filesysdir);
-extern const char *get_filesys_unit (struct uaedev_mount_info *mountinfo, int nr,
-			       char **devname, char **volame, char **rootdir, int *readonly,
-			       int *secspertrack, int *surfaces, int *reserved,
-			       int *cylinders, uae_u64 *size, int *blocksize, int *bootpri, char **filesysdir);
-extern int kill_filesys_unit (struct uaedev_mount_info *mountinfo, int);
-extern int move_filesys_unit (struct uaedev_mount_info *mountinfo, int nr, int to);
-extern int sprintf_filesys_unit (struct uaedev_mount_info *mountinfo, char *buffer, int num);
-extern void write_filesys_config (struct uaedev_mount_info *mountinfo, const char *unexpanded,
-				  const char *defaultpath, FILE *f);
-
-extern struct uaedev_mount_info *alloc_mountinfo (void);
-extern struct uaedev_mount_info *dup_mountinfo (struct uaedev_mount_info *);
-extern void free_mountinfo (struct uaedev_mount_info *);
-
-extern void filesys_reset (void);
-extern void filesys_cleanup (void);
-extern void filesys_prepare_reset (void);
-extern void filesys_start_threads (void);
-extern void filesys_flush_cache (void);
-
 extern void filesys_install (void);
 extern void filesys_install_code (void);
 extern void filesys_store_devinfo (uae_u8 *);
 extern void hardfile_install (void);
 extern void hardfile_reset (void);
+extern void hardfile_cleanup (void);
 extern void emulib_install (void);
 extern void expansion_init (void);
 extern void expansion_cleanup (void);
 
-#define TRAPFLAG_NO_REGSAVE 1
-#define TRAPFLAG_NO_RETVAL 2
-#define TRAPFLAG_EXTRA_STACK 4
-#define TRAPFLAG_DORET 8
+extern uae_u8 *rtarea;
 
 #define RTAREA_BASE 0xF00000

@@ -50,6 +50,7 @@ extern int fpp_movem_next[256];
 struct regstruct;
 
 typedef unsigned long cpuop_func (uae_u32, struct regstruct *regs) REGPARAM;
+typedef  void cpuop_func_ce (uae_u32, struct regstruct *regs) REGPARAM;
 
 struct cputbl {
     cpuop_func *handler;
@@ -92,6 +93,11 @@ extern struct regstruct
     uae_u8 *pc_p;
     uae_u8 *pc_oldp;
 
+    uae_u16 irc;
+    uae_u16 ir;
+
+    uae_u32 spcflags;
+
     uaecptr  usp,isp,msp;
     uae_u16 sr;
     flagtype t1;
@@ -100,26 +106,23 @@ extern struct regstruct
     flagtype m;
     flagtype x;
     flagtype stopped;
-    int intmask;
+    unsigned int intmask;
 
-
-
-    uae_u32 vbr,sfc,dfc;
+    uae_u32 vbr;
 
 #ifdef FPUEMU
-    fptype fp[8];
     fptype fp_result;
+
+    fptype fp[8];
 
     uae_u32 fpcr,fpsr,fpiar;
     uae_u32 fpsr_highbyte;
 #endif
 
-    uae_u32 spcflags;
+    uae_u32 sfc, dfc;
+
     uae_u32 kick_mask;
     uae_u32 address_space_mask;
-
-    uae_u16 irc;
-    uae_u16 ir;
 
     uae_u8 panic;
     uae_u32 panic_pc, panic_addr;
@@ -147,9 +150,6 @@ STATIC_INLINE uae_u32 munge24 (uae_u32 x)
     return x & regs.address_space_mask;
 }
 
-extern unsigned long irqcycles[15];
-extern int irqdelay[15];
-
 STATIC_INLINE void set_special (struct regstruct *regs, uae_u32 x)
 {
     regs->spcflags |= x;
@@ -169,10 +169,6 @@ STATIC_INLINE void m68k_setpc (struct regstruct *regs, uaecptr newpc)
     regs->pc_p = regs->pc_oldp = get_real_address (newpc);
     regs->pc   = newpc;
 }
-
-#define m68k_setpc_fast m68k_setpc
-#define m68k_setpc_bcc  m68k_setpc
-#define m68k_setpc_rte  m68k_setpc
 
 STATIC_INLINE uaecptr m68k_getpc (struct regstruct *regs)
 {
@@ -254,7 +250,7 @@ extern uae_u32 get_disp_ea_000 (struct regstruct *regs, uae_u32 base, uae_u32 dp
 extern void MakeSR (struct regstruct *regs) REGPARAM;
 extern void MakeFromSR (struct regstruct *regs) REGPARAM;
 extern void Exception (int, struct regstruct *regs, uaecptr) REGPARAM;
-extern void Interrupt (int nr);
+extern void Interrupt (unsigned int level);
 extern void dump_counts (void);
 extern int m68k_move2c (int, uae_u32 *);
 extern int m68k_movec2 (int, uae_u32 *);
@@ -265,6 +261,7 @@ extern void init_m68k_full (void);
 extern void m68k_go (int);
 extern void m68k_dumpstate (void *, uaecptr *);
 extern void m68k_disasm (void *, uaecptr, uaecptr *, int);
+extern void m68k_disasm_ea (void *f, uaecptr addr, uaecptr *nextpc, int cnt, uae_u32 *seaddr, uae_u32 *deaddr);
 extern void sm68k_disasm(char *, char *, uaecptr addr, uaecptr *nextpc);
 extern void m68k_reset (void);
 extern int getDivu68kCycles(uae_u32 dividend, uae_u16 divisor);
@@ -291,7 +288,7 @@ extern void fill_prefetch_slow (struct regstruct *regs);
 STATIC_INLINE int notinrom (void)
 {
     if (munge24 (m68k_getpc (&regs)) < 0xe0000)
-        return 1;
+	return 1;
     return 0;
 }
 
@@ -324,7 +321,7 @@ extern cpuop_func *cpufunctbl[65536] ASM_SYM_FOR_FUNC ("cpufunctbl");
 extern uae_u8* start_pc_p;
 extern uae_u32 start_pc;
 
-#define cacheline(x) (((uae_u32)x)&TAGMASK)
+#define cacheline(x) (((uae_uintptr) x) & TAGMASK)
 
 void newcpu_showstate (void);
 

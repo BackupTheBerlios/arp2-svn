@@ -11,14 +11,12 @@
 #include "sysdeps.h"
 
 #include "options.h"
-#include "custom.h"
 #include "gensound.h"
 #include "sounddep/sound.h"
 #include "threaddep/thread.h"
 #include <SDL_audio.h>
 
 static int have_sound = 0;
-static int obtainedfreq;
 
 uae_u16 sndbuffer[44100];
 uae_u16 *sndbufpt;
@@ -61,28 +59,6 @@ void finish_sound_buffer (void)
     uae_sem_post (&data_available_sem);
     uae_sem_wait (&callback_done_sem);
 }
-
-void update_sound (int freq)
-{
-    int scaled_sample_evtime_orig;
-    static int lastfreq =0;
-
-    if (freq < 0)
-        freq = lastfreq;
-    lastfreq = freq;
-    if (have_sound) {
-	if (currprefs.gfx_vsync && currprefs.gfx_afullscreen) {
-	    if (currprefs.ntscmode)
-		scaled_sample_evtime_orig = (unsigned long)(MAXHPOS_NTSC * MAXVPOS_NTSC * freq * CYCLE_UNIT + obtainedfreq - 1) / obtainedfreq;
-	else
-	    scaled_sample_evtime_orig = (unsigned long)(MAXHPOS_PAL * MAXVPOS_PAL * freq * CYCLE_UNIT + obtainedfreq - 1) / obtainedfreq;
-	} else {
-	    scaled_sample_evtime_orig = (unsigned long)(312.0 * 50 * CYCLE_UNIT / (obtainedfreq  / 227.0));
-	}
-	scaled_sample_evtime = scaled_sample_evtime_orig;
-    }
-}
-
 
 /* Try to determine whether sound is available. */
 int setup_sound (void)
@@ -136,7 +112,6 @@ static int open_sound (void)
     }
     have_sound = 1;
 
-    update_sound(vblank_hz);
     sound_available = 1;
     obtainedfreq = currprefs.sound_freq;
     sndbufsize = spec.samples * currprefs.sound_bits / 8 * spec.channels;

@@ -6,22 +6,19 @@
   * Copyright 1996 Bernd Schmidt
   */
 
-extern int gui_init (void);
+extern void gui_init (int argc, char **argv);
+extern int gui_open (void);
 extern int gui_update (void);
 extern void gui_exit (void);
 extern void gui_led (int, int);
 extern void gui_handle_events (void);
 extern void gui_filename (int, const char *);
 extern void gui_fps (int fps, int idle);
-extern void gui_changesettings (void);
-extern void gui_lock (void);
-extern void gui_unlock (void);
 extern void gui_hd_led (int);
 extern void gui_cd_led (int);
 extern unsigned int gui_ledstate;
-extern void gui_display(int shortcut);
-
-extern int no_gui;
+extern void gui_display (int shortcut);
+extern void gui_notify_state (int state);
 
 struct gui_info
 {
@@ -40,6 +37,3 @@ struct gui_info
 #define NUM_LEDS (1 + 1 + 1 + 1 + 1 + 4)
 
 extern struct gui_info gui_data;
-
-/* Functions to be called when prefs are changed by non-gui code.  */
-extern void gui_update_gfx (void);

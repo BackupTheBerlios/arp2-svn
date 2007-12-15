@@ -4,7 +4,7 @@
 //  BeOS port sound routines
 //  Using R4 BSoundPlayer class
 //
-//  (c) 2004 Richard Drummond
+//  (c) 2004-2007 Richard Drummond
 //  (c) 2000-2001 Axel D�fler
 //  (c) 1999 Be/R4 Sound - Raphael Moll
 //  (c) 1998-1999 David Sowsy
@@ -25,7 +25,6 @@ extern "C" {
 #include "sysdeps.h"
 
 #include "options.h"
-#include "custom.h"
 #include "gensound.h"
 #include "sounddep/sound.h"
 }
@@ -57,13 +56,30 @@ static uae_u16	*gLastBuffer;
 static int32	 gBufferReadPos;
 
 static uae_u16 *buffer = NULL;
-static int obtainedfreq;
 static bool sound_ready = false;
 static sem_id sound_sync_sem;
 
 void stream_func8  (void *user, void *buffer, size_t size, const media_raw_audio_format &format);
 void stream_func16 (void *user, void *buffer, size_t size, const media_raw_audio_format &format);
 
+static int exact_log2 (int v)
+{
+    int l = 0;
+    while ((v >>= 1) != 0)
+	l++;
+    return l;
+}
+
+static int get_nearest_power_of_2 (int v)
+{
+    int low = 1 << exact_log2 (v);
+    int hi  = low << 1;
+
+    if ((v - low) < (hi - v))
+	return low;
+    else
+	return hi;
+}
 
 int init_sound (void)
 {
@@ -72,11 +88,15 @@ int init_sound (void)
 
     media_raw_audio_format audioFormat;
 
+    gSoundBufferSize = currprefs.sound_freq * currprefs.sound_latency *
+		       (currprefs.sound_stereo ? 2 : 1) / 1000;
+    gSoundBufferSize = get_nearest_power_of_2 (gSoundBufferSize);
+
     audioFormat.frame_rate    = currprefs.sound_freq;
     audioFormat.channel_count = currprefs.sound_stereo ? 2 : 1;
     audioFormat.format        = media_raw_audio_format::B_AUDIO_FLOAT;
     audioFormat.byte_order    = B_MEDIA_HOST_ENDIAN;
-    audioFormat.buffer_size   = currprefs.sound_maxbsiz * sizeof(float);
+    audioFormat.buffer_size   = gSoundBufferSize * sizeof(float);
 
     gSoundPlayer = new BSoundPlayer (&audioFormat, "UAE SoundPlayer",
 				     currprefs.sound_bits == 8 ? stream_func8 : stream_func16);
@@ -86,7 +106,6 @@ int init_sound (void)
 	return 3;
 
     sound_sync_sem  = create_sem (0, "UAE Sound Sync Semaphore");
-    gSoundBufferSize = currprefs.sound_maxbsiz;
     gBufferReadPos = 0;
     gDoubleBufferWrite = new uae_u16[2 * gSoundBufferSize];
     gDoubleBufferRead = gDoubleBufferWrite + gSoundBufferSize;
@@ -101,24 +120,19 @@ int init_sound (void)
 	init_sound_table8 ();
     } else {
 	sndbufsize = sizeof (uae_u16) * gSoundBufferSize;
-	if (currprefs.sound_stereo) {
-	    sample_handler = (currprefs.sound_interpol == 0 ? sample16s_handler
-			    : currprefs.sound_interpol == 1 ? sample16si_rh_handler
-							    : sample16si_crux_handler);
-	} else {
-	    sample_handler = (currprefs.sound_interpol == 0 ? sample16_handler
-			    : currprefs.sound_interpol == 1 ? sample16i_rh_handler
-							    : sample16i_crux_handler);
-	}
+	if (currprefs.sound_stereo)
+	    sample_handler = sample16s_handler;
+	else
+	    sample_handler = sample16_handler;
 	init_sound_table16 ();
     }
 
-    update_sound (vblank_hz);
     sound_available = 1;
     obtainedfreq = currprefs.sound_freq;
 
-    write_log ("BeOS sound driver found and configured for %d bits at %d Hz, buffer is %d samples\n",
-	       currprefs.sound_bits, currprefs.sound_freq, currprefs.sound_maxbsiz);
+    write_log ("BeOS sound driver found and configured for %d bits at %d Hz, buffer is %d samples (%d ms)\n",
+	       currprefs.sound_bits, currprefs.sound_freq, gSoundBufferSize / audioFormat.channel_count,
+	       (gSoundBufferSize / audioFormat.channel_count) * 1000 / currprefs.sound_freq);
 
     if (gSoundPlayer) {
 	gSoundPlayer->Start ();
@@ -264,36 +278,19 @@ void stream_func8 (void *user, void *buffer, size_t size,const media_raw_audio_f
 	*(dest++) = 0.f;
 }
 
-void update_sound (int freq)
-{
-    int scaled_sample_evtime_orig;
-    static int lastfreq =0;
-
-    if (freq < 0)
-	freq = lastfreq;
-    lastfreq = freq;
-    if (sound_ready) {
-	if (currprefs.gfx_vsync && currprefs.gfx_afullscreen) {
-	    if (currprefs.ntscmode)
-	        scaled_sample_evtime_orig = (unsigned long)(MAXHPOS_NTSC * MAXVPOS_NTSC * freq * CYCLE_UNIT + obtainedfreq - 1) / obtainedfreq;
-	    else
-		scaled_sample_evtime_orig = (unsigned long)(MAXHPOS_PAL * MAXVPOS_PAL * freq * CYCLE_UNIT + obtainedfreq - 1) / obtainedfreq;
-	} else {
-	    scaled_sample_evtime_orig = (unsigned long)(312.0 * 50 * CYCLE_UNIT / (obtainedfreq  / 227.0));
-	}
-	scaled_sample_evtime = scaled_sample_evtime_orig;
-    }
-}
-
 void pause_sound (void)
 {
-    close_sound ();
+    if (gSoundPlayer)
+	gSoundPlayer->Stop ();
+
     return;
 }
 
 void resume_sound (void)
 {
-    init_sound ();
+    if (gSoundPlayer)
+	gSoundPlayer->Start ();
+
     return;
 }
 

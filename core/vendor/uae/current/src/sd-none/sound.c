@@ -11,9 +11,6 @@
 #include "sysdeps.h"
 
 #include "options.h"
-#include "memory.h"
-#include "custom.h"
-#include "audio.h"
 #include "gensound.h"
 #include "sounddep/sound.h"
 
@@ -30,10 +27,6 @@ int setup_sound (void)
 }
 
 void close_sound (void)
-{
-}
-
-void update_sound (int freq)
 {
 }
 

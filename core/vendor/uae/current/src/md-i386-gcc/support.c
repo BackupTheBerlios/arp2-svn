@@ -188,7 +188,7 @@ int machdep_inithrtimer (void)
 	    signal (SIGALRM, alarmhandler);
 #endif
 
- 	    /* We want exact values... */
+	    /* We want exact values... */
 	    sync (); sync (); sync ();
 
 #ifdef USE_ALARM

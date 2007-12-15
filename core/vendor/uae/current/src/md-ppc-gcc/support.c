@@ -25,28 +25,24 @@ frame_time_t timebase;
  * Get PPC timebase frequency from OF device tree on Linux
  */
 #ifdef __linux__
-static frame_time_t machdep_linux_gettimebase (void)
+static uae_u32 find_timebase (const char *path)
 {
-    uae_u32 tbc_freq = 0;
-
-    /* search OF device-tree for CPU node */
-    const char of_tree_path[]    = "/proc/device-tree/";
     const char ppc_device_node[] = "PowerPC,";
-
-    DIR *dir = opendir (of_tree_path);
+    uae_u32 tbc_freq = 0;
     int found = 0;
 
+    DIR *dir = opendir (path);
     if (dir) {
 	struct dirent *dirent;
 
 	do {
 	    dirent = readdir (dir);
-	    if(dirent) {
+	    if (dirent) {
 		found = !strncmp (dirent->d_name, ppc_device_node, strlen (ppc_device_node));
 		if (found)
 		    break;
 	    }
-        }  while (dirent);
+	}  while (dirent);
 
 	if (found) {
 	    /* We've found the PowerPC node in the OF tree, now construct
@@ -54,11 +50,11 @@ static frame_time_t machdep_linux_gettimebase (void)
 	    const char  tbc_freq_node[] = "/timebase-frequency";
 	    char       *tbc_freq_path;
 
-	    if ((tbc_freq_path = (char *) malloc (strlen (of_tree_path) + strlen(dirent->d_name) +
-	    					  strlen (tbc_freq_node) + 1))) {
+	    if ((tbc_freq_path = (char *) malloc (strlen (path) + strlen (dirent->d_name) +
+						  strlen (tbc_freq_node) + 1))) {
 		int tbcfd;
 
-		strcpy (tbc_freq_path, of_tree_path);
+		strcpy (tbc_freq_path, path);
 		strcat (tbc_freq_path, dirent->d_name);
 		strcat (tbc_freq_path, tbc_freq_node);
 
@@ -72,9 +68,18 @@ static frame_time_t machdep_linux_gettimebase (void)
 		free (tbc_freq_path);
 	     }
 	}
+	closedir (dir);
     }
+    return tbc_freq;
+}
 
-    closedir (dir);
+static frame_time_t machdep_linux_gettimebase (void)
+{
+    uae_u32 tbc_freq = 0;
+
+    tbc_freq     = find_timebase ("/proc/device-tree/");
+    if (!tbc_freq)
+	tbc_freq = find_timebase ("/proc/device-tree/cpus/");
 
     return tbc_freq;
 }
@@ -147,19 +152,21 @@ static frame_time_t machdep_morphos_gettimebase (void)
  */
 static frame_time_t machdep_calibrate_timebase (void)
 {
-    const int loops_to_go = 5;
+    const int num_loops = 5;
     frame_time_t last_time;
     frame_time_t best_time;
+    int i;
 
     write_log ("Calibrating timebase...\n");
     flush_log ();
 
     sync ();
     last_time = read_processor_time ();
-    uae_msleep (loops_to_go * 1000);
+    for (i = 0; i < num_loops; i++)
+	uae_msleep (1000);
     best_time = read_processor_time () - last_time;
 
-    return best_time / loops_to_go;
+    return best_time / num_loops;
 }
 
 int machdep_inithrtimer (void)
@@ -168,9 +175,9 @@ int machdep_inithrtimer (void)
 
     if (!done) {
 #	ifdef __MACH__
-            timebase = machdep_mach_gettimebase ();
+	    timebase = machdep_mach_gettimebase ();
 #	elif __amigaos4__
-            timebase = machdep_amigaos4_gettimebase ();
+	    timebase = machdep_amigaos4_gettimebase ();
 #	elif __linux__
 	    timebase = machdep_linux_gettimebase ();
 #       elif __MORPHOS__

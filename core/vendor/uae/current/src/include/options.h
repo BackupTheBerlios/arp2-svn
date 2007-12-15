@@ -9,8 +9,6 @@
 
 typedef enum { KBD_LANG_US, KBD_LANG_DK, KBD_LANG_DE, KBD_LANG_SE, KBD_LANG_FR, KBD_LANG_IT, KBD_LANG_ES } KbdLang;
 
-extern long int version;
-
 struct uaedev_mount_info;
 
 struct strlist {
@@ -85,8 +83,6 @@ struct uae_prefs {
     int compnf;
     int compforcesettings;
     int compfpu;
-    int comp_midopt;
-    int comp_lowopt;
 
     int comp_hardflush;
     int comp_constjump;
@@ -94,8 +90,6 @@ struct uae_prefs {
 
     int cachesize;
     int optcount[10];
-
-    int avoid_cmov;
 #endif
 
     int gfx_framerate;
@@ -136,7 +130,6 @@ struct uae_prefs {
     int scsi;
     int catweasel_io;
     int cpu_idle;
-    int dont_busy_wait;
     int cpu_cycle_exact;
     int blitter_cycle_exact;
     int floppy_speed;
@@ -156,13 +149,6 @@ struct uae_prefs {
     char sername[256];
 #ifndef WIN32
     char scsi_device[256];
-#endif
-
-    char path_floppy[256];
-    char path_hardfile[256];
-    char path_rom[256];
-#ifdef SAVESTATE
-    char path_savestate[256];
 #endif
 
     int m68k_speed;
@@ -235,6 +221,9 @@ struct uae_prefs {
 #if defined USE_SDL_GFX || defined USE_X11_GFX
     int map_raw_keys;
 #endif
+#ifdef USE_SDL_GFX
+    int use_gl;
+#endif
 
 #ifdef USE_AMIGA_GFX
     int  amiga_screen_type;
@@ -264,13 +253,15 @@ struct uae_prefs {
     struct uae_input_device keyboard_settings[MAX_INPUT_SETTINGS + 1][MAX_INPUT_DEVICES];
 };
 
-/* Contains the filename of .uaerc */
-extern char optionsfile[];
 extern void save_options (FILE *, const struct uae_prefs *, int);
 extern void cfgfile_write (FILE *f, const char *format,...);
 
 extern void default_prefs (struct uae_prefs *, int);
 extern void discard_prefs (struct uae_prefs *, int);
+
+extern void prefs_set_attr (const char *key, const char *value);
+extern const char *prefs_get_attr (const char *key);
+
 
 int parse_cmdline_option (struct uae_prefs *, char, char *);
 
@@ -304,7 +295,11 @@ extern int cfgfile_parse_option (struct uae_prefs *p, char *option, char *value,
 extern int cfgfile_get_description (const char *filename, char *description, int*);
 extern void cfgfile_show_usage (void);
 extern uae_u32 cfgfile_uaelib(int mode, uae_u32 name, uae_u32 dst, uae_u32 maxlen);
+extern uae_u32 cfgfile_uaelib_modify (uae_u32 mode, uae_u32 parms, uae_u32 size, uae_u32 out, uae_u32 outsize);
+extern uae_u32 cfgfile_modify (uae_u32 index, char *parms, uae_u32 size, char *out, uae_u32 outsize);
 extern void cfgfile_addcfgparam (char *);
+extern unsigned int cmdlineparser (const char *s, char *outp[], unsigned int max);
+extern int cfgfile_configuration_change(int);
 
 extern void fixup_prefs_dimensions (struct uae_prefs *prefs);
 

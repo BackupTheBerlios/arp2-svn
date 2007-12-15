@@ -52,7 +52,7 @@ extern BOOL gFinderLaunch; /* Set to YES by SDLMain.m if app launched from the f
 }
 + (id) sharedInstance;
 - (void)createMenus;
-- (void)createMenuItemInMenu:(NSMenu *)menu withTitle:(NSString *)title action:(SEL)anAction 
+- (void)createMenuItemInMenu:(NSMenu *)menu withTitle:(NSString *)title action:(SEL)anAction
     keyEquivalent:(NSString *)keyEquiv tag:(int)tag;
 - (BOOL)validateMenuItem:(id <NSMenuItem>)menuItem;
 - (void)insertDisk:(id)sender;
@@ -68,22 +68,22 @@ extern BOOL gFinderLaunch; /* Set to YES by SDLMain.m if app launched from the f
 + (id) sharedInstance
 {
     static id sharedInstance = nil;
-    
+
     if (sharedInstance == nil) sharedInstance = [[self alloc] init];
-    
+
     return sharedInstance;
 }
 
 -(EuaeGui *) init
 {
     self = [super init];
-    
+
     if (self) {
         applicationName = [[NSString alloc] initWithString:getApplicationName()];
         diskImageTypes =[[NSArray alloc] initWithObjects:@"adf", @"adz",
             @"zip", @"dms", @"fdi", nil]; // Note: Use lowercase for these
     }
-    
+
     return self;
 }
 
@@ -109,38 +109,38 @@ extern BOOL gFinderLaunch; /* Set to YES by SDLMain.m if app launched from the f
     int driveNumber;
     NSMenuItem *menuItem;
     NSString *menuTitle;
-    
+
     // Create a menu for disk operations
     NSMenu *diskMenu = [[NSMenu alloc] initWithTitle:@"Disk"];
-    
+
     for (driveNumber=0; driveNumber<4; driveNumber++) {
         menuTitle = [[NSString alloc] initWithFormat:@"Insert DF%d:",driveNumber];
         [self createMenuItemInMenu:diskMenu withTitle:menuTitle action:@selector(insertDisk:) keyEquivalent:@"" tag:driveNumber];
         [menuTitle release];
     }
-    
+
     [diskMenu addItem:[NSMenuItem separatorItem]];
-    
+
     for (driveNumber=0; driveNumber<4; driveNumber++) {
         menuTitle = [[NSString alloc] initWithFormat:@"Eject DF%d:",driveNumber];
-        [self createMenuItemInMenu:diskMenu withTitle:menuTitle action:@selector(insertDisk:) keyEquivalent:@"" tag:driveNumber];
+        [self createMenuItemInMenu:diskMenu withTitle:menuTitle action:@selector(ejectDisk:) keyEquivalent:@"" tag:driveNumber];
         [menuTitle release];
     }
-    
+
     menuItem = [[NSMenuItem alloc] initWithTitle:@"Disk" action:nil keyEquivalent:@""];
     [menuItem setSubmenu:diskMenu];
-    
+
     [[NSApp mainMenu] insertItem:menuItem atIndex:1];
-    
+
     [diskMenu release];
     [menuItem release];
-    
+
     // Create a menu for input settings
     NSMenu *inputMenu = [[NSMenu alloc] initWithTitle:@"Devices"];
-    
+
     NSMenu *port0Menu = [[NSMenu alloc] initWithTitle:@"Joystick Port 0"];
     NSMenu *port1Menu = [[NSMenu alloc] initWithTitle:@"Joystick Port 1"];
-    
+
     [self createMenuItemInMenu:port0Menu withTitle:@"None" action:@selector(changePort0:) keyEquivalent:@"" tag:JSEM_NONE];
     [self createMenuItemInMenu:port0Menu withTitle:@"Mouse" action:@selector(changePort0:) keyEquivalent:@"" tag:JSEM_MICE];
     [self createMenuItemInMenu:port0Menu withTitle:@"First Joystick" action:@selector(changePort0:) keyEquivalent:@""
@@ -153,12 +153,12 @@ extern BOOL gFinderLaunch; /* Set to YES by SDLMain.m if app launched from the f
         keyEquivalent:@"" tag:JSEM_KBDLAYOUT+1];
     [self createMenuItemInMenu:port0Menu withTitle:@"Keyboard T/B/F/H + Left Alt" action:@selector(changePort0:)
         keyEquivalent:@"" tag:JSEM_KBDLAYOUT+2];
-    
+
     menuItem = [[NSMenuItem alloc] initWithTitle:@"Joystick Port 0" action:nil keyEquivalent:@""];
     [menuItem setSubmenu:port0Menu];
     [inputMenu addItem:menuItem];
     [menuItem release];
-    
+
     [self createMenuItemInMenu:port1Menu withTitle:@"None" action:@selector(changePort1:) keyEquivalent:@"" tag:JSEM_NONE];
     [self createMenuItemInMenu:port1Menu withTitle:@"Mouse" action:@selector(changePort1:) keyEquivalent:@"" tag:JSEM_MICE];
     [self createMenuItemInMenu:port1Menu withTitle:@"First Joystick" action:@selector(changePort1:) keyEquivalent:@""
@@ -171,23 +171,23 @@ extern BOOL gFinderLaunch; /* Set to YES by SDLMain.m if app launched from the f
         keyEquivalent:@"" tag:JSEM_KBDLAYOUT+1];
     [self createMenuItemInMenu:port1Menu withTitle:@"Keyboard T/B/F/H + Left Alt" action:@selector(changePort1:)
         keyEquivalent:@"" tag:JSEM_KBDLAYOUT+2];
-    
+
     menuItem = [[NSMenuItem alloc] initWithTitle:@"Joystick Port 1" action:nil keyEquivalent:@""];
     [menuItem setSubmenu:port1Menu];
     [inputMenu addItem:menuItem];
     [menuItem release];
-    
+
     menuItem = [[NSMenuItem alloc] initWithTitle:@"Devices" action:nil keyEquivalent:@""];
     [menuItem setSubmenu:inputMenu];
-    
+
     [[NSApp mainMenu] insertItem:menuItem atIndex:2];
-    
+
     [inputMenu release];
     [menuItem release];
-    
+
 }
 
-- (void)createMenuItemInMenu:(NSMenu *)menu withTitle:(NSString *)title action:(SEL)anAction 
+- (void)createMenuItemInMenu:(NSMenu *)menu withTitle:(NSString *)title action:(SEL)anAction
     keyEquivalent:(NSString *)keyEquiv tag:(int)tag;
 {
     NSMenuItem *menuItem = [[NSMenuItem alloc] initWithTitle:title action:anAction keyEquivalent:keyEquiv];
@@ -201,47 +201,47 @@ extern BOOL gFinderLaunch; /* Set to YES by SDLMain.m if app launched from the f
 {
     SEL menuAction = [menuItem action];
     int tag = [menuItem tag];
-    
+
     // Disabled drives can't have disks inserted or ejected
-    if (((menuAction == @selector(insertDisk:)) || (menuAction == @selector(ejectDisk:))) && 
+    if (((menuAction == @selector(insertDisk:)) || (menuAction == @selector(ejectDisk:))) &&
         (gui_data.drive_disabled[tag]))
         return NO;
-    
-    // Eject DFx should be disabled if there's no disk in DFx 
+
+    // Eject DFx should be disabled if there's no disk in DFx
     if ((menuAction == @selector(ejectDisk:)) && (disk_empty(tag)))
         return NO;
-        
+
     // The current settings for the joystick/mouse ports should be indicated
     if (menuAction == @selector(changePort0:)) {
         if (currprefs.jport0 == tag) [menuItem setState:NSOnState];
         else [menuItem setState:NSOffState];
-        
+
         // and joystick options should be unavailable if there are no joysticks
         if ((tag == JSEM_JOYS) || (tag == (JSEM_JOYS+1))) {
             if ((tag - JSEM_JOYS) >= inputdevice_get_device_total (IDTYPE_JOYSTICK))
                 return NO;
         }
-        
+
         // and we should not allow both ports to be set to the same setting
         if ((tag != JSEM_NONE) && (currprefs.jport1 == tag))
             return NO;
-        
+
         return YES;
     }
     if (menuAction == @selector(changePort1:)) {
         if (currprefs.jport1 == tag) [menuItem setState:NSOnState];
         else [menuItem setState:NSOffState];
-        
+
         // and joystick options should be unavailable if there are no joysticks
         if ((tag == JSEM_JOYS) || (tag == (JSEM_JOYS+1))) {
             if ((tag - JSEM_JOYS) >= inputdevice_get_device_total (IDTYPE_JOYSTICK))
                 return NO;
         }
-        
+
         // and we should not allow both ports to be set to the same setting
         if ((tag != JSEM_NONE) && (currprefs.jport0 == tag))
             return NO;
-        
+
         return YES;
     }
 
@@ -264,7 +264,7 @@ extern BOOL gFinderLaunch; /* Set to YES by SDLMain.m if app launched from the f
 - (void)changePort0:(id)sender
 {
     changed_prefs.jport0 = [((NSMenuItem*)sender) tag];
-    
+
     if( changed_prefs.jport0 != currprefs.jport0 )
         inputdevice_config_change();
 }
@@ -273,7 +273,7 @@ extern BOOL gFinderLaunch; /* Set to YES by SDLMain.m if app launched from the f
 - (void)changePort1:(id)sender
 {
     changed_prefs.jport1 = [((NSMenuItem*)sender) tag];
-    
+
     if( changed_prefs.jport1 != currprefs.jport1 )
         inputdevice_config_change();
 }
@@ -281,21 +281,21 @@ extern BOOL gFinderLaunch; /* Set to YES by SDLMain.m if app launched from the f
 - (void)displayOpenPanelForInsertIntoDriveNumber:(int)driveNumber
 {
     ensureNotFullscreen();
-    
+
     NSOpenPanel *oPanel = [NSOpenPanel openPanel];
     [oPanel setTitle:[NSString stringWithFormat:@"%@: Insert Disk Image",applicationName]];
 
     // Make sure setMessage (OS X 10.3+) is available before calling it
-    if ([oPanel respondsToSelector:@selector(setMessage:)])   
+    if ([oPanel respondsToSelector:@selector(setMessage:)])
         [oPanel setMessage:[NSString stringWithFormat:@"Select a Disk Image for DF%d:", driveNumber]];
-        
+
     [oPanel setPrompt:@"Choose"];
     NSString *contextInfo = [[NSString alloc] initWithFormat:@"%d",driveNumber];
-    
-    [oPanel beginSheetForDirectory:currentFloppyPath file:nil 
-                             types:diskImageTypes 
+
+    [oPanel beginSheetForDirectory:currentFloppyPath file:nil
+                             types:diskImageTypes
                     modalForWindow:[NSApp mainWindow]
-                     modalDelegate:self 
+                     modalDelegate:self
                     didEndSelector:@selector(openPanelDidEnd:returnCode:contextInfo:)
                        contextInfo:contextInfo];
 }
@@ -308,17 +308,17 @@ extern BOOL gFinderLaunch; /* Set to YES by SDLMain.m if app launched from the f
 #endif
 
     if (returnCode != NSOKButton) return;
-    
+
     int drive = [((NSString*)contextInfo) intValue];
     [((NSString*)contextInfo) release];
-	
+
     if ((drive >= 0) && (drive < 4)) {
 	    NSArray *files = [sheet filenames];
 	    NSString *file = [files objectAtIndex:0];
-	    
+
 	    strncpy (changed_prefs.df[drive], [file lossyCString], 255);
 	    changed_prefs.df[drive][255] = '\0';
-	    
+
         if (currentFloppyPath != nil) {
             [currentFloppyPath release];
             currentFloppyPath = nil;
@@ -335,10 +335,10 @@ extern BOOL gFinderLaunch; /* Set to YES by SDLMain.m if app launched from the f
 int ensureNotFullscreen (void)
 {
     int result = 0;
-    
+
     if (is_fullscreen ()) {
 		toggle_fullscreen ();
-		
+
 		if (is_fullscreen ())
 			write_log ("Cannot activate GUI in full-screen mode\n");
 		else {
@@ -348,7 +348,7 @@ int ensureNotFullscreen (void)
         }
 #ifdef USE_SDL
     // Un-hide the mouse
-    SDL_ShowCursor(SDL_ENABLE);	               
+    SDL_ShowCursor(SDL_ENABLE);
 #endif
 
     return result;
@@ -360,47 +360,49 @@ void restoreFullscreen (void)
     // Re-hide the mouse
     SDL_ShowCursor(SDL_DISABLE);
 #endif
-    
+
     if ((!is_fullscreen ()) && (wasFullscreen == YES))
         toggle_fullscreen();
-    
+
     wasFullscreen = NO;
 }
 
-static void sigchldhandler (int foo)
+void gui_init (int argc, char **argv)
 {
 }
 
-int gui_init (void)
+int gui_open (void)
 {
     int result;
     NSString *nsHome;
     char *envhome = getenv("HOME");
-    
+
     [[EuaeGui sharedInstance] createMenus];
-    
+
     if (gFinderLaunch == YES) {
-        if (finderLaunchFilename == nil) {
+        static int run_once = 0;
+        if (finderLaunchFilename == nil && !run_once) {
+            run_once++;
             // Launched from finder without a config file filename, request one from the user
             NSArray *fileTypes = [NSArray arrayWithObjects:@"uaerc", nil];
             NSOpenPanel *oPanel = [NSOpenPanel openPanel];
-            [oPanel setTitle:[NSString stringWithFormat:@"%@: Open Configuration File", 
+            [oPanel setTitle:[NSString stringWithFormat:@"%@: Open Configuration File",
                 [[EuaeGui sharedInstance] applicationName]]];
-			
+
             result = [oPanel runModalForDirectory:nil file:nil types:fileTypes];
-			
+
             if (result == NSOKButton) {
                 NSArray *files = [oPanel filenames];
                 NSString *file = [files objectAtIndex:0];
                 cfgfile_load(&changed_prefs, [file lossyCString], 0);
-            } else 
+            } else
                 return -2;
         } else {
             // Looks like UAE was launched from the Finder with a file selected
-            
+
             // What type of file is it?
             NSString *ext = [[finderLaunchFilename pathExtension] lowercaseString];
-            
+
             // If it's a config file, load it
             if ([ext compare:@"uaerc"] == NSOrderedSame)
                 cfgfile_load(&changed_prefs, [finderLaunchFilename lossyCString], 0);
@@ -412,29 +414,27 @@ int gui_init (void)
                     changed_prefs.df[0][255] = '\0';
                 }
             }
-            
-            [finderLaunchFilename release];
-            finderLaunchFilename = nil;
         }
     }
-	
+
     /* Slight hack: We want to set the path that the file requester in gui_display()
 		will start in to be the floppy_path from the config file, but only if a floppy_path
 		was specified in the config. If none was specified prefs.path_floppy will
 		be "$HOME/", so compare with that here. If it is "$HOME/" we assume that no
-		floppy_path was set in the config file and leave currentFloppyPath as nil, 
+		floppy_path was set in the config file and leave currentFloppyPath as nil,
 		which should cause OS X to choose something useful (such as the last used directory
 															if uae has been run before.) */
     if ((currentFloppyPath == nil) && (envhome != NULL)) {
+		const char *floppy_path = prefs_get_attr("floppy_path");
+
         nsHome = [NSString stringWithFormat:@"%s/",envhome];
-		
-        if ((changed_prefs.path_floppy != NULL) && 
-            ([nsHome compare:[NSString stringWithCString:changed_prefs.path_floppy]] != NSOrderedSame)) {
-            currentFloppyPath = [NSString stringWithCString:changed_prefs.path_floppy];
+
+		if ((floppy_path != NULL) && ([nsHome compare:[NSString stringWithCString:floppy_path]] != NSOrderedSame)) {
+			currentFloppyPath = [NSString stringWithCString:floppy_path];
             [currentFloppyPath retain];
         }
     }
-    
+
     return -1;
 }
 
@@ -448,10 +448,6 @@ void gui_exit (void)
     if (currentFloppyPath != nil) {
         [currentFloppyPath release];
         currentFloppyPath = nil;
-    }
-    if (finderLaunchFilename != nil) {
-        [finderLaunchFilename release];
-        finderLaunchFilename = nil;
     }
 }
 
@@ -468,15 +464,15 @@ void gui_led (int led, int on)
 void gui_hd_led (int led)
 {
     static int resetcounter;
-	
+
     int old = gui_data.hd;
-	
+
     if (led == 0) {
 		resetcounter--;
 		if (resetcounter > 0)
 			return;
     }
-	
+
     gui_data.hd = led;
     resetcounter = 6;
     if (old != gui_data.hd)
@@ -486,14 +482,14 @@ void gui_hd_led (int led)
 void gui_cd_led (int led)
 {
     static int resetcounter;
-	
+
     int old = gui_data.cd;
     if (led == 0) {
 		resetcounter--;
 		if (resetcounter > 0)
 			return;
     }
-	
+
     gui_data.cd = led;
     resetcounter = 6;
     if (old != gui_data.cd)
@@ -512,28 +508,16 @@ void gui_handle_events (void)
 {
 }
 
-void gui_changesettings (void)
-{
-}
-
-void gui_update_gfx (void)
-{
-}
-
-void gui_lock (void)
-{
-}
-
-void gui_unlock (void)
+void gui_notify_state (int state)
 {
 }
 
 void gui_display (int shortcut)
 {
     int result;
-	
+
     if ((shortcut >= 0) && (shortcut < 4)) {
-        [[EuaeGui sharedInstance] displayOpenPanelForInsertIntoDriveNumber:shortcut];   
+        [[EuaeGui sharedInstance] displayOpenPanelForInsertIntoDriveNumber:shortcut];
     }
 }
 
@@ -541,16 +525,16 @@ void gui_message (const char *format,...)
 {
     char msg[2048];
     va_list parms;
-	
+
     ensureNotFullscreen ();
-	
+
     va_start (parms,format);
     vsprintf (msg, format, parms);
     va_end (parms);
-	
+
     NSRunAlertPanel(nil, [NSString stringWithCString:msg], nil, nil, nil);
-	
+
     write_log (msg);
-    
+
     restoreFullscreen ();
 }
