@@ -1577,7 +1577,6 @@ AC_CONFIG_FILES([Makefile
 		 src/gfx-curses/Makefile
 		 src/gfx-svga/Makefile
 		 src/gfx-glgfx/Makefile
-		 src/sd-af/Makefile
 		 src/sd-alsa/Makefile
 		 src/sd-amigaos/Makefile
 		 src/sd-beos/Makefile
