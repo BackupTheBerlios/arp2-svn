@@ -1,0 +1,590 @@
+==base _ARP2_SysCallBase
+==basetype struct Library*
+==libname arp2-syscall.resource
+==bias 6
+==public
+==include <exec/types.h>
+==include <resources/arp2-syscall.h>
+==version 1
+==copyright Copyright (C) 2006-2007 Martin Blom
+
+* Utility functions
+struct Task* arp2sys_arp2_inthandler(VOID) ()
+ULONG arp2sys_arp2_run(ULONG* regs, APTR native_func) (a0,a1)
+==reserve 8
+
+* From <fcntl.h>
+LONG arp2sys_readahead(LONG fd, UQUAD offset, ULONG count) (d0,d1-d2,d3)
+==private
+LONG arp2sys_sync_file_range(LONG fd, UQUAD from, UQUAD to, ULONG flags) (d0,d1-d2,d3-d4,d5)
+LONG arp2sys_vmsplice(LONG fdout, CONST struct arp2_iovec* iov, 
+                      ULONG count, ULONG flags) (d0,a0,d1,d2)
+LONG arp2sys_splice(LONG fdin, UQUAD* offin, LONG fdout, UQUAD* offout, 
+                    ULONG len, ULONG flags) (d0,a0,d1,a1,d2,d3)
+LONG arp2sys_tee(LONG fdin, LONG fdout, ULONG len, ULONG flags) (d0,d1,d2,d3)
+==public
+LONG arp2sys_fcntl(LONG fd, LONG cmd, LONG arg) (d0,d1,a0)
+LONG arp2sys_open(CONST_STRPTR pathname, LONG flags, ULONG mode) (a0,d0,d1)
+==private
+LONG arp2sys_openat(LONG fd, CONST_STRPTR pathname, LONG flags, ULONG mode) (d0,a0,d1,d2)
+==public
+LONG arp2sys_creat(CONST_STRPTR pathname, ULONG mode) (a0,d0)
+LONG arp2sys_posix_fadvise(LONG fd, UQUAD offset, UQUAD len, LONG advise) (d0,d1-d2,d3-d4,d5)
+LONG arp2sys_posix_fallocate(LONG fd, UQUAD offset, UQUAD len) (d0,d1-d2,d3-d4)
+
+
+* From <mqueue.h>
+arp2_mqd_t arp2sys_mq_open(CONST_STRPTR name, LONG oflag, 
+                           arp2_mode_t mode, struct arp2_mq_attr* attr) (a0,d0,d1,a1)
+LONG arp2sys_mq_close(arp2_mqd_t mqdes) (d0)
+LONG arp2sys_mq_getattr(arp2_mqd_t mqdes, struct arp2_mq_attr* mqstat) (d0,a0)
+LONG arp2sys_mq_setattr(arp2_mqd_t mqdes, CONST struct arp2_mq_attr* mqstat, 
+                        struct arp2_mq_attr* omqstat) (d0,a0,a1)
+LONG arp2sys_mq_unlink(CONST_STRPTR name) (a0)
+LONG arp2sys_mq_notify(arp2_mqd_t mqdes, CONST struct arp2_sigevent* notification) (d0,a0)
+LONG arp2sys_mq_receive(arp2_mqd_t mqdes, UBYTE* msg_ptr, ULONG msg_len, 
+                        ULONG* msg_prio) (d0,a0,d1,a1)
+LONG arp2sys_mq_send(arp2_mqd_t mqdes, CONST UBYTE* msg_ptr, ULONG msg_len, 
+                     ULONG msg_prio) (d0,a0,d1,d2)
+LONG arp2sys_mq_timedreceive(arp2_mqd_t mqdes, UBYTE* msg_ptr, ULONG msg_len, ULONG* msg_prio, 
+                             CONST struct arp2_timespec* abs_timeout) (d0,a0,d1,a1,a2)
+LONG arp2sys_mq_timedsend(arp2_mqd_t mqdes, CONST UBYTE* msg_ptr, ULONG msg_len,  ULONG msg_prio,
+                          CONST struct arp2_timespec* abs_timeout) (d0,a0,d1,d2,a1)
+
+
+* From <poll.h>
+==private
+LONG arp2sys_poll(struct arp2_pollfd* fds, ULONG nfds) (a0,d0)
+LONG arp2sys_ppoll(struct arp2_pollfd* fds, ULONG nfds, 
+                   CONST struct arp2_timespec* timeout, 
+                   CONST arp2_sigset_t* sigmask) (a0,d0,a1,a2)
+==public
+
+* From <sched.h>
+* NOTE! clone()'s ptid, tls and ctid are currently ignored!
+LONG arp2sys_clone(LONG (*fn)(APTR arg), APTR child_stack, LONG flags, APTR arg, arp2_pid_t* ptid, 
+                   struct arp2_user_desc* tls, arp2_pid_t* ctid) (a0,a1,d0,a2,d1,d2,d3)
+==private
+LONG arp2sys_unshare(LONG flags) (d0)
+==public
+LONG arp2sys_sched_setparam(arp2_pid_t pid, CONST struct arp2_sched_param* param) (d0,a0)
+LONG arp2sys_sched_getparam(arp2_pid_t pid, struct arp2_sched_param* param) (d0,a0)
+LONG arp2sys_sched_setscheduler(arp2_pid_t pid, LONG policy, 
+                                CONST struct arp2_sched_param* param) (d0,d1,a0)
+LONG arp2sys_sched_getscheduler(arp2_pid_t pid) (d0)
+LONG arp2sys_sched_yield(VOID) ()
+LONG arp2sys_sched_get_priority_max(LONG algorithm) (d0)
+LONG arp2sys_sched_get_priority_min(LONG algorithm) (d0)
+LONG arp2sys_sched_rr_get_interval(arp2_pid_t pid, struct arp2_timespec* t) (d0,a0)
+LONG arp2sys_sched_setaffinity(arp2_pid_t pid, ULONG cpusetsize, 
+                               CONST arp2_cpu_set_t* cpuset) (d0,d1,a0)
+LONG arp2sys_sched_getaffinity(arp2_pid_t pid, ULONG cpusetsize, 
+                               arp2_cpu_set_t* cpuset) (d0,d1,a0)
+
+
+* From <signal.h>
+LONG arp2sys_kill(arp2_pid_t pid, LONG sig) (d0,d1)
+LONG arp2sys_killpg(arp2_pid_t pgrp, LONG sig) (d0,d1)
+LONG arp2sys_raise(LONG sig) (d0)
+LONG arp2sys_sigprocmask(LONG how, CONST arp2_sigset_t* set, 
+                         arp2_sigset_t* oldset) (d0,a0,a1)
+LONG arp2sys_sigsuspend(CONST arp2_sigset_t* set) (a0)
+==private
+LONG arp2sys_sigaction(LONG sig, CONST struct arp2_sigaction* act, 
+                       struct arp2_sigaction* oldact) (d0,a0,a1)
+==public
+LONG arp2sys_sigpending(arp2_sigset_t* set) (a0)
+LONG arp2sys_sigwait(CONST arp2_sigset_t* set, LONG* sig) (a0,d0)
+LONG arp2sys_sigwaitinfo(CONST arp2_sigset_t* set, arp2_siginfo_t* info) (a0,a1)
+LONG arp2sys_sigtimedwait(CONST arp2_sigset_t* set, arp2_siginfo_t* info,
+                          CONST struct arp2_timespec* timeout) (a0,a1,a2)
+LONG arp2sys_sigqueue(arp2_pid_t pid, LONG sig, CONST union arp2_sigval val) (d0,d1,d2)
+LONG arp2sys_siginterrupt(LONG sig, LONG interrupt) (d0,d1)
+==private
+LONG arp2sys_sigaltstack(CONST struct arp2_sigaltstack* ss, struct arp2_sigaltstack* oss) (a0,a1)
+==public
+
+
+* From <stdio.h>
+LONG arp2sys_rename(CONST_STRPTR old, CONST_STRPTR new) (a0,a1)
+==private
+LONG arp2sys_renameat(LONG oldfd, CONST_STRPTR old, LONG newfd, CONST_STRPTR new) (d0,a0,d1,a1)
+==public
+
+
+* From <time.h>
+arp2_clock_t arp2sys_clock(VOID) ()
+arp2_time_t arp2sys_time(arp2_time_t* time) (a0)
+LONG arp2sys_nanosleep(CONST struct arp2_timespec* requested_time, 
+                       struct arp2_timespec* remaining) (a0,a1)
+LONG arp2sys_clock_getres(arp2_clockid_t clock_id, struct arp2_timespec* res) (d0,a0)
+LONG arp2sys_clock_gettime(arp2_clockid_t clock_id, struct arp2_timespec* tp) (d0,a0)
+LONG arp2sys_clock_settime(arp2_clockid_t clock_id, CONST struct arp2_timespec* tp) (d0,a0)
+LONG arp2sys_clock_nanosleep(arp2_clockid_t clock_id, LONG flags, CONST struct arp2_timespec* req, 
+                             struct arp2_timespec* rem) (d0,d1,a0,a1)
+LONG arp2sys_clock_getcpuclockid(arp2_pid_t pid, arp2_clockid_t* clock_id) (d0,a0)
+==private
+LONG arp2sys_timer_create(arp2_clockid_t clock_id, struct arp2_sigevent* evp, 
+                          arp2_timer_t* timerid) (d0,a0,a1)
+LONG arp2sys_timer_delete(arp2_timer_t timerid) (a0)
+LONG arp2sys_timer_settime(arp2_timer_t timerid, LONG flags, CONST struct arp2_itimerspec* value, 
+                           struct arp2_itimerspec* ovalue) (a0,d0,a1,a2)
+LONG arp2sys_timer_gettime(arp2_timer_t timerid, struct arp2_itimerspec* value) (a0,a1)
+LONG arp2sys_timer_getoverrun(arp2_timer_t timerid) (a0)
+==public
+
+* From <unistd.h>
+LONG arp2sys_access(CONST_STRPTR name, LONG type) (a0,d0)
+LONG arp2sys_euidaccess(CONST_STRPTR name, LONG type) (a0,d0)
+==private
+LONG arp2sys_faccessat(LONG fd, CONST_STRPTR file, LONG type, LONG flag) (d0,a0,d1,d2)
+==public
+LONG arp2sys_lseek(LONG fd, QUAD offset, LONG whence) (d0,d1-d2,d3)
+LONG arp2sys_close(LONG fd) (d0)
+LONG arp2sys_read(LONG fd, APTR buf, ULONG count) (d0,a0,d1)
+LONG arp2sys_write(LONG fd, CONST_APTR buf, ULONG count) (d0,a0,d1)
+LONG arp2sys_pread(LONG fd, APTR buf, ULONG nbytes, UQUAD offset) (d0,a0,d1,d2-d3)
+LONG arp2sys_pwrite(LONG fd, CONST_APTR buf, ULONG n, UQUAD offset) (d0,a0,d1,d2-d3)
+LONG arp2sys_pipe(LONG* pipedes) (a0)
+ULONG arp2sys_alarm(ULONG seconds) (d0)
+ULONG arp2sys_sleep(ULONG seconds) (d0)
+LONG arp2sys_pause(VOID) ()
+LONG arp2sys_chown(CONST_STRPTR file, arp2_uid_t owner, arp2_gid_t group) (a0,d0,d1)
+LONG arp2sys_fchown(LONG fd, arp2_uid_t owner, arp2_gid_t group) (d0,d1,d2)
+LONG arp2sys_lchown(CONST_STRPTR file, arp2_uid_t owner, arp2_gid_t group) (a0,d0,d1)
+==private
+LONG arp2sys_fchownat(LONG fd, CONST_STRPTR file, 
+                      arp2_uid_t owner, arp2_gid_t group, LONG flag) (d0,a0,d1,d2,d3)
+==public
+LONG arp2sys_chdir(CONST_STRPTR path) (a0)
+LONG arp2sys_fchdir(LONG fd) (d0)
+STRPTR arp2sys_getcwd(STRPTR buf, ULONG size) (a0,d0)
+LONG arp2sys_dup(LONG fd) (d0)
+LONG arp2sys_dup2(LONG fd, LONG fd2) (d0,d1)
+LONG arp2sys_execve(CONST_STRPTR path, STRPTR CONST* argv, STRPTR CONST* envp)  (a0,a1,a2)
+LONG arp2sys_execv(CONST_STRPTR path, STRPTR CONST* argv) (a0,a1)
+* LONG arp2sys_execle(CONST_STRPTR path, CONST_STRPTR arg, ...)
+* LONG arp2sys_execl(CONST_STRPTR path, CONST_STRPTR arg, ...)
+LONG arp2sys_execvp(CONST_STRPTR file, STRPTR CONST* argv) (a0,a1)
+* LONG arp2sys_execlp(CONST_STRPTR file, CONST_STRPTR arg, ...)
+LONG arp2sys_nice(LONG inc) (d0)
+LONG arp2sys_pathconf(CONST_STRPTR path, LONG name) (a0,d0)
+LONG arp2sys_fpathconf(LONG fd, LONG name) (d0,d1)
+LONG arp2sys_sysconf(LONG name) (d0)
+ULONG arp2sys_confstr(LONG name, STRPTR buf, ULONG len) (d0,a0,d1)
+arp2_pid_t arp2sys_getpid(VOID) ()
+arp2_pid_t arp2sys_getppid(VOID) ()
+arp2_pid_t arp2sys_getpgrp(VOID) ()
+arp2_pid_t arp2sys_getpgid(arp2_pid_t pid) (d0)
+LONG arp2sys_setpgid(arp2_pid_t pid, arp2_pid_t pgid) (d0,d1)
+LONG arp2sys_setpgrp(VOID)  ()
+arp2_pid_t arp2sys_setsid(VOID) ()
+arp2_pid_t arp2sys_getsid(arp2_pid_t pid) (d0)
+arp2_uid_t arp2sys_getuid(VOID) ()
+arp2_uid_t arp2sys_geteuid(VOID) ()
+arp2_gid_t arp2sys_getgid(VOID) ()
+arp2_gid_t arp2sys_getegid(VOID) ()
+LONG arp2sys_getgroups(LONG size, arp2_gid_t* list) (d0,a0)
+* setgroups() is actually in <grp.h>
+LONG arp2sys_setgroups(ULONG n, CONST arp2_gid_t* groups) (d0,a0)
+LONG arp2sys_group_member(arp2_gid_t gid) (d0)
+LONG arp2sys_setuid(arp2_uid_t uid) (d0)
+LONG arp2sys_setreuid(arp2_uid_t ruid, arp2_uid_t euid) (d0,d1)
+LONG arp2sys_seteuid(arp2_uid_t uid)  (d0)
+LONG arp2sys_setgid(arp2_gid_t gid) (d0)
+LONG arp2sys_setregid(arp2_gid_t rgid, arp2_gid_t egid) (d0,d1)
+LONG arp2sys_setegid(arp2_gid_t gid) (d0)
+LONG arp2sys_getresuid(arp2_uid_t* ruid, arp2_uid_t* euid, arp2_uid_t* suid) (a0,a1,a2)
+LONG arp2sys_getresgid(arp2_gid_t* rgid, arp2_gid_t* egid, arp2_gid_t* sgid) (a0,a1,a2)
+LONG arp2sys_setresuid(arp2_uid_t ruid, arp2_uid_t euid, arp2_uid_t suid) (d0,d1,d2)
+LONG arp2sys_setresgid(arp2_gid_t rgid, arp2_gid_t egid, arp2_gid_t sgid) (d0,d1,d2)
+arp2_pid_t arp2sys_fork(VOID)  ()
+arp2_pid_t arp2sys_vfork(VOID)  ()
+LONG arp2sys_ttyname_r(LONG fd, STRPTR buf, ULONG buflen) (d0,a0,d1)
+LONG arp2sys_isatty(LONG fd) (d0)
+LONG arp2sys_link(CONST_STRPTR from, CONST_STRPTR to) (a0,a1)
+==private
+LONG arp2sys_linkat(LONG fromfd, CONST_STRPTR from, LONG tofd, 
+                    CONST_STRPTR to, LONG flags) (d0,a0,d1,a1,d2)
+==public
+LONG arp2sys_symlink(CONST_STRPTR from, CONST_STRPTR to) (a0,a1)
+LONG arp2sys_readlink(CONST_STRPTR path, STRPTR buf, ULONG len) (a0,a1,d0)
+==private
+LONG arp2sys_symlinkat(CONST_STRPTR from, LONG tofd, CONST_STRPTR to) (a0,d0,a1)
+LONG arp2sys_readlinkat(LONG fd, CONST_STRPTR path, STRPTR buf, ULONG len) (d0,a0,a1,d1)
+==public
+LONG arp2sys_unlink(CONST_STRPTR name) (a0)
+==private
+LONG arp2sys_unlinkat(LONG fd, CONST_STRPTR name, LONG flag) (d0,a0,d1)
+==public
+LONG arp2sys_rmdir(CONST_STRPTR path) (a0)
+arp2_pid_t arp2sys_tcgetpgrp(LONG fd) (d0)
+LONG arp2sys_tcsetpgrp(LONG fd, arp2_pid_t pgrp_id) (d0,d1)
+LONG arp2sys_getlogin_r(STRPTR name, ULONG name_len) (a0,d0)
+LONG arp2sys_setlogin(CONST_STRPTR name) (a0)
+LONG arp2sys_gethostname(STRPTR name, ULONG len) (a0,d0)
+LONG arp2sys_sethostname(CONST_STRPTR name, ULONG len) (a0,d0)
+LONG arp2sys_sethostid(LONG id) (d0)
+LONG arp2sys_getdomainname(STRPTR name, ULONG len) (a0,d0)
+LONG arp2sys_setdomainname(CONST_STRPTR name, ULONG len) (a0,d0)
+LONG arp2sys_vhangup(VOID) ()
+LONG arp2sys_revoke(CONST_STRPTR file) (a0)
+LONG arp2sys_profil(UWORD* sample_buffer, ULONG size, ULONG offset, ULONG scale) (a0,d0,d1,d2)
+LONG arp2sys_acct(CONST_STRPTR name) (a0)
+LONG arp2sys_daemon(LONG nochdir, LONG noclose) (d0,d1)
+LONG arp2sys_chroot(CONST_STRPTR path) (a0)
+LONG arp2sys_fsync(LONG fd) (d0)
+LONG arp2sys_gethostid(VOID) ()
+VOID arp2sys_sync(VOID) ()
+LONG arp2sys_getpagesize(VOID) ()
+LONG arp2sys_getdtablesize(VOID) ()
+LONG arp2sys_truncate(CONST_STRPTR file, UQUAD length) (a0,d0-d1)
+LONG arp2sys_ftruncate(LONG fd, UQUAD length)  (d0,d1-d2)
+LONG arp2sys_brk(APTR end_data_segment) (a0)
+APTR arp2sys_sbrk(LONG increment) (d0)
+LONG arp2sys_lockf(LONG fd, LONG cmd, UQUAD len) (d0,d1,d2-d3)
+LONG arp2sys_fdatasync(LONG fildes)  (d0)
+* getdents() is not really in <unistd.h>
+LONG arp2sys_getdents(ULONG fd, struct arp2_dirent* dirp, ULONG count) (d0,a0,d1)
+
+
+* From <utime.h>
+LONG arp2sys_utime(CONST_STRPTR file, CONST struct arp2_utimbuf* file_times) (a0,a1)
+
+
+* From <attr/xattr.h>
+LONG arp2sys_setxattr(CONST_STRPTR path, CONST_STRPTR name, 
+                      CONST_APTR value, ULONG size, LONG flags) (a0,a1,a2,d0,d1)
+LONG arp2sys_lsetxattr(CONST_STRPTR path, CONST_STRPTR name, 
+                       CONST_APTR value, ULONG size, LONG flags) (a0,a1,a2,d0,d1)
+LONG arp2sys_fsetxattr(LONG filedes, CONST_STRPTR name, 
+                       CONST_APTR value, ULONG size, LONG flags) (d0,a0,a1,d1,d2)
+LONG arp2sys_getxattr(CONST_STRPTR path, CONST_STRPTR name, APTR value, ULONG size) (a0,a1,a2,d0)
+LONG arp2sys_lgetxattr(CONST_STRPTR path, CONST_STRPTR name, APTR value, ULONG size) (a0,a1,a2,d0)
+LONG arp2sys_fgetxattr(LONG filedes, CONST_STRPTR name, APTR value, ULONG size) (d0,a0,a1,d1)
+LONG arp2sys_listxattr(CONST_STRPTR path, STRPTR list, ULONG size) (a0,a1,d0)
+LONG arp2sys_llistxattr(CONST_STRPTR path, STRPTR list, ULONG size) (a0,a1,d0)
+LONG arp2sys_flistxattr(LONG filedes, STRPTR list, ULONG size) (d0,a0,d1)
+LONG arp2sys_removexattr(CONST_STRPTR path, CONST_STRPTR name) (a0,a1)
+LONG arp2sys_lremovexattr(CONST_STRPTR path, CONST_STRPTR name) (a0,a1)
+LONG arp2sys_fremovexattr(LONG filedes, CONST_STRPTR name) (d0,a0)
+
+
+* From <sys/epoll.h>
+==private
+LONG arp2sys_epoll_create(LONG size) (d0)
+LONG arp2sys_epoll_ctl(LONG epfd, LONG op, LONG fd, struct arp2_epoll_event* event) (d0,d1,d2,a0)
+LONG arp2sys_epoll_wait(LONG epfd, struct arp2_epoll_event* events, 
+                        LONG maxevents, LONG timeout) (d0,a0,d1,d2)
+==public
+
+* From <sys/file.h>
+LONG arp2sys_flock(LONG fd, LONG operation) (d0,d1)
+
+
+* From <sys/fsuid.h>
+LONG arp2sys_setfsuid(arp2_uid_t uid) (d0)
+LONG arp2sys_setfsgid(arp2_gid_t gid) (d0)
+
+
+* From <sys/io.h>
+LONG arp2sys_ioperm(ULONG from, ULONG num, LONG turn_on) (d0,d1,d2)
+LONG arp2sys_iopl(LONG level) (d0)
+
+
+* From <sys/ioctl.h>
+LONG arp2sys_ioctl(LONG fd, ULONG request, APTR arg) (d0,d1,a0)
+
+
+* From <sys/klog.h>
+LONG arp2sys_klogctl(LONG type, STRPTR bufp, LONG len) (d0,a0,d1)
+
+
+* From <sys/mman.h>
+APTR arp2sys_mmap(APTR start, ULONG length, LONG prot, LONG flags, 
+                  LONG fd, UQUAD offset) (a0,d0,d1,d2,d3,d4-d5)
+LONG arp2sys_munmap(APTR start, ULONG length) (a0,d0)
+LONG arp2sys_mprotect(CONST_APTR addr, ULONG len, LONG prot) (a0,d0,d1)
+LONG arp2sys_msync(APTR start, ULONG length, LONG flags) (a0,d0,d1)
+LONG arp2sys_madvise(APTR start, ULONG length, LONG advice) (a0,d0,d1)
+LONG arp2sys_posix_madvise(APTR start, ULONG length, LONG advice) (a0,d0,d1)
+LONG arp2sys_mlock(CONST_APTR addr, ULONG len) (a0,d0)
+LONG arp2sys_munlock(CONST_APTR addr, ULONG len) (a0,d0)
+LONG arp2sys_mlockall(LONG flags) (d0)
+LONG arp2sys_munlockall(VOID) ()
+LONG arp2sys_mincore(APTR start, ULONG length, UBYTE* vec) (a0,d0,a1)
+APTR arp2sys_mremap(APTR old_address, ULONG old_size, ULONG new_size, 
+                    LONG flags) (a0,d0,d1,d2)
+LONG arp2sys_remap_file_pages(APTR start, ULONG size, LONG prot, 
+                              ULONG pgoff, LONG flags) (a0,d0,d1,d2,d3)
+LONG arp2sys_shm_open(CONST_STRPTR name, LONG oflag, arp2_mode_t mode) (a0,d0,d1)
+LONG arp2sys_shm_unlink(CONST_STRPTR name) (a0)
+
+
+* From <sys/mount.h>
+LONG arp2sys_mount(CONST_STRPTR special_file, CONST_STRPTR dir, CONST_STRPTR fstype, 
+                   ULONG rwflag, CONST_APTR data) (a0,a1,a2,d0,a3)
+LONG arp2sys_umount(CONST_STRPTR special_file) (a0)
+LONG arp2sys_umount2(CONST_STRPTR special_file, LONG flags) (a0,d0)
+
+
+* From <sys/resource.h>
+LONG arp2sys_getrlimit(arp2_rlimit_resource_t resource, struct arp2_rlimit* rlimits) (d0,a0)
+LONG arp2sys_setrlimit(arp2_rlimit_resource_t resource, CONST struct arp2_rlimit* rlimits)(d0,a0)
+LONG arp2sys_getrusage(arp2_rusage_who_t who, struct arp2_rusage* usage) (d0,a0)
+LONG arp2sys_getpriority(arp2_priority_which_t which, arp2_id_t who) (d0,d1)
+LONG arp2sys_setpriority(arp2_priority_which_t which, arp2_id_t who, LONG prio) (d0,d1,d2)
+
+
+* From <sys/select.h>
+LONG arp2sys_select(LONG nfds, arp2_fd_set* readfds, arp2_fd_set* writefds, 
+                   arp2_fd_set* exceptfds, struct arp2_timeval* timeout) (d0,a0,a1,a2,a3)
+LONG arp2sys_pselect(LONG nfds, arp2_fd_set* readfds, arp2_fd_set* writefds,
+                    arp2_fd_set* exceptfds, CONST struct arp2_timespec* timeout,
+                    CONST arp2_sigset_t* sigmask) (d0,a0,a1,a2,a3,a4)
+
+
+* From <sys/stat.h>
+LONG arp2sys_stat(CONST_STRPTR path, struct arp2_stat* buf) (a0,a1)
+LONG arp2sys_fstat(LONG fd, struct arp2_stat* buf) (d0,a0)
+==private
+LONG arp2sys_fstatat(LONG fd, CONST_STRPTR file, struct arp2_stat* buf, LONG flag) (d0,a0,a1,d1)
+==public
+LONG arp2sys_lstat(CONST_STRPTR path, struct arp2_stat* buf) (a0,a1)
+LONG arp2sys_chmod(CONST_STRPTR file, arp2_mode_t mode) (a0,d0)
+LONG arp2sys_lchmod(CONST_STRPTR file, arp2_mode_t mode) (a0,d0)
+LONG arp2sys_fchmod(LONG fd, arp2_mode_t mode) (d0,d1)
+==private
+LONG arp2sys_fchmodat(LONG fd, CONST_STRPTR file, arp2_mode_t mode, LONG flag) (d0,a0,d1,d2)
+==public
+arp2_mode_t arp2sys_umask(arp2_mode_t mask) (d0)
+arp2_mode_t arp2sys_getumask(VOID) ()
+LONG arp2sys_mkdir(CONST_STRPTR path, arp2_mode_t mode) (a0,d0)
+==private
+LONG arp2sys_mkdirat(LONG fd, CONST_STRPTR path, arp2_mode_t mode) (d0,a0,d1)
+==public
+LONG arp2sys_mknod(CONST_STRPTR path, arp2_mode_t mode, arp2_dev_t dev) (a0,d0,d1-d2)
+==private
+LONG arp2sys_mknodat(LONG fd, CONST_STRPTR path, arp2_mode_t mode, arp2_dev_t dev) (d0,a0,d1,d2-d3)
+==public
+LONG arp2sys_mkfifo(CONST_STRPTR path, arp2_mode_t mode) (a0,d0)
+==private
+LONG arp2sys_mkfifoat(LONG fd, CONST_STRPTR path, arp2_mode_t mode) (d0,a0,d1)
+==public
+
+
+* From <sys/statfs.h>
+LONG arp2sys_statfs(CONST_STRPTR file, struct arp2_statfs* buf) (a0,a1)
+LONG arp2sys_fstatfs(LONG fildes, struct arp2_statfs* buf) (d0,a0)
+
+
+* From <sys/statvfs.h>
+LONG arp2sys_statvfs(CONST_STRPTR file, struct arp2_statvfs* buf) (a0,a1)
+LONG arp2sys_fstatvfs(LONG fildes, struct arp2_statvfs* buf) (d0,a0)
+
+
+* From <sys/swap.h>
+LONG arp2sys_swapon(CONST_STRPTR path, LONG flags) (a0,d0)
+LONG arp2sys_swapoff(CONST_STRPTR path) (a0)
+
+
+* From <sys/sysinfo.h>
+LONG arp2sys_sysinfo(struct arp2_sysinfo* info) (a0)
+LONG arp2sys_get_nprocs_conf(VOID) ()
+LONG arp2sys_get_nprocs(VOID) ()
+LONG arp2sys_get_phys_pages(VOID) ()
+LONG arp2sys_get_avphys_pages(VOID) ()
+
+
+* From <sys/time.h>
+LONG arp2sys_gettimeofday(struct arp2_timeval* tv, struct arp2_timezone* tz) (a0,a1)
+LONG arp2sys_settimeofday(CONST struct arp2_timeval* tv, CONST struct arp2_timezone* tz) (a0,a1)
+LONG arp2sys_adjtime(CONST struct arp2_timeval* delta, struct arp2_timeval* olddelta) (a0,a1)
+LONG arp2sys_getitimer(arp2_itimer_which_t which, struct arp2_itimerval* value) (d0,a0)
+LONG arp2sys_setitimer(arp2_itimer_which_t which, CONST struct arp2_itimerval* new, 
+                       struct arp2_itimerval* old) (d0,a0,a1)
+LONG arp2sys_utimes(CONST_STRPTR file, CONST struct arp2_timeval* tvp) (a0,a1)
+LONG arp2sys_lutimes(CONST_STRPTR file, CONST struct arp2_timeval* tvp) (a0,a1)
+LONG arp2sys_futimes(LONG fd, CONST struct arp2_timeval* tvp) (d0,a0)
+==private
+LONG arp2sys_futimesat(LONG fd, CONST_STRPTR file, CONST struct arp2_timeval* tvp) (d0,a0,a1)
+==public
+
+
+* From <sys/times.h>
+arp2_clock_t arp2sys_times(struct arp2_tms* buffer) (a0)
+
+
+* From <sys/uio.h>
+LONG arp2sys_readv(LONG fd, CONST struct arp2_iovec* iovec, LONG count) (d0,a0,d1)
+LONG arp2sys_writev(LONG fd, CONST struct arp2_iovec* iovec, LONG count) (d0,a0,d1)
+
+
+* From <sys/utsname.h>
+LONG arp2sys_uname(struct arp2_utsname* name) (a0)
+
+
+* From <sys/wait.h>
+arp2_pid_t arp2sys_wait(LONG* stat_loc) (a0)
+LONG arp2sys_waitid(arp2_idtype_t idtype, arp2_id_t id, arp2_siginfo_t* infop, 
+                    LONG options) (d0,d1,a0,d2)
+arp2_pid_t arp2sys_wait3(LONG* stat_loc, LONG options, struct arp2_rusage* usage) (a0,d0,a1)
+arp2_pid_t arp2sys_wait4(arp2_pid_t pid, LONG* stat_loc, LONG options, 
+                         struct arp2_rusage* usage) (d0,a0,d1,a1)
+
+
+
+* From <sys/sendfile.h>
+*LONG sendfile(LONG out_fd, LONG in_fd, UQUAD* offset, ULONG count)
+
+* From <sys/socket.h>
+*LONG socket(LONG domain, LONG type, LONG protocol)
+*LONG socketpair(LONG domain, LONG type, LONG protocol, LONG* fds)
+*LONG bind(LONG fd, const arp2_sockaddr_t* addr, ULONG len)
+*LONG getsockname(LONG fd, arp2_sockaddr_t* addr, ULONG* len)
+*LONG connect(LONG fd, const arp2_sockaddr_t* addr, ULONG len)
+*LONG getpeername(LONG fd, arp2_sockaddr_t* addr, ULONG* len)
+*LONG send(LONG fd, CONST_APTR buf, ULONG n, LONG flags)
+*LONG recv(LONG fd, APTR buf, ULONG n, LONG flags)
+*LONG sendto(LONG fd, CONST_APTR buf, ULONG n, LONG flags, const arp2_sockaddr_t* addr, ULONG addr_len)
+*LONG recvfrom(LONG fd, APTR buf, ULONG n, LONG flags, arp2_sockaddr_t* addr, ULONG* addr_len)
+*LONG sendmsg(LONG fd, const struct msghdr* message, LONG flags)
+*LONG recvmsg(LONG fd, struct msghdr* message, LONG flags)
+*LONG getsockopt(LONG fd, LONG level, LONG optname, APTR optval, ULONG* optlen)
+*LONG setsockopt(LONG fd, LONG level, LONG optname, CONST_APTR optval, ULONG optlen)
+*LONG listen(LONG fd, LONG n)
+*LONG accept(LONG fd, arp2_sockaddr_t* addr, ULONG* addr_len)
+*LONG shutdown(LONG fd, LONG how)
+*LONG sockatmark(LONG fd) 
+*LONG isfdtype(LONG fd, LONG fdtype)
+
+
+* From <sys/ipc.h> (omitted)
+* arp2sys_ftok
+
+
+* From <sys/msg.h> (omitted)
+* arp2sys_msgctl
+* arp2sys_msgget
+* arp2sys_msgrcv
+* arp2sys_msgsnd
+
+
+* From <sys/sem.h> (omitted)
+* arp2sys_semctl
+* arp2sys_semget
+* arp2sys_semop
+* arp2sys_semtimedop
+
+
+* From <sys/shm.h> (omitted)
+* arp2sys_shmctl
+* arp2sys_shmget
+* arp2sys_shmat
+* arp2sys_shmdt
+
+* From <sys/ptrace.h> (omitted)
+* arp2sys_ptrace
+
+
+* Various junk (omitted)
+* arp2sys_getpmsg
+* arp2sys_putpmsg
+* arp2sys_afs_syscall
+* arp2sys_security
+* arp2sys_epoll_ctl_old
+* arp2sys_epoll_wait_old
+* arp2sys_vserver
+* arp2sys_tuxcall
+* arp2sys_create_module
+* arp2sys_init_module
+* arp2sys_delete_module
+* arp2sys_get_kernel_syms
+* arp2sys_query_module
+* arp2sys_uselib
+* arp2sys_ustat
+* arp2sys_sysctl
+* arp2sys_ualarm
+* arp2sys_usleep
+* arp2sys_ttyslot
+* arp2sys_getopt
+* arp2sys_getusershell
+* arp2sys_endusershell
+* arp2sys_setusershell
+* arp2sys_getpass
+* arp2sys_syscall
+
+
+* Various syscalls (omitted)
+* arp2sys_gettid
+* arp2sys_tkill
+* arp2sys_tgkill
+* arp2sys_futex
+* arp2sys_get_thread_area
+* arp2sys_set_thread_area
+* arp2sys_set_tid_address
+* arp2sys_set_mempolicy
+* arp2sys_get_mempolicy
+* arp2sys_exit
+* arp2sys_exit_group
+* arp2sys_pivot_root
+* arp2sys_sysfs
+* arp2sys_lookup_dcookie
+* arp2sys_restart_syscall
+* arp2sys_reboot
+* arp2sys_mbind
+* arp2sys_capget
+* arp2sys_capset
+* arp2sys_personality
+* arp2sys_modify_ldt
+* arp2sys_prctl
+* arp2sys_arch_prctl
+* arp2sys_quotactl
+* arp2sys_nfsservctl
+* arp2sys_add_key
+* arp2sys_request_key
+* arp2sys_keyctl
+* arp2sys_kexec_load
+* arp2sys_io_setup
+* arp2sys_io_destroy
+* arp2sys_io_getevents
+* arp2sys_io_submit
+* arp2sys_io_cancel
+
+* arp2sys_posix_openpt
+* arp2sys_posix_spawn(?) 
+* arp2sys_posix_spawnp(?)
+
+* From <time.h> (omitted)
+* difftime
+* mktime
+* strftime
+* strptime
+* strftime_l
+* strptime_l
+* gmtime_r
+* localtime_r
+* asctime_r
+* ctime_r
+* tzset
+* stime
+* timegm
+* timelocal
+* getdate_r
+
+* From <stdlib.h>
+* arp2sys_malloc
+* arp2sys_calloc
+* arp2sys_realloc
+* arp2sys_free
+* arp2sys_posix_memalign
+* arp2sys_abort
+* arp2sys_atexit
+* arp2sys_exit
+* arp2sys_getenv
+* arp2sys_putenv
+* arp2sys_setenv
+* arp2sys_unsetenv
+* etc etc
+==end
+

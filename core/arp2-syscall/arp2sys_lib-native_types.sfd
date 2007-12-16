@@ -1,0 +1,513 @@
+==base _ARP2_SysCallBase
+==basetype struct Library*
+==libname arp2-syscall.resource
+==bias 30
+==public
+==include <exec/types.h>
+==include <resources/arp2-syscall.h>
+==version 1
+
+* From <fcntl.h>
+ssize_t readahead (int __fd, __off64_t __offset, size_t __count)
+int sync_file_range (int __fd, __off64_t __from, __off64_t __to, unsigned int __flags);
+int vmsplice (int __fdout, const struct iovec *__iov, size_t __count, unsigned int __flags);
+int splice (int __fdin, __off64_t *__offin, int __fdout, __off64_t *__offout, size_t __len, unsigned int __flags)
+int tee (int __fdin, int __fdout, size_t __len, unsigned int __flags)
+LONG arp2sys_fcntl(LONG fd, LONG cmd, LONG arg) (d0,d1,a0)
+LONG arp2sys_open(CONST_STRPTR pathname, LONG flags, ULONG mode) (a0,d0,d1)
+LONG arp2sys_openat(LONG fd, CONST_STRPTR pathname, LONG flags, ULONG mode) (a0,d0,d1)
+LONG arp2sys_creat(CONST_STRPTR pathname, ULONG mode) (a0,d0)
+int posix_fadvise (int __fd, __off_t __offset, __off_t __len, int __advise)
+int posix_fallocate (int __fd, __off_t __offset, __off_t __len)
+
+
+* From <poll.h>
+LONG arp2sys_poll(struct arp2_pollfd* fds, ULONG nfds) (a0,d0)
+LONG arp2sys_ppoll(struct arp2_pollfd* fds, ULONG nfds, 
+                   CONST struct arp2_timespec* timeout, 
+                   CONST arp2_sigset_t* sigmask) (a0,d0,a1,a2)
+
+
+* From <stdio.h>
+int rename (__const char *__old, __const char *__new)
+int renameat (int __oldfd, __const char *__old, int __newfd, __const char *__new)
+
+
+* From <unistd.h>
+int access (__const char *__name, int __type)
+int euidaccess (__const char *__name, int __type)
+int eaccess (__const char *__name, int __type)
+int faccessat (int __fd, __const char *__file, int __type, int __flag)
+QUAD arp2sys_lseek(LONG fd, QUAD offset, LONG whence) (d0,d1-d2,d3)
+LONG arp2sys_close(LONG fd) (d0)
+LONG arp2sys_read(LONG fd, APTR buf, ULONG count) (d0,a0,d1)
+LONG arp2sys_write(LONG fd, CONST_APTR buf, ULONG count) (d0,a0,d1)
+ssize_t pread (int __fd, void *__buf, size_t __nbytes, __off_t __offset) 
+ssize_t pwrite (int __fd, __const void *__buf, size_t __n, __off_t __offset)
+int pipe (int __pipedes[2])
+unsigned int alarm (unsigned int __seconds)
+unsigned int sleep (unsigned int __seconds);
+__useconds_t ualarm (__useconds_t __value, __useconds_t __interval)
+int usleep (__useconds_t __useconds);
+int pause (void);
+int chown (__const char *__file, __uid_t __owner, __gid_t __group)
+int fchown (int __fd, __uid_t __owner, __gid_t __group)
+int lchown (__const char *__file, __uid_t __owner, __gid_t __group)
+int fchownat (int __fd, __const char *__file, __uid_t __owner, __gid_t __group, int __flag)
+int chdir (__const char *__path)
+int fchdir (int __fd)
+char *getcwd (char *__buf, size_t __size)
+int dup (int __fd)
+int dup2 (int __fd, int __fd2)
+int execve (__const char *__path, char *__const __argv[], char *__const __envp[]) 
+int execv (__const char *__path, char *__const __argv[])
+int execle (__const char *__path, __const char *__arg, ...)
+int execl (__const char *__path, __const char *__arg, ...)
+int execvp (__const char *__file, char *__const __argv[])
+int execlp (__const char *__file, __const char *__arg, ...)
+int nice (int __inc)
+long int pathconf (__const char *__path, int __name)
+long int fpathconf (int __fd, int __name)
+long int sysconf (int __name)
+size_t confstr (int __name, char *__buf, size_t __len)
+__pid_t getpid (void)
+__pid_t getppid (void)
+__pid_t getpgrp (void)
+__pid_t getpgid (__pid_t __pid)
+int setpgid (__pid_t __pid, __pid_t __pgid)
+int setpgrp (void) 
+__pid_t setsid (void)
+__pid_t getsid (__pid_t __pid)
+__uid_t getuid (void)
+__uid_t geteuid (void)
+__gid_t getgid (void)
+__gid_t getegid (void)
+int getgroups (int __size, __gid_t __list[])
+* setgroups() is actually in <grp.h>
+int setgroups (size_t __n, __const __gid_t *__groups)
+int group_member (__gid_t __gid)
+int setuid (__uid_t __uid)
+int setreuid (__uid_t __ruid, __uid_t __euid)
+int seteuid (__uid_t __uid) 
+int setgid (__gid_t __gid)
+int setregid (__gid_t __rgid, __gid_t __egid)
+int setegid (__gid_t __gid)
+int getresuid (__uid_t *__ruid, __uid_t *__euid, __uid_t *__suid)
+int getresgid (__gid_t *__rgid, __gid_t *__egid, __gid_t *__sgid)
+int setresuid (__uid_t __ruid, __uid_t __euid, __uid_t __suid)
+int setresgid (__gid_t __rgid, __gid_t __egid, __gid_t __sgid)
+__pid_t fork (void) 
+__pid_t vfork (void) 
+int ttyname_r (int __fd, char *__buf, size_t __buflen)
+int isatty (int __fd)
+int ttyslot (void) 
+int link (__const char *__from, __const char *__to)
+int linkat (int __fromfd, __const char *__from, int __tofd, __const char *__to, int __flags)
+int symlink (__const char *__from, __const char *__to)
+ssize_t readlink (__const char *__restrict __path, char *__restrict __buf, size_t __len)
+int symlinkat (__const char *__from, int __tofd, __const char *__to)
+ssize_t readlinkat (int __fd, __const char *__restrict __path, char *__restrict __buf, size_t __len)
+int unlink (__const char *__name)
+int unlinkat (int __fd, __const char *__name, int __flag)
+int rmdir (__const char *__path)
+__pid_t tcgetpgrp (int __fd)
+int tcsetpgrp (int __fd, __pid_t __pgrp_id)
+int getlogin_r (char *__name, size_t __name_len)
+int setlogin (__const char *__name)
+* int getopt (int ___argc, char *const *___argv, const char *__shortopts)
+int gethostname (char *__name, size_t __len)
+int sethostname (__const char *__name, size_t __len)
+int sethostid (long int __id)
+int getdomainname (char *__name, size_t __len)
+int setdomainname (__const char *__name, size_t __len)
+int vhangup (void)
+int revoke (__const char *__file)
+int profil (unsigned short int *__sample_buffer, size_t __size, size_t __offset, unsigned int __scale)
+int acct (__const char *__name)
+* char *getusershell (void)
+* void endusershell (void)
+* void setusershell (void)
+int daemon (int __nochdir, int __noclose)
+int chroot (__const char *__path)
+* char *getpass (__const char *__prompt)
+int fsync (int __fd)
+long int gethostid (void)
+void sync (void)
+int getpagesize (void)
+int getdtablesize (void)
+int truncate (__const char *__file, __off_t __length)
+int ftruncate (int __fd, __off_t __length) 
+LONG arp2sys_brk(APTR end_data_segment) (a0)
+APTR arp2sys_sbrk(LONG increment) (d0)
+* syscall
+int lockf (int __fd, int __cmd, __off_t __len)
+int fdatasync (int __fildes) 
+* getdents() is not really in <unistd.h>
+int getdents(unsigned int fd, struct dirent64 *dirp, unsigned int count);
+
+
+
+* From <attr/xattr.h>
+int setxattr (const char *__path, const char *__name, const void *__value, size_t __size, int __flags)
+int lsetxattr (const char *__path, const char *__name, const void *__value, size_t __size, int __flags)
+int fsetxattr (int __filedes, const char *__name, const void *__value, size_t __size, int __flags)
+ssize_t getxattr (const char *__path, const char *__name, void *__value, size_t __size)
+ssize_t lgetxattr (const char *__path, const char *__name, void *__value, size_t __size)
+ssize_t fgetxattr (int __filedes, const char *__name, void *__value, size_t __size)
+ssize_t listxattr (const char *__path, char *__list, size_t __size)
+ssize_t llistxattr (const char *__path, char *__list, size_t __size)
+ssize_t flistxattr (int __filedes, char *__list, size_t __size)
+int removexattr (const char *__path, const char *__name)
+int lremovexattr (const char *__path, const char *__name)
+int fremovexattr (int __filedes, const char *__name)
+
+
+* From <sys/epoll.h>
+int epoll_create (int __size)
+int epoll_ctl (int __epfd, int __op, int __fd, struct epoll_event *__event)
+int epoll_wait (int __epfd, struct epoll_event *__events, int __maxevents, int __timeout)
+
+
+* From <sys/ioctl.h>
+int ioctl (int __fd, unsigned long int __request, ...)
+
+
+* From <sys/file.h>
+int flock (int __fd, int __operation)
+
+
+* From <sys/fsuid.h>
+int setfsuid (__uid_t __uid)
+int setfsgid (__gid_t __gid)
+
+
+* From <sys/io.h>
+int ioperm (unsigned long int __from, unsigned long int __num, int __turn_on)
+int iopl (int __level)
+
+* From <sys/klog.h>
+int klogctl(int type, char *bufp, int len);
+
+
+* From <sys/mman.h>
+APTR arp2sys_mmap(APTR start, ULONG length, LONG prot, LONG flags, 
+                  LONG fd, QUAD offset) (a0,d0,d1,d2,d3,d4)
+LONG arp2sys_munmap(APTR start, ULONG length) (a0,d0)
+LONG arp2sys_mprotect(CONST_APTR addr, ULONG len, LONG prot) (a0,d0,d1)
+int msync(void* start, size_t length, int flags);
+int madvise(void* start, size_t length, int advice);
+int posix_madvise(void* start, size_t length, int advice);
+int mlock(const void* addr, size_t len)
+int munlock(const void* addr, size_t len)
+int mlockall(int flags)
+int munlockall(void)
+int mincore(void* start, size_t length, unsigned char* vec);
+APTR arp2sys_mremap(void* old_address, size_t old_size, size_t new_size, 
+                    int flags) (a0, d0, d1, d2)
+int remap_file_pages(void* start, size_t size, int prot,
+        size_t pgoff, int flags)
+int shm_open(const char* name, int oflag, mode_t mode);
+int shm_unlink(const char* name);
+
+* From <sys/mount.h>
+int mount (__const char *__special_file, __const char *__dir, __const char *__fstype, unsigned long int __rwflag, __const void *__data) __attribute__ ((__nothrow__));
+int umount (__const char *__special_file)
+int umount2 (__const char *__special_file, int __flags)
+
+
+* From <sys/ptrace.h>
+long int ptrace (enum __ptrace_request __request, ...)
+
+* From <sys/resource.h>
+int getrlimit64 (__rlimit_resource_t __resource, struct rlimit *__rlimits)
+int setrlimit64 (__rlimit_resource_t __resource, __const struct rlimit *__rlimits)
+int getrusage (__rusage_who_t __who, struct rusage *__usage)
+int getpriority (__priority_which_t __which, id_t __who)
+int setpriority (__priority_which_t __which, id_t __who, int __prio)
+
+
+* From <sys/select.h>
+int arp2sys_select(int nfds, arp2_fd_set* readfds, arp2_fd_set* writefds, 
+                   arp2_fd_set* exceptfds, struct arp2_timeval* timeout);
+int arp2sys_pselect(int nfds, arp2_fd_set* readfds, arp2_fd_set* writefds,
+                    arp2_fd_set* exceptfds, const struct arp2_timespec* timeout,
+                    const arp2_sigset_t* sigmask);
+
+
+* From <sys/stat.h>
+LONG arp2sys_stat(CONST_STRPTR path, struct arp2_stat64* buf) (a0,a1)
+LONG arp2sys_fstat(LONG fd, struct arp2_stat64* buf) (d0,a0)
+LONG arp2sys_fstatat(LONG fd, const char* file, struct arp2_stat64* buf int flag)
+LONG arp2sys_lstat(CONST_STRPTR path, struct arp2_stat64* buf) (a0,a1)
+int chmod(const char* file, mode_t mode)
+int lchmod(const char* file, mode_t mode)
+int fchmod(int fd, mode_t mode)
+int fchmodat(int fd, const char* file, mode_t mode, int flag)
+mode_t umask(mode_t mask)
+mode_t getumask(void)
+int mkdir(const char* path, mode_t mode)
+int mkdirat(int fd, const char* path, mode_t mode)
+int mknod(const char* path, mode_t mode, dev_t dev)
+int mknodat(int fd, const char* path, mode_t mode, dev_t dev)
+int mkfifo(const char* path, mode_t mode)
+int mkfifoat(int fd, const char* path, mode_t mode)
+
+
+* From <sys/swap.h>
+int swapon (__const char *__path, int __flags)
+int swapoff (__const char *__path)
+
+* From <sys/sysinfo.h>
+int sysinfo (struct sysinfo *__info)
+int get_nprocs_conf (void)
+int get_nprocs (void)
+long int get_phys_pages (void)
+long int get_avphys_pages (void)
+
+
+* From <sys/time.h>
+int gettimeofday (struct timeval *__restrict __tv, __timezone_ptr_t __tz)
+int settimeofday (__const struct timeval *__tv, __const struct timezone *__tz)
+int adjtime (__const struct timeval *__delta, struct timeval *__olddelta)
+int getitimer (__itimer_which_t __which, struct itimerval *__value)
+int setitimer (__itimer_which_t __which, __const struct itimerval *__restrict __new, struct itimerval *__restrict __old)
+int utimes (__const char *__file, __const struct timeval __tvp[2])
+int lutimes (__const char *__file, __const struct timeval __tvp[2])
+int futimes (int __fd, __const struct timeval __tvp[2])
+int futimesat (int __fd, __const char *__file, __const struct timeval __tvp[2])
+
+
+* From <sys/times.h>
+clock_t times (struct tms *__buffer)
+
+
+* From <sys/uio.h>
+ssize_t readv (int __fd, __const struct iovec *__iovec, int __count);
+ssize_t writev (int __fd, __const struct iovec *__iovec, int __count);
+
+
+* From <sys/utsname.h>
+int uname (struct utsname *__name)
+
+* From <sys/vfs.h>
+int statfs (__const char *__file, struct statfs64 *__buf)
+int fstatfs (int __fildes, struct statfs64 *__buf)
+
+
+* From <sys/wait.h>
+__pid_t wait (int * __stat_loc);
+int waitid (idtype_t __idtype, __id_t __id, siginfo_t *__infop, int __options);
+__pid_t wait3 (int * __stat_loc, int __options, struct rusage * __usage)
+__pid_t wait4 (__pid_t __pid, int * __stat_loc, int __options, struct rusage *__usage)
+
+
+* From <mqueue.h>
+mqd_t mq_open (const char *__name, int __oflag, ...)
+int mq_close (mqd_t __mqdes)
+int mq_getattr (mqd_t __mqdes, struct mq_attr *__mqstat)
+int mq_setattr (mqd_t __mqdes, const struct mq_attr *__restrict __mqstat, struct mq_attr *__restrict __omqstat)
+mq_unlink (const char *__name)
+int mq_notify (mqd_t __mqdes, const struct sigevent *__notification)
+ssize_t mq_receive (mqd_t __mqdes, char *__msg_ptr, size_t __msg_len, unsigned int *__msg_prio);
+int mq_send (mqd_t __mqdes, const char *__msg_ptr, size_t __msg_len, unsigned int __msg_prio);
+ssize_t mq_timedreceive (mqd_t __mqdes, char *__restrict __msg_ptr, size_t __msg_len, unsigned int *__restrict __msg_prio, const struct timespec *__restrict __abs_timeout);
+int mq_timedsend (mqd_t __mqdes, const char *__msg_ptr, size_t __msg_len, unsigned int __msg_prio, const struct timespec *__abs_timeout);
+
+
+* From <sched.h>
+int clone (int (*__fn) (void *__arg), void *__child_stack, int __flags, void *__arg, ...)
+int unshare (int __flags)
+int sched_setparam (__pid_t __pid, __const struct sched_param *__param)
+int sched_getparam (__pid_t __pid, struct sched_param *__param)
+int sched_setscheduler (__pid_t __pid, int __policy, __const struct sched_param *__param)
+int sched_getscheduler (__pid_t __pid)
+int sched_yield (void)
+int sched_get_priority_max (int __algorithm)
+int sched_get_priority_min (int __algorithm)
+int sched_rr_get_interval (__pid_t __pid, struct timespec *__t)
+int sched_setaffinity (__pid_t __pid, size_t __cpusetsize, __const cpu_set_t *__cpuset)
+int sched_getaffinity (__pid_t __pid, size_t __cpusetsize, cpu_set_t *__cpuset)
+
+
+* From <signal.h>
+extern int kill(pid_t pid, int sig)
+extern int killpg(pid_t pgrp, int sig)
+extern int raise(int sig)
+LONG sigprocmask(LONG how, CONST arp2_sigset_t* set, 
+                 arp2_sigset_t* oldset) (d0,a0,a1)
+int sigsuspend (__const sigset_t *__set)
+LONG sigaction(LONG sig, CONST struct arp2_sigaction* act, 
+               struct arp2_sigaction* oldact) (d0,a0,a1)
+int sigpending(sigset_t* set)
+int sigwait(const sigset_t* set, int* sig)
+int sigwaitinfo(const sigset_t* set, siginfo_t* info)
+int sigtimedwait(const sigset_t* set, siginfo_t* info, const struct arp2_timespec* timeout)
+int sigqueue(pid_t pid, int sig, const union sigval val)
+int siginterrupt(int sig, int interrupt)
+int sigaltstack(const struct arp2_sigaltstack* ss, struct arp2_sigaltstack* oss)
+
+
+* From <time.h>
+clock_t clock (void)
+time_t time (time_t *__timer)
+int nanosleep (__const struct timespec *__requested_time, struct timespec *__remaining);
+int clock_getres (clockid_t __clock_id, struct timespec *__res)
+int clock_gettime (clockid_t __clock_id, struct timespec *__tp)
+int clock_settime (clockid_t __clock_id, __const struct timespec *__tp)
+int clock_nanosleep (clockid_t __clock_id, int __flags, __const struct timespec *__req, struct timespec *__rem);
+int clock_getcpuclockid (pid_t __pid, clockid_t *__clock_id)
+int timer_create (clockid_t __clock_id, struct sigevent *__restrict __evp, timer_t *__restrict __timerid)
+int timer_delete (timer_t __timerid)
+int timer_settime (timer_t __timerid, int __flags, __const struct itimerspec *__restrict __value, struct itimerspec *__restrict __ovalue)
+int timer_gettime (timer_t __timerid, struct itimerspec *__value)
+int timer_getoverrun (timer_t __timerid)
+
+
+* From <utime.h>
+int utime (__const char *__file, __const struct utimbuf *__file_times)
+
+
+
+
+
+
+* From <sys/socket.h> (omitted)
+* arp2sys_sendfile
+* arp2sys_socket
+* arp2sys_socketpair
+* arp2sys_bind
+* arp2sys_getsockname
+* arp2sys_connect
+* arp2sys_getpeername
+* arp2sys_send
+* arp2sys_recv
+* arp2sys_sendto
+* arp2sys_recvfrom
+* arp2sys_sendmsg
+* arp2sys_recvmsg
+* arp2sys_getsockopt
+* arp2sys_setsockopt
+* arp2sys_listen
+* arp2sys_accept
+* arp2sys_shutdown
+* arp2sys_sockatmark
+* arp2sys_isfdtype
+
+
+* From <sys/ipc.h> (omitted)
+* arp2sys_ftok
+
+
+* From <sys/msg.h> (omitted)
+* arp2sys_msgctl
+* arp2sys_msgget
+* arp2sys_msgrcv
+* arp2sys_msgsnd
+
+
+* From <sys/sem.h> (omitted)
+* arp2sys_semctl
+* arp2sys_semget
+* arp2sys_semop
+* arp2sys_semtimedop
+
+
+* From <sys/shm.h> (omitted)
+* arp2sys_shmctl
+* arp2sys_shmget
+* arp2sys_shmat
+* arp2sys_shmdt
+
+
+* Various junk  (omitted)
+* arp2sys_getpmsg
+* arp2sys_putpmsg
+* arp2sys_afs_syscall
+* arp2sys_security
+* arp2sys_epoll_ctl_old
+* arp2sys_epoll_wait_old
+* arp2sys_vserver
+* arp2sys_tuxcall
+* arp2sys_create_module
+* arp2sys_init_module
+* arp2sys_delete_module
+* arp2sys_get_kernel_syms
+* arp2sys_query_module
+* arp2sys_uselib
+* arp2sys_ustat
+* arp2sys_sysctl
+
+
+* Various syscalls (omitted)
+* arp2sys_gettid
+* arp2sys_tkill
+* arp2sys_tgkill
+* arp2sys_futex
+* arp2sys_get_thread_area
+* arp2sys_set_thread_area
+* arp2sys_set_tid_address
+* arp2sys_set_mempolicy
+* arp2sys_get_mempolicy
+* arp2sys_exit
+* arp2sys_exit_group
+* arp2sys_pivot_root
+* arp2sys_sysfs
+* arp2sys_lookup_dcookie
+* arp2sys_restart_syscall
+* arp2sys_reboot
+* arp2sys_mbind
+* arp2sys_capget
+* arp2sys_capset
+* arp2sys_personality
+* arp2sys_modify_ldt
+* arp2sys_prctl
+* arp2sys_arch_prctl
+* arp2sys_quotactl
+* arp2sys_nfsservctl
+* arp2sys_add_key
+* arp2sys_request_key
+* arp2sys_keyctl
+* arp2sys_kexec_load
+* arp2sys_io_setup
+* arp2sys_io_destroy
+* arp2sys_io_getevents
+* arp2sys_io_submit
+* arp2sys_io_cancel
+
+* arp2sys_posix_openpt
+* arp2sys_posix_spawn (?) 
+* arp2sys_posix_spawnp (?)
+
+* From <time.h> (omitted)
+* difftime
+* mktime
+* strftime
+* strptime
+* strftime_l
+* strptime_l
+* gmtime_r
+* localtime_r
+* asctime_r
+* ctime_r
+* tzset
+* stime
+* timegm
+* timelocal
+* getdate_r
+
+* From <stdlib.h>
+* arp2sys_malloc
+* arp2sys_calloc
+* arp2sys_realloc
+* arp2sys_free
+* arp2sys_posix_memalign
+* arp2sys_abort
+* arp2sys_atexit
+* arp2sys_exit
+* arp2sys_getenv
+* arp2sys_putenv
+* arp2sys_setenv
+* arp2sys_unsetenv
+* etc etc
+==end
+
