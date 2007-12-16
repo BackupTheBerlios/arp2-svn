@@ -5593,7 +5593,7 @@ void build_comp (void)
 	sigemptyset (&act.sa_mask);
 	act.sa_flags = SA_SIGINFO;
 #  ifdef SA_ONSTACK
-	sa.sa_flags |= SA_ONSTACK;
+	act.sa_flags |= SA_ONSTACK;
 #  endif
 	sigaction (SIGSEGV, &act, NULL);
 # endif
