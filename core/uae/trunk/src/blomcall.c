@@ -40,6 +40,7 @@
 #include "newcpu.h"
 #include "machdep/m68kops.h"
 #include "blomcall.h"
+#include "uae_endian.h"
 
 #if !defined(NATMEM_OFFSET) || NATMEM_OFFSET != 0
 # error NATMEM_OFFSET must be 0!
