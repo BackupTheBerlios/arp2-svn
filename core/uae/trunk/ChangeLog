@@ -1,3 +1,7 @@
+2007-12-14 Martin Blom  <martin@blom.org>
+
+	* Merged e-uae-0.8.29-CVS-2007-12-14.
+
 2006-12-03  Martin Blom  <martin@blom.org>
 
 	* src/blomcall.c, rc/include/blomcall.h: Try to preserve
