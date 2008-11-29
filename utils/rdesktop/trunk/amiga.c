@@ -132,8 +132,8 @@ BOOL           amiga_numlock            = TRUE;  // default state is on
 BOOL           amiga_scrolllock         = FALSE; // default state is off
 BOOL           amiga_capslock           = 0xbad; // -> sync on first key
 
-HCURSOR        amiga_last_cursor        = NULL;
-HCURSOR        amiga_null_cursor        = NULL;
+RD_HCURSOR     amiga_last_cursor        = NULL;
+RD_HCURSOR     amiga_null_cursor        = NULL;
 
 BOOL           amiga_broken_cursor      = FALSE;
 BOOL           amiga_broken_blitter     = FALSE;
@@ -746,8 +746,6 @@ ui_select(int rdp_socket)
     /* add redirection handles */
     rdpdr_add_fds(&n, &rfds, &wfds, &tv, &s_timeout);
 
-    n++;
-
     mask = (1UL << amiga_wb_port->mp_SigBit) | amiga_clip_signals;
 
 #if !defined(__ixemul__)
@@ -769,11 +767,11 @@ ui_select(int rdp_socket)
 #endif
 
 #if defined(__amigaos4__)
-    res  = WaitSelect(n, &rfds, &wfds, NULL, &tv, &mask );
+    res  = WaitSelect(n + 1, &rfds, &wfds, NULL, &tv, &mask );
 #elif defined(__libnix__)
-    res  = lx_select(n, &rfds, &wfds, NULL, &tv, &mask );
+    res  = lx_select(n + 1, &rfds, &wfds, NULL, &tv, &mask );
 #elif defined(__ixemul__)
-    res  = ix_select(n, &rfds, &wfds, NULL, &tv, &mask );
+    res  = ix_select(n + 1, &rfds, &wfds, NULL, &tv, &mask );
 #else
 # error "Don't know how to wait for signals!"
 #endif
@@ -1176,14 +1174,23 @@ ui_select(int rdp_socket)
 
       amiga_cbar_handle_events(mask);
 
-      if( res > 0 )
+      if( res == 0 )
+      {
+#ifdef WITH_RDPSND
+	rdpsnd_check_fds(&rfds, &wfds);
+#endif
+
+	/* Abort serial read calls */
+	if (s_timeout)
+	  rdpdr_check_fds(&rfds, &wfds, (RD_BOOL) True);
+	continue;
+      }
+      else if (res > 0)
       {
 	rdpdr_check_fds(&rfds, &wfds, (Bool) False);
 
 	if (FD_ISSET(rdp_socket, &rfds))
-	{
 	  return True;
-	}
       }
   }
 	
@@ -1226,7 +1233,7 @@ ui_get_numlock_state(unsigned int amiga_qualifiers)
 }
 
 
-HBITMAP
+RD_HBITMAP
 ui_create_bitmap(int width, int height, uint8 *data)
 {
   struct RastPort* rp;
@@ -1254,7 +1261,7 @@ ui_create_bitmap(int width, int height, uint8 *data)
     }
   }
 
-  return (HBITMAP) rp;
+  return (RD_HBITMAP) rp;
 }
 
 void
@@ -1268,7 +1275,7 @@ ui_paint_bitmap(int x, int y, int cx, int cy,
 }
 
 void
-ui_destroy_bitmap(HBITMAP bmp)
+ui_destroy_bitmap(RD_HBITMAP bmp)
 {
   struct RastPort* rp = (struct RastPort*) bmp;
 
@@ -1281,7 +1288,7 @@ ui_destroy_bitmap(HBITMAP bmp)
 }
 
 
-HGLYPH
+RD_HGLYPH
 ui_create_glyph(int width, int height, uint8 *data)
 {
   int           bytesperrow = ( width + 7 ) / 8;
@@ -1313,19 +1320,19 @@ ui_create_glyph(int width, int height, uint8 *data)
     }
   }
   
-  return (HGLYPH) glyph;
+  return (RD_HGLYPH) glyph;
 }
 
 
 void
-ui_destroy_glyph(HGLYPH glyph)
+ui_destroy_glyph(RD_HGLYPH glyph)
 {
   WaitBlit();
   xfree( glyph );
 }
 
 
-HCURSOR
+RD_HCURSOR
 ui_create_cursor(unsigned int x, unsigned int y, int width,
 		 int height, uint8 *andmask, uint8 *data)
 {
@@ -1442,12 +1449,12 @@ ui_create_cursor(unsigned int x, unsigned int y, int width,
     }
   }
 
-  return (HCURSOR) c;
+  return (RD_HCURSOR) c;
 }
 
 
 void
-ui_set_cursor(HCURSOR cursor)
+ui_set_cursor(RD_HCURSOR cursor)
 {
   struct Cursor* c = (struct Cursor*) cursor;
 
@@ -1464,7 +1471,7 @@ ui_set_cursor(HCURSOR cursor)
 
 
 void
-ui_destroy_cursor(HCURSOR cursor)
+ui_destroy_cursor(RD_HCURSOR cursor)
 {
   struct Cursor* c = (struct Cursor*) cursor;
 
@@ -1490,14 +1497,14 @@ ui_destroy_cursor(HCURSOR cursor)
 void
 ui_set_null_cursor(void)
 {
-  HCURSOR tmp = amiga_last_cursor;
+  RD_HCURSOR tmp = amiga_last_cursor;
 
   ui_set_cursor( amiga_null_cursor );
   amiga_last_cursor = tmp;
 }
 
 
-HCOLOURMAP
+RD_HCOLOURMAP
 ui_create_colourmap(COLOURMAP *colours)
 {
   ULONG* map;
@@ -1534,18 +1541,18 @@ ui_create_colourmap(COLOURMAP *colours)
     map[ i ] = 0;
   }
 
-  return (HCOLOURMAP) map;
+  return (RD_HCOLOURMAP) map;
 }
 
 
 void
-ui_destroy_colourmap(HCOLOURMAP map)
+ui_destroy_colourmap(RD_HCOLOURMAP map)
 {
   xfree( map );
 }
 
 void
-ui_set_colourmap(HCOLOURMAP map)
+ui_set_colourmap(RD_HCOLOURMAP map)
 {
   LONG* ptr = (LONG*) map;
   int   n   = *(WORD*) ptr;
@@ -1827,7 +1834,7 @@ ui_screenblt(uint8 opcode,
 void
 ui_memblt(uint8 opcode,
 	  /* dest */ int x, int y, int cx, int cy,
-	  /* src */ HBITMAP src, int srcx, int srcy)
+	  /* src */ RD_HBITMAP src, int srcx, int srcy)
 {
   x += amiga_window->BorderLeft;
   y += amiga_window->BorderTop;
@@ -1841,7 +1848,7 @@ ui_memblt(uint8 opcode,
 void
 ui_triblt(uint8 opcode,
 	  /* dest */ int x, int y, int cx, int cy,
-	  /* src */ HBITMAP src, int srcx, int srcy,
+	  /* src */ RD_HBITMAP src, int srcx, int srcy,
 	  /* brush */ BRUSH * brush, int bgcolour, int fgcolour)
 {
   /* This is potentially difficult to do in general. Until someone
@@ -1912,7 +1919,7 @@ ui_rect(
 void
 ui_draw_glyph(int mixmode,
 	      /* dest */ int x, int y, int cx, int cy,
-	      /* src */ HGLYPH glyph, int srcx, int srcy, int bgcolour,
+	      /* src */ RD_HGLYPH glyph, int srcx, int srcy, int bgcolour,
 	      int fgcolour)
 {
   struct Glyph* g = (struct Glyph*) glyph;
@@ -2140,13 +2147,13 @@ ui_end_update(void)
 }
 
 void 
-ui_polygon(uint8 opcode, uint8 fillmode, POINT * point, int npoints,
+ui_polygon(uint8 opcode, uint8 fillmode, RD_POINT * point, int npoints,
 	   BRUSH * brush, int bgcolour, int fgcolour)
 {
 }
 
 void 
-ui_polyline(uint8 opcode, POINT * points, int npoints, PEN * pen)
+ui_polyline(uint8 opcode, RD_POINT * points, int npoints, PEN * pen)
 {
 }
 

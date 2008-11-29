@@ -20,9 +20,6 @@
 
 #include "rdesktop.h"
 
-#undef BOOL
-#define Bool int
-
 #include <dos/dos.h>
 #include <workbench/startup.h>
 #include <workbench/workbench.h>
@@ -74,34 +71,34 @@ extern int g_height;
 extern int g_tcp_port_rdp;
 extern int g_server_depth;
 extern int g_win_button_size;
-extern Bool g_bitmap_compression;
-extern Bool g_sendmotion;
-extern Bool g_encryption;
-extern Bool packet_encryption;
-extern Bool g_desktop_save;
-extern Bool g_polygon_ellipse_orders;
-extern Bool g_fullscreen;
-extern Bool g_grab_keyboard;
-extern Bool g_hide_decorations;
-extern Bool g_use_rdp5;
-extern Bool g_console_session;
-extern Bool g_numlock_sync;
-extern Bool g_owncolmap;
-extern Bool g_ownbackstore;
+extern RD_BOOL g_bitmap_compression;
+extern RD_BOOL g_sendmotion;
+extern RD_BOOL g_encryption;
+extern RD_BOOL g_packet_encryption;
+extern RD_BOOL g_desktop_save;
+extern RD_BOOL g_polygon_ellipse_orders;
+extern RD_BOOL g_fullscreen;
+extern RD_BOOL g_grab_keyboard;
+extern RD_BOOL g_hide_decorations;
+extern RD_BOOL g_use_rdp5;
+extern RD_BOOL g_console_session;
+extern RD_BOOL g_numlock_sync;
+extern RD_BOOL g_owncolmap;
+extern RD_BOOL g_ownbackstore;
 extern uint32 g_embed_wnd;
 extern uint32 g_rdp5_performanceflags;
 /* Session Directory redirection */
-extern Bool g_redirect;
+extern RD_BOOL g_redirect;
 extern char g_redirect_server[64];
 extern char g_redirect_domain[16];
 extern char g_redirect_password[64];
 extern char g_redirect_username[64];
 extern char g_redirect_cookie[128];
 extern uint32 g_redirect_flags;
-extern Bool g_bitmap_cache_persist_enable;
+extern RD_BOOL g_bitmap_cache_persist_enable;
 
 #ifdef WITH_RDPSND
-extern Bool g_rdpsnd;
+extern RD_BOOL g_rdpsnd;
 extern int  amiga_audio_unit;
 #endif
 
@@ -120,7 +117,7 @@ static void show_disconnect_reason(uint16 reason);
 
 const char version[] = "$VER: " PACKAGE_STRING " [" PACKAGE_OS "] "
                               "(C) 2005-2007 Joerg Strohmayer; "
-                              "(C) 2001-2006 Martin Blom; "
+                              "(C) 2001-2008 Martin Blom; "
                               "(C) 1999-2005 Matthew Chapman et al.\0$STACK: 524288";
 
 #ifdef __amigaos4__
@@ -237,10 +234,10 @@ rdesktop_reset_state(void)
   rdp_reset_state();
 }
 
-static Bool
+static RD_BOOL
 read_password(char *password, int size)
 {
-  Bool ret = False;  
+  RD_BOOL ret = False;  
   char *p;
 
   fprintf(stderr, "Password: \e[8m");
@@ -413,7 +410,7 @@ main(int argc, char *argv[])
   char password[64];
   char shell[256];
   char directory[256];
-  Bool prompt_password, deactivated;
+  RD_BOOL prompt_password, deactivated;
   struct passwd *pw;
   uint32 flags;
   char *p;
@@ -855,12 +852,12 @@ main(int argc, char *argv[])
     warning( "The LEFT, TOP and PUBSCREEN arguments are ignored in fullscreen mode.\n");
   }
 	
-  g_width           = *a_args.a_width;
-  g_height          = *a_args.a_height;
+  g_width             = *a_args.a_width;
+  g_height            = *a_args.a_height;
 	
-  g_encryption      = ! a_args.a_french;
-  packet_encryption = ! a_args.a_noenc;
-  g_sendmotion      = ! a_args.a_nomouse;
+  g_encryption        = ! a_args.a_french;
+  g_packet_encryption = ! a_args.a_noenc;
+  g_sendmotion        = ! a_args.a_nomouse;
 #ifdef WITH_RDPSND
   if( a_args.a_audio != NULL) amiga_audio_unit = *a_args.a_audio;
 #endif
@@ -983,7 +980,7 @@ main(int argc, char *argv[])
   PRINTI(  g_bitmap_compression );
   PRINTI(  g_sendmotion );
   PRINTI(  g_encryption );
-  PRINTI(  packet_encryption );
+  PRINTI(  g_packet_encryption );
   PRINTI(  g_desktop_save );
   PRINTI(  g_fullscreen );
   PRINTI(  g_grab_keyboard );
@@ -1009,7 +1006,7 @@ main(int argc, char *argv[])
 #ifdef WITH_RDPSND
   if (g_rdpsnd)
   {
-    rdpsnd_init();
+    rdpsnd_init(NULL);
     startup |= RDPSND_INIT;
   }
 #endif
@@ -1032,7 +1029,7 @@ main(int argc, char *argv[])
 	
     /* By setting encryption to False here, we have an encrypted login 
        packet but unencrypted transfer of other packets */
-    if (!packet_encryption)
+    if (!g_packet_encryption)
       g_encryption = False;
 
     DEBUG(("Connection successful.\n"));

@@ -22,9 +22,7 @@
 */
 
 #include "rdesktop.h"
-
-#undef BOOL
-#define Bool int
+#include "rdpsnd.h"
 
 #include <devices/ahi.h>
 #include <proto/exec.h>
@@ -58,8 +56,20 @@ static ULONG              ahi_samplerate;
 static ULONG              ahi_volume;
 static ULONG              ahi_pan;
 
-Bool
-wave_out_open(void)
+RD_BOOL ahi_out_open(void);
+void ahi_out_close(RD_BOOL abort);
+RD_BOOL ahi_out_format_supported(RD_WAVEFORMATEX * pwfx);
+RD_BOOL ahi_out_set_format(RD_WAVEFORMATEX * pwfx);
+void ahi_out_volume(uint16 left, uint16 right);
+void ahi_out_write(STREAM s, uint16 tick, uint8 index);
+void ahi_out_play(void);
+
+
+
+
+
+RD_BOOL
+ahi_out_open(void)
 {
 //  printf( "wave_open\n" );
 
@@ -99,12 +109,12 @@ wave_out_open(void)
     }
   }
 
-  wave_out_close(True);
+  ahi_out_close(True);
   return False;
 }
 
 void
-wave_out_close(Bool abort)
+ahi_out_close(RD_BOOL abort)
 {
 //  printf( "wave_close\n" );
   
@@ -164,10 +174,10 @@ wave_out_close(Bool abort)
   }
 }
 
-Bool
-wave_out_format_supported(WAVEFORMATEX * pwfx)
+RD_BOOL
+ahi_out_format_supported(RD_WAVEFORMATEX * pwfx)
 {
-//  printf( "wave_out_format_supported\n" );
+//  printf( "ahi_out_format_supported\n" );
   
   if (pwfx->wFormatTag != WAVE_FORMAT_PCM)
     return False;
@@ -179,12 +189,12 @@ wave_out_format_supported(WAVEFORMATEX * pwfx)
   return True;
 }
 
-Bool
-wave_out_set_format(WAVEFORMATEX * pwfx)
+RD_BOOL
+ahi_out_set_format(RD_WAVEFORMATEX * pwfx)
 {
   int test = 1;
   
-//  printf( "wave_out_set_format\n" );
+//  printf( "ahi_out_set_format\n" );
   
   ahi_swapaudio = False;
 
@@ -212,9 +222,9 @@ wave_out_set_format(WAVEFORMATEX * pwfx)
 }
 
 void
-wave_out_volume(uint16 left, uint16 right)
+ahi_out_volume(uint16 left, uint16 right)
 {
-//  printf( "wave_out_volume %x %x\n", left, right );
+//  printf( "ahi_out_volume %x %x\n", left, right );
 
   ahi_volume = ( left + right ) / 2;
 
@@ -237,12 +247,12 @@ wave_out_volume(uint16 left, uint16 right)
 
 
 void
-wave_out_write(STREAM s, uint16 tick, uint8 index)
+ahi_out_write(STREAM s, uint16 tick, uint8 index)
 {
   struct audio_packet *packet = &packet_queue[queue_hi];
   unsigned int next_hi = (queue_hi + 1) % MAX_QUEUE;
 
-//  printf( "wave_out_write\n" );
+//  printf( "ahi_out_write\n" );
   
   if (next_hi == queue_lo)
   {
@@ -260,12 +270,12 @@ wave_out_write(STREAM s, uint16 tick, uint8 index)
   /* we steal the data buffer from s, give it a new one */
   s->data = malloc(s->size);
   
-  wave_out_play();
+  ahi_out_play();
 }
 
 
 void
-wave_out_play(void)
+ahi_out_play(void)
 {
   struct audio_packet *packet;
   unsigned int i;
@@ -273,7 +283,7 @@ wave_out_play(void)
   struct AHIRequest* tmp_io;
   APTR tmp_data;
 
-//  printf( "wave_out_play\n" );
+//  printf( "ahi_out_play\n" );
   
   while (1)
   {
@@ -361,4 +371,43 @@ wave_out_play(void)
     ahi_io_data[ 0 ] = ahi_io_data[ 1 ];
     ahi_io_data[ 1 ] = tmp_data;
   }
+}
+
+struct audio_driver *
+ahi_register(char *options)
+{
+  static struct audio_driver ahi_driver;
+  memset(&ahi_driver, 0, sizeof(ahi_driver));
+
+  ahi_driver.name = "ahi";
+  ahi_driver.description =
+    "AHI output driver, default device: 0";
+
+  ahi_driver.add_fds = ahi_add_fds;
+  ahi_driver.check_fds = ahi_check_fds;
+
+  ahi_driver.wave_out_open = ahi_out_open;
+  ahi_driver.wave_out_close = ahi_out_close;
+  ahi_driver.wave_out_format_supported = ahi_out_format_supported;
+  ahi_driver.wave_out_set_format = ahi_out_set_format;
+  ahi_driver.wave_out_volume = ahi_out_volume;
+
+  ahi_driver.need_byteswap_on_be = 0;
+  ahi_driver.need_resampling = 0;
+
+/*   if (options) */
+/*   { */
+/*     dsp_dev = xstrdup(options); */
+/*   } */
+/*   else */
+/*   { */
+/*     dsp_dev = getenv("AUDIODEV"); */
+
+/*     if (dsp_dev == NULL) */
+/*     { */
+/*       dsp_dev = DEFAULTDEVICE; */
+/*     } */
+/*   } */
+
+  return &ahi_driver;
 }
