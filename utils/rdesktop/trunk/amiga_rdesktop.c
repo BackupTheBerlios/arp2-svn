@@ -118,7 +118,8 @@ static void show_disconnect_reason(uint16 reason);
 const char version[] = "$VER: " PACKAGE_STRING " [" PACKAGE_OS "] "
                               "(C) 2005-2007 Joerg Strohmayer; "
                               "(C) 2001-2008 Martin Blom; "
-                              "(C) 1999-2005 Matthew Chapman et al.\0$STACK: 524288";
+                              "(C) 1999-2005 Matthew Chapman et al."
+                              "\0$STACK: 524288";
 
 #ifdef __amigaos4__
 struct CyberGfxIFace  *ICyberGfx      = NULL;
